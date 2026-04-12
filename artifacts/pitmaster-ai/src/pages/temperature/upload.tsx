@@ -22,7 +22,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  SelectSeparator,
   SelectGroup,
   SelectLabel,
 } from "@/components/ui/select";
@@ -90,6 +89,16 @@ interface EditableReading {
 
 type SaveMode = "attach" | "new-cook";
 
+/** Format a Date as YYYY-MM-DDTHH:mm in the user's local timezone, which is
+ *  the value format required by <input type="datetime-local">. */
+const toLocalDateTimeInput = (d: Date): string => {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  );
+};
+
 export default function TempUpload() {
   // ── Mode ──────────────────────────────────────────────────────────────────
   const [saveMode, setSaveMode] = useState<SaveMode>("attach");
@@ -103,7 +112,7 @@ export default function TempUpload() {
   // ── New-cook mode fields ──────────────────────────────────────────────────
   const [newFoodType, setNewFoodType] = useState<string>("");
   const [newCookDate, setNewCookDate] = useState<string>(
-    new Date().toISOString().slice(0, 16) // datetime-local format YYYY-MM-DDTHH:mm
+    toLocalDateTimeInput(new Date())
   );
   const [newWeightLbs, setNewWeightLbs] = useState<string>("");
   const [newCookTempF, setNewCookTempF] = useState<string>("");
