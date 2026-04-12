@@ -25,7 +25,7 @@ const queryClient = new QueryClient();
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={AiAssistant} />
+      <Route path="/" component={NewCook} />
       <Route path="/ai" component={AiAssistant} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/grills" component={GrillsList} />

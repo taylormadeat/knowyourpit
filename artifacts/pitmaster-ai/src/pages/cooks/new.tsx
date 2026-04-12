@@ -4,7 +4,9 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,8 +15,134 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { Flame, Clock, Utensils, CheckCircle2, Sparkles, Info, Package, BedDouble, UtensilsCrossed } from "lucide-react";
+import { Flame, Clock, Utensils, CheckCircle2, Sparkles, Info, Package, BedDouble, UtensilsCrossed, Thermometer } from "lucide-react";
 
+// ── Meat categories + cuts ───────────────────────────────────────────────────
+const MEAT_CATEGORIES = [
+  {
+    label: "🐄 Beef",
+    cuts: [
+      "Brisket",
+      "Brisket Flat",
+      "Brisket Point",
+      "Chuck Roast",
+      "Beef Short Ribs",
+      "Beef Back Ribs",
+      "Ribeye Steak",
+      "NY Strip Steak",
+      "Tri-Tip",
+      "Prime Rib",
+    ],
+  },
+  {
+    label: "🐷 Pork",
+    cuts: [
+      "Pork Butt (Shoulder)",
+      "St. Louis Ribs",
+      "Baby Back Ribs",
+      "Spare Ribs",
+      "Pork Tenderloin",
+      "Pork Belly",
+      "Whole Hog",
+      "Ham",
+    ],
+  },
+  {
+    label: "🍗 Poultry",
+    cuts: [
+      "Whole Chicken",
+      "Chicken Thighs",
+      "Chicken Wings",
+      "Chicken Quarters",
+      "Turkey Breast",
+      "Whole Turkey",
+    ],
+  },
+  {
+    label: "🐑 Lamb",
+    cuts: [
+      "Lamb Shoulder",
+      "Lamb Leg",
+      "Rack of Lamb",
+      "Lamb Chops",
+    ],
+  },
+  {
+    label: "🐟 Seafood",
+    cuts: [
+      "Salmon Fillet",
+      "Whole Salmon",
+      "Swordfish Steak",
+      "Shrimp",
+    ],
+  },
+  {
+    label: "🦌 Other",
+    cuts: [
+      "Venison",
+      "Sausage Links",
+      "Hot Dogs",
+    ],
+  },
+] as const;
+
+// ── Temp guide data ──────────────────────────────────────────────────────────
+type CookStyle = "Low & Slow" | "Hot & Fast" | "Reverse Sear" | "Medium Heat" | "High Heat";
+
+interface MeatTemp {
+  pitTempF: number;
+  targetTempF: number;
+  style: CookStyle;
+  note: string;
+}
+
+const MEAT_TEMPS: Record<string, MeatTemp> = {
+  "Brisket":             { pitTempF: 225, targetTempF: 203, style: "Low & Slow",    note: "Cook to 203°F then rest 1–2 hrs wrapped in butcher paper or foil." },
+  "Brisket Flat":        { pitTempF: 225, targetTempF: 200, style: "Low & Slow",    note: "Flat dries out faster — wrap early around 160°F internal." },
+  "Brisket Point":       { pitTempF: 250, targetTempF: 210, style: "Low & Slow",    note: "Point has more fat — can run hotter and benefits from a longer cook." },
+  "Chuck Roast":         { pitTempF: 250, targetTempF: 205, style: "Low & Slow",    note: "Cook to 205°F for pulled beef; rest 45 min before shredding." },
+  "Beef Short Ribs":     { pitTempF: 275, targetTempF: 205, style: "Low & Slow",    note: "Cook until probe-tender (~205°F). Bark should be mahogany brown." },
+  "Beef Back Ribs":      { pitTempF: 250, targetTempF: 195, style: "Low & Slow",    note: "Much of the meat is between the bones — cook until tender." },
+  "Ribeye Steak":        { pitTempF: 225, targetTempF: 130, style: "Reverse Sear",  note: "Smoke to 125°F then sear over high heat. Rest 5 min before cutting." },
+  "NY Strip Steak":      { pitTempF: 225, targetTempF: 130, style: "Reverse Sear",  note: "Smoke to 125°F, sear 60 sec/side on ripping-hot grate." },
+  "Tri-Tip":             { pitTempF: 225, targetTempF: 135, style: "Reverse Sear",  note: "Smoke to 115°F then sear. Slice against the grain for tenderness." },
+  "Prime Rib":           { pitTempF: 225, targetTempF: 130, style: "Low & Slow",    note: "Smoke at 225°F, rest 30 min. Pull 5°F below desired final temp." },
+  "Pork Butt (Shoulder)":{ pitTempF: 225, targetTempF: 203, style: "Low & Slow",    note: "Pull at 203°F or when bone wiggles freely. Rest 45–60 min." },
+  "St. Louis Ribs":      { pitTempF: 225, targetTempF: 190, style: "Low & Slow",    note: "3-2-1 method (3 smoke / 2 foil / 1 sauced). Bend test for doneness." },
+  "Baby Back Ribs":      { pitTempF: 225, targetTempF: 185, style: "Low & Slow",    note: "2-2-1 method works well. Done when meat pulls back 1/4\" from bone." },
+  "Spare Ribs":          { pitTempF: 225, targetTempF: 190, style: "Low & Slow",    note: "Use 3-2-1. More fat than baby backs — forgiving if slightly overcooked." },
+  "Pork Tenderloin":     { pitTempF: 350, targetTempF: 145, style: "Medium Heat",   note: "Cooks fast — watch carefully. Rest 5 min. Don't overcook!" },
+  "Pork Belly":          { pitTempF: 250, targetTempF: 200, style: "Low & Slow",    note: "Score fat cap, cook fat-side up. Crisp skin under broiler if desired." },
+  "Whole Hog":           { pitTempF: 225, targetTempF: 195, style: "Low & Slow",    note: "12–14 hrs average. Monitor shoulder and ham separately. Rest 1 hr." },
+  "Ham":                 { pitTempF: 250, targetTempF: 145, style: "Low & Slow",    note: "Pre-cooked ham just needs to reach 145°F internal and absorb smoke." },
+  "Whole Chicken":       { pitTempF: 350, targetTempF: 165, style: "Medium Heat",   note: "Spatchcock for faster, more even cooking. Pull breast at 160°F (carryover)." },
+  "Chicken Thighs":      { pitTempF: 275, targetTempF: 185, style: "Hot & Fast",    note: "Higher target temp melts collagen for tender, juicy results." },
+  "Chicken Wings":       { pitTempF: 375, targetTempF: 185, style: "High Heat",     note: "High heat crisps skin. Flip once. Sauce in last 10 min." },
+  "Chicken Quarters":    { pitTempF: 300, targetTempF: 175, style: "Medium Heat",   note: "Score skin to help render fat and get better smoke penetration." },
+  "Turkey Breast":       { pitTempF: 325, targetTempF: 165, style: "Medium Heat",   note: "Brine overnight for moisture. Cover with foil if browning too fast." },
+  "Whole Turkey":        { pitTempF: 325, targetTempF: 165, style: "Medium Heat",   note: "Spatchcock for faster cook. Monitor thigh and breast separately." },
+  "Lamb Shoulder":       { pitTempF: 250, targetTempF: 195, style: "Low & Slow",    note: "Similar to pork shoulder — cook low until pull-tender. Rosemary rub." },
+  "Lamb Leg":            { pitTempF: 325, targetTempF: 145, style: "Medium Heat",   note: "Pull at 130°F for medium-rare. Rests to 145°F. Slice thin." },
+  "Rack of Lamb":        { pitTempF: 225, targetTempF: 130, style: "Reverse Sear",  note: "Smoke to 120°F then sear. French the bones and tie the rack." },
+  "Lamb Chops":          { pitTempF: 400, targetTempF: 145, style: "High Heat",     note: "Grill hot and fast, 3–4 min per side. Rest 5 min." },
+  "Salmon Fillet":       { pitTempF: 225, targetTempF: 145, style: "Low & Slow",    note: "Smoke skin-side down on cedar plank. Done when it flakes easily." },
+  "Whole Salmon":        { pitTempF: 225, targetTempF: 145, style: "Low & Slow",    note: "Stuff cavity with herbs & lemon. Smoke 2–3 hrs depending on size." },
+  "Swordfish Steak":     { pitTempF: 400, targetTempF: 145, style: "High Heat",     note: "Grill 4–5 min per side. Oil grates well to prevent sticking." },
+  "Shrimp":              { pitTempF: 400, targetTempF: 145, style: "High Heat",     note: "Cooks in 2–3 min. Remove from heat as soon as they curl and turn pink." },
+  "Venison":             { pitTempF: 225, targetTempF: 145, style: "Low & Slow",    note: "Very lean — don't overcook. Wrap early to preserve moisture." },
+  "Sausage Links":       { pitTempF: 250, targetTempF: 160, style: "Medium Heat",   note: "Avoid poking — keep juices in. Pull at 160°F for safe, juicy sausage." },
+  "Hot Dogs":            { pitTempF: 350, targetTempF: 160, style: "Medium Heat",   note: "Just need to heat through and get some char — 10–15 min." },
+};
+
+const STYLE_COLORS: Record<CookStyle, string> = {
+  "Low & Slow":   "bg-amber-500/10 text-amber-400 border-amber-500/25",
+  "Hot & Fast":   "bg-red-500/10 text-red-400 border-red-500/25",
+  "Reverse Sear": "bg-purple-500/10 text-purple-400 border-purple-500/25",
+  "Medium Heat":  "bg-orange-500/10 text-orange-400 border-orange-500/25",
+  "High Heat":    "bg-rose-500/10 text-rose-400 border-rose-500/25",
+};
+
+// ── Constants ────────────────────────────────────────────────────────────────
 const COOK_STATUSES = ["planned", "active", "completed", "cancelled"] as const;
 
 const PREHEAT_DEFAULTS: Record<string, number> = {
@@ -31,7 +159,7 @@ const grillTypeKey = (t: string | null | undefined) =>
   (t ?? "").toLowerCase().replace(/[\s-]+/g, "_");
 
 const cookSchema = z.object({
-  foodType: z.string().min(1, "Food type is required"),
+  foodType: z.string().min(1, "Please select a cut of meat"),
   grillId: z.string().optional(),
   weightLbs: z.string().optional(),
   targetTempF: z.string().optional(),
@@ -65,6 +193,7 @@ type Prediction = {
   tips: string[];
 };
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
@@ -122,7 +251,7 @@ function CookTimeline({ steps }: { steps: TimelineStep[] }) {
                     </span>
                   )}
                 </div>
-                <p className="text-base font-bold mt-0.5" style={{ color: "inherit" }}>{formatTime(step.time)}</p>
+                <p className="text-base font-bold mt-0.5">{formatTime(step.time)}</p>
                 <p className="text-xs text-muted-foreground">{formatDateTime(step.time)}</p>
                 {step.note && (
                   <p className="text-xs text-muted-foreground/80 mt-1 leading-relaxed border-l-2 border-border pl-2">{step.note}</p>
@@ -155,6 +284,7 @@ function CookTimeline({ steps }: { steps: TimelineStep[] }) {
   );
 }
 
+// ── Main page ────────────────────────────────────────────────────────────────
 export default function NewCook() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -179,7 +309,9 @@ export default function NewCook() {
   const watchedGrillId = useWatch({ control: form.control, name: "grillId" });
   const watchedPreheat = useWatch({ control: form.control, name: "preheatMinutes" });
   const watchedFinish = useWatch({ control: form.control, name: "desiredFinishAt" });
+  const watchedFoodType = useWatch({ control: form.control, name: "foodType" });
 
+  // Auto-set preheat when grill changes
   useEffect(() => {
     if (!watchedGrillId) return;
     const grill = grills?.find((g) => g.id.toString() === watchedGrillId);
@@ -189,10 +321,22 @@ export default function NewCook() {
     }
   }, [watchedGrillId, grills, form]);
 
+  // Auto-fill temps when meat is selected
+  const handleMeatSelect = (value: string) => {
+    form.setValue("foodType", value);
+    const temps = MEAT_TEMPS[value];
+    if (temps) {
+      form.setValue("cookTempF", temps.pitTempF.toString());
+      form.setValue("targetTempF", temps.targetTempF.toString());
+    }
+    setPrediction(null);
+  };
+
   const preheatMins = parseInt(watchedPreheat || "30") || 30;
   const selectedGrill = grills?.find((g) => g.id.toString() === watchedGrillId);
+  const selectedMeatGuide = watchedFoodType ? MEAT_TEMPS[watchedFoodType] ?? null : null;
 
-  // Build timeline steps from prediction + finish time
+  // Build timeline steps
   const buildTimelineSteps = (): TimelineStep[] | null => {
     if (!prediction && !watchedFinish) return null;
 
@@ -230,7 +374,6 @@ export default function NewCook() {
       color: "bg-orange-500/15 text-orange-400 border-orange-500/30",
       connectorLabel: `${fmtDuration(preheatMins)} preheat`,
     });
-
     steps.push({
       icon: <Utensils className="w-4 h-4" />,
       label: "Food On the Grill",
@@ -287,7 +430,7 @@ export default function NewCook() {
   const handleGetPrediction = () => {
     const values = form.getValues();
     if (!values.foodType) {
-      toast({ title: "Enter a food type first", variant: "destructive" });
+      toast({ title: "Select a meat cut first", variant: "destructive" });
       return;
     }
     aiPredict.mutate(
@@ -307,15 +450,11 @@ export default function NewCook() {
           setPrediction(data as Prediction);
           const cookH = fmtDuration(data.estimatedDurationMinutes);
           const wrapData = (data as Prediction).wrap;
-          const wrapMsg = wrapData?.method !== "none"
-            ? ` · Wrap at ${fmtDuration(wrapData.wrapAtMinutes)}`
-            : "";
+          const wrapMsg = wrapData?.method !== "none" ? ` · Wrap at ${fmtDuration(wrapData.wrapAtMinutes)}` : "";
           const restMsg = wrapData?.restMinutes ? ` · ${fmtDuration(wrapData.restMinutes)} rest` : "";
           toast({ title: `AI estimate: ${cookH} cook${wrapMsg}${restMsg}` });
         },
-        onError: () => {
-          toast({ title: "Prediction failed", variant: "destructive" });
-        },
+        onError: () => toast({ title: "Prediction failed", variant: "destructive" }),
       }
     );
   };
@@ -352,9 +491,7 @@ export default function NewCook() {
           toast({ title: "Cook saved!" });
           setLocation(`/cooks/${newCook.id}`);
         },
-        onError: () => {
-          toast({ title: "Failed to save cook", variant: "destructive" });
-        },
+        onError: () => toast({ title: "Failed to save cook", variant: "destructive" }),
       }
     );
   };
@@ -370,25 +507,74 @@ export default function NewCook() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 
-            {/* ── Session Details ─────────────────────────────── */}
+            {/* ── Session Details ─────────────────────────────────── */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Session Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
+
+                {/* Meat dropdown */}
                 <FormField
                   control={form.control}
                   name="foodType"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>What are you cooking?</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Brisket, Pork Butt, Ribs" {...field} data-testid="input-food-type" />
-                      </FormControl>
+                      <Select onValueChange={handleMeatSelect} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-meat">
+                            <SelectValue placeholder="Select a cut of meat…" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="max-h-80">
+                          {MEAT_CATEGORIES.map((cat) => (
+                            <SelectGroup key={cat.label}>
+                              <SelectLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-2 py-1.5">
+                                {cat.label}
+                              </SelectLabel>
+                              {cat.cuts.map((cut) => (
+                                <SelectItem key={cut} value={cut}>{cut}</SelectItem>
+                              ))}
+                            </SelectGroup>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
+                {/* Real-time temp guide card */}
+                {selectedMeatGuide && watchedFoodType && (
+                  <div
+                    className="rounded-lg border border-amber-500/25 bg-amber-500/5 p-4"
+                    data-testid="temp-guide-card"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Thermometer className="w-4 h-4 text-amber-400" />
+                        <p className="text-sm font-semibold text-amber-400">Temp Guide — {watchedFoodType}</p>
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${STYLE_COLORS[selectedMeatGuide.style]}`}>
+                        {selectedMeatGuide.style}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div className="bg-background/50 rounded-md px-3 py-2 border border-border/60">
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-0.5">Pit Temp</p>
+                        <p className="text-xl font-bold text-orange-400">{selectedMeatGuide.pitTempF}°F</p>
+                      </div>
+                      <div className="bg-background/50 rounded-md px-3 py-2 border border-border/60">
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-0.5">Pull Temp</p>
+                        <p className="text-xl font-bold text-primary">{selectedMeatGuide.targetTempF}°F</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-amber-500/40 pl-2">
+                      {selectedMeatGuide.note}
+                    </p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <FormField
@@ -481,7 +667,7 @@ export default function NewCook() {
               </CardContent>
             </Card>
 
-            {/* ── Cook Timing ──────────────────────────────────── */}
+            {/* ── Cook Timing ─────────────────────────────────────── */}
             <Card className="border-primary/20">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -490,7 +676,6 @@ export default function NewCook() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <FormField
                     control={form.control}
@@ -567,7 +752,7 @@ export default function NewCook() {
                     </div>
 
                     {/* Wrap card */}
-                    {prediction.wrap.method !== "none" && (
+                    {prediction.wrap.method !== "none" ? (
                       <div className={`rounded-md border p-3 text-sm ${WRAP_METHOD_COLORS[prediction.wrap.method] ?? "bg-muted/30 border-border"}`}>
                         <div className="flex items-center gap-2 font-semibold mb-1">
                           <Package className="w-4 h-4" />
@@ -576,8 +761,7 @@ export default function NewCook() {
                         </div>
                         <p className="text-xs opacity-90 leading-relaxed">{prediction.wrap.reason}</p>
                       </div>
-                    )}
-                    {prediction.wrap.method === "none" && (
+                    ) : (
                       <div className="rounded-md border border-border bg-muted/20 p-3 text-sm text-muted-foreground flex items-center gap-2">
                         <Package className="w-4 h-4 shrink-0" />
                         <span>No wrap needed for this cook.</span>
@@ -596,12 +780,12 @@ export default function NewCook() {
                   </div>
                 )}
 
-                {/* Full cook timeline */}
+                {/* Timeline */}
                 {timelineSteps && <CookTimeline steps={timelineSteps} />}
               </CardContent>
             </Card>
 
-            {/* ── Notes ────────────────────────────────────────── */}
+            {/* ── Notes ───────────────────────────────────────────── */}
             <Card>
               <CardContent className="pt-5">
                 <FormField
