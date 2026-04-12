@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { db, cooksTable, grillsTable, temperatureReadingsTable } from "@workspace/db";
 import { AiChatBody, AiPredictBody } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
@@ -91,23 +91,54 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
       }
     }
 
-    // Pull similar completed cooks on this grill for context
-    const pastCooksOnGrill = await db.select().from(cooksTable)
+    // Pull recent completed cooks on this grill (capped at 10) for context
+    const recentCooksOnGrill = await db.select().from(cooksTable)
       .where(and(eq(cooksTable.grillId, grillId), eq(cooksTable.status, "completed")))
-      .orderBy(cooksTable.actualEndAt);
+      .orderBy(desc(cooksTable.actualEndAt))
+      .limit(10);
 
-    const similarCooks = pastCooksOnGrill.filter(c =>
-      c.foodType.toLowerCase().includes(foodType.toLowerCase().split(" ")[0])
-    );
+    if (recentCooksOnGrill.length > 0) {
+      // Fetch all readings for these cooks in one query to compute per-cook peak probe temps
+      const recentCookIds = recentCooksOnGrill.map(c => c.id);
+      const recentReadings = await db.select().from(temperatureReadingsTable)
+        .where(eq(temperatureReadingsTable.grillId, grillId));
 
-    if (similarCooks.length > 0) {
-      const cookSummaries = similarCooks.slice(-5).map(c => {
+      // Map cookId → peak probe (meat) temp
+      const peakProbeByCook: Record<number, number> = {};
+      for (const r of recentReadings) {
+        if (!recentCookIds.includes(r.cookId)) continue;
+        if (isPitProbe(r.probeName)) continue; // skip ambient/pit readings
+        if (peakProbeByCook[r.cookId] == null || r.tempF > peakProbeByCook[r.cookId]) {
+          peakProbeByCook[r.cookId] = r.tempF;
+        }
+      }
+
+      // Build summaries for all recent cooks (most recent first)
+      const allCookSummaries = recentCooksOnGrill.map(c => {
         const durationMins = c.actualStartAt && c.actualEndAt
           ? Math.round((new Date(c.actualEndAt).getTime() - new Date(c.actualStartAt).getTime()) / 60000)
           : null;
-        return `${c.foodType}${c.weightLbs ? ` (${c.weightLbs} lbs)` : ""}${durationMins ? ` → ${durationMins} min cook` : ""}${c.rating ? ` · rated ${c.rating}/5` : ""}`;
+        const peakTemp = peakProbeByCook[c.id] != null ? ` · peak ${peakProbeByCook[c.id]}°F` : "";
+        return `${c.foodType}${c.weightLbs ? ` (${c.weightLbs} lbs)` : ""}${durationMins ? ` → ${durationMins} min` : ""}${peakTemp}${c.rating ? ` · rated ${c.rating}/5` : ""}`;
       });
-      grillTempContext += `\n\nSimilar past cooks on this grill:\n${cookSummaries.join("\n")}`;
+
+      // Highlight similar cooks to this food type
+      const firstWord = foodType.toLowerCase().split(" ")[0];
+      const similarCooks = recentCooksOnGrill.filter(c =>
+        c.foodType.toLowerCase().includes(firstWord)
+      );
+      const similarSummaries = similarCooks.map(c => {
+        const durationMins = c.actualStartAt && c.actualEndAt
+          ? Math.round((new Date(c.actualEndAt).getTime() - new Date(c.actualStartAt).getTime()) / 60000)
+          : null;
+        const peakTemp = peakProbeByCook[c.id] != null ? ` · peak ${peakProbeByCook[c.id]}°F` : "";
+        return `${c.foodType}${c.weightLbs ? ` (${c.weightLbs} lbs)` : ""}${durationMins ? ` → ${durationMins} min` : ""}${peakTemp}${c.rating ? ` · rated ${c.rating}/5` : ""}`;
+      });
+
+      if (similarSummaries.length > 0) {
+        grillTempContext += `\n\nSimilar past cooks on this grill:\n${similarSummaries.join("\n")}`;
+      }
+      grillTempContext += `\n\nAll recent cooks on this grill (last ${recentCooksOnGrill.length}):\n${allCookSummaries.join("\n")}`;
     }
   }
 
