@@ -147,6 +147,38 @@ export const GetGrillStatsResponse = zod.object({
 });
 
 /**
+ * @summary Get recent temperature readings grouped by cook for a specific grill
+ */
+export const GetGrillTemperatureHistoryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetGrillTemperatureHistoryResponse = zod.object({
+  grillId: zod.number(),
+  cooks: zod.array(
+    zod.object({
+      cookId: zod.number(),
+      foodType: zod.string(),
+      cookTempF: zod.number().nullable(),
+      targetTempF: zod.number().nullable(),
+      weightLbs: zod.number().nullable(),
+      actualStartAt: zod.string().nullable(),
+      actualEndAt: zod.string().nullable(),
+      rating: zod.number().nullable(),
+      readings: zod.array(
+        zod.object({
+          id: zod.number(),
+          probeName: zod.string().nullable(),
+          probeNumber: zod.number().nullable(),
+          tempF: zod.number(),
+          recordedAt: zod.string().nullable(),
+        }),
+      ),
+    }),
+  ),
+});
+
+/**
  * @summary List all cook sessions
  */
 export const ListCooksQueryParams = zod.object({

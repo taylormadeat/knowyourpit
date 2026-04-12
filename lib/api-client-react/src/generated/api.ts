@@ -36,6 +36,7 @@ import type {
   ForumPostDetail,
   Grill,
   GrillStats,
+  GrillTemperatureHistory,
   HealthStatus,
   ListCooksParams,
   ListForumPostsParams,
@@ -632,6 +633,98 @@ export function useGetGrillStats<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetGrillStatsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get recent temperature readings grouped by cook for a specific grill
+ */
+export const getGetGrillTemperatureHistoryUrl = (id: number) => {
+  return `/api/grills/${id}/temperature-history`;
+};
+
+export const getGrillTemperatureHistory = async (
+  id: number,
+  options?: RequestInit,
+): Promise<GrillTemperatureHistory> => {
+  return customFetch<GrillTemperatureHistory>(
+    getGetGrillTemperatureHistoryUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetGrillTemperatureHistoryQueryKey = (id: number) => {
+  return [`/api/grills/${id}/temperature-history`] as const;
+};
+
+export const getGetGrillTemperatureHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getGrillTemperatureHistory>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGrillTemperatureHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetGrillTemperatureHistoryQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getGrillTemperatureHistory>>
+  > = ({ signal }) =>
+    getGrillTemperatureHistory(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getGrillTemperatureHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetGrillTemperatureHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getGrillTemperatureHistory>>
+>;
+export type GetGrillTemperatureHistoryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get recent temperature readings grouped by cook for a specific grill
+ */
+
+export function useGetGrillTemperatureHistory<
+  TData = Awaited<ReturnType<typeof getGrillTemperatureHistory>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGrillTemperatureHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetGrillTemperatureHistoryQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -95,6 +95,40 @@ export interface GrillStats {
   totalReadings: number;
 }
 
+export interface GrillTempReading {
+  id: number;
+  /** @nullable */
+  probeName: string | null;
+  /** @nullable */
+  probeNumber: number | null;
+  tempF: number;
+  /** @nullable */
+  recordedAt: string | null;
+}
+
+export interface GrillTempCookEntry {
+  cookId: number;
+  foodType: string;
+  /** @nullable */
+  cookTempF: number | null;
+  /** @nullable */
+  targetTempF: number | null;
+  /** @nullable */
+  weightLbs: number | null;
+  /** @nullable */
+  actualStartAt: string | null;
+  /** @nullable */
+  actualEndAt: string | null;
+  /** @nullable */
+  rating: number | null;
+  readings: GrillTempReading[];
+}
+
+export interface GrillTemperatureHistory {
+  grillId: number;
+  cooks: GrillTempCookEntry[];
+}
+
 export type CookStatus = (typeof CookStatus)[keyof typeof CookStatus];
 
 export const CookStatus = {

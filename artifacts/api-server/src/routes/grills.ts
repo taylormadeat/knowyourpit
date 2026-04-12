@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, desc } from "drizzle-orm";
 import { db, grillsTable, cooksTable, temperatureReadingsTable } from "@workspace/db";
 import {
   CreateGrillBody,
@@ -154,6 +154,61 @@ router.get("/grills/:id/stats", async (req, res): Promise<void> => {
     probeHighTempF,
     totalReadings: readings.length,
   });
+});
+
+// GET /grills/:id/temperature-history — recent readings grouped by cook for a specific grill
+router.get("/grills/:id/temperature-history", async (req, res): Promise<void> => {
+  const idNum = parseInt(req.params.id ?? "");
+  if (isNaN(idNum)) {
+    res.status(400).json({ error: "Invalid grill id" });
+    return;
+  }
+
+  // Fetch up to 10 most recent completed cooks for this grill
+  const recentCooks = await db.select().from(cooksTable)
+    .where(and(eq(cooksTable.grillId, idNum), eq(cooksTable.status, "completed")))
+    .orderBy(desc(cooksTable.actualStartAt))
+    .limit(10);
+
+  if (recentCooks.length === 0) {
+    res.json({ grillId: idNum, cooks: [] });
+    return;
+  }
+
+  const cookIds = recentCooks.map(c => c.id);
+
+  // Fetch all readings for those cooks in one query
+  const allReadings = await db.select().from(temperatureReadingsTable)
+    .where(eq(temperatureReadingsTable.grillId, idNum))
+    .orderBy(temperatureReadingsTable.recordedAt);
+
+  // Group readings by cookId
+  const readingsByCook: Record<number, typeof allReadings> = {};
+  for (const r of allReadings) {
+    if (!cookIds.includes(r.cookId)) continue;
+    if (!readingsByCook[r.cookId]) readingsByCook[r.cookId] = [];
+    readingsByCook[r.cookId].push(r);
+  }
+
+  const result = recentCooks.map(cook => ({
+    cookId: cook.id,
+    foodType: cook.foodType,
+    cookTempF: cook.cookTempF,
+    targetTempF: cook.targetTempF,
+    weightLbs: cook.weightLbs,
+    actualStartAt: cook.actualStartAt,
+    actualEndAt: cook.actualEndAt,
+    rating: cook.rating,
+    readings: (readingsByCook[cook.id] ?? []).map(r => ({
+      id: r.id,
+      probeName: r.probeName,
+      probeNumber: r.probeNumber,
+      tempF: r.tempF,
+      recordedAt: r.recordedAt,
+    })),
+  }));
+
+  res.json({ grillId: idNum, cooks: result });
 });
 
 export default router;

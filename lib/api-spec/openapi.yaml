@@ -152,6 +152,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/GrillStats"
 
+  /grills/{id}/temperature-history:
+    get:
+      operationId: getGrillTemperatureHistory
+      tags: [grills]
+      summary: Get recent temperature readings grouped by cook for a specific grill
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Grill temperature history grouped by cook
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrillTemperatureHistory"
+
   /cooks:
     get:
       operationId: listCooks
@@ -814,6 +833,73 @@ components:
         - pitTempVarianceF
         - probeHighTempF
         - totalReadings
+
+    GrillTempReading:
+      type: object
+      properties:
+        id:
+          type: integer
+        probeName:
+          type: ["string", "null"]
+        probeNumber:
+          type: ["integer", "null"]
+        tempF:
+          type: number
+        recordedAt:
+          type: ["string", "null"]
+      required:
+        - id
+        - probeName
+        - probeNumber
+        - tempF
+        - recordedAt
+
+    GrillTempCookEntry:
+      type: object
+      properties:
+        cookId:
+          type: integer
+        foodType:
+          type: string
+        cookTempF:
+          type: ["number", "null"]
+        targetTempF:
+          type: ["number", "null"]
+        weightLbs:
+          type: ["number", "null"]
+        actualStartAt:
+          type: ["string", "null"]
+        actualEndAt:
+          type: ["string", "null"]
+        rating:
+          type: ["integer", "null"]
+        readings:
+          type: array
+          items:
+            $ref: "#/components/schemas/GrillTempReading"
+      required:
+        - cookId
+        - foodType
+        - cookTempF
+        - targetTempF
+        - weightLbs
+        - actualStartAt
+        - actualEndAt
+        - rating
+        - readings
+
+    GrillTemperatureHistory:
+      type: object
+      properties:
+        grillId:
+          type: integer
+        cooks:
+          type: array
+          items:
+            $ref: "#/components/schemas/GrillTempCookEntry"
+      required:
+        - grillId
+        - cooks
 
     Cook:
       type: object

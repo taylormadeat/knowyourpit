@@ -4,8 +4,8 @@ import {
   useGetGrill,
   getGetGrillQueryKey,
   useGetGrillStats,
+  useGetGrillTemperatureHistory,
   useDeleteGrill,
-  useListCooks,
   getListGrillsQueryKey,
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -72,10 +72,9 @@ export default function GrillDetail() {
     query: { enabled: !!grillId },
   });
 
-  const { data: cookHistory } = useListCooks(
-    { grillId, status: "completed" },
-    { query: { enabled: !!grillId } }
-  );
+  const { data: tempHistory } = useGetGrillTemperatureHistory(grillId, {
+    query: { enabled: !!grillId },
+  });
 
   const deleteGrill = useDeleteGrill();
 
@@ -106,10 +105,10 @@ export default function GrillDetail() {
     );
   }
 
-  const recentCooks = (cookHistory ?? [])
-    .slice()
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 8);
+  const recentCooksWithReadings = tempHistory?.cooks ?? [];
+
+  const isPitProbe = (name: string | null | undefined) =>
+    name ? ["pit", "ambient", "grill", "chamber", "dome", "lid"].some(k => name.toLowerCase().includes(k)) : false;
 
   return (
     <AppLayout>
@@ -281,14 +280,14 @@ export default function GrillDetail() {
                 </div>
               </div>
 
-              {/* Recent cook sessions with temp context */}
-              {recentCooks.length > 0 && (
+              {/* Recent cook sessions with actual probe readings grouped */}
+              {recentCooksWithReadings.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                    Recent Completed Cooks
+                    Recent Completed Cooks &amp; Readings
                   </p>
-                  <div className="space-y-2">
-                    {recentCooks.map((cook) => {
+                  <div className="space-y-3">
+                    {recentCooksWithReadings.map((cook) => {
                       const durationMins =
                         cook.actualStartAt && cook.actualEndAt
                           ? Math.round(
@@ -303,35 +302,70 @@ export default function GrillDetail() {
                         ? h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ""}` : `${m}m`
                         : null;
 
+                      // Group readings by probe name
+                      const probeGroups: Record<string, typeof cook.readings> = {};
+                      for (const r of cook.readings) {
+                        const key = r.probeName ?? `Probe ${r.probeNumber}`;
+                        if (!probeGroups[key]) probeGroups[key] = [];
+                        probeGroups[key].push(r);
+                      }
+
                       return (
-                        <Link key={cook.id} href={`/cooks/${cook.id}`}>
-                          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border/60 bg-muted/10 hover:bg-muted/30 transition-colors cursor-pointer">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                              <ChefHat className="w-4 h-4 text-primary" />
+                        <Link key={cook.cookId} href={`/cooks/${cook.cookId}`}>
+                          <div className="rounded-lg border border-border/60 bg-muted/10 hover:bg-muted/20 transition-colors cursor-pointer overflow-hidden">
+                            {/* Cook header row */}
+                            <div className="flex items-center gap-3 px-3 py-2.5">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                <ChefHat className="w-4 h-4 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold truncate">{cook.foodType}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {cook.actualStartAt
+                                    ? new Date(cook.actualStartAt).toLocaleDateString([], {
+                                        month: "short", day: "numeric", year: "numeric",
+                                      })
+                                    : "—"}
+                                  {durationStr && ` · ${durationStr}`}
+                                  {cook.weightLbs && ` · ${cook.weightLbs} lbs`}
+                                </p>
+                              </div>
+                              <div className="text-right shrink-0 space-y-0.5">
+                                {cook.cookTempF != null && (
+                                  <p className="text-xs text-orange-400 font-medium">{cook.cookTempF}°F pit</p>
+                                )}
+                                {cook.targetTempF != null && (
+                                  <p className="text-xs text-primary font-medium">{cook.targetTempF}°F pull</p>
+                                )}
+                                {cook.rating != null && (
+                                  <p className="text-xs text-yellow-400">{"★".repeat(cook.rating)}</p>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold truncate">{cook.foodType}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {new Date(cook.createdAt).toLocaleDateString([], {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
+
+                            {/* Per-probe readings breakdown */}
+                            {Object.keys(probeGroups).length > 0 && (
+                              <div className="border-t border-border/40 px-3 py-2 bg-muted/5 flex flex-wrap gap-x-6 gap-y-1">
+                                {Object.entries(probeGroups).map(([probeName, readings]) => {
+                                  const temps = readings.map(r => r.tempF);
+                                  const minT = Math.min(...temps);
+                                  const maxT = Math.max(...temps);
+                                  const isPit = isPitProbe(probeName);
+                                  return (
+                                    <div key={probeName} className="flex items-center gap-2 text-xs">
+                                      {isPit
+                                        ? <Wind className="w-3 h-3 text-orange-400" />
+                                        : <Thermometer className="w-3 h-3 text-primary" />}
+                                      <span className="text-muted-foreground font-medium">{probeName}:</span>
+                                      <span className={isPit ? "text-orange-400" : "text-primary"}>
+                                        {Math.round(minT)}–{Math.round(maxT)}°F
+                                      </span>
+                                      <span className="text-muted-foreground/60">({readings.length} pts)</span>
+                                    </div>
+                                  );
                                 })}
-                                {durationStr && ` · ${durationStr}`}
-                                {cook.weightLbs && ` · ${cook.weightLbs} lbs`}
-                              </p>
-                            </div>
-                            <div className="text-right shrink-0 space-y-0.5">
-                              {cook.cookTempF && (
-                                <p className="text-xs text-orange-400 font-medium">{cook.cookTempF}°F pit</p>
-                              )}
-                              {cook.targetTempF && (
-                                <p className="text-xs text-primary font-medium">{cook.targetTempF}°F pull</p>
-                              )}
-                              {cook.rating && (
-                                <p className="text-xs text-yellow-400">{"★".repeat(cook.rating)}</p>
-                              )}
-                            </div>
+                              </div>
+                            )}
                           </div>
                         </Link>
                       );
