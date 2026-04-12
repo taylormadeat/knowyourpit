@@ -270,6 +270,16 @@ export interface CreateCookBody {
   plannedStartAt?: string | null;
   /** @nullable */
   plannedEndAt?: string | null;
+  /**
+   * When the cook actually started (for logging past/completed cooks)
+   * @nullable
+   */
+  actualStartAt?: string | null;
+  /**
+   * When the cook actually ended (for logging past/completed cooks)
+   * @nullable
+   */
+  actualEndAt?: string | null;
   /** @nullable */
   notes?: string | null;
   /**

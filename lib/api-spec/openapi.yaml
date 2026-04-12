@@ -1024,6 +1024,14 @@ components:
         plannedEndAt:
           type: ["string", "null"]
           format: date-time
+        actualStartAt:
+          type: ["string", "null"]
+          format: date-time
+          description: When the cook actually started (for logging past/completed cooks)
+        actualEndAt:
+          type: ["string", "null"]
+          format: date-time
+          description: When the cook actually ended (for logging past/completed cooks)
         notes:
           type: ["string", "null"]
         preheatMinutes:

@@ -2,6 +2,8 @@ import { AppLayout } from "@/components/layout/app-layout";
 import {
   useUploadTemperatureData,
   useListCooks,
+  useListGrills,
+  useCreateCook,
   useScanTemperatureImage,
 } from "@workspace/api-client-react";
 import {
@@ -20,6 +22,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectSeparator,
+  SelectGroup,
+  SelectLabel,
 } from "@/components/ui/select";
 import { useRef, useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -33,8 +38,49 @@ import {
   ImagePlus,
   Thermometer,
   Pencil,
+  Flame,
+  Plus,
+  List,
 } from "lucide-react";
 import { useLocation } from "wouter";
+
+// ── Meat categories (shared with Plan a Cook) ────────────────────────────────
+const MEAT_CATEGORIES = [
+  {
+    label: "🐄 Beef",
+    cuts: [
+      "Brisket", "Brisket Flat", "Brisket Point", "Chuck Roast",
+      "Beef Short Ribs", "Beef Back Ribs", "Ribeye Steak", "NY Strip",
+      "Tri-Tip", "Prime Rib",
+    ],
+  },
+  {
+    label: "🐷 Pork",
+    cuts: [
+      "Pork Butt (Shoulder)", "St. Louis Ribs", "Baby Back Ribs",
+      "Spare Ribs", "Pork Tenderloin", "Pork Belly", "Whole Hog", "Ham",
+    ],
+  },
+  {
+    label: "🍗 Poultry",
+    cuts: [
+      "Whole Chicken", "Chicken Thighs", "Chicken Wings", "Chicken Quarters",
+      "Turkey Breast", "Whole Turkey",
+    ],
+  },
+  {
+    label: "🐑 Lamb",
+    cuts: ["Lamb Shoulder", "Lamb Leg", "Rack of Lamb", "Lamb Chops"],
+  },
+  {
+    label: "🐟 Seafood",
+    cuts: ["Salmon Fillet", "Whole Salmon", "Swordfish Steak", "Shrimp"],
+  },
+  {
+    label: "🦌 Other",
+    cuts: ["Venison", "Sausage Links", "Hot Dogs"],
+  },
+] as const;
 
 interface EditableReading {
   probeName: string;
@@ -42,8 +88,28 @@ interface EditableReading {
   recordedAt: string;
 }
 
+type SaveMode = "attach" | "new-cook";
+
 export default function TempUpload() {
+  // ── Mode ──────────────────────────────────────────────────────────────────
+  const [saveMode, setSaveMode] = useState<SaveMode>("attach");
+
+  // ── Grill selector (shared across both modes) ─────────────────────────────
+  const [selectedGrillId, setSelectedGrillId] = useState<string>("");
+
+  // ── Attach mode: pick an existing cook ───────────────────────────────────
   const [cookId, setCookId] = useState<string>("");
+
+  // ── New-cook mode fields ──────────────────────────────────────────────────
+  const [newFoodType, setNewFoodType] = useState<string>("");
+  const [newCookDate, setNewCookDate] = useState<string>(
+    new Date().toISOString().slice(0, 16) // datetime-local format YYYY-MM-DDTHH:mm
+  );
+  const [newWeightLbs, setNewWeightLbs] = useState<string>("");
+  const [newCookTempF, setNewCookTempF] = useState<string>("");
+  const [newTargetTempF, setNewTargetTempF] = useState<string>("");
+
+  // ── Image state ───────────────────────────────────────────────────────────
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageMimeType, setImageMimeType] = useState<string>("image/jpeg");
@@ -51,43 +117,51 @@ export default function TempUpload() {
   const [noDataFound, setNoDataFound] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
+  // ── Data fetching ─────────────────────────────────────────────────────────
+  const { data: grills, isLoading: grillsLoading } = useListGrills();
   const { data: allCooks, isLoading: cooksLoading } = useListCooks();
-  const activeCooks = allCooks?.filter(
-    (c) => c.status === "active" || c.status === "planned"
+
+  // Filter cooks: all statuses, filtered by selected grill if one is set
+  const filteredCooks = allCooks?.filter((c) =>
+    selectedGrillId ? c.grillId?.toString() === selectedGrillId : true
   );
+
   const scanImage = useScanTemperatureImage();
   const uploadData = useUploadTemperatureData();
+  const createCook = useCreateCook();
 
   // ── Image handling ────────────────────────────────────────────────────────
   const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-  const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+  const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 
-  const processFile = useCallback((file: File) => {
-    if (!ALLOWED_TYPES.has(file.type)) {
-      toast({ title: "Please upload a JPG, PNG, or WEBP image", variant: "destructive" });
-      return;
-    }
-    if (file.size > MAX_SIZE_BYTES) {
-      toast({ title: "Image is too large — please use a photo under 10 MB", variant: "destructive" });
-      return;
-    }
-    setImageMimeType(file.type);
-    setNoDataFound(false);
-    setReadings([]);
+  const processFile = useCallback(
+    (file: File) => {
+      if (!ALLOWED_TYPES.has(file.type)) {
+        toast({ title: "Please upload a JPG, PNG, or WEBP image", variant: "destructive" });
+        return;
+      }
+      if (file.size > MAX_SIZE_BYTES) {
+        toast({ title: "Image is too large — please use a photo under 10 MB", variant: "destructive" });
+        return;
+      }
+      setImageMimeType(file.type);
+      setNoDataFound(false);
+      setReadings([]);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      setImagePreview(dataUrl);
-      // Strip the data:image/...;base64, prefix to get raw base64
-      const base64 = dataUrl.split(",")[1];
-      setImageBase64(base64);
-    };
-    reader.readAsDataURL(file);
-  }, [toast]);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        setImagePreview(dataUrl);
+        setImageBase64(dataUrl.split(",")[1]);
+      };
+      reader.readAsDataURL(file);
+    },
+    [toast]
+  );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -163,36 +237,28 @@ export default function TempUpload() {
     ]);
   };
 
-  // ── Save ──────────────────────────────────────────────────────────────────
-  const handleSave = () => {
-    if (!cookId) {
-      toast({ title: "Please select a cook session first", variant: "destructive" });
-      return;
-    }
-    if (readings.length === 0) {
-      toast({ title: "No readings to save — scan an image first", variant: "destructive" });
-      return;
-    }
-
-    const formattedReadings = readings.map((r, i) => ({
+  // ── Save helpers ──────────────────────────────────────────────────────────
+  const formattedReadings = () =>
+    readings.map((r, i) => ({
       probeNumber: i + 1,
       probeName: r.probeName,
       tempF: r.tempF,
       recordedAt: r.recordedAt,
     }));
 
+  const doUpload = (resolvedCookId: number) => {
     uploadData.mutate(
       {
         data: {
-          cookId: parseInt(cookId),
+          cookId: resolvedCookId,
           source: "image_scan",
-          readings: formattedReadings,
+          readings: formattedReadings(),
         },
       },
       {
         onSuccess: () => {
-          toast({ title: `${readings.length} reading${readings.length > 1 ? "s" : ""} saved to cook session` });
-          setLocation(`/cooks/${cookId}`);
+          toast({ title: `${readings.length} reading${readings.length > 1 ? "s" : ""} saved` });
+          setLocation(`/cooks/${resolvedCookId}`);
         },
         onError: () => {
           toast({ title: "Failed to save readings", variant: "destructive" });
@@ -201,8 +267,62 @@ export default function TempUpload() {
     );
   };
 
+  const handleSaveAttach = () => {
+    if (!cookId) {
+      toast({ title: "Please select a cook session", variant: "destructive" });
+      return;
+    }
+    if (readings.length === 0) {
+      toast({ title: "No readings to save — scan an image or add readings manually", variant: "destructive" });
+      return;
+    }
+    doUpload(parseInt(cookId));
+  };
+
+  const handleSaveNewCook = () => {
+    if (!newFoodType) {
+      toast({ title: "Please select a food type", variant: "destructive" });
+      return;
+    }
+    if (!selectedGrillId) {
+      toast({ title: "Please select a grill", variant: "destructive" });
+      return;
+    }
+    if (readings.length === 0) {
+      toast({ title: "No readings to save — scan an image or add readings manually", variant: "destructive" });
+      return;
+    }
+
+    const cookDateTime = newCookDate ? new Date(newCookDate).toISOString() : new Date().toISOString();
+
+    createCook.mutate(
+      {
+        data: {
+          grillId: parseInt(selectedGrillId),
+          foodType: newFoodType,
+          status: "completed",
+          weightLbs: newWeightLbs ? parseFloat(newWeightLbs) : undefined,
+          cookTempF: newCookTempF ? parseFloat(newCookTempF) : undefined,
+          targetTempF: newTargetTempF ? parseFloat(newTargetTempF) : undefined,
+          actualStartAt: cookDateTime,
+          actualEndAt: cookDateTime,
+        },
+      },
+      {
+        onSuccess: (newCook) => {
+          doUpload(newCook.id);
+        },
+        onError: () => {
+          toast({ title: "Failed to create cook session", variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  const isSaving = uploadData.isPending || createCook.isPending;
   const hasImage = !!imagePreview;
   const hasReadings = readings.length > 0;
+  const selectedGrill = grills?.find((g) => g.id.toString() === selectedGrillId);
 
   return (
     <AppLayout>
@@ -260,7 +380,6 @@ export default function TempUpload() {
               </div>
             ) : (
               <div className="space-y-3">
-                {/* Image preview */}
                 <div className="relative rounded-xl overflow-hidden border border-border bg-black/20">
                   <img
                     src={imagePreview!}
@@ -277,7 +396,6 @@ export default function TempUpload() {
                   </button>
                 </div>
 
-                {/* Scan button */}
                 <Button
                   onClick={handleScan}
                   disabled={scanImage.isPending}
@@ -298,7 +416,7 @@ export default function TempUpload() {
           </CardContent>
         </Card>
 
-        {/* ── No data found ───────────────────────────────────────────── */}
+        {/* ── No data found ────────────────────────────────────────────── */}
         {noDataFound && (
           <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4">
             <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
@@ -311,7 +429,7 @@ export default function TempUpload() {
           </div>
         )}
 
-        {/* ── Extracted Readings ──────────────────────────────────────── */}
+        {/* ── Extracted Readings ───────────────────────────────────────── */}
         {hasReadings && (
           <Card>
             <CardHeader className="pb-3">
@@ -379,51 +497,241 @@ export default function TempUpload() {
           </Card>
         )}
 
-        {/* ── Save to Cook Session ────────────────────────────────────── */}
+        {/* ── Add readings manually even without an image ────────────── */}
+        {!hasReadings && !hasImage && (
+          <Button
+            variant="outline"
+            onClick={addReading}
+            className="w-full gap-2 text-muted-foreground"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            Add readings manually without an image
+          </Button>
+        )}
+
+        {/* ── Save card — always visible once there are readings ──────── */}
         {hasReadings && (
-          <Card className="border-primary/20">
+          <Card className="border-primary/20" data-testid="save-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-primary" />
-                Save to Cook Session
+                Save Readings
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5">
+
+              {/* ── Grill selector (always shown) ───────────────────── */}
               <div className="space-y-2">
-                <Label>Target Cook Session</Label>
-                <Select value={cookId} onValueChange={setCookId}>
-                  <SelectTrigger data-testid="select-cook">
-                    <SelectValue
-                      placeholder={cooksLoading ? "Loading…" : "Select a cook session"}
-                    />
+                <Label className="flex items-center gap-1.5">
+                  <Flame className="w-3.5 h-3.5 text-primary" />
+                  Grill
+                </Label>
+                <Select
+                  value={selectedGrillId}
+                  onValueChange={(v) => {
+                    setSelectedGrillId(v);
+                    setCookId(""); // reset cook when grill changes
+                  }}
+                >
+                  <SelectTrigger data-testid="select-grill">
+                    <SelectValue placeholder={grillsLoading ? "Loading…" : "Select a grill"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {activeCooks && activeCooks.length > 0 ? (
-                      activeCooks.map((c) => (
-                        <SelectItem key={c.id} value={c.id.toString()}>
-                          {c.foodType} · {c.status} ({new Date(c.createdAt).toLocaleDateString()})
+                    {grills && grills.length > 0 ? (
+                      grills.map((g) => (
+                        <SelectItem key={g.id} value={g.id.toString()}>
+                          {g.name}
+                          {g.type ? ` · ${g.type}` : ""}
                         </SelectItem>
                       ))
                     ) : (
                       <SelectItem value="none" disabled>
-                        No active cooks found
+                        No grills found — add one in My Grills
                       </SelectItem>
                     )}
                   </SelectContent>
                 </Select>
               </div>
 
-              <Button
-                onClick={handleSave}
-                disabled={uploadData.isPending || !cookId || readings.length === 0}
-                className="w-full gap-2"
-                data-testid="btn-save"
-              >
-                <Upload className="w-4 h-4" />
-                {uploadData.isPending
-                  ? "Saving…"
-                  : `Save ${readings.length} Reading${readings.length !== 1 ? "s" : ""}`}
-              </Button>
+              {/* ── Mode toggle ─────────────────────────────────────── */}
+              <div className="space-y-2">
+                <Label>How do you want to save?</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSaveMode("attach")}
+                    data-testid="mode-attach"
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-all
+                      ${saveMode === "attach"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-muted/10 text-muted-foreground hover:border-primary/40 hover:bg-muted/20"
+                      }`}
+                  >
+                    <List className="w-4 h-4 shrink-0" />
+                    Attach to existing cook
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSaveMode("new-cook")}
+                    data-testid="mode-new-cook"
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-all
+                      ${saveMode === "new-cook"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-muted/10 text-muted-foreground hover:border-primary/40 hover:bg-muted/20"
+                      }`}
+                  >
+                    <Plus className="w-4 h-4 shrink-0" />
+                    Log as new cook
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Attach mode ─────────────────────────────────────── */}
+              {saveMode === "attach" && (
+                <div className="space-y-2">
+                  <Label>Cook Session</Label>
+                  {selectedGrillId && (
+                    <p className="text-xs text-muted-foreground">
+                      Showing cooks on{" "}
+                      <span className="font-medium text-foreground">{selectedGrill?.name}</span>
+                      {" "}— all statuses
+                    </p>
+                  )}
+                  <Select value={cookId} onValueChange={setCookId}>
+                    <SelectTrigger data-testid="select-cook">
+                      <SelectValue placeholder={cooksLoading ? "Loading…" : "Select a cook session"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredCooks && filteredCooks.length > 0 ? (
+                        filteredCooks.map((c) => (
+                          <SelectItem key={c.id} value={c.id.toString()}>
+                            {c.foodType}
+                            {c.weightLbs ? ` · ${c.weightLbs} lbs` : ""}
+                            {" · "}
+                            <span className="capitalize">{c.status}</span>
+                            {" · "}
+                            {new Date(c.createdAt).toLocaleDateString()}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>
+                          {selectedGrillId
+                            ? "No cooks found for this grill"
+                            : "No cook sessions found"}
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    onClick={handleSaveAttach}
+                    disabled={isSaving || !cookId || readings.length === 0}
+                    className="w-full gap-2 mt-2"
+                    data-testid="btn-save"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {uploadData.isPending
+                      ? "Saving…"
+                      : `Save ${readings.length} Reading${readings.length !== 1 ? "s" : ""} to Cook`}
+                  </Button>
+                </div>
+              )}
+
+              {/* ── New-cook mode ────────────────────────────────────── */}
+              {saveMode === "new-cook" && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>What did you cook? <span className="text-destructive">*</span></Label>
+                    <Select value={newFoodType} onValueChange={setNewFoodType}>
+                      <SelectTrigger data-testid="select-food-type">
+                        <SelectValue placeholder="Select a cut of meat…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MEAT_CATEGORIES.map((cat) => (
+                          <SelectGroup key={cat.label}>
+                            <SelectLabel>{cat.label}</SelectLabel>
+                            {cat.cuts.map((cut) => (
+                              <SelectItem key={cut} value={cut}>
+                                {cut}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Cook Date &amp; Time</Label>
+                    <Input
+                      type="datetime-local"
+                      value={newCookDate}
+                      onChange={(e) => setNewCookDate(e.target.value)}
+                      data-testid="input-cook-date"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      When did this cook happen? Defaults to now.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Weight (lbs)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        placeholder="e.g. 12.5"
+                        value={newWeightLbs}
+                        onChange={(e) => setNewWeightLbs(e.target.value)}
+                        data-testid="input-weight"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Pit Temp (°F)</Label>
+                      <Input
+                        type="number"
+                        placeholder="e.g. 250"
+                        value={newCookTempF}
+                        onChange={(e) => setNewCookTempF(e.target.value)}
+                        data-testid="input-pit-temp"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Pull Temp (°F)</Label>
+                      <Input
+                        type="number"
+                        placeholder="e.g. 203"
+                        value={newTargetTempF}
+                        onChange={(e) => setNewTargetTempF(e.target.value)}
+                        data-testid="input-target-temp"
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={handleSaveNewCook}
+                    disabled={isSaving || !newFoodType || !selectedGrillId || readings.length === 0}
+                    className="w-full gap-2"
+                    data-testid="btn-save-new-cook"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {createCook.isPending
+                      ? "Creating cook…"
+                      : uploadData.isPending
+                      ? "Saving readings…"
+                      : `Create Cook & Save ${readings.length} Reading${readings.length !== 1 ? "s" : ""}`}
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    This creates a new completed cook session on{" "}
+                    {selectedGrill ? (
+                      <span className="font-medium text-foreground">{selectedGrill.name}</span>
+                    ) : (
+                      "the selected grill"
+                    )}{" "}
+                    and attaches the readings to it.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

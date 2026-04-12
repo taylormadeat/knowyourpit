@@ -273,6 +273,18 @@ export const CreateCookBody = zod.object({
   status: zod.enum(["planned", "active", "completed", "cancelled"]).optional(),
   plannedStartAt: zod.coerce.date().nullish(),
   plannedEndAt: zod.coerce.date().nullish(),
+  actualStartAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "When the cook actually started (for logging past\/completed cooks)",
+    ),
+  actualEndAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "When the cook actually ended (for logging past\/completed cooks)",
+    ),
   notes: zod.string().nullish(),
   preheatMinutes: zod
     .number()
