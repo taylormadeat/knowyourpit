@@ -19,29 +19,61 @@ router.post("/temperature/scan-image", async (req, res): Promise<void> => {
   }
   const safeMime = typeof mimeType === "string" && ALLOWED_MIME_TYPES.has(mimeType) ? mimeType : "image/jpeg";
 
-  const systemPrompt = `You are a precise temperature data extraction assistant. Extract structured temperature readings from images of thermometer displays, grill controllers, temperature graphs, and printed cook logs.
+  const nowIso = new Date().toISOString();
+
+  const systemPrompt = `You are a precision BBQ temperature data extraction assistant. You can read thermometer displays, grill controller screens, temperature graphs/charts, printed cook logs, and screenshots from apps like MEATER, ThermoWorks, FireBoard, Inkbird, and Govee.
 
 Return ONLY valid JSON — no markdown, no explanation, no extra text:
 {
   "readings": [
-    { "probeName": "string", "tempF": number, "recordedAt": "ISO8601 string" }
+    { "probeName": "string", "tempF": number, "recordedAt": "ISO8601 UTC string" }
   ],
   "noDataFound": boolean,
-  "rawExtraction": "string describing what you saw in the image"
+  "rawExtraction": "string describing what you saw in the image",
+  "detectedFoodType": "string or null",
+  "detectedCookDate": "ISO8601 UTC string or null"
 }
 
-Rules:
-- probeName: Use the label shown (e.g. "Probe 1", "Meat", "Pit", "Ambient", "Food"). If unlabeled, use "Probe 1", "Probe 2", etc.
-- tempF: Always convert to Fahrenheit if the image shows Celsius (multiply °C by 1.8 and add 32). Round to one decimal place.
-- recordedAt: Use any timestamp visible in the image. If none is visible, use the current UTC time: ${new Date().toISOString()}
-- If multiple readings are shown, extract the most recent / most prominent set.
-- noDataFound: true only if the image contains NO temperature data at all.
-- rawExtraction: Describe what you saw — probe names, temperatures, units, any visible display text.`;
+=== TEMPERATURE READINGS ===
+- probeName: Use the label shown (e.g. "Probe 1", "Meat", "Pit", "Ambient", "Food", "Grill"). If unlabeled use "Probe 1", "Probe 2", etc.
+- tempF: Convert Celsius to Fahrenheit if needed (°C × 1.8 + 32). Round to one decimal place.
+- recordedAt: Use the timestamp shown for that reading. If no timestamp is visible, use: ${nowIso}
+
+=== READING GRAPHS AND CHARTS ===
+If the image is a time-series graph (temperature over time):
+- Extract ALL visible data points along the entire timeline for EACH probe/series.
+- Sample at meaningful intervals: aim for one reading every 15–30 minutes across the cook. Do not skip inflection points (stalls, wraps, spikes).
+- Use the X-axis timestamps for recordedAt. If only elapsed time is shown (e.g. "2h 30m"), calculate absolute UTC times by working backwards from any end time shown, or use ${nowIso} as the reference for the final point.
+- Extract every visible probe/series separately (Meat probe, Pit probe, etc.).
+- Do NOT just extract the start and end — capture the full shape of the curve.
+
+=== DETECTING FOOD TYPE ===
+- Look for meat/food labels anywhere in the image: app UI, graph legend, cook session title, annotation text, receipt, or log entry.
+- Common examples: "Brisket", "Pork Butt", "Ribs", "Chicken Thighs", "Whole Chicken", "Salmon", etc.
+- Set detectedFoodType to the specific cut name as a plain string, or null if nothing is visible.
+
+=== DETECTING COOK DATE ===
+- Look for any date or time reference: graph X-axis dates, "Cook started:", "Session:", app header timestamps, file metadata text visible in screenshot, etc.
+- Prefer the cook START time. If only an end time is visible, use that.
+- Return as an ISO 8601 UTC string, or null if no date is visible.
+
+=== GENERAL ===
+- noDataFound: true ONLY if the image has absolutely no temperature data.
+- rawExtraction: Briefly describe what you saw — probe labels, temperature values, graph shape, any text, food/date info.`;
+
+  type ScanReading = { probeName: string; tempF: number; recordedAt: string };
+  type ScanResult = {
+    readings: ScanReading[];
+    noDataFound: boolean;
+    rawExtraction: string | null;
+    detectedFoodType: string | null;
+    detectedCookDate: string | null;
+  };
 
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-5.2",
-      max_completion_tokens: 1024,
+      max_completion_tokens: 4096,
       messages: [
         {
           role: "system",
@@ -59,7 +91,7 @@ Rules:
             },
             {
               type: "text",
-              text: "Extract all temperature readings visible in this image and return structured JSON as instructed.",
+              text: "Analyse this BBQ temperature image. Extract all temperature readings (including every data point from graphs), detect the food type and cook date if visible, and return structured JSON as instructed.",
             },
           ],
         },
@@ -69,18 +101,20 @@ Rules:
     const content = response.choices[0]?.message?.content ?? "{}";
     const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
 
-    let result: { readings: Array<{ probeName: string; tempF: number; recordedAt: string }>; noDataFound: boolean; rawExtraction: string | null };
+    let result: ScanResult;
 
     try {
-      result = JSON.parse(cleaned);
+      result = JSON.parse(cleaned) as ScanResult;
     } catch {
-      result = { readings: [], noDataFound: true, rawExtraction: content };
+      result = { readings: [], noDataFound: true, rawExtraction: content, detectedFoodType: null, detectedCookDate: null };
     }
 
     res.json({
       readings: result.readings ?? [],
-      noDataFound: result.noDataFound ?? result.readings?.length === 0,
+      noDataFound: result.noDataFound ?? (result.readings?.length === 0),
       rawExtraction: result.rawExtraction ?? null,
+      detectedFoodType: result.detectedFoodType ?? null,
+      detectedCookDate: result.detectedCookDate ?? null,
     });
   } catch (err) {
     console.error("scan-image error:", err);

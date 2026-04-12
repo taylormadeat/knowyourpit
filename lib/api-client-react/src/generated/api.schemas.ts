@@ -493,6 +493,16 @@ export interface TemperatureScanResult {
    * @nullable
    */
   rawExtraction?: string | null;
+  /**
+   * Meat or food type detected from app labels, cook log text, or graph annotations in the image
+   * @nullable
+   */
+  detectedFoodType?: string | null;
+  /**
+   * Cook start date/time detected from the image (ISO 8601 UTC)
+   * @nullable
+   */
+  detectedCookDate?: string | null;
 }
 
 export interface TemperatureReadingInput {

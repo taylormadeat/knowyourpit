@@ -699,6 +699,16 @@ export const ScanTemperatureImageResponse = zod.object({
     .string()
     .nullish()
     .describe("Raw text extracted from the image before structuring"),
+  detectedFoodType: zod
+    .string()
+    .nullish()
+    .describe(
+      "Meat or food type detected from app labels, cook log text, or graph annotations in the image",
+    ),
+  detectedCookDate: zod.coerce
+    .date()
+    .nullish()
+    .describe("Cook start date\/time detected from the image (ISO 8601 UTC)"),
 });
 
 /**

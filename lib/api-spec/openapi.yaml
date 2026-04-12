@@ -1274,6 +1274,13 @@ components:
         rawExtraction:
           type: ["string", "null"]
           description: Raw text extracted from the image before structuring
+        detectedFoodType:
+          type: ["string", "null"]
+          description: Meat or food type detected from app labels, cook log text, or graph annotations in the image
+        detectedCookDate:
+          type: ["string", "null"]
+          format: date-time
+          description: Cook start date/time detected from the image (ISO 8601 UTC)
       required:
         - readings
         - noDataFound

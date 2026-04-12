@@ -99,6 +99,34 @@ const toLocalDateTimeInput = (d: Date): string => {
   );
 };
 
+/** All valid cuts, flattened, lower-cased for matching. */
+const ALL_CUTS_LOWER: Array<{ lower: string; original: string }> =
+  MEAT_CATEGORIES.flatMap((cat) =>
+    cat.cuts.map((cut) => ({ lower: cut.toLowerCase(), original: cut }))
+  );
+
+/**
+ * Try to match a free-text food label from the AI against our canonical cut list.
+ * Returns the canonical cut name, or the original label if no match is found.
+ */
+const matchFoodType = (detected: string): string => {
+  const q = detected.toLowerCase().trim();
+  // 1. Exact match
+  const exact = ALL_CUTS_LOWER.find((c) => c.lower === q);
+  if (exact) return exact.original;
+  // 2. A canonical cut that starts with the detected label (e.g. "brisket" → "Brisket")
+  const startsWith = ALL_CUTS_LOWER.find((c) => c.lower.startsWith(q));
+  if (startsWith) return startsWith.original;
+  // 3. The detected label contains a canonical cut (e.g. "smoked brisket flat" → "Brisket Flat")
+  const contained = ALL_CUTS_LOWER.find((c) => q.includes(c.lower));
+  if (contained) return contained.original;
+  // 4. A canonical cut contains the detected label
+  const contains = ALL_CUTS_LOWER.find((c) => c.lower.includes(q));
+  if (contains) return contains.original;
+  // 5. No match — return the label capitalised as-is (user can fix)
+  return detected.charAt(0).toUpperCase() + detected.slice(1);
+};
+
 export default function TempUpload() {
   // ── Mode ──────────────────────────────────────────────────────────────────
   const [saveMode, setSaveMode] = useState<SaveMode>("attach");
@@ -117,6 +145,12 @@ export default function TempUpload() {
   const [newWeightLbs, setNewWeightLbs] = useState<string>("");
   const [newCookTempF, setNewCookTempF] = useState<string>("");
   const [newTargetTempF, setNewTargetTempF] = useState<string>("");
+
+  // ── AI auto-detected metadata ──────────────────────────────────────────────
+  const [autoDetected, setAutoDetected] = useState<{
+    foodType: string | null;
+    cookDate: string | null;
+  } | null>(null);
 
   // ── Image state ───────────────────────────────────────────────────────────
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -197,6 +231,7 @@ export default function TempUpload() {
     setImageBase64(null);
     setReadings([]);
     setNoDataFound(false);
+    setAutoDetected(null);
   };
 
   // ── AI scan ───────────────────────────────────────────────────────────────
@@ -204,6 +239,7 @@ export default function TempUpload() {
     if (!imageBase64) return;
     setReadings([]);
     setNoDataFound(false);
+    setAutoDetected(null);
 
     scanImage.mutate(
       { data: { base64Image: imageBase64, mimeType: imageMimeType } },
@@ -214,7 +250,41 @@ export default function TempUpload() {
             toast({ title: "No temperature data found in the image", variant: "destructive" });
           } else {
             setReadings(result.readings.map((r) => ({ ...r })));
-            toast({ title: `Found ${result.readings.length} reading${result.readings.length > 1 ? "s" : ""}` });
+
+            // ── Auto-populate food type and cook date from AI detection ──
+            const detected = {
+              foodType: null as string | null,
+              cookDate: null as string | null,
+            };
+
+            if (result.detectedFoodType) {
+              const matched = matchFoodType(result.detectedFoodType);
+              detected.foodType = matched;
+              setNewFoodType(matched);
+            }
+
+            if (result.detectedCookDate) {
+              try {
+                const localStr = toLocalDateTimeInput(new Date(result.detectedCookDate));
+                detected.cookDate = localStr;
+                setNewCookDate(localStr);
+              } catch {
+                // ignore invalid date strings
+              }
+            }
+
+            if (detected.foodType || detected.cookDate) {
+              setAutoDetected(detected);
+              // Switch to new-cook mode so the user can see the auto-filled fields
+              setSaveMode("new-cook");
+            }
+
+            const readingWord = result.readings.length === 1 ? "reading" : "readings";
+            const extras: string[] = [];
+            if (detected.foodType) extras.push(detected.foodType);
+            if (detected.cookDate) extras.push("cook date");
+            const suffix = extras.length ? ` · Detected ${extras.join(" and ")}` : "";
+            toast({ title: `Found ${result.readings.length} ${readingWord}${suffix}` });
           }
         },
         onError: () => {
@@ -506,6 +576,41 @@ export default function TempUpload() {
           </Card>
         )}
 
+        {/* ── AI auto-detected metadata banner ────────────────────────── */}
+        {autoDetected && (autoDetected.foodType || autoDetected.cookDate) && (
+          <div
+            className="flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4"
+            data-testid="auto-detected-banner"
+          >
+            <Sparkles className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-emerald-400">
+                AI detected from your image
+              </p>
+              <ul className="mt-1.5 space-y-0.5">
+                {autoDetected.foodType && (
+                  <li className="text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Food:</span>{" "}
+                    {autoDetected.foodType} — pre-filled in the form below
+                  </li>
+                )}
+                {autoDetected.cookDate && (
+                  <li className="text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Cook date:</span>{" "}
+                    {new Date(autoDetected.cookDate).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })} — pre-filled in the form below
+                  </li>
+                )}
+              </ul>
+              <p className="text-xs text-muted-foreground mt-2">
+                Switched to <span className="font-medium text-foreground">Log as new cook</span> mode. Review and adjust the values before saving.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* ── Add readings manually even without an image ────────────── */}
         {!hasReadings && !hasImage && (
           <Button
@@ -650,7 +755,15 @@ export default function TempUpload() {
               {saveMode === "new-cook" && (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>What did you cook? <span className="text-destructive">*</span></Label>
+                    <Label className="flex items-center gap-2">
+                      What did you cook? <span className="text-destructive">*</span>
+                      {autoDetected?.foodType && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 leading-none">
+                          <Sparkles className="w-2.5 h-2.5" />
+                          Auto-detected
+                        </span>
+                      )}
+                    </Label>
                     <Select value={newFoodType} onValueChange={setNewFoodType}>
                       <SelectTrigger data-testid="select-food-type">
                         <SelectValue placeholder="Select a cut of meat…" />
@@ -671,7 +784,15 @@ export default function TempUpload() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Cook Date &amp; Time</Label>
+                    <Label className="flex items-center gap-2">
+                      Cook Date &amp; Time
+                      {autoDetected?.cookDate && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 leading-none">
+                          <Sparkles className="w-2.5 h-2.5" />
+                          Auto-detected
+                        </span>
+                      )}
+                    </Label>
                     <Input
                       type="datetime-local"
                       value={newCookDate}
@@ -679,7 +800,9 @@ export default function TempUpload() {
                       data-testid="input-cook-date"
                     />
                     <p className="text-xs text-muted-foreground">
-                      When did this cook happen? Defaults to now.
+                      {autoDetected?.cookDate
+                        ? "Extracted from the image — adjust if needed."
+                        : "When did this cook happen? Defaults to now."}
                     </p>
                   </div>
 
