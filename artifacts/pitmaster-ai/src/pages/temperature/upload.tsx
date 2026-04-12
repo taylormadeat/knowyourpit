@@ -40,6 +40,8 @@ import {
   Flame,
   Plus,
   List,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -127,6 +129,30 @@ const matchFoodType = (detected: string): string => {
   return detected.charAt(0).toUpperCase() + detected.slice(1);
 };
 
+/** Group a flat readings array by probeName, preserving insertion order of probes. */
+function groupReadings(readings: EditableReading[]): { probeName: string; indices: number[] }[] {
+  const groups: { probeName: string; indices: number[] }[] = [];
+  const seen = new Map<string, number>();
+  readings.forEach((r, i) => {
+    if (!seen.has(r.probeName)) {
+      seen.set(r.probeName, groups.length);
+      groups.push({ probeName: r.probeName, indices: [i] });
+    } else {
+      groups[seen.get(r.probeName)!].indices.push(i);
+    }
+  });
+  return groups;
+}
+
+/** Format an ISO timestamp as a short local time string ("10:30 AM"). */
+const formatTime = (iso: string): string => {
+  try {
+    return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  } catch {
+    return "—";
+  }
+};
+
 export default function TempUpload() {
   // ── Mode ──────────────────────────────────────────────────────────────────
   const [saveMode, setSaveMode] = useState<SaveMode>("attach");
@@ -160,6 +186,9 @@ export default function TempUpload() {
   const [noDataFound, setNoDataFound] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Probe group expand/collapse state ─────────────────────────────────────
+  const [expandedProbes, setExpandedProbes] = useState<Record<string, boolean>>({});
 
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -232,6 +261,7 @@ export default function TempUpload() {
     setReadings([]);
     setNoDataFound(false);
     setAutoDetected(null);
+    setExpandedProbes({});
   };
 
   // ── AI scan ───────────────────────────────────────────────────────────────
@@ -249,7 +279,16 @@ export default function TempUpload() {
             setNoDataFound(true);
             toast({ title: "No temperature data found in the image", variant: "destructive" });
           } else {
-            setReadings(result.readings.map((r) => ({ ...r })));
+            const mapped = result.readings.map((r) => ({ ...r }));
+            setReadings(mapped);
+
+            // ── Set probe expansion: expand all when few readings, collapse otherwise ──
+            const uniqueNames = [...new Set(mapped.map((r) => r.probeName))];
+            setExpandedProbes(
+              mapped.length < 4
+                ? Object.fromEntries(uniqueNames.map((n) => [n, true]))
+                : {}
+            );
 
             // ── Auto-populate food type and cook date from AI detection ──
             const detected = {
@@ -310,10 +349,48 @@ export default function TempUpload() {
   };
 
   const addReading = () => {
+    const newName = `Probe ${readings.length + 1}`;
     setReadings((prev) => [
       ...prev,
-      { probeName: `Probe ${prev.length + 1}`, tempF: 0, recordedAt: new Date().toISOString() },
+      { probeName: newName, tempF: 0, recordedAt: new Date().toISOString() },
     ]);
+    // Expand the new probe's group so it's immediately editable
+    setExpandedProbes((prev) => ({ ...prev, [newName]: true }));
+  };
+
+  // ── Probe group handlers ───────────────────────────────────────────────────
+  /** Rename every reading whose probeName === oldName to newName. */
+  const renameProbeGroup = (oldName: string, newName: string) => {
+    if (oldName === newName) return;
+    setReadings((prev) =>
+      prev.map((r) => (r.probeName === oldName ? { ...r, probeName: newName } : r))
+    );
+    setExpandedProbes((prev) => {
+      const next = { ...prev };
+      if (oldName in next) {
+        const wasExpanded = next[oldName];
+        delete next[oldName];
+        next[newName] = wasExpanded;
+      } else {
+        next[newName] = true;
+      }
+      return next;
+    });
+  };
+
+  /** Remove all readings belonging to a probe group. */
+  const removeProbeGroup = (probeName: string) => {
+    setReadings((prev) => prev.filter((r) => r.probeName !== probeName));
+    setExpandedProbes((prev) => {
+      const next = { ...prev };
+      delete next[probeName];
+      return next;
+    });
+  };
+
+  /** Toggle expand/collapse for a probe group. */
+  const toggleProbe = (probeName: string) => {
+    setExpandedProbes((prev) => ({ ...prev, [probeName]: !prev[probeName] }));
   };
 
   // ── Save helpers ──────────────────────────────────────────────────────────
@@ -402,6 +479,7 @@ export default function TempUpload() {
   const hasImage = !!imagePreview;
   const hasReadings = readings.length > 0;
   const selectedGrill = grills?.find((g) => g.id.toString() === selectedGrillId);
+  const probeGroups = groupReadings(readings);
 
   return (
     <AppLayout>
@@ -516,52 +594,130 @@ export default function TempUpload() {
                 <Thermometer className="w-4 h-4 text-primary" />
                 Extracted Readings
                 <span className="ml-auto text-xs font-normal text-muted-foreground">
-                  Edit any values before saving
+                  {readings.length} reading{readings.length !== 1 ? "s" : ""} · {probeGroups.length} probe{probeGroups.length !== 1 ? "s" : ""}
                 </span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {readings.map((r, i) => (
-                <div
-                  key={i}
-                  className="flex items-start gap-2 p-3 rounded-lg bg-muted/20 border border-border/60"
-                  data-testid={`reading-row-${i}`}
-                >
-                  <div className="flex-1 grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-                        Probe / Label
-                      </label>
-                      <Input
-                        value={r.probeName}
-                        onChange={(e) => updateReading(i, "probeName", e.target.value)}
-                        className="h-8 text-sm"
-                        data-testid={`reading-probe-${i}`}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-                        Temp (°F)
-                      </label>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        value={r.tempF}
-                        onChange={(e) => updateReading(i, "tempF", e.target.value)}
-                        className="h-8 text-sm"
-                        data-testid={`reading-temp-${i}`}
-                      />
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => removeReading(i)}
-                    className="mt-6 w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
-                    title="Remove this reading"
+            <CardContent className="space-y-2">
+              {probeGroups.map((group) => {
+                const groupData = group.indices.map((i) => readings[i]);
+                const isSingleReading = group.indices.length === 1;
+                const isExpanded = !!expandedProbes[group.probeName] || isSingleReading;
+                const minTemp = Math.min(...groupData.map((r) => r.tempF));
+                const maxTemp = Math.max(...groupData.map((r) => r.tempF));
+                const firstRecorded = groupData[0]?.recordedAt;
+                const lastRecorded = groupData[groupData.length - 1]?.recordedAt;
+
+                return (
+                  <div
+                    key={group.probeName}
+                    className="rounded-lg border border-border/60 overflow-hidden"
+                    data-testid={`probe-group-${group.probeName}`}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+                    {/* ── Group header ─────────────────────────────────── */}
+                    <div className="flex items-center gap-2 px-2.5 py-2 bg-muted/30">
+                      <Input
+                        value={group.probeName}
+                        onChange={(e) => renameProbeGroup(group.probeName, e.target.value)}
+                        className="h-7 text-sm font-medium flex-1 min-w-0 border-transparent bg-transparent px-1 focus:border-input focus:bg-background"
+                        data-testid={`reading-probe-${group.indices[0]}`}
+                        title="Rename this probe (renames all its readings)"
+                      />
+
+                      {!isSingleReading && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
+                          <span className="rounded bg-muted px-1.5 py-0.5 font-medium">
+                            {group.indices.length}×
+                          </span>
+                          <span className="hidden sm:inline">
+                            {minTemp === maxTemp
+                              ? `${minTemp}°F`
+                              : `${minTemp}°–${maxTemp}°F`}
+                          </span>
+                          {firstRecorded && lastRecorded && firstRecorded !== lastRecorded && (
+                            <span className="hidden sm:inline text-muted-foreground/60">
+                              {formatTime(firstRecorded)}–{formatTime(lastRecorded)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {isSingleReading && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={groupData[0].tempF}
+                            onChange={(e) => updateReading(group.indices[0], "tempF", e.target.value)}
+                            className="h-7 text-sm w-20 text-right"
+                            data-testid={`reading-temp-${group.indices[0]}`}
+                          />
+                          <span className="text-xs text-muted-foreground">°F</span>
+                        </div>
+                      )}
+
+                      <button
+                        onClick={() => removeProbeGroup(group.probeName)}
+                        className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                        title="Remove all readings for this probe"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+
+                      {!isSingleReading && (
+                        <button
+                          onClick={() => toggleProbe(group.probeName)}
+                          className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+                          title={isExpanded ? "Collapse readings" : "Expand readings"}
+                          data-testid={`toggle-probe-${group.probeName}`}
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          ) : (
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* ── Individual readings (expanded) ──────────────── */}
+                    {!isSingleReading && isExpanded && (
+                      <div className="divide-y divide-border/30">
+                        {group.indices.map((idx) => {
+                          const r = readings[idx];
+                          return (
+                            <div
+                              key={idx}
+                              className="flex items-center gap-2 px-3 py-1.5"
+                              data-testid={`reading-row-${idx}`}
+                            >
+                              <span className="text-xs text-muted-foreground w-16 shrink-0 font-mono">
+                                {formatTime(r.recordedAt)}
+                              </span>
+                              <Input
+                                type="number"
+                                step="0.1"
+                                value={r.tempF}
+                                onChange={(e) => updateReading(idx, "tempF", e.target.value)}
+                                className="h-7 text-sm w-20"
+                                data-testid={`reading-temp-${idx}`}
+                              />
+                              <span className="text-xs text-muted-foreground">°F</span>
+                              <button
+                                onClick={() => removeReading(idx)}
+                                className="ml-auto w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                                title="Remove this reading"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
 
               <Button
                 variant="outline"

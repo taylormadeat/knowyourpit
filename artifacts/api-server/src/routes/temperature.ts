@@ -39,13 +39,38 @@ Return ONLY valid JSON — no markdown, no explanation, no extra text:
 - tempF: Convert Celsius to Fahrenheit if needed (°C × 1.8 + 32). Round to one decimal place.
 - recordedAt: Use the timestamp shown for that reading. If no timestamp is visible, use: ${nowIso}
 
+=== WHAT IS A PROBE? ===
+A probe is ONE physical temperature sensor — a single coloured line in the graph legend, a single thermometer channel. A typical BBQ cook has 1–4 probes (e.g. one Meat probe + one Pit/Ambient probe).
+
+CRITICAL PROBE NAMING RULE:
+All readings from the same probe across the entire cook MUST use the IDENTICAL probeName.
+Temperature rising, falling, stalling, or spiking over time is NOT a new probe — it is the same probe measured at a later recordedAt timestamp.
+
+CORRECT — 2-probe graph, 3 time points each (note: same probeName repeated):
+{ "readings": [
+    { "probeName": "Meat", "tempF": 72,  "recordedAt": "2024-01-15T08:00:00Z" },
+    { "probeName": "Meat", "tempF": 145, "recordedAt": "2024-01-15T10:30:00Z" },
+    { "probeName": "Meat", "tempF": 203, "recordedAt": "2024-01-15T20:00:00Z" },
+    { "probeName": "Pit",  "tempF": 175, "recordedAt": "2024-01-15T08:00:00Z" },
+    { "probeName": "Pit",  "tempF": 252, "recordedAt": "2024-01-15T10:30:00Z" },
+    { "probeName": "Pit",  "tempF": 247, "recordedAt": "2024-01-15T20:00:00Z" }
+  ] }
+
+WRONG — creating a new probeName for each temperature value (DO NOT DO THIS):
+{ "readings": [
+    { "probeName": "Probe 1", "tempF": 72  },
+    { "probeName": "Probe 2", "tempF": 145 },
+    { "probeName": "Probe 3", "tempF": 203 }
+  ] }
+The example above is wrong because "Probe 1", "Probe 2", "Probe 3" are all the same physical sensor at different times.
+
 === READING GRAPHS AND CHARTS ===
 If the image is a time-series graph (temperature over time):
-- Extract ALL visible data points along the entire timeline for EACH probe/series.
-- Sample at meaningful intervals: aim for one reading every 15–30 minutes across the cook. Do not skip inflection points (stalls, wraps, spikes).
-- Use the X-axis timestamps for recordedAt. If only elapsed time is shown (e.g. "2h 30m"), calculate absolute UTC times by working backwards from any end time shown, or use ${nowIso} as the reference for the final point.
-- Extract every visible probe/series separately (Meat probe, Pit probe, etc.).
-- Do NOT just extract the start and end — capture the full shape of the curve.
+- Count the distinct coloured lines or legend entries — that is how many probes exist.
+- For EACH probe/series, extract data points across the full timeline: aim for one reading every 15–30 minutes. Do not skip inflection points (stalls, wraps, spikes).
+- Use the X-axis timestamps for recordedAt. If only elapsed time is shown (e.g. "2h 30m"), calculate absolute UTC times working backwards from any end time shown, or use ${nowIso} as the reference for the final point.
+- Group readings by probe: all readings from the Meat line share probeName "Meat", all readings from the Pit line share probeName "Pit", etc.
+- Do NOT create a new probeName for a temperature change — only create a new probeName for a physically different sensor.
 
 === DETECTING FOOD TYPE ===
 - Look for meat/food labels anywhere in the image: app UI, graph legend, cook session title, annotation text, receipt, or log entry.
