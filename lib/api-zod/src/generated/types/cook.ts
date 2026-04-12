@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CookStatus } from "./cookStatus";
+import type { CookWrapMethod } from "./cookWrapMethod";
 
 export interface Cook {
   id: number;
@@ -36,6 +37,31 @@ export interface Cook {
    * @nullable
    */
   preheatMinutes: number | null;
+  /**
+   * Minutes into the cook when meat should be wrapped
+   * @nullable
+   */
+  wrapAtMinutes: number | null;
+  /**
+   * Wrapping method recommended
+   * @nullable
+   */
+  wrapMethod: CookWrapMethod;
+  /**
+   * Internal meat temp at which to wrap
+   * @nullable
+   */
+  wrapTempF: number | null;
+  /**
+   * Explanation of why and how to wrap
+   * @nullable
+   */
+  wrapReason: string | null;
+  /**
+   * Recommended rest time after pulling from grill
+   * @nullable
+   */
+  restMinutes: number | null;
   /** @nullable */
   rating: number | null;
   /** @nullable */

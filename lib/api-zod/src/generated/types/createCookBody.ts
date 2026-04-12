@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateCookBodyStatus } from "./createCookBodyStatus";
+import type { CreateCookBodyWrapMethod } from "./createCookBodyWrapMethod";
 
 export interface CreateCookBody {
   /** @nullable */
@@ -29,6 +30,22 @@ export interface CreateCookBody {
    * @nullable
    */
   preheatMinutes?: number | null;
+  /**
+   * Minutes into the cook when meat should be wrapped
+   * @nullable
+   */
+  wrapAtMinutes?: number | null;
+  /** @nullable */
+  wrapMethod?: CreateCookBodyWrapMethod;
+  /** @nullable */
+  wrapTempF?: number | null;
+  /** @nullable */
+  wrapReason?: string | null;
+  /**
+   * Recommended rest time after pulling from grill
+   * @nullable
+   */
+  restMinutes?: number | null;
   /** @nullable */
   recipeId?: number | null;
 }

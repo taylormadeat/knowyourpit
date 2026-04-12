@@ -6,8 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AiPredictResponseConfidence } from "./aiPredictResponseConfidence";
+import type { WrapRecommendation } from "./wrapRecommendation";
 
 export interface AiPredictResponse {
+  /** Active cook time only (food on → off grill), excluding preheat and rest */
   estimatedDurationMinutes: number;
   /** Minutes needed to start and bring the grill up to cook temperature */
   preheatMinutes: number;
@@ -21,8 +23,17 @@ export interface AiPredictResponse {
    * @nullable
    */
   suggestedStartAt: Date | null;
-  /** @nullable */
+  /**
+   * When food comes off the grill (before rest)
+   * @nullable
+   */
   estimatedFinishAt: Date | null;
+  /**
+   * When food is ready to serve (after rest)
+   * @nullable
+   */
+  serveAt: Date | null;
+  wrap: WrapRecommendation;
   confidence: AiPredictResponseConfidence;
   rationale: string;
   tips: string[];

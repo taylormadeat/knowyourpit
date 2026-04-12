@@ -817,6 +817,22 @@ components:
         preheatMinutes:
           type: ["integer", "null"]
           description: Minutes needed to start and bring the grill up to cook temperature
+        wrapAtMinutes:
+          type: ["integer", "null"]
+          description: Minutes into the cook when meat should be wrapped
+        wrapMethod:
+          type: ["string", "null"]
+          enum: [foil, butcher_paper, none, null]
+          description: Wrapping method recommended
+        wrapTempF:
+          type: ["integer", "null"]
+          description: Internal meat temp at which to wrap
+        wrapReason:
+          type: ["string", "null"]
+          description: Explanation of why and how to wrap
+        restMinutes:
+          type: ["integer", "null"]
+          description: Recommended rest time after pulling from grill
         rating:
           type: ["integer", "null"]
         recipeId:
@@ -842,6 +858,11 @@ components:
         - actualEndAt
         - notes
         - preheatMinutes
+        - wrapAtMinutes
+        - wrapMethod
+        - wrapTempF
+        - wrapReason
+        - restMinutes
         - rating
         - recipeId
         - createdAt
@@ -874,6 +895,19 @@ components:
         preheatMinutes:
           type: ["integer", "null"]
           description: Minutes needed to start and bring the grill up to cook temperature
+        wrapAtMinutes:
+          type: ["integer", "null"]
+          description: Minutes into the cook when meat should be wrapped
+        wrapMethod:
+          type: ["string", "null"]
+          enum: [foil, butcher_paper, none, null]
+        wrapTempF:
+          type: ["integer", "null"]
+        wrapReason:
+          type: ["string", "null"]
+        restMinutes:
+          type: ["integer", "null"]
+          description: Recommended rest time after pulling from grill
         recipeId:
           type: ["integer", "null"]
       required:
@@ -912,6 +946,17 @@ components:
         preheatMinutes:
           type: ["integer", "null"]
           description: Minutes needed to start and bring the grill up to cook temperature
+        wrapAtMinutes:
+          type: ["integer", "null"]
+        wrapMethod:
+          type: ["string", "null"]
+          enum: [foil, butcher_paper, none, null]
+        wrapTempF:
+          type: ["integer", "null"]
+        wrapReason:
+          type: ["string", "null"]
+        restMinutes:
+          type: ["integer", "null"]
         rating:
           type: ["integer", "null"]
         recipeId:
@@ -1173,11 +1218,38 @@ components:
       required:
         - foodType
 
+    WrapRecommendation:
+      type: object
+      properties:
+        wrapAtMinutes:
+          type: integer
+          description: Minutes into the cook when meat should be wrapped
+        method:
+          type: string
+          enum: [foil, butcher_paper, none]
+          description: Recommended wrapping material
+        wrapTempF:
+          type: ["integer", "null"]
+          description: Internal meat temp at which to wrap (if applicable)
+        reason:
+          type: string
+          description: Why to wrap, how to do it, and what to expect
+        restMinutes:
+          type: integer
+          description: Recommended rest time in minutes after pulling from grill
+      required:
+        - wrapAtMinutes
+        - method
+        - wrapTempF
+        - reason
+        - restMinutes
+
     AiPredictResponse:
       type: object
       properties:
         estimatedDurationMinutes:
           type: number
+          description: Active cook time only (food on → off grill), excluding preheat and rest
         preheatMinutes:
           type: integer
           description: Minutes needed to start and bring the grill up to cook temperature
@@ -1192,6 +1264,13 @@ components:
         estimatedFinishAt:
           type: ["string", "null"]
           format: date-time
+          description: When food comes off the grill (before rest)
+        serveAt:
+          type: ["string", "null"]
+          format: date-time
+          description: When food is ready to serve (after rest)
+        wrap:
+          $ref: "#/components/schemas/WrapRecommendation"
         confidence:
           type: string
           enum: [low, medium, high]
@@ -1207,6 +1286,8 @@ components:
         - grillLightAt
         - suggestedStartAt
         - estimatedFinishAt
+        - serveAt
+        - wrap
         - confidence
         - rationale
         - tips

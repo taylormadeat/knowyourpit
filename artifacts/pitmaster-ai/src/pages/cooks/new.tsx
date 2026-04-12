@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { Flame, Clock, Utensils, CheckCircle2, Sparkles, Info } from "lucide-react";
+import { Flame, Clock, Utensils, CheckCircle2, Sparkles, Info, Package, BedDouble, UtensilsCrossed } from "lucide-react";
 
 const COOK_STATUSES = ["planned", "active", "completed", "cancelled"] as const;
 
@@ -26,6 +26,9 @@ const PREHEAT_DEFAULTS: Record<string, number> = {
   electric: 20,
   other: 30,
 };
+
+const grillTypeKey = (t: string | null | undefined) =>
+  (t ?? "").toLowerCase().replace(/[\s-]+/g, "_");
 
 const cookSchema = z.object({
   foodType: z.string().min(1, "Food type is required"),
@@ -41,16 +44,115 @@ const cookSchema = z.object({
 
 type CookFormValues = z.infer<typeof cookSchema>;
 
+type WrapRec = {
+  wrapAtMinutes: number;
+  method: string;
+  wrapTempF: number | null;
+  reason: string;
+  restMinutes: number;
+};
+
+type Prediction = {
+  estimatedDurationMinutes: number;
+  preheatMinutes: number;
+  grillLightAt: string;
+  suggestedStartAt: string;
+  estimatedFinishAt: string;
+  serveAt: string;
+  wrap: WrapRec;
+  confidence: string;
+  rationale: string;
+  tips: string[];
+};
+
 function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 function formatDateTime(date: Date) {
-  return date.toLocaleDateString([], { month: "short", day: "numeric" }) + " at " + formatTime(date);
+  return date.toLocaleDateString([], { month: "short", day: "numeric" }) + " · " + formatTime(date);
 }
 function fmtDuration(minutes: number) {
+  if (!minutes || minutes <= 0) return "0m";
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  return h > 0 ? `${h}h ${m > 0 ? m + "m" : ""}`.trim() : `${m}m`;
+  return h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ""}` : `${m}m`;
+}
+
+const WRAP_METHOD_LABELS: Record<string, string> = {
+  foil: "Aluminum Foil (Texas Crutch)",
+  butcher_paper: "Butcher Paper",
+  none: "No Wrap",
+};
+
+const WRAP_METHOD_COLORS: Record<string, string> = {
+  foil: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+  butcher_paper: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  none: "bg-muted/40 text-muted-foreground border-border",
+};
+
+interface TimelineStep {
+  icon: React.ReactNode;
+  label: string;
+  time: Date;
+  color: string;
+  badge?: string;
+  note?: string;
+  connectorLabel?: string;
+}
+
+function CookTimeline({ steps }: { steps: TimelineStep[] }) {
+  return (
+    <div className="rounded-lg border bg-muted/10 overflow-hidden" data-testid="cook-timeline">
+      <div className="px-4 py-2.5 border-b bg-muted/20">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cook Timeline</p>
+      </div>
+      <div className="p-4">
+        {steps.map((step, i) => (
+          <div key={i}>
+            <div className="flex items-start gap-3">
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border ${step.color}`}>
+                {step.icon}
+              </div>
+              <div className="flex-1 pt-0.5 pb-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-semibold leading-tight">{step.label}</p>
+                  {step.badge && (
+                    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${WRAP_METHOD_COLORS[step.badge] ?? "bg-muted text-muted-foreground border-border"}`}>
+                      {WRAP_METHOD_LABELS[step.badge] ?? step.badge}
+                    </span>
+                  )}
+                </div>
+                <p className="text-base font-bold mt-0.5" style={{ color: "inherit" }}>{formatTime(step.time)}</p>
+                <p className="text-xs text-muted-foreground">{formatDateTime(step.time)}</p>
+                {step.note && (
+                  <p className="text-xs text-muted-foreground/80 mt-1 leading-relaxed border-l-2 border-border pl-2">{step.note}</p>
+                )}
+              </div>
+            </div>
+            {i < steps.length - 1 && step.connectorLabel && (
+              <div className="flex items-start gap-3 my-0.5">
+                <div className="w-9 flex justify-center shrink-0">
+                  <div className="w-0.5 h-6 bg-border" />
+                </div>
+                <div className="flex items-center h-6">
+                  <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full border border-border/60">
+                    {step.connectorLabel}
+                  </span>
+                </div>
+              </div>
+            )}
+            {i < steps.length - 1 && !step.connectorLabel && (
+              <div className="flex gap-3 my-0.5">
+                <div className="w-9 flex justify-center shrink-0">
+                  <div className="w-0.5 h-4 bg-border" />
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function NewCook() {
@@ -62,16 +164,7 @@ export default function NewCook() {
   const createCook = useCreateCook();
   const aiPredict = useAiPredict();
 
-  const [prediction, setPrediction] = useState<{
-    estimatedDurationMinutes: number;
-    preheatMinutes: number;
-    grillLightAt: string;
-    suggestedStartAt: string;
-    estimatedFinishAt: string;
-    confidence: string;
-    rationale: string;
-    tips: string[];
-  } | null>(null);
+  const [prediction, setPrediction] = useState<Prediction | null>(null);
 
   const form = useForm<CookFormValues>({
     resolver: zodResolver(cookSchema),
@@ -86,13 +179,7 @@ export default function NewCook() {
   const watchedGrillId = useWatch({ control: form.control, name: "grillId" });
   const watchedPreheat = useWatch({ control: form.control, name: "preheatMinutes" });
   const watchedFinish = useWatch({ control: form.control, name: "desiredFinishAt" });
-  const watchedCookDuration = prediction?.estimatedDurationMinutes;
 
-  // Normalize grill type to lowercase underscore key for preheat lookup
-  const grillTypeKey = (t: string | null | undefined) =>
-    (t ?? "").toLowerCase().replace(/[\s-]+/g, "_");
-
-  // Auto-set preheat minutes when grill changes
   useEffect(() => {
     if (!watchedGrillId) return;
     const grill = grills?.find((g) => g.id.toString() === watchedGrillId);
@@ -102,25 +189,100 @@ export default function NewCook() {
     }
   }, [watchedGrillId, grills, form]);
 
-  // Compute live timeline from desiredFinishAt + preheat + cook duration
   const preheatMins = parseInt(watchedPreheat || "30") || 30;
-  const cookMins = watchedCookDuration ?? 0;
+  const selectedGrill = grills?.find((g) => g.id.toString() === watchedGrillId);
 
-  let timeline: { lightAt: Date; foodOnAt: Date; doneAt: Date } | null = null;
-  if (watchedFinish) {
-    const doneAt = new Date(watchedFinish);
-    if (!isNaN(doneAt.getTime())) {
-      const foodOnAt = new Date(doneAt.getTime() - cookMins * 60000);
-      const lightAt = new Date(foodOnAt.getTime() - preheatMins * 60000);
-      timeline = { lightAt, foodOnAt, doneAt };
+  // Build timeline steps from prediction + finish time
+  const buildTimelineSteps = (): TimelineStep[] | null => {
+    if (!prediction && !watchedFinish) return null;
+
+    let lightAt: Date, foodOnAt: Date, offGrillAt: Date, serveAt: Date;
+    let wrapAt: Date | null = null;
+    const wrap = prediction?.wrap;
+    const cookMins = prediction?.estimatedDurationMinutes ?? 0;
+    const restMins = wrap?.restMinutes ?? 0;
+
+    if (prediction) {
+      lightAt = new Date(prediction.grillLightAt);
+      foodOnAt = new Date(prediction.suggestedStartAt);
+      offGrillAt = new Date(prediction.estimatedFinishAt);
+      serveAt = new Date(prediction.serveAt);
+      if (wrap && wrap.method !== "none" && wrap.wrapAtMinutes > 0) {
+        wrapAt = new Date(foodOnAt.getTime() + wrap.wrapAtMinutes * 60000);
+      }
+    } else if (watchedFinish) {
+      const finishTime = new Date(watchedFinish);
+      if (isNaN(finishTime.getTime())) return null;
+      serveAt = finishTime;
+      offGrillAt = serveAt;
+      foodOnAt = new Date(offGrillAt.getTime() - (cookMins > 0 ? cookMins * 60000 : 0));
+      lightAt = new Date(foodOnAt.getTime() - preheatMins * 60000);
+    } else {
+      return null;
     }
-  } else if (prediction) {
-    timeline = {
-      lightAt: new Date(prediction.grillLightAt),
-      foodOnAt: new Date(prediction.suggestedStartAt),
-      doneAt: new Date(prediction.estimatedFinishAt),
-    };
-  }
+
+    const steps: TimelineStep[] = [];
+
+    steps.push({
+      icon: <Flame className="w-4 h-4" />,
+      label: "Light the Grill",
+      time: lightAt,
+      color: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+      connectorLabel: `${fmtDuration(preheatMins)} preheat`,
+    });
+
+    steps.push({
+      icon: <Utensils className="w-4 h-4" />,
+      label: "Food On the Grill",
+      time: foodOnAt,
+      color: "bg-primary/15 text-primary border-primary/30",
+      connectorLabel: wrapAt
+        ? `${fmtDuration(wrap!.wrapAtMinutes)} unwrapped`
+        : cookMins > 0 ? `${fmtDuration(cookMins)} cook time` : undefined,
+    });
+
+    if (wrapAt && wrap) {
+      steps.push({
+        icon: <Package className="w-4 h-4" />,
+        label: "Wrap the Meat",
+        time: wrapAt,
+        color: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+        badge: wrap.method,
+        note: wrap.reason,
+        connectorLabel: `${fmtDuration(cookMins - wrap.wrapAtMinutes)} wrapped`,
+      });
+    }
+
+    steps.push({
+      icon: <CheckCircle2 className="w-4 h-4" />,
+      label: "Off the Grill",
+      time: offGrillAt,
+      color: "bg-yellow-500/15 text-yellow-500 border-yellow-500/30",
+      connectorLabel: restMins > 0 ? `${fmtDuration(restMins)} rest` : undefined,
+    });
+
+    if (restMins > 0) {
+      steps.push({
+        icon: <BedDouble className="w-4 h-4" />,
+        label: "Rest",
+        time: offGrillAt,
+        color: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+        note: `Let the meat rest uncovered (or loosely tented) for ${fmtDuration(restMins)}. Don't skip this — it redistributes juices throughout the meat.`,
+        connectorLabel: "",
+      });
+    }
+
+    steps.push({
+      icon: <UtensilsCrossed className="w-4 h-4" />,
+      label: "Ready to Serve",
+      time: serveAt,
+      color: "bg-green-500/15 text-green-400 border-green-500/30",
+    });
+
+    return steps;
+  };
+
+  const timelineSteps = buildTimelineSteps();
 
   const handleGetPrediction = () => {
     const values = form.getValues();
@@ -142,8 +304,14 @@ export default function NewCook() {
       },
       {
         onSuccess: (data) => {
-          setPrediction(data);
-          toast({ title: `AI prediction: ~${fmtDuration(data.estimatedDurationMinutes)} cook time` });
+          setPrediction(data as Prediction);
+          const cookH = fmtDuration(data.estimatedDurationMinutes);
+          const wrapData = (data as Prediction).wrap;
+          const wrapMsg = wrapData?.method !== "none"
+            ? ` · Wrap at ${fmtDuration(wrapData.wrapAtMinutes)}`
+            : "";
+          const restMsg = wrapData?.restMinutes ? ` · ${fmtDuration(wrapData.restMinutes)} rest` : "";
+          toast({ title: `AI estimate: ${cookH} cook${wrapMsg}${restMsg}` });
         },
         onError: () => {
           toast({ title: "Prediction failed", variant: "destructive" });
@@ -153,8 +321,10 @@ export default function NewCook() {
   };
 
   const onSubmit = (data: CookFormValues) => {
-    const plannedStartAt = timeline?.foodOnAt?.toISOString() ?? undefined;
-    const plannedEndAt = timeline?.doneAt?.toISOString() ?? undefined;
+    const pred = prediction;
+    const plannedStartAt = pred ? new Date(pred.suggestedStartAt).toISOString() : undefined;
+    const plannedEndAt = pred ? new Date(pred.serveAt).toISOString()
+      : data.desiredFinishAt ? new Date(data.desiredFinishAt).toISOString() : undefined;
 
     createCook.mutate(
       {
@@ -168,6 +338,11 @@ export default function NewCook() {
           preheatMinutes: parseInt(data.preheatMinutes || "30") || 30,
           plannedStartAt: plannedStartAt ?? null,
           plannedEndAt: plannedEndAt ?? null,
+          wrapAtMinutes: pred?.wrap?.method !== "none" ? pred?.wrap?.wrapAtMinutes ?? null : null,
+          wrapMethod: pred?.wrap?.method ?? null,
+          wrapTempF: pred?.wrap?.wrapTempF ?? null,
+          wrapReason: pred?.wrap?.reason ?? null,
+          restMinutes: pred?.wrap?.restMinutes ?? null,
           notes: data.notes,
         },
       },
@@ -184,20 +359,18 @@ export default function NewCook() {
     );
   };
 
-  const selectedGrill = grills?.find((g) => g.id.toString() === watchedGrillId);
-
   return (
     <AppLayout>
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-2xl mx-auto space-y-5">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Plan a Cook</h1>
-          <p className="text-muted-foreground">Set up your session with grill preheat time built in.</p>
+          <p className="text-muted-foreground">Full timeline including preheat, wrap, rest, and serve.</p>
         </div>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 
-            {/* ── What + Grill ─────────────────────────────────── */}
+            {/* ── Session Details ─────────────────────────────── */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Session Details</CardTitle>
@@ -313,13 +486,12 @@ export default function NewCook() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Clock className="w-4 h-4 text-primary" />
-                  Cook Timing
+                  Cook Timing & Wrap Plan
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {/* Preheat time */}
                   <FormField
                     control={form.control}
                     name="preheatMinutes"
@@ -327,14 +499,7 @@ export default function NewCook() {
                       <FormItem>
                         <FormLabel>Grill Preheat Time (minutes)</FormLabel>
                         <FormControl>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="180"
-                            placeholder="30"
-                            {...field}
-                            data-testid="input-preheat"
-                          />
+                          <Input type="number" min="0" max="180" placeholder="30" {...field} data-testid="input-preheat" />
                         </FormControl>
                         {selectedGrill && (
                           <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -346,30 +511,22 @@ export default function NewCook() {
                       </FormItem>
                     )}
                   />
-
-                  {/* Desired finish time */}
                   <FormField
                     control={form.control}
                     name="desiredFinishAt"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Desired Finish Time (optional)</FormLabel>
+                        <FormLabel>Desired Serve Time (optional)</FormLabel>
                         <FormControl>
-                          <Input
-                            type="datetime-local"
-                            {...field}
-                            data-testid="input-finish-time"
-                            className="block"
-                          />
+                          <Input type="datetime-local" {...field} data-testid="input-finish-time" className="block" />
                         </FormControl>
-                        <p className="text-xs text-muted-foreground">When you want the food ready to serve</p>
+                        <p className="text-xs text-muted-foreground">When you want to sit down and eat</p>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
 
-                {/* AI Predict button */}
                 <div className="flex items-center gap-3">
                   <Button
                     type="button"
@@ -381,38 +538,57 @@ export default function NewCook() {
                     data-testid="btn-ai-predict"
                   >
                     <Sparkles className="w-4 h-4" />
-                    {aiPredict.isPending ? "Predicting…" : "Get AI Time Estimate"}
+                    {aiPredict.isPending ? "Predicting…" : "Get AI Estimate"}
                   </Button>
                   <span className="text-xs text-muted-foreground">
-                    Estimates cook duration based on food type, weight, and past cooks
+                    Predicts cook time, wrap timing, and rest — all in one
                   </span>
                 </div>
 
-                {/* AI prediction result */}
+                {/* AI result summary */}
                 {prediction && (
-                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-semibold text-primary">
-                          AI Estimate: ~{fmtDuration(prediction.estimatedDurationMinutes)} cook time
+                          ~{fmtDuration(prediction.estimatedDurationMinutes)} active cook
+                          {prediction.wrap.method !== "none" && ` · wrap at ${fmtDuration(prediction.wrap.wrapAtMinutes)}`}
+                          {prediction.wrap.restMinutes > 0 && ` · ${fmtDuration(prediction.wrap.restMinutes)} rest`}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">{prediction.rationale}</p>
                       </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
-                        prediction.confidence === "high"
-                          ? "bg-green-500/15 text-green-400 border-green-500/30"
-                          : prediction.confidence === "medium"
-                          ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30"
+                      <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full border font-medium ${
+                        prediction.confidence === "high" ? "bg-green-500/15 text-green-400 border-green-500/30"
+                          : prediction.confidence === "medium" ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30"
                           : "bg-muted text-muted-foreground border-border"
                       }`}>
                         {prediction.confidence} confidence
                       </span>
                     </div>
+
+                    {/* Wrap card */}
+                    {prediction.wrap.method !== "none" && (
+                      <div className={`rounded-md border p-3 text-sm ${WRAP_METHOD_COLORS[prediction.wrap.method] ?? "bg-muted/30 border-border"}`}>
+                        <div className="flex items-center gap-2 font-semibold mb-1">
+                          <Package className="w-4 h-4" />
+                          {WRAP_METHOD_LABELS[prediction.wrap.method]} at {fmtDuration(prediction.wrap.wrapAtMinutes)}
+                          {prediction.wrap.wrapTempF && <span className="font-normal opacity-80">({prediction.wrap.wrapTempF}°F internal)</span>}
+                        </div>
+                        <p className="text-xs opacity-90 leading-relaxed">{prediction.wrap.reason}</p>
+                      </div>
+                    )}
+                    {prediction.wrap.method === "none" && (
+                      <div className="rounded-md border border-border bg-muted/20 p-3 text-sm text-muted-foreground flex items-center gap-2">
+                        <Package className="w-4 h-4 shrink-0" />
+                        <span>No wrap needed for this cook.</span>
+                      </div>
+                    )}
+
                     {prediction.tips.length > 0 && (
-                      <ul className="space-y-1 pt-1">
+                      <ul className="space-y-1">
                         {prediction.tips.map((tip, i) => (
                           <li key={i} className="text-xs text-muted-foreground flex gap-1.5">
-                            <span className="text-primary mt-0.5">•</span>{tip}
+                            <span className="text-primary mt-0.5 shrink-0">•</span>{tip}
                           </li>
                         ))}
                       </ul>
@@ -420,85 +596,8 @@ export default function NewCook() {
                   </div>
                 )}
 
-                {/* Timeline preview */}
-                {timeline && (
-                  <div className="rounded-lg border bg-muted/20 overflow-hidden" data-testid="cook-timeline">
-                    <div className="px-4 py-2.5 border-b bg-muted/30">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cook Timeline</p>
-                    </div>
-                    <div className="p-4 space-y-0">
-                      {/* Light grill */}
-                      <div className="flex items-start gap-3">
-                        <div className="flex flex-col items-center">
-                          <div className="w-8 h-8 rounded-full bg-orange-500/20 border border-orange-500/40 flex items-center justify-center shrink-0">
-                            <Flame className="w-4 h-4 text-orange-400" />
-                          </div>
-                          <div className="w-0.5 h-8 bg-border mt-1" />
-                        </div>
-                        <div className="pt-1">
-                          <p className="text-sm font-semibold">Light the Grill</p>
-                          <p className="text-base font-bold text-orange-400">{formatTime(timeline.lightAt)}</p>
-                          <p className="text-xs text-muted-foreground">{formatDateTime(timeline.lightAt)}</p>
-                        </div>
-                      </div>
-
-                      {/* Preheat separator */}
-                      <div className="flex items-start gap-3">
-                        <div className="flex flex-col items-center w-8">
-                          <div className="w-0.5 flex-1 bg-border" />
-                        </div>
-                        <div className="py-1">
-                          <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">
-                            {fmtDuration(preheatMins)} preheat
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Food on */}
-                      <div className="flex items-start gap-3">
-                        <div className="flex flex-col items-center">
-                          <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
-                            <Utensils className="w-4 h-4 text-primary" />
-                          </div>
-                          <div className="w-0.5 h-8 bg-border mt-1" />
-                        </div>
-                        <div className="pt-1">
-                          <p className="text-sm font-semibold">Food On the Grill</p>
-                          <p className="text-base font-bold text-primary">{formatTime(timeline.foodOnAt)}</p>
-                          <p className="text-xs text-muted-foreground">{formatDateTime(timeline.foodOnAt)}</p>
-                        </div>
-                      </div>
-
-                      {/* Cook duration separator */}
-                      {cookMins > 0 && (
-                        <div className="flex items-start gap-3">
-                          <div className="flex flex-col items-center w-8">
-                            <div className="w-0.5 flex-1 bg-border" />
-                          </div>
-                          <div className="py-1">
-                            <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">
-                              ~{fmtDuration(cookMins)} cook time
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Done */}
-                      <div className="flex items-start gap-3">
-                        <div className="flex flex-col items-center">
-                          <div className="w-8 h-8 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center shrink-0">
-                            <CheckCircle2 className="w-4 h-4 text-green-400" />
-                          </div>
-                        </div>
-                        <div className="pt-1">
-                          <p className="text-sm font-semibold">Ready to Serve</p>
-                          <p className="text-base font-bold text-green-400">{formatTime(timeline.doneAt)}</p>
-                          <p className="text-xs text-muted-foreground">{formatDateTime(timeline.doneAt)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* Full cook timeline */}
+                {timelineSteps && <CookTimeline steps={timelineSteps} />}
               </CardContent>
             </Card>
 
@@ -526,7 +625,7 @@ export default function NewCook() {
               </CardContent>
             </Card>
 
-            <div className="flex gap-4 pb-4">
+            <div className="flex gap-4 pb-6">
               <Button type="button" variant="outline" onClick={() => setLocation("/cooks")} className="w-full">
                 Cancel
               </Button>

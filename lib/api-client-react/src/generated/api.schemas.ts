@@ -87,6 +87,20 @@ export const CookStatus = {
   cancelled: "cancelled",
 } as const;
 
+/**
+ * Wrapping method recommended
+ * @nullable
+ */
+export type CookWrapMethod =
+  | (typeof CookWrapMethod)[keyof typeof CookWrapMethod]
+  | null;
+
+export const CookWrapMethod = {
+  foil: "foil",
+  butcher_paper: "butcher_paper",
+  none: "none",
+} as const;
+
 export interface Cook {
   id: number;
   /** @nullable */
@@ -116,6 +130,31 @@ export interface Cook {
    * @nullable
    */
   preheatMinutes: number | null;
+  /**
+   * Minutes into the cook when meat should be wrapped
+   * @nullable
+   */
+  wrapAtMinutes: number | null;
+  /**
+   * Wrapping method recommended
+   * @nullable
+   */
+  wrapMethod: CookWrapMethod;
+  /**
+   * Internal meat temp at which to wrap
+   * @nullable
+   */
+  wrapTempF: number | null;
+  /**
+   * Explanation of why and how to wrap
+   * @nullable
+   */
+  wrapReason: string | null;
+  /**
+   * Recommended rest time after pulling from grill
+   * @nullable
+   */
+  restMinutes: number | null;
   /** @nullable */
   rating: number | null;
   /** @nullable */
@@ -132,6 +171,19 @@ export const CreateCookBodyStatus = {
   active: "active",
   completed: "completed",
   cancelled: "cancelled",
+} as const;
+
+/**
+ * @nullable
+ */
+export type CreateCookBodyWrapMethod =
+  | (typeof CreateCookBodyWrapMethod)[keyof typeof CreateCookBodyWrapMethod]
+  | null;
+
+export const CreateCookBodyWrapMethod = {
+  foil: "foil",
+  butcher_paper: "butcher_paper",
+  none: "none",
 } as const;
 
 export interface CreateCookBody {
@@ -156,6 +208,22 @@ export interface CreateCookBody {
    * @nullable
    */
   preheatMinutes?: number | null;
+  /**
+   * Minutes into the cook when meat should be wrapped
+   * @nullable
+   */
+  wrapAtMinutes?: number | null;
+  /** @nullable */
+  wrapMethod?: CreateCookBodyWrapMethod;
+  /** @nullable */
+  wrapTempF?: number | null;
+  /** @nullable */
+  wrapReason?: string | null;
+  /**
+   * Recommended rest time after pulling from grill
+   * @nullable
+   */
+  restMinutes?: number | null;
   /** @nullable */
   recipeId?: number | null;
 }
@@ -172,6 +240,19 @@ export const UpdateCookBodyStatus = {
   active: "active",
   completed: "completed",
   cancelled: "cancelled",
+} as const;
+
+/**
+ * @nullable
+ */
+export type UpdateCookBodyWrapMethod =
+  | (typeof UpdateCookBodyWrapMethod)[keyof typeof UpdateCookBodyWrapMethod]
+  | null;
+
+export const UpdateCookBodyWrapMethod = {
+  foil: "foil",
+  butcher_paper: "butcher_paper",
+  none: "none",
 } as const;
 
 export interface UpdateCookBody {
@@ -202,6 +283,16 @@ export interface UpdateCookBody {
    * @nullable
    */
   preheatMinutes?: number | null;
+  /** @nullable */
+  wrapAtMinutes?: number | null;
+  /** @nullable */
+  wrapMethod?: UpdateCookBodyWrapMethod;
+  /** @nullable */
+  wrapTempF?: number | null;
+  /** @nullable */
+  wrapReason?: string | null;
+  /** @nullable */
+  restMinutes?: number | null;
   /** @nullable */
   rating?: number | null;
   /** @nullable */
@@ -355,6 +446,34 @@ export interface AiPredictBody {
   preheatMinutes?: number | null;
 }
 
+/**
+ * Recommended wrapping material
+ */
+export type WrapRecommendationMethod =
+  (typeof WrapRecommendationMethod)[keyof typeof WrapRecommendationMethod];
+
+export const WrapRecommendationMethod = {
+  foil: "foil",
+  butcher_paper: "butcher_paper",
+  none: "none",
+} as const;
+
+export interface WrapRecommendation {
+  /** Minutes into the cook when meat should be wrapped */
+  wrapAtMinutes: number;
+  /** Recommended wrapping material */
+  method: WrapRecommendationMethod;
+  /**
+   * Internal meat temp at which to wrap (if applicable)
+   * @nullable
+   */
+  wrapTempF: number | null;
+  /** Why to wrap, how to do it, and what to expect */
+  reason: string;
+  /** Recommended rest time in minutes after pulling from grill */
+  restMinutes: number;
+}
+
 export type AiPredictResponseConfidence =
   (typeof AiPredictResponseConfidence)[keyof typeof AiPredictResponseConfidence];
 
@@ -365,6 +484,7 @@ export const AiPredictResponseConfidence = {
 } as const;
 
 export interface AiPredictResponse {
+  /** Active cook time only (food on → off grill), excluding preheat and rest */
   estimatedDurationMinutes: number;
   /** Minutes needed to start and bring the grill up to cook temperature */
   preheatMinutes: number;
@@ -378,8 +498,17 @@ export interface AiPredictResponse {
    * @nullable
    */
   suggestedStartAt: string | null;
-  /** @nullable */
+  /**
+   * When food comes off the grill (before rest)
+   * @nullable
+   */
   estimatedFinishAt: string | null;
+  /**
+   * When food is ready to serve (after rest)
+   * @nullable
+   */
+  serveAt: string | null;
+  wrap: WrapRecommendation;
   confidence: AiPredictResponseConfidence;
   rationale: string;
   tips: string[];

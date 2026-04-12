@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { UpdateCookBodyStatus } from "./updateCookBodyStatus";
+import type { UpdateCookBodyWrapMethod } from "./updateCookBodyWrapMethod";
 
 export interface UpdateCookBody {
   /** @nullable */
@@ -35,6 +36,16 @@ export interface UpdateCookBody {
    * @nullable
    */
   preheatMinutes?: number | null;
+  /** @nullable */
+  wrapAtMinutes?: number | null;
+  /** @nullable */
+  wrapMethod?: UpdateCookBodyWrapMethod;
+  /** @nullable */
+  wrapTempF?: number | null;
+  /** @nullable */
+  wrapReason?: string | null;
+  /** @nullable */
+  restMinutes?: number | null;
   /** @nullable */
   rating?: number | null;
   /** @nullable */

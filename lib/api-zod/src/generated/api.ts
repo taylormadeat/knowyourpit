@@ -167,6 +167,31 @@ export const ListCooksResponseItem = zod.object({
     .describe(
       "Minutes needed to start and bring the grill up to cook temperature",
     ),
+  wrapAtMinutes: zod
+    .number()
+    .nullable()
+    .describe("Minutes into the cook when meat should be wrapped"),
+  wrapMethod: zod
+    .union([
+      zod.literal("foil"),
+      zod.literal("butcher_paper"),
+      zod.literal("none"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Wrapping method recommended"),
+  wrapTempF: zod
+    .number()
+    .nullable()
+    .describe("Internal meat temp at which to wrap"),
+  wrapReason: zod
+    .string()
+    .nullable()
+    .describe("Explanation of why and how to wrap"),
+  restMinutes: zod
+    .number()
+    .nullable()
+    .describe("Recommended rest time after pulling from grill"),
   rating: zod.number().nullable(),
   recipeId: zod.number().nullable(),
   createdAt: zod.coerce.date(),
@@ -193,6 +218,24 @@ export const CreateCookBody = zod.object({
     .describe(
       "Minutes needed to start and bring the grill up to cook temperature",
     ),
+  wrapAtMinutes: zod
+    .number()
+    .nullish()
+    .describe("Minutes into the cook when meat should be wrapped"),
+  wrapMethod: zod
+    .union([
+      zod.literal("foil"),
+      zod.literal("butcher_paper"),
+      zod.literal("none"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  wrapTempF: zod.number().nullish(),
+  wrapReason: zod.string().nullish(),
+  restMinutes: zod
+    .number()
+    .nullish()
+    .describe("Recommended rest time after pulling from grill"),
   recipeId: zod.number().nullish(),
 });
 
@@ -223,6 +266,31 @@ export const GetCookResponse = zod.object({
     .describe(
       "Minutes needed to start and bring the grill up to cook temperature",
     ),
+  wrapAtMinutes: zod
+    .number()
+    .nullable()
+    .describe("Minutes into the cook when meat should be wrapped"),
+  wrapMethod: zod
+    .union([
+      zod.literal("foil"),
+      zod.literal("butcher_paper"),
+      zod.literal("none"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Wrapping method recommended"),
+  wrapTempF: zod
+    .number()
+    .nullable()
+    .describe("Internal meat temp at which to wrap"),
+  wrapReason: zod
+    .string()
+    .nullable()
+    .describe("Explanation of why and how to wrap"),
+  restMinutes: zod
+    .number()
+    .nullable()
+    .describe("Recommended rest time after pulling from grill"),
   rating: zod.number().nullable(),
   recipeId: zod.number().nullable(),
   createdAt: zod.coerce.date(),
@@ -262,6 +330,18 @@ export const UpdateCookBody = zod.object({
     .describe(
       "Minutes needed to start and bring the grill up to cook temperature",
     ),
+  wrapAtMinutes: zod.number().nullish(),
+  wrapMethod: zod
+    .union([
+      zod.literal("foil"),
+      zod.literal("butcher_paper"),
+      zod.literal("none"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  wrapTempF: zod.number().nullish(),
+  wrapReason: zod.string().nullish(),
+  restMinutes: zod.number().nullish(),
   rating: zod.number().nullish(),
   recipeId: zod.number().nullish(),
 });
@@ -286,6 +366,31 @@ export const UpdateCookResponse = zod.object({
     .describe(
       "Minutes needed to start and bring the grill up to cook temperature",
     ),
+  wrapAtMinutes: zod
+    .number()
+    .nullable()
+    .describe("Minutes into the cook when meat should be wrapped"),
+  wrapMethod: zod
+    .union([
+      zod.literal("foil"),
+      zod.literal("butcher_paper"),
+      zod.literal("none"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Wrapping method recommended"),
+  wrapTempF: zod
+    .number()
+    .nullable()
+    .describe("Internal meat temp at which to wrap"),
+  wrapReason: zod
+    .string()
+    .nullable()
+    .describe("Explanation of why and how to wrap"),
+  restMinutes: zod
+    .number()
+    .nullable()
+    .describe("Recommended rest time after pulling from grill"),
   rating: zod.number().nullable(),
   recipeId: zod.number().nullable(),
   createdAt: zod.coerce.date(),
@@ -522,7 +627,11 @@ export const AiPredictBody = zod.object({
 });
 
 export const AiPredictResponse = zod.object({
-  estimatedDurationMinutes: zod.number(),
+  estimatedDurationMinutes: zod
+    .number()
+    .describe(
+      "Active cook time only (food on → off grill), excluding preheat and rest",
+    ),
   preheatMinutes: zod
     .number()
     .describe(
@@ -536,7 +645,32 @@ export const AiPredictResponse = zod.object({
     .date()
     .nullable()
     .describe("When to put food on the grill"),
-  estimatedFinishAt: zod.coerce.date().nullable(),
+  estimatedFinishAt: zod.coerce
+    .date()
+    .nullable()
+    .describe("When food comes off the grill (before rest)"),
+  serveAt: zod.coerce
+    .date()
+    .nullable()
+    .describe("When food is ready to serve (after rest)"),
+  wrap: zod.object({
+    wrapAtMinutes: zod
+      .number()
+      .describe("Minutes into the cook when meat should be wrapped"),
+    method: zod
+      .enum(["foil", "butcher_paper", "none"])
+      .describe("Recommended wrapping material"),
+    wrapTempF: zod
+      .number()
+      .nullable()
+      .describe("Internal meat temp at which to wrap (if applicable)"),
+    reason: zod
+      .string()
+      .describe("Why to wrap, how to do it, and what to expect"),
+    restMinutes: zod
+      .number()
+      .describe("Recommended rest time in minutes after pulling from grill"),
+  }),
   confidence: zod.enum(["low", "medium", "high"]),
   rationale: zod.string(),
   tips: zod.array(zod.string()),
@@ -742,6 +876,31 @@ export const GetRecentCooksResponseItem = zod.object({
     .describe(
       "Minutes needed to start and bring the grill up to cook temperature",
     ),
+  wrapAtMinutes: zod
+    .number()
+    .nullable()
+    .describe("Minutes into the cook when meat should be wrapped"),
+  wrapMethod: zod
+    .union([
+      zod.literal("foil"),
+      zod.literal("butcher_paper"),
+      zod.literal("none"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Wrapping method recommended"),
+  wrapTempF: zod
+    .number()
+    .nullable()
+    .describe("Internal meat temp at which to wrap"),
+  wrapReason: zod
+    .string()
+    .nullable()
+    .describe("Explanation of why and how to wrap"),
+  restMinutes: zod
+    .number()
+    .nullable()
+    .describe("Recommended rest time after pulling from grill"),
   rating: zod.number().nullable(),
   recipeId: zod.number().nullable(),
   createdAt: zod.coerce.date(),

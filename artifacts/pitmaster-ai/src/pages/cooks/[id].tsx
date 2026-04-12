@@ -11,7 +11,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Trash2, Thermometer, Flame, Clock, Play, CheckCircle, Utensils, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Trash2, Thermometer, Flame, Clock, Play, CheckCircle, Utensils, CheckCircle2, Package, BedDouble, UtensilsCrossed } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
@@ -209,66 +209,93 @@ export default function CookDetail() {
                 </div>
               </div>
 
-              {/* Preheat timeline if timing is set */}
+              {/* Full cook timeline if timing is set */}
               {cook.plannedStartAt && (
                 <div>
                   <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                     <Clock className="w-4 h-4 text-primary" />
                     Cook Timeline
                   </h4>
-                  <div className="space-y-0">
-                    {(() => {
-                      const preheat = cook.preheatMinutes ?? 30;
-                      const foodOn = new Date(cook.plannedStartAt!);
-                      const lightGrill = new Date(foodOn.getTime() - preheat * 60000);
-                      const done = cook.plannedEndAt ? new Date(cook.plannedEndAt) : null;
-                      const fmt = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-                      const fmtDate = (d: Date) => d.toLocaleDateString([], { month: "short", day: "numeric" });
-                      return (
-                        <>
-                          <div className="flex items-center gap-2.5 pb-2">
-                            <div className="w-6 h-6 rounded-full bg-orange-500/20 border border-orange-500/40 flex items-center justify-center shrink-0">
-                              <Flame className="w-3 h-3 text-orange-400" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-xs font-medium">Light the Grill</p>
-                              <p className="text-sm font-bold text-orange-400">{fmt(lightGrill)} <span className="text-xs font-normal text-muted-foreground">· {fmtDate(lightGrill)}</span></p>
-                            </div>
-                          </div>
-                          <div className="ml-3 pl-2.5 border-l border-border pb-2">
-                            <p className="text-xs text-muted-foreground">{preheat}min preheat</p>
-                          </div>
-                          <div className="flex items-center gap-2.5 pb-2">
-                            <div className="w-6 h-6 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
-                              <Utensils className="w-3 h-3 text-primary" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-xs font-medium">Food On</p>
-                              <p className="text-sm font-bold text-primary">{fmt(foodOn)} <span className="text-xs font-normal text-muted-foreground">· {fmtDate(foodOn)}</span></p>
-                            </div>
-                          </div>
-                          {done && (
-                            <>
-                              <div className="ml-3 pl-2.5 border-l border-border pb-2">
-                                <p className="text-xs text-muted-foreground">
-                                  {Math.round((done.getTime() - foodOn.getTime()) / 60000)}min cook
-                                </p>
+                  {(() => {
+                    const preheat = cook.preheatMinutes ?? 30;
+                    const restMins = cook.restMinutes ?? 0;
+                    const foodOn = new Date(cook.plannedStartAt!);
+                    const lightGrill = new Date(foodOn.getTime() - preheat * 60000);
+                    const serveAt = cook.plannedEndAt ? new Date(cook.plannedEndAt) : null;
+                    const offGrill = serveAt && restMins > 0
+                      ? new Date(serveAt.getTime() - restMins * 60000)
+                      : serveAt;
+                    const wrapAt = cook.wrapAtMinutes && cook.wrapMethod && cook.wrapMethod !== "none"
+                      ? new Date(foodOn.getTime() + cook.wrapAtMinutes * 60000)
+                      : null;
+
+                    const fmt = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                    const fmtDate = (d: Date) => d.toLocaleDateString([], { month: "short", day: "numeric" });
+                    const fmtDur = (m: number) => {
+                      const h = Math.floor(m / 60); const min = m % 60;
+                      return h > 0 ? `${h}h${min > 0 ? ` ${min}m` : ""}` : `${min}m`;
+                    };
+                    const wrapLabels: Record<string, string> = {
+                      foil: "Aluminum Foil (Texas Crutch)", butcher_paper: "Butcher Paper", none: "No Wrap",
+                    };
+
+                    type Step = { icon: React.ReactNode; label: string; time: Date; colorClass: string; connector?: string; note?: string; badge?: string };
+                    const steps: Step[] = [];
+
+                    steps.push({ icon: <Flame className="w-3 h-3" />, label: "Light the Grill", time: lightGrill, colorClass: "bg-orange-500/20 border-orange-500/40 text-orange-400", connector: `${fmtDur(preheat)} preheat` });
+                    steps.push({ icon: <Utensils className="w-3 h-3" />, label: "Food On", time: foodOn, colorClass: "bg-primary/20 border-primary/40 text-primary", connector: wrapAt ? `${fmtDur(cook.wrapAtMinutes!)} unwrapped` : offGrill ? `${fmtDur(Math.round((offGrill.getTime() - foodOn.getTime()) / 60000))} cook` : undefined });
+
+                    if (wrapAt && cook.wrapMethod) {
+                      steps.push({ icon: <Package className="w-3 h-3" />, label: "Wrap", time: wrapAt, colorClass: "bg-blue-500/20 border-blue-500/40 text-blue-400", badge: wrapLabels[cook.wrapMethod] ?? cook.wrapMethod, note: cook.wrapReason ?? undefined, connector: offGrill ? `${fmtDur(Math.round((offGrill.getTime() - wrapAt.getTime()) / 60000))} wrapped` : undefined });
+                    }
+
+                    if (offGrill) {
+                      steps.push({ icon: <CheckCircle2 className="w-3 h-3" />, label: "Off the Grill", time: offGrill, colorClass: "bg-yellow-500/20 border-yellow-500/40 text-yellow-500", connector: restMins > 0 ? `${fmtDur(restMins)} rest` : undefined });
+                    }
+
+                    if (restMins > 0 && offGrill) {
+                      steps.push({ icon: <BedDouble className="w-3 h-3" />, label: `Rest (${fmtDur(restMins)})`, time: offGrill, colorClass: "bg-purple-500/20 border-purple-500/40 text-purple-400", note: "Let meat rest before slicing to redistribute juices." });
+                    }
+
+                    if (serveAt) {
+                      steps.push({ icon: <UtensilsCrossed className="w-3 h-3" />, label: "Ready to Serve", time: serveAt, colorClass: "bg-green-500/20 border-green-500/40 text-green-400" });
+                    }
+
+                    return (
+                      <div className="space-y-0">
+                        {steps.map((step, i) => (
+                          <div key={i}>
+                            <div className="flex items-start gap-2 pb-1">
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border ${step.colorClass}`}>
+                                {step.icon}
                               </div>
-                              <div className="flex items-center gap-2.5">
-                                <div className="w-6 h-6 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center shrink-0">
-                                  <CheckCircle2 className="w-3 h-3 text-green-400" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold leading-tight">{step.label}</p>
+                                {step.badge && <p className="text-xs text-blue-400 font-medium">{step.badge}</p>}
+                                <p className="text-sm font-bold leading-tight">{fmt(step.time)} <span className="text-xs font-normal text-muted-foreground">· {fmtDate(step.time)}</span></p>
+                                {step.note && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{step.note}</p>}
+                              </div>
+                            </div>
+                            {i < steps.length - 1 && step.connector && (
+                              <div className="flex items-start gap-2 py-0.5">
+                                <div className="w-6 flex justify-center shrink-0">
+                                  <div className="w-0.5 h-5 bg-border" />
                                 </div>
-                                <div className="flex-1">
-                                  <p className="text-xs font-medium">Ready to Serve</p>
-                                  <p className="text-sm font-bold text-green-400">{fmt(done)} <span className="text-xs font-normal text-muted-foreground">· {fmtDate(done)}</span></p>
+                                <span className="text-xs text-muted-foreground self-center">{step.connector}</span>
+                              </div>
+                            )}
+                            {i < steps.length - 1 && !step.connector && (
+                              <div className="flex gap-2 py-0.5">
+                                <div className="w-6 flex justify-center shrink-0">
+                                  <div className="w-0.5 h-3 bg-border" />
                                 </div>
                               </div>
-                            </>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
