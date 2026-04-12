@@ -155,7 +155,25 @@ export interface Cook {
    * @nullable
    */
   restMinutes: number | null;
-  /** @nullable */
+  /**
+   * 1-5 rating for meat tenderness
+   * @nullable
+   */
+  ratingTenderness: number | null;
+  /**
+   * 1-5 rating for bark/crust/exterior color
+   * @nullable
+   */
+  ratingBark: number | null;
+  /**
+   * 1-5 rating for overall flavor
+   * @nullable
+   */
+  ratingFlavor: number | null;
+  /**
+   * Overall score (1-5), computed as average of sub-ratings
+   * @nullable
+   */
   rating: number | null;
   /** @nullable */
   recipeId: number | null;
@@ -293,6 +311,12 @@ export interface UpdateCookBody {
   wrapReason?: string | null;
   /** @nullable */
   restMinutes?: number | null;
+  /** @nullable */
+  ratingTenderness?: number | null;
+  /** @nullable */
+  ratingBark?: number | null;
+  /** @nullable */
+  ratingFlavor?: number | null;
   /** @nullable */
   rating?: number | null;
   /** @nullable */

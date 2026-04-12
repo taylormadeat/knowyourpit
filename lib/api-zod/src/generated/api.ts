@@ -192,7 +192,22 @@ export const ListCooksResponseItem = zod.object({
     .number()
     .nullable()
     .describe("Recommended rest time after pulling from grill"),
-  rating: zod.number().nullable(),
+  ratingTenderness: zod
+    .number()
+    .nullable()
+    .describe("1-5 rating for meat tenderness"),
+  ratingBark: zod
+    .number()
+    .nullable()
+    .describe("1-5 rating for bark\/crust\/exterior color"),
+  ratingFlavor: zod
+    .number()
+    .nullable()
+    .describe("1-5 rating for overall flavor"),
+  rating: zod
+    .number()
+    .nullable()
+    .describe("Overall score (1-5), computed as average of sub-ratings"),
   recipeId: zod.number().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -291,7 +306,22 @@ export const GetCookResponse = zod.object({
     .number()
     .nullable()
     .describe("Recommended rest time after pulling from grill"),
-  rating: zod.number().nullable(),
+  ratingTenderness: zod
+    .number()
+    .nullable()
+    .describe("1-5 rating for meat tenderness"),
+  ratingBark: zod
+    .number()
+    .nullable()
+    .describe("1-5 rating for bark\/crust\/exterior color"),
+  ratingFlavor: zod
+    .number()
+    .nullable()
+    .describe("1-5 rating for overall flavor"),
+  rating: zod
+    .number()
+    .nullable()
+    .describe("Overall score (1-5), computed as average of sub-ratings"),
   recipeId: zod.number().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -342,6 +372,9 @@ export const UpdateCookBody = zod.object({
   wrapTempF: zod.number().nullish(),
   wrapReason: zod.string().nullish(),
   restMinutes: zod.number().nullish(),
+  ratingTenderness: zod.number().nullish(),
+  ratingBark: zod.number().nullish(),
+  ratingFlavor: zod.number().nullish(),
   rating: zod.number().nullish(),
   recipeId: zod.number().nullish(),
 });
@@ -391,7 +424,22 @@ export const UpdateCookResponse = zod.object({
     .number()
     .nullable()
     .describe("Recommended rest time after pulling from grill"),
-  rating: zod.number().nullable(),
+  ratingTenderness: zod
+    .number()
+    .nullable()
+    .describe("1-5 rating for meat tenderness"),
+  ratingBark: zod
+    .number()
+    .nullable()
+    .describe("1-5 rating for bark\/crust\/exterior color"),
+  ratingFlavor: zod
+    .number()
+    .nullable()
+    .describe("1-5 rating for overall flavor"),
+  rating: zod
+    .number()
+    .nullable()
+    .describe("Overall score (1-5), computed as average of sub-ratings"),
   recipeId: zod.number().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -901,7 +949,22 @@ export const GetRecentCooksResponseItem = zod.object({
     .number()
     .nullable()
     .describe("Recommended rest time after pulling from grill"),
-  rating: zod.number().nullable(),
+  ratingTenderness: zod
+    .number()
+    .nullable()
+    .describe("1-5 rating for meat tenderness"),
+  ratingBark: zod
+    .number()
+    .nullable()
+    .describe("1-5 rating for bark\/crust\/exterior color"),
+  ratingFlavor: zod
+    .number()
+    .nullable()
+    .describe("1-5 rating for overall flavor"),
+  rating: zod
+    .number()
+    .nullable()
+    .describe("Overall score (1-5), computed as average of sub-ratings"),
   recipeId: zod.number().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),

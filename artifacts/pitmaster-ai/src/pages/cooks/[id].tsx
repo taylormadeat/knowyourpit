@@ -11,7 +11,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Trash2, Thermometer, Flame, Clock, Play, CheckCircle, Utensils, CheckCircle2, Package, BedDouble, UtensilsCrossed } from "lucide-react";
+import { ArrowLeft, Trash2, Thermometer, Flame, Clock, Play, CheckCircle, Utensils, CheckCircle2, Package, BedDouble, UtensilsCrossed, Star } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
@@ -27,6 +27,63 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+
+// ── Star picker ──────────────────────────────────────────────────────────────
+function StarPicker({ value, onChange, size = "md" }: { value: number; onChange: (v: number) => void; size?: "sm" | "md" }) {
+  const [hovered, setHovered] = useState(0);
+  const px = size === "sm" ? "w-4 h-4" : "w-6 h-6";
+  return (
+    <div className="flex gap-0.5" onMouseLeave={() => setHovered(0)}>
+      {[1, 2, 3, 4, 5].map((star) => {
+        const filled = star <= (hovered || value);
+        return (
+          <button
+            key={star}
+            type="button"
+            onClick={() => onChange(star)}
+            onMouseEnter={() => setHovered(star)}
+            className="focus:outline-none"
+          >
+            <Star
+              className={`${px} transition-colors ${filled ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
+            />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Score ring ───────────────────────────────────────────────────────────────
+function ScoreRing({ score }: { score: number }) {
+  const pct = (score / 5) * 100;
+  const color = score >= 4 ? "#22c55e" : score >= 3 ? "#f59e0b" : "#ef4444";
+  const r = 28;
+  const circ = 2 * Math.PI * r;
+  const dash = (pct / 100) * circ;
+
+  return (
+    <div className="relative w-20 h-20 flex items-center justify-center">
+      <svg className="absolute inset-0 -rotate-90" width="80" height="80" viewBox="0 0 80 80">
+        <circle cx="40" cy="40" r={r} fill="none" stroke="hsl(var(--muted))" strokeWidth="6" />
+        <circle
+          cx="40" cy="40" r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth="6"
+          strokeLinecap="round"
+          strokeDasharray={`${dash} ${circ}`}
+          className="transition-all duration-500"
+        />
+      </svg>
+      <div className="text-center leading-none z-10">
+        <p className="text-2xl font-bold tabular-nums" style={{ color }}>{score.toFixed(1)}</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5">/ 5.0</p>
+      </div>
+    </div>
+  );
+}
 
 export default function CookDetail() {
   const { id } = useParams();
@@ -70,6 +127,26 @@ export default function CookDetail() {
     });
   };
 
+  const saveRatings = (patch: { ratingTenderness?: number | null; ratingBark?: number | null; ratingFlavor?: number | null }) => {
+    const next = {
+      ratingTenderness: patch.ratingTenderness !== undefined ? patch.ratingTenderness : (cook?.ratingTenderness ?? null),
+      ratingBark: patch.ratingBark !== undefined ? patch.ratingBark : (cook?.ratingBark ?? null),
+      ratingFlavor: patch.ratingFlavor !== undefined ? patch.ratingFlavor : (cook?.ratingFlavor ?? null),
+    };
+    const subs = [next.ratingTenderness, next.ratingBark, next.ratingFlavor].filter(Boolean) as number[];
+    const overall = subs.length > 0 ? Math.round((subs.reduce((a, b) => a + b, 0) / subs.length) * 10) / 10 : null;
+    updateCook.mutate(
+      { id: cookId, data: { ...next, rating: overall !== null ? Math.round(overall) : null } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetCookQueryKey(cookId) });
+          queryClient.invalidateQueries({ queryKey: getListCooksQueryKey() });
+        },
+        onError: () => toast({ title: "Failed to save rating", variant: "destructive" }),
+      }
+    );
+  };
+
   if (isLoadingCook || !cook) {
     return (
       <AppLayout>
@@ -87,6 +164,38 @@ export default function CookDetail() {
     temp: t.tempF,
     probe: `Probe ${t.probeNumber}`
   })) || [];
+
+  // Computed overall from sub-ratings
+  const subRatings = [cook.ratingTenderness, cook.ratingBark, cook.ratingFlavor].filter(Boolean) as number[];
+  const overallScore = subRatings.length > 0
+    ? Math.round((subRatings.reduce((a, b) => a + b, 0) / subRatings.length) * 10) / 10
+    : null;
+
+  const ratingCategories = [
+    {
+      key: "ratingTenderness" as const,
+      label: "Tenderness",
+      description: "Pull-apart texture, moisture, melt-in-mouth",
+      value: cook.ratingTenderness ?? 0,
+      emoji: "🥩",
+    },
+    {
+      key: "ratingBark" as const,
+      label: "Bark & Color",
+      description: "Crust formation, smoke ring, exterior color",
+      value: cook.ratingBark ?? 0,
+      emoji: "🔥",
+    },
+    {
+      key: "ratingFlavor" as const,
+      label: "Flavor",
+      description: "Smokiness, seasoning balance, depth of taste",
+      value: cook.ratingFlavor ?? 0,
+      emoji: "✨",
+    },
+  ];
+
+  const showRatingCard = cook.status === "completed" || subRatings.length > 0;
 
   return (
     <AppLayout>
@@ -143,39 +252,124 @@ export default function CookDetail() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="col-span-1 md:col-span-2">
-            <CardHeader>
-              <CardTitle>Temperature Log</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoadingTemps ? (
-                <Skeleton className="h-[300px] w-full" />
-              ) : chartData.length > 0 ? (
-                <div className="h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="time" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} domain={['auto', 'auto']} />
-                      <RechartsTooltip 
-                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
-                      />
-                      <Line type="monotone" dataKey="temp" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-[300px] border border-dashed rounded-lg bg-muted/20">
-                  <Thermometer className="w-12 h-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">No temperature data uploaded yet.</p>
-                  <Button variant="link" asChild className="mt-2">
-                    <Link href={`/temperature/upload?cookId=${cook.id}`}>Upload Data</Link>
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* Left column: temp chart + rating card */}
+          <div className="col-span-1 md:col-span-2 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Temperature Log</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoadingTemps ? (
+                  <Skeleton className="h-[300px] w-full" />
+                ) : chartData.length > 0 ? (
+                  <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="time" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} domain={['auto', 'auto']} />
+                        <RechartsTooltip 
+                          contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
+                        />
+                        <Line type="monotone" dataKey="temp" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-[300px] border border-dashed rounded-lg bg-muted/20">
+                    <Thermometer className="w-12 h-12 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">No temperature data uploaded yet.</p>
+                    <Button variant="link" asChild className="mt-2">
+                      <Link href={`/temperature/upload?cookId=${cook.id}`}>Upload Data</Link>
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
+            {/* ── Rating Card ─────────────────────────────────────── */}
+            {showRatingCard && (
+              <Card className="border-amber-500/20" data-testid="rating-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                    Rate This Cook
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col sm:flex-row gap-6 items-start">
+                    {/* Overall score ring */}
+                    <div className="flex flex-col items-center gap-2 shrink-0 sm:border-r sm:border-border sm:pr-6">
+                      {overallScore !== null ? (
+                        <>
+                          <ScoreRing score={overallScore} />
+                          <p className="text-xs text-muted-foreground text-center font-medium">Overall Score</p>
+                        </>
+                      ) : (
+                        <div className="w-20 h-20 rounded-full border-4 border-dashed border-muted flex items-center justify-center">
+                          <Star className="w-7 h-7 text-muted-foreground/30" />
+                        </div>
+                      )}
+                      {overallScore === null && (
+                        <p className="text-xs text-muted-foreground text-center">Rate below</p>
+                      )}
+                    </div>
+
+                    {/* Sub-rating rows */}
+                    <div className="flex-1 space-y-4 w-full">
+                      {ratingCategories.map((cat) => (
+                        <div key={cat.key} className="flex items-center justify-between gap-4" data-testid={`rating-row-${cat.key}`}>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold leading-tight">{cat.emoji} {cat.label}</p>
+                            <p className="text-xs text-muted-foreground leading-tight">{cat.description}</p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <StarPicker
+                              value={cat.value}
+                              onChange={(v) => saveRatings({ [cat.key]: v })}
+                            />
+                            {cat.value > 0 && (
+                              <span className="text-sm font-bold tabular-nums text-amber-400 w-4 text-right">{cat.value}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Score breakdown bar */}
+                      {overallScore !== null && (
+                        <div className="pt-2 border-t border-border mt-2">
+                          <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                            <span>Score breakdown</span>
+                            <span className="font-semibold text-foreground">{overallScore.toFixed(1)} / 5.0</span>
+                          </div>
+                          <div className="flex gap-1 h-2 rounded-full overflow-hidden bg-muted">
+                            {ratingCategories.map((cat) => (
+                              <div
+                                key={cat.key}
+                                className="transition-all duration-300 rounded-full"
+                                style={{
+                                  flex: cat.value,
+                                  backgroundColor: cat.value >= 4 ? "#22c55e" : cat.value >= 3 ? "#f59e0b" : cat.value > 0 ? "#ef4444" : "transparent",
+                                }}
+                                title={`${cat.label}: ${cat.value}/5`}
+                              />
+                            ))}
+                          </div>
+                          <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                            {ratingCategories.map((cat) => (
+                              <span key={cat.key}>{cat.label} {cat.value > 0 ? `${cat.value}/5` : "—"}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Right sidebar: details + timeline + notes */}
           <Card className="col-span-1">
             <CardHeader>
               <CardTitle>Details</CardTitle>
@@ -209,7 +403,7 @@ export default function CookDetail() {
                 </div>
               </div>
 
-              {/* Full cook timeline if timing is set */}
+              {/* Full cook timeline */}
               {cook.plannedStartAt && (
                 <div>
                   <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">

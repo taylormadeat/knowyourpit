@@ -833,8 +833,18 @@ components:
         restMinutes:
           type: ["integer", "null"]
           description: Recommended rest time after pulling from grill
+        ratingTenderness:
+          type: ["integer", "null"]
+          description: 1-5 rating for meat tenderness
+        ratingBark:
+          type: ["integer", "null"]
+          description: 1-5 rating for bark/crust/exterior color
+        ratingFlavor:
+          type: ["integer", "null"]
+          description: 1-5 rating for overall flavor
         rating:
           type: ["integer", "null"]
+          description: Overall score (1-5), computed as average of sub-ratings
         recipeId:
           type: ["integer", "null"]
         createdAt:
@@ -863,6 +873,9 @@ components:
         - wrapTempF
         - wrapReason
         - restMinutes
+        - ratingTenderness
+        - ratingBark
+        - ratingFlavor
         - rating
         - recipeId
         - createdAt
@@ -956,6 +969,12 @@ components:
         wrapReason:
           type: ["string", "null"]
         restMinutes:
+          type: ["integer", "null"]
+        ratingTenderness:
+          type: ["integer", "null"]
+        ratingBark:
+          type: ["integer", "null"]
+        ratingFlavor:
           type: ["integer", "null"]
         rating:
           type: ["integer", "null"]

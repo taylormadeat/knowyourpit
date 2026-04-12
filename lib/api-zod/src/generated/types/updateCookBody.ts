@@ -47,6 +47,12 @@ export interface UpdateCookBody {
   /** @nullable */
   restMinutes?: number | null;
   /** @nullable */
+  ratingTenderness?: number | null;
+  /** @nullable */
+  ratingBark?: number | null;
+  /** @nullable */
+  ratingFlavor?: number | null;
+  /** @nullable */
   rating?: number | null;
   /** @nullable */
   recipeId?: number | null;
