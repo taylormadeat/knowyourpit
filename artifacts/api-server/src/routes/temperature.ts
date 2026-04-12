@@ -95,8 +95,14 @@ router.post("/temperature/upload", async (req, res): Promise<void> => {
     return;
   }
   const { cookId, source, readings } = parsed.data;
+
+  // Auto-derive grillId from the associated cook
+  const [cook] = await db.select({ grillId: cooksTable.grillId }).from(cooksTable).where(eq(cooksTable.id, cookId));
+  const grillId = cook?.grillId ?? null;
+
   const rows = readings.map(r => ({
     cookId,
+    grillId,
     probeNumber: r.probeNumber,
     probeName: r.probeName ?? null,
     tempF: r.tempF,

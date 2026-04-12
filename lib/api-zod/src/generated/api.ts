@@ -129,6 +129,21 @@ export const GetGrillStatsResponse = zod.object({
   avgCookDurationMinutes: zod.number(),
   mostCookedFood: zod.string().nullable(),
   avgTargetTempF: zod.number().nullable(),
+  avgPitTempF: zod
+    .number()
+    .nullable()
+    .describe("Average achieved pit\/ambient temperature across all readings"),
+  pitTempVarianceF: zod
+    .number()
+    .nullable()
+    .describe("Average per-cook spread between max and min pit readings"),
+  probeHighTempF: zod
+    .number()
+    .nullable()
+    .describe("Highest probe (meat) temp recorded on this grill"),
+  totalReadings: zod
+    .number()
+    .describe("Total temperature readings logged for this grill"),
 });
 
 /**

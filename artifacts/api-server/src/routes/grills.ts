@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, sql } from "drizzle-orm";
-import { db, grillsTable, cooksTable } from "@workspace/db";
+import { eq, sql, and } from "drizzle-orm";
+import { db, grillsTable, cooksTable, temperatureReadingsTable } from "@workspace/db";
 import {
   CreateGrillBody,
   UpdateGrillBody,
@@ -11,6 +11,10 @@ import {
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+
+const PIT_PROBE_NAMES = ["pit", "ambient", "grill", "chamber", "dome", "lid"];
+const isPitProbe = (name: string | null) =>
+  name ? PIT_PROBE_NAMES.some(k => name.toLowerCase().includes(k)) : false;
 
 router.get("/grills", async (_req, res): Promise<void> => {
   const grills = await db.select().from(grillsTable).orderBy(grillsTable.createdAt);
@@ -89,22 +93,53 @@ router.get("/grills/:id/stats", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Grill not found" });
     return;
   }
+
   const cooks = await db.select().from(cooksTable).where(eq(cooksTable.grillId, params.data.id));
   const completedCooks = cooks.filter(c => c.status === "completed" && c.actualStartAt && c.actualEndAt);
+
   let totalMinutes = 0;
   for (const cook of completedCooks) {
     const start = new Date(cook.actualStartAt!).getTime();
     const end = new Date(cook.actualEndAt!).getTime();
     totalMinutes += (end - start) / 60000;
   }
+
   const foodCounts: Record<string, number> = {};
   for (const cook of cooks) {
     foodCounts[cook.foodType] = (foodCounts[cook.foodType] || 0) + 1;
   }
   const mostCookedFood = Object.keys(foodCounts).sort((a, b) => foodCounts[b] - foodCounts[a])[0] ?? null;
+
   const tempsWithData = cooks.filter(c => c.targetTempF != null);
   const avgTargetTempF = tempsWithData.length > 0
     ? tempsWithData.reduce((s, c) => s + c.targetTempF!, 0) / tempsWithData.length
+    : null;
+
+  // ── Temperature aggregates from readings ──────────────────────────────────
+  const readings = await db.select().from(temperatureReadingsTable)
+    .where(eq(temperatureReadingsTable.grillId, params.data.id));
+
+  const pitReadings = readings.filter(r => isPitProbe(r.probeName));
+  const probeReadings = readings.filter(r => !isPitProbe(r.probeName));
+
+  const avgPitTempF = pitReadings.length > 0
+    ? pitReadings.reduce((s, r) => s + r.tempF, 0) / pitReadings.length
+    : null;
+
+  // Per-cook pit temp variance: avg(max-min per cook)
+  let pitTempVarianceF: number | null = null;
+  if (pitReadings.length > 0) {
+    const byCook: Record<number, number[]> = {};
+    for (const r of pitReadings) {
+      if (!byCook[r.cookId]) byCook[r.cookId] = [];
+      byCook[r.cookId].push(r.tempF);
+    }
+    const variances = Object.values(byCook).map(temps => Math.max(...temps) - Math.min(...temps));
+    pitTempVarianceF = variances.length > 0 ? variances.reduce((a, b) => a + b, 0) / variances.length : null;
+  }
+
+  const probeHighTempF = probeReadings.length > 0
+    ? Math.max(...probeReadings.map(r => r.tempF))
     : null;
 
   res.json({
@@ -114,6 +149,10 @@ router.get("/grills/:id/stats", async (req, res): Promise<void> => {
     avgCookDurationMinutes: completedCooks.length > 0 ? totalMinutes / completedCooks.length : 0,
     mostCookedFood,
     avgTargetTempF,
+    avgPitTempF,
+    pitTempVarianceF,
+    probeHighTempF,
+    totalReadings: readings.length,
   });
 });
 

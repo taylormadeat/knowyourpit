@@ -1,10 +1,14 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, cooksTable, grillsTable } from "@workspace/db";
+import { db, cooksTable, grillsTable, temperatureReadingsTable } from "@workspace/db";
 import { AiChatBody, AiPredictBody } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 
 const router: IRouter = Router();
+
+const PIT_PROBE_NAMES = ["pit", "ambient", "grill", "chamber", "dome", "lid"];
+const isPitProbe = (name: string | null) =>
+  name ? PIT_PROBE_NAMES.some(k => name.toLowerCase().includes(k)) : false;
 
 router.post("/ai/chat", async (req, res): Promise<void> => {
   const parsed = AiChatBody.safeParse(req.body);
@@ -48,15 +52,66 @@ router.post("/ai/predict", async (req, res): Promise<void> => {
 
   let grillContext = "";
   let grillType = "";
+  let grillTempContext = "";
+
   if (grillId) {
     const [grill] = await db.select().from(grillsTable).where(eq(grillsTable.id, grillId));
     if (grill) {
       grillContext = `Grill: ${grill.name} (${grill.type}, ${grill.brand || "unknown brand"})`;
       grillType = grill.type;
     }
+
+    // Pull historical temperature data for this grill
+    const grillReadings = await db.select().from(temperatureReadingsTable)
+      .where(eq(temperatureReadingsTable.grillId, grillId));
+
+    if (grillReadings.length > 0) {
+      const pitReadings = grillReadings.filter(r => isPitProbe(r.probeName));
+
+      if (pitReadings.length > 0) {
+        const avgPit = pitReadings.reduce((s, r) => s + r.tempF, 0) / pitReadings.length;
+        const maxPit = Math.max(...pitReadings.map(r => r.tempF));
+        const minPit = Math.min(...pitReadings.map(r => r.tempF));
+
+        // Per-cook variance
+        const byCook: Record<number, number[]> = {};
+        for (const r of pitReadings) {
+          if (!byCook[r.cookId]) byCook[r.cookId] = [];
+          byCook[r.cookId].push(r.tempF);
+        }
+        const variances = Object.values(byCook).map(t => Math.max(...t) - Math.min(...t));
+        const avgVariance = variances.reduce((a, b) => a + b, 0) / variances.length;
+
+        grillTempContext = `
+Grill historical temperature performance (${grillReadings.length} readings across ${Object.keys(byCook).length} cooks):
+- Average pit/ambient temperature achieved: ${avgPit.toFixed(1)}°F
+- Pit temp range: ${minPit.toFixed(1)}°F – ${maxPit.toFixed(1)}°F
+- Average per-cook temperature swing: ±${(avgVariance / 2).toFixed(1)}°F
+Note: Factor this grill's real-world temperature behavior into your estimate.`;
+      }
+    }
+
+    // Pull similar completed cooks on this grill for context
+    const pastCooksOnGrill = await db.select().from(cooksTable)
+      .where(and(eq(cooksTable.grillId, grillId), eq(cooksTable.status, "completed")))
+      .orderBy(cooksTable.actualEndAt);
+
+    const similarCooks = pastCooksOnGrill.filter(c =>
+      c.foodType.toLowerCase().includes(foodType.toLowerCase().split(" ")[0])
+    );
+
+    if (similarCooks.length > 0) {
+      const cookSummaries = similarCooks.slice(-5).map(c => {
+        const durationMins = c.actualStartAt && c.actualEndAt
+          ? Math.round((new Date(c.actualEndAt).getTime() - new Date(c.actualStartAt).getTime()) / 60000)
+          : null;
+        return `${c.foodType}${c.weightLbs ? ` (${c.weightLbs} lbs)` : ""}${durationMins ? ` → ${durationMins} min cook` : ""}${c.rating ? ` · rated ${c.rating}/5` : ""}`;
+      });
+      grillTempContext += `\n\nSimilar past cooks on this grill:\n${cookSummaries.join("\n")}`;
+    }
   }
 
-  // Determine preheat minutes: use client value if provided, otherwise derive from grill type
+  // Preheat defaults
   const preheatDefaults: Record<string, number> = {
     offset_smoker: 60,
     charcoal: 30,
@@ -69,11 +124,9 @@ router.post("/ai/predict", async (req, res): Promise<void> => {
   const normalizeType = (t: string) => t.toLowerCase().replace(/[\s-]+/g, "_");
   const preheatMinutes = clientPreheatMinutes ?? (grillType ? (preheatDefaults[normalizeType(grillType)] ?? 30) : 30);
 
-  const pastCooks = await db.select().from(cooksTable).where(
-    and(eq(cooksTable.status, "completed"))
-  ).limit(10);
-
-  const similarCooks = pastCooks.filter(c => c.foodType.toLowerCase().includes(foodType.toLowerCase().split(" ")[0]));
+  // All-grill similar cooks as fallback context
+  const allPastCooks = await db.select().from(cooksTable).where(eq(cooksTable.status, "completed")).limit(10);
+  const allSimilarCooks = allPastCooks.filter(c => c.foodType.toLowerCase().includes(foodType.toLowerCase().split(" ")[0]));
 
   const systemPrompt = `You are PitMaster AI. Analyze this cook and return ONLY valid JSON with this exact structure — no markdown, no extra text:
 {
@@ -96,7 +149,8 @@ Rules:
 - wrap.method: use "foil" (Texas crutch) for speed and moisture, "butcher_paper" for bark preservation (brisket), "none" for shorter cooks like chicken/steak/ribs that don't need wrapping
 - wrap.wrapTempF: the internal meat temp at which to wrap, or null if wrapping by time only
 - wrap.reason: practical advice — what temp to wrap at, what to add (tallow, butter, juice), how tight to wrap, what to expect
-- wrap.restMinutes: recommend realistic rest time (brisket 60-120m, pork butt 45-60m, ribs 15-30m, chicken 10-15m, steak 5-10m)`;
+- wrap.restMinutes: recommend realistic rest time (brisket 60-120m, pork butt 45-60m, ribs 15-30m, chicken 10-15m, steak 5-10m)
+- If grill historical data shows temperature swings, adjust your estimate for potential stalls or temp drops accordingly`;
 
   const userPrompt = `Predict cook time for:
 Food: ${foodType}
@@ -104,7 +158,8 @@ Weight: ${weightLbs ? `${weightLbs} lbs` : "unknown"}
 Cook temperature: ${cookTempF ? `${cookTempF}°F` : "unknown"}
 Target internal temp: ${targetTempF ? `${targetTempF}°F` : "unknown"}
 ${grillContext}
-${similarCooks.length > 0 ? `Past similar cooks: ${similarCooks.length} cooks on record` : "No past similar cooks"}
+${grillTempContext}
+${allSimilarCooks.length > 0 && !grillTempContext ? `Past similar cooks (all grills): ${allSimilarCooks.length} cooks on record` : ""}
 ${desiredFinishAt ? `Desired finish time: ${desiredFinishAt}` : ""}
 Note: Preheat of ${preheatMinutes} min is tracked separately.`;
 
@@ -118,8 +173,6 @@ Note: Preheat of ${preheatMinutes} min is tracked separately.`;
   });
 
   const content = response.choices[0]?.message?.content ?? "{}";
-
-  // Strip markdown code fences if present
   const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
 
   type WrapRec = { wrapAtMinutes: number; method: string; wrapTempF: number | null; reason: string; restMinutes: number };

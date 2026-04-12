@@ -791,6 +791,18 @@ components:
           type: ["string", "null"]
         avgTargetTempF:
           type: ["number", "null"]
+        avgPitTempF:
+          type: ["number", "null"]
+          description: Average achieved pit/ambient temperature across all readings
+        pitTempVarianceF:
+          type: ["number", "null"]
+          description: Average per-cook spread between max and min pit readings
+        probeHighTempF:
+          type: ["number", "null"]
+          description: Highest probe (meat) temp recorded on this grill
+        totalReadings:
+          type: integer
+          description: Total temperature readings logged for this grill
       required:
         - grillId
         - totalCooks
@@ -798,6 +810,10 @@ components:
         - avgCookDurationMinutes
         - mostCookedFood
         - avgTargetTempF
+        - avgPitTempF
+        - pitTempVarianceF
+        - probeHighTempF
+        - totalReadings
 
     Cook:
       type: object

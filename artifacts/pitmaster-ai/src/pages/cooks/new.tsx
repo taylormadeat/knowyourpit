@@ -1,5 +1,5 @@
 import { AppLayout } from "@/components/layout/app-layout";
-import { useCreateCook, useListGrills, useAiPredict, getListCooksQueryKey } from "@workspace/api-client-react";
+import { useCreateCook, useListGrills, useAiPredict, useGetGrillStats, getListCooksQueryKey } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { Flame, Clock, Utensils, CheckCircle2, Sparkles, Info, Package, BedDouble, UtensilsCrossed, Thermometer } from "lucide-react";
+import { Flame, Clock, Utensils, CheckCircle2, Sparkles, Info, Package, BedDouble, UtensilsCrossed, Thermometer, Wind, TrendingUp, ChefHat } from "lucide-react";
 
 // ── Meat categories + cuts ───────────────────────────────────────────────────
 const MEAT_CATEGORIES = [
@@ -336,6 +336,11 @@ export default function NewCook() {
   const selectedGrill = grills?.find((g) => g.id.toString() === watchedGrillId);
   const selectedMeatGuide = watchedFoodType ? MEAT_TEMPS[watchedFoodType] ?? null : null;
 
+  const selectedGrillIdNum = watchedGrillId ? parseInt(watchedGrillId) : undefined;
+  const { data: grillStats } = useGetGrillStats(selectedGrillIdNum!, {
+    query: { enabled: !!selectedGrillIdNum },
+  });
+
   // Build timeline steps
   const buildTimelineSteps = (): TimelineStep[] | null => {
     if (!prediction && !watchedFinish) return null;
@@ -622,6 +627,71 @@ export default function NewCook() {
                     )}
                   />
                 </div>
+
+                {/* Grill Insights card — shown when a grill is selected and has history */}
+                {grillStats && grillStats.totalCooks > 0 && (
+                  <div
+                    className="rounded-lg border border-primary/20 bg-primary/5 p-4"
+                    data-testid="grill-insights-card"
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <ChefHat className="w-4 h-4 text-primary" />
+                      <p className="text-sm font-semibold text-primary">
+                        {selectedGrill?.name} Insights
+                      </p>
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        {grillStats.totalCooks} cook{grillStats.totalCooks !== 1 ? "s" : ""} on record
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {grillStats.avgPitTempF != null && (
+                        <div className="bg-background/50 rounded-md px-2.5 py-2 border border-border/60">
+                          <div className="flex items-center gap-1 mb-0.5">
+                            <Wind className="w-3 h-3 text-orange-400" />
+                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Avg Pit</p>
+                          </div>
+                          <p className="text-lg font-bold text-orange-400">{Math.round(grillStats.avgPitTempF)}°F</p>
+                        </div>
+                      )}
+                      {grillStats.pitTempVarianceF != null && (
+                        <div className="bg-background/50 rounded-md px-2.5 py-2 border border-border/60">
+                          <div className="flex items-center gap-1 mb-0.5">
+                            <TrendingUp className="w-3 h-3 text-yellow-400" />
+                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Temp Swing</p>
+                          </div>
+                          <p className="text-lg font-bold text-yellow-400">±{Math.round(grillStats.pitTempVarianceF / 2)}°F</p>
+                        </div>
+                      )}
+                      {grillStats.avgCookDurationMinutes > 0 && (
+                        <div className="bg-background/50 rounded-md px-2.5 py-2 border border-border/60">
+                          <div className="flex items-center gap-1 mb-0.5">
+                            <Clock className="w-3 h-3 text-primary" />
+                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Avg Duration</p>
+                          </div>
+                          <p className="text-lg font-bold text-primary">
+                            {grillStats.avgCookDurationMinutes >= 60
+                              ? `${(grillStats.avgCookDurationMinutes / 60).toFixed(1)}h`
+                              : `${Math.round(grillStats.avgCookDurationMinutes)}m`}
+                          </p>
+                        </div>
+                      )}
+                      {grillStats.mostCookedFood && (
+                        <div className="bg-background/50 rounded-md px-2.5 py-2 border border-border/60">
+                          <div className="flex items-center gap-1 mb-0.5">
+                            <Flame className="w-3 h-3 text-primary" />
+                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Top Food</p>
+                          </div>
+                          <p className="text-sm font-bold truncate">{grillStats.mostCookedFood}</p>
+                        </div>
+                      )}
+                    </div>
+                    {grillStats.totalReadings > 0 && (
+                      <p className="text-xs text-muted-foreground mt-2.5 border-t border-border/60 pt-2.5">
+                        Based on {grillStats.totalReadings} logged temperature readings — AI estimates will factor in this grill's real-world performance.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   <FormField

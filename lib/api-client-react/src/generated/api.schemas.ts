@@ -76,6 +76,23 @@ export interface GrillStats {
   mostCookedFood: string | null;
   /** @nullable */
   avgTargetTempF: number | null;
+  /**
+   * Average achieved pit/ambient temperature across all readings
+   * @nullable
+   */
+  avgPitTempF: number | null;
+  /**
+   * Average per-cook spread between max and min pit readings
+   * @nullable
+   */
+  pitTempVarianceF: number | null;
+  /**
+   * Highest probe (meat) temp recorded on this grill
+   * @nullable
+   */
+  probeHighTempF: number | null;
+  /** Total temperature readings logged for this grill */
+  totalReadings: number;
 }
 
 export type CookStatus = (typeof CookStatus)[keyof typeof CookStatus];
