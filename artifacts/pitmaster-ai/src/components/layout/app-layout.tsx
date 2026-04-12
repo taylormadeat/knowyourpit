@@ -8,7 +8,8 @@ import {
   Lightbulb,
   Bell,
   Activity,
-  Bot
+  Bot,
+  ShoppingBag
 } from "lucide-react";
 import {
   Sidebar,
@@ -34,6 +35,7 @@ const navItems = [
   { title: "Pro Tips", url: "/tips", icon: Lightbulb },
   { title: "Alerts", url: "/alerts", icon: Bell },
   { title: "Temp Data", url: "/temperature/upload", icon: Activity },
+  { title: "BBQ Shop", url: "/shop", icon: ShoppingBag },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {

@@ -18,6 +18,7 @@ import ForumPostDetail from "@/pages/forum/[id]";
 import TipsList from "@/pages/tips/index";
 import AlertsList from "@/pages/alerts/index";
 import TempUpload from "@/pages/temperature/upload";
+import ShopPage from "@/pages/shop/index";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/tips" component={TipsList} />
       <Route path="/alerts" component={AlertsList} />
       <Route path="/temperature/upload" component={TempUpload} />
+      <Route path="/shop" component={ShopPage} />
       <Route component={NotFound} />
     </Switch>
   );
