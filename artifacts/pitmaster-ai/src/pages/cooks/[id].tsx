@@ -11,7 +11,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Trash2, Thermometer, Flame, Clock, Play, CheckCircle } from "lucide-react";
+import { ArrowLeft, Trash2, Thermometer, Flame, Clock, Play, CheckCircle, Utensils, CheckCircle2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
@@ -208,6 +208,69 @@ export default function CookDetail() {
                   </div>
                 </div>
               </div>
+
+              {/* Preheat timeline if timing is set */}
+              {cook.plannedStartAt && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-primary" />
+                    Cook Timeline
+                  </h4>
+                  <div className="space-y-0">
+                    {(() => {
+                      const preheat = cook.preheatMinutes ?? 30;
+                      const foodOn = new Date(cook.plannedStartAt!);
+                      const lightGrill = new Date(foodOn.getTime() - preheat * 60000);
+                      const done = cook.plannedEndAt ? new Date(cook.plannedEndAt) : null;
+                      const fmt = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                      const fmtDate = (d: Date) => d.toLocaleDateString([], { month: "short", day: "numeric" });
+                      return (
+                        <>
+                          <div className="flex items-center gap-2.5 pb-2">
+                            <div className="w-6 h-6 rounded-full bg-orange-500/20 border border-orange-500/40 flex items-center justify-center shrink-0">
+                              <Flame className="w-3 h-3 text-orange-400" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs font-medium">Light the Grill</p>
+                              <p className="text-sm font-bold text-orange-400">{fmt(lightGrill)} <span className="text-xs font-normal text-muted-foreground">· {fmtDate(lightGrill)}</span></p>
+                            </div>
+                          </div>
+                          <div className="ml-3 pl-2.5 border-l border-border pb-2">
+                            <p className="text-xs text-muted-foreground">{preheat}min preheat</p>
+                          </div>
+                          <div className="flex items-center gap-2.5 pb-2">
+                            <div className="w-6 h-6 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
+                              <Utensils className="w-3 h-3 text-primary" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs font-medium">Food On</p>
+                              <p className="text-sm font-bold text-primary">{fmt(foodOn)} <span className="text-xs font-normal text-muted-foreground">· {fmtDate(foodOn)}</span></p>
+                            </div>
+                          </div>
+                          {done && (
+                            <>
+                              <div className="ml-3 pl-2.5 border-l border-border pb-2">
+                                <p className="text-xs text-muted-foreground">
+                                  {Math.round((done.getTime() - foodOn.getTime()) / 60000)}min cook
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-6 h-6 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center shrink-0">
+                                  <CheckCircle2 className="w-3 h-3 text-green-400" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-xs font-medium">Ready to Serve</p>
+                                  <p className="text-sm font-bold text-green-400">{fmt(done)} <span className="text-xs font-normal text-muted-foreground">· {fmtDate(done)}</span></p>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
 
               {cook.notes && (
                 <div>

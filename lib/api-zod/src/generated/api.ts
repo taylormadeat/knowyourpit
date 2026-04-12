@@ -161,6 +161,12 @@ export const ListCooksResponseItem = zod.object({
   plannedEndAt: zod.coerce.date().nullable(),
   actualEndAt: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
+  preheatMinutes: zod
+    .number()
+    .nullable()
+    .describe(
+      "Minutes needed to start and bring the grill up to cook temperature",
+    ),
   rating: zod.number().nullable(),
   recipeId: zod.number().nullable(),
   createdAt: zod.coerce.date(),
@@ -181,6 +187,12 @@ export const CreateCookBody = zod.object({
   plannedStartAt: zod.coerce.date().nullish(),
   plannedEndAt: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
+  preheatMinutes: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minutes needed to start and bring the grill up to cook temperature",
+    ),
   recipeId: zod.number().nullish(),
 });
 
@@ -205,6 +217,12 @@ export const GetCookResponse = zod.object({
   plannedEndAt: zod.coerce.date().nullable(),
   actualEndAt: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
+  preheatMinutes: zod
+    .number()
+    .nullable()
+    .describe(
+      "Minutes needed to start and bring the grill up to cook temperature",
+    ),
   rating: zod.number().nullable(),
   recipeId: zod.number().nullable(),
   createdAt: zod.coerce.date(),
@@ -238,6 +256,12 @@ export const UpdateCookBody = zod.object({
   plannedEndAt: zod.coerce.date().nullish(),
   actualEndAt: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
+  preheatMinutes: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minutes needed to start and bring the grill up to cook temperature",
+    ),
   rating: zod.number().nullish(),
   recipeId: zod.number().nullish(),
 });
@@ -256,6 +280,12 @@ export const UpdateCookResponse = zod.object({
   plannedEndAt: zod.coerce.date().nullable(),
   actualEndAt: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
+  preheatMinutes: zod
+    .number()
+    .nullable()
+    .describe(
+      "Minutes needed to start and bring the grill up to cook temperature",
+    ),
   rating: zod.number().nullable(),
   recipeId: zod.number().nullable(),
   createdAt: zod.coerce.date(),
@@ -483,11 +513,29 @@ export const AiPredictBody = zod.object({
   cookTempF: zod.number().nullish(),
   targetTempF: zod.number().nullish(),
   desiredFinishAt: zod.coerce.date().nullish(),
+  preheatMinutes: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minutes needed to start and bring the grill up to cook temperature",
+    ),
 });
 
 export const AiPredictResponse = zod.object({
   estimatedDurationMinutes: zod.number(),
-  suggestedStartAt: zod.coerce.date().nullable(),
+  preheatMinutes: zod
+    .number()
+    .describe(
+      "Minutes needed to start and bring the grill up to cook temperature",
+    ),
+  grillLightAt: zod.coerce
+    .date()
+    .nullable()
+    .describe("When to light\/start the grill, accounting for preheat time"),
+  suggestedStartAt: zod.coerce
+    .date()
+    .nullable()
+    .describe("When to put food on the grill"),
   estimatedFinishAt: zod.coerce.date().nullable(),
   confidence: zod.enum(["low", "medium", "high"]),
   rationale: zod.string(),
@@ -688,6 +736,12 @@ export const GetRecentCooksResponseItem = zod.object({
   plannedEndAt: zod.coerce.date().nullable(),
   actualEndAt: zod.coerce.date().nullable(),
   notes: zod.string().nullable(),
+  preheatMinutes: zod
+    .number()
+    .nullable()
+    .describe(
+      "Minutes needed to start and bring the grill up to cook temperature",
+    ),
   rating: zod.number().nullable(),
   recipeId: zod.number().nullable(),
   createdAt: zod.coerce.date(),

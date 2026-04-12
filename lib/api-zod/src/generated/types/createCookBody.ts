@@ -24,6 +24,11 @@ export interface CreateCookBody {
   plannedEndAt?: Date | null;
   /** @nullable */
   notes?: string | null;
+  /**
+   * Minutes needed to start and bring the grill up to cook temperature
+   * @nullable
+   */
+  preheatMinutes?: number | null;
   /** @nullable */
   recipeId?: number | null;
 }

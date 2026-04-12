@@ -814,6 +814,9 @@ components:
           format: date-time
         notes:
           type: ["string", "null"]
+        preheatMinutes:
+          type: ["integer", "null"]
+          description: Minutes needed to start and bring the grill up to cook temperature
         rating:
           type: ["integer", "null"]
         recipeId:
@@ -838,6 +841,7 @@ components:
         - plannedEndAt
         - actualEndAt
         - notes
+        - preheatMinutes
         - rating
         - recipeId
         - createdAt
@@ -867,6 +871,9 @@ components:
           format: date-time
         notes:
           type: ["string", "null"]
+        preheatMinutes:
+          type: ["integer", "null"]
+          description: Minutes needed to start and bring the grill up to cook temperature
         recipeId:
           type: ["integer", "null"]
       required:
@@ -902,6 +909,9 @@ components:
           format: date-time
         notes:
           type: ["string", "null"]
+        preheatMinutes:
+          type: ["integer", "null"]
+          description: Minutes needed to start and bring the grill up to cook temperature
         rating:
           type: ["integer", "null"]
         recipeId:
@@ -1157,6 +1167,9 @@ components:
         desiredFinishAt:
           type: ["string", "null"]
           format: date-time
+        preheatMinutes:
+          type: ["integer", "null"]
+          description: Minutes needed to start and bring the grill up to cook temperature
       required:
         - foodType
 
@@ -1165,9 +1178,17 @@ components:
       properties:
         estimatedDurationMinutes:
           type: number
+        preheatMinutes:
+          type: integer
+          description: Minutes needed to start and bring the grill up to cook temperature
+        grillLightAt:
+          type: ["string", "null"]
+          format: date-time
+          description: When to light/start the grill, accounting for preheat time
         suggestedStartAt:
           type: ["string", "null"]
           format: date-time
+          description: When to put food on the grill
         estimatedFinishAt:
           type: ["string", "null"]
           format: date-time
@@ -1182,6 +1203,8 @@ components:
             type: string
       required:
         - estimatedDurationMinutes
+        - preheatMinutes
+        - grillLightAt
         - suggestedStartAt
         - estimatedFinishAt
         - confidence

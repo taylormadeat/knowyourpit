@@ -15,6 +15,7 @@ export const cooksTable = pgTable("cooks", {
   plannedEndAt: timestamp("planned_end_at", { withTimezone: true }),
   actualEndAt: timestamp("actual_end_at", { withTimezone: true }),
   notes: text("notes"),
+  preheatMinutes: integer("preheat_minutes"),
   rating: integer("rating"),
   recipeId: integer("recipe_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

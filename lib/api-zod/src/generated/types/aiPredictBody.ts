@@ -18,4 +18,9 @@ export interface AiPredictBody {
   targetTempF?: number | null;
   /** @nullable */
   desiredFinishAt?: Date | null;
+  /**
+   * Minutes needed to start and bring the grill up to cook temperature
+   * @nullable
+   */
+  preheatMinutes?: number | null;
 }

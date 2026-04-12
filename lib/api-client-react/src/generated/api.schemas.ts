@@ -111,6 +111,11 @@ export interface Cook {
   actualEndAt: string | null;
   /** @nullable */
   notes: string | null;
+  /**
+   * Minutes needed to start and bring the grill up to cook temperature
+   * @nullable
+   */
+  preheatMinutes: number | null;
   /** @nullable */
   rating: number | null;
   /** @nullable */
@@ -146,6 +151,11 @@ export interface CreateCookBody {
   plannedEndAt?: string | null;
   /** @nullable */
   notes?: string | null;
+  /**
+   * Minutes needed to start and bring the grill up to cook temperature
+   * @nullable
+   */
+  preheatMinutes?: number | null;
   /** @nullable */
   recipeId?: number | null;
 }
@@ -187,6 +197,11 @@ export interface UpdateCookBody {
   actualEndAt?: string | null;
   /** @nullable */
   notes?: string | null;
+  /**
+   * Minutes needed to start and bring the grill up to cook temperature
+   * @nullable
+   */
+  preheatMinutes?: number | null;
   /** @nullable */
   rating?: number | null;
   /** @nullable */
@@ -333,6 +348,11 @@ export interface AiPredictBody {
   targetTempF?: number | null;
   /** @nullable */
   desiredFinishAt?: string | null;
+  /**
+   * Minutes needed to start and bring the grill up to cook temperature
+   * @nullable
+   */
+  preheatMinutes?: number | null;
 }
 
 export type AiPredictResponseConfidence =
@@ -346,7 +366,17 @@ export const AiPredictResponseConfidence = {
 
 export interface AiPredictResponse {
   estimatedDurationMinutes: number;
-  /** @nullable */
+  /** Minutes needed to start and bring the grill up to cook temperature */
+  preheatMinutes: number;
+  /**
+   * When to light/start the grill, accounting for preheat time
+   * @nullable
+   */
+  grillLightAt: string | null;
+  /**
+   * When to put food on the grill
+   * @nullable
+   */
   suggestedStartAt: string | null;
   /** @nullable */
   estimatedFinishAt: string | null;

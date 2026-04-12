@@ -9,7 +9,17 @@ import type { AiPredictResponseConfidence } from "./aiPredictResponseConfidence"
 
 export interface AiPredictResponse {
   estimatedDurationMinutes: number;
-  /** @nullable */
+  /** Minutes needed to start and bring the grill up to cook temperature */
+  preheatMinutes: number;
+  /**
+   * When to light/start the grill, accounting for preheat time
+   * @nullable
+   */
+  grillLightAt: Date | null;
+  /**
+   * When to put food on the grill
+   * @nullable
+   */
   suggestedStartAt: Date | null;
   /** @nullable */
   estimatedFinishAt: Date | null;
