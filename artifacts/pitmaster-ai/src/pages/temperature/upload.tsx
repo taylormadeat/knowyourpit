@@ -646,7 +646,7 @@ export default function TempUpload() {
                       <SelectTrigger data-testid="select-food-type">
                         <SelectValue placeholder="Select a cut of meat…" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-[60vh]">
                         {MEAT_CATEGORIES.map((cat) => (
                           <SelectGroup key={cat.label}>
                             <SelectLabel>{cat.label}</SelectLabel>
