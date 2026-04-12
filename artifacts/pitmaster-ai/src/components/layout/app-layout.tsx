@@ -1,6 +1,5 @@
 import { Link, useLocation } from "wouter";
 import {
-  LayoutDashboard,
   Flame,
   Utensils,
   BookOpen,
@@ -26,11 +25,10 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { title: "Command Center", url: "/", icon: LayoutDashboard },
+  { title: "AI Assistant", url: "/", icon: Bot },
   { title: "Active Cooks", url: "/cooks", icon: Flame },
   { title: "My Grills", url: "/grills", icon: Utensils },
   { title: "Recipes", url: "/recipes", icon: BookOpen },
-  { title: "AI Assistant", url: "/ai", icon: Bot },
   { title: "Community Pit", url: "/forum", icon: MessageSquare },
   { title: "Pro Tips", url: "/tips", icon: Lightbulb },
   { title: "Alerts", url: "/alerts", icon: Bell },
