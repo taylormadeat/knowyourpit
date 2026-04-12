@@ -407,6 +407,33 @@ export interface TemperatureReading {
   source: string;
 }
 
+export interface TemperatureScanImageBody {
+  /** Base64-encoded image data (JPG, PNG, or WEBP) */
+  base64Image: string;
+  /** MIME type of the image: image/jpeg, image/png, or image/webp */
+  mimeType?: string;
+}
+
+export interface ScannedReading {
+  /** Probe label as shown in the image (e.g. "Probe 1", "Meat", "Pit") */
+  probeName: string;
+  /** Temperature in Fahrenheit */
+  tempF: number;
+  /** Timestamp extracted from image or current time if not visible */
+  recordedAt: string;
+}
+
+export interface TemperatureScanResult {
+  readings: ScannedReading[];
+  /** True when the image had no readable temperature data */
+  noDataFound: boolean;
+  /**
+   * Raw text extracted from the image before structuring
+   * @nullable
+   */
+  rawExtraction?: string | null;
+}
+
 export interface TemperatureReadingInput {
   probeNumber: number;
   /** @nullable */

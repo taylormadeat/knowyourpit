@@ -601,6 +601,48 @@ export const ToggleRecipeFavoriteResponse = zod.object({
 });
 
 /**
+ * @summary Scan an image for temperature readings using AI vision
+ */
+export const scanTemperatureImageBodyMimeTypeDefault = `image/jpeg`;
+
+export const ScanTemperatureImageBody = zod.object({
+  base64Image: zod
+    .string()
+    .describe("Base64-encoded image data (JPG, PNG, or WEBP)"),
+  mimeType: zod
+    .string()
+    .default(scanTemperatureImageBodyMimeTypeDefault)
+    .describe(
+      "MIME type of the image: image\/jpeg, image\/png, or image\/webp",
+    ),
+});
+
+export const ScanTemperatureImageResponse = zod.object({
+  readings: zod.array(
+    zod.object({
+      probeName: zod
+        .string()
+        .describe(
+          'Probe label as shown in the image (e.g. \"Probe 1\", \"Meat\", \"Pit\")',
+        ),
+      tempF: zod.number().describe("Temperature in Fahrenheit"),
+      recordedAt: zod.coerce
+        .date()
+        .describe(
+          "Timestamp extracted from image or current time if not visible",
+        ),
+    }),
+  ),
+  noDataFound: zod
+    .boolean()
+    .describe("True when the image had no readable temperature data"),
+  rawExtraction: zod
+    .string()
+    .nullish()
+    .describe("Raw text extracted from the image before structuring"),
+});
+
+/**
  * @summary Upload temperature data from thermometer apps
  */
 export const UploadTemperatureDataBody = zod.object({

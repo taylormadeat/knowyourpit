@@ -45,6 +45,8 @@ import type {
   Recipe,
   TemperatureHistorySummary,
   TemperatureReading,
+  TemperatureScanImageBody,
+  TemperatureScanResult,
   TemperatureUploadBody,
   TemperatureUploadResult,
   UpdateCookBody,
@@ -1584,6 +1586,93 @@ export const useToggleRecipeFavorite = <
   TContext
 > => {
   return useMutation(getToggleRecipeFavoriteMutationOptions(options));
+};
+
+/**
+ * @summary Scan an image for temperature readings using AI vision
+ */
+export const getScanTemperatureImageUrl = () => {
+  return `/api/temperature/scan-image`;
+};
+
+export const scanTemperatureImage = async (
+  temperatureScanImageBody: TemperatureScanImageBody,
+  options?: RequestInit,
+): Promise<TemperatureScanResult> => {
+  return customFetch<TemperatureScanResult>(getScanTemperatureImageUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(temperatureScanImageBody),
+  });
+};
+
+export const getScanTemperatureImageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof scanTemperatureImage>>,
+    TError,
+    { data: BodyType<TemperatureScanImageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof scanTemperatureImage>>,
+  TError,
+  { data: BodyType<TemperatureScanImageBody> },
+  TContext
+> => {
+  const mutationKey = ["scanTemperatureImage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof scanTemperatureImage>>,
+    { data: BodyType<TemperatureScanImageBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return scanTemperatureImage(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ScanTemperatureImageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof scanTemperatureImage>>
+>;
+export type ScanTemperatureImageMutationBody =
+  BodyType<TemperatureScanImageBody>;
+export type ScanTemperatureImageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Scan an image for temperature readings using AI vision
+ */
+export const useScanTemperatureImage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof scanTemperatureImage>>,
+    TError,
+    { data: BodyType<TemperatureScanImageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof scanTemperatureImage>>,
+  TError,
+  { data: BodyType<TemperatureScanImageBody> },
+  TContext
+> => {
+  return useMutation(getScanTemperatureImageMutationOptions(options));
 };
 
 /**

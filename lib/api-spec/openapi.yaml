@@ -370,6 +370,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/Recipe"
 
+  /temperature/scan-image:
+    post:
+      operationId: scanTemperatureImage
+      tags: [temperature]
+      summary: Scan an image for temperature readings using AI vision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemperatureScanImageBody"
+      responses:
+        "200":
+          description: Extracted temperature readings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemperatureScanResult"
+
   /temperature/upload:
     post:
       operationId: uploadTemperatureData
@@ -1118,6 +1137,54 @@ components:
         - tempF
         - recordedAt
         - source
+
+    TemperatureScanImageBody:
+      type: object
+      properties:
+        base64Image:
+          type: string
+          description: Base64-encoded image data (JPG, PNG, or WEBP)
+        mimeType:
+          type: string
+          description: "MIME type of the image: image/jpeg, image/png, or image/webp"
+          default: "image/jpeg"
+      required:
+        - base64Image
+
+    TemperatureScanResult:
+      type: object
+      properties:
+        readings:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScannedReading"
+        noDataFound:
+          type: boolean
+          description: True when the image had no readable temperature data
+        rawExtraction:
+          type: ["string", "null"]
+          description: Raw text extracted from the image before structuring
+      required:
+        - readings
+        - noDataFound
+
+    ScannedReading:
+      type: object
+      properties:
+        probeName:
+          type: string
+          description: Probe label as shown in the image (e.g. "Probe 1", "Meat", "Pit")
+        tempF:
+          type: number
+          description: Temperature in Fahrenheit
+        recordedAt:
+          type: string
+          format: date-time
+          description: Timestamp extracted from image or current time if not visible
+      required:
+        - probeName
+        - tempF
+        - recordedAt
 
     TemperatureUploadBody:
       type: object
