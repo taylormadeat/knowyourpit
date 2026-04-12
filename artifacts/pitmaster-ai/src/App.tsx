@@ -35,7 +35,6 @@ function Router() {
       <Route path="/cooks/:id" component={CookDetail} />
       <Route path="/recipes" component={RecipesList} />
       <Route path="/recipes/:id" component={RecipeDetail} />
-      <Route path="/ai" component={AiAssistant} />
       <Route path="/forum" component={ForumList} />
       <Route path="/forum/:id" component={ForumPostDetail} />
       <Route path="/tips" component={TipsList} />
