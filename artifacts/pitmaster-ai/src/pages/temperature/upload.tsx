@@ -62,9 +62,16 @@ export default function TempUpload() {
   const uploadData = useUploadTemperatureData();
 
   // ── Image handling ────────────────────────────────────────────────────────
+  const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+  const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
   const processFile = useCallback((file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast({ title: "Please upload an image file (JPG, PNG, or WEBP)", variant: "destructive" });
+    if (!ALLOWED_TYPES.has(file.type)) {
+      toast({ title: "Please upload a JPG, PNG, or WEBP image", variant: "destructive" });
+      return;
+    }
+    if (file.size > MAX_SIZE_BYTES) {
+      toast({ title: "Image is too large — please use a photo under 10 MB", variant: "destructive" });
       return;
     }
     setImageMimeType(file.type);
