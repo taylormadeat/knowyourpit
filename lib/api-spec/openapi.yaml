@@ -1,22 +1,39 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: PitMaster AI - BBQ Planning & Monitoring API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: grills
+    description: Grill profile management
+  - name: cooks
+    description: Cook session logging and management
+  - name: recipes
+    description: Recipe storage and management
+  - name: temperature
+    description: Temperature data upload and monitoring
+  - name: ai
+    description: AI assistant and predictions
+  - name: forum
+    description: Community forum posts and comments
+  - name: tips
+    description: Cooking tips
+  - name: alerts
+    description: Temperature alerts
+  - name: dashboard
+    description: Dashboard summary data
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +41,625 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /grills:
+    get:
+      operationId: listGrills
+      tags: [grills]
+      summary: List all grill profiles
+      responses:
+        "200":
+          description: List of grill profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Grill"
+    post:
+      operationId: createGrill
+      tags: [grills]
+      summary: Create a new grill profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGrillBody"
+      responses:
+        "201":
+          description: Created grill
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Grill"
+
+  /grills/{id}:
+    get:
+      operationId: getGrill
+      tags: [grills]
+      summary: Get a grill profile by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Grill profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Grill"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateGrill
+      tags: [grills]
+      summary: Update a grill profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGrillBody"
+      responses:
+        "200":
+          description: Updated grill
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Grill"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteGrill
+      tags: [grills]
+      summary: Delete a grill profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /grills/{id}/stats:
+    get:
+      operationId: getGrillStats
+      tags: [grills]
+      summary: Get cook stats for a specific grill
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Grill stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrillStats"
+
+  /cooks:
+    get:
+      operationId: listCooks
+      tags: [cooks]
+      summary: List all cook sessions
+      parameters:
+        - name: grillId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+            enum: [planned, active, completed, cancelled, null]
+      responses:
+        "200":
+          description: List of cook sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Cook"
+    post:
+      operationId: createCook
+      tags: [cooks]
+      summary: Create a new cook session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCookBody"
+      responses:
+        "201":
+          description: Created cook
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cook"
+
+  /cooks/{id}:
+    get:
+      operationId: getCook
+      tags: [cooks]
+      summary: Get a cook session by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Cook session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cook"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateCook
+      tags: [cooks]
+      summary: Update a cook session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCookBody"
+      responses:
+        "200":
+          description: Updated cook
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cook"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteCook
+      tags: [cooks]
+      summary: Delete a cook session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /recipes:
+    get:
+      operationId: listRecipes
+      tags: [recipes]
+      summary: List all recipes
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: search
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: List of recipes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Recipe"
+    post:
+      operationId: createRecipe
+      tags: [recipes]
+      summary: Create a new recipe
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRecipeBody"
+      responses:
+        "201":
+          description: Created recipe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+
+  /recipes/{id}:
+    get:
+      operationId: getRecipe
+      tags: [recipes]
+      summary: Get a recipe by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Recipe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateRecipe
+      tags: [recipes]
+      summary: Update a recipe
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRecipeBody"
+      responses:
+        "200":
+          description: Updated recipe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+    delete:
+      operationId: deleteRecipe
+      tags: [recipes]
+      summary: Delete a recipe
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /recipes/{id}/favorite:
+    patch:
+      operationId: toggleRecipeFavorite
+      tags: [recipes]
+      summary: Toggle recipe favorite status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated recipe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+
+  /temperature/upload:
+    post:
+      operationId: uploadTemperatureData
+      tags: [temperature]
+      summary: Upload temperature data from thermometer apps
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemperatureUploadBody"
+      responses:
+        "201":
+          description: Uploaded temperature readings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemperatureUploadResult"
+
+  /temperature/readings:
+    get:
+      operationId: listTemperatureReadings
+      tags: [temperature]
+      summary: Get temperature readings for a cook session
+      parameters:
+        - name: cookId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Temperature readings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TemperatureReading"
+
+  /ai/chat:
+    post:
+      operationId: aiChat
+      tags: [ai]
+      summary: Send a message to the AI assistant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiChatBody"
+      responses:
+        "200":
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiChatResponse"
+
+  /ai/predict:
+    post:
+      operationId: aiPredict
+      tags: [ai]
+      summary: Predict cook start and finish times based on grill and food history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiPredictBody"
+      responses:
+        "200":
+          description: Prediction result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiPredictResponse"
+
+  /forum/posts:
+    get:
+      operationId: listForumPosts
+      tags: [forum]
+      summary: List forum posts
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: List of forum posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ForumPost"
+    post:
+      operationId: createForumPost
+      tags: [forum]
+      summary: Create a forum post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateForumPostBody"
+      responses:
+        "201":
+          description: Created post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForumPost"
+
+  /forum/posts/{id}:
+    get:
+      operationId: getForumPost
+      tags: [forum]
+      summary: Get a forum post with its comments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Forum post with comments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForumPostDetail"
+        "404":
+          description: Not found
+
+  /forum/posts/{id}/like:
+    patch:
+      operationId: likeForumPost
+      tags: [forum]
+      summary: Like a forum post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForumPost"
+
+  /forum/posts/{id}/comments:
+    post:
+      operationId: createForumComment
+      tags: [forum]
+      summary: Add a comment to a forum post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateForumCommentBody"
+      responses:
+        "201":
+          description: Created comment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForumComment"
+
+  /tips:
+    get:
+      operationId: listTips
+      tags: [tips]
+      summary: Get cooking tips
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: List of tips
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CookingTip"
+
+  /alerts:
+    get:
+      operationId: listAlerts
+      tags: [alerts]
+      summary: List temperature alerts
+      responses:
+        "200":
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+    post:
+      operationId: createAlert
+      tags: [alerts]
+      summary: Create a temperature alert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAlertBody"
+      responses:
+        "201":
+          description: Created alert
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+
+  /alerts/{id}:
+    delete:
+      operationId: deleteAlert
+      tags: [alerts]
+      summary: Delete an alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard summary stats
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/recent-cooks:
+    get:
+      operationId: getRecentCooks
+      tags: [dashboard]
+      summary: Get recent cook sessions
+      responses:
+        "200":
+          description: Recent cooks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Cook"
+
+  /dashboard/temperature-history:
+    get:
+      operationId: getTemperatureHistory
+      tags: [dashboard]
+      summary: Get aggregated temperature history across all cooks
+      responses:
+        "200":
+          description: Temperature history summary
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TemperatureHistorySummary"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +670,741 @@ components:
       required:
         - status
 
+    Grill:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          description: "charcoal, gas, pellet, electric, smoker, kamado, etc."
+        brand:
+          type: ["string", "null"]
+        model:
+          type: ["string", "null"]
+        cookingSurfaceSqIn:
+          type: ["number", "null"]
+        maxTempF:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        totalCooks:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - type
+        - brand
+        - model
+        - cookingSurfaceSqIn
+        - maxTempF
+        - notes
+        - imageUrl
+        - totalCooks
+        - createdAt
+        - updatedAt
+
+    CreateGrillBody:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        brand:
+          type: ["string", "null"]
+        model:
+          type: ["string", "null"]
+        cookingSurfaceSqIn:
+          type: ["number", "null"]
+        maxTempF:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+      required:
+        - name
+        - type
+
+    UpdateGrillBody:
+      type: object
+      properties:
+        name:
+          type: ["string", "null"]
+        type:
+          type: ["string", "null"]
+        brand:
+          type: ["string", "null"]
+        model:
+          type: ["string", "null"]
+        cookingSurfaceSqIn:
+          type: ["number", "null"]
+        maxTempF:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+
+    GrillStats:
+      type: object
+      properties:
+        grillId:
+          type: integer
+        totalCooks:
+          type: integer
+        totalHours:
+          type: number
+        avgCookDurationMinutes:
+          type: number
+        mostCookedFood:
+          type: ["string", "null"]
+        avgTargetTempF:
+          type: ["number", "null"]
+      required:
+        - grillId
+        - totalCooks
+        - totalHours
+        - avgCookDurationMinutes
+        - mostCookedFood
+        - avgTargetTempF
+
+    Cook:
+      type: object
+      properties:
+        id:
+          type: integer
+        grillId:
+          type: ["integer", "null"]
+        grillName:
+          type: ["string", "null"]
+        foodType:
+          type: string
+        weightLbs:
+          type: ["number", "null"]
+        targetTempF:
+          type: ["number", "null"]
+        cookTempF:
+          type: ["number", "null"]
+        status:
+          type: string
+          enum: [planned, active, completed, cancelled]
+        plannedStartAt:
+          type: ["string", "null"]
+          format: date-time
+        actualStartAt:
+          type: ["string", "null"]
+          format: date-time
+        plannedEndAt:
+          type: ["string", "null"]
+          format: date-time
+        actualEndAt:
+          type: ["string", "null"]
+          format: date-time
+        notes:
+          type: ["string", "null"]
+        rating:
+          type: ["integer", "null"]
+        recipeId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - grillId
+        - grillName
+        - foodType
+        - weightLbs
+        - targetTempF
+        - cookTempF
+        - status
+        - plannedStartAt
+        - actualStartAt
+        - plannedEndAt
+        - actualEndAt
+        - notes
+        - rating
+        - recipeId
+        - createdAt
+        - updatedAt
+
+    CreateCookBody:
+      type: object
+      properties:
+        grillId:
+          type: ["integer", "null"]
+        foodType:
+          type: string
+        weightLbs:
+          type: ["number", "null"]
+        targetTempF:
+          type: ["number", "null"]
+        cookTempF:
+          type: ["number", "null"]
+        status:
+          type: string
+          enum: [planned, active, completed, cancelled]
+        plannedStartAt:
+          type: ["string", "null"]
+          format: date-time
+        plannedEndAt:
+          type: ["string", "null"]
+          format: date-time
+        notes:
+          type: ["string", "null"]
+        recipeId:
+          type: ["integer", "null"]
+      required:
+        - foodType
+
+    UpdateCookBody:
+      type: object
+      properties:
+        grillId:
+          type: ["integer", "null"]
+        foodType:
+          type: ["string", "null"]
+        weightLbs:
+          type: ["number", "null"]
+        targetTempF:
+          type: ["number", "null"]
+        cookTempF:
+          type: ["number", "null"]
+        status:
+          type: ["string", "null"]
+          enum: [planned, active, completed, cancelled, null]
+        plannedStartAt:
+          type: ["string", "null"]
+          format: date-time
+        actualStartAt:
+          type: ["string", "null"]
+          format: date-time
+        plannedEndAt:
+          type: ["string", "null"]
+          format: date-time
+        actualEndAt:
+          type: ["string", "null"]
+          format: date-time
+        notes:
+          type: ["string", "null"]
+        rating:
+          type: ["integer", "null"]
+        recipeId:
+          type: ["integer", "null"]
+
+    Recipe:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        category:
+          type: string
+          description: "beef, pork, chicken, fish, vegetables, etc."
+        ingredients:
+          type: string
+        instructions:
+          type: string
+        cookTempF:
+          type: ["number", "null"]
+        targetTempF:
+          type: ["number", "null"]
+        estimatedTimeMinutes:
+          type: ["integer", "null"]
+        servings:
+          type: ["integer", "null"]
+        isFavorite:
+          type: boolean
+        imageUrl:
+          type: ["string", "null"]
+        tags:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - description
+        - category
+        - ingredients
+        - instructions
+        - cookTempF
+        - targetTempF
+        - estimatedTimeMinutes
+        - servings
+        - isFavorite
+        - imageUrl
+        - tags
+        - createdAt
+        - updatedAt
+
+    CreateRecipeBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        category:
+          type: string
+        ingredients:
+          type: string
+        instructions:
+          type: string
+        cookTempF:
+          type: ["number", "null"]
+        targetTempF:
+          type: ["number", "null"]
+        estimatedTimeMinutes:
+          type: ["integer", "null"]
+        servings:
+          type: ["integer", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        tags:
+          type: ["string", "null"]
+      required:
+        - title
+        - category
+        - ingredients
+        - instructions
+
+    UpdateRecipeBody:
+      type: object
+      properties:
+        title:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        ingredients:
+          type: ["string", "null"]
+        instructions:
+          type: ["string", "null"]
+        cookTempF:
+          type: ["number", "null"]
+        targetTempF:
+          type: ["number", "null"]
+        estimatedTimeMinutes:
+          type: ["integer", "null"]
+        servings:
+          type: ["integer", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        tags:
+          type: ["string", "null"]
+
+    TemperatureReading:
+      type: object
+      properties:
+        id:
+          type: integer
+        cookId:
+          type: integer
+        probeNumber:
+          type: integer
+        probeName:
+          type: ["string", "null"]
+        tempF:
+          type: number
+        recordedAt:
+          type: string
+          format: date-time
+        source:
+          type: string
+          description: "manual, meater, thermoworks, inkbird, govee, csv"
+      required:
+        - id
+        - cookId
+        - probeNumber
+        - probeName
+        - tempF
+        - recordedAt
+        - source
+
+    TemperatureUploadBody:
+      type: object
+      properties:
+        cookId:
+          type: integer
+        source:
+          type: string
+          description: "meater, thermoworks, inkbird, govee, csv, manual"
+        readings:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemperatureReadingInput"
+      required:
+        - cookId
+        - source
+        - readings
+
+    TemperatureReadingInput:
+      type: object
+      properties:
+        probeNumber:
+          type: integer
+        probeName:
+          type: ["string", "null"]
+        tempF:
+          type: number
+        recordedAt:
+          type: string
+          format: date-time
+      required:
+        - probeNumber
+        - tempF
+        - recordedAt
+
+    TemperatureUploadResult:
+      type: object
+      properties:
+        inserted:
+          type: integer
+        cookId:
+          type: integer
+      required:
+        - inserted
+        - cookId
+
+    TemperatureHistorySummary:
+      type: object
+      properties:
+        cookId:
+          type: integer
+        foodType:
+          type: string
+        avgTempF:
+          type: number
+        maxTempF:
+          type: number
+        minTempF:
+          type: number
+        readingCount:
+          type: integer
+        cookedAt:
+          type: string
+          format: date-time
+      required:
+        - cookId
+        - foodType
+        - avgTempF
+        - maxTempF
+        - minTempF
+        - readingCount
+        - cookedAt
+
+    AiChatBody:
+      type: object
+      properties:
+        message:
+          type: string
+        context:
+          type: ["string", "null"]
+          description: Optional JSON context (active cook, selected grill, etc.)
+      required:
+        - message
+
+    AiChatResponse:
+      type: object
+      properties:
+        reply:
+          type: string
+        suggestions:
+          type: array
+          items:
+            type: string
+      required:
+        - reply
+        - suggestions
+
+    AiPredictBody:
+      type: object
+      properties:
+        grillId:
+          type: ["integer", "null"]
+        foodType:
+          type: string
+        weightLbs:
+          type: ["number", "null"]
+        cookTempF:
+          type: ["number", "null"]
+        targetTempF:
+          type: ["number", "null"]
+        desiredFinishAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - foodType
+
+    AiPredictResponse:
+      type: object
+      properties:
+        estimatedDurationMinutes:
+          type: number
+        suggestedStartAt:
+          type: ["string", "null"]
+          format: date-time
+        estimatedFinishAt:
+          type: ["string", "null"]
+          format: date-time
+        confidence:
+          type: string
+          enum: [low, medium, high]
+        rationale:
+          type: string
+        tips:
+          type: array
+          items:
+            type: string
+      required:
+        - estimatedDurationMinutes
+        - suggestedStartAt
+        - estimatedFinishAt
+        - confidence
+        - rationale
+        - tips
+
+    ForumPost:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        category:
+          type: string
+        authorName:
+          type: string
+        authorAvatar:
+          type: ["string", "null"]
+        likesCount:
+          type: integer
+        commentsCount:
+          type: integer
+        imageUrl:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - content
+        - category
+        - authorName
+        - authorAvatar
+        - likesCount
+        - commentsCount
+        - imageUrl
+        - createdAt
+        - updatedAt
+
+    ForumComment:
+      type: object
+      properties:
+        id:
+          type: integer
+        postId:
+          type: integer
+        content:
+          type: string
+        authorName:
+          type: string
+        authorAvatar:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - postId
+        - content
+        - authorName
+        - authorAvatar
+        - createdAt
+
+    ForumPostDetail:
+      type: object
+      properties:
+        post:
+          $ref: "#/components/schemas/ForumPost"
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/ForumComment"
+      required:
+        - post
+        - comments
+
+    CreateForumPostBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        category:
+          type: string
+        authorName:
+          type: string
+        authorAvatar:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+      required:
+        - title
+        - content
+        - category
+        - authorName
+
+    CreateForumCommentBody:
+      type: object
+      properties:
+        content:
+          type: string
+        authorName:
+          type: string
+        authorAvatar:
+          type: ["string", "null"]
+      required:
+        - content
+        - authorName
+
+    CookingTip:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        category:
+          type: string
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        imageUrl:
+          type: ["string", "null"]
+      required:
+        - id
+        - title
+        - content
+        - category
+        - difficulty
+        - imageUrl
+
+    Alert:
+      type: object
+      properties:
+        id:
+          type: integer
+        cookId:
+          type: ["integer", "null"]
+        probeNumber:
+          type: ["integer", "null"]
+        alertType:
+          type: string
+          enum: [min_temp, max_temp, target_reached, stall_detected]
+        thresholdTempF:
+          type: number
+        message:
+          type: string
+        isActive:
+          type: boolean
+        triggeredAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - cookId
+        - probeNumber
+        - alertType
+        - thresholdTempF
+        - message
+        - isActive
+        - triggeredAt
+        - createdAt
+
+    CreateAlertBody:
+      type: object
+      properties:
+        cookId:
+          type: ["integer", "null"]
+        probeNumber:
+          type: ["integer", "null"]
+        alertType:
+          type: string
+          enum: [min_temp, max_temp, target_reached, stall_detected]
+        thresholdTempF:
+          type: number
+        message:
+          type: string
+      required:
+        - alertType
+        - thresholdTempF
+        - message
+
+    DashboardSummary:
+      type: object
+      properties:
+        totalCooks:
+          type: integer
+        totalGrills:
+          type: integer
+        activeCooks:
+          type: integer
+        totalRecipes:
+          type: integer
+        avgCookRating:
+          type: ["number", "null"]
+        mostUsedGrill:
+          type: ["string", "null"]
+        favoriteFood:
+          type: ["string", "null"]
+        totalHoursCooking:
+          type: number
+        activeAlerts:
+          type: integer
+      required:
+        - totalCooks
+        - totalGrills
+        - activeCooks
+        - totalRecipes
+        - avgCookRating
+        - mostUsedGrill
+        - favoriteFood
+        - totalHoursCooking
+        - activeAlerts
