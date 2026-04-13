@@ -290,7 +290,7 @@ export default function TempUpload() {
               } catch {
                 // ignore invalid date strings
               }
-            } else if (duration) {
+            } else if (duration != null) {
               // No explicit cook date detected — derive start as (now - duration)
               // so that start + duration = now, ensuring a completed cook never
               // has a future actualEndAt.
@@ -412,7 +412,7 @@ export default function TempUpload() {
     const actualStartAt = startDate.toISOString();
     // Cap end time at now so a "completed" cook never has a future actualEndAt.
     // If the user manually set a very recent start with a long duration, we clamp.
-    const computedEnd = cookDurationMinutes
+    const computedEnd = cookDurationMinutes != null
       ? new Date(startDate.getTime() + cookDurationMinutes * 60 * 1000)
       : startDate;
     const actualEndAt = computedEnd > now ? now.toISOString() : computedEnd.toISOString();
@@ -678,7 +678,7 @@ export default function TempUpload() {
                     })} — pre-filled in the form below
                   </li>
                 )}
-                {autoDetected.cookDurationMinutes && (
+                {autoDetected.cookDurationMinutes != null && (
                   <li className="text-xs text-muted-foreground flex items-center gap-1">
                     <Clock className="w-3 h-3 shrink-0" />
                     <span className="font-medium text-foreground">Cook time:</span>{" "}
@@ -881,7 +881,7 @@ export default function TempUpload() {
                       onChange={(e) => setNewCookDate(e.target.value)}
                       data-testid="input-cook-date"
                     />
-                    {cookDurationMinutes ? (
+                    {cookDurationMinutes != null ? (
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         End time set to{" "}
