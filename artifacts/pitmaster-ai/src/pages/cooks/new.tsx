@@ -588,16 +588,34 @@ export default function NewCook() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Grill</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select
+                          onValueChange={(val) => {
+                            if (val === "__add_grill__") {
+                              setLocation("/grills");
+                            } else {
+                              field.onChange(val);
+                            }
+                          }}
+                          defaultValue={field.value}
+                        >
                           <FormControl>
                             <SelectTrigger data-testid="select-grill">
                               <SelectValue placeholder="Select a grill" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {grills?.map((g) => (
-                              <SelectItem key={g.id} value={g.id.toString()}>{g.name}</SelectItem>
-                            ))}
+                            {grills && grills.length > 0 ? (
+                              grills.map((g) => (
+                                <SelectItem key={g.id} value={g.id.toString()}>{g.name}</SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="__add_grill__" data-testid="select-add-grill">
+                                <div className="flex items-center gap-2 text-primary">
+                                  <Utensils className="w-4 h-4" />
+                                  <span>Add a grill first</span>
+                                </div>
+                              </SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />
