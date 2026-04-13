@@ -328,7 +328,12 @@ export default function TempUpload() {
         if (idx !== i) return p;
         if (field === "probeName") return { ...p, probeName: value };
         const num = parseFloat(value);
-        return { ...p, [field]: value === "" ? null : (isNaN(num) ? null : num) };
+        if (field === "finishingTempF") {
+          // finishingTempF is required — coerce empty/invalid to 0 rather than null
+          return { ...p, finishingTempF: isNaN(num) ? 0 : num };
+        }
+        // minTempF / maxTempF are nullable — empty string means "not provided"
+        return { ...p, [field]: value === "" || isNaN(num) ? null : num };
       })
     );
   };
@@ -696,7 +701,7 @@ export default function TempUpload() {
             className="w-full gap-2 text-muted-foreground"
           >
             <Pencil className="w-3.5 h-3.5" />
-            Add readings manually without an image
+            Add a probe manually without an image
           </Button>
         )}
 
@@ -823,7 +828,7 @@ export default function TempUpload() {
                     <Upload className="w-4 h-4" />
                     {uploadData.isPending
                       ? "Saving…"
-                      : `Save ${probes.length} Reading${probes.length !== 1 ? "s" : ""} to Cook`}
+                      : `Save ${probes.length} Probe Reading${probes.length !== 1 ? "s" : ""} to Cook`}
                   </Button>
                 </div>
               )}
@@ -944,7 +949,7 @@ export default function TempUpload() {
                       ? "Creating cook…"
                       : uploadData.isPending
                       ? "Saving readings…"
-                      : `Create Cook & Save ${probes.length} Reading${probes.length !== 1 ? "s" : ""}`}
+                      : `Create Cook & Save ${probes.length} Probe Reading${probes.length !== 1 ? "s" : ""}`}
                   </Button>
                   <p className="text-xs text-muted-foreground text-center">
                     This creates a new completed cook session on{" "}
