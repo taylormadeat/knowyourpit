@@ -350,23 +350,25 @@ export default function TempUpload() {
   };
 
   // ── Save helpers ──────────────────────────────────────────────────────────
-  const formattedReadings = () => {
-    const now = new Date().toISOString();
+  // recordedAtOverride: use computed cook end time for new-cook saves so that
+  // finishing-temp timestamps align with the cook's actualEndAt.
+  const formattedReadings = (recordedAtOverride?: string) => {
+    const ts = recordedAtOverride ?? new Date().toISOString();
     return probes.map((p, i) => ({
       probeNumber: i + 1,
       probeName: p.probeName,
       tempF: p.finishingTempF,
-      recordedAt: now,
+      recordedAt: ts,
     }));
   };
 
-  const doUpload = (resolvedCookId: number) => {
+  const doUpload = (resolvedCookId: number, recordedAt?: string) => {
     uploadData.mutate(
       {
         data: {
           cookId: resolvedCookId,
           source: "image_scan",
-          readings: formattedReadings(),
+          readings: formattedReadings(recordedAt),
         },
       },
       {
@@ -432,7 +434,7 @@ export default function TempUpload() {
       },
       {
         onSuccess: (newCook) => {
-          doUpload(newCook.id);
+          doUpload(newCook.id, actualEndAt);
         },
         onError: () => {
           toast({ title: "Failed to create cook session", variant: "destructive" });
