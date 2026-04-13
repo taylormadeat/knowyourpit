@@ -3,14 +3,11 @@ import {
   Flame,
   Utensils,
   BookOpen,
-  MessageSquare,
   Lightbulb,
-  Bell,
   Activity,
   Bot,
   ShoppingBag,
   ClipboardList,
-  Menu,
   MoreHorizontal
 } from "lucide-react";
 import {
@@ -40,11 +37,8 @@ const mainTabs = [
 ];
 
 const secondaryNav = [
-  { title: "Command Center", url: "/dashboard", icon: Activity },
   { title: "Recipes", url: "/recipes", icon: BookOpen },
-  { title: "Community Pit", url: "/forum", icon: MessageSquare },
   { title: "Pro Tips", url: "/tips", icon: Lightbulb },
-  { title: "Alerts", url: "/alerts", icon: Bell },
   { title: "BBQ Shop", url: "/shop", icon: ShoppingBag },
 ];
 
