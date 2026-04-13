@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, real, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -8,8 +8,14 @@ export const grillsTable = pgTable("grills", {
   type: text("type").notNull(),
   brand: text("brand"),
   model: text("model"),
+  description: text("description"),
   cookingSurfaceSqIn: real("cooking_surface_sq_in"),
+  minTempF: real("min_temp_f"),
   maxTempF: real("max_temp_f"),
+  numProbes: integer("num_probes"),
+  heatZones: integer("heat_zones"),
+  wifiEnabled: boolean("wifi_enabled").default(false),
+  hopperSizeLbs: real("hopper_size_lbs"),
   notes: text("notes"),
   imageUrl: text("image_url"),
   totalCooks: integer("total_cooks").notNull().default(0),

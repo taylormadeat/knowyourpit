@@ -9,16 +9,28 @@
 export interface Grill {
   id: number;
   name: string;
-  /** charcoal, gas, pellet, electric, smoker, kamado, etc. */
+  /** charcoal, gas, pellet, electric, smoker, kamado, offset, etc. */
   type: string;
   /** @nullable */
   brand: string | null;
   /** @nullable */
   model: string | null;
   /** @nullable */
+  description: string | null;
+  /** @nullable */
   cookingSurfaceSqIn: number | null;
   /** @nullable */
+  minTempF: number | null;
+  /** @nullable */
   maxTempF: number | null;
+  /** @nullable */
+  numProbes: number | null;
+  /** @nullable */
+  heatZones: number | null;
+  /** @nullable */
+  wifiEnabled: boolean | null;
+  /** @nullable */
+  hopperSizeLbs: number | null;
   /** @nullable */
   notes: string | null;
   /** @nullable */

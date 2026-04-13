@@ -717,14 +717,26 @@ components:
           type: string
         type:
           type: string
-          description: "charcoal, gas, pellet, electric, smoker, kamado, etc."
+          description: "charcoal, gas, pellet, electric, smoker, kamado, offset, etc."
         brand:
           type: ["string", "null"]
         model:
           type: ["string", "null"]
+        description:
+          type: ["string", "null"]
         cookingSurfaceSqIn:
           type: ["number", "null"]
+        minTempF:
+          type: ["number", "null"]
         maxTempF:
+          type: ["number", "null"]
+        numProbes:
+          type: ["integer", "null"]
+        heatZones:
+          type: ["integer", "null"]
+        wifiEnabled:
+          type: ["boolean", "null"]
+        hopperSizeLbs:
           type: ["number", "null"]
         notes:
           type: ["string", "null"]
@@ -744,8 +756,14 @@ components:
         - type
         - brand
         - model
+        - description
         - cookingSurfaceSqIn
+        - minTempF
         - maxTempF
+        - numProbes
+        - heatZones
+        - wifiEnabled
+        - hopperSizeLbs
         - notes
         - imageUrl
         - totalCooks
@@ -763,9 +781,21 @@ components:
           type: ["string", "null"]
         model:
           type: ["string", "null"]
+        description:
+          type: ["string", "null"]
         cookingSurfaceSqIn:
           type: ["number", "null"]
+        minTempF:
+          type: ["number", "null"]
         maxTempF:
+          type: ["number", "null"]
+        numProbes:
+          type: ["integer", "null"]
+        heatZones:
+          type: ["integer", "null"]
+        wifiEnabled:
+          type: ["boolean", "null"]
+        hopperSizeLbs:
           type: ["number", "null"]
         notes:
           type: ["string", "null"]
@@ -786,9 +816,21 @@ components:
           type: ["string", "null"]
         model:
           type: ["string", "null"]
+        description:
+          type: ["string", "null"]
         cookingSurfaceSqIn:
           type: ["number", "null"]
+        minTempF:
+          type: ["number", "null"]
         maxTempF:
+          type: ["number", "null"]
+        numProbes:
+          type: ["integer", "null"]
+        heatZones:
+          type: ["integer", "null"]
+        wifiEnabled:
+          type: ["boolean", "null"]
+        hopperSizeLbs:
           type: ["number", "null"]
         notes:
           type: ["string", "null"]

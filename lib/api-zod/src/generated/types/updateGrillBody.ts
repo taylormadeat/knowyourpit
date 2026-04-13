@@ -16,9 +16,21 @@ export interface UpdateGrillBody {
   /** @nullable */
   model?: string | null;
   /** @nullable */
+  description?: string | null;
+  /** @nullable */
   cookingSurfaceSqIn?: number | null;
   /** @nullable */
+  minTempF?: number | null;
+  /** @nullable */
   maxTempF?: number | null;
+  /** @nullable */
+  numProbes?: number | null;
+  /** @nullable */
+  heatZones?: number | null;
+  /** @nullable */
+  wifiEnabled?: boolean | null;
+  /** @nullable */
+  hopperSizeLbs?: number | null;
   /** @nullable */
   notes?: string | null;
   /** @nullable */

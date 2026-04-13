@@ -22,6 +22,10 @@ import {
   TrendingUp,
   BarChart3,
   ChefHat,
+  Wifi,
+  Maximize2,
+  Layers,
+  Package,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -52,6 +56,26 @@ function StatRow({
       <div>
         <p className="text-2xl font-bold leading-tight">{value}</p>
         <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+function SpecItem({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/20 border border-border/50">
+      <div className="text-primary mt-0.5 shrink-0">{icon}</div>
+      <div>
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</p>
+        <p className="text-sm font-medium">{value}</p>
       </div>
     </div>
   );
@@ -155,32 +179,77 @@ export default function GrillDetail() {
           </AlertDialog>
         </div>
 
-        {/* ── Details + Stats ──────────────────────────────────────────────── */}
+        {/* ── Grill Specs + Cook Stats ─────────────────────────────────────── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="col-span-1 md:col-span-2">
             <CardHeader>
-              <CardTitle>Details</CardTitle>
+              <CardTitle>Grill Specs</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Type:</span>
-                  <p className="font-medium capitalize">{grill.type}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Brand:</span>
-                  <p className="font-medium">{grill.brand || "Not specified"}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Model:</span>
-                  <p className="font-medium">{grill.model || "Not specified"}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Max Temp:</span>
-                  <p className="font-medium">
-                    {grill.maxTempF ? `${grill.maxTempF}°F` : "Not specified"}
-                  </p>
-                </div>
+              {grill.description && (
+                <p className="text-sm text-muted-foreground italic border-l-2 border-primary/40 pl-3">
+                  {grill.description}
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Always-shown fields */}
+                <SpecItem
+                  icon={<Flame className="w-4 h-4" />}
+                  label="Fuel Type"
+                  value={grill.type.charAt(0).toUpperCase() + grill.type.slice(1)}
+                />
+                {grill.brand && (
+                  <SpecItem icon={<Package className="w-4 h-4" />} label="Brand" value={grill.brand} />
+                )}
+                {/* Cook-relevant fields — only shown when populated */}
+                {grill.cookingSurfaceSqIn != null && (
+                  <SpecItem
+                    icon={<Maximize2 className="w-4 h-4" />}
+                    label="Cooking Surface"
+                    value={`${grill.cookingSurfaceSqIn} sq in`}
+                  />
+                )}
+                {(grill.minTempF != null || grill.maxTempF != null) && (
+                  <SpecItem
+                    icon={<Thermometer className="w-4 h-4" />}
+                    label="Temp Range"
+                    value={
+                      grill.minTempF != null && grill.maxTempF != null
+                        ? `${grill.minTempF}–${grill.maxTempF}°F`
+                        : grill.maxTempF != null
+                        ? `Up to ${grill.maxTempF}°F`
+                        : `From ${grill.minTempF}°F`
+                    }
+                  />
+                )}
+                {grill.numProbes != null && (
+                  <SpecItem
+                    icon={<Thermometer className="w-4 h-4" />}
+                    label="Probe Ports"
+                    value={grill.numProbes === 0 ? "None built-in" : `${grill.numProbes} probe${grill.numProbes !== 1 ? "s" : ""}`}
+                  />
+                )}
+                {grill.heatZones != null && (
+                  <SpecItem
+                    icon={<Layers className="w-4 h-4" />}
+                    label="Heat Zones"
+                    value={String(grill.heatZones)}
+                  />
+                )}
+                {grill.hopperSizeLbs != null && (
+                  <SpecItem
+                    icon={<Package className="w-4 h-4" />}
+                    label="Hopper Size"
+                    value={`${grill.hopperSizeLbs} lbs`}
+                  />
+                )}
+                {grill.wifiEnabled != null && (
+                  <SpecItem
+                    icon={<Wifi className="w-4 h-4" />}
+                    label="Connectivity"
+                    value={grill.wifiEnabled ? "WiFi / App Connected" : "No smart features"}
+                  />
+                )}
               </div>
               {grill.notes && (
                 <div>
