@@ -283,14 +283,14 @@ export default function TempUpload() {
             }
 
             if (result.detectedCookDate) {
-              try {
-                const localStr = toLocalDateTimeInput(new Date(result.detectedCookDate));
+              const parsedDate = new Date(result.detectedCookDate);
+              if (!isNaN(parsedDate.getTime())) {
+                const localStr = toLocalDateTimeInput(parsedDate);
                 detected.cookDate = localStr;
                 setNewCookDate(localStr);
-              } catch {
-                // ignore invalid date strings
               }
-            } else if (duration != null) {
+            }
+            if (!detected.cookDate && duration != null) {
               // No explicit cook date detected — derive start as (now - duration)
               // so that start + duration = now, ensuring a completed cook never
               // has a future actualEndAt.
@@ -308,7 +308,7 @@ export default function TempUpload() {
             const extras: string[] = [];
             if (detected.foodType) extras.push(detected.foodType);
             if (detected.cookDate) extras.push("cook date");
-            if (detected.cookDurationMinutes) extras.push(`${formatDuration(detected.cookDurationMinutes)} duration`);
+            if (detected.cookDurationMinutes != null) extras.push(`${formatDuration(detected.cookDurationMinutes)} duration`);
             const suffix = extras.length ? ` · Detected ${extras.join(", ")}` : "";
             const probeWord = result.readings.length === 1 ? "probe" : "probes";
             toast({ title: `Found ${result.readings.length} ${probeWord}${suffix}` });
@@ -560,7 +560,7 @@ export default function TempUpload() {
                 Temperature Summary
                 <span className="ml-auto text-xs font-normal text-muted-foreground">
                   {probes.length} probe{probes.length !== 1 ? "s" : ""}
-                  {cookDurationMinutes ? ` · ${formatDuration(cookDurationMinutes)} cook` : ""}
+                  {cookDurationMinutes != null ? ` · ${formatDuration(cookDurationMinutes)} cook` : ""}
                 </span>
               </CardTitle>
             </CardHeader>
@@ -652,7 +652,7 @@ export default function TempUpload() {
         )}
 
         {/* ── AI auto-detected metadata banner ────────────────────────── */}
-        {autoDetected && (autoDetected.foodType || autoDetected.cookDate || autoDetected.cookDurationMinutes) && (
+        {autoDetected && (autoDetected.foodType || autoDetected.cookDate || autoDetected.cookDurationMinutes != null) && (
           <div
             className="flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4"
             data-testid="auto-detected-banner"
