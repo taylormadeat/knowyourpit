@@ -14,7 +14,7 @@ type Message = {
 
 export default function AiAssistant() {
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "I'm PitMaster AI. Ask me anything about BBQ, temperatures, wood choices, or troubleshooting a stall." }
+    { role: "assistant", content: "I'm PitKing. Ask me anything about BBQ, temperatures, wood choices, or troubleshooting a stall." }
   ]);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);

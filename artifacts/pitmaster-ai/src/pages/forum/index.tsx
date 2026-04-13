@@ -52,7 +52,7 @@ export default function ForumList() {
       title: "",
       content: "",
       category: "general",
-      authorName: "PitMaster User"
+      authorName: "PitKing User"
     }
   });
 

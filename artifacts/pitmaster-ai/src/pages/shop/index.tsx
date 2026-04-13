@@ -431,7 +431,7 @@ export default function ShopPage() {
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
             <div className="flex items-center gap-2 mb-4">
               <Flame className="w-5 h-5 text-primary" />
-              <h2 className="font-semibold text-base">Pitmaster Picks</h2>
+              <h2 className="font-semibold text-base">PitKing Picks</h2>
               <span className="text-xs text-muted-foreground">— Competition favorites</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -494,7 +494,7 @@ export default function ShopPage() {
         )}
 
         <p className="text-xs text-muted-foreground text-center pb-4">
-          PitMaster AI may earn a commission on qualifying purchases via Amazon Associates links.
+          PitKing may earn a commission on qualifying purchases via Amazon Associates links.
           Prices and availability may vary.
         </p>
       </div>
