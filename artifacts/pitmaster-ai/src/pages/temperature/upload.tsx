@@ -290,6 +290,14 @@ export default function TempUpload() {
               } catch {
                 // ignore invalid date strings
               }
+            } else if (duration) {
+              // No explicit cook date detected — derive start as (now - duration)
+              // so that start + duration = now, ensuring a completed cook never
+              // has a future actualEndAt.
+              const derivedStart = new Date(Date.now() - duration * 60 * 1000);
+              const localStr = toLocalDateTimeInput(derivedStart);
+              detected.cookDate = localStr;
+              setNewCookDate(localStr);
             }
 
             if (detected.foodType || detected.cookDate || detected.cookDurationMinutes) {
@@ -394,11 +402,15 @@ export default function TempUpload() {
       return;
     }
 
-    const startDate = newCookDate ? new Date(newCookDate) : new Date();
+    const now = new Date();
+    const startDate = newCookDate ? new Date(newCookDate) : now;
     const actualStartAt = startDate.toISOString();
-    const actualEndAt = cookDurationMinutes
-      ? new Date(startDate.getTime() + cookDurationMinutes * 60 * 1000).toISOString()
-      : actualStartAt;
+    // Cap end time at now so a "completed" cook never has a future actualEndAt.
+    // If the user manually set a very recent start with a long duration, we clamp.
+    const computedEnd = cookDurationMinutes
+      ? new Date(startDate.getTime() + cookDurationMinutes * 60 * 1000)
+      : startDate;
+    const actualEndAt = computedEnd > now ? now.toISOString() : computedEnd.toISOString();
 
     createCook.mutate(
       {
@@ -869,12 +881,12 @@ export default function TempUpload() {
                         <Clock className="w-3 h-3" />
                         End time set to{" "}
                         <span className="font-medium text-foreground">
-                          {toLocalDateTimeInput(
-                            new Date(
-                              (newCookDate ? new Date(newCookDate) : new Date()).getTime() +
-                              cookDurationMinutes * 60 * 1000
-                            )
-                          ).replace("T", " ")}
+                          {(() => {
+                            const start = newCookDate ? new Date(newCookDate) : new Date();
+                            const computed = new Date(start.getTime() + cookDurationMinutes * 60 * 1000);
+                            const capped = computed > new Date() ? new Date() : computed;
+                            return toLocalDateTimeInput(capped).replace("T", " ");
+                          })()}
                         </span>
                         {" "}(+{formatDuration(cookDurationMinutes)})
                       </p>
