@@ -1268,6 +1268,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ScannedReading"
+        cookDurationMinutes:
+          type: ["integer", "null"]
+          description: Total cook duration in minutes, or null if not determinable from the image
         noDataFound:
           type: boolean
           description: True when the image had no readable temperature data
@@ -1290,18 +1293,19 @@ components:
       properties:
         probeName:
           type: string
-          description: Probe label as shown in the image (e.g. "Probe 1", "Meat", "Pit")
-        tempF:
+          description: Probe label as shown in the image (e.g. "Probe 1", "Meat", "Pit", "Ambient")
+        finishingTempF:
           type: number
-          description: Temperature in Fahrenheit
-        recordedAt:
-          type: string
-          format: date-time
-          description: Timestamp extracted from image or current time if not visible
+          description: Final (finishing) temperature for this probe in Fahrenheit
+        minTempF:
+          type: ["number", "null"]
+          description: Minimum temperature seen for this probe during the cook, or null if not determinable
+        maxTempF:
+          type: ["number", "null"]
+          description: Maximum temperature seen for this probe during the cook, or null if not determinable
       required:
         - probeName
-        - tempF
-        - recordedAt
+        - finishingTempF
 
     TemperatureUploadBody:
       type: object

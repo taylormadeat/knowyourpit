@@ -682,16 +682,31 @@ export const ScanTemperatureImageResponse = zod.object({
       probeName: zod
         .string()
         .describe(
-          'Probe label as shown in the image (e.g. \"Probe 1\", \"Meat\", \"Pit\")',
+          'Probe label as shown in the image (e.g. \"Probe 1\", \"Meat\", \"Pit\", \"Ambient\")',
         ),
-      tempF: zod.number().describe("Temperature in Fahrenheit"),
-      recordedAt: zod.coerce
-        .date()
+      finishingTempF: zod
+        .number()
+        .describe("Final (finishing) temperature for this probe in Fahrenheit"),
+      minTempF: zod
+        .number()
+        .nullish()
         .describe(
-          "Timestamp extracted from image or current time if not visible",
+          "Minimum temperature seen for this probe during the cook, or null if not determinable",
+        ),
+      maxTempF: zod
+        .number()
+        .nullish()
+        .describe(
+          "Maximum temperature seen for this probe during the cook, or null if not determinable",
         ),
     }),
   ),
+  cookDurationMinutes: zod
+    .number()
+    .nullish()
+    .describe(
+      "Total cook duration in minutes, or null if not determinable from the image",
+    ),
   noDataFound: zod
     .boolean()
     .describe("True when the image had no readable temperature data"),

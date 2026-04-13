@@ -40,8 +40,7 @@ import {
   Flame,
   Plus,
   List,
-  ChevronDown,
-  ChevronUp,
+  Clock,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -83,16 +82,17 @@ const MEAT_CATEGORIES = [
   },
 ] as const;
 
-interface EditableReading {
+/** One entry per physical probe — summary data only. */
+interface ProbeEntry {
   probeName: string;
-  tempF: number;
-  recordedAt: string;
+  finishingTempF: number;
+  minTempF: number | null;
+  maxTempF: number | null;
 }
 
 type SaveMode = "attach" | "new-cook";
 
-/** Format a Date as YYYY-MM-DDTHH:mm in the user's local timezone, which is
- *  the value format required by <input type="datetime-local">. */
+/** Format a Date as YYYY-MM-DDTHH:mm in the user's local timezone. */
 const toLocalDateTimeInput = (d: Date): string => {
   const pad = (n: number) => String(n).padStart(2, "0");
   return (
@@ -113,44 +113,23 @@ const ALL_CUTS_LOWER: Array<{ lower: string; original: string }> =
  */
 const matchFoodType = (detected: string): string => {
   const q = detected.toLowerCase().trim();
-  // 1. Exact match
   const exact = ALL_CUTS_LOWER.find((c) => c.lower === q);
   if (exact) return exact.original;
-  // 2. A canonical cut that starts with the detected label (e.g. "brisket" → "Brisket")
   const startsWith = ALL_CUTS_LOWER.find((c) => c.lower.startsWith(q));
   if (startsWith) return startsWith.original;
-  // 3. The detected label contains a canonical cut (e.g. "smoked brisket flat" → "Brisket Flat")
   const contained = ALL_CUTS_LOWER.find((c) => q.includes(c.lower));
   if (contained) return contained.original;
-  // 4. A canonical cut contains the detected label
   const contains = ALL_CUTS_LOWER.find((c) => c.lower.includes(q));
   if (contains) return contains.original;
-  // 5. No match — return the label capitalised as-is (user can fix)
   return detected.charAt(0).toUpperCase() + detected.slice(1);
 };
 
-/** Group a flat readings array by probeName, preserving insertion order of probes. */
-function groupReadings(readings: EditableReading[]): { probeName: string; indices: number[] }[] {
-  const groups: { probeName: string; indices: number[] }[] = [];
-  const seen = new Map<string, number>();
-  readings.forEach((r, i) => {
-    if (!seen.has(r.probeName)) {
-      seen.set(r.probeName, groups.length);
-      groups.push({ probeName: r.probeName, indices: [i] });
-    } else {
-      groups[seen.get(r.probeName)!].indices.push(i);
-    }
-  });
-  return groups;
-}
-
-/** Format an ISO timestamp as a short local time string ("10:30 AM"). */
-const formatTime = (iso: string): string => {
-  try {
-    return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-  } catch {
-    return "—";
-  }
+/** Format minutes as "Xh Ym" or "Ym" for display. */
+const formatDuration = (minutes: number): string => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
 };
 
 export default function TempUpload() {
@@ -176,19 +155,20 @@ export default function TempUpload() {
   const [autoDetected, setAutoDetected] = useState<{
     foodType: string | null;
     cookDate: string | null;
+    cookDurationMinutes: number | null;
   } | null>(null);
+
+  // ── Cook duration from scan ────────────────────────────────────────────────
+  const [cookDurationMinutes, setCookDurationMinutes] = useState<number | null>(null);
 
   // ── Image state ───────────────────────────────────────────────────────────
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageMimeType, setImageMimeType] = useState<string>("image/jpeg");
-  const [readings, setReadings] = useState<EditableReading[]>([]);
+  const [probes, setProbes] = useState<ProbeEntry[]>([]);
   const [noDataFound, setNoDataFound] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // ── Probe group expand/collapse state ─────────────────────────────────────
-  const [expandedProbes, setExpandedProbes] = useState<Record<string, boolean>>({});
 
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -197,7 +177,6 @@ export default function TempUpload() {
   const { data: grills, isLoading: grillsLoading } = useListGrills();
   const { data: allCooks, isLoading: cooksLoading } = useListCooks();
 
-  // Filter cooks: all statuses, filtered by selected grill if one is set
   const filteredCooks = allCooks?.filter((c) =>
     selectedGrillId ? c.grillId?.toString() === selectedGrillId : true
   );
@@ -222,7 +201,7 @@ export default function TempUpload() {
       }
       setImageMimeType(file.type);
       setNoDataFound(false);
-      setReadings([]);
+      setProbes([]);
 
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -258,18 +237,19 @@ export default function TempUpload() {
   const clearImage = () => {
     setImagePreview(null);
     setImageBase64(null);
-    setReadings([]);
+    setProbes([]);
     setNoDataFound(false);
     setAutoDetected(null);
-    setExpandedProbes({});
+    setCookDurationMinutes(null);
   };
 
   // ── AI scan ───────────────────────────────────────────────────────────────
   const handleScan = () => {
     if (!imageBase64) return;
-    setReadings([]);
+    setProbes([]);
     setNoDataFound(false);
     setAutoDetected(null);
+    setCookDurationMinutes(null);
 
     scanImage.mutate(
       { data: { base64Image: imageBase64, mimeType: imageMimeType } },
@@ -279,21 +259,21 @@ export default function TempUpload() {
             setNoDataFound(true);
             toast({ title: "No temperature data found in the image", variant: "destructive" });
           } else {
-            const mapped = result.readings.map((r) => ({ ...r }));
-            setReadings(mapped);
+            const mapped: ProbeEntry[] = result.readings.map((r) => ({
+              probeName: r.probeName,
+              finishingTempF: r.finishingTempF,
+              minTempF: r.minTempF ?? null,
+              maxTempF: r.maxTempF ?? null,
+            }));
+            setProbes(mapped);
 
-            // ── Set probe expansion: expand all when few readings, collapse otherwise ──
-            const uniqueNames = [...new Set(mapped.map((r) => r.probeName))];
-            setExpandedProbes(
-              mapped.length < 4
-                ? Object.fromEntries(uniqueNames.map((n) => [n, true]))
-                : {}
-            );
+            const duration = result.cookDurationMinutes ?? null;
+            setCookDurationMinutes(duration);
 
-            // ── Auto-populate food type and cook date from AI detection ──
             const detected = {
               foodType: null as string | null,
               cookDate: null as string | null,
+              cookDurationMinutes: duration,
             };
 
             if (result.detectedFoodType) {
@@ -312,18 +292,18 @@ export default function TempUpload() {
               }
             }
 
-            if (detected.foodType || detected.cookDate) {
+            if (detected.foodType || detected.cookDate || detected.cookDurationMinutes) {
               setAutoDetected(detected);
-              // Switch to new-cook mode so the user can see the auto-filled fields
               setSaveMode("new-cook");
             }
 
-            const readingWord = result.readings.length === 1 ? "reading" : "readings";
             const extras: string[] = [];
             if (detected.foodType) extras.push(detected.foodType);
             if (detected.cookDate) extras.push("cook date");
-            const suffix = extras.length ? ` · Detected ${extras.join(" and ")}` : "";
-            toast({ title: `Found ${result.readings.length} ${readingWord}${suffix}` });
+            if (detected.cookDurationMinutes) extras.push(`${formatDuration(detected.cookDurationMinutes)} duration`);
+            const suffix = extras.length ? ` · Detected ${extras.join(", ")}` : "";
+            const probeWord = result.readings.length === 1 ? "probe" : "probes";
+            toast({ title: `Found ${result.readings.length} ${probeWord}${suffix}` });
           }
         },
         onError: () => {
@@ -333,74 +313,39 @@ export default function TempUpload() {
     );
   };
 
-  // ── Editing readings ──────────────────────────────────────────────────────
-  const updateReading = (i: number, field: keyof EditableReading, value: string) => {
-    setReadings((prev) =>
-      prev.map((r, idx) =>
-        idx === i
-          ? { ...r, [field]: field === "tempF" ? parseFloat(value) || 0 : value }
-          : r
-      )
+  // ── Probe editing ─────────────────────────────────────────────────────────
+  const updateProbe = (i: number, field: keyof ProbeEntry, value: string) => {
+    setProbes((prev) =>
+      prev.map((p, idx) => {
+        if (idx !== i) return p;
+        if (field === "probeName") return { ...p, probeName: value };
+        const num = parseFloat(value);
+        return { ...p, [field]: value === "" ? null : (isNaN(num) ? null : num) };
+      })
     );
   };
 
-  const removeReading = (i: number) => {
-    setReadings((prev) => prev.filter((_, idx) => idx !== i));
+  const removeProbe = (i: number) => {
+    setProbes((prev) => prev.filter((_, idx) => idx !== i));
   };
 
-  const addReading = () => {
-    const newName = `Probe ${readings.length + 1}`;
-    setReadings((prev) => [
+  const addProbe = () => {
+    setProbes((prev) => [
       ...prev,
-      { probeName: newName, tempF: 0, recordedAt: new Date().toISOString() },
+      { probeName: `Probe ${prev.length + 1}`, finishingTempF: 0, minTempF: null, maxTempF: null },
     ]);
-    // Expand the new probe's group so it's immediately editable
-    setExpandedProbes((prev) => ({ ...prev, [newName]: true }));
-  };
-
-  // ── Probe group handlers ───────────────────────────────────────────────────
-  /** Rename every reading whose probeName === oldName to newName. */
-  const renameProbeGroup = (oldName: string, newName: string) => {
-    if (oldName === newName) return;
-    setReadings((prev) =>
-      prev.map((r) => (r.probeName === oldName ? { ...r, probeName: newName } : r))
-    );
-    setExpandedProbes((prev) => {
-      const next = { ...prev };
-      if (oldName in next) {
-        const wasExpanded = next[oldName];
-        delete next[oldName];
-        next[newName] = wasExpanded;
-      } else {
-        next[newName] = true;
-      }
-      return next;
-    });
-  };
-
-  /** Remove all readings belonging to a probe group. */
-  const removeProbeGroup = (probeName: string) => {
-    setReadings((prev) => prev.filter((r) => r.probeName !== probeName));
-    setExpandedProbes((prev) => {
-      const next = { ...prev };
-      delete next[probeName];
-      return next;
-    });
-  };
-
-  /** Toggle expand/collapse for a probe group. */
-  const toggleProbe = (probeName: string) => {
-    setExpandedProbes((prev) => ({ ...prev, [probeName]: !prev[probeName] }));
   };
 
   // ── Save helpers ──────────────────────────────────────────────────────────
-  const formattedReadings = () =>
-    readings.map((r, i) => ({
+  const formattedReadings = () => {
+    const now = new Date().toISOString();
+    return probes.map((p, i) => ({
       probeNumber: i + 1,
-      probeName: r.probeName,
-      tempF: r.tempF,
-      recordedAt: r.recordedAt,
+      probeName: p.probeName,
+      tempF: p.finishingTempF,
+      recordedAt: now,
     }));
+  };
 
   const doUpload = (resolvedCookId: number) => {
     uploadData.mutate(
@@ -413,7 +358,7 @@ export default function TempUpload() {
       },
       {
         onSuccess: () => {
-          toast({ title: `${readings.length} reading${readings.length > 1 ? "s" : ""} saved` });
+          toast({ title: `${probes.length} probe reading${probes.length > 1 ? "s" : ""} saved` });
           setLocation(`/cooks/${resolvedCookId}`);
         },
         onError: () => {
@@ -428,8 +373,8 @@ export default function TempUpload() {
       toast({ title: "Please select a cook session", variant: "destructive" });
       return;
     }
-    if (readings.length === 0) {
-      toast({ title: "No readings to save — scan an image or add readings manually", variant: "destructive" });
+    if (probes.length === 0) {
+      toast({ title: "No probe data to save — scan an image or add probes manually", variant: "destructive" });
       return;
     }
     doUpload(parseInt(cookId));
@@ -444,12 +389,16 @@ export default function TempUpload() {
       toast({ title: "Please select a grill", variant: "destructive" });
       return;
     }
-    if (readings.length === 0) {
-      toast({ title: "No readings to save — scan an image or add readings manually", variant: "destructive" });
+    if (probes.length === 0) {
+      toast({ title: "No probe data to save — scan an image or add probes manually", variant: "destructive" });
       return;
     }
 
-    const cookDateTime = newCookDate ? new Date(newCookDate).toISOString() : new Date().toISOString();
+    const startDate = newCookDate ? new Date(newCookDate) : new Date();
+    const actualStartAt = startDate.toISOString();
+    const actualEndAt = cookDurationMinutes
+      ? new Date(startDate.getTime() + cookDurationMinutes * 60 * 1000).toISOString()
+      : actualStartAt;
 
     createCook.mutate(
       {
@@ -460,8 +409,8 @@ export default function TempUpload() {
           weightLbs: newWeightLbs ? parseFloat(newWeightLbs) : undefined,
           cookTempF: newCookTempF ? parseFloat(newCookTempF) : undefined,
           targetTempF: newTargetTempF ? parseFloat(newTargetTempF) : undefined,
-          actualStartAt: cookDateTime,
-          actualEndAt: cookDateTime,
+          actualStartAt,
+          actualEndAt,
         },
       },
       {
@@ -477,9 +426,8 @@ export default function TempUpload() {
 
   const isSaving = uploadData.isPending || createCook.isPending;
   const hasImage = !!imagePreview;
-  const hasReadings = readings.length > 0;
+  const hasProbes = probes.length > 0;
   const selectedGrill = grills?.find((g) => g.id.toString() === selectedGrillId);
-  const probeGroups = groupReadings(readings);
 
   return (
     <AppLayout>
@@ -586,154 +534,108 @@ export default function TempUpload() {
           </div>
         )}
 
-        {/* ── Extracted Readings ───────────────────────────────────────── */}
-        {hasReadings && (
+        {/* ── Probe Summary ────────────────────────────────────────────── */}
+        {hasProbes && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Thermometer className="w-4 h-4 text-primary" />
-                Extracted Readings
+                Temperature Summary
                 <span className="ml-auto text-xs font-normal text-muted-foreground">
-                  {readings.length} reading{readings.length !== 1 ? "s" : ""} · {probeGroups.length} probe{probeGroups.length !== 1 ? "s" : ""}
+                  {probes.length} probe{probes.length !== 1 ? "s" : ""}
+                  {cookDurationMinutes ? ` · ${formatDuration(cookDurationMinutes)} cook` : ""}
                 </span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {probeGroups.map((group) => {
-                const groupData = group.indices.map((i) => readings[i]);
-                const isSingleReading = group.indices.length === 1;
-                const isExpanded = !!expandedProbes[group.probeName] || isSingleReading;
-                const minTemp = Math.min(...groupData.map((r) => r.tempF));
-                const maxTemp = Math.max(...groupData.map((r) => r.tempF));
-                const firstRecorded = groupData[0]?.recordedAt;
-                const lastRecorded = groupData[groupData.length - 1]?.recordedAt;
-
-                return (
-                  <div
-                    key={group.probeName}
-                    className="rounded-lg border border-border/60 overflow-hidden"
-                    data-testid={`probe-group-${group.probeName}`}
-                  >
-                    {/* ── Group header ─────────────────────────────────── */}
-                    <div className="flex items-center gap-2 px-2.5 py-2 bg-muted/30">
-                      <Input
-                        value={group.probeName}
-                        onChange={(e) => renameProbeGroup(group.probeName, e.target.value)}
-                        className="h-7 text-sm font-medium flex-1 min-w-0 border-transparent bg-transparent px-1 focus:border-input focus:bg-background"
-                        data-testid={`reading-probe-${group.indices[0]}`}
-                        title="Rename this probe (renames all its readings)"
-                      />
-
-                      {!isSingleReading && (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
-                          <span className="rounded bg-muted px-1.5 py-0.5 font-medium">
-                            {group.indices.length}×
-                          </span>
-                          <span className="hidden sm:inline">
-                            {minTemp === maxTemp
-                              ? `${minTemp}°F`
-                              : `${minTemp}°–${maxTemp}°F`}
-                          </span>
-                          {firstRecorded && lastRecorded && firstRecorded !== lastRecorded && (
-                            <span className="hidden sm:inline text-muted-foreground/60">
-                              {formatTime(firstRecorded)}–{formatTime(lastRecorded)}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {isSingleReading && (
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Input
-                            type="number"
-                            step="0.1"
-                            value={groupData[0].tempF}
-                            onChange={(e) => updateReading(group.indices[0], "tempF", e.target.value)}
-                            className="h-7 text-sm w-20 text-right"
-                            data-testid={`reading-temp-${group.indices[0]}`}
-                          />
-                          <span className="text-xs text-muted-foreground">°F</span>
-                        </div>
-                      )}
-
-                      <button
-                        onClick={() => removeProbeGroup(group.probeName)}
-                        className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
-                        title="Remove all readings for this probe"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-
-                      {!isSingleReading && (
-                        <button
-                          onClick={() => toggleProbe(group.probeName)}
-                          className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
-                          title={isExpanded ? "Collapse readings" : "Expand readings"}
-                          data-testid={`toggle-probe-${group.probeName}`}
-                        >
-                          {isExpanded ? (
-                            <ChevronUp className="w-3.5 h-3.5" />
-                          ) : (
-                            <ChevronDown className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                      )}
-                    </div>
-
-                    {/* ── Individual readings (expanded) ──────────────── */}
-                    {!isSingleReading && isExpanded && (
-                      <div className="divide-y divide-border/30">
-                        {group.indices.map((idx) => {
-                          const r = readings[idx];
-                          return (
-                            <div
-                              key={idx}
-                              className="flex items-center gap-2 px-3 py-1.5"
-                              data-testid={`reading-row-${idx}`}
-                            >
-                              <span className="text-xs text-muted-foreground w-16 shrink-0 font-mono">
-                                {formatTime(r.recordedAt)}
-                              </span>
-                              <Input
-                                type="number"
-                                step="0.1"
-                                value={r.tempF}
-                                onChange={(e) => updateReading(idx, "tempF", e.target.value)}
-                                className="h-7 text-sm w-20"
-                                data-testid={`reading-temp-${idx}`}
-                              />
-                              <span className="text-xs text-muted-foreground">°F</span>
-                              <button
-                                onClick={() => removeReading(idx)}
-                                className="ml-auto w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
-                                title="Remove this reading"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+            <CardContent className="space-y-3">
+              {probes.map((probe, i) => (
+                <div
+                  key={i}
+                  className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-2"
+                  data-testid={`probe-card-${i}`}
+                >
+                  {/* Probe name row */}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={probe.probeName}
+                      onChange={(e) => updateProbe(i, "probeName", e.target.value)}
+                      className="h-7 text-sm font-medium flex-1"
+                      placeholder="Probe name"
+                      data-testid={`probe-name-${i}`}
+                    />
+                    <button
+                      onClick={() => removeProbe(i)}
+                      className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                      title="Remove this probe"
+                      data-testid={`remove-probe-${i}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                );
-              })}
+
+                  {/* Temperature fields row */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                        Finishing °F
+                      </label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={probe.finishingTempF}
+                        onChange={(e) => updateProbe(i, "finishingTempF", e.target.value)}
+                        className="h-8 text-sm"
+                        data-testid={`probe-finishing-${i}`}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                        Min °F
+                      </label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={probe.minTempF ?? ""}
+                        onChange={(e) => updateProbe(i, "minTempF", e.target.value)}
+                        placeholder="—"
+                        className="h-8 text-sm"
+                        data-testid={`probe-min-${i}`}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                        Max °F
+                      </label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={probe.maxTempF ?? ""}
+                        onChange={(e) => updateProbe(i, "maxTempF", e.target.value)}
+                        placeholder="—"
+                        className="h-8 text-sm"
+                        data-testid={`probe-max-${i}`}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
 
               <Button
                 variant="outline"
                 size="sm"
-                onClick={addReading}
+                onClick={addProbe}
                 className="w-full gap-2 text-muted-foreground"
+                data-testid="btn-add-probe"
               >
                 <Pencil className="w-3.5 h-3.5" />
-                Add a reading manually
+                Add a probe manually
               </Button>
             </CardContent>
           </Card>
         )}
 
         {/* ── AI auto-detected metadata banner ────────────────────────── */}
-        {autoDetected && (autoDetected.foodType || autoDetected.cookDate) && (
+        {autoDetected && (autoDetected.foodType || autoDetected.cookDate || autoDetected.cookDurationMinutes) && (
           <div
             className="flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4"
             data-testid="auto-detected-banner"
@@ -752,11 +654,18 @@ export default function TempUpload() {
                 )}
                 {autoDetected.cookDate && (
                   <li className="text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">Cook date:</span>{" "}
+                    <span className="font-medium text-foreground">Cook start:</span>{" "}
                     {new Date(autoDetected.cookDate).toLocaleString(undefined, {
                       dateStyle: "medium",
                       timeStyle: "short",
                     })} — pre-filled in the form below
+                  </li>
+                )}
+                {autoDetected.cookDurationMinutes && (
+                  <li className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Clock className="w-3 h-3 shrink-0" />
+                    <span className="font-medium text-foreground">Cook time:</span>{" "}
+                    {formatDuration(autoDetected.cookDurationMinutes)} — used to set the end time
                   </li>
                 )}
               </ul>
@@ -767,11 +676,11 @@ export default function TempUpload() {
           </div>
         )}
 
-        {/* ── Add readings manually even without an image ────────────── */}
-        {!hasReadings && !hasImage && (
+        {/* ── Add probes manually even without an image ───────────────── */}
+        {!hasProbes && !hasImage && (
           <Button
             variant="outline"
-            onClick={addReading}
+            onClick={addProbe}
             className="w-full gap-2 text-muted-foreground"
           >
             <Pencil className="w-3.5 h-3.5" />
@@ -779,8 +688,8 @@ export default function TempUpload() {
           </Button>
         )}
 
-        {/* ── Save card — always visible once there are readings ──────── */}
-        {hasReadings && (
+        {/* ── Save card — always visible once there are probes ────────── */}
+        {hasProbes && (
           <Card className="border-primary/20" data-testid="save-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -800,7 +709,7 @@ export default function TempUpload() {
                   value={selectedGrillId}
                   onValueChange={(v) => {
                     setSelectedGrillId(v);
-                    setCookId(""); // reset cook when grill changes
+                    setCookId("");
                   }}
                 >
                   <SelectTrigger data-testid="select-grill">
@@ -895,14 +804,14 @@ export default function TempUpload() {
 
                   <Button
                     onClick={handleSaveAttach}
-                    disabled={isSaving || !cookId || readings.length === 0}
+                    disabled={isSaving || !cookId || probes.length === 0}
                     className="w-full gap-2 mt-2"
                     data-testid="btn-save"
                   >
                     <Upload className="w-4 h-4" />
                     {uploadData.isPending
                       ? "Saving…"
-                      : `Save ${readings.length} Reading${readings.length !== 1 ? "s" : ""} to Cook`}
+                      : `Save ${probes.length} Reading${probes.length !== 1 ? "s" : ""} to Cook`}
                   </Button>
                 </div>
               )}
@@ -941,7 +850,7 @@ export default function TempUpload() {
 
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
-                      Cook Date &amp; Time
+                      Cook Start Date &amp; Time
                       {autoDetected?.cookDate && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 leading-none">
                           <Sparkles className="w-2.5 h-2.5" />
@@ -955,11 +864,27 @@ export default function TempUpload() {
                       onChange={(e) => setNewCookDate(e.target.value)}
                       data-testid="input-cook-date"
                     />
-                    <p className="text-xs text-muted-foreground">
-                      {autoDetected?.cookDate
-                        ? "Extracted from the image — adjust if needed."
-                        : "When did this cook happen? Defaults to now."}
-                    </p>
+                    {cookDurationMinutes ? (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        End time set to{" "}
+                        <span className="font-medium text-foreground">
+                          {toLocalDateTimeInput(
+                            new Date(
+                              (newCookDate ? new Date(newCookDate) : new Date()).getTime() +
+                              cookDurationMinutes * 60 * 1000
+                            )
+                          ).replace("T", " ")}
+                        </span>
+                        {" "}(+{formatDuration(cookDurationMinutes)})
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {autoDetected?.cookDate
+                          ? "Start time extracted from the image — adjust if needed."
+                          : "When did this cook start? Defaults to now."}
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-3 gap-3">
@@ -998,7 +923,7 @@ export default function TempUpload() {
 
                   <Button
                     onClick={handleSaveNewCook}
-                    disabled={isSaving || !newFoodType || !selectedGrillId || readings.length === 0}
+                    disabled={isSaving || !newFoodType || !selectedGrillId || probes.length === 0}
                     className="w-full gap-2"
                     data-testid="btn-save-new-cook"
                   >
@@ -1007,7 +932,7 @@ export default function TempUpload() {
                       ? "Creating cook…"
                       : uploadData.isPending
                       ? "Saving readings…"
-                      : `Create Cook & Save ${readings.length} Reading${readings.length !== 1 ? "s" : ""}`}
+                      : `Create Cook & Save ${probes.length} Reading${probes.length !== 1 ? "s" : ""}`}
                   </Button>
                   <p className="text-xs text-muted-foreground text-center">
                     This creates a new completed cook session on{" "}

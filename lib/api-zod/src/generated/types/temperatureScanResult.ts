@@ -9,6 +9,11 @@ import type { ScannedReading } from "./scannedReading";
 
 export interface TemperatureScanResult {
   readings: ScannedReading[];
+  /**
+   * Total cook duration in minutes, or null if not determinable from the image
+   * @nullable
+   */
+  cookDurationMinutes?: number | null;
   /** True when the image had no readable temperature data */
   noDataFound: boolean;
   /**

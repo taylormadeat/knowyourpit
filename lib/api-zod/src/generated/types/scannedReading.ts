@@ -7,10 +7,18 @@
  */
 
 export interface ScannedReading {
-  /** Probe label as shown in the image (e.g. "Probe 1", "Meat", "Pit") */
+  /** Probe label as shown in the image (e.g. "Probe 1", "Meat", "Pit", "Ambient") */
   probeName: string;
-  /** Temperature in Fahrenheit */
-  tempF: number;
-  /** Timestamp extracted from image or current time if not visible */
-  recordedAt: Date;
+  /** Final (finishing) temperature for this probe in Fahrenheit */
+  finishingTempF: number;
+  /**
+   * Minimum temperature seen for this probe during the cook, or null if not determinable
+   * @nullable
+   */
+  minTempF?: number | null;
+  /**
+   * Maximum temperature seen for this probe during the cook, or null if not determinable
+   * @nullable
+   */
+  maxTempF?: number | null;
 }
