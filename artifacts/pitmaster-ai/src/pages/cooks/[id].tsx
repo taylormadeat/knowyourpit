@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Trash2, Thermometer, Flame, Clock, Play, CheckCircle, Utensils, CheckCircle2, Package, BedDouble, UtensilsCrossed, Star } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine, Legend } from "recharts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -81,6 +81,41 @@ function ScoreRing({ score }: { score: number }) {
         <p className="text-2xl font-bold tabular-nums" style={{ color }}>{score.toFixed(1)}</p>
         <p className="text-[10px] text-muted-foreground mt-0.5">/ 5.0</p>
       </div>
+    </div>
+  );
+}
+
+// ── Chart helpers (mirrors the analyzer's style) ──────────────────────────────
+const PROBE_COLORS = ["#f97316", "#3b82f6", "#22c55e", "#a855f7", "#eab308", "#ec4899"];
+
+function formatMinutesAsHours(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+function TempChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; color: string }>;
+  label?: number;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border border-border bg-background/95 px-3 py-2 text-xs shadow-lg">
+      <p className="font-semibold text-muted-foreground mb-1">
+        {formatMinutesAsHours(label ?? 0)} into cook
+      </p>
+      {payload.map((entry) => (
+        <p key={entry.name} style={{ color: entry.color }}>
+          {entry.name}: <span className="font-bold">{entry.value}°F</span>
+        </p>
+      ))}
     </div>
   );
 }
@@ -158,12 +193,49 @@ export default function CookDetail() {
     );
   }
 
-  // Format temps for chart
-  const chartData = temps?.map(t => ({
-    time: new Date(t.recordedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    temp: t.tempF,
-    probe: `Probe ${t.probeNumber}`
-  })) || [];
+  // Build multi-probe elapsed-time chart data (matches analyzer graph style)
+  const sortedTemps = [...(temps ?? [])].sort(
+    (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
+  );
+  const firstTime = sortedTemps.length > 0 ? new Date(sortedTemps[0].recordedAt).getTime() : 0;
+  const probeNumbers = [...new Set(sortedTemps.map((t) => t.probeNumber))].sort((a, b) => a - b);
+
+  const byProbe: Record<number, { timeMinutes: number; tempF: number }[]> = {};
+  sortedTemps.forEach((t) => {
+    const pn = t.probeNumber;
+    if (!byProbe[pn]) byProbe[pn] = [];
+    byProbe[pn].push({
+      timeMinutes: (new Date(t.recordedAt).getTime() - firstTime) / 60000,
+      tempF: t.tempF,
+    });
+  });
+
+  const allTimeSet = new Set<number>();
+  Object.values(byProbe).forEach((pts) => pts.forEach((pt) => allTimeSet.add(pt.timeMinutes)));
+  const sortedTimes = Array.from(allTimeSet).sort((a, b) => a - b);
+
+  const chartData = sortedTimes.map((t) => {
+    const row: Record<string, number> = { timeMinutes: t };
+    probeNumbers.forEach((pn) => {
+      const pts = byProbe[pn] ?? [];
+      const exact = pts.find((pt) => pt.timeMinutes === t);
+      if (exact) {
+        row[`Probe ${pn}`] = exact.tempF;
+      } else {
+        const before = [...pts].reverse().find((pt) => pt.timeMinutes < t);
+        const after = pts.find((pt) => pt.timeMinutes > t);
+        if (before && after) {
+          const ratio = (t - before.timeMinutes) / (after.timeMinutes - before.timeMinutes);
+          row[`Probe ${pn}`] = Math.round((before.tempF + ratio * (after.tempF - before.tempF)) * 10) / 10;
+        } else if (before) {
+          row[`Probe ${pn}`] = before.tempF;
+        } else if (after) {
+          row[`Probe ${pn}`] = after.tempF;
+        }
+      }
+    });
+    return row;
+  });
 
   // Computed overall from sub-ratings
   const subRatings = [cook.ratingTenderness, cook.ratingBark, cook.ratingFlavor].filter(Boolean) as number[];
@@ -266,12 +338,48 @@ export default function CookDetail() {
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="time" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} domain={['auto', 'auto']} />
-                        <RechartsTooltip 
-                          contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
+                        <XAxis
+                          dataKey="timeMinutes"
+                          type="number"
+                          domain={["dataMin", "dataMax"]}
+                          tickFormatter={formatMinutesAsHours}
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={12}
                         />
-                        <Line type="monotone" dataKey="temp" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
+                        <YAxis
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={12}
+                          domain={["auto", "auto"]}
+                          tickFormatter={(v) => `${v}°`}
+                        />
+                        <RechartsTooltip content={<TempChartTooltip />} />
+                        {cook.targetTempF && (
+                          <ReferenceLine
+                            y={cook.targetTempF}
+                            stroke="#f97316"
+                            strokeDasharray="4 4"
+                            label={{
+                              value: `Target ${cook.targetTempF}°F`,
+                              fontSize: 11,
+                              fill: "#f97316",
+                              position: "insideTopRight",
+                            }}
+                          />
+                        )}
+                        {probeNumbers.map((pn, i) => (
+                          <Line
+                            key={pn}
+                            type="monotone"
+                            dataKey={`Probe ${pn}`}
+                            stroke={PROBE_COLORS[i % PROBE_COLORS.length]}
+                            strokeWidth={2}
+                            dot={false}
+                            activeDot={{ r: 6 }}
+                          />
+                        ))}
+                        {probeNumbers.length > 1 && (
+                          <Legend wrapperStyle={{ fontSize: 12 }} />
+                        )}
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
