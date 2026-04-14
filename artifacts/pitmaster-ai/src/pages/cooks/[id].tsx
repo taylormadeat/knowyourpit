@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Trash2, Thermometer, Flame, Clock, Play, CheckCircle, Utensils, CheckCircle2, Package, BedDouble, UtensilsCrossed, Star } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine, Legend } from "recharts";
+import { LineChart, Line, BarChart, Bar, Cell, LabelList, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine, Legend } from "recharts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -193,13 +193,25 @@ export default function CookDetail() {
     );
   }
 
-  // Build multi-probe elapsed-time chart data (matches analyzer graph style)
+  // Build chart data from temperature readings
   const sortedTemps = [...(temps ?? [])].sort(
     (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
   );
   const firstTime = sortedTemps.length > 0 ? new Date(sortedTemps[0].recordedAt).getTime() : 0;
+  const lastTime = sortedTemps.length > 0 ? new Date(sortedTemps[sortedTemps.length - 1].recordedAt).getTime() : 0;
   const probeNumbers = [...new Set(sortedTemps.map((t) => t.probeNumber))].sort((a, b) => a - b);
 
+  // Detect single-point data: all readings within 5 seconds of each other (uploaded together)
+  const isTimeSeries = (lastTime - firstTime) > 5000;
+
+  // Bar chart data: one entry per probe with its final (highest) recorded temp
+  const barData = probeNumbers.map((pn, i) => {
+    const readings = sortedTemps.filter((t) => t.probeNumber === pn);
+    const maxTemp = Math.max(...readings.map((t) => t.tempF));
+    return { probe: `Probe ${pn}`, tempF: maxTemp, color: PROBE_COLORS[i % PROBE_COLORS.length] };
+  });
+
+  // Line chart data: merge time-series across probes
   const byProbe: Record<number, { timeMinutes: number; tempF: number }[]> = {};
   sortedTemps.forEach((t) => {
     const pn = t.probeNumber;
@@ -214,7 +226,7 @@ export default function CookDetail() {
   Object.values(byProbe).forEach((pts) => pts.forEach((pt) => allTimeSet.add(pt.timeMinutes)));
   const sortedTimes = Array.from(allTimeSet).sort((a, b) => a - b);
 
-  const chartData = sortedTimes.map((t) => {
+  const lineChartData = sortedTimes.map((t) => {
     const row: Record<string, number> = { timeMinutes: t };
     probeNumbers.forEach((pn) => {
       const pts = byProbe[pn] ?? [];
@@ -236,6 +248,8 @@ export default function CookDetail() {
     });
     return row;
   });
+
+  const hasData = sortedTemps.length > 0;
 
   // Computed overall from sub-ratings
   const subRatings = [cook.ratingTenderness, cook.ratingBark, cook.ratingFlavor].filter(Boolean) as number[];
@@ -333,10 +347,11 @@ export default function CookDetail() {
               <CardContent>
                 {isLoadingTemps ? (
                   <Skeleton className="h-[300px] w-full" />
-                ) : chartData.length > 0 ? (
+                ) : hasData && isTimeSeries ? (
+                  /* ── Full time-series line chart ─────────────────── */
                   <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                      <LineChart data={lineChartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                         <XAxis
                           dataKey="timeMinutes"
@@ -382,6 +397,61 @@ export default function CookDetail() {
                         )}
                       </LineChart>
                     </ResponsiveContainer>
+                  </div>
+                ) : hasData ? (
+                  /* ── Single-point data: bar chart of final temps ──── */
+                  <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={barData} margin={{ top: 20, right: 20, bottom: 5, left: 0 }} barCategoryGap="30%">
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                        <XAxis
+                          dataKey="probe"
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={12}
+                          tick={{ fill: "hsl(var(--muted-foreground))" }}
+                        />
+                        <YAxis
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={12}
+                          domain={[
+                            (min: number) => Math.max(0, Math.floor(min / 10) * 10 - 20),
+                            (max: number) => Math.ceil(max / 10) * 10 + 20,
+                          ]}
+                          tickFormatter={(v) => `${v}°`}
+                        />
+                        <RechartsTooltip
+                          contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))" }}
+                          formatter={(value: number) => [`${value}°F`, "Final Temp"]}
+                        />
+                        {cook.targetTempF && (
+                          <ReferenceLine
+                            y={cook.targetTempF}
+                            stroke="#f97316"
+                            strokeDasharray="4 4"
+                            label={{
+                              value: `Target ${cook.targetTempF}°F`,
+                              fontSize: 11,
+                              fill: "#f97316",
+                              position: "insideTopRight",
+                            }}
+                          />
+                        )}
+                        <Bar dataKey="tempF" radius={[4, 4, 0, 0]}>
+                          {barData.map((entry, i) => (
+                            <Cell key={i} fill={entry.color} />
+                          ))}
+                          <LabelList
+                            dataKey="tempF"
+                            position="top"
+                            formatter={(v: number) => `${v}°F`}
+                            style={{ fontSize: 12, fontWeight: 600, fill: "hsl(var(--foreground))" }}
+                          />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <p className="text-center text-xs text-muted-foreground mt-1">
+                      Final recorded temperatures
+                    </p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-[300px] border border-dashed rounded-lg bg-muted/20">
