@@ -408,6 +408,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/TemperatureScanResult"
 
+  /temperature/analyze-cook:
+    post:
+      operationId: analyzeCook
+      tags: [temperature]
+      summary: Analyze multiple cook images + notes to synthesize a cook timeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyzeCookBody"
+      responses:
+        "200":
+          description: Cook analysis result with time-series data and events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyzeCookResult"
+
   /temperature/upload:
     post:
       operationId: uploadTemperatureData
@@ -1393,6 +1412,116 @@ components:
       required:
         - inserted
         - cookId
+
+    AnalyzeCookBody:
+      type: object
+      properties:
+        images:
+          type: array
+          description: One or more thermometer/grill images from the cook (max 10)
+          items:
+            $ref: "#/components/schemas/AnalyzeCookImageInput"
+        cookNotes:
+          type: ["string", "null"]
+          description: Optional free-text notes from the user about the cook
+      required:
+        - images
+
+    AnalyzeCookImageInput:
+      type: object
+      properties:
+        base64:
+          type: string
+          description: Base64-encoded image data
+        mimeType:
+          type: string
+          description: "MIME type: image/jpeg, image/png, or image/webp"
+          default: "image/jpeg"
+      required:
+        - base64
+
+    AnalyzeCookResult:
+      type: object
+      properties:
+        probes:
+          type: array
+          description: Per-probe summary and synthesized time-series
+          items:
+            $ref: "#/components/schemas/AnalyzedProbe"
+        events:
+          type: array
+          description: Detected cook events such as wrap, stall, spike
+          items:
+            $ref: "#/components/schemas/CookEvent"
+        cookDurationMinutes:
+          type: ["integer", "null"]
+          description: Total cook duration in minutes
+        detectedFoodType:
+          type: ["string", "null"]
+        detectedCookDate:
+          type: ["string", "null"]
+          format: date-time
+        noDataFound:
+          type: boolean
+        rawExtraction:
+          type: ["string", "null"]
+      required:
+        - probes
+        - events
+        - noDataFound
+
+    AnalyzedProbe:
+      type: object
+      properties:
+        probeName:
+          type: string
+        finishingTempF:
+          type: number
+        minTempF:
+          type: ["number", "null"]
+        maxTempF:
+          type: ["number", "null"]
+        timeSeries:
+          type: array
+          description: Synthesized temperature readings over time
+          items:
+            $ref: "#/components/schemas/ProbeTimePoint"
+      required:
+        - probeName
+        - finishingTempF
+        - minTempF
+        - maxTempF
+        - timeSeries
+
+    ProbeTimePoint:
+      type: object
+      properties:
+        timeMinutes:
+          type: number
+          description: Minutes elapsed from cook start
+        tempF:
+          type: number
+          description: Temperature at that point in Fahrenheit
+      required:
+        - timeMinutes
+        - tempF
+
+    CookEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          description: "wrap, stall, spike, done, note"
+        timeMinutes:
+          type: number
+          description: Minutes from cook start when event occurred
+        description:
+          type: string
+          description: Plain-English description of the event
+      required:
+        - type
+        - timeMinutes
+        - description
 
     TemperatureHistorySummary:
       type: object

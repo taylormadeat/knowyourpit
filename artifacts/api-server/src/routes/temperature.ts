@@ -140,6 +140,168 @@ WRONG — one entry per data point (DO NOT DO THIS):
   }
 });
 
+router.post("/temperature/analyze-cook", async (req, res): Promise<void> => {
+  const { images, cookNotes } = req.body as {
+    images?: Array<{ base64?: string; mimeType?: string }>;
+    cookNotes?: string | null;
+  };
+
+  if (!images || !Array.isArray(images) || images.length === 0) {
+    res.status(400).json({ error: "images array is required and must be non-empty" });
+    return;
+  }
+  if (images.length > 10) {
+    res.status(400).json({ error: "Maximum 10 images allowed" });
+    return;
+  }
+  for (const img of images) {
+    if (!img.base64 || typeof img.base64 !== "string") {
+      res.status(400).json({ error: "Each image must have a base64 field" });
+      return;
+    }
+  }
+
+  const imageContentParts = images.map((img) => {
+    const safeMime =
+      typeof img.mimeType === "string" && ALLOWED_MIME_TYPES.has(img.mimeType)
+        ? img.mimeType
+        : "image/jpeg";
+    return {
+      type: "image_url" as const,
+      image_url: {
+        url: `data:${safeMime};base64,${img.base64}`,
+        detail: "high" as const,
+      },
+    };
+  });
+
+  const systemPrompt = `You are an expert BBQ cook analyst. You receive one or more photos taken at different stages of a cook (thermometer displays, grill screens, temperature app screenshots) plus optional cook notes from the pitmaster.
+
+Your job is to synthesize all evidence into a structured cook timeline. Return ONLY valid JSON — no markdown, no explanation:
+{
+  "probes": [
+    {
+      "probeName": "string (e.g. Meat, Pit, Probe 1)",
+      "finishingTempF": number,
+      "minTempF": number or null,
+      "maxTempF": number or null,
+      "timeSeries": [
+        { "timeMinutes": number, "tempF": number }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "type": "wrap|stall|spike|done|note",
+      "timeMinutes": number,
+      "description": "plain-English description"
+    }
+  ],
+  "cookDurationMinutes": number or null,
+  "noDataFound": boolean,
+  "rawExtraction": "brief description of what you saw",
+  "detectedFoodType": "string or null",
+  "detectedCookDate": "ISO8601 UTC string or null"
+}
+
+=== PROBES ===
+Extract ONE entry per physical probe. synthesize timeSeries of up to 20 data points representing the temperature curve over the cook.
+- If multiple images show different timestamps for the same probe, use them as anchors for the time series.
+- Fill in a realistic temperature curve between known data points based on BBQ physics (the stall, gradual rise, etc.).
+- timeMinutes: minutes elapsed from the START of the cook (0 = cook start).
+- finishingTempF: the highest/last recorded temperature for this probe.
+- minTempF, maxTempF: from across all images.
+
+=== EVENTS ===
+Detect meaningful events and explain them in plain English:
+- "wrap": sudden drop in probe temperature followed by a plateau or slower climb — pitmaster likely wrapped in foil or butcher paper.
+- "stall": extended plateau (the Texas crutch stall) typically between 150–175°F on meat probes.
+- "spike": brief sharp temperature increase (e.g. adding more fuel, opening lid).
+- "done": probe reached target/finishing temperature.
+- "note": any other notable event from the cook notes or images.
+If the cook notes mention an event (e.g. "pulled to wrap at hour 6"), create a corresponding event even if not visible in images.
+
+=== COOK DURATION ===
+cookDurationMinutes: total minutes from first image's start to last image's end, or null if not determinable.
+
+=== FOOD TYPE & DATE ===
+detectedFoodType: specific meat cut ("Brisket", "Pork Butt", etc.) or null.
+detectedCookDate: cook START as ISO 8601 UTC, or null.
+
+=== GENERAL ===
+noDataFound: true ONLY if there is absolutely no temperature data in any image.
+rawExtraction: 1-2 sentences describing what you saw across all images.`;
+
+  type AnalyzeCookAIResult = {
+    probes: Array<{
+      probeName: string;
+      finishingTempF: number;
+      minTempF: number | null;
+      maxTempF: number | null;
+      timeSeries: Array<{ timeMinutes: number; tempF: number }>;
+    }>;
+    events: Array<{ type: string; timeMinutes: number; description: string }>;
+    cookDurationMinutes: number | null;
+    noDataFound: boolean;
+    rawExtraction: string | null;
+    detectedFoodType: string | null;
+    detectedCookDate: string | null;
+  };
+
+  const userText =
+    cookNotes
+      ? `Analyse these ${images.length} BBQ cook image${images.length > 1 ? "s" : ""}.\n\nPitmaster notes:\n${cookNotes}\n\nReturn structured JSON as instructed.`
+      : `Analyse these ${images.length} BBQ cook image${images.length > 1 ? "s" : ""}. Return structured JSON as instructed.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-5.2",
+      max_completion_tokens: 3000,
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            ...imageContentParts,
+            { type: "text" as const, text: userText },
+          ],
+        },
+      ],
+    });
+
+    const content = response.choices[0]?.message?.content ?? "{}";
+    const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+
+    let result: AnalyzeCookAIResult;
+    try {
+      result = JSON.parse(cleaned) as AnalyzeCookAIResult;
+    } catch {
+      result = {
+        probes: [],
+        events: [],
+        cookDurationMinutes: null,
+        noDataFound: true,
+        rawExtraction: content,
+        detectedFoodType: null,
+        detectedCookDate: null,
+      };
+    }
+
+    res.json({
+      probes: result.probes ?? [],
+      events: result.events ?? [],
+      cookDurationMinutes: result.cookDurationMinutes ?? null,
+      noDataFound: result.noDataFound ?? (result.probes?.length === 0),
+      rawExtraction: result.rawExtraction ?? null,
+      detectedFoodType: result.detectedFoodType ?? null,
+      detectedCookDate: result.detectedCookDate ?? null,
+    });
+  } catch (err) {
+    console.error("analyze-cook error:", err);
+    res.status(500).json({ error: "Failed to analyze cook" });
+  }
+});
+
 router.post("/temperature/upload", async (req, res): Promise<void> => {
   const parsed = UploadTemperatureDataBody.safeParse(req.body);
   if (!parsed.success) {

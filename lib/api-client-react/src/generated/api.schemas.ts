@@ -574,6 +574,69 @@ export interface TemperatureUploadResult {
   cookId: number;
 }
 
+export interface AnalyzeCookImageInput {
+  /** Base64-encoded image data */
+  base64: string;
+  /** MIME type: image/jpeg, image/png, or image/webp */
+  mimeType?: string;
+}
+
+export interface AnalyzeCookBody {
+  /** One or more thermometer/grill images from the cook (max 10) */
+  images: AnalyzeCookImageInput[];
+  /**
+   * Optional free-text notes from the user about the cook
+   * @nullable
+   */
+  cookNotes?: string | null;
+}
+
+export interface ProbeTimePoint {
+  /** Minutes elapsed from cook start */
+  timeMinutes: number;
+  /** Temperature at that point in Fahrenheit */
+  tempF: number;
+}
+
+export interface AnalyzedProbe {
+  probeName: string;
+  finishingTempF: number;
+  /** @nullable */
+  minTempF: number | null;
+  /** @nullable */
+  maxTempF: number | null;
+  /** Synthesized temperature readings over time */
+  timeSeries: ProbeTimePoint[];
+}
+
+export interface CookEvent {
+  /** wrap, stall, spike, done, note */
+  type: string;
+  /** Minutes from cook start when event occurred */
+  timeMinutes: number;
+  /** Plain-English description of the event */
+  description: string;
+}
+
+export interface AnalyzeCookResult {
+  /** Per-probe summary and synthesized time-series */
+  probes: AnalyzedProbe[];
+  /** Detected cook events such as wrap, stall, spike */
+  events: CookEvent[];
+  /**
+   * Total cook duration in minutes
+   * @nullable
+   */
+  cookDurationMinutes?: number | null;
+  /** @nullable */
+  detectedFoodType?: string | null;
+  /** @nullable */
+  detectedCookDate?: string | null;
+  noDataFound: boolean;
+  /** @nullable */
+  rawExtraction?: string | null;
+}
+
 export interface TemperatureHistorySummary {
   cookId: number;
   foodType: string;

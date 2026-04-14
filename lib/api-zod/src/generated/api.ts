@@ -757,6 +757,75 @@ export const ScanTemperatureImageResponse = zod.object({
 });
 
 /**
+ * @summary Analyze multiple cook images + notes to synthesize a cook timeline
+ */
+export const analyzeCookBodyImagesItemMimeTypeDefault = `image/jpeg`;
+
+export const AnalyzeCookBody = zod.object({
+  images: zod
+    .array(
+      zod.object({
+        base64: zod.string().describe("Base64-encoded image data"),
+        mimeType: zod
+          .string()
+          .default(analyzeCookBodyImagesItemMimeTypeDefault)
+          .describe("MIME type: image\/jpeg, image\/png, or image\/webp"),
+      }),
+    )
+    .describe("One or more thermometer\/grill images from the cook (max 10)"),
+  cookNotes: zod
+    .string()
+    .nullish()
+    .describe("Optional free-text notes from the user about the cook"),
+});
+
+export const AnalyzeCookResponse = zod.object({
+  probes: zod
+    .array(
+      zod.object({
+        probeName: zod.string(),
+        finishingTempF: zod.number(),
+        minTempF: zod.number().nullable(),
+        maxTempF: zod.number().nullable(),
+        timeSeries: zod
+          .array(
+            zod.object({
+              timeMinutes: zod
+                .number()
+                .describe("Minutes elapsed from cook start"),
+              tempF: zod
+                .number()
+                .describe("Temperature at that point in Fahrenheit"),
+            }),
+          )
+          .describe("Synthesized temperature readings over time"),
+      }),
+    )
+    .describe("Per-probe summary and synthesized time-series"),
+  events: zod
+    .array(
+      zod.object({
+        type: zod.string().describe("wrap, stall, spike, done, note"),
+        timeMinutes: zod
+          .number()
+          .describe("Minutes from cook start when event occurred"),
+        description: zod
+          .string()
+          .describe("Plain-English description of the event"),
+      }),
+    )
+    .describe("Detected cook events such as wrap, stall, spike"),
+  cookDurationMinutes: zod
+    .number()
+    .nullish()
+    .describe("Total cook duration in minutes"),
+  detectedFoodType: zod.string().nullish(),
+  detectedCookDate: zod.coerce.date().nullish(),
+  noDataFound: zod.boolean(),
+  rawExtraction: zod.string().nullish(),
+});
+
+/**
  * @summary Upload temperature data from thermometer apps
  */
 export const UploadTemperatureDataBody = zod.object({

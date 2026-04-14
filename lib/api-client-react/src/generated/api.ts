@@ -22,6 +22,8 @@ import type {
   AiPredictBody,
   AiPredictResponse,
   Alert,
+  AnalyzeCookBody,
+  AnalyzeCookResult,
   Cook,
   CookingTip,
   CreateAlertBody,
@@ -1766,6 +1768,92 @@ export const useScanTemperatureImage = <
   TContext
 > => {
   return useMutation(getScanTemperatureImageMutationOptions(options));
+};
+
+/**
+ * @summary Analyze multiple cook images + notes to synthesize a cook timeline
+ */
+export const getAnalyzeCookUrl = () => {
+  return `/api/temperature/analyze-cook`;
+};
+
+export const analyzeCook = async (
+  analyzeCookBody: AnalyzeCookBody,
+  options?: RequestInit,
+): Promise<AnalyzeCookResult> => {
+  return customFetch<AnalyzeCookResult>(getAnalyzeCookUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(analyzeCookBody),
+  });
+};
+
+export const getAnalyzeCookMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof analyzeCook>>,
+    TError,
+    { data: BodyType<AnalyzeCookBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof analyzeCook>>,
+  TError,
+  { data: BodyType<AnalyzeCookBody> },
+  TContext
+> => {
+  const mutationKey = ["analyzeCook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof analyzeCook>>,
+    { data: BodyType<AnalyzeCookBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return analyzeCook(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AnalyzeCookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof analyzeCook>>
+>;
+export type AnalyzeCookMutationBody = BodyType<AnalyzeCookBody>;
+export type AnalyzeCookMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Analyze multiple cook images + notes to synthesize a cook timeline
+ */
+export const useAnalyzeCook = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof analyzeCook>>,
+    TError,
+    { data: BodyType<AnalyzeCookBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof analyzeCook>>,
+  TError,
+  { data: BodyType<AnalyzeCookBody> },
+  TContext
+> => {
+  return useMutation(getAnalyzeCookMutationOptions(options));
 };
 
 /**
