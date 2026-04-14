@@ -476,19 +476,53 @@ export default function TempUpload() {
     ]);
 
   // ── Save helpers ──────────────────────────────────────────────────────────
-  const formattedReadings = (recordedAtOverride?: string) => {
-    const ts = recordedAtOverride ?? new Date().toISOString();
+  // Build readings from AI time-series when available, otherwise fall back to
+  // one finishing-temp reading per probe. startTime is the cook's actual start.
+  const buildReadings = (startTime: Date) => {
+    const hasTimeSeries =
+      analysisResult != null &&
+      analysisResult.probes.some((p) => p.timeSeries.length >= 2);
+
+    if (hasTimeSeries) {
+      const readings: { probeNumber: number; probeName: string; tempF: number; recordedAt: string }[] = [];
+      probes.forEach((p, i) => {
+        const analysisProbe =
+          analysisResult!.probes.find((ap) => ap.probeName === p.probeName) ??
+          analysisResult!.probes[i];
+        const series = analysisProbe?.timeSeries ?? [];
+        if (series.length >= 2) {
+          series.forEach((pt) => {
+            readings.push({
+              probeNumber: i + 1,
+              probeName: p.probeName,
+              tempF: pt.tempF,
+              recordedAt: new Date(startTime.getTime() + pt.timeMinutes * 60 * 1000).toISOString(),
+            });
+          });
+        } else {
+          readings.push({
+            probeNumber: i + 1,
+            probeName: p.probeName,
+            tempF: p.finishingTempF,
+            recordedAt: startTime.toISOString(),
+          });
+        }
+      });
+      return readings;
+    }
+
     return probes.map((p, i) => ({
       probeNumber: i + 1,
       probeName: p.probeName,
       tempF: p.finishingTempF,
-      recordedAt: ts,
+      recordedAt: startTime.toISOString(),
     }));
   };
 
-  const doUpload = (resolvedCookId: number, recordedAt?: string) => {
+  const doUpload = (resolvedCookId: number, startTime?: Date) => {
+    const readings = buildReadings(startTime ?? new Date());
     uploadData.mutate(
-      { data: { cookId: resolvedCookId, source: "image_scan", readings: formattedReadings(recordedAt) } },
+      { data: { cookId: resolvedCookId, source: "image_scan", readings } },
       {
         onSuccess: () => {
           toast({ title: `${probes.length} probe reading${probes.length > 1 ? "s" : ""} saved` });
@@ -502,7 +536,11 @@ export default function TempUpload() {
   const handleSaveAttach = () => {
     if (!cookId) { toast({ title: "Please select a cook session", variant: "destructive" }); return; }
     if (probes.length === 0) { toast({ title: "No probe data to save", variant: "destructive" }); return; }
-    doUpload(parseInt(cookId));
+    // Approximate cook start from duration; fall back to now (single-point save)
+    const approxStart = cookDurationMinutes != null
+      ? new Date(Date.now() - cookDurationMinutes * 60 * 1000)
+      : new Date();
+    doUpload(parseInt(cookId), approxStart);
   };
 
   const handleSaveNewCook = () => {
@@ -532,7 +570,7 @@ export default function TempUpload() {
         },
       },
       {
-        onSuccess: (newCook) => doUpload(newCook.id, actualEndAt),
+        onSuccess: (newCook) => doUpload(newCook.id, startDate),
         onError: () => toast({ title: "Failed to create cook session", variant: "destructive" }),
       }
     );
