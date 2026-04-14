@@ -180,20 +180,35 @@ const eventMeta: Record<string, { icon: React.ElementType; color: string; label:
 function mergeTimeSeries(
   probes: AnalyzeCookResult["probes"]
 ): Array<Record<string, number>> {
+  // Guard: probes with no timeSeries data produce no chart rows
+  const validProbes = probes.filter(
+    (p) => Array.isArray(p.timeSeries) && p.timeSeries.length > 0
+  );
+  if (validProbes.length === 0) return [];
+
   const allTimes = new Set<number>();
-  probes.forEach((p) => p.timeSeries.forEach((pt) => allTimes.add(pt.timeMinutes)));
+  validProbes.forEach((p) =>
+    p.timeSeries.forEach((pt) => {
+      if (typeof pt.timeMinutes === "number" && isFinite(pt.timeMinutes)) {
+        allTimes.add(pt.timeMinutes);
+      }
+    })
+  );
   const sorted = Array.from(allTimes).sort((a, b) => a - b);
+  if (sorted.length === 0) return [];
 
   return sorted.map((t) => {
     const row: Record<string, number> = { timeMinutes: t };
-    probes.forEach((p) => {
-      const exact = p.timeSeries.find((pt) => pt.timeMinutes === t);
+    validProbes.forEach((p) => {
+      const series = p.timeSeries.filter(
+        (pt) => typeof pt.timeMinutes === "number" && typeof pt.tempF === "number" && isFinite(pt.tempF)
+      );
+      const exact = series.find((pt) => pt.timeMinutes === t);
       if (exact) {
         row[p.probeName] = exact.tempF;
       } else {
-        // Linear interpolation between nearest points
-        const before = [...p.timeSeries].reverse().find((pt) => pt.timeMinutes < t);
-        const after = p.timeSeries.find((pt) => pt.timeMinutes > t);
+        const before = [...series].reverse().find((pt) => pt.timeMinutes < t);
+        const after = series.find((pt) => pt.timeMinutes > t);
         if (before && after) {
           const ratio = (t - before.timeMinutes) / (after.timeMinutes - before.timeMinutes);
           row[p.probeName] = Math.round((before.tempF + ratio * (after.tempF - before.tempF)) * 10) / 10;

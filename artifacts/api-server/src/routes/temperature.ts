@@ -287,11 +287,54 @@ rawExtraction: 1-2 sentences describing what you saw across all images.`;
       };
     }
 
+    // ── Normalize/sanitize the AI response so downstream code never sees bad shapes ──
+    const safeProbes = Array.isArray(result.probes)
+      ? result.probes
+          .filter((p) => p && typeof p === "object" && typeof p.probeName === "string")
+          .map((p) => ({
+            probeName: String(p.probeName),
+            finishingTempF: typeof p.finishingTempF === "number" && isFinite(p.finishingTempF) ? p.finishingTempF : 0,
+            minTempF: typeof p.minTempF === "number" && isFinite(p.minTempF) ? p.minTempF : null,
+            maxTempF: typeof p.maxTempF === "number" && isFinite(p.maxTempF) ? p.maxTempF : null,
+            timeSeries: Array.isArray(p.timeSeries)
+              ? p.timeSeries
+                  .filter(
+                    (pt) =>
+                      pt &&
+                      typeof pt === "object" &&
+                      typeof pt.timeMinutes === "number" && isFinite(pt.timeMinutes) &&
+                      typeof pt.tempF === "number" && isFinite(pt.tempF)
+                  )
+                  .map((pt) => ({ timeMinutes: pt.timeMinutes, tempF: pt.tempF }))
+                  .sort((a, b) => a.timeMinutes - b.timeMinutes)
+              : [],
+          }))
+      : [];
+
+    const safeEvents = Array.isArray(result.events)
+      ? result.events
+          .filter(
+            (ev) =>
+              ev &&
+              typeof ev === "object" &&
+              typeof ev.type === "string" &&
+              typeof ev.timeMinutes === "number" && isFinite(ev.timeMinutes) &&
+              typeof ev.description === "string"
+          )
+          .map((ev) => ({
+            type: ev.type,
+            timeMinutes: Math.max(0, ev.timeMinutes),
+            description: String(ev.description),
+          }))
+      : [];
+
     res.json({
-      probes: result.probes ?? [],
-      events: result.events ?? [],
-      cookDurationMinutes: result.cookDurationMinutes ?? null,
-      noDataFound: result.noDataFound ?? (result.probes?.length === 0),
+      probes: safeProbes,
+      events: safeEvents,
+      cookDurationMinutes: typeof result.cookDurationMinutes === "number" && isFinite(result.cookDurationMinutes)
+        ? result.cookDurationMinutes
+        : null,
+      noDataFound: result.noDataFound ?? (safeProbes.length === 0),
       rawExtraction: result.rawExtraction ?? null,
       detectedFoodType: result.detectedFoodType ?? null,
       detectedCookDate: result.detectedCookDate ?? null,
