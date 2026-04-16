@@ -8,7 +8,9 @@ import {
   Bot,
   ShoppingBag,
   ClipboardList,
-  MoreHorizontal
+  MoreHorizontal,
+  LogOut,
+  User,
 } from "lucide-react";
 import {
   Sidebar,
@@ -21,15 +23,16 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-  SidebarTrigger,
-  useSidebar,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sheet, SheetContent, SelectTrigger, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useState } from "react";
+import { useClerk, useUser } from "@clerk/react";
+import { Button } from "@/components/ui/button";
 
 const mainTabs = [
-  { title: "Plan a Cook", url: "/", icon: ClipboardList },
+  { title: "Plan a Cook", url: "/plan", icon: ClipboardList },
   { title: "Active Cooks", url: "/cooks", icon: Flame },
   { title: "My Grills", url: "/grills", icon: Utensils },
   { title: "Temp Data", url: "/temperature/upload", icon: Activity },
@@ -42,14 +45,53 @@ const secondaryNav = [
   { title: "BBQ Shop", url: "/shop", icon: ShoppingBag },
 ];
 
+function UserFooter() {
+  const { signOut } = useClerk();
+  const { user, isLoaded } = useUser();
+
+  if (!isLoaded) return null;
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 border-t border-sidebar-border bg-sidebar-accent/20">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
+            {user?.imageUrl
+              ? <img src={user.imageUrl} alt="avatar" className="w-7 h-7 rounded-full object-cover" />
+              : <User className="w-4 h-4 text-primary" />
+            }
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-sidebar-foreground truncate">
+              {user?.firstName || user?.username || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] || "Pitmaster"}
+            </p>
+            <p className="text-[10px] text-sidebar-foreground/50 truncate">
+              {user?.emailAddresses?.[0]?.emailAddress}
+            </p>
+          </div>
+        </div>
+      </div>
+      <button
+        onClick={() => signOut({ redirectUrl: "/" })}
+        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors shrink-0"
+        title="Sign out"
+      >
+        <LogOut className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const { signOut } = useClerk();
+  const { user, isLoaded } = useUser();
 
   return (
     <SidebarProvider>
       <div className="min-h-[100dvh] flex w-full bg-background relative pb-16 lg:pb-0">
-        <Sidebar className="hidden lg:flex border-r border-sidebar-border" collapsible="none">
+        <Sidebar className="hidden lg:flex border-r border-sidebar-border flex-col" collapsible="none">
           <SidebarHeader className="p-6 flex flex-col gap-2 border-b border-sidebar-border bg-sidebar-accent/30 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent pointer-events-none" />
             <div className="flex items-center gap-3 relative z-10">
@@ -60,7 +102,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
             <p className="text-xs text-sidebar-foreground/60 tracking-wide uppercase mt-1 relative z-10">Command & Control</p>
           </SidebarHeader>
-          <SidebarContent className="p-2 gap-6">
+          <SidebarContent className="p-2 gap-6 flex-1">
             <SidebarGroup>
               <SidebarGroupLabel className="text-xs font-serif uppercase tracking-widest text-primary mb-2">Core Tools</SidebarGroupLabel>
               <SidebarGroupContent>
@@ -69,7 +111,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton
                         asChild
-                        isActive={location === item.url || (item.url !== "/" && location.startsWith(item.url))}
+                        isActive={location === item.url || (item.url !== "/plan" && location.startsWith(item.url))}
                         className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-medium rounded-lg h-10 transition-colors"
                       >
                         <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
@@ -105,14 +147,28 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </SidebarGroupContent>
             </SidebarGroup>
           </SidebarContent>
+
+          <UserFooter />
         </Sidebar>
         
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-background">
-          <header className="h-14 lg:hidden flex items-center gap-4 px-4 border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-40">
+          <header className="h-14 lg:hidden flex items-center justify-between px-4 border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-40">
             <div className="flex items-center gap-2 font-bold text-foreground">
               <Flame className="w-5 h-5 text-primary animate-pulse" />
               <span className="font-serif tracking-tighter uppercase text-gradient-fire">PitKing</span>
             </div>
+            {isLoaded && user && (
+              <button
+                onClick={() => signOut({ redirectUrl: "/" })}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {user.imageUrl
+                  ? <img src={user.imageUrl} alt="avatar" className="w-6 h-6 rounded-full object-cover" />
+                  : <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center"><User className="w-3.5 h-3.5 text-primary" /></div>
+                }
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
           </header>
           
           <div className="flex-1 overflow-y-auto p-4 md:p-8">
@@ -134,7 +190,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Mobile Bottom Tab Bar */}
         <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border z-50 flex items-center justify-around px-2 pb-safe">
           {mainTabs.map((tab) => {
-            const isActive = location === tab.url || (tab.url !== "/" && location.startsWith(tab.url));
+            const isActive = location === tab.url || (tab.url !== "/plan" && location.startsWith(tab.url));
             return (
               <Link key={tab.title} href={tab.url} className="relative flex flex-col items-center justify-center w-full h-full" data-testid={`tab-${tab.title.toLowerCase().replace(/\s+/g, '-')}`}>
                 <div className={`flex flex-col items-center justify-center space-y-1 transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
@@ -167,7 +223,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                    <Flame className="w-5 h-5" /> All Resources
                 </SheetTitle>
               </SheetHeader>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 mb-6">
                 {secondaryNav.map((item) => (
                    <Link key={item.title} href={item.url} onClick={() => setIsMoreOpen(false)} className="flex flex-col items-center justify-center p-4 rounded-xl border border-border bg-background hover:border-primary/50 transition-all card-bbq">
                      <item.icon className="w-8 h-8 text-primary mb-2" />
@@ -175,6 +231,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                    </Link>
                 ))}
               </div>
+              {isLoaded && user && (
+                <button
+                  onClick={() => { setIsMoreOpen(false); signOut({ redirectUrl: "/" }); }}
+                  className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-border bg-background text-muted-foreground hover:text-foreground hover:border-destructive/50 transition-all text-sm"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </button>
+              )}
             </SheetContent>
           </Sheet>
         </div>

@@ -9,22 +9,23 @@ import {
   DeleteCookParams,
   ListCooksQueryParams,
 } from "@workspace/api-zod";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-router.get("/cooks", async (req, res): Promise<void> => {
+router.get("/cooks", requireAuth, async (req: any, res): Promise<void> => {
   const parsed = ListCooksQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
   const { grillId, status } = parsed.data;
-  const conditions = [];
+  const conditions: ReturnType<typeof eq>[] = [eq(cooksTable.userId, req.userId)];
   if (grillId != null) conditions.push(eq(cooksTable.grillId, grillId));
   if (status != null) conditions.push(eq(cooksTable.status, status));
 
   const cooks = await db.select().from(cooksTable)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .where(and(...conditions))
     .orderBy(cooksTable.createdAt);
 
   const result = await Promise.all(cooks.map(async (cook) => {
@@ -38,7 +39,7 @@ router.get("/cooks", async (req, res): Promise<void> => {
   res.json(result);
 });
 
-router.post("/cooks", async (req, res): Promise<void> => {
+router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
   const parsed = CreateCookBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -46,6 +47,7 @@ router.post("/cooks", async (req, res): Promise<void> => {
   }
   const [cook] = await db.insert(cooksTable).values({
     ...parsed.data,
+    userId: req.userId,
     status: parsed.data.status ?? "planned",
   }).returning();
   if (cook.grillId) {
@@ -59,13 +61,14 @@ router.post("/cooks", async (req, res): Promise<void> => {
   res.status(201).json({ ...cook, grillName });
 });
 
-router.get("/cooks/:id", async (req, res): Promise<void> => {
+router.get("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => {
   const params = GetCookParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const [cook] = await db.select().from(cooksTable).where(eq(cooksTable.id, params.data.id));
+  const [cook] = await db.select().from(cooksTable)
+    .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)));
   if (!cook) {
     res.status(404).json({ error: "Cook not found" });
     return;
@@ -78,7 +81,7 @@ router.get("/cooks/:id", async (req, res): Promise<void> => {
   res.json({ ...cook, grillName });
 });
 
-router.patch("/cooks/:id", async (req, res): Promise<void> => {
+router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => {
   const params = UpdateCookParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -93,7 +96,9 @@ router.patch("/cooks/:id", async (req, res): Promise<void> => {
   for (const [k, v] of Object.entries(parsed.data)) {
     if (v !== undefined) updateData[k] = v;
   }
-  const [cook] = await db.update(cooksTable).set(updateData).where(eq(cooksTable.id, params.data.id)).returning();
+  const [cook] = await db.update(cooksTable).set(updateData)
+    .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)))
+    .returning();
   if (!cook) {
     res.status(404).json({ error: "Cook not found" });
     return;
@@ -106,13 +111,15 @@ router.patch("/cooks/:id", async (req, res): Promise<void> => {
   res.json({ ...cook, grillName });
 });
 
-router.delete("/cooks/:id", async (req, res): Promise<void> => {
+router.delete("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => {
   const params = DeleteCookParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const [deleted] = await db.delete(cooksTable).where(eq(cooksTable.id, params.data.id)).returning();
+  const [deleted] = await db.delete(cooksTable)
+    .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)))
+    .returning();
   if (!deleted) {
     res.status(404).json({ error: "Cook not found" });
     return;
