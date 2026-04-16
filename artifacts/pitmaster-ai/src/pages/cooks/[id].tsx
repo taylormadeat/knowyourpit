@@ -347,7 +347,8 @@ export default function CookDetail() {
                         <XAxis
                           dataKey="timeMinutes"
                           type="number"
-                          domain={["dataMin", "dataMax"]}
+                          domain={[0, "dataMax"]}
+                          tickCount={6}
                           tickFormatter={formatMinutesAsHours}
                           stroke="hsl(var(--muted-foreground))"
                           fontSize={12}

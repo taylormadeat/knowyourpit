@@ -823,6 +823,9 @@ export default function TempUpload() {
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                   <XAxis
                     dataKey="timeMinutes"
+                    type="number"
+                    domain={[0, "dataMax"]}
+                    tickCount={6}
                     tickFormatter={formatMinutesAsHours}
                     tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                     label={{
