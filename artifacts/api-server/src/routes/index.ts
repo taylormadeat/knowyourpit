@@ -10,6 +10,7 @@ import tipsRouter from "./tips";
 import alertsRouter from "./alerts";
 import dashboardRouter from "./dashboard";
 import profileRouter from "./profile";
+import conversationsRouter from "./conversations";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(tipsRouter);
 router.use(alertsRouter);
 router.use(dashboardRouter);
 router.use(profileRouter);
+router.use(conversationsRouter);
 
 export default router;
