@@ -3,6 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { db, cooksTable, grillsTable, temperatureReadingsTable } from "@workspace/db";
 import { AiChatBody, AiPredictBody } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
@@ -10,7 +11,63 @@ const PIT_PROBE_NAMES = ["pit", "ambient", "grill", "chamber", "dome", "lid"];
 const isPitProbe = (name: string | null) =>
   name ? PIT_PROBE_NAMES.some(k => name.toLowerCase().includes(k)) : false;
 
-router.post("/ai/chat", async (req, res): Promise<void> => {
+async function buildUserCookHistory(userId: string): Promise<string> {
+  const cooks = await db.select().from(cooksTable)
+    .where(eq(cooksTable.userId, userId))
+    .orderBy(desc(cooksTable.createdAt))
+    .limit(50);
+
+  if (cooks.length === 0) {
+    return "This user has no cook logs yet.";
+  }
+
+  // Fetch grill names in one pass
+  const grillIds = [...new Set(cooks.map(c => c.grillId).filter(Boolean))] as number[];
+  const grills: Record<number, string> = {};
+  if (grillIds.length > 0) {
+    for (const id of grillIds) {
+      const [g] = await db.select({ id: grillsTable.id, name: grillsTable.name }).from(grillsTable).where(eq(grillsTable.id, id));
+      if (g) grills[g.id] = g.name;
+    }
+  }
+
+  const lines = cooks.map(c => {
+    const parts: string[] = [];
+    parts.push(c.foodType);
+    if (c.weightLbs) parts.push(`${c.weightLbs} lbs`);
+    if (c.grillId && grills[c.grillId]) parts.push(`on ${grills[c.grillId]}`);
+    if (c.status) parts.push(`[${c.status}]`);
+    if (c.cookTempF) parts.push(`cook temp: ${c.cookTempF}°F`);
+    if (c.targetTempF) parts.push(`target: ${c.targetTempF}°F`);
+    if (c.actualStartAt && c.actualEndAt) {
+      const mins = Math.round((new Date(c.actualEndAt).getTime() - new Date(c.actualStartAt).getTime()) / 60000);
+      parts.push(`duration: ${mins} min`);
+    }
+    if (c.rating) parts.push(`rated ${c.rating}/5`);
+    if (c.ratingTenderness) parts.push(`tenderness ${c.ratingTenderness}/5`);
+    if (c.ratingBark) parts.push(`bark ${c.ratingBark}/5`);
+    if (c.ratingFlavor) parts.push(`flavor ${c.ratingFlavor}/5`);
+    if (c.wrapMethod && c.wrapMethod !== "none") parts.push(`wrapped: ${c.wrapMethod}`);
+    if (c.notes) parts.push(`notes: "${c.notes}"`);
+    const date = c.actualStartAt ? new Date(c.actualStartAt).toLocaleDateString() : (c.createdAt ? new Date(c.createdAt).toLocaleDateString() : null);
+    if (date) parts.push(`date: ${date}`);
+    return `- ${parts.join(" · ")}`;
+  });
+
+  const total = cooks.length;
+  const completed = cooks.filter(c => c.status === "completed").length;
+  const rated = cooks.filter(c => c.rating != null);
+  const avgRating = rated.length > 0 ? (rated.reduce((s, c) => s + c.rating!, 0) / rated.length).toFixed(1) : null;
+
+  const summary = [
+    `User's cook history (${total} total, ${completed} completed${avgRating ? `, avg rating ${avgRating}/5` : ""}):`,
+    ...lines,
+  ].join("\n");
+
+  return summary;
+}
+
+router.post("/ai/chat", requireAuth, async (req: any, res): Promise<void> => {
   const parsed = AiChatBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -18,7 +75,13 @@ router.post("/ai/chat", async (req, res): Promise<void> => {
   }
   const { message, context } = parsed.data;
 
-  const systemPrompt = `You are PitMaster AI, an expert BBQ assistant. You help users with BBQ cooking, grilling techniques, temperature guidance, timing predictions, and recipe suggestions. You are knowledgeable about all BBQ styles including Texas BBQ, Carolina BBQ, Kansas City style, and more. Provide practical, specific advice.${context ? `\n\nCurrent context: ${context}` : ""}`;
+  const cookHistory = await buildUserCookHistory(req.userId);
+
+  const systemPrompt = `You are PitMaster AI, an expert BBQ assistant and personal pit coach. You help users with BBQ cooking, grilling techniques, temperature guidance, timing predictions, and recipe suggestions. You are knowledgeable about all BBQ styles including Texas BBQ, Carolina BBQ, Kansas City style, and more. Provide practical, specific advice.
+
+You have full access to this user's personal cook logs. Use this data to give personalized advice, reference their past cooks, and help them improve. When relevant, refer to their actual cook history by name and date.
+
+${cookHistory}${context ? `\n\nAdditional context: ${context}` : ""}`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-5.2",
@@ -32,17 +95,20 @@ router.post("/ai/chat", async (req, res): Promise<void> => {
   const reply = response.choices[0]?.message?.content ?? "I'm sorry, I couldn't process that request.";
 
   const suggestions = [
+    "How long did my last brisket take?",
+    "What's my highest-rated cook?",
+    "What should I cook next based on my history?",
+    "Which grill do I use most?",
+    "How can I improve my bark score?",
     "What temperature should I cook brisket to?",
-    "How long does pulled pork take at 225°F?",
+    "How do I push through the stall?",
     "What wood pairs best with pork ribs?",
-    "How do I know when my grill is at the right temperature?",
-    "What is the stall and how do I push through it?",
   ].sort(() => Math.random() - 0.5).slice(0, 3);
 
   res.json({ reply, suggestions });
 });
 
-router.post("/ai/predict", async (req, res): Promise<void> => {
+router.post("/ai/predict", requireAuth, async (req: any, res): Promise<void> => {
   const parsed = AiPredictBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -55,13 +121,13 @@ router.post("/ai/predict", async (req, res): Promise<void> => {
   let grillTempContext = "";
 
   if (grillId) {
-    const [grill] = await db.select().from(grillsTable).where(eq(grillsTable.id, grillId));
+    const [grill] = await db.select().from(grillsTable)
+      .where(and(eq(grillsTable.id, grillId), eq(grillsTable.userId, req.userId)));
     if (grill) {
       grillContext = `Grill: ${grill.name} (${grill.type}, ${grill.brand || "unknown brand"})`;
       grillType = grill.type;
     }
 
-    // Pull historical temperature data for this grill
     const grillReadings = await db.select().from(temperatureReadingsTable)
       .where(eq(temperatureReadingsTable.grillId, grillId));
 
@@ -73,7 +139,6 @@ router.post("/ai/predict", async (req, res): Promise<void> => {
         const maxPit = Math.max(...pitReadings.map(r => r.tempF));
         const minPit = Math.min(...pitReadings.map(r => r.tempF));
 
-        // Per-cook variance
         const byCook: Record<number, number[]> = {};
         for (const r of pitReadings) {
           if (!byCook[r.cookId]) byCook[r.cookId] = [];
@@ -91,29 +156,29 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
       }
     }
 
-    // Pull recent completed cooks on this grill (capped at 10) for context
     const recentCooksOnGrill = await db.select().from(cooksTable)
-      .where(and(eq(cooksTable.grillId, grillId), eq(cooksTable.status, "completed")))
+      .where(and(
+        eq(cooksTable.grillId, grillId),
+        eq(cooksTable.status, "completed"),
+        eq(cooksTable.userId, req.userId),
+      ))
       .orderBy(desc(cooksTable.actualEndAt))
       .limit(10);
 
     if (recentCooksOnGrill.length > 0) {
-      // Fetch all readings for these cooks in one query to compute per-cook peak probe temps
       const recentCookIds = recentCooksOnGrill.map(c => c.id);
       const recentReadings = await db.select().from(temperatureReadingsTable)
         .where(eq(temperatureReadingsTable.grillId, grillId));
 
-      // Map cookId → peak probe (meat) temp
       const peakProbeByCook: Record<number, number> = {};
       for (const r of recentReadings) {
         if (!recentCookIds.includes(r.cookId)) continue;
-        if (isPitProbe(r.probeName)) continue; // skip ambient/pit readings
+        if (isPitProbe(r.probeName)) continue;
         if (peakProbeByCook[r.cookId] == null || r.tempF > peakProbeByCook[r.cookId]) {
           peakProbeByCook[r.cookId] = r.tempF;
         }
       }
 
-      // Build summaries for all recent cooks (most recent first)
       const allCookSummaries = recentCooksOnGrill.map(c => {
         const durationMins = c.actualStartAt && c.actualEndAt
           ? Math.round((new Date(c.actualEndAt).getTime() - new Date(c.actualStartAt).getTime()) / 60000)
@@ -122,7 +187,6 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
         return `${c.foodType}${c.weightLbs ? ` (${c.weightLbs} lbs)` : ""}${durationMins ? ` → ${durationMins} min` : ""}${peakTemp}${c.rating ? ` · rated ${c.rating}/5` : ""}`;
       });
 
-      // Highlight similar cooks to this food type
       const firstWord = foodType.toLowerCase().split(" ")[0];
       const similarCooks = recentCooksOnGrill.filter(c =>
         c.foodType.toLowerCase().includes(firstWord)
@@ -142,7 +206,6 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
     }
   }
 
-  // Preheat defaults
   const preheatDefaults: Record<string, number> = {
     offset_smoker: 60,
     charcoal: 30,
@@ -155,9 +218,13 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
   const normalizeType = (t: string) => t.toLowerCase().replace(/[\s-]+/g, "_");
   const preheatMinutes = clientPreheatMinutes ?? (grillType ? (preheatDefaults[normalizeType(grillType)] ?? 30) : 30);
 
-  // All-grill similar cooks as fallback context
-  const allPastCooks = await db.select().from(cooksTable).where(eq(cooksTable.status, "completed")).limit(10);
-  const allSimilarCooks = allPastCooks.filter(c => c.foodType.toLowerCase().includes(foodType.toLowerCase().split(" ")[0]));
+  // Fallback: user's own past similar cooks across all grills
+  const allUserCooks = await db.select().from(cooksTable)
+    .where(and(eq(cooksTable.status, "completed"), eq(cooksTable.userId, req.userId)))
+    .limit(20);
+  const allSimilarCooks = allUserCooks.filter(c =>
+    c.foodType.toLowerCase().includes(foodType.toLowerCase().split(" ")[0])
+  );
 
   const systemPrompt = `You are PitMaster AI. Analyze this cook and return ONLY valid JSON with this exact structure — no markdown, no extra text:
 {
@@ -190,7 +257,7 @@ Cook temperature: ${cookTempF ? `${cookTempF}°F` : "unknown"}
 Target internal temp: ${targetTempF ? `${targetTempF}°F` : "unknown"}
 ${grillContext}
 ${grillTempContext}
-${allSimilarCooks.length > 0 && !grillTempContext ? `Past similar cooks (all grills): ${allSimilarCooks.length} cooks on record` : ""}
+${allSimilarCooks.length > 0 && !grillTempContext ? `User's past similar cooks (all grills): ${allSimilarCooks.length} on record` : ""}
 ${desiredFinishAt ? `Desired finish time: ${desiredFinishAt}` : ""}
 Note: Preheat of ${preheatMinutes} min is tracked separately.`;
 
