@@ -6,6 +6,7 @@ import {
   ListTemperatureReadingsQueryParams,
 } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
@@ -345,17 +346,32 @@ rawExtraction: 1-2 sentences describing what you saw across all images.`;
   }
 });
 
-router.post("/temperature/upload", async (req, res): Promise<void> => {
+router.post("/temperature/upload", requireAuth, async (req: any, res): Promise<void> => {
   const parsed = UploadTemperatureDataBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
   const { cookId, source, readings } = parsed.data;
+  const userId: string = req.userId;
 
-  // Auto-derive grillId from the associated cook
-  const [cook] = await db.select({ grillId: cooksTable.grillId }).from(cooksTable).where(eq(cooksTable.id, cookId));
-  const grillId = cook?.grillId ?? null;
+  // Auto-derive grillId from the associated cook and verify ownership
+  const [cook] = await db
+    .select({ grillId: cooksTable.grillId, userId: cooksTable.userId })
+    .from(cooksTable)
+    .where(eq(cooksTable.id, cookId));
+
+  if (!cook) {
+    res.status(404).json({ error: "Cook not found" });
+    return;
+  }
+
+  if (cook.userId !== userId) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const grillId = cook.grillId ?? null;
 
   const rows = readings.map(r => ({
     cookId,
