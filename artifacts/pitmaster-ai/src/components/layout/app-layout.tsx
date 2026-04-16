@@ -53,16 +53,16 @@ function UserFooter() {
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 border-t border-sidebar-border bg-sidebar-accent/20">
-      <div className="flex-1 min-w-0">
+      <Link href="/profile" className="flex-1 min-w-0 group" data-testid="nav-profile">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
+          <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0 group-hover:border-primary/60 transition-colors">
             {user?.imageUrl
               ? <img src={user.imageUrl} alt="avatar" className="w-7 h-7 rounded-full object-cover" />
               : <User className="w-4 h-4 text-primary" />
             }
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-sidebar-foreground truncate">
+            <p className="text-xs font-semibold text-sidebar-foreground truncate group-hover:text-primary transition-colors">
               {user?.firstName || user?.username || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] || "Pitmaster"}
             </p>
             <p className="text-[10px] text-sidebar-foreground/50 truncate">
@@ -70,7 +70,7 @@ function UserFooter() {
             </p>
           </div>
         </div>
-      </div>
+      </Link>
       <button
         onClick={() => signOut({ redirectUrl: "/" })}
         className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors shrink-0"
@@ -158,16 +158,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <span className="font-serif tracking-tighter uppercase text-gradient-fire">PitKing</span>
             </div>
             {isLoaded && user && (
-              <button
-                onClick={() => signOut({ redirectUrl: "/" })}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {user.imageUrl
-                  ? <img src={user.imageUrl} alt="avatar" className="w-6 h-6 rounded-full object-cover" />
-                  : <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center"><User className="w-3.5 h-3.5 text-primary" /></div>
-                }
-                <LogOut className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <Link href="/profile" className="flex items-center" data-testid="mobile-nav-profile">
+                  {user.imageUrl
+                    ? <img src={user.imageUrl} alt="avatar" className="w-6 h-6 rounded-full object-cover" />
+                    : <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center"><User className="w-3.5 h-3.5 text-primary" /></div>
+                  }
+                </Link>
+                <button
+                  onClick={() => signOut({ redirectUrl: "/" })}
+                  className="flex items-center text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
             )}
           </header>
           
@@ -232,13 +236,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 ))}
               </div>
               {isLoaded && user && (
-                <button
-                  onClick={() => { setIsMoreOpen(false); signOut({ redirectUrl: "/" }); }}
-                  className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-border bg-background text-muted-foreground hover:text-foreground hover:border-destructive/50 transition-all text-sm"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sign Out
-                </button>
+                <div className="space-y-3">
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsMoreOpen(false)}
+                    className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-border bg-background text-foreground hover:border-primary/50 transition-all text-sm"
+                    data-testid="more-menu-profile"
+                  >
+                    <User className="w-4 h-4 text-primary" />
+                    My Profile
+                  </Link>
+                  <button
+                    onClick={() => { setIsMoreOpen(false); signOut({ redirectUrl: "/" }); }}
+                    className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-border bg-background text-muted-foreground hover:text-foreground hover:border-destructive/50 transition-all text-sm"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </div>
               )}
             </SheetContent>
           </Sheet>

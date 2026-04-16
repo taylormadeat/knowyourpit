@@ -16,6 +16,7 @@ import AiAssistant from "@/pages/ai/index";
 import TipsList from "@/pages/tips/index";
 import TempUpload from "@/pages/temperature/upload";
 import ShopPage from "@/pages/shop/index";
+import ProfilePage from "@/pages/profile/index";
 import LandingPage from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -119,6 +120,7 @@ function Router() {
       <Route path="/tips" component={() => <ProtectedRoute component={TipsList} />} />
       <Route path="/temperature/upload" component={() => <ProtectedRoute component={TempUpload} />} />
       <Route path="/shop" component={() => <ProtectedRoute component={ShopPage} />} />
+      <Route path="/profile" component={() => <ProtectedRoute component={ProfilePage} />} />
       <Route component={NotFound} />
     </Switch>
   );
