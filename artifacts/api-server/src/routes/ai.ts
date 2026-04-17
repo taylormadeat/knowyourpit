@@ -77,7 +77,7 @@ router.post("/ai/chat", requireAuth, async (req: any, res): Promise<void> => {
 
   const cookHistory = await buildUserCookHistory(req.userId);
 
-  const systemPrompt = `You are PitMaster AI, an expert BBQ assistant and personal pit coach. You help users with BBQ cooking, grilling techniques, temperature guidance, timing predictions, and recipe suggestions. You are knowledgeable about all BBQ styles including Texas BBQ, Carolina BBQ, Kansas City style, and more. Provide practical, specific advice.
+  const systemPrompt = `You are KnowYourPit AI, an expert BBQ assistant and personal pit coach. You help users with BBQ cooking, grilling techniques, temperature guidance, timing predictions, and recipe suggestions. You are knowledgeable about all BBQ styles including Texas BBQ, Carolina BBQ, Kansas City style, and more. Provide practical, specific advice.
 
 You have full access to this user's personal cook logs. Use this data to give personalized advice, reference their past cooks, and help them improve. When relevant, refer to their actual cook history by name and date.
 
@@ -226,7 +226,7 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
     c.foodType.toLowerCase().includes(foodType.toLowerCase().split(" ")[0])
   );
 
-  const systemPrompt = `You are PitMaster AI. Analyze this cook and return ONLY valid JSON with this exact structure — no markdown, no extra text:
+  const systemPrompt = `You are KnowYourPit AI. Analyze this cook and return ONLY valid JSON with this exact structure — no markdown, no extra text:
 {
   "estimatedDurationMinutes": number,
   "confidence": "low" | "medium" | "high",

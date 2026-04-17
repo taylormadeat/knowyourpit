@@ -17,7 +17,7 @@ export default function LandingPage() {
       <header className="h-14 flex items-center justify-between px-6 border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-40">
         <div className="flex items-center gap-2 font-bold">
           <Flame className="w-6 h-6 text-primary animate-pulse" />
-          <span className="font-serif tracking-tighter uppercase text-xl text-gradient-fire">PitKing</span>
+          <span className="font-serif tracking-tighter uppercase text-xl text-gradient-fire">KnowYourPit</span>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/sign-in">
@@ -38,7 +38,7 @@ export default function LandingPage() {
           <span className="text-gradient-fire">Rule the Pit.</span>
         </h1>
         <p className="text-lg md:text-xl text-muted-foreground max-w-xl mb-8">
-          Your all-in-one BBQ command center. Plan cooks, analyze temperature data, manage your grills, and get AI-powered pitmaster advice.
+          Your all-in-one BBQ command center. Plan cooks, analyze temperature data, manage your grills, and get AI-powered pit coaching.
         </p>
         <div className="flex flex-col sm:flex-row gap-4">
           <Link href="/sign-up">
@@ -58,7 +58,7 @@ export default function LandingPage() {
       <section className="px-6 py-16 bg-card/50">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl font-bold font-serif uppercase tracking-widest text-center mb-10 text-primary">
-            Everything a Pitmaster Needs
+            Everything You Need to Know Your Pit
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map((f) => (
@@ -90,7 +90,7 @@ export default function LandingPage() {
       </section>
 
       <footer className="py-6 text-center text-xs text-muted-foreground border-t border-border">
-        © {new Date().getFullYear()} PitKing. All rights reserved.
+        © {new Date().getFullYear()} KnowYourPit. All rights reserved.
       </footer>
     </div>
   );

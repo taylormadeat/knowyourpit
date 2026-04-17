@@ -46,7 +46,7 @@ export default function ForumPostDetail() {
     createComment.mutate({
       data: {
         content: commentContent,
-        authorName: "PitKing User" // Mock logged in user
+        authorName: "KnowYourPit User" // Mock logged in user
       }
     }, {
       onSuccess: () => {

@@ -43,7 +43,7 @@ function WelcomeScreen({ onNewChat }: { onNewChat: () => void }) {
         <Flame className="w-12 h-12 text-primary animate-pulse" />
       </div>
       <div>
-        <h2 className="text-2xl font-bold font-serif uppercase tracking-tight mb-2">PitKing AI</h2>
+        <h2 className="text-2xl font-bold font-serif uppercase tracking-tight mb-2">KnowYourPit AI</h2>
         <p className="text-muted-foreground max-w-sm text-sm">
           Your personal pit coach with access to all your cook logs. Ask anything about BBQ or your own cooks.
         </p>

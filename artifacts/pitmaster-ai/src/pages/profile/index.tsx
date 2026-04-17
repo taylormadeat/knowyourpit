@@ -65,7 +65,7 @@ export default function ProfilePage() {
   const displayName =
     user?.firstName && user?.lastName
       ? `${user.firstName} ${user.lastName}`
-      : user?.firstName || user?.username || "Pitmaster";
+      : user?.firstName || user?.username || "Pit Cook";
 
   const email = user?.emailAddresses?.[0]?.emailAddress ?? null;
 
