@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
+import { rateLimit } from "express-rate-limit";
 import { db, temperatureReadingsTable, cooksTable } from "@workspace/db";
 import {
   UploadTemperatureDataBody,
@@ -7,6 +8,15 @@ import {
 } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../middlewares/requireAuth";
+
+const uploadRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+  keyGenerator: (req: any) => req.userId as string,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please wait before uploading again." },
+});
 
 const router: IRouter = Router();
 
@@ -346,7 +356,7 @@ rawExtraction: 1-2 sentences describing what you saw across all images.`;
   }
 });
 
-router.post("/temperature/upload", requireAuth, async (req: any, res): Promise<void> => {
+router.post("/temperature/upload", requireAuth, uploadRateLimit, async (req: any, res): Promise<void> => {
   const parsed = UploadTemperatureDataBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
