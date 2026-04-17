@@ -35,40 +35,44 @@ export default function SignInScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { signIn, errors, fetchStatus } = useSignIn();
+  const { signIn, setActive, isLoaded } = useSignIn();
   const { startSSOFlow } = useSSO();
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [showPass, setShowPass] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
   const [googleLoading, setGoogleLoading] = React.useState(false);
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
   const handleSignIn = async () => {
-    const { error } = await signIn.password({ emailAddress: email, password });
-    if (error) return;
-    if (signIn.status === "complete") {
-      await signIn.finalize({
-        navigate: ({ decorateUrl }) => {
-          router.replace(decorateUrl("/") as any);
-        },
-      });
+    if (!isLoaded || !signIn) return;
+    try {
+      setIsLoading(true);
+      setErrorMsg(null);
+      const attempt = await signIn.create({ identifier: email, password });
+      if (attempt.status === "complete") {
+        await setActive({ session: attempt.createdSessionId });
+        router.replace("/(tabs)");
+      }
+    } catch (e: any) {
+      const msg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Sign in failed. Check your credentials.";
+      setErrorMsg(msg);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleGoogle = useCallback(async () => {
     try {
       setGoogleLoading(true);
-      const { createdSessionId, setActive } = await startSSOFlow({
+      const { createdSessionId, setActive: ssoSetActive } = await startSSOFlow({
         strategy: "oauth_google",
         redirectUrl: AuthSession.makeRedirectUri(),
       });
-      if (createdSessionId && setActive) {
-        await setActive({
-          session: createdSessionId,
-          navigate: async ({ decorateUrl }) => {
-            router.replace(decorateUrl("/") as any);
-          },
-        });
+      if (createdSessionId && ssoSetActive) {
+        await ssoSetActive({ session: createdSessionId });
+        router.replace("/(tabs)");
       }
     } catch (e) {
       console.error(e);
@@ -77,7 +81,6 @@ export default function SignInScreen() {
     }
   }, []);
 
-  const isLoading = fetchStatus === "fetching";
   const canSubmit = !!email && !!password && !isLoading;
 
   const styles = StyleSheet.create({
@@ -241,10 +244,6 @@ export default function SignInScreen() {
             autoComplete="email"
           />
         </View>
-        {errors?.fields?.identifier && (
-          <Text style={styles.errorText}>{errors.fields.identifier.message}</Text>
-        )}
-
         <Text style={styles.label}>Password</Text>
         <View style={styles.inputRow}>
           <TextInput
@@ -260,8 +259,8 @@ export default function SignInScreen() {
             <Feather name={showPass ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
           </Pressable>
         </View>
-        {errors?.fields?.password && (
-          <Text style={styles.errorText}>{errors.fields.password.message}</Text>
+        {errorMsg && (
+          <Text style={styles.errorText}>{errorMsg}</Text>
         )}
 
         <Pressable

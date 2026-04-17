@@ -33,46 +33,60 @@ export default function SignUpScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { signUp, errors, fetchStatus } = useSignUp();
+  const { signUp, setActive, isLoaded } = useSignUp();
   const { startSSOFlow } = useSSO();
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [code, setCode] = React.useState("");
   const [showPass, setShowPass] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
   const [googleLoading, setGoogleLoading] = React.useState(false);
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
   const handleSignUp = async () => {
-    const { error } = await signUp.password({ emailAddress: email, password });
-    if (error) return;
-    await signUp.verifications.sendEmailCode();
+    if (!isLoaded || !signUp) return;
+    try {
+      setIsLoading(true);
+      setErrorMsg(null);
+      await signUp.create({ emailAddress: email, password });
+      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+    } catch (e: any) {
+      const msg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Sign up failed.";
+      setErrorMsg(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleVerify = async () => {
-    await signUp.verifications.verifyEmailCode({ code });
-    if (signUp.status === "complete") {
-      await signUp.finalize({
-        navigate: ({ decorateUrl }) => {
-          router.replace(decorateUrl("/") as any);
-        },
-      });
+    if (!isLoaded || !signUp) return;
+    try {
+      setIsLoading(true);
+      setErrorMsg(null);
+      const result = await signUp.attemptEmailAddressVerification({ code });
+      if (result.status === "complete") {
+        await setActive({ session: result.createdSessionId });
+        router.replace("/(tabs)");
+      }
+    } catch (e: any) {
+      const msg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Verification failed.";
+      setErrorMsg(msg);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleGoogle = useCallback(async () => {
     try {
       setGoogleLoading(true);
-      const { createdSessionId, setActive } = await startSSOFlow({
+      const { createdSessionId, setActive: ssoSetActive } = await startSSOFlow({
         strategy: "oauth_google",
         redirectUrl: AuthSession.makeRedirectUri(),
       });
-      if (createdSessionId && setActive) {
-        await setActive({
-          session: createdSessionId,
-          navigate: async ({ decorateUrl }) => {
-            router.replace(decorateUrl("/") as any);
-          },
-        });
+      if (createdSessionId && ssoSetActive) {
+        await ssoSetActive({ session: createdSessionId });
+        router.replace("/(tabs)");
       }
     } catch (e) {
       console.error(e);
@@ -80,12 +94,10 @@ export default function SignUpScreen() {
       setGoogleLoading(false);
     }
   }, []);
-
-  const isLoading = fetchStatus === "fetching";
-  const isVerifying =
+  const isVerifying = !!signUp &&
     signUp.status === "missing_requirements" &&
-    signUp.unverifiedFields.includes("email_address") &&
-    signUp.missingFields.length === 0;
+    signUp.unverifiedFields?.includes("email_address") &&
+    signUp.missingFields?.length === 0;
 
   const styles = StyleSheet.create({
     outer: { flex: 1, backgroundColor: colors.background },
@@ -158,8 +170,8 @@ export default function SignUpScreen() {
               autoFocus
             />
           </View>
-          {errors?.fields?.code && (
-            <Text style={styles.errorText}>{errors.fields.code.message}</Text>
+          {errorMsg && (
+            <Text style={styles.errorText}>{errorMsg}</Text>
           )}
           <Pressable
             style={({ pressed }) => [styles.primaryBtn, (isLoading || pressed) && styles.primaryBtnDisabled]}
@@ -168,7 +180,7 @@ export default function SignUpScreen() {
           >
             {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Verify</Text>}
           </Pressable>
-          <Pressable style={styles.resendBtn} onPress={() => signUp.verifications.sendEmailCode()}>
+          <Pressable style={styles.resendBtn} onPress={() => signUp?.prepareEmailAddressVerification({ strategy: "email_code" })}>
             <Text style={styles.resendText}>Resend code</Text>
           </Pressable>
         </ScrollView>
@@ -200,10 +212,6 @@ export default function SignUpScreen() {
             autoComplete="email"
           />
         </View>
-        {errors?.fields?.emailAddress && (
-          <Text style={styles.errorText}>{errors.fields.emailAddress.message}</Text>
-        )}
-
         <Text style={styles.label}>Password</Text>
         <View style={styles.inputRow}>
           <TextInput
@@ -219,8 +227,8 @@ export default function SignUpScreen() {
             <Feather name={showPass ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
           </Pressable>
         </View>
-        {errors?.fields?.password && (
-          <Text style={styles.errorText}>{errors.fields.password.message}</Text>
+        {errorMsg && (
+          <Text style={styles.errorText}>{errorMsg}</Text>
         )}
 
         <Pressable
