@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { useSignIn, useSSO } from "@clerk/expo";
 import * as WebBrowser from "expo-web-browser";
@@ -17,6 +18,8 @@ import { Link, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+
+const logoImg = require("@/assets/images/logo.png");
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -96,13 +99,9 @@ export default function SignInScreen() {
       paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 32,
     },
     logo: {
-      width: 56,
-      height: 56,
-      borderRadius: 14,
-      backgroundColor: colors.primary,
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 24,
+      width: 96,
+      height: 96,
+      marginBottom: 20,
     },
     title: {
       fontSize: 28,
@@ -225,9 +224,7 @@ export default function SignInScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.logo}>
-          <Feather name="zap" size={28} color="#fff" />
-        </View>
+        <Image source={logoImg} style={styles.logo} resizeMode="contain" />
         <Text style={styles.title}>Welcome back</Text>
         <Text style={styles.subtitle}>Sign in to KnowYourPit</Text>
 
