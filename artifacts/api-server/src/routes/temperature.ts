@@ -12,7 +12,7 @@ const router: IRouter = Router();
 
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-router.post("/temperature/scan-image", async (req, res): Promise<void> => {
+router.post("/temperature/scan-image", requireAuth, async (req, res): Promise<void> => {
   const { base64Image, mimeType = "image/jpeg" } = req.body as { base64Image?: string; mimeType?: string };
   if (!base64Image || typeof base64Image !== "string") {
     res.status(400).json({ error: "base64Image is required" });
@@ -141,7 +141,7 @@ WRONG — one entry per data point (DO NOT DO THIS):
   }
 });
 
-router.post("/temperature/analyze-cook", async (req, res): Promise<void> => {
+router.post("/temperature/analyze-cook", requireAuth, async (req, res): Promise<void> => {
   const { images, cookNotes } = req.body as {
     images?: Array<{ base64?: string; mimeType?: string }>;
     cookNotes?: string | null;
