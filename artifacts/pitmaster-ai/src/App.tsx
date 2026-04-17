@@ -18,6 +18,7 @@ import TempUpload from "@/pages/temperature/upload";
 import ShopPage from "@/pages/shop/index";
 import ProfilePage from "@/pages/profile/index";
 import LandingPage from "@/pages/landing";
+import HomePage from "@/pages/home";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -74,7 +75,7 @@ function HomeRedirect() {
   return (
     <>
       <Show when="signed-in">
-        <Redirect to="/plan" />
+        <Redirect to="/home" />
       </Show>
       <Show when="signed-out">
         <LandingPage />
@@ -108,6 +109,7 @@ function Router() {
       <Route path="/" component={HomeRedirect} />
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
+      <Route path="/home" component={() => <ProtectedRoute component={HomePage} />} />
       <Route path="/plan" component={() => <ProtectedRoute component={NewCook} />} />
       <Route path="/ai" component={() => <ProtectedRoute component={AiAssistant} />} />
       <Route path="/grills" component={() => <ProtectedRoute component={GrillsList} />} />

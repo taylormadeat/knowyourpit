@@ -94,12 +94,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <Sidebar className="hidden lg:flex border-r border-sidebar-border flex-col" collapsible="none">
           <SidebarHeader className="p-6 flex flex-col gap-2 border-b border-sidebar-border bg-sidebar-accent/30 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent pointer-events-none" />
-            <div className="flex items-center gap-3 relative z-10">
+            <Link href="/home" className="flex items-center gap-3 relative z-10 hover:opacity-80 transition-opacity">
               <div className="bg-primary/20 p-2 rounded-xl border border-primary/30">
                 <Flame className="w-8 h-8 text-primary animate-pulse" />
               </div>
               <span className="font-bold text-2xl tracking-tighter text-sidebar-foreground font-serif uppercase text-gradient-fire">KnowYourPit</span>
-            </div>
+            </Link>
             <p className="text-xs text-sidebar-foreground/60 tracking-wide uppercase mt-1 relative z-10">Command & Control</p>
           </SidebarHeader>
           <SidebarContent className="p-2 gap-6 flex-1">
