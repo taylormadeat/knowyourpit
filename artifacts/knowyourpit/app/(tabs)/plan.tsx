@@ -199,7 +199,7 @@ export default function PlanScreen() {
             <ActivityIndicator color="#fff" />
           ) : (
             <>
-              <Feather name="flame" size={18} color="#fff" />
+              <Feather name="zap" size={18} color="#fff" />
               <Text style={s.submitText}>Start Planning</Text>
             </>
           )}

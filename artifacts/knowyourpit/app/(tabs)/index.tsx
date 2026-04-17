@@ -165,7 +165,7 @@ export default function HomeScreen() {
                 colors={["#E84820", "#FF6B2B"]}
                 style={s.cookIconBg}
               >
-                <Feather name="flame" size={16} color="#fff" />
+                <Feather name="zap" size={16} color="#fff" />
               </LinearGradient>
               <View style={s.cookInfo}>
                 <Text style={[s.cookName, { color: colors.foreground }]} numberOfLines={1}>

@@ -50,7 +50,7 @@ export default function CooksScreen() {
       onPress={() => router.push(`/cooks/${item.id}` as any)}
     >
       <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.iconWrap}>
-        <Feather name="flame" size={20} color="#fff" />
+        <Feather name="zap" size={20} color="#fff" />
       </LinearGradient>
       <View style={s.info}>
         <Text style={[s.name, { color: colors.foreground }]} numberOfLines={1}>

@@ -278,7 +278,7 @@ export const GRILL_CATALOG: GrillCategory[] = [
 
   {
     category: "Gas Grills",
-    icon: "flame",
+    icon: "thermometer",
     brands: [
       {
         brand: "Weber",
