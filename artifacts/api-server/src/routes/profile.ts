@@ -33,10 +33,13 @@ router.get("/profile/stats", requireAuth, async (req: any, res): Promise<void> =
     .from(cooksTable)
     .where(and(eq(cooksTable.userId, userId), sql`${cooksTable.foodType} IS NOT NULL`))
     .groupBy(cooksTable.foodType)
-    .orderBy(sql`count(*) DESC`)
-    .limit(1);
+    .orderBy(sql`count(*) DESC`);
 
   const favoriteFood = foodCounts[0]?.foodType ?? null;
+  const foodTypeBreakdown = foodCounts.map((r) => ({
+    foodType: r.foodType as string,
+    count: Number(r.count),
+  }));
 
   const completedCooks = await db
     .select({ actualStartAt: cooksTable.actualStartAt, actualEndAt: cooksTable.actualEndAt })
@@ -57,6 +60,7 @@ router.get("/profile/stats", requireAuth, async (req: any, res): Promise<void> =
     avgRating,
     favoriteFood,
     totalHoursCooking: Math.round(totalHoursCooking * 10) / 10,
+    foodTypeBreakdown,
   });
 });
 

@@ -6,12 +6,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { User, Star, Flame, Clock, Trophy, ChefHat, Settings } from "lucide-react";
 
+interface FoodTypeCount {
+  foodType: string;
+  count: number;
+}
+
 interface ProfileStats {
   totalCooks: number;
   completedCooks: number;
   avgRating: number | null;
   favoriteFood: string | null;
   totalHoursCooking: number;
+  foodTypeBreakdown: FoodTypeCount[];
 }
 
 function useProfileStats() {
@@ -52,6 +58,60 @@ function StatCard({
             </p>
           )}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FoodTypeBreakdown({
+  breakdown,
+  isLoading,
+}: {
+  breakdown: FoodTypeCount[] | undefined;
+  isLoading: boolean;
+}) {
+  const total = breakdown?.reduce((sum, b) => sum + b.count, 0) ?? 0;
+
+  return (
+    <Card className="card-bbq">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-serif uppercase tracking-widest text-primary flex items-center gap-2">
+          <ChefHat className="w-4 h-4" /> Cooks by Food Type
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading ? (
+          <>
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-3/4" />
+          </>
+        ) : !breakdown || breakdown.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No cooks recorded yet.</p>
+        ) : (
+          breakdown.map((item, i) => {
+            const pct = total > 0 ? Math.round((item.count / total) * 100) : 0;
+            return (
+              <div key={item.foodType} data-testid={`food-type-row-${i}`}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-medium capitalize text-foreground">
+                    {item.foodType}
+                  </span>
+                  <span className="text-sm text-muted-foreground tabular-nums">
+                    {item.count} {item.count === 1 ? "cook" : "cooks"} · {pct}%
+                  </span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-500"
+                    style={{ width: `${pct}%` }}
+                    data-testid={`food-type-bar-${i}`}
+                  />
+                </div>
+              </div>
+            );
+          })
+        )}
       </CardContent>
     </Card>
   );
@@ -165,24 +225,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {(statsLoading || stats?.favoriteFood) && (
-          <Card className="card-bbq">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-serif uppercase tracking-widest text-primary flex items-center gap-2">
-                <ChefHat className="w-4 h-4" /> Most-Cooked Food
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {statsLoading ? (
-                <Skeleton className="h-8 w-32" />
-              ) : (
-                <p className="text-2xl font-bold capitalize" data-testid="profile-favorite-food">
-                  {stats?.favoriteFood}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        )}
+        <FoodTypeBreakdown breakdown={stats?.foodTypeBreakdown} isLoading={statsLoading} />
       </div>
     </AppLayout>
   );
