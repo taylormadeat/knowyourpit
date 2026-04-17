@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { eq } from "drizzle-orm";
 import { rateLimit } from "express-rate-limit";
 import { db, temperatureReadingsTable, cooksTable } from "@workspace/db";
@@ -9,10 +9,14 @@ import {
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../middlewares/requireAuth";
 
+interface AuthedRequest extends Request {
+  userId: string;
+}
+
 const uploadRateLimit = rateLimit({
   windowMs: 60 * 1000,
   limit: 60,
-  keyGenerator: (req: any) => req.userId as string,
+  keyGenerator: (req) => (req as AuthedRequest).userId,
   standardHeaders: "draft-8",
   legacyHeaders: false,
   message: { error: "Too many requests. Please wait before uploading again." },
