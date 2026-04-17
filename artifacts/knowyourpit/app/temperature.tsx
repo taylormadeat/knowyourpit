@@ -13,6 +13,7 @@ import {
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import { AppHeader } from "@/components/AppHeader";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
@@ -75,12 +76,7 @@ export default function TemperatureScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <View style={[s.header, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.back()} style={s.back}>
-          <Feather name="chevron-left" size={22} color={colors.foreground} />
-        </Pressable>
-        <Text style={[s.title, { color: colors.foreground }]}>Temperature Scan</Text>
-      </View>
+      <AppHeader title="Temperature Scan" showBack />
 
       <ScrollView
         contentContainerStyle={{ padding: 20, paddingBottom: botPad + 40, gap: 16 }}

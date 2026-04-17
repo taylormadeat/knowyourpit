@@ -11,7 +11,9 @@ import {
   RefreshControl,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { AppHeader } from "@/components/AppHeader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useListRecipes, useToggleRecipeFavorite } from "@workspace/api-client-react";
@@ -77,12 +79,7 @@ export default function RecipesScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <View style={[s.header, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.back()} style={s.back}>
-          <Feather name="chevron-left" size={22} color={colors.foreground} />
-        </Pressable>
-        <Text style={[s.title, { color: colors.foreground }]}>Recipes</Text>
-      </View>
+      <AppHeader title="Recipes" showBack />
 
       <View style={[s.searchWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
         <Feather name="search" size={16} color={colors.mutedForeground} />

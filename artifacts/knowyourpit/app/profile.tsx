@@ -8,6 +8,7 @@ import {
   Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { AppHeader } from "@/components/AppHeader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useUser, useClerk } from "@clerk/expo";
@@ -30,12 +31,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <View style={[s.header, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.back()} style={s.back}>
-          <Feather name="chevron-left" size={22} color={colors.foreground} />
-        </Pressable>
-        <Text style={[s.title, { color: colors.foreground }]}>Profile</Text>
-      </View>
+      <AppHeader title="Profile" showBack />
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: botPad + 40 }}

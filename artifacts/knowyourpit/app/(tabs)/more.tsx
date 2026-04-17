@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useUser, useClerk } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
+import { AppHeader } from "@/components/AppHeader";
 
 const MENU_SECTIONS = [
   {
@@ -64,9 +65,7 @@ export default function MoreScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <View style={[s.header, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
-        <Text style={[s.title, { color: colors.foreground }]}>More</Text>
-      </View>
+      <AppHeader title="More" />
 
       <ScrollView
         contentContainerStyle={{ paddingTop: 16, paddingBottom: botPad + 100 }}

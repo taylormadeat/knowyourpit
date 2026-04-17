@@ -7,13 +7,24 @@ import {
   Pressable,
   Platform,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
 import { useGetDashboardSummary, useGetRecentCooks } from "@workspace/api-client-react";
+
+const logoImg = require("@/assets/images/logo.png");
+
+const STATUS_COLOR: Record<string, string> = {
+  planned: "#3b82f6",
+  active: "#E84820",
+  completed: "#22c55e",
+  cancelled: "#9ca3af",
+};
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -44,41 +55,55 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: botPad + 100 }}
       >
-        <View style={[s.header, { paddingTop: topPad + 20 }]}>
-          <Text style={[s.greeting, { color: colors.mutedForeground }]}>
-            Good {getTimeGreeting()}
-          </Text>
-          <Text style={[s.name, { color: colors.foreground }]}>
-            {firstName} 🔥
-          </Text>
+        {/* ── Hero banner ── */}
+        <LinearGradient
+          colors={["#1C1C1F", "#2D1A0E"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[s.hero, { paddingTop: topPad + 20 }]}
+        >
+          {/* Watermark logo */}
+          <Image
+            source={logoImg}
+            style={s.watermark}
+            resizeMode="contain"
+          />
+
+          {/* Fire accent bar */}
+          <View style={s.fireBar} />
+
+          <Text style={s.greeting}>Good {getTimeGreeting()}</Text>
+          <Text style={s.heroName}>{firstName} 🔥</Text>
+          <Text style={s.heroSub}>Ready to fire it up?</Text>
+
+          {/* Stat chips */}
+          {summaryLoading ? (
+            <ActivityIndicator color="#E84820" style={{ marginTop: 20 }} />
+          ) : (
+            <View style={s.chipRow}>
+              {[
+                { n: summary?.totalCooks ?? 0, l: "Cooks", icon: "flame" },
+                { n: summary?.totalGrills ?? 0, l: "Grills", icon: "wind" },
+                { n: summary?.plannedCooks ?? 0, l: "Planned", icon: "calendar" },
+              ].map((chip) => (
+                <View key={chip.l} style={s.chip}>
+                  <Feather name={chip.icon as any} size={14} color="#E84820" style={{ marginBottom: 4 }} />
+                  <Text style={s.chipNum}>{chip.n}</Text>
+                  <Text style={s.chipLabel}>{chip.l}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </LinearGradient>
+
+        {/* Fire divider */}
+        <View style={[s.dividerStrip, { backgroundColor: colors.background }]}>
+          <View style={s.dividerLine} />
         </View>
 
-        {summaryLoading ? (
-          <View style={{ padding: 20 }}>
-            <ActivityIndicator color={colors.primary} />
-          </View>
-        ) : (
-          <View style={s.statsRow}>
-            {[
-              { n: summary?.totalCooks ?? 0, l: "Total Cooks" },
-              { n: summary?.totalGrills ?? 0, l: "Grills" },
-              { n: summary?.plannedCooks ?? 0, l: "Planned" },
-            ].map((s2) => (
-              <View
-                key={s2.l}
-                style={[
-                  s.statCard,
-                  { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
-                ]}
-              >
-                <Text style={[s.statNum, { color: colors.primary }]}>{s2.n}</Text>
-                <Text style={[s.statLabel, { color: colors.mutedForeground }]}>{s2.l}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
+        {/* ── Quick Actions ── */}
         <View style={s.sectionHeader}>
+          <View style={s.sectionAccent} />
           <Text style={[s.sectionTitle, { color: colors.foreground }]}>Quick Actions</Text>
         </View>
         <View style={s.quickGrid}>
@@ -87,41 +112,43 @@ export default function HomeScreen() {
               key={a.label}
               style={({ pressed }) => [
                 s.quickCard,
-                { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
-                pressed && { opacity: 0.7 },
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                  borderRadius: colors.radius,
+                },
+                pressed && { opacity: 0.75, transform: [{ scale: 0.97 }] },
               ]}
               onPress={() => router.push(a.route as any)}
             >
-              <View style={[s.quickIcon, { backgroundColor: colors.primary + "22" }]}>
-                <Feather name={a.icon as any} size={18} color={colors.primary} />
-              </View>
+              <LinearGradient
+                colors={["#E84820", "#FF6B2B"]}
+                style={s.quickIconBg}
+              >
+                <Feather name={a.icon as any} size={18} color="#fff" />
+              </LinearGradient>
               <Text style={[s.quickLabel, { color: colors.foreground }]}>{a.label}</Text>
+              <Feather name="chevron-right" size={14} color={colors.mutedForeground} style={{ alignSelf: "flex-end" }} />
             </Pressable>
           ))}
         </View>
 
+        {/* ── Recent Cooks ── */}
         <View style={s.sectionHeader}>
+          <View style={s.sectionAccent} />
           <Text style={[s.sectionTitle, { color: colors.foreground }]}>Recent Cooks</Text>
-          <Pressable onPress={() => router.push("/(tabs)/cooks" as any)}>
+          <Pressable onPress={() => router.push("/(tabs)/cooks" as any)} style={s.seeAllBtn}>
             <Text style={[s.seeAll, { color: colors.primary }]}>See all</Text>
           </Pressable>
         </View>
 
         {cooksLoading ? (
-          <View style={{ padding: 20 }}>
-            <ActivityIndicator color={colors.primary} />
-          </View>
+          <ActivityIndicator color={colors.primary} style={{ padding: 20 }} />
         ) : !recentCooks?.length ? (
-          <View
-            style={[
-              s.emptyCard,
-              { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
-            ]}
-          >
-            <Feather name="inbox" size={32} color={colors.mutedForeground} />
-            <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
-              No cooks yet — fire it up!
-            </Text>
+          <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            <Feather name="inbox" size={36} color={colors.mutedForeground} />
+            <Text style={[s.emptyTitle, { color: colors.foreground }]}>No cooks yet</Text>
+            <Text style={[s.emptyText, { color: colors.mutedForeground }]}>Fire it up with your first cook!</Text>
           </View>
         ) : (
           (recentCooks as any[]).slice(0, 5).map((cook: any) => (
@@ -134,9 +161,12 @@ export default function HomeScreen() {
               ]}
               onPress={() => router.push(`/cooks/${cook.id}` as any)}
             >
-              <View style={[s.cookIcon, { backgroundColor: colors.primary + "22" }]}>
-                <Feather name="flame" size={18} color={colors.primary} />
-              </View>
+              <LinearGradient
+                colors={["#E84820", "#FF6B2B"]}
+                style={s.cookIconBg}
+              >
+                <Feather name="flame" size={16} color="#fff" />
+              </LinearGradient>
               <View style={s.cookInfo}>
                 <Text style={[s.cookName, { color: colors.foreground }]} numberOfLines={1}>
                   {cook.name || cook.meatType || "Cook"}
@@ -145,17 +175,11 @@ export default function HomeScreen() {
                   {cook.grill?.name || "No grill selected"}
                 </Text>
               </View>
-              <Text
-                style={[
-                  s.cookStatus,
-                  {
-                    backgroundColor: cook.status === "completed" ? colors.primary + "22" : colors.muted,
-                    color: cook.status === "completed" ? colors.primary : colors.mutedForeground,
-                  },
-                ]}
-              >
-                {cook.status}
-              </Text>
+              <View style={[s.statusPill, { backgroundColor: (STATUS_COLOR[cook.status] || colors.mutedForeground) + "22" }]}>
+                <Text style={[s.statusText, { color: STATUS_COLOR[cook.status] || colors.mutedForeground }]}>
+                  {cook.status}
+                </Text>
+              </View>
             </Pressable>
           ))
         )}
@@ -173,35 +197,188 @@ function getTimeGreeting() {
 
 const s = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingBottom: 20 },
-  greeting: { fontSize: 13, fontFamily: "Inter_400Regular", marginBottom: 4 },
-  name: { fontSize: 26, fontFamily: "Inter_700Bold" },
-  statsRow: { flexDirection: "row", gap: 12, paddingHorizontal: 20, marginBottom: 24 },
-  statCard: { flex: 1, borderWidth: 1, padding: 14, alignItems: "center" },
-  statNum: { fontSize: 24, fontFamily: "Inter_700Bold", marginBottom: 2 },
-  statLabel: { fontSize: 11, fontFamily: "Inter_500Medium", textAlign: "center" },
+
+  /* Hero */
+  hero: {
+    paddingHorizontal: 22,
+    paddingBottom: 28,
+    overflow: "hidden",
+    borderBottomWidth: 2,
+    borderBottomColor: "#E84820",
+  },
+  watermark: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    right: -30,
+    top: 10,
+    opacity: 0.07,
+  },
+  fireBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: "#E84820",
+    opacity: 0.8,
+  },
+  greeting: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: "#96908A",
+    marginBottom: 4,
+    marginTop: 4,
+  },
+  heroName: {
+    fontSize: 30,
+    fontFamily: "Inter_700Bold",
+    color: "#F3EDE1",
+    marginBottom: 4,
+  },
+  heroSub: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    color: "#7A6E62",
+    marginBottom: 20,
+  },
+  chipRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  chip: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  chipNum: {
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    color: "#F3EDE1",
+    marginBottom: 2,
+  },
+  chipLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    color: "#96908A",
+    textAlign: "center",
+  },
+
+  /* Divider */
+  dividerStrip: {
+    height: 16,
+    justifyContent: "center",
+    paddingHorizontal: 22,
+  },
+  dividerLine: {
+    height: 1,
+    backgroundColor: "transparent",
+  },
+
+  /* Sections */
   sectionHeader: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    paddingHorizontal: 20, marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 12,
+    gap: 8,
   },
-  sectionTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
+  sectionAccent: {
+    width: 4,
+    height: 18,
+    borderRadius: 2,
+    backgroundColor: "#E84820",
+  },
+  sectionTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontFamily: "Inter_700Bold",
+  },
+  seeAllBtn: { paddingVertical: 4 },
   seeAll: { fontSize: 13, fontFamily: "Inter_500Medium" },
-  quickGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 20, marginBottom: 28 },
-  quickCard: { width: "47%", borderWidth: 1, padding: 16, gap: 10 },
-  quickIcon: { width: 38, height: 38, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  quickLabel: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  emptyCard: { borderWidth: 1, margin: 20, padding: 28, alignItems: "center", gap: 10 },
-  emptyText: { fontSize: 15, fontFamily: "Inter_500Medium" },
-  cookCard: {
-    borderWidth: 1, marginHorizontal: 20, marginBottom: 10, padding: 14,
-    flexDirection: "row", alignItems: "center", gap: 12,
+
+  /* Quick grid */
+  quickGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    paddingHorizontal: 20,
+    marginBottom: 8,
   },
-  cookIcon: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  quickCard: {
+    width: "47%",
+    borderWidth: 1,
+    padding: 16,
+    gap: 10,
+    shadowColor: "#E84820",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  quickIconBg: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickLabel: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    flex: 1,
+  },
+
+  /* Empty */
+  emptyCard: {
+    borderWidth: 1,
+    margin: 20,
+    padding: 32,
+    alignItems: "center",
+    gap: 10,
+  },
+  emptyTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold", marginTop: 4 },
+  emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center" },
+
+  /* Cook cards */
+  cookCard: {
+    borderWidth: 1,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  cookIconBg: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   cookInfo: { flex: 1 },
   cookName: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
   cookMeta: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  cookStatus: {
-    fontSize: 11, fontFamily: "Inter_600SemiBold",
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "capitalize",
   },
 });

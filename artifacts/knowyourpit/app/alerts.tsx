@@ -10,6 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { AppHeader } from "@/components/AppHeader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
@@ -60,12 +61,7 @@ export default function AlertsScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <View style={[s.header, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.back()} style={s.back}>
-          <Feather name="chevron-left" size={22} color={colors.foreground} />
-        </Pressable>
-        <Text style={[s.title, { color: colors.foreground }]}>Alerts</Text>
-      </View>
+      <AppHeader title="Alerts" showBack />
 
       {isLoading ? (
         <View style={s.center}>

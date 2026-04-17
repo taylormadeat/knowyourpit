@@ -13,6 +13,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppHeader } from "@/components/AppHeader";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useQueryClient } from "@tanstack/react-query";
@@ -118,18 +119,18 @@ export default function GrillsScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <View style={[s.header, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.back()} style={s.back}>
-          <Feather name="chevron-left" size={22} color={colors.foreground} />
-        </Pressable>
-        <Text style={[s.title, { color: colors.foreground }]}>My Grills</Text>
-        <Pressable
-          style={[s.addBtn, { backgroundColor: colors.primary }]}
-          onPress={() => setShowAdd(true)}
-        >
-          <Feather name="plus" size={18} color="#fff" />
-        </Pressable>
-      </View>
+      <AppHeader
+        title="My Grills"
+        showBack
+        right={
+          <Pressable
+            style={[s.addBtn, { backgroundColor: colors.primary }]}
+            onPress={() => setShowAdd(true)}
+          >
+            <Feather name="plus" size={18} color="#fff" />
+          </Pressable>
+        }
+      />
 
       {isLoading ? (
         <View style={s.center}>

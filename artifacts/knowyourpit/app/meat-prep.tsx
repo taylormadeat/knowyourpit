@@ -8,6 +8,7 @@ import {
   Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { AppHeader } from "@/components/AppHeader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
@@ -109,17 +110,7 @@ export default function MeatPrepScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <View style={[s.header, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
-        <Pressable
-          onPress={() => (selected ? setSelected(null) : router.back())}
-          style={s.back}
-        >
-          <Feather name="chevron-left" size={22} color={colors.foreground} />
-        </Pressable>
-        <Text style={[s.title, { color: colors.foreground }]}>
-          {selected || "Meat Prep Guide"}
-        </Text>
-      </View>
+      <AppHeader title={selected || "Meat Prep Guide"} showBack />
 
       {!selected ? (
         <ScrollView

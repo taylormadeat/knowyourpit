@@ -12,8 +12,10 @@ import {
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useColors } from "@/hooks/useColors";
 import { useListCooks } from "@workspace/api-client-react";
+import { AppHeader } from "@/components/AppHeader";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
@@ -47,9 +49,9 @@ export default function CooksScreen() {
       ]}
       onPress={() => router.push(`/cooks/${item.id}` as any)}
     >
-      <View style={[s.iconWrap, { backgroundColor: colors.primary + "22" }]}>
-        <Feather name="flame" size={20} color={colors.primary} />
-      </View>
+      <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.iconWrap}>
+        <Feather name="flame" size={20} color="#fff" />
+      </LinearGradient>
       <View style={s.info}>
         <Text style={[s.name, { color: colors.foreground }]} numberOfLines={1}>
           {item.name || item.meatType || "Unnamed Cook"}
@@ -81,17 +83,18 @@ export default function CooksScreen() {
     </Pressable>
   );
 
+  const addBtn = (
+    <Pressable
+      style={[s.addBtn, { backgroundColor: colors.primary, borderRadius: 8 }]}
+      onPress={() => router.push("/(tabs)/plan" as any)}
+    >
+      <Feather name="plus" size={18} color="#fff" />
+    </Pressable>
+  );
+
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <View style={[s.header, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
-        <Text style={[s.title, { color: colors.foreground }]}>Cook Log</Text>
-        <Pressable
-          style={[s.addBtn, { backgroundColor: colors.primary }]}
-          onPress={() => router.push("/(tabs)/plan" as any)}
-        >
-          <Feather name="plus" size={18} color="#fff" />
-        </Pressable>
-      </View>
+      <AppHeader title="Cook Log" right={addBtn} />
 
       {isLoading && !cooks ? (
         <View style={s.center}>

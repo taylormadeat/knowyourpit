@@ -7,13 +7,14 @@ import {
   Pressable,
   Platform,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { fetch } from "expo/fetch";
-import { TextInput } from "react-native";
+import { AppHeader } from "@/components/AppHeader";
 
 interface Message {
   id: string;
@@ -147,15 +148,7 @@ export default function AIScreen() {
       behavior="padding"
       keyboardVerticalOffset={0}
     >
-      <View style={[s.header, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
-        <View style={[s.headerIcon, { backgroundColor: colors.primary }]}>
-          <Feather name="zap" size={16} color="#fff" />
-        </View>
-        <View>
-          <Text style={[s.headerTitle, { color: colors.foreground }]}>Pit AI</Text>
-          <Text style={[s.headerSub, { color: colors.mutedForeground }]}>Your BBQ co-pilot</Text>
-        </View>
-      </View>
+      <AppHeader title="Pit AI" />
 
       {messages.length === 0 && !streaming && (
         <View style={s.welcome}>
