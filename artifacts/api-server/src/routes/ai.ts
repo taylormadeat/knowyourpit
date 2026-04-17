@@ -1,9 +1,23 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { eq, and, desc } from "drizzle-orm";
+import { rateLimit } from "express-rate-limit";
 import { db, cooksTable, grillsTable, temperatureReadingsTable } from "@workspace/db";
 import { AiChatBody, AiPredictBody } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../middlewares/requireAuth";
+
+interface AuthedRequest extends Request {
+  userId: string;
+}
+
+const aiRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  keyGenerator: (req) => (req as AuthedRequest).userId,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Too many AI requests. Please wait a moment before trying again." },
+});
 
 const router: IRouter = Router();
 
@@ -67,7 +81,7 @@ async function buildUserCookHistory(userId: string): Promise<string> {
   return summary;
 }
 
-router.post("/ai/chat", requireAuth, async (req: any, res): Promise<void> => {
+router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
   const parsed = AiChatBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -108,7 +122,7 @@ ${cookHistory}${context ? `\n\nAdditional context: ${context}` : ""}`;
   res.json({ reply, suggestions });
 });
 
-router.post("/ai/predict", requireAuth, async (req: any, res): Promise<void> => {
+router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
   const parsed = AiPredictBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
