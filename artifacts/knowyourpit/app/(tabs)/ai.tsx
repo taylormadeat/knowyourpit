@@ -1,0 +1,281 @@
+import React, { useRef, useState } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  Pressable,
+  Platform,
+  ActivityIndicator,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { Feather } from "@expo/vector-icons";
+import { useColors } from "@/hooks/useColors";
+import { fetch } from "expo/fetch";
+import { TextInput } from "react-native";
+
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}
+
+const SUGGESTED = [
+  "Best wood for brisket?",
+  "How long per lb for pork butt?",
+  "Stall explained",
+  "Bark tips",
+];
+
+export default function AIScreen() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const listRef = useRef<FlatList>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [streaming, setStreaming] = useState(false);
+  const [streamingContent, setStreamingContent] = useState("");
+
+  const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
+  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+
+  const sendMessage = async (text?: string) => {
+    const msg = (text || input).trim();
+    if (!msg || streaming) return;
+    setInput("");
+
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: msg,
+    };
+    const allMessages = [...messages, userMsg];
+    setMessages(allMessages);
+    setStreaming(true);
+    setStreamingContent("");
+
+    try {
+      const domain = process.env.EXPO_PUBLIC_DOMAIN;
+      const res = await fetch(`https://${domain}/api/ai/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: msg,
+          history: allMessages.map((m) => ({ role: m.role, content: m.content })),
+        }),
+      });
+
+      if (!res.body) throw new Error("No response body");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let full = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6);
+            if (data === "[DONE]") break;
+            try {
+              const parsed = JSON.parse(data);
+              const delta = parsed?.choices?.[0]?.delta?.content || "";
+              full += delta;
+              setStreamingContent(full);
+            } catch {}
+          }
+        }
+      }
+
+      const assistantMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: full || "Sorry, I couldn't get a response.",
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+    } catch (e) {
+      const errMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "Connection error. Check your internet and try again.",
+      };
+      setMessages((prev) => [...prev, errMsg]);
+    } finally {
+      setStreaming(false);
+      setStreamingContent("");
+    }
+  };
+
+  const allItems: Message[] = streaming
+    ? [...messages, { id: "streaming", role: "assistant", content: streamingContent || "…" }]
+    : messages;
+
+  const renderMsg = ({ item }: { item: Message }) => {
+    const isUser = item.role === "user";
+    return (
+      <View style={[s.msgRow, isUser && s.msgRowUser]}>
+        {!isUser && (
+          <View style={[s.avatar, { backgroundColor: colors.primary }]}>
+            <Feather name="zap" size={12} color="#fff" />
+          </View>
+        )}
+        <View
+          style={[
+            s.bubble,
+            {
+              backgroundColor: isUser ? colors.primary : colors.card,
+              borderColor: isUser ? colors.primary : colors.border,
+              borderRadius: colors.radius,
+            },
+          ]}
+        >
+          <Text style={[s.bubbleText, { color: isUser ? "#fff" : colors.foreground }]}>
+            {item.content}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={[s.container, { backgroundColor: colors.background }]}
+      behavior="padding"
+      keyboardVerticalOffset={0}
+    >
+      <View style={[s.header, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
+        <View style={[s.headerIcon, { backgroundColor: colors.primary }]}>
+          <Feather name="zap" size={16} color="#fff" />
+        </View>
+        <View>
+          <Text style={[s.headerTitle, { color: colors.foreground }]}>Pit AI</Text>
+          <Text style={[s.headerSub, { color: colors.mutedForeground }]}>Your BBQ co-pilot</Text>
+        </View>
+      </View>
+
+      {messages.length === 0 && !streaming && (
+        <View style={s.welcome}>
+          <Text style={[s.welcomeTitle, { color: colors.foreground }]}>Ask me anything BBQ</Text>
+          <View style={s.suggestions}>
+            {SUGGESTED.map((q) => (
+              <Pressable
+                key={q}
+                onPress={() => sendMessage(q)}
+                style={[s.suggestion, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
+              >
+                <Text style={[s.suggestionText, { color: colors.foreground }]}>{q}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
+
+      <FlatList
+        ref={listRef}
+        data={allItems}
+        keyExtractor={(item) => item.id}
+        renderItem={renderMsg}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 12,
+          paddingBottom: 16,
+          gap: 12,
+          flexGrow: messages.length === 0 ? 0 : 1,
+        }}
+        showsVerticalScrollIndicator={false}
+        inverted={messages.length > 0}
+        scrollEnabled={messages.length > 0}
+        onContentSizeChange={() => {
+          if (messages.length > 0) listRef.current?.scrollToOffset({ offset: 0, animated: true });
+        }}
+      />
+
+      <View
+        style={[
+          s.inputBar,
+          {
+            borderTopColor: colors.border,
+            paddingBottom: botPad + 12,
+            backgroundColor: colors.background,
+          },
+        ]}
+      >
+        <View
+          style={[
+            s.inputWrap,
+            { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius + 8 },
+          ]}
+        >
+          <TextInput
+            style={[s.textInput, { color: colors.foreground }]}
+            placeholder="Ask about temperatures, timing, wood..."
+            placeholderTextColor={colors.mutedForeground}
+            value={input}
+            onChangeText={setInput}
+            multiline
+            maxLength={1000}
+            onSubmitEditing={() => sendMessage()}
+          />
+          <Pressable
+            style={[
+              s.sendBtn,
+              { backgroundColor: streaming || !input.trim() ? colors.muted : colors.primary },
+            ]}
+            onPress={() => sendMessage()}
+            disabled={streaming || !input.trim()}
+          >
+            {streaming ? (
+              <ActivityIndicator size="small" color={colors.mutedForeground} />
+            ) : (
+              <Feather name="send" size={16} color={streaming || !input.trim() ? colors.mutedForeground : "#fff"} />
+            )}
+          </Pressable>
+        </View>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+const s = StyleSheet.create({
+  container: { flex: 1 },
+  header: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1,
+  },
+  headerIcon: {
+    width: 36, height: 36, borderRadius: 10,
+    alignItems: "center", justifyContent: "center",
+  },
+  headerTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
+  headerSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  welcome: { paddingHorizontal: 20, paddingTop: 32, alignItems: "center" },
+  welcomeTitle: { fontSize: 20, fontFamily: "Inter_600SemiBold", marginBottom: 20, textAlign: "center" },
+  suggestions: { width: "100%", gap: 10 },
+  suggestion: { borderWidth: 1, padding: 14 },
+  suggestionText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  msgRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+  msgRowUser: { flexDirection: "row-reverse" },
+  avatar: {
+    width: 24, height: 24, borderRadius: 12,
+    alignItems: "center", justifyContent: "center",
+  },
+  bubble: { maxWidth: "78%", borderWidth: 1, padding: 12 },
+  bubbleText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  inputBar: { paddingHorizontal: 16, paddingTop: 10, borderTopWidth: 1 },
+  inputWrap: {
+    flexDirection: "row", alignItems: "flex-end",
+    borderWidth: 1, paddingLeft: 14, paddingRight: 6, paddingVertical: 6,
+  },
+  textInput: {
+    flex: 1, fontSize: 15, fontFamily: "Inter_400Regular",
+    maxHeight: 100, paddingTop: 4, paddingBottom: 4,
+  },
+  sendBtn: {
+    width: 34, height: 34, borderRadius: 10,
+    alignItems: "center", justifyContent: "center", marginLeft: 8,
+  },
+});

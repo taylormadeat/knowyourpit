@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "Nu4SvbdVxQN7CAwLMUEF4"
+uri = "file://artifacts/knowyourpit/assets/images/icon.png"
+type = "image"
+title = "generated_image"

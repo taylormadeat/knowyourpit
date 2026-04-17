@@ -1,0 +1,314 @@
+import React, { useCallback, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  StyleSheet,
+  Platform,
+  KeyboardAvoidingView,
+  ScrollView,
+  ActivityIndicator,
+} from "react-native";
+import { useSignIn, useSSO } from "@clerk/expo";
+import * as WebBrowser from "expo-web-browser";
+import * as AuthSession from "expo-auth-session";
+import { Link, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Feather } from "@expo/vector-icons";
+import { useColors } from "@/hooks/useColors";
+
+WebBrowser.maybeCompleteAuthSession();
+
+function useWarmUpBrowser() {
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    void WebBrowser.warmUpAsync();
+    return () => {
+      void WebBrowser.coolDownAsync();
+    };
+  }, []);
+}
+
+export default function SignInScreen() {
+  useWarmUpBrowser();
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { signIn, errors, fetchStatus } = useSignIn();
+  const { startSSOFlow } = useSSO();
+
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [showPass, setShowPass] = React.useState(false);
+  const [googleLoading, setGoogleLoading] = React.useState(false);
+
+  const handleSignIn = async () => {
+    const { error } = await signIn.password({ emailAddress: email, password });
+    if (error) return;
+    if (signIn.status === "complete") {
+      await signIn.finalize({
+        navigate: ({ decorateUrl }) => {
+          router.replace(decorateUrl("/") as any);
+        },
+      });
+    }
+  };
+
+  const handleGoogle = useCallback(async () => {
+    try {
+      setGoogleLoading(true);
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: "oauth_google",
+        redirectUrl: AuthSession.makeRedirectUri(),
+      });
+      if (createdSessionId && setActive) {
+        await setActive({
+          session: createdSessionId,
+          navigate: async ({ decorateUrl }) => {
+            router.replace(decorateUrl("/") as any);
+          },
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, []);
+
+  const isLoading = fetchStatus === "fetching";
+  const canSubmit = !!email && !!password && !isLoading;
+
+  const styles = StyleSheet.create({
+    outer: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    scroll: {
+      flexGrow: 1,
+      justifyContent: "center",
+      paddingHorizontal: 24,
+      paddingTop: insets.top + (Platform.OS === "web" ? 67 : 0) + 40,
+      paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 32,
+    },
+    logo: {
+      width: 56,
+      height: 56,
+      borderRadius: 14,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 24,
+    },
+    title: {
+      fontSize: 28,
+      fontFamily: "Inter_700Bold",
+      color: colors.foreground,
+      marginBottom: 6,
+    },
+    subtitle: {
+      fontSize: 15,
+      fontFamily: "Inter_400Regular",
+      color: colors.mutedForeground,
+      marginBottom: 36,
+    },
+    label: {
+      fontSize: 13,
+      fontFamily: "Inter_600SemiBold",
+      color: colors.foreground,
+      marginBottom: 6,
+    },
+    inputRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: colors.radius,
+      marginBottom: 16,
+      paddingHorizontal: 14,
+    },
+    input: {
+      flex: 1,
+      height: 48,
+      fontSize: 15,
+      fontFamily: "Inter_400Regular",
+      color: colors.foreground,
+    },
+    eyeBtn: {
+      padding: 4,
+    },
+    errorText: {
+      fontSize: 12,
+      fontFamily: "Inter_400Regular",
+      color: colors.destructive,
+      marginTop: -10,
+      marginBottom: 12,
+    },
+    primaryBtn: {
+      backgroundColor: colors.primary,
+      borderRadius: colors.radius,
+      height: 50,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 8,
+    },
+    primaryBtnDisabled: {
+      opacity: 0.5,
+    },
+    primaryBtnText: {
+      fontSize: 15,
+      fontFamily: "Inter_600SemiBold",
+      color: "#fff",
+    },
+    dividerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginVertical: 20,
+      gap: 10,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: colors.border,
+    },
+    dividerText: {
+      fontSize: 13,
+      fontFamily: "Inter_400Regular",
+      color: colors.mutedForeground,
+    },
+    googleBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: colors.radius,
+      height: 50,
+      backgroundColor: colors.card,
+    },
+    googleBtnText: {
+      fontSize: 15,
+      fontFamily: "Inter_500Medium",
+      color: colors.foreground,
+    },
+    footer: {
+      flexDirection: "row",
+      justifyContent: "center",
+      marginTop: 28,
+      gap: 4,
+    },
+    footerText: {
+      fontSize: 14,
+      fontFamily: "Inter_400Regular",
+      color: colors.mutedForeground,
+    },
+    footerLink: {
+      fontSize: 14,
+      fontFamily: "Inter_600SemiBold",
+      color: colors.primary,
+    },
+  });
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.outer}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.logo}>
+          <Feather name="zap" size={28} color="#fff" />
+        </View>
+        <Text style={styles.title}>Welcome back</Text>
+        <Text style={styles.subtitle}>Sign in to KnowYourPit</Text>
+
+        <Text style={styles.label}>Email</Text>
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            placeholderTextColor={colors.mutedForeground}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+          />
+        </View>
+        {errors?.fields?.identifier && (
+          <Text style={styles.errorText}>{errors.fields.identifier.message}</Text>
+        )}
+
+        <Text style={styles.label}>Password</Text>
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            value={password}
+            onChangeText={setPassword}
+            placeholder="••••••••"
+            placeholderTextColor={colors.mutedForeground}
+            secureTextEntry={!showPass}
+            autoComplete="password"
+          />
+          <Pressable style={styles.eyeBtn} onPress={() => setShowPass((v) => !v)}>
+            <Feather name={showPass ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
+          </Pressable>
+        </View>
+        {errors?.fields?.password && (
+          <Text style={styles.errorText}>{errors.fields.password.message}</Text>
+        )}
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.primaryBtn,
+            (!canSubmit || pressed) && styles.primaryBtnDisabled,
+          ]}
+          onPress={handleSignIn}
+          disabled={!canSubmit}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.primaryBtnText}>Sign In</Text>
+          )}
+        </Pressable>
+
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <Pressable
+          style={({ pressed }) => [styles.googleBtn, pressed && { opacity: 0.7 }]}
+          onPress={handleGoogle}
+          disabled={googleLoading}
+        >
+          {googleLoading ? (
+            <ActivityIndicator color={colors.foreground} />
+          ) : (
+            <>
+              <Feather name="chrome" size={18} color={colors.foreground} />
+              <Text style={styles.googleBtnText}>Continue with Google</Text>
+            </>
+          )}
+        </Pressable>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>No account?</Text>
+          <Link href="/(auth)/sign-up" asChild>
+            <Pressable>
+              <Text style={styles.footerLink}>Sign up</Text>
+            </Pressable>
+          </Link>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
