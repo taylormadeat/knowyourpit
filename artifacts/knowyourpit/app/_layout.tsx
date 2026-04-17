@@ -9,7 +9,8 @@ import { ClerkProvider, useAuth } from "@clerk/expo";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -64,15 +65,25 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
+  // On web, fonts may load instantly via CSS or may not fire the callback the same
+  // way as native. Use a timeout fallback so the app never renders blank.
+  const [webReady, setWebReady] = useState(Platform.OS !== "web");
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      const t = setTimeout(() => setWebReady(true), 300);
+      return () => clearTimeout(t);
+    }
+  }, []);
+
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded && !fontError) return null;
+  if (!fontsLoaded && !fontError && !webReady) return null;
 
-  return (
+  const content = (
     <ClerkProvider
       publishableKey={clerkPubKey}
       {...(clerkProxyUrl ? { proxyUrl: clerkProxyUrl } : {})}
@@ -80,14 +91,18 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ErrorBoundary>
           <QueryClientProvider client={queryClient}>
-            <GestureHandlerRootView>
-              <KeyboardProvider>
-                <RootLayoutNav />
-              </KeyboardProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <RootLayoutNav />
             </GestureHandlerRootView>
           </QueryClientProvider>
         </ErrorBoundary>
       </SafeAreaProvider>
     </ClerkProvider>
   );
+
+  if (Platform.OS === "web") {
+    return content;
+  }
+
+  return <KeyboardProvider>{content}</KeyboardProvider>;
 }
