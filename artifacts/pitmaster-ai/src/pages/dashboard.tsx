@@ -28,12 +28,12 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Cooks</CardTitle>
+                <CardTitle className="text-sm font-medium">Planned Cooks</CardTitle>
                 <Flame className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{summary.activeCooks}</div>
-                <p className="text-xs text-muted-foreground">Currently on the grill</p>
+                <div className="text-2xl font-bold">{(summary as any).plannedCooks ?? 0}</div>
+                <p className="text-xs text-muted-foreground">Ready to cook</p>
               </CardContent>
             </Card>
             <Card>
@@ -93,7 +93,7 @@ export default function Dashboard() {
                             {new Date(cook.createdAt).toLocaleDateString()}
                           </div>
                         </div>
-                        <Badge variant={cook.status === 'active' ? 'default' : 'secondary'}>
+                        <Badge variant={cook.status === 'planned' ? 'default' : 'secondary'}>
                           {cook.status}
                         </Badge>
                       </div>

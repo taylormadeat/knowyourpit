@@ -57,7 +57,6 @@ export default function CooksList() {
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="planned">Planned</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
               <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>

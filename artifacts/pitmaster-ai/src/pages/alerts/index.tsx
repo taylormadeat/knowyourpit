@@ -37,7 +37,7 @@ type AlertFormValues = z.infer<typeof alertSchema>;
 
 export default function AlertsList() {
   const { data: alerts, isLoading } = useListAlerts();
-  const { data: activeCooks } = useListCooks({ status: 'active' });
+  const { data: activeCooks } = useListCooks({ status: 'planned' });
   const createAlert = useCreateAlert();
   const deleteAlert = useDeleteAlert();
   const queryClient = useQueryClient();
@@ -156,7 +156,7 @@ export default function AlertsList() {
                     name="cookId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Link to Active Cook (Optional)</FormLabel>
+                        <FormLabel>Link to a Cook (Optional)</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>

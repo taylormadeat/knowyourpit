@@ -7,7 +7,7 @@ const router: IRouter = Router();
 router.get("/dashboard/summary", async (_req, res): Promise<void> => {
   const [grillCount] = await db.select({ count: sql<number>`count(*)` }).from(grillsTable);
   const [cookCount] = await db.select({ count: sql<number>`count(*)` }).from(cooksTable);
-  const [activeCookCount] = await db.select({ count: sql<number>`count(*)` }).from(cooksTable).where(eq(cooksTable.status, "active"));
+  const [plannedCookCount] = await db.select({ count: sql<number>`count(*)` }).from(cooksTable).where(eq(cooksTable.status, "planned"));
   const [recipeCount] = await db.select({ count: sql<number>`count(*)` }).from(recipesTable);
   const [alertCount] = await db.select({ count: sql<number>`count(*)` }).from(alertsTable).where(eq(alertsTable.isActive, true));
 
@@ -52,7 +52,7 @@ router.get("/dashboard/summary", async (_req, res): Promise<void> => {
   res.json({
     totalCooks: Number(cookCount.count),
     totalGrills: Number(grillCount.count),
-    activeCooks: Number(activeCookCount.count),
+    plannedCooks: Number(plannedCookCount.count),
     totalRecipes: Number(recipeCount.count),
     avgCookRating,
     mostUsedGrill,

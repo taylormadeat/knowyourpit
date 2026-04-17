@@ -31,7 +31,7 @@ import { useClerk, useUser } from "@clerk/react";
 
 const mainTabs = [
   { title: "Plan a Cook", url: "/plan", icon: ClipboardList },
-  { title: "Active Cooks", url: "/cooks", icon: Flame },
+  { title: "Cook Log", url: "/cooks", icon: Flame },
   { title: "My Grills", url: "/grills", icon: Utensils },
   { title: "Temp Data", url: "/temperature/upload", icon: Activity },
   { title: "AI Assistant", url: "/ai", icon: Bot },
