@@ -386,12 +386,29 @@ router.post("/temperature/upload", requireAuth, async (req: any, res): Promise<v
   res.status(201).json({ inserted: rows.length, cookId });
 });
 
-router.get("/temperature/readings", async (req, res): Promise<void> => {
+router.get("/temperature/readings", requireAuth, async (req: any, res): Promise<void> => {
   const parsed = ListTemperatureReadingsQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const userId: string = req.userId;
+
+  const [cook] = await db
+    .select({ userId: cooksTable.userId })
+    .from(cooksTable)
+    .where(eq(cooksTable.id, parsed.data.cookId));
+
+  if (!cook) {
+    res.status(404).json({ error: "Cook not found" });
+    return;
+  }
+
+  if (cook.userId !== userId) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
   const readings = await db.select().from(temperatureReadingsTable)
     .where(eq(temperatureReadingsTable.cookId, parsed.data.cookId))
     .orderBy(temperatureReadingsTable.recordedAt);
