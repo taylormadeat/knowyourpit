@@ -22,7 +22,6 @@ const MENU_SECTIONS = [
     items: [
       { icon: "wind", label: "My Grills", route: "/grills" },
       { icon: "book-open", label: "Recipes", route: "/recipes" },
-      { icon: "thermometer", label: "Temperature Scan", route: "/temperature" },
       { icon: "bar-chart-2", label: "Temperature History", route: "/temp-history" },
     ],
   },
