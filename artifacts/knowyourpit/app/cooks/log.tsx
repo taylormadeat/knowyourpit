@@ -11,6 +11,7 @@ import {
   Image,
   TextInput,
   KeyboardAvoidingView,
+  LayoutChangeEvent,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,6 +22,7 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
 import { LogoBackground } from "@/components/LogoBackground";
+import { TempGraph } from "@/components/TempGraph";
 import {
   useAnalyzeCook,
   useCreateCook,
@@ -56,8 +58,16 @@ const EVENT_ICONS: Record<string, string> = {
   note: "message-circle",
 };
 
+type ProbeData = {
+  probeName: string;
+  finishingTempF: number;
+  minTempF: number | null;
+  maxTempF: number | null;
+  timeSeries: Array<{ timeMinutes: number; tempF: number }>;
+};
+
 type AnalysisResult = {
-  probes: Array<{ probeName: string; finishingTempF: number; minTempF: number | null; maxTempF: number | null }>;
+  probes: ProbeData[];
   events: Array<{ type: string; timeMinutes: number; description: string }>;
   cookDurationMinutes: number | null;
   detectedFoodType: string | null;
@@ -82,6 +92,7 @@ export default function LogCookScreen() {
   const [images, setImages] = useState<PickedImage[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [cardWidth, setCardWidth] = useState(300);
 
   const [foodType, setFoodType] = useState("");
   const [grillName, setGrillName] = useState("");
@@ -96,6 +107,11 @@ export default function LogCookScreen() {
   const goBack = () => {
     if (router.canGoBack()) router.back();
     else router.replace("/(tabs)/cooks" as any);
+  };
+
+  const onCardLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width - 32;
+    if (w > 100) setCardWidth(w);
   };
 
   const pickImages = async () => {
@@ -155,9 +171,8 @@ export default function LogCookScreen() {
 
       setResult(data);
       if (data.detectedFoodType && !foodType.trim()) setFoodType(data.detectedFoodType);
-
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (e: any) {
+    } catch {
       Alert.alert("Scan failed", "Could not analyze the images. Check your connection and try again.");
     } finally {
       setAnalyzing(false);
@@ -184,6 +199,15 @@ export default function LogCookScreen() {
         const d = new Date(result.detectedCookDate);
         if (!isNaN(d.getTime())) payload.actualStartAt = d;
       }
+      if (result) {
+        payload.analysisResult = {
+          probes: result.probes,
+          events: result.events,
+          cookDurationMinutes: result.cookDurationMinutes,
+          detectedFoodType: result.detectedFoodType,
+          assessment: result.assessment,
+        };
+      }
 
       const cook = await createCook.mutateAsync({ data: payload });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -194,7 +218,7 @@ export default function LogCookScreen() {
       const newId = (cook as any)?.id;
       if (newId) router.replace(`/cooks/${newId}` as any);
       else goBack();
-    } catch (e: any) {
+    } catch {
       Alert.alert("Save failed", "Could not save the cook. Please try again.");
     } finally {
       setSaving(false);
@@ -203,6 +227,7 @@ export default function LogCookScreen() {
 
   const assessment = result?.assessment ?? null;
   const verdictCfg = assessment ? (VERDICT_CONFIG[assessment.verdict] ?? VERDICT_CONFIG.needs_work) : null;
+  const graphProbes = (result?.probes ?? []).filter((p) => p.timeSeries && p.timeSeries.length >= 2);
 
   return (
     <KeyboardAvoidingView
@@ -232,8 +257,11 @@ export default function LogCookScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* AI Scanner card */}
-        <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+        {/* ── AI Scanner card ────────────────────────────── */}
+        <View
+          style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
+          onLayout={onCardLayout}
+        >
           <View style={s.sectionHeader}>
             <LinearGradient colors={["#6C3BF5", "#A855F7"]} style={s.sectionIcon}>
               <Feather name="camera" size={15} color="#fff" />
@@ -241,12 +269,11 @@ export default function LogCookScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[s.sectionTitle, { color: colors.foreground }]}>AI Image Scanner</Text>
               <Text style={[s.sectionSub, { color: colors.mutedForeground }]}>
-                Upload thermometer photos — AI reads temps, detects events, and grades the cook
+                Upload thermometer photos — AI reads temps, builds a graph, and grades the cook
               </Text>
             </View>
           </View>
 
-          {/* Photo picker */}
           <View style={s.photoRow}>
             <Pressable style={[s.photoBtn, { borderColor: colors.border, borderRadius: colors.radius }]} onPress={pickImages}>
               <Feather name="image" size={16} color="#A855F7" />
@@ -260,7 +287,6 @@ export default function LogCookScreen() {
             )}
           </View>
 
-          {/* Thumbnails */}
           {images.length > 0 && (
             <View style={s.thumbRow}>
               {images.map((img, i) => (
@@ -279,10 +305,9 @@ export default function LogCookScreen() {
             </View>
           )}
 
-          {/* Scan notes */}
           <View>
             <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>
-              Describe the cook <Text style={{ fontWeight: "400" }}>(helps AI if image is unclear)</Text>
+              Describe the cook <Text style={{ fontWeight: "400" }}>(helps AI when images are unclear)</Text>
             </Text>
             <TextInput
               style={[s.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
@@ -296,7 +321,6 @@ export default function LogCookScreen() {
             />
           </View>
 
-          {/* Scan button */}
           <Pressable
             style={({ pressed }) => [s.scanBtn, { borderRadius: colors.radius }, (analyzing || pressed) && { opacity: 0.75 }]}
             onPress={analyze}
@@ -321,7 +345,7 @@ export default function LogCookScreen() {
             </LinearGradient>
           </Pressable>
 
-          {/* AI Results */}
+          {/* ── Results ───────────────────────────── */}
           {result && (
             <View style={[s.results, { borderTopColor: colors.border }]}>
 
@@ -333,6 +357,20 @@ export default function LogCookScreen() {
                     <Text style={[s.verdictLabel, { color: verdictCfg.color }]}>{verdictCfg.label}</Text>
                     {assessment.summary ? <Text style={[s.verdictSummary, { color: colors.foreground }]}>{assessment.summary}</Text> : null}
                   </View>
+                </View>
+              )}
+
+              {/* Temperature graph */}
+              {graphProbes.length > 0 && (
+                <View style={[s.graphWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                  <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 8 }]}>Temperature Over Time</Text>
+                  <TempGraph
+                    probes={graphProbes}
+                    events={result.events}
+                    targetTempF={targetTempF ? parseFloat(targetTempF) : null}
+                    width={cardWidth}
+                    height={180}
+                  />
                 </View>
               )}
 
@@ -356,7 +394,7 @@ export default function LogCookScreen() {
                 </View>
               )}
 
-              {/* Events */}
+              {/* Events timeline */}
               {result.events.length > 0 && (
                 <View style={[s.subSection, { borderTopColor: colors.border }]}>
                   <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Cook Timeline</Text>
@@ -416,7 +454,7 @@ export default function LogCookScreen() {
           )}
         </View>
 
-        {/* ── Manual entry form ────────────────────────────── */}
+        {/* ── Manual entry form ─────────────────────── */}
         <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           <View style={s.sectionHeader}>
             <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.sectionIcon}>
@@ -425,7 +463,7 @@ export default function LogCookScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[s.sectionTitle, { color: colors.foreground }]}>Cook Details</Text>
               <Text style={[s.sectionSub, { color: colors.mutedForeground }]}>
-                Fill in manually or AI will auto-detect from your images
+                Fill in manually, or AI auto-detects from your images
               </Text>
             </View>
           </View>
@@ -509,7 +547,7 @@ export default function LogCookScreen() {
           </View>
         </View>
 
-        {/* Save button */}
+        {/* Save */}
         <Pressable
           style={({ pressed }) => [s.saveBtn, { borderRadius: colors.radius }, (saving || pressed) && { opacity: 0.75 }]}
           onPress={save}
@@ -544,7 +582,6 @@ const s = StyleSheet.create({
   fireBar: { height: 2, backgroundColor: "#E84820" },
 
   card: { borderWidth: 1, padding: 16, gap: 14 },
-
   sectionHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   sectionIcon: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center", marginTop: 2 },
   sectionTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
@@ -569,8 +606,9 @@ const s = StyleSheet.create({
   verdictLabel: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: 3 },
   verdictSummary: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
 
+  graphWrap: { borderWidth: 1, padding: 12, overflow: "hidden" },
   subSection: { borderTopWidth: 1, paddingTop: 12, gap: 0 },
-  subLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 },
+  subLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5 },
   probeRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 1, paddingVertical: 10 },
   probeName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   probeRange: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },

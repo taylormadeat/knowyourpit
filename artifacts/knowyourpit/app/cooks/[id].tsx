@@ -10,6 +10,7 @@ import {
   Alert,
   Image,
   TextInput,
+  LayoutChangeEvent,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,6 +21,7 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
 import { LogoBackground } from "@/components/LogoBackground";
+import { TempGraph } from "@/components/TempGraph";
 import {
   useGetCook,
   useDeleteCook,
@@ -90,6 +92,12 @@ export default function CookDetailScreen() {
   const [cookNotes, setCookNotes] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [cardWidth, setCardWidth] = useState(300);
+
+  const onCardLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width - 32;
+    if (w > 100) setCardWidth(w);
+  };
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
@@ -165,7 +173,7 @@ export default function CookDetailScreen() {
     setResult(null);
     try {
       const c = cook as any;
-      const data = await analyzeMutation.mutateAsync({
+      const data: any = await analyzeMutation.mutateAsync({
         data: {
           images: images.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),
           cookNotes: cookNotes.trim() || null,
@@ -177,7 +185,21 @@ export default function CookDetailScreen() {
           },
         } as any,
       });
-      setResult(data as any);
+      setResult(data);
+      // Save analysis result to the cook record
+      await updateCook.mutateAsync({
+        id: Number(id),
+        data: {
+          analysisResult: {
+            probes: data.probes,
+            events: data.events,
+            cookDurationMinutes: data.cookDurationMinutes,
+            detectedFoodType: data.detectedFoodType,
+            assessment: data.assessment,
+          },
+        } as any,
+      });
+      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
       Alert.alert("Analysis failed", "Could not analyze the cook. Please check your connection and try again.");
@@ -212,6 +234,12 @@ export default function CookDetailScreen() {
   const nextStatus = c.status === "planned" ? "active" : c.status === "active" ? "completed" : null;
   const assessment = result?.assessment as Assessment | null | undefined;
   const verdictCfg = assessment ? (VERDICT_CONFIG[assessment.verdict] ?? VERDICT_CONFIG.needs_work) : null;
+
+  // Stored analysis from DB
+  const storedAnalysis = c.analysisResult as AnalysisResult | null | undefined;
+  const storedAssessment = storedAnalysis?.assessment ?? null;
+  const storedVerdictCfg = storedAssessment ? (VERDICT_CONFIG[storedAssessment.verdict] ?? VERDICT_CONFIG.needs_work) : null;
+  const storedGraphProbes = (storedAnalysis?.probes ?? []).filter((p: any) => p.timeSeries && p.timeSeries.length >= 2);
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
@@ -274,8 +302,116 @@ export default function CookDetailScreen() {
           </View>
         )}
 
+        {/* ── Stored AI analysis ──────────────────────────────── */}
+        {storedAnalysis && (
+          <View
+            style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
+            onLayout={onCardLayout}
+          >
+            <View style={s.logHeader}>
+              <LinearGradient colors={["#6C3BF5", "#A855F7"]} style={s.logIconWrap}>
+                <Feather name="activity" size={15} color="#fff" />
+              </LinearGradient>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.logTitle, { color: colors.foreground }]}>AI Cook Analysis</Text>
+                <Text style={[s.logSub, { color: colors.mutedForeground }]}>Saved from image scan</Text>
+              </View>
+              {storedVerdictCfg && (
+                <View style={[s.verdictPill, { backgroundColor: storedVerdictCfg.color + "22" }]}>
+                  <Feather name={storedVerdictCfg.icon as any} size={12} color={storedVerdictCfg.color} />
+                  <Text style={[s.verdictPillText, { color: storedVerdictCfg.color }]}>{storedVerdictCfg.label}</Text>
+                </View>
+              )}
+            </View>
+
+            {storedAssessment?.summary ? (
+              <Text style={[s.storedSummary, { color: colors.foreground }]}>{storedAssessment.summary}</Text>
+            ) : null}
+
+            {storedGraphProbes.length > 0 && (
+              <View style={[s.graphWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 8 }]}>Temperature Graph</Text>
+                <TempGraph
+                  probes={storedGraphProbes}
+                  events={storedAnalysis?.events ?? []}
+                  targetTempF={c.targetTempF ?? null}
+                  width={cardWidth}
+                  height={190}
+                />
+              </View>
+            )}
+
+            {(storedAnalysis?.probes?.length ?? 0) > 0 && (
+              <View style={[s.subSection, { borderTopColor: colors.border }]}>
+                <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Probe Readings</Text>
+                {storedAnalysis!.probes.map((p: any, i: number) => (
+                  <View key={i} style={[s.probeRow, { borderTopColor: colors.border }]}>
+                    <View>
+                      <Text style={[s.probeName, { color: colors.foreground }]}>{p.probeName}</Text>
+                      {(p.minTempF != null || p.maxTempF != null) && (
+                        <Text style={[s.probeRange, { color: colors.mutedForeground }]}>
+                          {p.minTempF ?? "?"}°F → {p.maxTempF ?? "?"}°F
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={[s.probeFinish, { color: "#A855F7" }]}>{p.finishingTempF}°F</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {(storedAnalysis?.events?.length ?? 0) > 0 && (
+              <View style={[s.subSection, { borderTopColor: colors.border }]}>
+                <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Cook Timeline</Text>
+                {storedAnalysis!.events.map((ev: any, i: number) => {
+                  const hrs = Math.floor(ev.timeMinutes / 60);
+                  const mins = ev.timeMinutes % 60;
+                  return (
+                    <View key={i} style={[s.eventRow, { borderTopColor: colors.border }]}>
+                      <View style={[s.eventIconWrap, { backgroundColor: "#A855F7" + "18" }]}>
+                        <Feather name={(EVENT_ICONS[ev.type] ?? "circle") as any} size={13} color="#A855F7" />
+                      </View>
+                      <Text style={[s.eventDesc, { color: colors.foreground, flex: 1 }]}>{ev.description}</Text>
+                      <Text style={[s.eventTime, { color: colors.mutedForeground }]}>
+                        {hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {(storedAssessment?.whatWentWell?.length ?? 0) > 0 && (
+              <View style={[s.subSection, { borderTopColor: colors.border }]}>
+                <Text style={[s.subLabel, { color: colors.mutedForeground }]}>What Went Well</Text>
+                {storedAssessment!.whatWentWell.map((item: string, i: number) => (
+                  <View key={i} style={s.bulletRow}>
+                    <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
+                    <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {(storedAssessment?.suggestions?.length ?? 0) > 0 && (
+              <View style={[s.subSection, { borderTopColor: colors.border }]}>
+                <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Next Time, Try This</Text>
+                {storedAssessment!.suggestions.map((tip: string, i: number) => (
+                  <View key={i} style={s.bulletRow}>
+                    <Text style={[s.bulletNum, { color: "#A855F7" }]}>{i + 1}</Text>
+                    <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
         {/* ── Log This Cook section ───────────────────────────── */}
-        <View style={[s.logSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+        <View
+          style={[s.logSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
+          onLayout={onCardLayout}
+        >
           {/* Header */}
           <View style={s.logHeader}>
             <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.logIconWrap}>
@@ -380,6 +516,20 @@ export default function CookDetailScreen() {
                       <Text style={[s.verdictSummary, { color: colors.foreground }]}>{assessment.summary}</Text>
                     ) : null}
                   </View>
+                </View>
+              )}
+
+              {/* Temperature graph */}
+              {(result.probes as any[]).filter((p) => p.timeSeries?.length >= 2).length > 0 && (
+                <View style={[s.graphWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                  <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 8 }]}>Temperature Graph</Text>
+                  <TempGraph
+                    probes={(result.probes as any[]).filter((p) => p.timeSeries?.length >= 2)}
+                    events={result.events}
+                    targetTempF={c?.targetTempF ?? null}
+                    width={cardWidth}
+                    height={180}
+                  />
                 </View>
               )}
 
@@ -563,6 +713,10 @@ const s = StyleSheet.create({
   verdictBanner: { flexDirection: "row", alignItems: "flex-start", gap: 12, borderWidth: 1, padding: 14 },
   verdictLabel: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: 3 },
   verdictSummary: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
+  verdictPill: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },
+  verdictPillText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  storedSummary: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  graphWrap: { borderWidth: 1, padding: 12, overflow: "hidden" },
 
   subSection: { borderTopWidth: 1, paddingTop: 12, gap: 0 },
   subLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 },
