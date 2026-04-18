@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,9 @@ import {
   TextInput,
   KeyboardAvoidingView,
   LayoutChangeEvent,
+  Modal,
+  FlatList,
+  TouchableOpacity,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,6 +29,7 @@ import { TempGraph } from "@/components/TempGraph";
 import {
   useAnalyzeCook,
   useCreateCook,
+  useListGrills,
   getListCooksQueryKey,
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
@@ -115,7 +119,8 @@ export default function LogCookScreen() {
   const [cardWidth, setCardWidth] = useState(300);
 
   const [foodType, setFoodType] = useState("");
-  const [grillName, setGrillName] = useState("");
+  const [selectedGrillId, setSelectedGrillId] = useState<number | null>(null);
+  const [grillPickerVisible, setGrillPickerVisible] = useState(false);
   const [targetTempF, setTargetTempF] = useState("");
   const [cookTempF, setCookTempF] = useState("");
   const [weightLbs, setWeightLbs] = useState("");
@@ -123,6 +128,10 @@ export default function LogCookScreen() {
   const [scanNotes, setScanNotes] = useState("");
 
   const [saving, setSaving] = useState(false);
+
+  const { data: grillsList } = useListGrills();
+  const grills: any[] = Array.isArray(grillsList) ? grillsList : [];
+  const selectedGrill = useMemo(() => grills.find((g: any) => g.id === selectedGrillId) ?? null, [grills, selectedGrillId]);
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -196,7 +205,15 @@ export default function LogCookScreen() {
       if (data.detectedWeightLbs != null && !weightLbs.trim()) setWeightLbs(String(data.detectedWeightLbs));
       if (data.detectedCookTempF != null && !cookTempF.trim()) setCookTempF(String(Math.round(data.detectedCookTempF)));
       if (data.detectedTargetTempF != null && !targetTempF.trim()) setTargetTempF(String(Math.round(data.detectedTargetTempF)));
-      if (data.detectedGrillBrand && !grillName.trim()) setGrillName(data.detectedGrillBrand);
+      if (data.detectedGrillBrand && selectedGrillId == null && grills.length > 0) {
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const needle = norm(data.detectedGrillBrand);
+        const match = grills.find((g: any) => {
+          const haystack = norm(`${g.brand ?? ""} ${g.name ?? ""} ${g.model ?? ""}`);
+          return haystack.includes(needle) || needle.includes(norm(g.brand ?? "").substring(0, 4));
+        });
+        if (match) setSelectedGrillId(match.id);
+      }
 
       // Append wood type / rub to cook notes if detected and not already mentioned
       const extras: string[] = [];
@@ -224,7 +241,7 @@ export default function LogCookScreen() {
         status: "completed",
         notes: cookNotes.trim() || (scanNotes.trim() ? `Cook notes:\n${scanNotes.trim()}` : null),
       };
-      if (grillName.trim()) payload.grillName = grillName.trim();
+      if (selectedGrillId != null) payload.grillId = selectedGrillId;
       if (targetTempF.trim() && !isNaN(parseFloat(targetTempF))) payload.targetTempF = parseFloat(targetTempF);
       if (cookTempF.trim() && !isNaN(parseFloat(cookTempF))) payload.cookTempF = parseFloat(cookTempF);
       if (weightLbs.trim() && !isNaN(parseFloat(weightLbs))) payload.weightLbs = parseFloat(weightLbs);
@@ -555,13 +572,24 @@ export default function LogCookScreen() {
               </View>
               <View style={[s.fieldWrap, { flex: 1 }]}>
                 <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Grill / Smoker</Text>
-                <TextInput
-                  style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
-                  placeholder="Traeger Pro 575"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={grillName}
-                  onChangeText={setGrillName}
-                />
+                <Pressable
+                  onPress={() => setGrillPickerVisible(true)}
+                  style={[s.input, s.grillPicker, { backgroundColor: colors.background, borderColor: selectedGrill ? "#6C3BF5" : colors.border, borderRadius: colors.radius }]}
+                >
+                  {selectedGrill ? (
+                    <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Feather name="check-circle" size={13} color="#6C3BF5" />
+                      <Text style={{ color: colors.foreground, fontSize: 14, fontFamily: "Inter_500Medium", flex: 1 }} numberOfLines={1}>
+                        {selectedGrill.name ?? `${selectedGrill.brand} ${selectedGrill.model ?? ""}`.trim()}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
+                      {grills.length === 0 ? "Add grills to your inventory first" : "Select your grill…"}
+                    </Text>
+                  )}
+                  <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
+                </Pressable>
               </View>
             </View>
 
@@ -628,6 +656,75 @@ export default function LogCookScreen() {
           <Text style={[s.cancelText, { color: colors.mutedForeground }]}>Cancel</Text>
         </Pressable>
       </ScrollView>
+
+      {/* Grill picker modal */}
+      <Modal
+        visible={grillPickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setGrillPickerVisible(false)}
+      >
+        <Pressable style={gp.overlay} onPress={() => setGrillPickerVisible(false)} />
+        <View style={[gp.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
+          <View style={[gp.handle, { backgroundColor: colors.border }]} />
+          <Text style={[gp.title, { color: colors.foreground }]}>Select Grill / Smoker</Text>
+
+          {grills.length === 0 ? (
+            <View style={gp.empty}>
+              <Feather name="inbox" size={32} color={colors.mutedForeground} />
+              <Text style={[gp.emptyText, { color: colors.mutedForeground }]}>No grills in your inventory yet.</Text>
+              <TouchableOpacity
+                onPress={() => { setGrillPickerVisible(false); router.push("/grills" as any); }}
+                style={gp.addBtn}
+              >
+                <LinearGradient colors={["#6C3BF5", "#A855F7"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={gp.addBtnGrad}>
+                  <Feather name="plus" size={15} color="#fff" />
+                  <Text style={gp.addBtnText}>Add Your Grills</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <FlatList
+              data={grills}
+              keyExtractor={(g: any) => String(g.id)}
+              style={{ maxHeight: 340 }}
+              ItemSeparatorComponent={() => <View style={[gp.sep, { backgroundColor: colors.border }]} />}
+              renderItem={({ item }: { item: any }) => {
+                const isSelected = item.id === selectedGrillId;
+                const displayName = item.name ?? `${item.brand ?? ""} ${item.model ?? ""}`.trim();
+                const subtitle = [item.brand, item.type].filter(Boolean).join(" · ");
+                return (
+                  <TouchableOpacity
+                    style={[gp.row, isSelected && { backgroundColor: "#6C3BF5" + "12" }]}
+                    onPress={() => { setSelectedGrillId(item.id); setGrillPickerVisible(false); }}
+                  >
+                    <View style={gp.rowText}>
+                      <Text style={[gp.rowName, { color: colors.foreground }]} numberOfLines={1}>{displayName}</Text>
+                      {subtitle ? <Text style={[gp.rowSub, { color: colors.mutedForeground }]} numberOfLines={1}>{subtitle}</Text> : null}
+                    </View>
+                    {isSelected && <Feather name="check" size={16} color="#6C3BF5" />}
+                  </TouchableOpacity>
+                );
+              }}
+              ListFooterComponent={
+                <TouchableOpacity
+                  onPress={() => { setGrillPickerVisible(false); router.push("/grills" as any); }}
+                  style={gp.footerBtn}
+                >
+                  <Feather name="plus-circle" size={15} color="#6C3BF5" />
+                  <Text style={[gp.footerBtnText, { color: "#6C3BF5" }]}>Add another grill</Text>
+                </TouchableOpacity>
+              }
+            />
+          )}
+
+          {selectedGrillId != null && (
+            <TouchableOpacity onPress={() => { setSelectedGrillId(null); setGrillPickerVisible(false); }} style={gp.clearBtn}>
+              <Text style={[gp.clearBtnText, { color: colors.mutedForeground }]}>Clear selection</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -691,6 +788,7 @@ const s = StyleSheet.create({
   row2: { flexDirection: "row", gap: 10 },
   fieldLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   input: { borderWidth: 1, paddingHorizontal: 13, paddingVertical: 11, fontSize: 14, fontFamily: "Inter_400Regular" },
+  grillPicker: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   textArea: { borderWidth: 1, padding: 12, fontSize: 14, fontFamily: "Inter_400Regular", minHeight: 80, lineHeight: 20 },
 
   saveBtn: { overflow: "hidden" },
@@ -698,4 +796,25 @@ const s = StyleSheet.create({
   saveBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: "#fff" },
   cancelLink: { alignItems: "center", paddingVertical: 10 },
   cancelText: { fontSize: 14, fontFamily: "Inter_400Regular" },
+});
+
+const gp = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
+  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 10, paddingHorizontal: 16, maxHeight: "80%" },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 14 },
+  title: { fontSize: 17, fontFamily: "Inter_700Bold", marginBottom: 12, paddingHorizontal: 4 },
+  sep: { height: 1 },
+  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 4, paddingVertical: 14 },
+  rowText: { flex: 1, marginRight: 8 },
+  rowName: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  rowSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  empty: { alignItems: "center", gap: 12, paddingVertical: 32 },
+  emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center" },
+  addBtn: { overflow: "hidden", borderRadius: 12 },
+  addBtnGrad: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, paddingVertical: 12 },
+  addBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  footerBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 14, paddingHorizontal: 4 },
+  footerBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  clearBtn: { alignItems: "center", paddingVertical: 12, marginTop: 4, borderTopWidth: 1, borderTopColor: "#ffffff15" },
+  clearBtnText: { fontSize: 13, fontFamily: "Inter_400Regular" },
 });
