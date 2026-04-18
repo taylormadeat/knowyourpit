@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { AppHeader } from "@/components/AppHeader";
+import { LogoBackground } from "@/components/LogoBackground";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useUser, useClerk } from "@clerk/expo";
@@ -31,7 +32,9 @@ export default function ProfileScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Profile" showBack />
+      <LogoBackground opacity={0.04} />
+
+      <AppHeader title="Profile" showBack dark />
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: botPad + 40 }}

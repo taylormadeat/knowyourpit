@@ -15,6 +15,7 @@ import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { fetch } from "expo/fetch";
 import { AppHeader } from "@/components/AppHeader";
+import { LogoBackground } from "@/components/LogoBackground";
 
 interface Message {
   id: string;
@@ -148,7 +149,8 @@ export default function AIScreen() {
       behavior="padding"
       keyboardVerticalOffset={0}
     >
-      <AppHeader title="Pit AI" />
+      <LogoBackground opacity={0.04} />
+      <AppHeader title="Pit AI" dark />
 
       {messages.length === 0 && !streaming && (
         <View style={s.welcome}>

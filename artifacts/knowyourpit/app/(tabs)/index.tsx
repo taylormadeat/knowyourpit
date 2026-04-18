@@ -15,6 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
+import { LogoBackground } from "@/components/LogoBackground";
 import { useGetDashboardSummary, useGetRecentCooks } from "@workspace/api-client-react";
 
 const logoImg = require("@/assets/images/logo.png");
@@ -51,6 +52,7 @@ export default function HomeScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
+      <LogoBackground opacity={0.04} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: botPad + 100 }}
@@ -82,7 +84,7 @@ export default function HomeScreen() {
           ) : (
             <View style={s.chipRow}>
               {[
-                { n: summary?.totalCooks ?? 0, l: "Cooks", icon: "flame" },
+                { n: summary?.totalCooks ?? 0, l: "Cooks", icon: "zap" },
                 { n: summary?.totalGrills ?? 0, l: "Grills", icon: "wind" },
                 { n: summary?.plannedCooks ?? 0, l: "Planned", icon: "calendar" },
               ].map((chip) => (

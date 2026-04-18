@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { AppHeader } from "@/components/AppHeader";
+import { LogoBackground } from "@/components/LogoBackground";
 
 const SHOP_ITEMS = [
   {
@@ -51,7 +52,9 @@ export default function ShopScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="BBQ Shop" showBack />
+      <LogoBackground opacity={0.04} />
+
+      <AppHeader title="BBQ Shop" showBack dark />
 
       <ScrollView
         contentContainerStyle={{ padding: 16, paddingBottom: botPad + 40, gap: 24 }}

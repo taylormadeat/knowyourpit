@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppHeader } from "@/components/AppHeader";
+import { LogoBackground } from "@/components/LogoBackground";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -181,7 +182,8 @@ export default function GrillsScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="My Grills" showBack right={addBtn} />
+      <LogoBackground opacity={0.04} />
+      <AppHeader title="My Grills" showBack dark right={addBtn} />
 
       {/* ── TABS ── */}
       <View style={[s.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>

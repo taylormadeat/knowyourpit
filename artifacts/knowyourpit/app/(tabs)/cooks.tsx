@@ -16,6 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useColors } from "@/hooks/useColors";
 import { useListCooks } from "@workspace/api-client-react";
 import { AppHeader } from "@/components/AppHeader";
+import { LogoBackground } from "@/components/LogoBackground";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
@@ -94,7 +95,8 @@ export default function CooksScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Cook Log" right={addBtn} />
+      <LogoBackground opacity={0.04} />
+      <AppHeader title="Cook Log" right={addBtn} dark />
 
       {isLoading && !cooks ? (
         <View style={s.center}>

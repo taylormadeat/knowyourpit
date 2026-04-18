@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { AppHeader } from "@/components/AppHeader";
+import { LogoBackground } from "@/components/LogoBackground";
 import * as Haptics from "expo-haptics";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
@@ -76,7 +77,8 @@ export default function PlanScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Plan a Cook" />
+      <LogoBackground opacity={0.04} />
+      <AppHeader title="Plan a Cook" dark />
 
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: botPad + 100 }}

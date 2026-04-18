@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { AppHeader } from "@/components/AppHeader";
+import { LogoBackground } from "@/components/LogoBackground";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
@@ -76,7 +77,9 @@ export default function TemperatureScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Temperature Scan" showBack />
+      <LogoBackground opacity={0.04} />
+
+      <AppHeader title="Temperature Scan" showBack dark />
 
       <ScrollView
         contentContainerStyle={{ padding: 20, paddingBottom: botPad + 40, gap: 16 }}

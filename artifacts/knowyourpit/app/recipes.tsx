@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { AppHeader } from "@/components/AppHeader";
+import { LogoBackground } from "@/components/LogoBackground";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Feather } from "@expo/vector-icons";
@@ -79,7 +80,8 @@ export default function RecipesScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Recipes" showBack />
+      <LogoBackground opacity={0.04} />
+      <AppHeader title="Recipes" showBack dark />
 
       <View style={[s.searchWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
         <Feather name="search" size={16} color={colors.mutedForeground} />

@@ -14,6 +14,7 @@ import { Feather } from "@expo/vector-icons";
 import { useUser, useClerk } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
 import { AppHeader } from "@/components/AppHeader";
+import { LogoBackground } from "@/components/LogoBackground";
 
 const MENU_SECTIONS = [
   {
@@ -65,7 +66,8 @@ export default function MoreScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="More" />
+      <LogoBackground opacity={0.04} />
+      <AppHeader title="More" dark />
 
       <ScrollView
         contentContainerStyle={{ paddingTop: 16, paddingBottom: botPad + 100 }}

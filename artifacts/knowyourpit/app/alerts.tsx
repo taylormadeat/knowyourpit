@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { AppHeader } from "@/components/AppHeader";
+import { LogoBackground } from "@/components/LogoBackground";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
@@ -61,7 +62,9 @@ export default function AlertsScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Alerts" showBack />
+      <LogoBackground opacity={0.04} />
+
+      <AppHeader title="Alerts" showBack dark />
 
       {isLoading ? (
         <View style={s.center}>

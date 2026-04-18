@@ -19,6 +19,7 @@ import { Link, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { LogoBackground } from "@/components/LogoBackground";
 
 const logoImg = require("@/assets/images/logo.png");
 
@@ -194,6 +195,7 @@ export default function SignUpScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.outer} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <LogoBackground opacity={0.04} />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <Image source={logoImg} style={styles.logo} resizeMode="contain" />
         <Text style={styles.title}>Create account</Text>

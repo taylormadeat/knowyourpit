@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { AppHeader } from "@/components/AppHeader";
+import { LogoBackground } from "@/components/LogoBackground";
 import { useGetTemperatureHistory } from "@workspace/api-client-react";
 
 export default function TempHistoryScreen() {
@@ -43,7 +44,9 @@ export default function TempHistoryScreen() {
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Temperature History" showBack />
+      <LogoBackground opacity={0.04} />
+
+      <AppHeader title="Temperature History" showBack dark />
 
       {isLoading ? (
         <View style={s.center}>

@@ -46,21 +46,26 @@ function ClassicTabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.mutedForeground,
+        tabBarActiveTintColor: "#E84820",
+        tabBarInactiveTintColor: isDark ? "#6B6560" : "#9B8F83",
         headerShown: false,
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: "600",
+          letterSpacing: 0.2,
+        },
         tabBarStyle: {
           position: "absolute",
-          backgroundColor: isIOS ? "transparent" : colors.background,
+          backgroundColor: isIOS ? "transparent" : isDark ? "#111114" : "#F0E8DA",
           borderTopWidth: 1,
-          borderTopColor: colors.border,
+          borderTopColor: isDark ? "#2C2C32" : "#D4CAB8",
           elevation: 0,
           ...(isWeb ? { height: 84 } : {}),
         },
         tabBarBackground: () =>
           isIOS ? (
             <BlurView
-              intensity={100}
+              intensity={80}
               tint={isDark ? "dark" : "light"}
               style={StyleSheet.absoluteFill}
             />
@@ -68,7 +73,7 @@ function ClassicTabLayout() {
             <View
               style={[
                 StyleSheet.absoluteFill,
-                { backgroundColor: colors.background },
+                { backgroundColor: isDark ? "#111114" : "#F0E8DA" },
               ]}
             />
           ) : null,
