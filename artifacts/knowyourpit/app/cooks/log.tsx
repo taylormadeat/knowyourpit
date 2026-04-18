@@ -72,10 +72,30 @@ type AnalysisResult = {
   cookDurationMinutes: number | null;
   detectedFoodType: string | null;
   detectedCookDate: string | null;
+  detectedWeightLbs: number | null;
+  detectedCookTempF: number | null;
+  detectedTargetTempF: number | null;
+  detectedGrillBrand: string | null;
+  detectedWoodType: string | null;
+  detectedRub: string | null;
   noDataFound: boolean;
   rawExtraction: string | null;
   assessment: Assessment | null;
 };
+
+function DetectedPill({ label, value, colors }: { label: string; value: string; colors: any }) {
+  return (
+    <View style={[dp.pill, { backgroundColor: "#A855F7" + "12", borderColor: "#A855F7" + "25" }]}>
+      <Text style={[dp.label, { color: colors.mutedForeground }]}>{label}</Text>
+      <Text style={[dp.value, { color: colors.foreground }]}>{value}</Text>
+    </View>
+  );
+}
+const dp = StyleSheet.create({
+  pill: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, minWidth: 90 },
+  label: { fontSize: 10, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 2 },
+  value: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+});
 
 export default function LogCookScreen() {
   const colors = useColors();
@@ -170,7 +190,20 @@ export default function LogCookScreen() {
       });
 
       setResult(data);
+
+      // Auto-populate form fields from detected data (only if field is still empty)
       if (data.detectedFoodType && !foodType.trim()) setFoodType(data.detectedFoodType);
+      if (data.detectedWeightLbs != null && !weightLbs.trim()) setWeightLbs(String(data.detectedWeightLbs));
+      if (data.detectedCookTempF != null && !cookTempF.trim()) setCookTempF(String(Math.round(data.detectedCookTempF)));
+      if (data.detectedTargetTempF != null && !targetTempF.trim()) setTargetTempF(String(Math.round(data.detectedTargetTempF)));
+      if (data.detectedGrillBrand && !grillName.trim()) setGrillName(data.detectedGrillBrand);
+
+      // Append wood type / rub to cook notes if detected and not already mentioned
+      const extras: string[] = [];
+      if (data.detectedWoodType) extras.push(`Wood/pellets: ${data.detectedWoodType}`);
+      if (data.detectedRub) extras.push(`Rub/seasoning: ${data.detectedRub}`);
+      if (extras.length > 0 && !cookNotes.trim()) setCookNotes(extras.join("\n"));
+
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
       Alert.alert("Scan failed", "Could not analyze the images. Check your connection and try again.");
@@ -205,6 +238,12 @@ export default function LogCookScreen() {
           events: result.events,
           cookDurationMinutes: result.cookDurationMinutes,
           detectedFoodType: result.detectedFoodType,
+          detectedWeightLbs: result.detectedWeightLbs,
+          detectedCookTempF: result.detectedCookTempF,
+          detectedTargetTempF: result.detectedTargetTempF,
+          detectedGrillBrand: result.detectedGrillBrand,
+          detectedWoodType: result.detectedWoodType,
+          detectedRub: result.detectedRub,
           assessment: result.assessment,
         };
       }
@@ -360,6 +399,26 @@ export default function LogCookScreen() {
                 </View>
               )}
 
+              {/* Auto-detected cook details */}
+              {(result.detectedFoodType || result.detectedWeightLbs != null || result.detectedCookTempF != null || result.detectedTargetTempF != null || result.detectedGrillBrand || result.detectedWoodType || result.detectedRub || result.cookDurationMinutes != null) && (
+                <View style={[s.detectedCard, { backgroundColor: colors.background, borderColor: "#A855F7" + "30", borderRadius: colors.radius }]}>
+                  <View style={s.detectedHeader}>
+                    <Feather name="check-circle" size={13} color="#A855F7" />
+                    <Text style={[s.detectedTitle, { color: "#A855F7" }]}>Auto-filled your cook details</Text>
+                  </View>
+                  <View style={s.detectedGrid}>
+                    {result.detectedFoodType ? <DetectedPill label="Cut" value={result.detectedFoodType} colors={colors} /> : null}
+                    {result.detectedWeightLbs != null ? <DetectedPill label="Weight" value={`${result.detectedWeightLbs} lbs`} colors={colors} /> : null}
+                    {result.detectedCookTempF != null ? <DetectedPill label="Cook temp" value={`${Math.round(result.detectedCookTempF)}°F`} colors={colors} /> : null}
+                    {result.detectedTargetTempF != null ? <DetectedPill label="Target temp" value={`${Math.round(result.detectedTargetTempF)}°F`} colors={colors} /> : null}
+                    {result.detectedGrillBrand ? <DetectedPill label="Grill" value={result.detectedGrillBrand} colors={colors} /> : null}
+                    {result.detectedWoodType ? <DetectedPill label="Wood" value={result.detectedWoodType} colors={colors} /> : null}
+                    {result.detectedRub ? <DetectedPill label="Rub" value={result.detectedRub} colors={colors} /> : null}
+                    {result.cookDurationMinutes != null ? <DetectedPill label="Duration" value={`${Math.floor(result.cookDurationMinutes / 60)}h ${result.cookDurationMinutes % 60}m`} colors={colors} /> : null}
+                  </View>
+                </View>
+              )}
+
               {/* Temperature graph */}
               {graphProbes.length > 0 && (
                 <View style={[s.graphWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
@@ -463,7 +522,7 @@ export default function LogCookScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[s.sectionTitle, { color: colors.foreground }]}>Cook Details</Text>
               <Text style={[s.sectionSub, { color: colors.mutedForeground }]}>
-                Fill in manually, or AI auto-detects from your images
+                AI fills these in automatically — review and adjust before saving
               </Text>
             </View>
           </View>
@@ -620,6 +679,10 @@ const s = StyleSheet.create({
   bulletRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, paddingBottom: 5 },
   bulletNum: { fontSize: 13, fontFamily: "Inter_700Bold", minWidth: 16 },
   bulletText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  detectedCard: { borderWidth: 1, padding: 12, gap: 8 },
+  detectedHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
+  detectedTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  detectedGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   infoRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   infoText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
 

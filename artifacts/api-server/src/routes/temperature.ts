@@ -247,12 +247,18 @@ Return ONLY valid JSON — no markdown, no explanation:
   "cookDurationMinutes": number or null,
   "noDataFound": boolean,
   "rawExtraction": "brief description of what you saw",
-  "detectedFoodType": "string or null",
-  "detectedCookDate": "ISO8601 UTC string or null",
+  "detectedFoodType": "string or null — specific cut (e.g. 'Brisket', 'Pork Butt', 'Baby Back Ribs')",
+  "detectedCookDate": "ISO8601 UTC string or null — when the cook started",
+  "detectedWeightLbs": number or null,
+  "detectedCookTempF": number or null,
+  "detectedTargetTempF": number or null,
+  "detectedGrillBrand": "string or null — brand/model visible in image or notes",
+  "detectedWoodType": "string or null — wood/pellet type used if mentioned",
+  "detectedRub": "string or null — rub or seasoning mentioned",
   "assessment": {
     "verdict": "perfect" | "overcooked" | "undercooked" | "good" | "needs_work",
     "summary": "One sentence overall assessment of how the cook went",
-    "whatWentWell": ["string — something that went well"],
+    "whatWentWell": ["string — something specific that went well"],
     "suggestions": [
       "Specific actionable improvement for next cook",
       "Another specific improvement",
@@ -263,31 +269,43 @@ Return ONLY valid JSON — no markdown, no explanation:
 
 === PROBES ===
 Extract ONE entry per physical probe. Build a timeSeries of up to 20 data points.
-- If multiple images show timestamps for the same probe, use them as anchors.
-- Fill in realistic curves between data points based on BBQ physics (stall, gradual rise, etc.).
-- timeMinutes: elapsed from cook START (0 = food on grill).
+- Use multiple images as time anchors; fill curves realistically between them using BBQ physics.
+- timeMinutes: elapsed from cook START (0 = food hits grill).
 - finishingTempF: last/highest recorded temp for this probe.
+- A "Pit" or "Ambient" probe tracks grill temperature; "Meat" or numbered probes track internal temp.
+
+=== COOK DETAILS (auto-detection) ===
+detectedWeightLbs: extract from notes if mentioned (e.g. "12 lb brisket" → 12). null if not found.
+detectedCookTempF: the grill/pit/ambient temperature. Use the Pit probe's most stable temperature range,
+  or extract from notes ("ran at 225°F", "set to 250°F"). null if not found.
+detectedTargetTempF: target internal temperature for the meat. Use the "done" event temperature,
+  or the meat probe's highest reading if it plateaued there, or extract from notes ("pulled at 203°F").
+  Use standard targets if clear (brisket=203, pork butt=205, chicken=165, ribs=195, steak=135). null if uncertain.
+detectedGrillBrand: visible grill brand/model from images (e.g. "Traeger Ironwood 885", "Weber Kettle")
+  or from notes. null if not visible or mentioned.
+detectedWoodType: wood/pellet type from notes or packaging visible in images. null if not mentioned.
+detectedRub: seasoning/rub name from notes. null if not mentioned.
 
 === EVENTS ===
 - "stall": extended plateau 150–175°F on meat probe (the Texas crutch stall)
-- "wrap": temp drop/plateau indicating the pitmaster wrapped the meat
-- "spike": brief sharp increase (fuel added, lid opened, flare-up)
+- "wrap": temp drop/plateau — pitmaster wrapped the meat in foil or butcher paper
+- "spike": brief sharp temp increase (fuel added, lid opened, flare-up)
 - "done": probe reached finishing/target temperature
-- "note": any event mentioned in cook notes not visible in images
+- "note": any event from cook notes not visible in images
 
 === ASSESSMENT ===
 verdict:
-- "perfect": meat hit target internal temp within expected range, stable pit, no major issues
-- "overcooked": meat exceeded target by 10°F+ or cook was significantly longer than typical
+- "perfect": meat hit target temp within ±5°F, stable pit, no major issues
+- "overcooked": meat exceeded target by 10°F+ or cook noticeably longer than typical
 - "undercooked": meat did not reach safe/target temp
-- "good": minor deviations but overall a successful cook  
-- "needs_work": significant temperature swings, missed target, or other notable problems
+- "good": minor deviations but overall a solid cook
+- "needs_work": significant temp swings, missed target, or other notable problems
 
-whatWentWell: 2-3 things that went well based on the data (temp stability, good bark window, etc.)
-suggestions: 3-5 specific, actionable improvements for NEXT time. Reference actual temperatures, timing, and techniques. Be a knowledgeable pit master coach, not generic.
+whatWentWell: 2-3 specific things that went right (e.g. "Pit held steady at 225°F throughout")
+suggestions: 3-5 specific, actionable improvements. Reference actual temperatures and timing. Coach like a seasoned pit master.
 
-If cook context is provided, use the target temp to assess whether the cook hit the goal. If no target is provided, use industry standard for the detected food type.
-If noDataFound is true, still provide assessment and suggestions based ONLY on the cook notes.`;
+If cook context is provided, use those values to fill any gaps and assess against stated targets.
+If noDataFound is true, still assess and suggest based on cook notes alone.`;
 
   type AnalyzeCookAIResult = {
     probes: Array<{
@@ -303,6 +321,12 @@ If noDataFound is true, still provide assessment and suggestions based ONLY on t
     rawExtraction: string | null;
     detectedFoodType: string | null;
     detectedCookDate: string | null;
+    detectedWeightLbs: number | null;
+    detectedCookTempF: number | null;
+    detectedTargetTempF: number | null;
+    detectedGrillBrand: string | null;
+    detectedWoodType: string | null;
+    detectedRub: string | null;
     assessment?: {
       verdict: string;
       summary: string;
@@ -398,16 +422,23 @@ If noDataFound is true, still provide assessment and suggestions based ONLY on t
         }
       : null;
 
+    const safeNum = (v: any) => (typeof v === "number" && isFinite(v) ? v : null);
+    const safeStr = (v: any) => (typeof v === "string" && v.trim() ? v.trim() : null);
+
     res.json({
       probes: safeProbes,
       events: safeEvents,
-      cookDurationMinutes: typeof result.cookDurationMinutes === "number" && isFinite(result.cookDurationMinutes)
-        ? result.cookDurationMinutes
-        : null,
+      cookDurationMinutes: safeNum(result.cookDurationMinutes),
       noDataFound: result.noDataFound ?? (safeProbes.length === 0),
-      rawExtraction: result.rawExtraction ?? null,
-      detectedFoodType: result.detectedFoodType ?? null,
+      rawExtraction: safeStr(result.rawExtraction),
+      detectedFoodType: safeStr(result.detectedFoodType),
       detectedCookDate: result.detectedCookDate ?? null,
+      detectedWeightLbs: safeNum(result.detectedWeightLbs),
+      detectedCookTempF: safeNum(result.detectedCookTempF),
+      detectedTargetTempF: safeNum(result.detectedTargetTempF),
+      detectedGrillBrand: safeStr(result.detectedGrillBrand),
+      detectedWoodType: safeStr(result.detectedWoodType),
+      detectedRub: safeStr(result.detectedRub),
       assessment: safeAssessment,
     });
   } catch (err) {
