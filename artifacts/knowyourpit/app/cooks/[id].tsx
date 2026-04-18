@@ -83,7 +83,7 @@ export default function CookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const qc = useQueryClient();
 
-  const { data: cook, isLoading } = useGetCook({ id: Number(id) });
+  const { data: cook, isLoading } = useGetCook(Number(id));
   const deleteCook = useDeleteCook();
   const updateCook = useUpdateCook();
   const analyzeMutation = useAnalyzeCook();
