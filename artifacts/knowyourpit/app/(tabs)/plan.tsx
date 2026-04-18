@@ -24,6 +24,7 @@ import { useColors } from "@/hooks/useColors";
 import {
   useListGrills,
   useCreateCook,
+  useAiPredict,
   getListCooksQueryKey,
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
@@ -155,6 +156,11 @@ export default function PlanScreen() {
   const [meatPickerOpen, setMeatPickerOpen] = useState(false);
   const [meatCategory, setMeatCategory] = useState<string>(MEAT_CATEGORIES[0]);
 
+  // ── AI predict state ──────────────────────────────────────────────────
+  const aiPredict = useAiPredict();
+  const [aiResult, setAiResult] = useState<any | null>(null);
+  const [aiResultOpen, setAiResultOpen] = useState(false);
+
   // ── Derived values ───────────────────────────────────────────────────
   const selectedGrill = useMemo(
     () => (grills as any[] | undefined)?.find((g: any) => g.id === grillId) ?? null,
@@ -173,6 +179,40 @@ export default function PlanScreen() {
     setTargetTempF(String(cut.targetTempF));
     setCookTempF(String(cut.cookTempF));
     setMeatPickerOpen(false);
+  };
+
+  // ── AI Plan ──────────────────────────────────────────────────────────
+  const handleAiPlan = async () => {
+    if (!selectedCut) {
+      Alert.alert("Select a Meat Cut First", "Choose a meat cut so AI can tailor the plan.");
+      return;
+    }
+    try {
+      const result = await aiPredict.mutateAsync({
+        data: {
+          foodType: selectedCut.name,
+          weightLbs: parsedWeight > 0 ? parsedWeight : undefined,
+          cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
+          targetTempF: targetTempF ? Number(targetTempF) : selectedCut.targetTempF,
+          grillId: grillId ?? undefined,
+          desiredFinishAt: serveAt,
+          preheatMinutes: preheatMinsForGrill(selectedGrill),
+        },
+      });
+      setAiResult(result);
+      setAiResultOpen(true);
+    } catch (e: any) {
+      Alert.alert("AI Error", e?.message || "Could not get AI prediction. Try again.");
+    }
+  };
+
+  const applyAiPlan = () => {
+    if (!aiResult) return;
+    if (aiResult.serveAt) setServeAt(new Date(aiResult.serveAt));
+    if (aiResult.wrap?.restMinutes && selectedCut) {
+      (selectedCut as any).__aiRestMins = aiResult.wrap.restMinutes;
+    }
+    setAiResultOpen(false);
   };
 
   // ── Submit ───────────────────────────────────────────────────────────
@@ -362,17 +402,17 @@ export default function PlanScreen() {
               <Text style={[s.grillStatsTitle, { color: colors.foreground }]}>{selectedGrill.name}</Text>
             </View>
             <View style={s.grillStatsGrid}>
-              {selectedGrill.type && <StatCell label="Type" value={selectedGrill.type} colors={colors} />}
-              {selectedGrill.minTempF && selectedGrill.maxTempF && (
+              {!!selectedGrill.type && <StatCell label="Type" value={selectedGrill.type} colors={colors} />}
+              {selectedGrill.minTempF != null && selectedGrill.maxTempF != null && (
                 <StatCell label="Temp Range" value={`${selectedGrill.minTempF}°F – ${selectedGrill.maxTempF}°F`} colors={colors} />
               )}
-              {selectedGrill.cookingSurfaceSqIn && (
+              {selectedGrill.cookingSurfaceSqIn != null && (
                 <StatCell label="Surface" value={`${selectedGrill.cookingSurfaceSqIn} sq in`} colors={colors} />
               )}
-              {selectedGrill.numProbes && (
+              {selectedGrill.numProbes != null && (
                 <StatCell label="Probes" value={String(selectedGrill.numProbes)} colors={colors} />
               )}
-              {selectedGrill.hopperSizeLbs && (
+              {selectedGrill.hopperSizeLbs != null && (
                 <StatCell label="Hopper" value={`${selectedGrill.hopperSizeLbs} lbs`} colors={colors} />
               )}
               <StatCell
@@ -420,6 +460,57 @@ export default function PlanScreen() {
             </Pressable>
           </View>
         </View>
+
+        {/* ── AI Cook Planner ── */}
+        <Pressable
+          style={({ pressed }) => [
+            s.aiBtn,
+            { borderRadius: colors.radius },
+            (aiPredict.isPending || pressed) && { opacity: 0.75 },
+          ]}
+          onPress={handleAiPlan}
+          disabled={aiPredict.isPending}
+        >
+          <LinearGradient
+            colors={["#6C3BF5", "#A855F7"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={s.aiBtnGradient}
+          >
+            {aiPredict.isPending ? (
+              <>
+                <ActivityIndicator color="#fff" size="small" />
+                <Text style={s.aiBtnText}>AI is planning your cook…</Text>
+              </>
+            ) : (
+              <>
+                <Feather name="cpu" size={18} color="#fff" />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.aiBtnText}>AI Plan This Cook</Text>
+                  <Text style={s.aiBtnSub}>
+                    {selectedCut
+                      ? `Get AI timing, wrap tips & rest guidance for ${selectedCut.name}`
+                      : "Select a meat cut first"}
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={16} color="rgba(255,255,255,0.7)" />
+              </>
+            )}
+          </LinearGradient>
+        </Pressable>
+
+        {/* AI result banner (applied) */}
+        {aiResult && !aiResultOpen && (
+          <Pressable
+            onPress={() => setAiResultOpen(true)}
+            style={[s.aiAppliedBanner, { backgroundColor: "#6C3BF5" + "15", borderColor: "#6C3BF5" + "40", borderRadius: colors.radius }]}
+          >
+            <Feather name="check-circle" size={14} color="#6C3BF5" />
+            <Text style={[s.aiAppliedText, { color: "#6C3BF5" }]}>
+              AI plan applied · {aiResult.confidence} confidence · Tap to review
+            </Text>
+          </Pressable>
+        )}
 
         {/* ── Cook Schedule Summary ── */}
         {schedule && (
@@ -684,6 +775,152 @@ export default function PlanScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ════ AI RESULTS MODAL ════ */}
+      <Modal
+        visible={aiResultOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setAiResultOpen(false)}
+      >
+        <View style={s.modalOverlay}>
+          <View style={[s.modalSheet, { backgroundColor: colors.card }]}>
+            <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
+
+            {/* AI header */}
+            <LinearGradient
+              colors={["#6C3BF5", "#A855F7"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={s.aiModalHeader}
+            >
+              <Feather name="cpu" size={20} color="#fff" />
+              <View style={{ flex: 1 }}>
+                <Text style={s.aiModalTitle}>AI Cook Plan</Text>
+                {aiResult && (
+                  <Text style={s.aiModalSub}>
+                    {aiResult.confidence?.toUpperCase()} confidence · {aiResult.estimatedDurationMinutes} min active cook
+                  </Text>
+                )}
+              </View>
+              <Pressable onPress={() => setAiResultOpen(false)} hitSlop={12}>
+                <Feather name="x" size={22} color="rgba(255,255,255,0.8)" />
+              </Pressable>
+            </LinearGradient>
+
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 40 }}>
+              {aiResult && (
+                <>
+                  {/* Rationale */}
+                  <View style={[s.aiSection, { borderColor: colors.border }]}>
+                    <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>AI Analysis</Text>
+                    <Text style={[s.aiBody, { color: colors.mutedForeground }]}>{aiResult.rationale}</Text>
+                  </View>
+
+                  {/* Schedule */}
+                  <View style={[s.aiSection, { borderColor: colors.border }]}>
+                    <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>Suggested Schedule</Text>
+                    {[
+                      { icon: "power", label: "Light grill", val: aiResult.grillLightAt },
+                      { icon: "zap", label: "Put food on", val: aiResult.suggestedStartAt },
+                      { icon: "pause", label: "Pull off grill", val: aiResult.estimatedFinishAt },
+                      { icon: "check-circle", label: "Ready to serve", val: aiResult.serveAt },
+                    ].filter(r => r.val).map((row) => (
+                      <View key={row.label} style={s.aiScheduleRow}>
+                        <Feather name={row.icon as any} size={14} color="#6C3BF5" style={{ marginTop: 2 }} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={[s.aiScheduleLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
+                          <Text style={[s.aiScheduleVal, { color: colors.foreground }]}>
+                            {new Date(row.val).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Wrap recommendation */}
+                  {aiResult.wrap && (
+                    <View style={[s.aiSection, { borderColor: colors.border }]}>
+                      <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>Wrapping Guidance</Text>
+                      <View style={[s.wrapBadgeRow]}>
+                        <View style={[s.wrapBadge, { backgroundColor: "#6C3BF5" + "18" }]}>
+                          <Text style={[s.wrapBadgeText, { color: "#6C3BF5" }]}>
+                            {aiResult.wrap.method === "none" ? "No wrap needed" : aiResult.wrap.method === "butcher_paper" ? "Butcher Paper" : "Foil (Texas Crutch)"}
+                          </Text>
+                        </View>
+                        {aiResult.wrap.wrapAtMinutes > 0 && (
+                          <View style={[s.wrapBadge, { backgroundColor: colors.muted }]}>
+                            <Text style={[s.wrapBadgeText, { color: colors.foreground }]}>
+                              At {fmtDuration(aiResult.wrap.wrapAtMinutes)} into cook
+                            </Text>
+                          </View>
+                        )}
+                        {aiResult.wrap.wrapTempF && (
+                          <View style={[s.wrapBadge, { backgroundColor: colors.muted }]}>
+                            <Text style={[s.wrapBadgeText, { color: colors.foreground }]}>
+                              {aiResult.wrap.wrapTempF}°F internal
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      {aiResult.wrap.reason && (
+                        <Text style={[s.aiBody, { color: colors.mutedForeground, marginTop: 8 }]}>{aiResult.wrap.reason}</Text>
+                      )}
+                      {aiResult.wrap.restMinutes > 0 && (
+                        <View style={[s.restRow, { backgroundColor: colors.muted, borderRadius: 8 }]}>
+                          <Feather name="coffee" size={14} color={colors.primary} />
+                          <Text style={[s.restText, { color: colors.foreground }]}>
+                            Rest for <Text style={{ fontFamily: "Inter_700Bold", color: colors.primary }}>{fmtDuration(aiResult.wrap.restMinutes)}</Text> after pulling
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Tips */}
+                  {aiResult.tips && aiResult.tips.length > 0 && (
+                    <View style={[s.aiSection, { borderColor: colors.border }]}>
+                      <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>Pit Master Tips</Text>
+                      {aiResult.tips.map((tip: string, i: number) => (
+                        <View key={i} style={s.tipRow}>
+                          <View style={[s.tipBullet, { backgroundColor: "#6C3BF5" }]} />
+                          <Text style={[s.tipText, { color: colors.mutedForeground }]}>{tip}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Apply button */}
+                  <Pressable
+                    onPress={applyAiPlan}
+                    style={({ pressed }) => [
+                      s.applyBtn,
+                      { borderRadius: colors.radius },
+                      pressed && { opacity: 0.75 },
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={["#6C3BF5", "#A855F7"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={s.applyBtnGradient}
+                    >
+                      <Feather name="check" size={18} color="#fff" />
+                      <Text style={s.applyBtnText}>Apply AI Plan</Text>
+                    </LinearGradient>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setAiResultOpen(false)}
+                    style={[s.dismissBtn, { borderRadius: colors.radius, borderColor: colors.border }]}
+                  >
+                    <Text style={[s.dismissBtnText, { color: colors.mutedForeground }]}>Keep manual plan</Text>
+                  </Pressable>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -876,6 +1113,71 @@ const s = StyleSheet.create({
     marginTop: 20,
   },
   submitText: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: "#fff" },
+
+  // AI button
+  aiBtn: { marginTop: 20, overflow: "hidden" },
+  aiBtnGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  aiBtnText: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#fff" },
+  aiBtnSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.75)", marginTop: 2 },
+  aiAppliedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 10,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  aiAppliedText: { fontSize: 13, fontFamily: "Inter_500Medium", flex: 1 },
+
+  // AI modal
+  aiModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+  },
+  aiModalTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#fff" },
+  aiModalSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.8)", marginTop: 2 },
+  aiSection: {
+    borderBottomWidth: 1,
+    paddingVertical: 14,
+  },
+  aiSectionTitle: { fontSize: 13, fontFamily: "Inter_700Bold", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 },
+  aiBody: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 21 },
+  aiScheduleRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 6 },
+  aiScheduleLabel: { fontSize: 11, fontFamily: "Inter_500Medium", marginBottom: 1 },
+  aiScheduleVal: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  wrapBadgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  wrapBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
+  wrapBadgeText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  restRow: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, marginTop: 10 },
+  restText: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  tipRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 4 },
+  tipBullet: { width: 6, height: 6, borderRadius: 3, marginTop: 7 },
+  tipText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  applyBtn: { overflow: "hidden", marginTop: 20 },
+  applyBtnGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 14,
+  },
+  applyBtnText: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#fff" },
+  dismissBtn: {
+    alignItems: "center",
+    paddingVertical: 12,
+    marginTop: 10,
+    borderWidth: 1,
+  },
+  dismissBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
 
   // Modals
   modalOverlay: {
