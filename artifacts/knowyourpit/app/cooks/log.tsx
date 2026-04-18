@@ -1,0 +1,600 @@
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  Pressable,
+  Platform,
+  ActivityIndicator,
+  Alert,
+  Image,
+  TextInput,
+  KeyboardAvoidingView,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { Feather } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
+import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import { useColors } from "@/hooks/useColors";
+import { LogoBackground } from "@/components/LogoBackground";
+import {
+  useAnalyzeCook,
+  useCreateCook,
+  getListCooksQueryKey,
+  getGetDashboardSummaryQueryKey,
+  getGetRecentCooksQueryKey,
+} from "@workspace/api-client-react";
+
+const logoImg = require("@/assets/images/logo.png");
+
+type PickedImage = { uri: string; base64: string; mimeType: string };
+
+type Assessment = {
+  verdict: string;
+  summary: string;
+  whatWentWell: string[];
+  suggestions: string[];
+};
+
+const VERDICT_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
+  perfect:     { label: "Perfect Cook!",  color: "#22c55e", icon: "award" },
+  good:        { label: "Good Cook",      color: "#84cc16", icon: "thumbs-up" },
+  overcooked:  { label: "Overcooked",     color: "#f97316", icon: "thermometer" },
+  undercooked: { label: "Undercooked",    color: "#3b82f6", icon: "thermometer" },
+  needs_work:  { label: "Needs Work",     color: "#eab308", icon: "tool" },
+};
+
+const EVENT_ICONS: Record<string, string> = {
+  wrap: "package",
+  stall: "pause-circle",
+  spike: "zap",
+  done: "check-circle",
+  note: "message-circle",
+};
+
+type AnalysisResult = {
+  probes: Array<{ probeName: string; finishingTempF: number; minTempF: number | null; maxTempF: number | null }>;
+  events: Array<{ type: string; timeMinutes: number; description: string }>;
+  cookDurationMinutes: number | null;
+  detectedFoodType: string | null;
+  detectedCookDate: string | null;
+  noDataFound: boolean;
+  rawExtraction: string | null;
+  assessment: Assessment | null;
+};
+
+export default function LogCookScreen() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const qc = useQueryClient();
+
+  const analyzeMutation = useAnalyzeCook();
+  const createCook = useCreateCook();
+
+  const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
+  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+
+  const [images, setImages] = useState<PickedImage[]>([]);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+
+  const [foodType, setFoodType] = useState("");
+  const [grillName, setGrillName] = useState("");
+  const [targetTempF, setTargetTempF] = useState("");
+  const [cookTempF, setCookTempF] = useState("");
+  const [weightLbs, setWeightLbs] = useState("");
+  const [cookNotes, setCookNotes] = useState("");
+  const [scanNotes, setScanNotes] = useState("");
+
+  const [saving, setSaving] = useState(false);
+
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)/cooks" as any);
+  };
+
+  const pickImages = async () => {
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsMultipleSelection: true,
+      quality: 0.7,
+      base64: true,
+    });
+    if (!res.canceled) {
+      const picked = res.assets
+        .filter((a) => a.base64)
+        .map((a) => ({ uri: a.uri, base64: a.base64!, mimeType: (a.mimeType as string) || "image/jpeg" }))
+        .slice(0, 5);
+      setImages((prev) => [...prev, ...picked].slice(0, 5));
+      setResult(null);
+    }
+  };
+
+  const takePhoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) { Alert.alert("Permission needed", "Allow camera access to take photos"); return; }
+    const res = await ImagePicker.launchCameraAsync({ quality: 0.7, base64: true });
+    if (!res.canceled && res.assets[0].base64) {
+      setImages((prev) => [...prev, {
+        uri: res.assets[0].uri,
+        base64: res.assets[0].base64!,
+        mimeType: (res.assets[0].mimeType as string) || "image/jpeg",
+      }].slice(0, 5));
+      setResult(null);
+    }
+  };
+
+  const removeImage = (idx: number) => { setImages((p) => p.filter((_, i) => i !== idx)); setResult(null); };
+
+  const analyze = async () => {
+    if (images.length === 0 && !scanNotes.trim()) {
+      Alert.alert("Add something", "Pick at least one thermometer photo, or describe the cook in the notes.");
+      return;
+    }
+    setAnalyzing(true);
+    setResult(null);
+    try {
+      const contextPayload: any = {};
+      if (foodType.trim()) contextPayload.foodType = foodType.trim();
+      if (targetTempF.trim()) contextPayload.targetTempF = parseFloat(targetTempF);
+      if (cookTempF.trim()) contextPayload.cookTempF = parseFloat(cookTempF);
+      if (weightLbs.trim()) contextPayload.weightLbs = parseFloat(weightLbs);
+
+      const data: any = await analyzeMutation.mutateAsync({
+        data: {
+          images: images.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),
+          cookNotes: scanNotes.trim() || null,
+          cookContext: Object.keys(contextPayload).length > 0 ? contextPayload : undefined,
+        } as any,
+      });
+
+      setResult(data);
+      if (data.detectedFoodType && !foodType.trim()) setFoodType(data.detectedFoodType);
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e: any) {
+      Alert.alert("Scan failed", "Could not analyze the images. Check your connection and try again.");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const save = async () => {
+    if (!foodType.trim()) {
+      Alert.alert("Food type required", "Enter what you cooked — e.g. Brisket, Pork Butt, Ribs.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload: any = {
+        foodType: foodType.trim(),
+        status: "completed",
+        notes: cookNotes.trim() || (scanNotes.trim() ? `Cook notes:\n${scanNotes.trim()}` : null),
+      };
+      if (grillName.trim()) payload.grillName = grillName.trim();
+      if (targetTempF.trim() && !isNaN(parseFloat(targetTempF))) payload.targetTempF = parseFloat(targetTempF);
+      if (cookTempF.trim() && !isNaN(parseFloat(cookTempF))) payload.cookTempF = parseFloat(cookTempF);
+      if (weightLbs.trim() && !isNaN(parseFloat(weightLbs))) payload.weightLbs = parseFloat(weightLbs);
+      if (result?.detectedCookDate) {
+        const d = new Date(result.detectedCookDate);
+        if (!isNaN(d.getTime())) payload.actualStartAt = d;
+      }
+
+      const cook = await createCook.mutateAsync({ data: payload });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+
+      const newId = (cook as any)?.id;
+      if (newId) router.replace(`/cooks/${newId}` as any);
+      else goBack();
+    } catch (e: any) {
+      Alert.alert("Save failed", "Could not save the cook. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const assessment = result?.assessment ?? null;
+  const verdictCfg = assessment ? (VERDICT_CONFIG[assessment.verdict] ?? VERDICT_CONFIG.needs_work) : null;
+
+  return (
+    <KeyboardAvoidingView
+      style={[s.root, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <LogoBackground opacity={0.04} />
+
+      <LinearGradient
+        colors={["#1C1C1F", "#2D1A0E"]}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={[s.header, { paddingTop: topPad + 14 }]}
+      >
+        <LogoBackground opacity={0.06} />
+        <Pressable onPress={goBack} style={s.backBtn}>
+          <Feather name="chevron-left" size={24} color="#F3EDE1" />
+        </Pressable>
+        <Text style={s.headerTitle}>Log a Past Cook</Text>
+        <Pressable onPress={goBack} hitSlop={8}>
+          <Image source={logoImg} style={s.headerLogo} resizeMode="contain" />
+        </Pressable>
+      </LinearGradient>
+      <View style={s.fireBar} />
+
+      <ScrollView
+        contentContainerStyle={{ padding: 20, paddingBottom: botPad + 60, gap: 16 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* AI Scanner card */}
+        <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+          <View style={s.sectionHeader}>
+            <LinearGradient colors={["#6C3BF5", "#A855F7"]} style={s.sectionIcon}>
+              <Feather name="camera" size={15} color="#fff" />
+            </LinearGradient>
+            <View style={{ flex: 1 }}>
+              <Text style={[s.sectionTitle, { color: colors.foreground }]}>AI Image Scanner</Text>
+              <Text style={[s.sectionSub, { color: colors.mutedForeground }]}>
+                Upload thermometer photos — AI reads temps, detects events, and grades the cook
+              </Text>
+            </View>
+          </View>
+
+          {/* Photo picker */}
+          <View style={s.photoRow}>
+            <Pressable style={[s.photoBtn, { borderColor: colors.border, borderRadius: colors.radius }]} onPress={pickImages}>
+              <Feather name="image" size={16} color="#A855F7" />
+              <Text style={[s.photoBtnText, { color: colors.foreground }]}>Gallery</Text>
+            </Pressable>
+            {Platform.OS !== "web" && (
+              <Pressable style={[s.photoBtn, { borderColor: colors.border, borderRadius: colors.radius }]} onPress={takePhoto}>
+                <Feather name="camera" size={16} color="#A855F7" />
+                <Text style={[s.photoBtnText, { color: colors.foreground }]}>Camera</Text>
+              </Pressable>
+            )}
+          </View>
+
+          {/* Thumbnails */}
+          {images.length > 0 && (
+            <View style={s.thumbRow}>
+              {images.map((img, i) => (
+                <View key={i} style={s.thumb}>
+                  <Image source={{ uri: img.uri }} style={s.thumbImg} />
+                  <Pressable style={[s.thumbDel, { backgroundColor: colors.destructive }]} onPress={() => removeImage(i)}>
+                    <Feather name="x" size={11} color="#fff" />
+                  </Pressable>
+                </View>
+              ))}
+              {images.length < 5 && (
+                <Pressable style={[s.addMoreThumb, { borderColor: colors.border }]} onPress={pickImages}>
+                  <Feather name="plus" size={18} color={colors.mutedForeground} />
+                </Pressable>
+              )}
+            </View>
+          )}
+
+          {/* Scan notes */}
+          <View>
+            <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>
+              Describe the cook <Text style={{ fontWeight: "400" }}>(helps AI if image is unclear)</Text>
+            </Text>
+            <TextInput
+              style={[s.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+              placeholder="e.g. 12lb brisket, wrapped at hour 5, hit 203°F after 14 hours…"
+              placeholderTextColor={colors.mutedForeground}
+              value={scanNotes}
+              onChangeText={setScanNotes}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
+
+          {/* Scan button */}
+          <Pressable
+            style={({ pressed }) => [s.scanBtn, { borderRadius: colors.radius }, (analyzing || pressed) && { opacity: 0.75 }]}
+            onPress={analyze}
+            disabled={analyzing}
+          >
+            <LinearGradient colors={["#6C3BF5", "#A855F7"]} style={s.scanBtnGradient}>
+              {analyzing ? (
+                <>
+                  <ActivityIndicator color="#fff" size="small" />
+                  <Text style={s.scanBtnText}>AI is reading your cook…</Text>
+                </>
+              ) : (
+                <>
+                  <Feather name="zap" size={16} color="#fff" />
+                  <Text style={s.scanBtnText}>
+                    {images.length > 0
+                      ? `Scan ${images.length} image${images.length > 1 ? "s" : ""} with AI`
+                      : "Analyze Cook Notes with AI"}
+                  </Text>
+                </>
+              )}
+            </LinearGradient>
+          </Pressable>
+
+          {/* AI Results */}
+          {result && (
+            <View style={[s.results, { borderTopColor: colors.border }]}>
+
+              {/* Verdict */}
+              {verdictCfg && assessment && (
+                <View style={[s.verdictBanner, { backgroundColor: verdictCfg.color + "18", borderColor: verdictCfg.color + "40", borderRadius: colors.radius }]}>
+                  <Feather name={verdictCfg.icon as any} size={20} color={verdictCfg.color} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.verdictLabel, { color: verdictCfg.color }]}>{verdictCfg.label}</Text>
+                    {assessment.summary ? <Text style={[s.verdictSummary, { color: colors.foreground }]}>{assessment.summary}</Text> : null}
+                  </View>
+                </View>
+              )}
+
+              {/* Probe readings */}
+              {result.probes.length > 0 && (
+                <View style={[s.subSection, { borderTopColor: colors.border }]}>
+                  <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Temperature Readings</Text>
+                  {result.probes.map((p, i) => (
+                    <View key={i} style={[s.probeRow, { borderTopColor: colors.border }]}>
+                      <View>
+                        <Text style={[s.probeName, { color: colors.foreground }]}>{p.probeName}</Text>
+                        {(p.minTempF != null || p.maxTempF != null) && (
+                          <Text style={[s.probeRange, { color: colors.mutedForeground }]}>
+                            {p.minTempF ?? "?"}°F → {p.maxTempF ?? "?"}°F
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={[s.probeFinish, { color: "#A855F7" }]}>{p.finishingTempF}°F</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Events */}
+              {result.events.length > 0 && (
+                <View style={[s.subSection, { borderTopColor: colors.border }]}>
+                  <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Cook Timeline</Text>
+                  {result.events.map((ev, i) => {
+                    const hrs = Math.floor(ev.timeMinutes / 60);
+                    const mins = ev.timeMinutes % 60;
+                    return (
+                      <View key={i} style={[s.eventRow, { borderTopColor: colors.border }]}>
+                        <View style={[s.eventIconWrap, { backgroundColor: "#A855F7" + "18" }]}>
+                          <Feather name={(EVENT_ICONS[ev.type] ?? "circle") as any} size={13} color="#A855F7" />
+                        </View>
+                        <Text style={[s.eventDesc, { color: colors.foreground, flex: 1 }]}>{ev.description}</Text>
+                        <Text style={[s.eventTime, { color: colors.mutedForeground }]}>
+                          {hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* What went well */}
+              {(assessment?.whatWentWell?.length ?? 0) > 0 && (
+                <View style={[s.subSection, { borderTopColor: colors.border }]}>
+                  <Text style={[s.subLabel, { color: colors.mutedForeground }]}>What Went Well</Text>
+                  {assessment!.whatWentWell.map((item, i) => (
+                    <View key={i} style={s.bulletRow}>
+                      <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
+                      <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Suggestions */}
+              {(assessment?.suggestions?.length ?? 0) > 0 && (
+                <View style={[s.subSection, { borderTopColor: colors.border }]}>
+                  <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Next Time, Try This</Text>
+                  {assessment!.suggestions.map((tip, i) => (
+                    <View key={i} style={s.bulletRow}>
+                      <Text style={[s.bulletNum, { color: "#A855F7" }]}>{i + 1}</Text>
+                      <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {result.noDataFound && result.probes.length === 0 && (
+                <View style={s.infoRow}>
+                  <Feather name="info" size={14} color={colors.mutedForeground} />
+                  <Text style={[s.infoText, { color: colors.mutedForeground }]}>
+                    No temperature data detected in images — assessment based on notes only.
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* ── Manual entry form ────────────────────────────── */}
+        <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+          <View style={s.sectionHeader}>
+            <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.sectionIcon}>
+              <Feather name="edit-3" size={15} color="#fff" />
+            </LinearGradient>
+            <View style={{ flex: 1 }}>
+              <Text style={[s.sectionTitle, { color: colors.foreground }]}>Cook Details</Text>
+              <Text style={[s.sectionSub, { color: colors.mutedForeground }]}>
+                Fill in manually or AI will auto-detect from your images
+              </Text>
+            </View>
+          </View>
+
+          <View style={s.formBody}>
+            <View style={s.fieldWrap}>
+              <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>
+                What did you cook? <Text style={{ color: colors.destructive }}>*</Text>
+              </Text>
+              <TextInput
+                style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                placeholder="e.g. Brisket, Pork Butt, Baby Back Ribs"
+                placeholderTextColor={colors.mutedForeground}
+                value={foodType}
+                onChangeText={setFoodType}
+              />
+            </View>
+
+            <View style={s.row2}>
+              <View style={[s.fieldWrap, { flex: 1 }]}>
+                <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Weight (lbs)</Text>
+                <TextInput
+                  style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                  placeholder="14"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={weightLbs}
+                  onChangeText={setWeightLbs}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={[s.fieldWrap, { flex: 1 }]}>
+                <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Grill / Smoker</Text>
+                <TextInput
+                  style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                  placeholder="Traeger Pro 575"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={grillName}
+                  onChangeText={setGrillName}
+                />
+              </View>
+            </View>
+
+            <View style={s.row2}>
+              <View style={[s.fieldWrap, { flex: 1 }]}>
+                <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Cook Temp (°F)</Text>
+                <TextInput
+                  style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                  placeholder="225"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={cookTempF}
+                  onChangeText={setCookTempF}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={[s.fieldWrap, { flex: 1 }]}>
+                <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Target Temp (°F)</Text>
+                <TextInput
+                  style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                  placeholder="203"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={targetTempF}
+                  onChangeText={setTargetTempF}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+
+            <View style={s.fieldWrap}>
+              <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Cook notes</Text>
+              <TextInput
+                style={[s.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                placeholder="Anything worth remembering — wood type, rubs, tweaks…"
+                placeholderTextColor={colors.mutedForeground}
+                value={cookNotes}
+                onChangeText={setCookNotes}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Save button */}
+        <Pressable
+          style={({ pressed }) => [s.saveBtn, { borderRadius: colors.radius }, (saving || pressed) && { opacity: 0.75 }]}
+          onPress={save}
+          disabled={saving}
+        >
+          <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.saveBtnGradient}>
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Feather name="save" size={17} color="#fff" />
+                <Text style={s.saveBtnText}>Save to Cook Log</Text>
+              </>
+            )}
+          </LinearGradient>
+        </Pressable>
+
+        <Pressable onPress={goBack} style={s.cancelLink}>
+          <Text style={[s.cancelText, { color: colors.mutedForeground }]}>Cancel</Text>
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const s = StyleSheet.create({
+  root: { flex: 1 },
+  header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 18, paddingBottom: 16, overflow: "hidden" },
+  backBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
+  headerTitle: { flex: 1, fontSize: 20, fontFamily: "Inter_700Bold", color: "#F3EDE1", letterSpacing: -0.3 },
+  headerLogo: { width: 28, height: 28, opacity: 0.9 },
+  fireBar: { height: 2, backgroundColor: "#E84820" },
+
+  card: { borderWidth: 1, padding: 16, gap: 14 },
+
+  sectionHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  sectionIcon: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center", marginTop: 2 },
+  sectionTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  sectionSub: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17, marginTop: 3 },
+
+  photoRow: { flexDirection: "row", gap: 10 },
+  photoBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderWidth: 1, paddingVertical: 11 },
+  photoBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+
+  thumbRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  thumb: { position: "relative" },
+  thumbImg: { width: 70, height: 70, borderRadius: 8 },
+  thumbDel: { position: "absolute", top: 3, right: 3, width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center" },
+  addMoreThumb: { width: 70, height: 70, alignItems: "center", justifyContent: "center", borderWidth: 1, borderStyle: "dashed", borderRadius: 8 },
+
+  scanBtn: { overflow: "hidden" },
+  scanBtnGradient: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, height: 50 },
+  scanBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#fff" },
+
+  results: { borderTopWidth: 1, paddingTop: 14, gap: 12 },
+  verdictBanner: { flexDirection: "row", alignItems: "flex-start", gap: 12, borderWidth: 1, padding: 14 },
+  verdictLabel: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: 3 },
+  verdictSummary: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
+
+  subSection: { borderTopWidth: 1, paddingTop: 12, gap: 0 },
+  subLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 },
+  probeRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 1, paddingVertical: 10 },
+  probeName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  probeRange: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  probeFinish: { fontSize: 22, fontFamily: "Inter_700Bold" },
+  eventRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, borderTopWidth: 1, paddingVertical: 9 },
+  eventIconWrap: { width: 26, height: 26, borderRadius: 6, alignItems: "center", justifyContent: "center", marginTop: 1 },
+  eventDesc: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
+  eventTime: { fontSize: 12, fontFamily: "Inter_500Medium", paddingTop: 4 },
+  bulletRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, paddingBottom: 5 },
+  bulletNum: { fontSize: 13, fontFamily: "Inter_700Bold", minWidth: 16 },
+  bulletText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  infoRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  infoText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
+
+  formBody: { gap: 12 },
+  fieldWrap: { gap: 6 },
+  row2: { flexDirection: "row", gap: 10 },
+  fieldLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  input: { borderWidth: 1, paddingHorizontal: 13, paddingVertical: 11, fontSize: 14, fontFamily: "Inter_400Regular" },
+  textArea: { borderWidth: 1, padding: 12, fontSize: 14, fontFamily: "Inter_400Regular", minHeight: 80, lineHeight: 20 },
+
+  saveBtn: { overflow: "hidden" },
+  saveBtnGradient: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, height: 54 },
+  saveBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: "#fff" },
+  cancelLink: { alignItems: "center", paddingVertical: 10 },
+  cancelText: { fontSize: 14, fontFamily: "Inter_400Regular" },
+});

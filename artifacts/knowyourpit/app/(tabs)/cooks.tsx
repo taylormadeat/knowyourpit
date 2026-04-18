@@ -85,12 +85,21 @@ export default function CooksScreen() {
   );
 
   const addBtn = (
-    <Pressable
-      style={[s.addBtn, { backgroundColor: colors.primary, borderRadius: 8 }]}
-      onPress={() => router.push("/(tabs)/plan" as any)}
-    >
-      <Feather name="plus" size={18} color="#fff" />
-    </Pressable>
+    <View style={s.headerBtns}>
+      <Pressable
+        style={[s.scanBtn, { backgroundColor: "#6C3BF5", borderRadius: 8 }]}
+        onPress={() => router.push("/cooks/log" as any)}
+      >
+        <Feather name="camera" size={16} color="#fff" />
+        <Text style={s.scanBtnText}>Log Cook</Text>
+      </Pressable>
+      <Pressable
+        style={[s.addBtn, { backgroundColor: colors.primary, borderRadius: 8 }]}
+        onPress={() => router.push("/(tabs)/plan" as any)}
+      >
+        <Feather name="plus" size={18} color="#fff" />
+      </Pressable>
+    </View>
   );
 
   return (
@@ -124,10 +133,10 @@ export default function CooksScreen() {
           }
           ListEmptyComponent={
             <View style={[s.empty, { borderColor: colors.border, borderRadius: colors.radius }]}>
-              <Feather name="clipboard" size={36} color={colors.mutedForeground} />
-              <Text style={[s.emptyTitle, { color: colors.foreground }]}>No cooks yet</Text>
+              <Feather name="thermometer" size={36} color={colors.mutedForeground} />
+              <Text style={[s.emptyTitle, { color: colors.foreground }]}>No cooks logged yet</Text>
               <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
-                Plan your first BBQ session
+                Tap "Log Cook" to scan thermometer photos with AI, or use the + button to plan your next session
               </Text>
             </View>
           }
@@ -148,6 +157,12 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
   },
   title: { fontSize: 24, fontFamily: "Inter_700Bold" },
+  headerBtns: { flexDirection: "row", alignItems: "center", gap: 8 },
+  scanBtn: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingHorizontal: 11, height: 36,
+  },
+  scanBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff" },
   addBtn: {
     width: 36, height: 36, borderRadius: 10,
     alignItems: "center", justifyContent: "center",
