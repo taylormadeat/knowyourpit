@@ -165,9 +165,19 @@ WRONG — one entry per data point (DO NOT DO THIS):
 });
 
 router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, res): Promise<void> => {
-  const { images, cookNotes } = req.body as {
+  const {
+    images,
+    cookNotes,
+    cookContext,
+  } = req.body as {
     images?: Array<{ base64?: string; mimeType?: string }>;
     cookNotes?: string | null;
+    cookContext?: {
+      foodType?: string;
+      targetTempF?: number;
+      cookTempF?: number;
+      weightLbs?: number;
+    } | null;
   };
 
   if (!images || !Array.isArray(images) || images.length === 0) {
@@ -199,9 +209,24 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, r
     };
   });
 
-  const systemPrompt = `You are an expert BBQ cook analyst. You receive one or more photos taken at different stages of a cook (thermometer displays, grill screens, temperature app screenshots) plus optional cook notes from the pitmaster.
+  // Build cook context section for the prompt
+  const contextLines: string[] = [];
+  if (cookContext?.foodType) contextLines.push(`Food: ${cookContext.foodType}`);
+  if (cookContext?.weightLbs) contextLines.push(`Weight: ${cookContext.weightLbs} lbs`);
+  if (cookContext?.cookTempF) contextLines.push(`Pit/cook temperature: ${cookContext.cookTempF}°F`);
+  if (cookContext?.targetTempF) contextLines.push(`Target internal temp: ${cookContext.targetTempF}°F`);
+  const contextBlock = contextLines.length > 0
+    ? `\n\nCook context provided by user:\n${contextLines.join("\n")}`
+    : "";
 
-Your job is to synthesize all evidence into a structured cook timeline. Return ONLY valid JSON — no markdown, no explanation:
+  const systemPrompt = `You are an expert BBQ pit master and cook analyst. You receive one or more photos from a cook (thermometer displays, grill screens, temperature app screenshots) plus optional notes from the pitmaster and optional cook parameters.
+
+Your job is to:
+1. Extract temperature data from the images
+2. Reconstruct the cook timeline
+3. Assess how the cook went and provide personalized improvement suggestions
+
+Return ONLY valid JSON — no markdown, no explanation:
 {
   "probes": [
     {
@@ -209,9 +234,7 @@ Your job is to synthesize all evidence into a structured cook timeline. Return O
       "finishingTempF": number,
       "minTempF": number or null,
       "maxTempF": number or null,
-      "timeSeries": [
-        { "timeMinutes": number, "tempF": number }
-      ]
+      "timeSeries": [{ "timeMinutes": number, "tempF": number }]
     }
   ],
   "events": [
@@ -225,36 +248,46 @@ Your job is to synthesize all evidence into a structured cook timeline. Return O
   "noDataFound": boolean,
   "rawExtraction": "brief description of what you saw",
   "detectedFoodType": "string or null",
-  "detectedCookDate": "ISO8601 UTC string or null"
+  "detectedCookDate": "ISO8601 UTC string or null",
+  "assessment": {
+    "verdict": "perfect" | "overcooked" | "undercooked" | "good" | "needs_work",
+    "summary": "One sentence overall assessment of how the cook went",
+    "whatWentWell": ["string — something that went well"],
+    "suggestions": [
+      "Specific actionable improvement for next cook",
+      "Another specific improvement",
+      "Another specific improvement"
+    ]
+  }
 }
 
 === PROBES ===
-Extract ONE entry per physical probe. synthesize timeSeries of up to 20 data points representing the temperature curve over the cook.
-- If multiple images show different timestamps for the same probe, use them as anchors for the time series.
-- Fill in a realistic temperature curve between known data points based on BBQ physics (the stall, gradual rise, etc.).
-- timeMinutes: minutes elapsed from the START of the cook (0 = cook start).
-- finishingTempF: the highest/last recorded temperature for this probe.
-- minTempF, maxTempF: from across all images.
+Extract ONE entry per physical probe. Build a timeSeries of up to 20 data points.
+- If multiple images show timestamps for the same probe, use them as anchors.
+- Fill in realistic curves between data points based on BBQ physics (stall, gradual rise, etc.).
+- timeMinutes: elapsed from cook START (0 = food on grill).
+- finishingTempF: last/highest recorded temp for this probe.
 
 === EVENTS ===
-Detect meaningful events and explain them in plain English:
-- "wrap": sudden drop in probe temperature followed by a plateau or slower climb — pitmaster likely wrapped in foil or butcher paper.
-- "stall": extended plateau (the Texas crutch stall) typically between 150–175°F on meat probes.
-- "spike": brief sharp temperature increase (e.g. adding more fuel, opening lid).
-- "done": probe reached target/finishing temperature.
-- "note": any other notable event from the cook notes or images.
-If the cook notes mention an event (e.g. "pulled to wrap at hour 6"), create a corresponding event even if not visible in images.
+- "stall": extended plateau 150–175°F on meat probe (the Texas crutch stall)
+- "wrap": temp drop/plateau indicating the pitmaster wrapped the meat
+- "spike": brief sharp increase (fuel added, lid opened, flare-up)
+- "done": probe reached finishing/target temperature
+- "note": any event mentioned in cook notes not visible in images
 
-=== COOK DURATION ===
-cookDurationMinutes: total minutes from first image's start to last image's end, or null if not determinable.
+=== ASSESSMENT ===
+verdict:
+- "perfect": meat hit target internal temp within expected range, stable pit, no major issues
+- "overcooked": meat exceeded target by 10°F+ or cook was significantly longer than typical
+- "undercooked": meat did not reach safe/target temp
+- "good": minor deviations but overall a successful cook  
+- "needs_work": significant temperature swings, missed target, or other notable problems
 
-=== FOOD TYPE & DATE ===
-detectedFoodType: specific meat cut ("Brisket", "Pork Butt", etc.) or null.
-detectedCookDate: cook START as ISO 8601 UTC, or null.
+whatWentWell: 2-3 things that went well based on the data (temp stability, good bark window, etc.)
+suggestions: 3-5 specific, actionable improvements for NEXT time. Reference actual temperatures, timing, and techniques. Be a knowledgeable pit master coach, not generic.
 
-=== GENERAL ===
-noDataFound: true ONLY if there is absolutely no temperature data in any image.
-rawExtraction: 1-2 sentences describing what you saw across all images.`;
+If cook context is provided, use the target temp to assess whether the cook hit the goal. If no target is provided, use industry standard for the detected food type.
+If noDataFound is true, still provide assessment and suggestions based ONLY on the cook notes.`;
 
   type AnalyzeCookAIResult = {
     probes: Array<{
@@ -270,12 +303,16 @@ rawExtraction: 1-2 sentences describing what you saw across all images.`;
     rawExtraction: string | null;
     detectedFoodType: string | null;
     detectedCookDate: string | null;
+    assessment?: {
+      verdict: string;
+      summary: string;
+      whatWentWell: string[];
+      suggestions: string[];
+    };
   };
 
-  const userText =
-    cookNotes
-      ? `Analyse these ${images.length} BBQ cook image${images.length > 1 ? "s" : ""}.\n\nPitmaster notes:\n${cookNotes}\n\nReturn structured JSON as instructed.`
-      : `Analyse these ${images.length} BBQ cook image${images.length > 1 ? "s" : ""}. Return structured JSON as instructed.`;
+  const notesBlock = cookNotes ? `\n\nPitmaster notes about this cook:\n${cookNotes}` : "";
+  const userText = `Analyse these ${images.length} BBQ cook image${images.length > 1 ? "s" : ""}.${contextBlock}${notesBlock}\n\nReturn structured JSON as instructed.`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -352,6 +389,15 @@ rawExtraction: 1-2 sentences describing what you saw across all images.`;
           }))
       : [];
 
+    const safeAssessment = result.assessment && typeof result.assessment === "object"
+      ? {
+          verdict: typeof result.assessment.verdict === "string" ? result.assessment.verdict : "needs_work",
+          summary: typeof result.assessment.summary === "string" ? result.assessment.summary : "",
+          whatWentWell: Array.isArray(result.assessment.whatWentWell) ? result.assessment.whatWentWell.filter((s: any) => typeof s === "string") : [],
+          suggestions: Array.isArray(result.assessment.suggestions) ? result.assessment.suggestions.filter((s: any) => typeof s === "string") : [],
+        }
+      : null;
+
     res.json({
       probes: safeProbes,
       events: safeEvents,
@@ -362,6 +408,7 @@ rawExtraction: 1-2 sentences describing what you saw across all images.`;
       rawExtraction: result.rawExtraction ?? null,
       detectedFoodType: result.detectedFoodType ?? null,
       detectedCookDate: result.detectedCookDate ?? null,
+      assessment: safeAssessment,
     });
   } catch (err) {
     console.error("analyze-cook error:", err);
