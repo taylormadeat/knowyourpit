@@ -528,11 +528,7 @@ export default function PlanScreen() {
             </View>
 
             {/* Category tabs */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8, padding: 14, paddingTop: 10 }}
-            >
+            <View style={s.catTabRow}>
               {MEAT_CATEGORIES.map((cat) => (
                 <Pressable
                   key={cat}
@@ -555,7 +551,7 @@ export default function PlanScreen() {
                   </Text>
                 </Pressable>
               ))}
-            </ScrollView>
+            </View>
 
             {/* Cut list */}
             <FlatList
@@ -915,6 +911,13 @@ const s = StyleSheet.create({
   },
   modalTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
 
+  catTabRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    padding: 14,
+    paddingTop: 10,
+    gap: 8,
+  },
   catTab: { paddingHorizontal: 14, paddingVertical: 7 },
   catTabText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 
