@@ -129,7 +129,7 @@ export default function CookDetailScreen() {
 
         {/* Title */}
         <Text style={s.headerTitle} numberOfLines={1}>
-          {c.name || c.meatType || "Cook"}
+          {c.foodType || "Cook"}
         </Text>
 
         {/* Logo → Home + Delete */}
@@ -159,11 +159,13 @@ export default function CookDetailScreen() {
         {/* Detail card */}
         <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           {[
-            { label: "Meat", value: c.meatType },
-            { label: "Grill", value: c.grill?.name },
-            { label: "Cook Method", value: c.cookMethod },
-            { label: "Target Temp", value: c.targetTemp ? `${c.targetTemp}°F` : null },
-            { label: "Scheduled", value: c.scheduledAt ? new Date(c.scheduledAt).toLocaleString() : null },
+            { label: "Food", value: c.foodType },
+            { label: "Grill", value: c.grillName },
+            { label: "Weight", value: c.weightLbs ? `${c.weightLbs} lbs` : null },
+            { label: "Target Temp", value: c.targetTempF ? `${c.targetTempF}°F` : null },
+            { label: "Cook Temp", value: c.cookTempF ? `${c.cookTempF}°F` : null },
+            { label: "Planned Start", value: c.plannedStartAt ? new Date(c.plannedStartAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null },
+            { label: "Serve By", value: c.plannedEndAt ? new Date(c.plannedEndAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null },
           ]
             .filter((r) => r.value)
             .map((row, i, arr) => (

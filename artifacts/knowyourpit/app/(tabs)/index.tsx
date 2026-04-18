@@ -171,10 +171,10 @@ export default function HomeScreen() {
               </LinearGradient>
               <View style={s.cookInfo}>
                 <Text style={[s.cookName, { color: colors.foreground }]} numberOfLines={1}>
-                  {cook.name || cook.meatType || "Cook"}
+                  {cook.foodType || "Cook"}
                 </Text>
                 <Text style={[s.cookMeta, { color: colors.mutedForeground }]}>
-                  {cook.grill?.name || "No grill selected"}
+                  {cook.grillName || "No grill selected"}
                 </Text>
               </View>
               <View style={[s.statusPill, { backgroundColor: (STATUS_COLOR[cook.status] || colors.mutedForeground) + "22" }]}>

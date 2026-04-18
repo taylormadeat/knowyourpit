@@ -55,14 +55,14 @@ export default function CooksScreen() {
       </LinearGradient>
       <View style={s.info}>
         <Text style={[s.name, { color: colors.foreground }]} numberOfLines={1}>
-          {item.name || item.meatType || "Unnamed Cook"}
+          {item.foodType || "Unnamed Cook"}
         </Text>
         <Text style={[s.meta, { color: colors.mutedForeground }]}>
-          {item.grill?.name || "No grill"} · {item.targetTemp ? `${item.targetTemp}°F target` : ""}
+          {item.grillName || "No grill"}{item.targetTempF ? ` · ${item.targetTempF}°F target` : ""}
         </Text>
-        {item.scheduledAt && (
+        {item.plannedStartAt && (
           <Text style={[s.date, { color: colors.mutedForeground }]}>
-            {new Date(item.scheduledAt).toLocaleDateString()}
+            {new Date(item.plannedStartAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
           </Text>
         )}
       </View>
