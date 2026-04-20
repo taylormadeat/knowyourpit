@@ -410,11 +410,11 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
       `${c.rating ? ` · rated ${c.rating}/5` : ""}${ratings ? ` [${ratings}]` : ""}${verdict}${tip}`;
   });
 
-  // Boost confidence to "high" if user has 2+ similar cooks with both ratings and assessments
+  // Boost confidence to "high" if user has 2+ similar cooks that BOTH have ratings AND have assessments
   const similarWithFeedback = similarCooksAllGrills.filter(c => {
-    const hasRating = c.ratingTenderness || c.ratingBark || c.ratingFlavor;
+    const hasRating = !!(c.ratingTenderness || c.ratingBark || c.ratingFlavor);
     const hasAssessment = !!(c.analysisResult as any)?.assessment?.verdict;
-    return hasRating || hasAssessment;
+    return hasRating && hasAssessment;
   });
   const hasRichHistory = similarWithFeedback.length >= 2;
 

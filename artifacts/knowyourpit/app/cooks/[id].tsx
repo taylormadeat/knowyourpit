@@ -34,6 +34,7 @@ import {
   useListGrills,
   useGetMeaterReadings,
   getListCooksQueryKey,
+  getGetCookQueryKey,
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
 } from "@workspace/api-client-react";
@@ -317,6 +318,7 @@ export default function CookDetailScreen() {
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
     } catch {
       Alert.alert("Save failed", "Could not save ratings. Please try again.");
     } finally {
