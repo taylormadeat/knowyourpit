@@ -281,12 +281,24 @@ export default function CookDetailScreen() {
         <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           {[
             { label: "Food", value: c.foodType },
-            { label: "Grill", value: c.grillName },
+            { label: "Grill", value: (c as any).grillName },
             { label: "Weight", value: c.weightLbs ? `${c.weightLbs} lbs` : null },
             { label: "Target Temp", value: c.targetTempF ? `${c.targetTempF}°F` : null },
             { label: "Cook Temp", value: c.cookTempF ? `${c.cookTempF}°F` : null },
             { label: "Planned Start", value: c.plannedStartAt ? new Date(c.plannedStartAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null },
             { label: "Serve By", value: c.plannedEndAt ? new Date(c.plannedEndAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null },
+            { label: "Preheat", value: c.preheatMinutes ? `${c.preheatMinutes} min` : null },
+            { label: "Wrap", value: (() => {
+                const parts: string[] = [];
+                if (c.wrapMethod === "foil") parts.push("Foil (Texas Crutch)");
+                else if (c.wrapMethod === "butcher_paper") parts.push("Butcher Paper");
+                else if (c.wrapMethod === "none") parts.push("No wrap");
+                if (c.wrapAtMinutes) parts.push(`at ${Math.floor(c.wrapAtMinutes / 60)}h ${c.wrapAtMinutes % 60}m`);
+                if (c.wrapTempF) parts.push(`${c.wrapTempF}°F internal`);
+                return parts.length ? parts.join(" · ") : null;
+              })() },
+            { label: "Wrap Notes", value: c.wrapReason ?? null },
+            { label: "Rest", value: c.restMinutes ? `${c.restMinutes} min` : null },
           ].filter((r) => r.value).map((row, i, arr) => (
             <View key={row.label} style={[s.row, i < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
               <Text style={[s.rowLabel, { color: colors.mutedForeground }]}>{row.label}</Text>

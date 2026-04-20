@@ -208,10 +208,8 @@ export default function PlanScreen() {
 
   const applyAiPlan = () => {
     if (!aiResult) return;
+    // Update serve time and recalculate schedule from AI's serve time
     if (aiResult.serveAt) setServeAt(new Date(aiResult.serveAt));
-    if (aiResult.wrap?.restMinutes && selectedCut) {
-      (selectedCut as any).__aiRestMins = aiResult.wrap.restMinutes;
-    }
     setAiResultOpen(false);
   };
 
@@ -226,6 +224,33 @@ export default function PlanScreen() {
       return;
     }
     const preheatMins = preheatMinsForGrill(selectedGrill);
+    const wrap = aiResult?.wrap ?? null;
+
+    // Map AI wrap method string → DB enum value
+    const wrapMethodDb: "foil" | "butcher_paper" | "none" | undefined =
+      wrap?.method === "foil" ? "foil"
+      : wrap?.method === "butcher_paper" ? "butcher_paper"
+      : wrap?.method === "none" ? "none"
+      : undefined;
+
+    // Prefer AI grill-light time for plannedStartAt, fall back to local schedule
+    const plannedStart: Date | undefined =
+      aiResult?.grillLightAt ? new Date(aiResult.grillLightAt)
+      : schedule?.startAt ?? undefined;
+
+    // Prefer AI rest recommendation, fall back to cut default
+    const restMins: number = wrap?.restMinutes > 0 ? wrap.restMinutes : selectedCut.restMins;
+
+    // Build notes — AI rationale + tips appended after user notes
+    const noteParts: string[] = [];
+    if (cookName) noteParts.push(`Name: ${cookName}`);
+    if (selectedCut.cookMethod) noteParts.push(`Method: ${selectedCut.cookMethod}`);
+    if (notes.trim()) noteParts.push(notes.trim());
+    if (aiResult?.rationale) noteParts.push(`AI Analysis:\n${aiResult.rationale}`);
+    if (aiResult?.tips?.length) {
+      noteParts.push(`Pit Master Tips:\n${(aiResult.tips as string[]).map((t, i) => `${i + 1}. ${t}`).join("\n")}`);
+    }
+
     try {
       await createCook.mutateAsync({
         data: {
@@ -234,17 +259,18 @@ export default function PlanScreen() {
           targetTempF: targetTempF ? Number(targetTempF) : selectedCut.targetTempF,
           cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
           grillId: grillId ?? undefined,
-          notes: [
-            cookName ? `Name: ${cookName}` : null,
-            selectedCut.cookMethod ? `Method: ${selectedCut.cookMethod}` : null,
-            notes || null,
-          ].filter(Boolean).join("\n") || undefined,
+          notes: noteParts.join("\n\n") || undefined,
           status: "planned",
           plannedEndAt: serveAt,
-          plannedStartAt: schedule?.startAt,
+          plannedStartAt: plannedStart,
           preheatMinutes: preheatMins,
-          restMinutes: selectedCut.restMins,
-        },
+          restMinutes: restMins,
+          // Wrap guidance from AI plan
+          ...(wrapMethodDb !== undefined && { wrapMethod: wrapMethodDb }),
+          ...(wrap?.wrapAtMinutes > 0 && { wrapAtMinutes: Math.round(wrap.wrapAtMinutes) }),
+          ...(wrap?.wrapTempF && { wrapTempF: Math.round(wrap.wrapTempF) }),
+          ...(wrap?.reason && { wrapReason: wrap.reason }),
+        } as any,
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
