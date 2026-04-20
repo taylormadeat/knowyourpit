@@ -614,6 +614,42 @@ export default function CookDetailScreen() {
             </View>
           )}
 
+          {/* Timing context strip — shows the start/serve times the AI will use */}
+          {(() => {
+            const c2 = cook as any;
+            const startTime = c2?.actualStartAt
+              ? { label: "Your start", value: formatDT(c2.actualStartAt), highlight: true }
+              : c2?.plannedStartAt
+              ? { label: "Planned start", value: formatDT(c2.plannedStartAt), highlight: false }
+              : null;
+            const serveTime = c2?.plannedEndAt
+              ? { label: "Serve by", value: formatDT(c2.plannedEndAt) }
+              : null;
+            if (!startTime && !serveTime) return null;
+            return (
+              <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                {startTime && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: startTime.highlight ? colors.primary + "15" : colors.muted, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, flex: 1, minWidth: 120 }}>
+                    <Feather name="clock" size={12} color={startTime.highlight ? colors.primary : colors.mutedForeground} />
+                    <View>
+                      <Text style={{ fontSize: 10, color: startTime.highlight ? colors.primary : colors.mutedForeground, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.4 }}>{startTime.label}</Text>
+                      <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "500" }}>{startTime.value}</Text>
+                    </View>
+                  </View>
+                )}
+                {serveTime && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.muted, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, flex: 1, minWidth: 120 }}>
+                    <Feather name="flag" size={12} color={colors.mutedForeground} />
+                    <View>
+                      <Text style={{ fontSize: 10, color: colors.mutedForeground, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.4 }}>{serveTime.label}</Text>
+                      <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "500" }}>{serveTime.value}</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            );
+          })()}
+
           {/* Temperature reading input */}
           <View style={{ flexDirection: "row", gap: 10 }}>
             <View style={{ flex: 1 }}>
