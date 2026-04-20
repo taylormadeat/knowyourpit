@@ -49,14 +49,43 @@ function formatDT(d: Date | string | null | undefined): string {
   return `${m}/${day}/${dt.getFullYear()} ${h}:${min} ${ampm}`;
 }
 
-function parseDT(s: string): Date | null {
-  if (!s.trim()) return null;
-  let d = new Date(s.trim());
-  if (!isNaN(d.getTime())) return d;
-  d = new Date(`${s.trim()} ${new Date().getFullYear()}`);
-  if (!isNaN(d.getTime())) return d;
-  return null;
+function getEditDates(): Date[] {
+  const dates: Date[] = [];
+  const now = new Date();
+  for (let i = 30; i >= -7; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    dates.push(d);
+  }
+  return dates;
 }
+
+function formatEditDate(d: Date): string {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+  const day = new Date(d); day.setHours(0, 0, 0, 0);
+  if (day.getTime() === today.getTime()) return "Today";
+  if (day.getTime() === yesterday.getTime()) return "Yesterday";
+  if (day.getTime() === tomorrow.getTime()) return "Tomorrow";
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+function formatEditTime(h: number, m: number): string {
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+const EDIT_TIME_SLOTS: Array<{ h: number; m: number }> = (() => {
+  const slots: Array<{ h: number; m: number }> = [];
+  for (let h = 0; h <= 23; h++) {
+    slots.push({ h, m: 0 });
+    slots.push({ h, m: 30 });
+  }
+  return slots;
+})();
 
 const logoImg = require("@/assets/images/logo.png");
 
@@ -128,10 +157,16 @@ export default function CookDetailScreen() {
   const [editCookTemp, setEditCookTemp] = useState("");
   const [editTargetTemp, setEditTargetTemp] = useState("");
   const [editGrillId, setEditGrillId] = useState<number | null>(null);
-  const [editActualStart, setEditActualStart] = useState("");
-  const [editActualEnd, setEditActualEnd] = useState("");
+  const [editActualStartDate, setEditActualStartDate] = useState<Date | null>(null);
+  const [editActualEndDate, setEditActualEndDate] = useState<Date | null>(null);
+  const [editStartDateOpen, setEditStartDateOpen] = useState(false);
+  const [editStartTimeOpen, setEditStartTimeOpen] = useState(false);
+  const [editEndDateOpen, setEditEndDateOpen] = useState(false);
+  const [editEndTimeOpen, setEditEndTimeOpen] = useState(false);
   const [editNotes, setEditNotes] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+
+  const editDates = useMemo(() => getEditDates(), []);
 
   const { data: grillsList } = useListGrills();
   const grills: any[] = Array.isArray(grillsList) ? grillsList : [];
@@ -189,8 +224,8 @@ export default function CookDetailScreen() {
     setEditCookTemp(c?.cookTempF != null ? String(c.cookTempF) : "");
     setEditTargetTemp(c?.targetTempF != null ? String(c.targetTempF) : "");
     setEditGrillId(c?.grillId ?? null);
-    setEditActualStart(formatDT(c?.actualStartAt));
-    setEditActualEnd(formatDT(c?.actualEndAt));
+    setEditActualStartDate(c?.actualStartAt ? new Date(c.actualStartAt) : null);
+    setEditActualEndDate(c?.actualEndAt ? new Date(c.actualEndAt) : null);
     setEditNotes(c?.notes ?? "");
     setEditVisible(true);
   };
@@ -210,10 +245,8 @@ export default function CookDetailScreen() {
       else payload.cookTempF = null;
       if (editTargetTemp.trim() && !isNaN(parseFloat(editTargetTemp))) payload.targetTempF = parseFloat(editTargetTemp);
       else payload.targetTempF = null;
-      const startDt = parseDT(editActualStart);
-      payload.actualStartAt = startDt ?? null;
-      const endDt = parseDT(editActualEnd);
-      payload.actualEndAt = endDt ?? null;
+      payload.actualStartAt = editActualStartDate ?? null;
+      payload.actualEndAt = editActualEndDate ?? null;
       await updateCook.mutateAsync({ id: Number(id), data: payload });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
@@ -876,18 +909,26 @@ export default function CookDetailScreen() {
             <View style={s.editFieldWrap}>
               <Text style={[s.editLabel, { color: colors.mutedForeground }]}>Start Time</Text>
               <View style={{ flexDirection: "row", gap: 8 }}>
-                <TextInput
-                  style={[s.editInput, { flex: 1, backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
-                  placeholder="1/15/2025 3:30 PM"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={editActualStart}
-                  onChangeText={setEditActualStart}
-                />
                 <Pressable
-                  onPress={() => setEditActualStart(formatDT(new Date()))}
-                  style={[s.nowBtn, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
+                  onPress={() => setEditStartDateOpen(true)}
+                  style={[s.editInput, s.editPickerBtn, { flex: 1, backgroundColor: colors.card, borderColor: editActualStartDate ? colors.primary : colors.border, borderRadius: colors.radius }]}
                 >
-                  <Text style={[s.nowBtnText, { color: colors.primary }]}>Now</Text>
+                  <Feather name="calendar" size={13} color={editActualStartDate ? colors.primary : colors.mutedForeground} />
+                  <Text style={{ color: editActualStartDate ? colors.foreground : colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
+                    {editActualStartDate ? formatEditDate(editActualStartDate) : "Pick a date"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    if (!editActualStartDate) setEditActualStartDate(new Date());
+                    setEditStartTimeOpen(true);
+                  }}
+                  style={[s.editInput, s.editPickerBtn, { backgroundColor: colors.card, borderColor: editActualStartDate ? colors.primary : colors.border, borderRadius: colors.radius }]}
+                >
+                  <Feather name="clock" size={13} color={editActualStartDate ? colors.primary : colors.mutedForeground} />
+                  <Text style={{ color: editActualStartDate ? colors.foreground : colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
+                    {editActualStartDate ? formatEditTime(editActualStartDate.getHours(), editActualStartDate.getMinutes()) : "Time"}
+                  </Text>
                 </Pressable>
               </View>
             </View>
@@ -896,18 +937,26 @@ export default function CookDetailScreen() {
             <View style={s.editFieldWrap}>
               <Text style={[s.editLabel, { color: colors.mutedForeground }]}>End Time</Text>
               <View style={{ flexDirection: "row", gap: 8 }}>
-                <TextInput
-                  style={[s.editInput, { flex: 1, backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
-                  placeholder="1/15/2025 5:30 PM"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={editActualEnd}
-                  onChangeText={setEditActualEnd}
-                />
                 <Pressable
-                  onPress={() => setEditActualEnd(formatDT(new Date()))}
-                  style={[s.nowBtn, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
+                  onPress={() => setEditEndDateOpen(true)}
+                  style={[s.editInput, s.editPickerBtn, { flex: 1, backgroundColor: colors.card, borderColor: editActualEndDate ? colors.primary : colors.border, borderRadius: colors.radius }]}
                 >
-                  <Text style={[s.nowBtnText, { color: colors.primary }]}>Now</Text>
+                  <Feather name="calendar" size={13} color={editActualEndDate ? colors.primary : colors.mutedForeground} />
+                  <Text style={{ color: editActualEndDate ? colors.foreground : colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
+                    {editActualEndDate ? formatEditDate(editActualEndDate) : "Pick a date"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    if (!editActualEndDate) setEditActualEndDate(new Date());
+                    setEditEndTimeOpen(true);
+                  }}
+                  style={[s.editInput, s.editPickerBtn, { backgroundColor: colors.card, borderColor: editActualEndDate ? colors.primary : colors.border, borderRadius: colors.radius }]}
+                >
+                  <Feather name="clock" size={13} color={editActualEndDate ? colors.primary : colors.mutedForeground} />
+                  <Text style={{ color: editActualEndDate ? colors.foreground : colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
+                    {editActualEndDate ? formatEditTime(editActualEndDate.getHours(), editActualEndDate.getMinutes()) : "Time"}
+                  </Text>
                 </Pressable>
               </View>
             </View>
@@ -929,6 +978,108 @@ export default function CookDetailScreen() {
 
           </ScrollView>
         </KeyboardAvoidingView>
+
+        {/* ════ START DATE PICKER ════ */}
+        <Modal visible={editStartDateOpen} animationType="slide" transparent onRequestClose={() => setEditStartDateOpen(false)}>
+          <View style={edt.overlay}>
+            <View style={[edt.sheet, { backgroundColor: colors.card }]}>
+              <View style={[edt.handle, { backgroundColor: colors.border }]} />
+              <View style={[edt.header, { borderBottomColor: colors.border }]}>
+                <Text style={[edt.title, { color: colors.foreground }]}>Start Date</Text>
+                <Pressable onPress={() => setEditStartDateOpen(false)} hitSlop={10}><Feather name="x" size={22} color={colors.mutedForeground} /></Pressable>
+              </View>
+              <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 30 }}>
+                {editDates.map((d) => {
+                  const sel = editActualStartDate && d.getDate() === editActualStartDate.getDate() && d.getMonth() === editActualStartDate.getMonth() && d.getFullYear() === editActualStartDate.getFullYear();
+                  return (
+                    <Pressable key={d.toISOString()} onPress={() => { const n = editActualStartDate ? new Date(editActualStartDate) : new Date(); n.setFullYear(d.getFullYear(), d.getMonth(), d.getDate()); setEditActualStartDate(n); setEditStartDateOpen(false); }}
+                      style={[edt.row, sel && { backgroundColor: colors.primary + "18" }, { borderRadius: colors.radius }]}>
+                      <Text style={[edt.rowMain, { color: sel ? colors.primary : colors.foreground }]}>{formatEditDate(d)}</Text>
+                      <Text style={[edt.rowSub, { color: colors.mutedForeground }]}>{d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</Text>
+                      {sel && <Feather name="check" size={16} color={colors.primary} />}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ════ START TIME PICKER ════ */}
+        <Modal visible={editStartTimeOpen} animationType="slide" transparent onRequestClose={() => setEditStartTimeOpen(false)}>
+          <View style={edt.overlay}>
+            <View style={[edt.sheet, { backgroundColor: colors.card }]}>
+              <View style={[edt.handle, { backgroundColor: colors.border }]} />
+              <View style={[edt.header, { borderBottomColor: colors.border }]}>
+                <Text style={[edt.title, { color: colors.foreground }]}>Start Time</Text>
+                <Pressable onPress={() => setEditStartTimeOpen(false)} hitSlop={10}><Feather name="x" size={22} color={colors.mutedForeground} /></Pressable>
+              </View>
+              <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 30 }}>
+                {EDIT_TIME_SLOTS.map(({ h, m }) => {
+                  const sel = editActualStartDate && editActualStartDate.getHours() === h && editActualStartDate.getMinutes() === m;
+                  return (
+                    <Pressable key={`s${h}:${m}`} onPress={() => { const n = editActualStartDate ? new Date(editActualStartDate) : new Date(); n.setHours(h, m, 0, 0); setEditActualStartDate(n); setEditStartTimeOpen(false); }}
+                      style={[edt.row, sel && { backgroundColor: colors.primary + "18" }, { borderRadius: colors.radius }]}>
+                      <Text style={[edt.rowMain, { color: sel ? colors.primary : colors.foreground }]}>{formatEditTime(h, m)}</Text>
+                      {sel && <Feather name="check" size={16} color={colors.primary} />}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ════ END DATE PICKER ════ */}
+        <Modal visible={editEndDateOpen} animationType="slide" transparent onRequestClose={() => setEditEndDateOpen(false)}>
+          <View style={edt.overlay}>
+            <View style={[edt.sheet, { backgroundColor: colors.card }]}>
+              <View style={[edt.handle, { backgroundColor: colors.border }]} />
+              <View style={[edt.header, { borderBottomColor: colors.border }]}>
+                <Text style={[edt.title, { color: colors.foreground }]}>End Date</Text>
+                <Pressable onPress={() => setEditEndDateOpen(false)} hitSlop={10}><Feather name="x" size={22} color={colors.mutedForeground} /></Pressable>
+              </View>
+              <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 30 }}>
+                {editDates.map((d) => {
+                  const sel = editActualEndDate && d.getDate() === editActualEndDate.getDate() && d.getMonth() === editActualEndDate.getMonth() && d.getFullYear() === editActualEndDate.getFullYear();
+                  return (
+                    <Pressable key={d.toISOString()} onPress={() => { const n = editActualEndDate ? new Date(editActualEndDate) : new Date(); n.setFullYear(d.getFullYear(), d.getMonth(), d.getDate()); setEditActualEndDate(n); setEditEndDateOpen(false); }}
+                      style={[edt.row, sel && { backgroundColor: colors.primary + "18" }, { borderRadius: colors.radius }]}>
+                      <Text style={[edt.rowMain, { color: sel ? colors.primary : colors.foreground }]}>{formatEditDate(d)}</Text>
+                      <Text style={[edt.rowSub, { color: colors.mutedForeground }]}>{d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</Text>
+                      {sel && <Feather name="check" size={16} color={colors.primary} />}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ════ END TIME PICKER ════ */}
+        <Modal visible={editEndTimeOpen} animationType="slide" transparent onRequestClose={() => setEditEndTimeOpen(false)}>
+          <View style={edt.overlay}>
+            <View style={[edt.sheet, { backgroundColor: colors.card }]}>
+              <View style={[edt.handle, { backgroundColor: colors.border }]} />
+              <View style={[edt.header, { borderBottomColor: colors.border }]}>
+                <Text style={[edt.title, { color: colors.foreground }]}>End Time</Text>
+                <Pressable onPress={() => setEditEndTimeOpen(false)} hitSlop={10}><Feather name="x" size={22} color={colors.mutedForeground} /></Pressable>
+              </View>
+              <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 30 }}>
+                {EDIT_TIME_SLOTS.map(({ h, m }) => {
+                  const sel = editActualEndDate && editActualEndDate.getHours() === h && editActualEndDate.getMinutes() === m;
+                  return (
+                    <Pressable key={`e${h}:${m}`} onPress={() => { const n = editActualEndDate ? new Date(editActualEndDate) : new Date(); n.setHours(h, m, 0, 0); setEditActualEndDate(n); setEditEndTimeOpen(false); }}
+                      style={[edt.row, sel && { backgroundColor: colors.primary + "18" }, { borderRadius: colors.radius }]}>
+                      <Text style={[edt.rowMain, { color: sel ? colors.primary : colors.foreground }]}>{formatEditTime(h, m)}</Text>
+                      {sel && <Feather name="check" size={16} color={colors.primary} />}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
 
         {/* Grill picker sub-modal */}
         <Modal visible={editGrillPickerVisible} transparent animationType="slide" onRequestClose={() => setEditGrillPickerVisible(false)}>
@@ -1074,6 +1225,7 @@ const s = StyleSheet.create({
   editTextArea: { borderWidth: 1, padding: 12, fontSize: 14, fontFamily: "Inter_400Regular", minHeight: 100, lineHeight: 20 },
   nowBtn: { borderWidth: 1, height: 44, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
   nowBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  editPickerBtn: { flexDirection: "row", alignItems: "center", gap: 7 },
 
   grillOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)" },
   grillSheet: { maxHeight: "65%", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
@@ -1083,4 +1235,15 @@ const s = StyleSheet.create({
   grillItemText: { fontSize: 15, fontFamily: "Inter_500Medium", flex: 1 },
   grillItemSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginRight: 8 },
   grillEmpty: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
+});
+
+const edt = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 10, maxHeight: "70%" },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 10 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1 },
+  title: { fontSize: 17, fontFamily: "Inter_700Bold" },
+  row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 4, paddingVertical: 14, gap: 10 },
+  rowMain: { flex: 1, fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  rowSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
 });

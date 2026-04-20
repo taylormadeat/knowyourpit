@@ -37,24 +37,41 @@ import {
 
 const logoImg = require("@/assets/images/logo.png");
 
-function formatNow(): string {
-  const d = new Date();
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  const h = d.getHours() % 12 || 12;
-  const min = String(d.getMinutes()).padStart(2, "0");
-  const ampm = d.getHours() < 12 ? "AM" : "PM";
-  return `${m}/${day}/${d.getFullYear()} ${h}:${min} ${ampm}`;
+function getPastDates(): Date[] {
+  const dates: Date[] = [];
+  const now = new Date();
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    dates.push(d);
+  }
+  return dates;
 }
 
-function parseDT(s: string): Date | null {
-  if (!s.trim()) return null;
-  let d = new Date(s.trim());
-  if (!isNaN(d.getTime())) return d;
-  d = new Date(`${s.trim()} ${new Date().getFullYear()}`);
-  if (!isNaN(d.getTime())) return d;
-  return null;
+function formatPickDate(d: Date): string {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const day = new Date(d); day.setHours(0, 0, 0, 0);
+  if (day.getTime() === today.getTime()) return "Today";
+  if (day.getTime() === yesterday.getTime()) return "Yesterday";
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
+
+function formatPickTime(h: number, m: number): string {
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+const LOG_TIME_SLOTS: Array<{ h: number; m: number }> = (() => {
+  const slots: Array<{ h: number; m: number }> = [];
+  for (let h = 0; h <= 23; h++) {
+    slots.push({ h, m: 0 });
+    slots.push({ h, m: 30 });
+  }
+  return slots;
+})();
 
 type PickedImage = { uri: string; base64: string; mimeType: string };
 
@@ -145,9 +162,13 @@ export default function LogCookScreen() {
   const [weightLbs, setWeightLbs] = useState("");
   const [cookNotes, setCookNotes] = useState("");
   const [scanNotes, setScanNotes] = useState("");
-  const [actualStartInput, setActualStartInput] = useState("");
+  const [actualStartDate, setActualStartDate] = useState<Date | null>(null);
+  const [logDatePickerOpen, setLogDatePickerOpen] = useState(false);
+  const [logTimePickerOpen, setLogTimePickerOpen] = useState(false);
 
   const [saving, setSaving] = useState(false);
+
+  const pastDates = useMemo(() => getPastDates(), []);
 
   const { data: grillsList } = useListGrills();
   const grills: any[] = Array.isArray(grillsList) ? grillsList : [];
@@ -266,9 +287,8 @@ export default function LogCookScreen() {
       if (cookTempF.trim() && !isNaN(parseFloat(cookTempF))) payload.cookTempF = parseFloat(cookTempF);
       if (weightLbs.trim() && !isNaN(parseFloat(weightLbs))) payload.weightLbs = parseFloat(weightLbs);
       // Prefer user-entered start time; fall back to AI-detected date
-      const manualStart = parseDT(actualStartInput);
-      if (manualStart) {
-        payload.actualStartAt = manualStart;
+      if (actualStartDate) {
+        payload.actualStartAt = actualStartDate;
       } else if (result?.detectedCookDate) {
         const d = new Date(result.detectedCookDate);
         if (!isNaN(d.getTime())) payload.actualStartAt = d;
@@ -659,18 +679,26 @@ export default function LogCookScreen() {
             <View style={s.fieldWrap}>
               <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>When did this cook happen?</Text>
               <View style={{ flexDirection: "row", gap: 8 }}>
-                <TextInput
-                  style={[s.input, { flex: 1, backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
-                  placeholder="e.g. 1/15/2025 3:30 PM"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={actualStartInput}
-                  onChangeText={setActualStartInput}
-                />
                 <Pressable
-                  onPress={() => setActualStartInput(formatNow())}
-                  style={[s.nowBtn, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}
+                  onPress={() => setLogDatePickerOpen(true)}
+                  style={[s.input, s.pickerBtn, { flex: 1, backgroundColor: colors.background, borderColor: actualStartDate ? colors.primary : colors.border, borderRadius: colors.radius }]}
                 >
-                  <Text style={[s.nowBtnText, { color: colors.primary }]}>Today</Text>
+                  <Feather name="calendar" size={14} color={actualStartDate ? colors.primary : colors.mutedForeground} />
+                  <Text style={{ color: actualStartDate ? colors.foreground : colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
+                    {actualStartDate ? formatPickDate(actualStartDate) : "Pick a date"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    if (!actualStartDate) setActualStartDate(new Date());
+                    setLogTimePickerOpen(true);
+                  }}
+                  style={[s.input, s.pickerBtn, { backgroundColor: colors.background, borderColor: actualStartDate ? colors.primary : colors.border, borderRadius: colors.radius }]}
+                >
+                  <Feather name="clock" size={14} color={actualStartDate ? colors.primary : colors.mutedForeground} />
+                  <Text style={{ color: actualStartDate ? colors.foreground : colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
+                    {actualStartDate ? formatPickTime(actualStartDate.getHours(), actualStartDate.getMinutes()) : "Time"}
+                  </Text>
                 </Pressable>
               </View>
             </View>
@@ -699,6 +727,86 @@ export default function LogCookScreen() {
           <Text style={[s.cancelText, { color: colors.mutedForeground }]}>Cancel</Text>
         </Pressable>
       </ScrollView>
+
+      {/* ════ LOG DATE PICKER MODAL ════ */}
+      <Modal visible={logDatePickerOpen} animationType="slide" transparent onRequestClose={() => setLogDatePickerOpen(false)}>
+        <View style={dp2.overlay}>
+          <View style={[dp2.sheet, { backgroundColor: colors.card }]}>
+            <View style={[dp2.handle, { backgroundColor: colors.border }]} />
+            <View style={[dp2.header, { borderBottomColor: colors.border }]}>
+              <Text style={[dp2.title, { color: colors.foreground }]}>When did you cook?</Text>
+              <Pressable onPress={() => setLogDatePickerOpen(false)} hitSlop={10}>
+                <Feather name="x" size={22} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 30 }}>
+              {pastDates.map((d) => {
+                const isSelected = actualStartDate &&
+                  d.getDate() === actualStartDate.getDate() &&
+                  d.getMonth() === actualStartDate.getMonth() &&
+                  d.getFullYear() === actualStartDate.getFullYear();
+                return (
+                  <Pressable
+                    key={d.toISOString()}
+                    onPress={() => {
+                      const next = actualStartDate ? new Date(actualStartDate) : new Date();
+                      next.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
+                      setActualStartDate(next);
+                      setLogDatePickerOpen(false);
+                    }}
+                    style={[dp2.row, isSelected && { backgroundColor: colors.primary + "18" }, { borderRadius: colors.radius }]}
+                  >
+                    <Text style={[dp2.rowText, { color: isSelected ? colors.primary : colors.foreground }]}>
+                      {formatPickDate(d)}
+                    </Text>
+                    <Text style={[dp2.rowSub, { color: colors.mutedForeground }]}>
+                      {d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+                    </Text>
+                    {isSelected && <Feather name="check" size={16} color={colors.primary} />}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ════ LOG TIME PICKER MODAL ════ */}
+      <Modal visible={logTimePickerOpen} animationType="slide" transparent onRequestClose={() => setLogTimePickerOpen(false)}>
+        <View style={dp2.overlay}>
+          <View style={[dp2.sheet, { backgroundColor: colors.card }]}>
+            <View style={[dp2.handle, { backgroundColor: colors.border }]} />
+            <View style={[dp2.header, { borderBottomColor: colors.border }]}>
+              <Text style={[dp2.title, { color: colors.foreground }]}>What time?</Text>
+              <Pressable onPress={() => setLogTimePickerOpen(false)} hitSlop={10}>
+                <Feather name="x" size={22} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 30 }}>
+              {LOG_TIME_SLOTS.map(({ h, m }) => {
+                const isSelected = actualStartDate && actualStartDate.getHours() === h && actualStartDate.getMinutes() === m;
+                return (
+                  <Pressable
+                    key={`${h}:${m}`}
+                    onPress={() => {
+                      const next = actualStartDate ? new Date(actualStartDate) : new Date();
+                      next.setHours(h, m, 0, 0);
+                      setActualStartDate(next);
+                      setLogTimePickerOpen(false);
+                    }}
+                    style={[dp2.row, isSelected && { backgroundColor: colors.primary + "18" }, { borderRadius: colors.radius }]}
+                  >
+                    <Text style={[dp2.rowText, { color: isSelected ? colors.primary : colors.foreground }]}>
+                      {formatPickTime(h, m)}
+                    </Text>
+                    {isSelected && <Feather name="check" size={16} color={colors.primary} />}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Grill picker modal */}
       <Modal
@@ -841,6 +949,7 @@ const s = StyleSheet.create({
   cancelText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   nowBtn: { borderWidth: 1, height: 44, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
   nowBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  pickerBtn: { flexDirection: "row", alignItems: "center", gap: 7 },
 });
 
 const gp = StyleSheet.create({
@@ -862,4 +971,15 @@ const gp = StyleSheet.create({
   footerBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
   clearBtn: { alignItems: "center", paddingVertical: 12, marginTop: 4, borderTopWidth: 1, borderTopColor: "#ffffff15" },
   clearBtnText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+});
+
+const dp2 = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 10, maxHeight: "70%" },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 10 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1 },
+  title: { fontSize: 17, fontFamily: "Inter_700Bold" },
+  row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 4, paddingVertical: 14, gap: 10 },
+  rowText: { flex: 1, fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  rowSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
 });
