@@ -288,10 +288,10 @@ export default function LogCookScreen() {
       if (weightLbs.trim() && !isNaN(parseFloat(weightLbs))) payload.weightLbs = parseFloat(weightLbs);
       // Prefer user-entered start time; fall back to AI-detected date
       if (actualStartDate) {
-        payload.actualStartAt = actualStartDate;
+        payload.actualStartAt = actualStartDate.toISOString();
       } else if (result?.detectedCookDate) {
         const d = new Date(result.detectedCookDate);
-        if (!isNaN(d.getTime())) payload.actualStartAt = d;
+        if (!isNaN(d.getTime())) payload.actualStartAt = d.toISOString();
       }
       if (result) {
         payload.analysisResult = {

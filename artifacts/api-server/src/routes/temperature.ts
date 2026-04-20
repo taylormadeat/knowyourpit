@@ -183,25 +183,30 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, r
       wrapReason?: string | null;
       restMinutes?: number | null;
       preheatMinutes?: number | null;
+      actualStartAt?: string | null;
+      plannedStartAt?: string | null;
+      plannedEndAt?: string | null;
+      userEnteredTempF?: number | null;
     } | null;
   };
 
-  if (!images || !Array.isArray(images) || images.length === 0) {
-    res.status(400).json({ error: "images array is required and must be non-empty" });
+  const imageList = Array.isArray(images) ? images : [];
+  if (imageList.length === 0 && !cookNotes?.trim() && !cookContext?.userEnteredTempF) {
+    res.status(400).json({ error: "Provide at least one image, cook notes, or a temperature reading" });
     return;
   }
-  if (images.length > 10) {
+  if (imageList.length > 10) {
     res.status(400).json({ error: "Maximum 10 images allowed" });
     return;
   }
-  for (const img of images) {
+  for (const img of imageList) {
     if (!img.base64 || typeof img.base64 !== "string") {
       res.status(400).json({ error: "Each image must have a base64 field" });
       return;
     }
   }
 
-  const imageContentParts = images.map((img) => {
+  const imageContentParts = imageList.map((img) => {
     const safeMime =
       typeof img.mimeType === "string" && ALLOWED_MIME_TYPES.has(img.mimeType)
         ? img.mimeType
@@ -221,7 +226,40 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, r
   if (cookContext?.weightLbs) contextLines.push(`Weight: ${cookContext.weightLbs} lbs`);
   if (cookContext?.cookTempF) contextLines.push(`Pit/cook temperature: ${cookContext.cookTempF}°F`);
   if (cookContext?.targetTempF) contextLines.push(`Target internal temp: ${cookContext.targetTempF}°F`);
+  if (cookContext?.userEnteredTempF != null) contextLines.push(`Pitmaster's measured temperature right now: ${cookContext.userEnteredTempF}°F`);
   if (cookContext?.preheatMinutes) contextLines.push(`Preheat time: ${cookContext.preheatMinutes} min`);
+
+  // Timing context — enables plan-vs-actual timing comparison
+  const fmtTime = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  };
+  if (cookContext?.actualStartAt) contextLines.push(`Actual cook start time: ${fmtTime(cookContext.actualStartAt)}`);
+  if (cookContext?.plannedStartAt) contextLines.push(`Planned cook start time: ${fmtTime(cookContext.plannedStartAt)}`);
+  if (cookContext?.plannedEndAt) contextLines.push(`Planned serve time: ${fmtTime(cookContext.plannedEndAt)}`);
+
+  // Timing deviation summary (for prompt clarity)
+  let timingNote = "";
+  if (cookContext?.actualStartAt && cookContext?.plannedStartAt) {
+    const actualStart = new Date(cookContext.actualStartAt).getTime();
+    const plannedStart = new Date(cookContext.plannedStartAt).getTime();
+    const diffMin = Math.round((actualStart - plannedStart) / 60000);
+    if (Math.abs(diffMin) >= 5) {
+      timingNote = diffMin > 0
+        ? `The cook started ${diffMin} minutes LATE vs the plan.`
+        : `The cook started ${Math.abs(diffMin)} minutes EARLY vs the plan.`;
+    } else {
+      timingNote = "The cook started right on schedule.";
+    }
+    contextLines.push(timingNote);
+  }
+  if (cookContext?.actualStartAt && cookContext?.plannedEndAt) {
+    const actualStart = new Date(cookContext.actualStartAt).getTime();
+    const serveTime = new Date(cookContext.plannedEndAt).getTime();
+    const windowMin = Math.round((serveTime - actualStart) / 60000);
+    if (windowMin > 0) contextLines.push(`Time window from actual start to planned serve time: ${windowMin} minutes`);
+  }
+
   // AI plan data — enables plan-vs-actual grading
   if (cookContext?.wrapMethod && cookContext.wrapMethod !== "none") {
     const wrapLabel = cookContext.wrapMethod === "foil" ? "Foil (Texas Crutch)" : "Butcher Paper";
@@ -234,8 +272,9 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, r
     contextLines.push("Planned wrap method: No wrap (naked cook)");
   }
   if (cookContext?.restMinutes) contextLines.push(`Planned rest time: ${cookContext.restMinutes} min`);
+
   const contextBlock = contextLines.length > 0
-    ? `\n\nCook plan & context provided by pitmaster:\n${contextLines.join("\n")}\n\nWhen the pitmaster followed an AI plan, compare what actually happened to the plan in your assessment — did they follow the wrap timing? Did the meat hit the planned target? Mention any deviations in your suggestions.`
+    ? `\n\nCook plan & context provided by pitmaster:\n${contextLines.join("\n")}\n\nWhen assessing this cook:\n- If actual start time vs planned start time is provided, comment on whether the pitmaster was on time and whether they are likely to hit the planned serve time.\n- If a user-measured temperature is provided, compare it to the target temp and factor the delta into your grade: within ±5°F = on target, 6-15°F off = close, 16°F+ off = significant deviation.\n- When the pitmaster followed an AI plan, compare what actually happened to the plan — did they follow the wrap timing? Did the meat hit the planned target? Mention any deviations in your suggestions.`
     : "";
 
   const systemPrompt = `You are an expert BBQ pit master and cook analyst. You receive one or more photos from a cook (thermometer displays, grill screens, temperature app screenshots) plus optional notes from the pitmaster and optional cook parameters.
@@ -314,17 +353,27 @@ detectedRub: seasoning/rub name from notes. null if not mentioned.
 
 === ASSESSMENT ===
 verdict:
-- "perfect": meat hit target temp within ±5°F, stable pit, no major issues
+- "perfect": meat hit target temp within ±5°F, stable pit, on time, no major issues
 - "overcooked": meat exceeded target by 10°F+ or cook noticeably longer than typical
 - "undercooked": meat did not reach safe/target temp
 - "good": minor deviations but overall a solid cook
-- "needs_work": significant temp swings, missed target, or other notable problems
+- "needs_work": significant temp swings, missed target, started very late, or other notable problems
+
+When a user-measured temperature is provided, compare it to the target:
+- Within ±5°F of target → count as hitting target (factor positively into verdict)
+- 6–15°F off target → note the gap in your assessment
+- 16°F+ off target → significant deviation, factor negatively into verdict
+
+When timing data (actual start vs planned start, planned serve time) is provided:
+- Mention whether the cook is on track to hit the serve time given the start time
+- If started late, factor in whether the serve window is at risk
+- Acknowledge good timing discipline when on schedule
 
 whatWentWell: 2-3 specific things that went right (e.g. "Pit held steady at 225°F throughout")
 suggestions: 3-5 specific, actionable improvements. Reference actual temperatures and timing. Coach like a seasoned pit master.
 
 If cook context is provided, use those values to fill any gaps and assess against stated targets.
-If noDataFound is true, still assess and suggest based on cook notes alone.`;
+If noDataFound is true, still assess and suggest based on cook notes and any provided context alone.`;
 
   type AnalyzeCookAIResult = {
     probes: Array<{
@@ -355,7 +404,10 @@ If noDataFound is true, still assess and suggest based on cook notes alone.`;
   };
 
   const notesBlock = cookNotes ? `\n\nPitmaster notes about this cook:\n${cookNotes}` : "";
-  const userText = `Analyse these ${images.length} BBQ cook image${images.length > 1 ? "s" : ""}.${contextBlock}${notesBlock}\n\nReturn structured JSON as instructed.`;
+  const imageDesc = imageList.length > 0
+    ? `Analyse these ${imageList.length} BBQ cook image${imageList.length > 1 ? "s" : ""}.`
+    : "No images provided — assess using the cook context and notes below.";
+  const userText = `${imageDesc}${contextBlock}${notesBlock}\n\nReturn structured JSON as instructed.`;
 
   try {
     const response = await openai.chat.completions.create({

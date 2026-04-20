@@ -145,6 +145,7 @@ export default function CookDetailScreen() {
 
   const [images, setImages] = useState<PickedImage[]>([]);
   const [cookNotes, setCookNotes] = useState("");
+  const [userTempInput, setUserTempInput] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [cardWidth, setCardWidth] = useState(300);
@@ -245,8 +246,8 @@ export default function CookDetailScreen() {
       else payload.cookTempF = null;
       if (editTargetTemp.trim() && !isNaN(parseFloat(editTargetTemp))) payload.targetTempF = parseFloat(editTargetTemp);
       else payload.targetTempF = null;
-      payload.actualStartAt = editActualStartDate ?? null;
-      payload.actualEndAt = editActualEndDate ?? null;
+      payload.actualStartAt = editActualStartDate ? editActualStartDate.toISOString() : null;
+      payload.actualEndAt = editActualEndDate ? editActualEndDate.toISOString() : null;
       await updateCook.mutateAsync({ id: Number(id), data: payload });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
@@ -294,8 +295,9 @@ export default function CookDetailScreen() {
   const removeImage = (idx: number) => { setImages((p) => p.filter((_, i) => i !== idx)); setResult(null); };
 
   const analyze = async () => {
-    if (images.length === 0 && !cookNotes.trim()) {
-      Alert.alert("Add something", "Upload at least one thermometer image or add cook notes before analyzing.");
+    const hasTemp = userTempInput.trim().length > 0 && !isNaN(parseFloat(userTempInput));
+    if (images.length === 0 && !cookNotes.trim() && !hasTemp) {
+      Alert.alert("Add something", "Upload a thermometer image, enter your temperature reading, or add cook notes before analyzing.");
       return;
     }
     setAnalyzing(true);
@@ -317,6 +319,10 @@ export default function CookDetailScreen() {
             wrapReason: c?.wrapReason ?? null,
             restMinutes: c?.restMinutes ?? null,
             preheatMinutes: c?.preheatMinutes ?? null,
+            actualStartAt: c?.actualStartAt ? new Date(c.actualStartAt).toISOString() : null,
+            plannedStartAt: c?.plannedStartAt ? new Date(c.plannedStartAt).toISOString() : null,
+            plannedEndAt: c?.plannedEndAt ? new Date(c.plannedEndAt).toISOString() : null,
+            userEnteredTempF: userTempInput.trim() && !isNaN(parseFloat(userTempInput)) ? parseFloat(userTempInput) : null,
           },
         } as any,
       });
@@ -607,6 +613,23 @@ export default function CookDetailScreen() {
               </Pressable>
             </View>
           )}
+
+          {/* Temperature reading input */}
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
+                Temperature reading <Text style={{ fontWeight: "400" }}>(°F)</Text>
+              </Text>
+              <TextInput
+                style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, height: 44, paddingTop: 0, paddingBottom: 0 }]}
+                placeholder="e.g. 195"
+                placeholderTextColor={colors.mutedForeground}
+                value={userTempInput}
+                onChangeText={setUserTempInput}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </View>
 
           {/* Notes input */}
           <View>
