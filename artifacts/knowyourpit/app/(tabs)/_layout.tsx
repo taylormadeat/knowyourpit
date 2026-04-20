@@ -26,7 +26,7 @@ function NativeTabLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="ai">
         <Icon sf={{ default: "bolt", selected: "bolt.fill" }} />
-        <Label>AI</Label>
+        <Label>PitMaster</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="more">
         <Icon sf={{ default: "ellipsis.circle", selected: "ellipsis.circle.fill" }} />

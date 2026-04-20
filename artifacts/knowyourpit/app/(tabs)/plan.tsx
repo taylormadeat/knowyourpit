@@ -224,7 +224,7 @@ export default function PlanScreen() {
   // ── AI Plan ──────────────────────────────────────────────────────────
   const handleAiPlan = async () => {
     if (!selectedCut) {
-      Alert.alert("Select a Meat Cut First", "Choose a meat cut so AI can tailor the plan.");
+      Alert.alert("Select a Meat Cut First", "Choose a meat cut so PitMaster can tailor the plan.");
       return;
     }
     try {
