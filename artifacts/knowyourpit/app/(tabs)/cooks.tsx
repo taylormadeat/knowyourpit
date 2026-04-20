@@ -39,8 +39,11 @@ function avgRating(item: any): number {
   const vals = [item.ratingTenderness, item.ratingFlavor, item.ratingBark].filter(
     (v) => typeof v === "number" && v > 0
   );
-  if (vals.length === 0) return 0;
-  return vals.reduce((a: number, b: number) => a + b, 0) / vals.length;
+  if (vals.length > 0) {
+    return vals.reduce((a: number, b: number) => a + b, 0) / vals.length;
+  }
+  if (typeof item.rating === "number" && item.rating > 0) return item.rating;
+  return 0;
 }
 
 export default function CooksScreen() {
@@ -138,6 +141,16 @@ export default function CooksScreen() {
             {item.status}
           </Text>
         </View>
+        {(() => {
+          if (item.status !== "completed") return null;
+          const avg = avgRating(item);
+          if (avg === 0) return null;
+          return (
+            <View style={s.avgBadge}>
+              <Text style={s.avgBadgeText}>★ {avg.toFixed(1)}</Text>
+            </View>
+          );
+        })()}
         <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
       </View>
     </Pressable>
@@ -314,6 +327,8 @@ const s = StyleSheet.create({
   starChipStars: { fontSize: 9, color: "#eab308", letterSpacing: 0.5 },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   badgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  avgBadge: { backgroundColor: "#eab30822", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  avgBadgeText: { fontSize: 12, fontFamily: "Inter_700Bold", color: "#eab308" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   empty: {
     borderWidth: 1, marginTop: 40, padding: 36,
