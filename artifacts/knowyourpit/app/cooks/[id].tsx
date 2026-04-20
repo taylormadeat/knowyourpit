@@ -329,6 +329,54 @@ export default function CookDetailScreen() {
     }
   }, [meaterProbes]);
 
+  // Notification-received listener: marks timer alerts as triggered when notification fires in foreground
+  useEffect(() => {
+    if (Platform.OS === "web" || cookStatus !== "active") return;
+    const sub = Notifications.addNotificationReceivedListener((notification) => {
+      const data = notification.request.content.data as { alertId?: number; cookId?: number } | undefined;
+      if (data?.alertId && data?.cookId === Number(id)) {
+        patchAlert.mutate(
+          { id: data.alertId, data: { triggered: true } },
+          { onSuccess: () => qc.invalidateQueries({ queryKey: getListAlertsQueryKey() }) },
+        );
+      }
+    });
+    return () => sub.remove();
+  }, [cookStatus, id]);
+
+  // Notification-response listener: marks triggered when user taps a notification from background/killed
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as { alertId?: number; cookId?: number } | undefined;
+      if (data?.alertId && data?.cookId === Number(id)) {
+        patchAlert.mutate(
+          { id: data.alertId, data: { triggered: true } },
+          { onSuccess: () => qc.invalidateQueries({ queryKey: getListAlertsQueryKey() }) },
+        );
+      }
+    });
+    return () => sub.remove();
+  }, [id]);
+
+  // Reconciliation: on mount (and when alerts load), mark overdue timer alerts as triggered
+  useEffect(() => {
+    if (!activeCookAlerts.length || !cook) return;
+    const c = cook as any;
+    for (const alert of activeCookAlerts) {
+      if (alert.alertType === "time_before_serve" && c.plannedEndAt) {
+        const fireAt = new Date(c.plannedEndAt).getTime() - alert.thresholdTempF * 60 * 1000;
+        if (fireAt <= Date.now() && !firedAlertIds.current.has(alert.id)) {
+          firedAlertIds.current.add(alert.id);
+          patchAlert.mutate(
+            { id: alert.id, data: { triggered: true } },
+            { onSuccess: () => qc.invalidateQueries({ queryKey: getListAlertsQueryKey() }) },
+          );
+        }
+      }
+    }
+  }, [activeCookAlerts.length, cook]);
+
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
@@ -366,26 +414,30 @@ export default function CookDetailScreen() {
         }
         const foodType = c?.foodType ?? "cook";
         const label = alertLabel.trim() || `${minutesBefore} min before ${foodType} serve time`;
-        let notificationId: string | null = null;
-        if (Platform.OS !== "web") {
-          notificationId = await Notifications.scheduleNotificationAsync({
-            content: {
-              title: "⏱ Serve Time Approaching",
-              body: label,
-              sound: true,
-            },
-            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(fireAt) },
-          });
-        }
-        await createAlert.mutateAsync({
+
+        // Create DB record first to get the alert ID, then schedule with it embedded in data
+        const savedAlert = await createAlert.mutateAsync({
           data: {
             cookId: Number(id),
             alertType: "time_before_serve",
             thresholdTempF: minutesBefore,
             message: label,
-            scheduledNotificationId: notificationId ?? undefined,
           },
         });
+
+        if (Platform.OS !== "web" && savedAlert?.id) {
+          const notificationId = await Notifications.scheduleNotificationAsync({
+            content: {
+              title: "⏱ Serve Time Approaching",
+              body: label,
+              sound: true,
+              data: { alertId: savedAlert.id, cookId: Number(id) },
+            },
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(fireAt) },
+          });
+          // Store the notification identifier so it can be cancelled on delete
+          await patchAlert.mutateAsync({ id: savedAlert.id, data: { scheduledNotificationId: notificationId } });
+        }
       }
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: getListAlertsQueryKey() });

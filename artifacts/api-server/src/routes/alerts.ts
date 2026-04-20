@@ -26,7 +26,12 @@ router.patch("/alerts/:id", async (req, res): Promise<void> => {
   const body = PatchAlertBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  const updateData: any = {};
+  type AlertUpdate = {
+    triggeredAt?: Date;
+    isActive?: boolean;
+    scheduledNotificationId?: string | null;
+  };
+  const updateData: AlertUpdate = {};
   if (body.data.triggered === true) {
     updateData.triggeredAt = new Date();
     updateData.isActive = false;

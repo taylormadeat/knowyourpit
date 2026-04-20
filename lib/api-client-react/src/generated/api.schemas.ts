@@ -824,7 +824,10 @@ export const AlertAlertType = {
   max_temp: "max_temp",
   target_reached: "target_reached",
   stall_detected: "stall_detected",
+  time_before_serve: "time_before_serve",
 } as const;
+
+export type AlertType = (typeof AlertAlertType)[keyof typeof AlertAlertType];
 
 export interface Alert {
   id: number;
@@ -832,7 +835,7 @@ export interface Alert {
   cookId: number | null;
   /** @nullable */
   probeNumber: number | null;
-  alertType: string;
+  alertType: AlertType;
   thresholdTempF: number;
   message: string;
   isActive: boolean;
@@ -848,7 +851,7 @@ export interface CreateAlertBody {
   cookId?: number | null;
   /** @nullable */
   probeNumber?: number | null;
-  alertType: string;
+  alertType: AlertType;
   thresholdTempF: number;
   message: string;
   /** @nullable */

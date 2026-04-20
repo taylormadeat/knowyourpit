@@ -1070,11 +1070,14 @@ export const ListTipsResponse = zod.array(ListTipsResponseItem);
 /**
  * @summary List temperature alerts
  */
+export const ALERT_TYPES = ["min_temp", "max_temp", "target_reached", "stall_detected", "time_before_serve"] as const;
+export type AlertType = typeof ALERT_TYPES[number];
+
 export const ListAlertsResponseItem = zod.object({
   id: zod.number(),
   cookId: zod.number().nullable(),
   probeNumber: zod.number().nullable(),
-  alertType: zod.string(),
+  alertType: zod.enum(ALERT_TYPES),
   thresholdTempF: zod.number(),
   message: zod.string(),
   isActive: zod.boolean(),
@@ -1090,7 +1093,7 @@ export const ListAlertsResponse = zod.array(ListAlertsResponseItem);
 export const CreateAlertBody = zod.object({
   cookId: zod.number().nullish(),
   probeNumber: zod.number().nullish(),
-  alertType: zod.string(),
+  alertType: zod.enum(ALERT_TYPES),
   thresholdTempF: zod.number(),
   message: zod.string(),
   scheduledNotificationId: zod.string().nullish(),

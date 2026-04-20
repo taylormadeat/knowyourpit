@@ -31,13 +31,12 @@ const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL ?? "";
 
 if (Platform.OS !== "web") {
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
+    handleNotification: async (): Promise<Notifications.NotificationBehavior> => ({
       shouldShowBanner: true,
       shouldShowList: true,
-    } as any),
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
   });
 }
 
