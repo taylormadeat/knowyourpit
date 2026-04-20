@@ -135,14 +135,13 @@ router.get("/meater/readings", requireAuth, async (req: any, res): Promise<void>
 
     const toF = (c: number) => Math.round(((c / 1000) * 9) / 5 + 32);
 
-    const firstActive = devices.find((d: any) => !!d.cook) ?? null;
-    if (!firstActive) {
+    const activeDevices = devices.filter((d: any) => !!d.cook);
+    if (activeDevices.length === 0) {
       res.json({ linked: true, probes: [] });
       return;
     }
 
-    const d = firstActive;
-    const probe = {
+    const probes = activeDevices.map((d: any) => ({
       deviceId: d.id,
       deviceName: d.name ?? "MEATER Probe",
       internalTempF: d.cook.temperature?.internal != null ? toF(d.cook.temperature.internal) : null,
@@ -151,9 +150,9 @@ router.get("/meater/readings", requireAuth, async (req: any, res): Promise<void>
       targetMaxTempF: d.cook.temperature?.target?.max != null ? toF(d.cook.temperature.target.max) : null,
       cookName: d.cook.name ?? null,
       cookState: d.cook.state ?? null,
-    };
+    }));
 
-    res.json({ linked: true, probes: [probe] });
+    res.json({ linked: true, probes });
   } catch {
     res.json({ linked: true, probes: [], error: "Could not fetch readings" });
   }

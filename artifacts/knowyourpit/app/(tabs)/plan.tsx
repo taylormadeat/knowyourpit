@@ -38,6 +38,7 @@ import {
   MEAT_CUTS_BY_CATEGORY,
   type MeatCut,
 } from "@/constants/meatCuts";
+import { useMeaterReadings, type MeaterProbe } from "@/hooks/useMeaterReadings";
 
 const UPCOMING_DAYS = 14;
 
@@ -195,6 +196,25 @@ export default function PlanScreen() {
   // ── Meat picker state ────────────────────────────────────────────────
   const [meatPickerOpen, setMeatPickerOpen] = useState(false);
   const [meatCategory, setMeatCategory] = useState<string>(MEAT_CATEGORIES[0]);
+
+  // ── MEATER probe picker state ─────────────────────────────────────────
+  const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
+  const { data: meaterData } = useMeaterReadings();
+  const activeProbes: MeaterProbe[] = meaterData?.linked ? (meaterData.probes ?? []) : [];
+
+  const selectProbe = (probe: MeaterProbe) => {
+    if (selectedProbeId === probe.deviceId) {
+      setSelectedProbeId(null);
+      return;
+    }
+    setSelectedProbeId(probe.deviceId);
+    if (probe.targetMaxTempF != null && !targetTempF.trim()) {
+      setTargetTempF(String(probe.targetMaxTempF));
+    }
+    if (probe.cookName && !cookName.trim()) {
+      setCookName(probe.cookName);
+    }
+  };
 
   // ── AI predict state ──────────────────────────────────────────────────
   const aiPredict = useAiPredict();
@@ -512,6 +532,89 @@ export default function PlanScreen() {
                 <Feather name="alert-triangle" size={14} color="#ef4444" />
                 <Text style={s.tempWarningText}>
                   This grill's max temp ({selectedGrill.maxTempF}°F) may not reach the recommended cook temp ({selectedCut.cookTempF}°F)
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── Live MEATER probes ────────────────────── */}
+        {activeProbes.length > 0 && (
+          <View style={[sp.probeCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            <View style={sp.probeHeader}>
+              <View style={[sp.probeIconWrap, { backgroundColor: "#E8482018" }]}>
+                <Feather name="thermometer" size={16} color="#E84820" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[sp.probeTitle, { color: colors.foreground }]}>Live MEATER Probes</Text>
+                <Text style={[sp.probeSub, { color: colors.mutedForeground }]}>
+                  Select a probe to link it to this cook
+                </Text>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#34C759" }} />
+                <Text style={{ fontSize: 10, color: "#34C759", fontFamily: "Inter_600SemiBold" }}>LIVE</Text>
+              </View>
+            </View>
+
+            {activeProbes.map((probe) => {
+              const isSelected = selectedProbeId === probe.deviceId;
+              return (
+                <Pressable
+                  key={probe.deviceId}
+                  onPress={() => selectProbe(probe)}
+                  style={({ pressed }) => [
+                    sp.probeRow,
+                    {
+                      borderColor: isSelected ? "#E84820" : colors.border,
+                      backgroundColor: isSelected ? "#E8482008" : colors.background,
+                      borderRadius: colors.radius,
+                    },
+                    pressed && { opacity: 0.75 },
+                  ]}
+                >
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={{ color: colors.foreground, fontSize: 14, fontFamily: "Inter_600SemiBold" }}>
+                      {probe.deviceName}
+                    </Text>
+                    {probe.cookName ? (
+                      <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular" }}>
+                        {probe.cookName}{probe.cookState ? ` · ${probe.cookState}` : ""}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View style={{ alignItems: "flex-end", gap: 3 }}>
+                    {probe.internalTempF != null && (
+                      <View style={[sp.tempBadge, { backgroundColor: "#E8482018" }]}>
+                        <Text style={{ color: "#E84820", fontSize: 14, fontFamily: "Inter_700Bold" }}>
+                          {probe.internalTempF}°F
+                        </Text>
+                      </View>
+                    )}
+                    {probe.targetMaxTempF != null && (
+                      <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>
+                        Target {probe.targetMaxTempF}°F
+                      </Text>
+                    )}
+                  </View>
+                  <View style={[
+                    sp.selectCircle,
+                    {
+                      borderColor: isSelected ? "#E84820" : colors.border,
+                      backgroundColor: isSelected ? "#E84820" : "transparent",
+                    },
+                  ]}>
+                    {isSelected && <Feather name="check" size={12} color="#fff" />}
+                  </View>
+                </Pressable>
+              );
+            })}
+
+            {selectedProbeId && (
+              <View style={[sp.linkedBanner, { backgroundColor: "#E8482010", borderColor: "#E8482030", borderRadius: colors.radius }]}>
+                <Feather name="link" size={13} color="#E84820" />
+                <Text style={{ color: "#E84820", fontSize: 12, fontFamily: "Inter_500Medium", flex: 1 }}>
+                  Probe linked — target temp auto-filled from your live cook
                 </Text>
               </View>
             )}
@@ -1335,4 +1438,16 @@ const s = StyleSheet.create({
   nowCookingDot: { width: 8, height: 8, borderRadius: 4, opacity: 0.9 },
   nowCookingTitle: { flex: 1, fontSize: 14, fontFamily: "Inter_700Bold", color: "#fff" },
   nowCookingElapsed: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff", opacity: 0.85 },
+});
+
+const sp = StyleSheet.create({
+  probeCard: { borderWidth: 1, padding: 14, marginBottom: 12 },
+  probeHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
+  probeIconWrap: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  probeTitle: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  probeSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 1 },
+  probeRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderWidth: 1, marginBottom: 8 },
+  tempBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  selectCircle: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
+  linkedBanner: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, borderWidth: 1, marginTop: 4 },
 });
