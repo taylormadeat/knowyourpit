@@ -1,8 +1,8 @@
-# PitMaster AI
+# KnowYourPit
 
 ## Overview
 
-A comprehensive BBQ planning and management app powered by AI. Users can manage grill profiles, log cook sessions, get AI-powered time predictions, monitor temperatures, browse recipes, and engage with a community forum.
+KnowYourPit is a comprehensive BBQ planning and management app powered by AI. Users can manage grill profiles, log cook sessions, get AI-powered cook plans and time predictions, monitor temperatures, browse recipes, and get personalized pit master coaching.
 
 ## Stack
 
@@ -10,7 +10,7 @@ A comprehensive BBQ planning and management app powered by AI. Users can manage 
 - **Node.js version**: 24
 - **Package manager**: pnpm
 - **TypeScript version**: 5.9
-- **Frontend**: React + Vite (artifacts/pitmaster-ai), served at `/`
+- **Mobile app**: Expo / React Native (artifacts/knowyourpit)
 - **API framework**: Express 5 (artifacts/api-server), served at `/api`
 - **Database**: PostgreSQL + Drizzle ORM
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
