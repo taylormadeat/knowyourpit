@@ -11,6 +11,7 @@ export const alertsTable = pgTable("alerts", {
   message: text("message").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   triggeredAt: timestamp("triggered_at", { withTimezone: true }),
+  scheduledNotificationId: text("scheduled_notification_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

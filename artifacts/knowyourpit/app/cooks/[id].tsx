@@ -33,11 +33,16 @@ import {
   useAnalyzeCook,
   useListGrills,
   useGetMeaterReadings,
+  useListAlerts,
+  useCreateAlert,
+  usePatchAlert,
   getListCooksQueryKey,
   getGetCookQueryKey,
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
+  getListAlertsQueryKey,
 } from "@workspace/api-client-react";
+import * as Notifications from "expo-notifications";
 
 function fmtElapsed(ms: number): string {
   if (ms <= 0) return "0s";
@@ -189,7 +194,28 @@ export default function CookDetailScreen() {
   const [rateBark, setRateBark] = useState<number>(0);
   const [rateSaving, setRateSaving] = useState(false);
 
+  const createAlert = useCreateAlert();
+  const patchAlert = usePatchAlert();
+
   const cookStatus = (cook as any)?.status;
+
+  // Alerts for this cook (active ones, used for MEATER threshold checking)
+  const { data: cookAlerts } = useListAlerts({
+    query: { enabled: cookStatus === "active" },
+  });
+  const activeCookAlerts = ((cookAlerts as any[]) ?? []).filter(
+    (a: any) => a.cookId === Number(id) && a.isActive,
+  );
+
+  // Alert sheet state
+  const [alertSheetVisible, setAlertSheetVisible] = useState(false);
+  const [alertMode, setAlertMode] = useState<"temp" | "timer">("temp");
+  const [alertThreshold, setAlertThreshold] = useState("");
+  const [alertLabel, setAlertLabel] = useState("");
+  const [alertMinutesBefore, setAlertMinutesBefore] = useState("30");
+  const [alertSaving, setAlertSaving] = useState(false);
+  const firedAlertIds = useRef<Set<number>>(new Set());
+
   const { data: meaterData, isLoading: meaterLoading } = useGetMeaterReadings({
     query: {
       enabled: cookStatus === "active",
@@ -268,19 +294,112 @@ export default function CookDetailScreen() {
       setUserTempInput(String(meaterProbes[0].internalTempF));
     }
     if (meaterProbes.length > 0 && meaterProbes[0].internalTempF != null) {
+      const currentTemp = meaterProbes[0].internalTempF;
       const startAt = cook?.actualStartAt;
       const elapsedMins = startAt
         ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000)
         : 0;
       setLiveReadings((prev) => [
         ...prev,
-        { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: meaterProbes[0].internalTempF! },
+        { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: currentTemp },
       ]);
+
+      // Check active temperature threshold alerts for this cook
+      for (const alert of activeCookAlerts) {
+        if (alert.alertType === "target_reached" && !firedAlertIds.current.has(alert.id)) {
+          if (currentTemp >= alert.thresholdTempF) {
+            firedAlertIds.current.add(alert.id);
+            const foodType = (cook as any)?.foodType ?? "meat";
+            if (Platform.OS !== "web") {
+              Notifications.scheduleNotificationAsync({
+                content: {
+                  title: "🔥 Temperature Alert!",
+                  body: alert.message || `${foodType} hit ${alert.thresholdTempF}°F`,
+                  sound: true,
+                },
+                trigger: null,
+              }).catch(() => {});
+            }
+            patchAlert.mutate({ id: alert.id, data: { triggered: true } }, {
+              onSuccess: () => qc.invalidateQueries({ queryKey: getListAlertsQueryKey() }),
+            });
+          }
+        }
+      }
     }
   }, [meaterProbes]);
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+
+  const saveAlert = async () => {
+    setAlertSaving(true);
+    try {
+      const c = cook as any;
+      if (alertMode === "temp") {
+        const threshold = parseFloat(alertThreshold);
+        if (isNaN(threshold) || threshold <= 0) {
+          Alert.alert("Invalid temperature", "Enter a valid temperature threshold.");
+          return;
+        }
+        const foodType = c?.foodType ?? "meat";
+        const label = alertLabel.trim() || `${foodType} hits ${threshold}°F`;
+        await createAlert.mutateAsync({
+          data: {
+            cookId: Number(id),
+            alertType: "target_reached",
+            thresholdTempF: threshold,
+            message: `🔥 ${label} — time to pull!`,
+          },
+        });
+      } else {
+        const minutesBefore = parseInt(alertMinutesBefore, 10);
+        if (!c?.plannedEndAt) {
+          Alert.alert("No serve time set", "Set a planned serve time in Edit Cook to use a timer alert.");
+          return;
+        }
+        const serveTime = new Date(c.plannedEndAt).getTime();
+        const fireAt = serveTime - minutesBefore * 60 * 1000;
+        if (fireAt <= Date.now()) {
+          Alert.alert("Too late to schedule", "That serve time has already passed or the alert would fire immediately.");
+          return;
+        }
+        const foodType = c?.foodType ?? "cook";
+        const label = alertLabel.trim() || `${minutesBefore} min before ${foodType} serve time`;
+        let notificationId: string | null = null;
+        if (Platform.OS !== "web") {
+          notificationId = await Notifications.scheduleNotificationAsync({
+            content: {
+              title: "⏱ Serve Time Approaching",
+              body: label,
+              sound: true,
+            },
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(fireAt) },
+          });
+        }
+        await createAlert.mutateAsync({
+          data: {
+            cookId: Number(id),
+            alertType: "time_before_serve",
+            thresholdTempF: minutesBefore,
+            message: label,
+            scheduledNotificationId: notificationId ?? undefined,
+          },
+        });
+      }
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      qc.invalidateQueries({ queryKey: getListAlertsQueryKey() });
+      setAlertSheetVisible(false);
+      setAlertThreshold("");
+      setAlertLabel("");
+      setAlertMinutesBefore("30");
+      setAlertMode("temp");
+    } catch {
+      Alert.alert("Failed to save alert", "Please try again.");
+    } finally {
+      setAlertSaving(false);
+    }
+  };
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -984,6 +1103,22 @@ export default function CookDetailScreen() {
                 </Text>
               </View>
             )}
+
+            {/* Set Alert button */}
+            <View style={[s.alertBtnRow, { borderTopColor: colors.border }]}>
+              <Pressable
+                style={[s.setAlertBtn, { backgroundColor: "#EF444412", borderColor: "#EF444430", borderRadius: colors.radius }]}
+                onPress={() => { setAlertSheetVisible(true); setAlertMode("temp"); }}
+              >
+                <Feather name="bell"  size={14} color="#EF4444" />
+                <Text style={[s.setAlertBtnText, { color: "#EF4444" }]}>Set Alert</Text>
+                {activeCookAlerts.length > 0 && (
+                  <View style={[s.alertCountBadge, { backgroundColor: "#EF4444" }]}>
+                    <Text style={s.alertCountText}>{activeCookAlerts.length}</Text>
+                  </View>
+                )}
+              </Pressable>
+            </View>
           </View>
         )}
 
@@ -1983,6 +2118,163 @@ export default function CookDetailScreen() {
           </View>
         </Modal>
       </Modal>
+
+      {/* ── Set Alert Sheet ─────────────────────────────────── */}
+      <Modal
+        visible={alertSheetVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setAlertSheetVisible(false)}
+      >
+        <Pressable
+          style={s.grillOverlay}
+          onPress={() => setAlertSheetVisible(false)}
+        />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ justifyContent: "flex-end" }}
+        >
+          <View style={[s.alertSheet, { backgroundColor: colors.card }]}>
+            <View style={[s.grillSheetHandle, { backgroundColor: colors.border }]} />
+            <View style={[s.alertSheetHeader, { borderBottomColor: colors.border }]}>
+              <Feather name="bell"  size={18} color="#EF4444" />
+              <Text style={[s.grillSheetTitle, { color: colors.foreground, marginBottom: 0 }]}>
+                Set Alert
+              </Text>
+              <Pressable onPress={() => setAlertSheetVisible(false)} style={{ marginLeft: "auto" }} hitSlop={10}>
+                <Feather name="x" size={20} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+
+            {/* Mode toggle */}
+            <View style={[s.alertModeRow, { backgroundColor: colors.background, borderRadius: colors.radius }]}>
+              <Pressable
+                style={[s.alertModeBtn, alertMode === "temp" && { backgroundColor: "#EF444418" }, { borderRadius: colors.radius - 2 }]}
+                onPress={() => setAlertMode("temp")}
+              >
+                <Feather name="thermometer" size={14} color={alertMode === "temp" ? "#EF4444" : colors.mutedForeground} />
+                <Text style={[s.alertModeBtnText, { color: alertMode === "temp" ? "#EF4444" : colors.mutedForeground }]}>
+                  Temperature
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[s.alertModeBtn, alertMode === "timer" && { backgroundColor: "#3B82F618" }, { borderRadius: colors.radius - 2 }]}
+                onPress={() => setAlertMode("timer")}
+              >
+                <Feather name="clock" size={14} color={alertMode === "timer" ? "#3B82F6" : colors.mutedForeground} />
+                <Text style={[s.alertModeBtnText, { color: alertMode === "timer" ? "#3B82F6" : colors.mutedForeground }]}>
+                  Timer
+                </Text>
+              </Pressable>
+            </View>
+
+            {alertMode === "temp" ? (
+              <View style={{ gap: 12 }}>
+                <View>
+                  <Text style={[s.editLabel, { color: colors.mutedForeground }]}>
+                    Notify me when probe reaches (°F)
+                  </Text>
+                  <TextInput
+                    style={[s.editInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                    placeholder={`e.g. ${(cook as any)?.targetTempF ?? 203}`}
+                    placeholderTextColor={colors.mutedForeground}
+                    value={alertThreshold}
+                    onChangeText={setAlertThreshold}
+                    keyboardType="decimal-pad"
+                    autoFocus
+                  />
+                </View>
+                <View>
+                  <Text style={[s.editLabel, { color: colors.mutedForeground }]}>
+                    Custom label <Text style={{ fontWeight: "400" }}>(optional)</Text>
+                  </Text>
+                  <TextInput
+                    style={[s.editInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                    placeholder={`e.g. Time to pull the ${(cook as any)?.foodType ?? "meat"}`}
+                    placeholderTextColor={colors.mutedForeground}
+                    value={alertLabel}
+                    onChangeText={setAlertLabel}
+                  />
+                </View>
+              </View>
+            ) : (
+              <View style={{ gap: 12 }}>
+                <View>
+                  <Text style={[s.editLabel, { color: colors.mutedForeground }]}>
+                    Alert me this many minutes before serve time
+                  </Text>
+                  <View style={s.alertTimerOptions}>
+                    {["15", "30", "60", "90"].map((mins) => (
+                      <Pressable
+                        key={mins}
+                        onPress={() => setAlertMinutesBefore(mins)}
+                        style={[
+                          s.alertTimerChip,
+                          { borderColor: alertMinutesBefore === mins ? "#3B82F6" : colors.border },
+                          alertMinutesBefore === mins && { backgroundColor: "#3B82F618" },
+                          { borderRadius: colors.radius },
+                        ]}
+                      >
+                        <Text style={[s.alertTimerChipText, { color: alertMinutesBefore === mins ? "#3B82F6" : colors.foreground }]}>
+                          {mins} min
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <TextInput
+                    style={[s.editInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, marginTop: 8 }]}
+                    placeholder="Or enter minutes"
+                    placeholderTextColor={colors.mutedForeground}
+                    value={alertMinutesBefore}
+                    onChangeText={setAlertMinutesBefore}
+                    keyboardType="number-pad"
+                  />
+                </View>
+                {!(cook as any)?.plannedEndAt && (
+                  <View style={[s.alertWarning, { backgroundColor: "#F59E0B12", borderColor: "#F59E0B30", borderRadius: colors.radius }]}>
+                    <Feather name="alert-triangle" size={14} color="#F59E0B" />
+                    <Text style={[s.alertWarningText, { color: "#F59E0B" }]}>
+                      No serve time set. Edit this cook to add a planned serve time.
+                    </Text>
+                  </View>
+                )}
+                <View>
+                  <Text style={[s.editLabel, { color: colors.mutedForeground }]}>
+                    Custom label <Text style={{ fontWeight: "400" }}>(optional)</Text>
+                  </Text>
+                  <TextInput
+                    style={[s.editInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                    placeholder={`e.g. Start resting the ${(cook as any)?.foodType ?? "meat"}`}
+                    placeholderTextColor={colors.mutedForeground}
+                    value={alertLabel}
+                    onChangeText={setAlertLabel}
+                  />
+                </View>
+              </View>
+            )}
+
+            <Pressable
+              style={[
+                s.analyzeBtn,
+                { borderRadius: colors.radius, overflow: "hidden", backgroundColor: "#EF4444", opacity: alertSaving ? 0.7 : 1 },
+              ]}
+              onPress={saveAlert}
+              disabled={alertSaving}
+            >
+              <View style={[s.analyzeBtnGradient, { backgroundColor: "transparent" }]}>
+                {alertSaving ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Feather name="bell"  size={16} color="#fff" />
+                    <Text style={s.analyzeBtnText}>Save Alert</Text>
+                  </>
+                )}
+              </View>
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -2081,6 +2373,22 @@ const s = StyleSheet.create({
   decisionUrgencyText: { fontSize: 10, fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: 0.5 },
   decisionInstruction: { fontSize: 15, fontFamily: "Inter_600SemiBold", lineHeight: 22 },
   decisionRationale: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 20 },
+
+  alertBtnRow: { borderTopWidth: 1, padding: 12, flexDirection: "row" },
+  setAlertBtn: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 8 },
+  setAlertBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  alertCountBadge: { minWidth: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
+  alertCountText: { fontSize: 11, fontFamily: "Inter_700Bold", color: "#fff" },
+  alertSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, gap: 16, maxHeight: "85%" },
+  alertSheetHeader: { flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, paddingBottom: 14 },
+  alertModeRow: { flexDirection: "row", padding: 3, gap: 2 },
+  alertModeBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8 },
+  alertModeBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  alertTimerOptions: { flexDirection: "row", gap: 8, marginBottom: 0 },
+  alertTimerChip: { flex: 1, alignItems: "center", paddingVertical: 10, borderWidth: 1 },
+  alertTimerChipText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  alertWarning: { flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 12, borderWidth: 1 },
+  alertWarningText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
 
   persistentDecisionBanner: {
     borderWidth: 1,

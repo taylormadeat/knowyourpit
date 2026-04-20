@@ -10,6 +10,7 @@ import { tokenCache as nativeTokenCache } from "@clerk/expo/token-cache";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import * as Notifications from "expo-notifications";
 import React, { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -28,12 +29,36 @@ setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
 const clerkPubKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL ?? "";
 
+if (Platform.OS !== "web") {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    } as any),
+  });
+}
+
+async function requestNotificationPermissions() {
+  if (Platform.OS === "web") return;
+  const { status: existing } = await Notifications.getPermissionsAsync();
+  if (existing !== "granted") {
+    await Notifications.requestPermissionsAsync();
+  }
+}
+
 function RootLayoutNav() {
   const { getToken } = useAuth();
 
   useEffect(() => {
     setAuthTokenGetter(() => getToken());
   }, [getToken]);
+
+  useEffect(() => {
+    requestNotificationPermissions();
+  }, []);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
@@ -63,8 +88,6 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
-  // On web, fonts may load instantly via CSS or may not fire the callback the same
-  // way as native. Use a timeout fallback so the app never renders blank.
   const [webReady, setWebReady] = useState(Platform.OS !== "web");
   useEffect(() => {
     if (Platform.OS === "web") {

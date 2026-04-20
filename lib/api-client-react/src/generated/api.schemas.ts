@@ -832,33 +832,33 @@ export interface Alert {
   cookId: number | null;
   /** @nullable */
   probeNumber: number | null;
-  alertType: AlertAlertType;
+  alertType: string;
   thresholdTempF: number;
   message: string;
   isActive: boolean;
   /** @nullable */
   triggeredAt: string | null;
+  /** @nullable */
+  scheduledNotificationId: string | null;
   createdAt: string;
 }
-
-export type CreateAlertBodyAlertType =
-  (typeof CreateAlertBodyAlertType)[keyof typeof CreateAlertBodyAlertType];
-
-export const CreateAlertBodyAlertType = {
-  min_temp: "min_temp",
-  max_temp: "max_temp",
-  target_reached: "target_reached",
-  stall_detected: "stall_detected",
-} as const;
 
 export interface CreateAlertBody {
   /** @nullable */
   cookId?: number | null;
   /** @nullable */
   probeNumber?: number | null;
-  alertType: CreateAlertBodyAlertType;
+  alertType: string;
   thresholdTempF: number;
   message: string;
+  /** @nullable */
+  scheduledNotificationId?: string | null;
+}
+
+export interface PatchAlertBody {
+  triggered?: boolean;
+  /** @nullable */
+  scheduledNotificationId?: string | null;
 }
 
 export interface DashboardSummary {

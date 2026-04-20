@@ -1074,16 +1074,12 @@ export const ListAlertsResponseItem = zod.object({
   id: zod.number(),
   cookId: zod.number().nullable(),
   probeNumber: zod.number().nullable(),
-  alertType: zod.enum([
-    "min_temp",
-    "max_temp",
-    "target_reached",
-    "stall_detected",
-  ]),
+  alertType: zod.string(),
   thresholdTempF: zod.number(),
   message: zod.string(),
   isActive: zod.boolean(),
   triggeredAt: zod.coerce.date().nullable(),
+  scheduledNotificationId: zod.string().nullable(),
   createdAt: zod.coerce.date(),
 });
 export const ListAlertsResponse = zod.array(ListAlertsResponseItem);
@@ -1094,14 +1090,22 @@ export const ListAlertsResponse = zod.array(ListAlertsResponseItem);
 export const CreateAlertBody = zod.object({
   cookId: zod.number().nullish(),
   probeNumber: zod.number().nullish(),
-  alertType: zod.enum([
-    "min_temp",
-    "max_temp",
-    "target_reached",
-    "stall_detected",
-  ]),
+  alertType: zod.string(),
   thresholdTempF: zod.number(),
   message: zod.string(),
+  scheduledNotificationId: zod.string().nullish(),
+});
+
+/**
+ * @summary Patch an alert (mark triggered, set notification id)
+ */
+export const PatchAlertParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PatchAlertBody = zod.object({
+  triggered: zod.boolean().optional(),
+  scheduledNotificationId: zod.string().nullable().optional(),
 });
 
 /**

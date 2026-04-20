@@ -27,6 +27,7 @@ import type {
   Cook,
   CookingTip,
   CreateAlertBody,
+  PatchAlertBody,
   CreateCookBody,
   CreateForumCommentBody,
   CreateForumPostBody,
@@ -2910,6 +2911,87 @@ export const useCreateAlert = <
   TContext
 > => {
   return useMutation(getCreateAlertMutationOptions(options));
+};
+
+/**
+ * @summary Patch an alert (mark triggered, update scheduledNotificationId)
+ */
+export const getPatchAlertUrl = (id: number) => {
+  return `/api/alerts/${id}`;
+};
+
+export const patchAlert = async (
+  id: number,
+  patchAlertBody: PatchAlertBody,
+  options?: RequestInit,
+): Promise<Alert> => {
+  return customFetch<Alert>(getPatchAlertUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(patchAlertBody),
+  });
+};
+
+export const getPatchAlertMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchAlert>>,
+    TError,
+    { id: number; data: BodyType<PatchAlertBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof patchAlert>>,
+  TError,
+  { id: number; data: BodyType<PatchAlertBody> },
+  TContext
+> => {
+  const mutationKey = ["patchAlert"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof patchAlert>>,
+    { id: number; data: BodyType<PatchAlertBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+    return patchAlert(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PatchAlertMutationResult = NonNullable<Awaited<ReturnType<typeof patchAlert>>>;
+export type PatchAlertMutationBody = BodyType<PatchAlertBody>;
+export type PatchAlertMutationError = ErrorType<unknown>;
+
+export const usePatchAlert = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchAlert>>,
+    TError,
+    { id: number; data: BodyType<PatchAlertBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof patchAlert>>,
+  TError,
+  { id: number; data: BodyType<PatchAlertBody> },
+  TContext
+> => {
+  return useMutation(getPatchAlertMutationOptions(options));
 };
 
 /**
