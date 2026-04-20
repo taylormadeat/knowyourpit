@@ -45,8 +45,8 @@ export default function HomeScreen() {
 
   const quickActions = [
     { icon: "plus-circle", label: "Plan a Cook", route: "/(tabs)/plan" },
+    { icon: "edit-3", label: "Log a Cook", route: "/cooks/log" },
     { icon: "cpu", label: "AI Assistant", route: "/(tabs)/ai" },
-    { icon: "thermometer", label: "Temp Scan", route: "/temperature" },
     { icon: "book-open", label: "Recipes", route: "/recipes" },
   ];
 
