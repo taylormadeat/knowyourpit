@@ -181,6 +181,11 @@ export default function CookDetailScreen() {
   useEffect(() => {
     setLiveReadings([]);
     setNowMs(Date.now());
+    setResult(null);
+    setImages([]);
+    setCookNotes("");
+    setUserTempInput("");
+    setUserTempEdited(false);
   }, [id]);
 
   useEffect(() => {
@@ -357,7 +362,11 @@ export default function CookDetailScreen() {
   const analyze = async () => {
     const hasTemp = userTempInput.trim().length > 0 && !isNaN(parseFloat(userTempInput));
     if (images.length === 0 && !cookNotes.trim() && !hasTemp) {
-      Alert.alert("Add something", "Upload a thermometer image, enter your temperature reading, or add cook notes before analyzing.");
+      if (cookStatus === "active") {
+        Alert.alert("Nothing to check in with", "Enter your current probe temperature or add a note about what's happening on the cook.");
+      } else {
+        Alert.alert("Add something", "Upload a thermometer image, enter your temperature reading, or add cook notes before analyzing.");
+      }
       return;
     }
     setAnalyzing(true);
@@ -781,8 +790,140 @@ export default function CookDetailScreen() {
           </View>
         )}
 
-        {/* ── Log This Cook section ───────────────────────────── */}
-        <View
+        {/* ── Ask PitMaster (active cooks only) ───────────────── */}
+        {c.status === "active" && (
+          <View
+            style={[s.logSection, { backgroundColor: colors.card, borderColor: "#6C3BF540", borderRadius: colors.radius }]}
+            onLayout={onCardLayout}
+          >
+            <View style={s.logHeader}>
+              <LinearGradient colors={["#6C3BF5", "#A855F7"]} style={s.logIconWrap}>
+                <Feather name="zap" size={15} color="#fff" />
+              </LinearGradient>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.logTitle, { color: colors.foreground }]}>Ask PitMaster</Text>
+                <Text style={[s.logSub, { color: colors.mutedForeground }]}>
+                  {meaterLinked === true && meaterProbes.length > 0
+                    ? "Temperature auto-filled from your probe · add notes for context"
+                    : "Enter your current probe temperature for a mid-cook check-in"}
+                </Text>
+              </View>
+            </View>
+
+            {/* MEATER source indicator */}
+            {!userTempEdited && meaterProbes.length > 0 && meaterProbes[0].internalTempF != null && (
+              <View style={[s.meaterAutoFillBadge, { backgroundColor: "#FF6B2B15", marginBottom: 4 }]}>
+                <Feather name="radio" size={11} color="#FF6B2B" />
+                <Text style={[s.meaterAutoFillText, { color: "#FF6B2B" }]}>
+                  Live from {meaterProbes[0].deviceName} · {meaterProbes[0].internalTempF}°F internal
+                </Text>
+              </View>
+            )}
+
+            {/* Current temperature input */}
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
+                  Current temperature <Text style={{ fontWeight: "400" }}>(°F)</Text>
+                </Text>
+                <TextInput
+                  style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, height: 44, paddingTop: 0, paddingBottom: 0 }]}
+                  placeholder="e.g. 165"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={userTempInput}
+                  onChangeText={(v) => { setUserTempInput(v); setUserTempEdited(v.trim().length > 0); }}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+
+            {/* Notes */}
+            <View>
+              <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
+                What's happening? <Text style={{ fontWeight: "400" }}>(optional)</Text>
+              </Text>
+              <TextInput
+                style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                placeholder="e.g. Going into the stall around 160°F, just wrapped it in butcher paper..."
+                placeholderTextColor={colors.mutedForeground}
+                value={cookNotes}
+                onChangeText={setCookNotes}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            </View>
+
+            {/* Analyze button */}
+            <Pressable
+              style={({ pressed }) => [s.analyzeBtn, { borderRadius: colors.radius }, (analyzing || pressed) && { opacity: 0.75 }]}
+              onPress={analyze}
+              disabled={analyzing}
+            >
+              <LinearGradient colors={["#6C3BF5", "#A855F7"]} style={s.analyzeBtnGradient}>
+                {analyzing ? (
+                  <>
+                    <ActivityIndicator color="#fff" size="small" />
+                    <Text style={s.analyzeBtnText}>PitMaster is checking in…</Text>
+                  </>
+                ) : (
+                  <>
+                    <Feather name="zap" size={16} color="#fff" />
+                    <Text style={s.analyzeBtnText}>Ask PitMaster</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </Pressable>
+
+            {/* Results */}
+            {result && (
+              <View style={[s.results, { borderTopColor: colors.border }]}>
+                {verdictCfg && assessment && (
+                  <View style={[s.verdictBanner, { backgroundColor: verdictCfg.color + "18", borderColor: verdictCfg.color + "40", borderRadius: colors.radius }]}>
+                    <Feather name={verdictCfg.icon as any} size={20} color={verdictCfg.color} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[s.verdictLabel, { color: verdictCfg.color }]}>{verdictCfg.label}</Text>
+                      {assessment.summary ? <Text style={[s.verdictSummary, { color: colors.foreground }]}>{assessment.summary}</Text> : null}
+                    </View>
+                  </View>
+                )}
+                {assessment?.whatWentWell?.length > 0 && (
+                  <View style={[s.subSection, { borderColor: colors.border }]}>
+                    <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Looking Good</Text>
+                    {assessment.whatWentWell.map((item, i) => (
+                      <View key={i} style={s.bulletRow}>
+                        <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
+                        <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {assessment?.suggestions?.length > 0 && (
+                  <View style={[s.subSection, { borderColor: colors.border }]}>
+                    <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Watch Out For</Text>
+                    {assessment.suggestions.map((tip, i) => (
+                      <View key={i} style={s.bulletRow}>
+                        <Text style={[s.bulletNum, { color: "#A855F7" }]}>{i + 1}</Text>
+                        <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {result.noDataFound && result.probes.length === 0 && (
+                  <View style={s.noDataRow}>
+                    <Feather name="info" size={15} color={colors.mutedForeground} />
+                    <Text style={[s.noDataText, { color: colors.mutedForeground }]}>
+                      Enter a temperature reading or add cook notes for a better check-in.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── Log This Cook section (past/completed cooks only) ── */}
+        {c.status !== "active" && <View
           style={[s.logSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
           onLayout={onCardLayout}
         >
@@ -1064,7 +1205,7 @@ export default function CookDetailScreen() {
               )}
             </View>
           )}
-        </View>
+        </View>}
 
         {/* Status action button */}
         {nextStatus && (
