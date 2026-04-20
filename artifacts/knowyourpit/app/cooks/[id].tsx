@@ -195,15 +195,15 @@ export default function CookDetailScreen() {
     setUserTempEdited(false);
   }, [id]);
 
-  // Initialize ratings from saved cook data
+  // Initialize ratings from saved cook data; also re-syncs when server refetches after a save
+  const cookRatingT = (cook as any)?.ratingTenderness ?? 0;
+  const cookRatingF = (cook as any)?.ratingFlavor ?? 0;
+  const cookRatingB = (cook as any)?.ratingBark ?? 0;
   useEffect(() => {
-    if (cook) {
-      const c2 = cook as any;
-      setRateTenderness(c2.ratingTenderness ?? 0);
-      setRateFlavor(c2.ratingFlavor ?? 0);
-      setRateBark(c2.ratingBark ?? 0);
-    }
-  }, [(cook as any)?.id]);
+    setRateTenderness(cookRatingT);
+    setRateFlavor(cookRatingF);
+    setRateBark(cookRatingB);
+  }, [(cook as any)?.id, cookRatingT, cookRatingF, cookRatingB]);
 
   useEffect(() => {
     if (cookStatus !== "active") {
