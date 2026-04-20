@@ -37,6 +37,25 @@ import {
 
 const logoImg = require("@/assets/images/logo.png");
 
+function formatNow(): string {
+  const d = new Date();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  const h = d.getHours() % 12 || 12;
+  const min = String(d.getMinutes()).padStart(2, "0");
+  const ampm = d.getHours() < 12 ? "AM" : "PM";
+  return `${m}/${day}/${d.getFullYear()} ${h}:${min} ${ampm}`;
+}
+
+function parseDT(s: string): Date | null {
+  if (!s.trim()) return null;
+  let d = new Date(s.trim());
+  if (!isNaN(d.getTime())) return d;
+  d = new Date(`${s.trim()} ${new Date().getFullYear()}`);
+  if (!isNaN(d.getTime())) return d;
+  return null;
+}
+
 type PickedImage = { uri: string; base64: string; mimeType: string };
 
 type Assessment = {
@@ -126,6 +145,7 @@ export default function LogCookScreen() {
   const [weightLbs, setWeightLbs] = useState("");
   const [cookNotes, setCookNotes] = useState("");
   const [scanNotes, setScanNotes] = useState("");
+  const [actualStartInput, setActualStartInput] = useState("");
 
   const [saving, setSaving] = useState(false);
 
@@ -245,7 +265,11 @@ export default function LogCookScreen() {
       if (targetTempF.trim() && !isNaN(parseFloat(targetTempF))) payload.targetTempF = parseFloat(targetTempF);
       if (cookTempF.trim() && !isNaN(parseFloat(cookTempF))) payload.cookTempF = parseFloat(cookTempF);
       if (weightLbs.trim() && !isNaN(parseFloat(weightLbs))) payload.weightLbs = parseFloat(weightLbs);
-      if (result?.detectedCookDate) {
+      // Prefer user-entered start time; fall back to AI-detected date
+      const manualStart = parseDT(actualStartInput);
+      if (manualStart) {
+        payload.actualStartAt = manualStart;
+      } else if (result?.detectedCookDate) {
         const d = new Date(result.detectedCookDate);
         if (!isNaN(d.getTime())) payload.actualStartAt = d;
       }
@@ -631,6 +655,25 @@ export default function LogCookScreen() {
                 textAlignVertical="top"
               />
             </View>
+
+            <View style={s.fieldWrap}>
+              <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>When did this cook happen?</Text>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <TextInput
+                  style={[s.input, { flex: 1, backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                  placeholder="e.g. 1/15/2025 3:30 PM"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={actualStartInput}
+                  onChangeText={setActualStartInput}
+                />
+                <Pressable
+                  onPress={() => setActualStartInput(formatNow())}
+                  style={[s.nowBtn, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}
+                >
+                  <Text style={[s.nowBtnText, { color: colors.primary }]}>Today</Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -796,6 +839,8 @@ const s = StyleSheet.create({
   saveBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: "#fff" },
   cancelLink: { alignItems: "center", paddingVertical: 10 },
   cancelText: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  nowBtn: { borderWidth: 1, height: 44, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
+  nowBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
 });
 
 const gp = StyleSheet.create({

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,10 @@ import {
   Image,
   TextInput,
   LayoutChangeEvent,
+  Modal,
+  FlatList,
+  TouchableOpacity,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,10 +31,32 @@ import {
   useDeleteCook,
   useUpdateCook,
   useAnalyzeCook,
+  useListGrills,
   getListCooksQueryKey,
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
 } from "@workspace/api-client-react";
+
+function formatDT(d: Date | string | null | undefined): string {
+  if (!d) return "";
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return "";
+  const m = dt.getMonth() + 1;
+  const day = dt.getDate();
+  const h = dt.getHours() % 12 || 12;
+  const min = String(dt.getMinutes()).padStart(2, "0");
+  const ampm = dt.getHours() < 12 ? "AM" : "PM";
+  return `${m}/${day}/${dt.getFullYear()} ${h}:${min} ${ampm}`;
+}
+
+function parseDT(s: string): Date | null {
+  if (!s.trim()) return null;
+  let d = new Date(s.trim());
+  if (!isNaN(d.getTime())) return d;
+  d = new Date(`${s.trim()} ${new Date().getFullYear()}`);
+  if (!isNaN(d.getTime())) return d;
+  return null;
+}
 
 const logoImg = require("@/assets/images/logo.png");
 
@@ -94,6 +120,23 @@ export default function CookDetailScreen() {
   const [analyzing, setAnalyzing] = useState(false);
   const [cardWidth, setCardWidth] = useState(300);
 
+  // Edit modal state
+  const [editVisible, setEditVisible] = useState(false);
+  const [editGrillPickerVisible, setEditGrillPickerVisible] = useState(false);
+  const [editFoodType, setEditFoodType] = useState("");
+  const [editWeight, setEditWeight] = useState("");
+  const [editCookTemp, setEditCookTemp] = useState("");
+  const [editTargetTemp, setEditTargetTemp] = useState("");
+  const [editGrillId, setEditGrillId] = useState<number | null>(null);
+  const [editActualStart, setEditActualStart] = useState("");
+  const [editActualEnd, setEditActualEnd] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
+  const { data: grillsList } = useListGrills();
+  const grills: any[] = Array.isArray(grillsList) ? grillsList : [];
+  const editSelectedGrill = useMemo(() => grills.find((g: any) => g.id === editGrillId) ?? null, [grills, editGrillId]);
+
   const onCardLayout = (e: LayoutChangeEvent) => {
     const w = e.nativeEvent.layout.width - 32;
     if (w > 100) setCardWidth(w);
@@ -125,10 +168,63 @@ export default function CookDetailScreen() {
   };
 
   const handleStatusUpdate = async (status: string) => {
-    await updateCook.mutateAsync({ id: Number(id), data: { status } });
+    const updatePayload: any = { status };
+    if (status === "active" && !(cook as any)?.actualStartAt) {
+      updatePayload.actualStartAt = new Date();
+    }
+    if (status === "completed" && !(cook as any)?.actualEndAt) {
+      updatePayload.actualEndAt = new Date();
+    }
+    await updateCook.mutateAsync({ id: Number(id), data: updatePayload });
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
     qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+    qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+  };
+
+  const openEdit = () => {
+    const c = cook as any;
+    setEditFoodType(c?.foodType ?? "");
+    setEditWeight(c?.weightLbs != null ? String(c.weightLbs) : "");
+    setEditCookTemp(c?.cookTempF != null ? String(c.cookTempF) : "");
+    setEditTargetTemp(c?.targetTempF != null ? String(c.targetTempF) : "");
+    setEditGrillId(c?.grillId ?? null);
+    setEditActualStart(formatDT(c?.actualStartAt));
+    setEditActualEnd(formatDT(c?.actualEndAt));
+    setEditNotes(c?.notes ?? "");
+    setEditVisible(true);
+  };
+
+  const saveEdit = async () => {
+    if (!editFoodType.trim()) {
+      Alert.alert("Food type required", "Enter what you cooked.");
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const payload: any = { foodType: editFoodType.trim(), notes: editNotes.trim() || null };
+      payload.grillId = editGrillId ?? null;
+      if (editWeight.trim() && !isNaN(parseFloat(editWeight))) payload.weightLbs = parseFloat(editWeight);
+      else payload.weightLbs = null;
+      if (editCookTemp.trim() && !isNaN(parseFloat(editCookTemp))) payload.cookTempF = parseFloat(editCookTemp);
+      else payload.cookTempF = null;
+      if (editTargetTemp.trim() && !isNaN(parseFloat(editTargetTemp))) payload.targetTempF = parseFloat(editTargetTemp);
+      else payload.targetTempF = null;
+      const startDt = parseDT(editActualStart);
+      payload.actualStartAt = startDt ?? null;
+      const endDt = parseDT(editActualEnd);
+      payload.actualEndAt = endDt ?? null;
+      await updateCook.mutateAsync({ id: Number(id), data: payload });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      setEditVisible(false);
+    } catch {
+      Alert.alert("Save failed", "Could not save changes. Please try again.");
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   const pickImages = async () => {
@@ -182,6 +278,12 @@ export default function CookDetailScreen() {
             targetTempF: c?.targetTempF,
             cookTempF: c?.cookTempF,
             weightLbs: c?.weightLbs,
+            wrapMethod: c?.wrapMethod ?? null,
+            wrapAtMinutes: c?.wrapAtMinutes ?? null,
+            wrapTempF: c?.wrapTempF ?? null,
+            wrapReason: c?.wrapReason ?? null,
+            restMinutes: c?.restMinutes ?? null,
+            preheatMinutes: c?.preheatMinutes ?? null,
           },
         } as any,
       });
@@ -256,6 +358,9 @@ export default function CookDetailScreen() {
         </Pressable>
         <Text style={s.headerTitle} numberOfLines={1}>{c.foodType || "Cook"}</Text>
         <View style={s.headerRight}>
+          <Pressable onPress={openEdit} style={s.editBtn} hitSlop={8}>
+            <Feather name="edit-2" size={17} color="#F3EDE1" />
+          </Pressable>
           <Pressable onPress={handleDelete} style={s.delBtn}>
             <Feather name="trash-2" size={18} color="#ef4444" />
           </Pressable>
@@ -287,6 +392,8 @@ export default function CookDetailScreen() {
             { label: "Cook Temp", value: c.cookTempF ? `${c.cookTempF}°F` : null },
             { label: "Planned Start", value: c.plannedStartAt ? new Date(c.plannedStartAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null },
             { label: "Serve By", value: c.plannedEndAt ? new Date(c.plannedEndAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null },
+            { label: "Started", value: c.actualStartAt ? formatDT(c.actualStartAt) : null },
+            { label: "Finished", value: c.actualEndAt ? formatDT(c.actualEndAt) : null },
             { label: "Preheat", value: c.preheatMinutes ? `${c.preheatMinutes} min` : null },
             { label: "Wrap", value: (() => {
                 const parts: string[] = [];
@@ -664,11 +771,199 @@ export default function CookDetailScreen() {
           </Pressable>
         )}
 
+        {/* Grade prompt — completed cook with no stored analysis */}
+        {c.status === "completed" && !storedAnalysis && !result && (
+          <View style={[s.gradePrompt, { backgroundColor: "#E84820" + "12", borderColor: "#E84820" + "35", borderRadius: colors.radius }]}>
+            <Feather name="award" size={18} color="#E84820" />
+            <View style={{ flex: 1 }}>
+              <Text style={[s.gradePromptTitle, { color: colors.foreground }]}>Get your cook graded</Text>
+              <Text style={[s.gradePromptSub, { color: colors.mutedForeground }]}>
+                Upload thermometer photos or add notes below — AI will grade this cook{c.wrapMethod ? " against your original plan" : ""}.
+              </Text>
+            </View>
+          </View>
+        )}
+
         <Pressable onPress={goHome} style={s.homeLink}>
           <Feather name="home" size={14} color={colors.mutedForeground} />
           <Text style={[s.homeLinkText, { color: colors.mutedForeground }]}>Back to Home</Text>
         </Pressable>
       </ScrollView>
+
+      {/* ── Edit Cook Modal ──────────────────────────────────── */}
+      <Modal visible={editVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setEditVisible(false)}>
+        <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <LinearGradient colors={["#1C1C1F", "#2D1A0E"]} style={[s.editHeader, { paddingTop: insets.top + 16 }]}>
+            <Pressable onPress={() => setEditVisible(false)} style={s.editCancelBtn}>
+              <Text style={s.editCancelText}>Cancel</Text>
+            </Pressable>
+            <Text style={s.editHeaderTitle}>Edit Cook</Text>
+            <Pressable onPress={saveEdit} disabled={editSaving} style={s.editSaveBtn}>
+              {editSaving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.editSaveText}>Save</Text>}
+            </Pressable>
+          </LinearGradient>
+          <View style={[s.editFireBar, { backgroundColor: "#E84820" }]} />
+
+          <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 40, gap: 14 }} keyboardShouldPersistTaps="handled">
+
+            {/* Food type */}
+            <View style={s.editFieldWrap}>
+              <Text style={[s.editLabel, { color: colors.mutedForeground }]}>What did you cook?</Text>
+              <TextInput
+                style={[s.editInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                placeholder="e.g. Brisket, Pork Butt, Ribs"
+                placeholderTextColor={colors.mutedForeground}
+                value={editFoodType}
+                onChangeText={setEditFoodType}
+              />
+            </View>
+
+            {/* Grill picker */}
+            <View style={s.editFieldWrap}>
+              <Text style={[s.editLabel, { color: colors.mutedForeground }]}>Grill / Smoker</Text>
+              <Pressable
+                onPress={() => setEditGrillPickerVisible(true)}
+                style={[s.editInput, s.editPickerRow, { backgroundColor: colors.card, borderColor: editSelectedGrill ? "#6C3BF5" : colors.border, borderRadius: colors.radius }]}
+              >
+                {editSelectedGrill ? (
+                  <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Feather name="check-circle" size={13} color="#6C3BF5" />
+                    <Text style={{ color: colors.foreground, fontSize: 14, fontFamily: "Inter_500Medium", flex: 1 }} numberOfLines={1}>
+                      {editSelectedGrill.name ?? `${editSelectedGrill.brand} ${editSelectedGrill.model ?? ""}`.trim()}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
+                    {grills.length === 0 ? "No grills in inventory" : "Select your grill…"}
+                  </Text>
+                )}
+                <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+
+            {/* Weight / temps row */}
+            <View style={s.editRow2}>
+              <View style={[s.editFieldWrap, { flex: 1 }]}>
+                <Text style={[s.editLabel, { color: colors.mutedForeground }]}>Weight (lbs)</Text>
+                <TextInput
+                  style={[s.editInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                  placeholder="14" placeholderTextColor={colors.mutedForeground}
+                  value={editWeight} onChangeText={setEditWeight} keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={[s.editFieldWrap, { flex: 1 }]}>
+                <Text style={[s.editLabel, { color: colors.mutedForeground }]}>Cook Temp (°F)</Text>
+                <TextInput
+                  style={[s.editInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                  placeholder="225" placeholderTextColor={colors.mutedForeground}
+                  value={editCookTemp} onChangeText={setEditCookTemp} keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+
+            <View style={s.editRow2}>
+              <View style={[s.editFieldWrap, { flex: 1 }]}>
+                <Text style={[s.editLabel, { color: colors.mutedForeground }]}>Target Temp (°F)</Text>
+                <TextInput
+                  style={[s.editInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                  placeholder="203" placeholderTextColor={colors.mutedForeground}
+                  value={editTargetTemp} onChangeText={setEditTargetTemp} keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+
+            {/* Start time */}
+            <View style={s.editFieldWrap}>
+              <Text style={[s.editLabel, { color: colors.mutedForeground }]}>Start Time</Text>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <TextInput
+                  style={[s.editInput, { flex: 1, backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                  placeholder="1/15/2025 3:30 PM"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={editActualStart}
+                  onChangeText={setEditActualStart}
+                />
+                <Pressable
+                  onPress={() => setEditActualStart(formatDT(new Date()))}
+                  style={[s.nowBtn, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
+                >
+                  <Text style={[s.nowBtnText, { color: colors.primary }]}>Now</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* End time */}
+            <View style={s.editFieldWrap}>
+              <Text style={[s.editLabel, { color: colors.mutedForeground }]}>End Time</Text>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <TextInput
+                  style={[s.editInput, { flex: 1, backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                  placeholder="1/15/2025 5:30 PM"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={editActualEnd}
+                  onChangeText={setEditActualEnd}
+                />
+                <Pressable
+                  onPress={() => setEditActualEnd(formatDT(new Date()))}
+                  style={[s.nowBtn, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
+                >
+                  <Text style={[s.nowBtnText, { color: colors.primary }]}>Now</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Notes */}
+            <View style={s.editFieldWrap}>
+              <Text style={[s.editLabel, { color: colors.mutedForeground }]}>Cook Notes</Text>
+              <TextInput
+                style={[s.editTextArea, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                placeholder="Anything worth remembering — wood type, rubs, what you'd do differently…"
+                placeholderTextColor={colors.mutedForeground}
+                value={editNotes}
+                onChangeText={setEditNotes}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+            </View>
+
+          </ScrollView>
+        </KeyboardAvoidingView>
+
+        {/* Grill picker sub-modal */}
+        <Modal visible={editGrillPickerVisible} transparent animationType="slide" onRequestClose={() => setEditGrillPickerVisible(false)}>
+          <Pressable style={s.grillOverlay} onPress={() => setEditGrillPickerVisible(false)} />
+          <View style={[s.grillSheet, { backgroundColor: colors.card }]}>
+            <View style={[s.grillSheetHandle, { backgroundColor: colors.border }]} />
+            <Text style={[s.grillSheetTitle, { color: colors.foreground }]}>Select Grill</Text>
+            {editGrillId != null && (
+              <TouchableOpacity onPress={() => { setEditGrillId(null); setEditGrillPickerVisible(false); }} style={[s.grillItem, { borderBottomColor: colors.border }]}>
+                <Text style={[s.grillItemText, { color: colors.destructive }]}>Clear selection</Text>
+              </TouchableOpacity>
+            )}
+            {grills.length === 0 ? (
+              <Text style={[s.grillEmpty, { color: colors.mutedForeground }]}>No grills in your inventory yet.</Text>
+            ) : (
+              <FlatList
+                data={grills}
+                keyExtractor={(g: any) => String(g.id)}
+                renderItem={({ item: g }: { item: any }) => (
+                  <TouchableOpacity
+                    onPress={() => { setEditGrillId(g.id); setEditGrillPickerVisible(false); }}
+                    style={[s.grillItem, { borderBottomColor: colors.border }, editGrillId === g.id && { backgroundColor: "#6C3BF5" + "12" }]}
+                  >
+                    <Text style={[s.grillItemText, { color: colors.foreground }]}>
+                      {g.name ?? `${g.brand ?? ""} ${g.model ?? ""}`.trim()}
+                    </Text>
+                    {g.brand && <Text style={[s.grillItemSub, { color: colors.mutedForeground }]}>{g.brand}</Text>}
+                    {editGrillId === g.id && <Feather name="check" size={16} color="#6C3BF5" style={{ marginLeft: "auto" }} />}
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </Modal>
+      </Modal>
     </View>
   );
 }
@@ -758,4 +1053,34 @@ const s = StyleSheet.create({
   actionText: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: "#fff" },
   homeLink: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8 },
   homeLinkText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+
+  editBtn: { padding: 4 },
+  gradePrompt: { flexDirection: "row", alignItems: "flex-start", gap: 12, borderWidth: 1, padding: 14 },
+  gradePromptTitle: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: 3 },
+  gradePromptSub: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
+
+  editHeader: { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingBottom: 16, gap: 10 },
+  editFireBar: { height: 2 },
+  editCancelBtn: { minWidth: 60 },
+  editCancelText: { fontSize: 15, fontFamily: "Inter_400Regular", color: "#F3EDE1", opacity: 0.8 },
+  editHeaderTitle: { flex: 1, textAlign: "center", fontSize: 17, fontFamily: "Inter_700Bold", color: "#F3EDE1" },
+  editSaveBtn: { minWidth: 60, alignItems: "flex-end" },
+  editSaveText: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#FF6B2B" },
+  editFieldWrap: { gap: 6 },
+  editLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.3 },
+  editInput: { borderWidth: 1, height: 44, paddingHorizontal: 12, fontSize: 14, fontFamily: "Inter_400Regular" },
+  editPickerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  editRow2: { flexDirection: "row", gap: 12 },
+  editTextArea: { borderWidth: 1, padding: 12, fontSize: 14, fontFamily: "Inter_400Regular", minHeight: 100, lineHeight: 20 },
+  nowBtn: { borderWidth: 1, height: 44, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
+  nowBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+
+  grillOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)" },
+  grillSheet: { maxHeight: "65%", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
+  grillSheetHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 16 },
+  grillSheetTitle: { fontSize: 17, fontFamily: "Inter_700Bold", marginBottom: 12 },
+  grillItem: { flexDirection: "row", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1 },
+  grillItemText: { fontSize: 15, fontFamily: "Inter_500Medium", flex: 1 },
+  grillItemSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginRight: 8 },
+  grillEmpty: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
 });

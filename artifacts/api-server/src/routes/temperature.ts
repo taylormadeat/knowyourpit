@@ -177,6 +177,12 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, r
       targetTempF?: number;
       cookTempF?: number;
       weightLbs?: number;
+      wrapMethod?: string | null;
+      wrapAtMinutes?: number | null;
+      wrapTempF?: number | null;
+      wrapReason?: string | null;
+      restMinutes?: number | null;
+      preheatMinutes?: number | null;
     } | null;
   };
 
@@ -215,8 +221,21 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, r
   if (cookContext?.weightLbs) contextLines.push(`Weight: ${cookContext.weightLbs} lbs`);
   if (cookContext?.cookTempF) contextLines.push(`Pit/cook temperature: ${cookContext.cookTempF}°F`);
   if (cookContext?.targetTempF) contextLines.push(`Target internal temp: ${cookContext.targetTempF}°F`);
+  if (cookContext?.preheatMinutes) contextLines.push(`Preheat time: ${cookContext.preheatMinutes} min`);
+  // AI plan data — enables plan-vs-actual grading
+  if (cookContext?.wrapMethod && cookContext.wrapMethod !== "none") {
+    const wrapLabel = cookContext.wrapMethod === "foil" ? "Foil (Texas Crutch)" : "Butcher Paper";
+    const wrapParts = [`Planned wrap method: ${wrapLabel}`];
+    if (cookContext.wrapAtMinutes) wrapParts.push(`at ${Math.floor(cookContext.wrapAtMinutes / 60)}h${cookContext.wrapAtMinutes % 60}m into cook`);
+    if (cookContext.wrapTempF) wrapParts.push(`or when internal temp hits ${cookContext.wrapTempF}°F`);
+    contextLines.push(wrapParts.join(" "));
+    if (cookContext.wrapReason) contextLines.push(`Wrap rationale: ${cookContext.wrapReason}`);
+  } else if (cookContext?.wrapMethod === "none") {
+    contextLines.push("Planned wrap method: No wrap (naked cook)");
+  }
+  if (cookContext?.restMinutes) contextLines.push(`Planned rest time: ${cookContext.restMinutes} min`);
   const contextBlock = contextLines.length > 0
-    ? `\n\nCook context provided by user:\n${contextLines.join("\n")}`
+    ? `\n\nCook plan & context provided by pitmaster:\n${contextLines.join("\n")}\n\nWhen the pitmaster followed an AI plan, compare what actually happened to the plan in your assessment — did they follow the wrap timing? Did the meat hit the planned target? Mention any deviations in your suggestions.`
     : "";
 
   const systemPrompt = `You are an expert BBQ pit master and cook analyst. You receive one or more photos from a cook (thermometer displays, grill screens, temperature app screenshots) plus optional notes from the pitmaster and optional cook parameters.
