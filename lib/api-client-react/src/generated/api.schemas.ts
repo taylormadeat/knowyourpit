@@ -876,6 +876,54 @@ export interface DashboardSummary {
   activeAlerts: number;
 }
 
+export interface MeaterLinkBody {
+  email: string;
+  password: string;
+}
+
+export interface MeaterLinkedResponse {
+  linked: boolean;
+}
+
+export interface MeaterDevice {
+  id: string;
+  name: string;
+  hasCook: boolean;
+  /** @nullable */
+  cookName: string | null;
+  /** @nullable */
+  cookState: string | null;
+}
+
+export interface MeaterStatusResponse {
+  linked: boolean;
+  devices: MeaterDevice[];
+  tokenExpired?: boolean;
+}
+
+export interface MeaterProbeReading {
+  deviceId: string;
+  deviceName: string;
+  /** @nullable */
+  internalTempF: number | null;
+  /** @nullable */
+  ambientTempF: number | null;
+  /** @nullable */
+  targetMinTempF: number | null;
+  /** @nullable */
+  targetMaxTempF: number | null;
+  /** @nullable */
+  cookName: string | null;
+  /** @nullable */
+  cookState: string | null;
+}
+
+export interface MeaterReadingsResponse {
+  linked: boolean;
+  probes: MeaterProbeReading[];
+  tokenExpired?: boolean;
+}
+
 export type ListCooksParams = {
   /**
    * @nullable

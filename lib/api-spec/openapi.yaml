@@ -27,6 +27,8 @@ tags:
     description: Temperature alerts
   - name: dashboard
     description: Dashboard summary data
+  - name: meater
+    description: MEATER thermometer integration
 
 paths:
   /healthz:
@@ -716,6 +718,74 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/TemperatureHistorySummary"
+
+  /meater/link:
+    post:
+      operationId: linkMeater
+      tags: [meater]
+      summary: Link MEATER Cloud account
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeaterLinkBody"
+      responses:
+        "200":
+          description: Account linked successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeaterLinkedResponse"
+        "401":
+          description: Invalid MEATER credentials
+
+  /meater/unlink:
+    delete:
+      operationId: unlinkMeater
+      tags: [meater]
+      summary: Unlink MEATER Cloud account
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Account unlinked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeaterLinkedResponse"
+
+  /meater/status:
+    get:
+      operationId: getMeaterStatus
+      tags: [meater]
+      summary: Get MEATER link status and device list
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current MEATER status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeaterStatusResponse"
+
+  /meater/readings:
+    get:
+      operationId: getMeaterReadings
+      tags: [meater]
+      summary: Get live readings from first active MEATER probe
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Live probe readings (first active device only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeaterReadingsResponse"
 
 components:
   schemas:
@@ -1890,3 +1960,102 @@ components:
         - favoriteFood
         - totalHoursCooking
         - activeAlerts
+
+    MeaterLinkBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    MeaterLinkedResponse:
+      type: object
+      properties:
+        linked:
+          type: boolean
+      required:
+        - linked
+
+    MeaterDevice:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        hasCook:
+          type: boolean
+        cookName:
+          type: ["string", "null"]
+        cookState:
+          type: ["string", "null"]
+      required:
+        - id
+        - name
+        - hasCook
+        - cookName
+        - cookState
+
+    MeaterStatusResponse:
+      type: object
+      properties:
+        linked:
+          type: boolean
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeaterDevice"
+        tokenExpired:
+          type: boolean
+      required:
+        - linked
+        - devices
+
+    MeaterProbeReading:
+      type: object
+      properties:
+        deviceId:
+          type: string
+        deviceName:
+          type: string
+        internalTempF:
+          type: ["number", "null"]
+        ambientTempF:
+          type: ["number", "null"]
+        targetMinTempF:
+          type: ["number", "null"]
+        targetMaxTempF:
+          type: ["number", "null"]
+        cookName:
+          type: ["string", "null"]
+        cookState:
+          type: ["string", "null"]
+      required:
+        - deviceId
+        - deviceName
+        - internalTempF
+        - ambientTempF
+        - targetMinTempF
+        - targetMaxTempF
+        - cookName
+        - cookState
+
+    MeaterReadingsResponse:
+      type: object
+      properties:
+        linked:
+          type: boolean
+        probes:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeaterProbeReading"
+        tokenExpired:
+          type: boolean
+      required:
+        - linked
+        - probes

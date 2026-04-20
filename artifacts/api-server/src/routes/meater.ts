@@ -7,15 +7,34 @@ const MEATER_API = "https://public-api.cloud.meater.com/v1";
 
 const router: IRouter = Router();
 
+function decodeJwtExp(token: string): Date {
+  try {
+    const parts = token.split(".");
+    if (parts.length === 3) {
+      const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+      if (typeof payload.exp === "number") {
+        return new Date(payload.exp * 1000);
+      }
+    }
+  } catch {
+    // fall through to default
+  }
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  return d;
+}
+
 async function getMeaterToken(userId: string): Promise<string | null> {
   const [row] = await db
     .select()
     .from(meaterCredentialsTable)
     .where(eq(meaterCredentialsTable.userId, userId));
-  return row?.accessToken ?? null;
+  if (!row) return null;
+  if (row.tokenExpiresAt < new Date()) return null;
+  return row.accessToken;
 }
 
-async function fetchMeaterDevices(token: string) {
+async function fetchMeaterDevices(token: string): Promise<any[] | null> {
   const res = await fetch(`${MEATER_API}/devices`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -54,12 +73,14 @@ router.post("/meater/link", requireAuth, async (req: any, res): Promise<void> =>
     return;
   }
 
+  const tokenExpiresAt = decodeJwtExp(token);
+
   await db
     .insert(meaterCredentialsTable)
-    .values({ userId: req.userId, accessToken: token, tokenStoredAt: new Date() })
+    .values({ userId: req.userId, accessToken: token, tokenExpiresAt })
     .onConflictDoUpdate({
       target: meaterCredentialsTable.userId,
-      set: { accessToken: token, tokenStoredAt: new Date() },
+      set: { accessToken: token, tokenExpiresAt },
     });
 
   res.json({ linked: true });
@@ -85,7 +106,7 @@ router.get("/meater/status", requireAuth, async (req: any, res): Promise<void> =
       res.json({ linked: true, devices: [], tokenExpired: true });
       return;
     }
-    const mapped = (devices as any[]).map((d: any) => ({
+    const mapped = devices.map((d: any) => ({
       id: d.id,
       name: d.name ?? "MEATER Probe",
       hasCook: !!d.cook,
@@ -112,33 +133,27 @@ router.get("/meater/readings", requireAuth, async (req: any, res): Promise<void>
       return;
     }
 
-    const probes: Array<{
-      deviceId: string;
-      deviceName: string;
-      internalTempF: number | null;
-      ambientTempF: number | null;
-      targetMinTempF: number | null;
-      targetMaxTempF: number | null;
-      cookName: string | null;
-      cookState: string | null;
-    }> = [];
+    const toF = (c: number) => Math.round(((c / 1000) * 9) / 5 + 32);
 
-    for (const d of devices as any[]) {
-      if (!d.cook) continue;
-      const toF = (c: number) => Math.round(((c / 1000) * 9) / 5 + 32);
-      probes.push({
-        deviceId: d.id,
-        deviceName: d.name ?? "MEATER Probe",
-        internalTempF: d.cook.temperature?.internal != null ? toF(d.cook.temperature.internal) : null,
-        ambientTempF: d.cook.temperature?.ambient != null ? toF(d.cook.temperature.ambient) : null,
-        targetMinTempF: d.cook.temperature?.target?.min != null ? toF(d.cook.temperature.target.min) : null,
-        targetMaxTempF: d.cook.temperature?.target?.max != null ? toF(d.cook.temperature.target.max) : null,
-        cookName: d.cook.name ?? null,
-        cookState: d.cook.state ?? null,
-      });
+    const firstActive = devices.find((d: any) => !!d.cook) ?? null;
+    if (!firstActive) {
+      res.json({ linked: true, probes: [] });
+      return;
     }
 
-    res.json({ linked: true, probes });
+    const d = firstActive;
+    const probe = {
+      deviceId: d.id,
+      deviceName: d.name ?? "MEATER Probe",
+      internalTempF: d.cook.temperature?.internal != null ? toF(d.cook.temperature.internal) : null,
+      ambientTempF: d.cook.temperature?.ambient != null ? toF(d.cook.temperature.ambient) : null,
+      targetMinTempF: d.cook.temperature?.target?.min != null ? toF(d.cook.temperature.target.min) : null,
+      targetMaxTempF: d.cook.temperature?.target?.max != null ? toF(d.cook.temperature.target.max) : null,
+      cookName: d.cook.name ?? null,
+      cookState: d.cook.state ?? null,
+    };
+
+    res.json({ linked: true, probes: [probe] });
   } catch {
     res.json({ linked: true, probes: [], error: "Could not fetch readings" });
   }

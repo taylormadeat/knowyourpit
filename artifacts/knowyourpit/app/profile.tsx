@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -10,37 +10,27 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { useRouter } from "expo-router";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { useUser, useClerk } from "@clerk/expo";
+import { useUser } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
-import { useAuthFetch } from "@/hooks/useAuthFetch";
-import { useListGrills } from "@workspace/api-client-react";
-
-type MeaterDevice = {
-  id: string;
-  name: string;
-  hasCook: boolean;
-  cookName: string | null;
-  cookState: string | null;
-};
-
-type MeaterStatus = {
-  linked: boolean;
-  devices: MeaterDevice[];
-  tokenExpired?: boolean;
-  error?: string;
-};
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useListGrills,
+  useGetMeaterStatus,
+  getGetMeaterStatusQueryKey,
+  useLinkMeater,
+  useUnlinkMeater,
+} from "@workspace/api-client-react";
 
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useUser();
+  const qc = useQueryClient();
   const { data: grills } = useListGrills();
-  const authFetch = useAuthFetch();
 
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
@@ -50,52 +40,35 @@ export default function ProfileScreen() {
     "P"
   ).toUpperCase();
 
-  const [meaterStatus, setMeaterStatus] = useState<MeaterStatus | null>(null);
-  const [meaterLoading, setMeaterLoading] = useState(true);
+  const { data: meaterStatus, isLoading: meaterLoading } = useGetMeaterStatus();
+  const linkMeater = useLinkMeater();
+  const unlinkMeater = useUnlinkMeater();
+
   const [meaterEmail, setMeaterEmail] = useState("");
   const [meaterPassword, setMeaterPassword] = useState("");
-  const [linkingMeater, setLinkingMeater] = useState(false);
-  const [unlinkingMeater, setUnlinkingMeater] = useState(false);
   const [showLinkForm, setShowLinkForm] = useState(false);
 
-  const loadMeaterStatus = useCallback(async () => {
-    setMeaterLoading(true);
-    try {
-      const status = await authFetch("/api/meater/status");
-      setMeaterStatus(status);
-    } catch {
-      setMeaterStatus({ linked: false, devices: [] });
-    } finally {
-      setMeaterLoading(false);
-    }
-  }, [authFetch]);
-
-  useEffect(() => {
-    loadMeaterStatus();
-  }, [loadMeaterStatus]);
+  const invalidateMeaterStatus = () =>
+    qc.invalidateQueries({ queryKey: getGetMeaterStatusQueryKey() });
 
   const handleLinkMeater = async () => {
     if (!meaterEmail.trim() || !meaterPassword.trim()) {
       Alert.alert("Required", "Enter your MEATER email and password.");
       return;
     }
-    setLinkingMeater(true);
     try {
-      await authFetch("/api/meater/link", {
-        method: "POST",
-        body: JSON.stringify({ email: meaterEmail.trim(), password: meaterPassword }),
+      await linkMeater.mutateAsync({
+        data: { email: meaterEmail.trim(), password: meaterPassword },
       });
       setMeaterEmail("");
       setMeaterPassword("");
       setShowLinkForm(false);
-      await loadMeaterStatus();
+      invalidateMeaterStatus();
     } catch (e: any) {
       Alert.alert(
         "Link failed",
-        e.message ?? "Could not link MEATER account. Check your credentials.",
+        e?.data?.error ?? e?.message ?? "Could not link MEATER account. Check your credentials.",
       );
-    } finally {
-      setLinkingMeater(false);
     }
   };
 
@@ -106,15 +79,12 @@ export default function ProfileScreen() {
         text: "Unlink",
         style: "destructive",
         onPress: async () => {
-          setUnlinkingMeater(true);
           try {
-            await authFetch("/api/meater/unlink", { method: "DELETE" });
-            setMeaterStatus({ linked: false, devices: [] });
+            await unlinkMeater.mutateAsync();
             setShowLinkForm(false);
+            invalidateMeaterStatus();
           } catch {
             Alert.alert("Error", "Could not unlink. Please try again.");
-          } finally {
-            setUnlinkingMeater(false);
           }
         },
       },
@@ -266,9 +236,9 @@ export default function ProfileScreen() {
           {/* Device list when linked */}
           {!meaterLoading &&
             meaterStatus?.linked &&
-            meaterStatus.devices.length > 0 && (
+            (meaterStatus?.devices?.length ?? 0) > 0 && (
               <View style={[s.deviceList, { borderTopColor: colors.border }]}>
-                {meaterStatus.devices.map((d) => (
+                {meaterStatus!.devices.map((d) => (
                   <View key={d.id} style={s.probeRow}>
                     <Feather name="wifi" size={13} color={colors.mutedForeground} />
                     <Text style={[s.probeName, { color: colors.foreground }]}>
@@ -287,7 +257,7 @@ export default function ProfileScreen() {
           {/* No devices message when linked but empty */}
           {!meaterLoading &&
             meaterStatus?.linked &&
-            meaterStatus.devices.length === 0 && (
+            (meaterStatus?.devices?.length ?? 0) === 0 && (
               <View style={[s.deviceList, { borderTopColor: colors.border }]}>
                 <Text style={[s.deviceSub, { color: colors.mutedForeground }]}>
                   No active probes detected. Make sure your MEATER is on and
@@ -301,10 +271,10 @@ export default function ProfileScreen() {
             <View style={[s.deviceActions, { borderTopColor: colors.border }]}>
               <Pressable
                 onPress={handleUnlinkMeater}
-                disabled={unlinkingMeater}
+                disabled={unlinkMeater.isPending}
                 style={[s.unlinkBtn, { borderColor: colors.border }]}
               >
-                {unlinkingMeater ? (
+                {unlinkMeater.isPending ? (
                   <ActivityIndicator size="small" color="#ef4444" />
                 ) : (
                   <Text style={s.unlinkText}>Unlink Account</Text>
@@ -382,10 +352,10 @@ export default function ProfileScreen() {
                 </Pressable>
                 <Pressable
                   onPress={handleLinkMeater}
-                  disabled={linkingMeater}
+                  disabled={linkMeater.isPending}
                   style={[s.confirmLinkBtn, { backgroundColor: "#FF6B2B" }]}
                 >
-                  {linkingMeater ? (
+                  {linkMeater.isPending ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
                     <Text style={s.linkBtnText}>Connect</Text>

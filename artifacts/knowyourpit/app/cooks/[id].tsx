@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -24,7 +24,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
-import { useAuthFetch } from "@/hooks/useAuthFetch";
 import { LogoBackground } from "@/components/LogoBackground";
 import { TempGraph } from "@/components/TempGraph";
 import {
@@ -33,6 +32,7 @@ import {
   useUpdateCook,
   useAnalyzeCook,
   useListGrills,
+  useGetMeaterReadings,
   getListCooksQueryKey,
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
@@ -144,8 +144,6 @@ export default function CookDetailScreen() {
   const updateCook = useUpdateCook();
   const analyzeMutation = useAnalyzeCook();
 
-  const authFetch = useAuthFetch();
-
   const [images, setImages] = useState<PickedImage[]>([]);
   const [cookNotes, setCookNotes] = useState("");
   const [userTempInput, setUserTempInput] = useState("");
@@ -154,18 +152,15 @@ export default function CookDetailScreen() {
   const [analyzing, setAnalyzing] = useState(false);
   const [cardWidth, setCardWidth] = useState(300);
 
-  const [meaterLinked, setMeaterLinked] = useState<boolean | null>(null);
-  const [meaterProbes, setMeaterProbes] = useState<Array<{
-    deviceId: string;
-    deviceName: string;
-    internalTempF: number | null;
-    ambientTempF: number | null;
-    targetMinTempF: number | null;
-    targetMaxTempF: number | null;
-    cookName: string | null;
-    cookState: string | null;
-  }>>([]);
-  const meaterIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cookStatus = (cook as any)?.status;
+  const { data: meaterData } = useGetMeaterReadings({
+    query: {
+      enabled: cookStatus === "active",
+      refetchInterval: cookStatus === "active" ? 15000 : false,
+    },
+  });
+  const meaterLinked = meaterData?.linked ?? null;
+  const meaterProbes = meaterData?.probes ?? [];
 
   // Edit modal state
   const [editVisible, setEditVisible] = useState(false);
@@ -195,31 +190,11 @@ export default function CookDetailScreen() {
     if (w > 100) setCardWidth(w);
   };
 
-  const fetchMeaterReadings = useCallback(async () => {
-    try {
-      const data = await authFetch("/api/meater/readings");
-      setMeaterLinked(data.linked ?? false);
-      const probes = data.probes ?? [];
-      setMeaterProbes(probes);
-      if (!userTempEdited && probes.length > 0 && probes[0].internalTempF != null) {
-        setUserTempInput(String(probes[0].internalTempF));
-      }
-    } catch {
-      // silently ignore polling errors
-    }
-  }, [authFetch, userTempEdited]);
-
   useEffect(() => {
-    const cookStatus = (cook as any)?.status;
-    if (cookStatus !== "active") return;
-    fetchMeaterReadings();
-    const interval = setInterval(fetchMeaterReadings, 15000);
-    meaterIntervalRef.current = interval;
-    return () => {
-      clearInterval(interval);
-      meaterIntervalRef.current = null;
-    };
-  }, [(cook as any)?.status, fetchMeaterReadings]);
+    if (!userTempEdited && meaterProbes.length > 0 && meaterProbes[0].internalTempF != null) {
+      setUserTempInput(String(meaterProbes[0].internalTempF));
+    }
+  }, [meaterProbes, userTempEdited]);
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);

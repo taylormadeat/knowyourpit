@@ -45,6 +45,10 @@ import type {
   ListRecipesParams,
   ListTemperatureReadingsParams,
   ListTipsParams,
+  MeaterLinkBody,
+  MeaterLinkedResponse,
+  MeaterReadingsResponse,
+  MeaterStatusResponse,
   Recipe,
   TemperatureHistorySummary,
   TemperatureReading,
@@ -3212,6 +3216,323 @@ export function useGetTemperatureHistory<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetTemperatureHistoryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Link MEATER Cloud account
+ */
+export const getLinkMeaterUrl = () => {
+  return `/api/meater/link`;
+};
+
+export const linkMeater = async (
+  meaterLinkBody: MeaterLinkBody,
+  options?: RequestInit,
+): Promise<MeaterLinkedResponse> => {
+  return customFetch<MeaterLinkedResponse>(getLinkMeaterUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(meaterLinkBody),
+  });
+};
+
+export const getLinkMeaterMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof linkMeater>>,
+    TError,
+    { data: BodyType<MeaterLinkBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof linkMeater>>,
+  TError,
+  { data: BodyType<MeaterLinkBody> },
+  TContext
+> => {
+  const mutationKey = ["linkMeater"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof linkMeater>>,
+    { data: BodyType<MeaterLinkBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return linkMeater(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LinkMeaterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof linkMeater>>
+>;
+export type LinkMeaterMutationBody = BodyType<MeaterLinkBody>;
+export type LinkMeaterMutationError = ErrorType<void>;
+
+/**
+ * @summary Link MEATER Cloud account
+ */
+export const useLinkMeater = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof linkMeater>>,
+    TError,
+    { data: BodyType<MeaterLinkBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof linkMeater>>,
+  TError,
+  { data: BodyType<MeaterLinkBody> },
+  TContext
+> => {
+  return useMutation(getLinkMeaterMutationOptions(options));
+};
+
+/**
+ * @summary Unlink MEATER Cloud account
+ */
+export const getUnlinkMeaterUrl = () => {
+  return `/api/meater/unlink`;
+};
+
+export const unlinkMeater = async (
+  options?: RequestInit,
+): Promise<MeaterLinkedResponse> => {
+  return customFetch<MeaterLinkedResponse>(getUnlinkMeaterUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getUnlinkMeaterMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unlinkMeater>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unlinkMeater>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["unlinkMeater"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unlinkMeater>>,
+    void
+  > = () => {
+    return unlinkMeater(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnlinkMeaterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unlinkMeater>>
+>;
+
+export type UnlinkMeaterMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Unlink MEATER Cloud account
+ */
+export const useUnlinkMeater = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unlinkMeater>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unlinkMeater>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getUnlinkMeaterMutationOptions(options));
+};
+
+/**
+ * @summary Get MEATER link status and device list
+ */
+export const getGetMeaterStatusUrl = () => {
+  return `/api/meater/status`;
+};
+
+export const getMeaterStatus = async (
+  options?: RequestInit,
+): Promise<MeaterStatusResponse> => {
+  return customFetch<MeaterStatusResponse>(getGetMeaterStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMeaterStatusQueryKey = () => {
+  return [`/api/meater/status`] as const;
+};
+
+export const getGetMeaterStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMeaterStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMeaterStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMeaterStatusQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMeaterStatus>>> = ({
+    signal,
+  }) => getMeaterStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMeaterStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMeaterStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMeaterStatus>>
+>;
+export type GetMeaterStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get MEATER link status and device list
+ */
+
+export function useGetMeaterStatus<
+  TData = Awaited<ReturnType<typeof getMeaterStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMeaterStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMeaterStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get live readings from first active MEATER probe
+ */
+export const getGetMeaterReadingsUrl = () => {
+  return `/api/meater/readings`;
+};
+
+export const getMeaterReadings = async (
+  options?: RequestInit,
+): Promise<MeaterReadingsResponse> => {
+  return customFetch<MeaterReadingsResponse>(getGetMeaterReadingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMeaterReadingsQueryKey = () => {
+  return [`/api/meater/readings`] as const;
+};
+
+export const getGetMeaterReadingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMeaterReadings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMeaterReadings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMeaterReadingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMeaterReadings>>
+  > = ({ signal }) => getMeaterReadings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMeaterReadings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMeaterReadingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMeaterReadings>>
+>;
+export type GetMeaterReadingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get live readings from first active MEATER probe
+ */
+
+export function useGetMeaterReadings<
+  TData = Awaited<ReturnType<typeof getMeaterReadings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMeaterReadings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMeaterReadingsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -1211,3 +1211,59 @@ export const GetTemperatureHistoryResponseItem = zod.object({
 export const GetTemperatureHistoryResponse = zod.array(
   GetTemperatureHistoryResponseItem,
 );
+
+/**
+ * @summary Link MEATER Cloud account
+ */
+export const LinkMeaterBody = zod.object({
+  email: zod.string().email(),
+  password: zod.string(),
+});
+
+export const LinkMeaterResponse = zod.object({
+  linked: zod.boolean(),
+});
+
+/**
+ * @summary Unlink MEATER Cloud account
+ */
+export const UnlinkMeaterResponse = zod.object({
+  linked: zod.boolean(),
+});
+
+/**
+ * @summary Get MEATER link status and device list
+ */
+export const GetMeaterStatusResponse = zod.object({
+  linked: zod.boolean(),
+  devices: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      hasCook: zod.boolean(),
+      cookName: zod.string().nullable(),
+      cookState: zod.string().nullable(),
+    }),
+  ),
+  tokenExpired: zod.boolean().optional(),
+});
+
+/**
+ * @summary Get live readings from first active MEATER probe
+ */
+export const GetMeaterReadingsResponse = zod.object({
+  linked: zod.boolean(),
+  probes: zod.array(
+    zod.object({
+      deviceId: zod.string(),
+      deviceName: zod.string(),
+      internalTempF: zod.number().nullable(),
+      ambientTempF: zod.number().nullable(),
+      targetMinTempF: zod.number().nullable(),
+      targetMaxTempF: zod.number().nullable(),
+      cookName: zod.string().nullable(),
+      cookState: zod.string().nullable(),
+    }),
+  ),
+  tokenExpired: zod.boolean().optional(),
+});
