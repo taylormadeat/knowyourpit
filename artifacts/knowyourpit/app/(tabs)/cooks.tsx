@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Platform,
   ActivityIndicator,
   RefreshControl,
+  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,11 +26,30 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "#ef4444",
 };
 
+type SortKey = "date-desc" | "date-asc" | "rating-desc" | "rating-asc";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "date-desc", label: "Newest" },
+  { key: "date-asc", label: "Oldest" },
+  { key: "rating-desc", label: "Rating ↓" },
+  { key: "rating-asc", label: "Rating ↑" },
+];
+
+function avgRating(item: any): number {
+  const vals = [item.ratingTenderness, item.ratingFlavor, item.ratingBark].filter(
+    (v) => typeof v === "number" && v > 0
+  );
+  if (vals.length === 0) return 0;
+  return vals.reduce((a: number, b: number) => a + b, 0) / vals.length;
+}
+
 export default function CooksScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("date-desc");
+  const [ratedOnly, setRatedOnly] = useState(false);
   const { data: cooks, isLoading, refetch } = useListCooks();
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
@@ -40,6 +60,29 @@ export default function CooksScreen() {
     await refetch();
     setRefreshing(false);
   };
+
+  const processedCooks = useMemo(() => {
+    let list: any[] = (cooks as any[]) || [];
+    if (ratedOnly) {
+      list = list.filter((item) => avgRating(item) > 0);
+    }
+    list = [...list].sort((a, b) => {
+      if (sortKey === "date-desc") {
+        return new Date(b.plannedStartAt || 0).getTime() - new Date(a.plannedStartAt || 0).getTime();
+      }
+      if (sortKey === "date-asc") {
+        return new Date(a.plannedStartAt || 0).getTime() - new Date(b.plannedStartAt || 0).getTime();
+      }
+      if (sortKey === "rating-desc") {
+        return avgRating(b) - avgRating(a);
+      }
+      if (sortKey === "rating-asc") {
+        return avgRating(a) - avgRating(b);
+      }
+      return 0;
+    });
+    return list;
+  }, [cooks, sortKey, ratedOnly]);
 
   const renderItem = ({ item }: { item: any }) => (
     <Pressable
@@ -123,13 +166,60 @@ export default function CooksScreen() {
       <LogoBackground opacity={0.04} />
       <AppHeader title="Cook Log" right={addBtn} dark />
 
+      <View style={[s.controls, { borderBottomColor: colors.border }]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.pillRow}
+        >
+          {SORT_OPTIONS.map((opt) => {
+            const active = sortKey === opt.key;
+            return (
+              <Pressable
+                key={opt.key}
+                onPress={() => setSortKey(opt.key)}
+                style={[
+                  s.pill,
+                  active
+                    ? { backgroundColor: colors.primary }
+                    : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
+                ]}
+              >
+                <Text
+                  style={[
+                    s.pillText,
+                    { color: active ? "#fff" : colors.mutedForeground },
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+
+          <Pressable
+            onPress={() => setRatedOnly((v) => !v)}
+            style={[
+              s.pill,
+              ratedOnly
+                ? { backgroundColor: "#eab308" }
+                : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
+            ]}
+          >
+            <Text style={[s.pillText, { color: ratedOnly ? "#fff" : colors.mutedForeground }]}>
+              ★ Rated only
+            </Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+
       {isLoading && !cooks ? (
         <View style={s.center}>
           <ActivityIndicator color={colors.primary} size="large" />
         </View>
       ) : (
         <FlatList
-          data={(cooks as any[]) || []}
+          data={processedCooks}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderItem}
           contentContainerStyle={{
@@ -150,9 +240,13 @@ export default function CooksScreen() {
           ListEmptyComponent={
             <View style={[s.empty, { borderColor: colors.border, borderRadius: colors.radius }]}>
               <Feather name="thermometer" size={36} color={colors.mutedForeground} />
-              <Text style={[s.emptyTitle, { color: colors.foreground }]}>No cooks logged yet</Text>
+              <Text style={[s.emptyTitle, { color: colors.foreground }]}>
+                {ratedOnly ? "No rated cooks found" : "No cooks logged yet"}
+              </Text>
               <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
-                Tap "Log Cook" to scan thermometer photos with PitMaster, or use the + button to plan your next session
+                {ratedOnly
+                  ? "Try removing the \"Rated only\" filter to see all cooks"
+                  : "Tap \"Log Cook\" to scan thermometer photos with PitMaster, or use the + button to plan your next session"}
               </Text>
             </View>
           }
@@ -183,6 +277,25 @@ const s = StyleSheet.create({
     width: 36, height: 36, borderRadius: 10,
     alignItems: "center", justifyContent: "center",
   },
+  controls: {
+    borderBottomWidth: 1,
+    paddingVertical: 10,
+  },
+  pillRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  pill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  pillText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
   card: {
     borderWidth: 1, padding: 14,
     flexDirection: "row", alignItems: "center", gap: 12,
@@ -207,5 +320,5 @@ const s = StyleSheet.create({
     alignItems: "center", gap: 8,
   },
   emptyTitle: { fontSize: 17, fontFamily: "Inter_600SemiBold" },
-  emptyText: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center" },
 });
