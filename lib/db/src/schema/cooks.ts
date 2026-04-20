@@ -28,6 +28,7 @@ export const cooksTable = pgTable("cooks", {
   rating: integer("rating"),
   recipeId: integer("recipe_id"),
   analysisResult: jsonb("analysis_result"),
+  analysisHistory: jsonb("analysis_history"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

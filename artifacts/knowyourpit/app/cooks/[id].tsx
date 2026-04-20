@@ -463,7 +463,7 @@ export default function CookDetailScreen() {
         } as any,
       });
       setResult(data);
-      // Save analysis result to the cook record
+      // Save full analysis result to the cook record (backend also appends to analysisHistory)
       await updateCook.mutateAsync({
         id: Number(id),
         data: {
@@ -472,9 +472,15 @@ export default function CookDetailScreen() {
             events: data.events,
             cookDurationMinutes: data.cookDurationMinutes,
             detectedFoodType: data.detectedFoodType,
+            noDataFound: data.noDataFound,
+            rawExtraction: data.rawExtraction,
             assessment: data.assessment,
             phasePrediction: data.phasePrediction ?? null,
             decisions: data.decisions ?? [],
+            // Snapshot context so history is self-contained
+            snapshotTempF: userTempInput.trim() && !isNaN(parseFloat(userTempInput)) ? parseFloat(userTempInput) : null,
+            snapshotNotes: cookNotes.trim() || null,
+            snapshotElapsedMinutes: c?.actualStartAt ? Math.round((Date.now() - new Date(c.actualStartAt).getTime()) / 60000) : null,
           },
         } as any,
       });
@@ -1523,6 +1529,133 @@ export default function CookDetailScreen() {
           )}
         </View>}
 
+        {/* ── Check-in History ─────────────────────────────── */}
+        {(() => {
+          const history: any[] = Array.isArray((c as any).analysisHistory) ? (c as any).analysisHistory : [];
+          if (history.length === 0) return null;
+          const URGENCY_COLORS: Record<string, string> = {
+            now: "#EF4444",
+            soon: "#F59E0B",
+            when_ready: "#6C3BF5",
+            maintain: "#22c55e",
+          };
+          const VERDICT_COLORS: Record<string, string> = {
+            perfect: "#22c55e", good: "#84cc16", needs_work: "#F59E0B",
+            overcooked: "#EF4444", undercooked: "#3B82F6",
+          };
+          const fmtSavedAt = (iso: string) => {
+            try {
+              const d = new Date(iso);
+              return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+            } catch { return iso; }
+          };
+          const fmtMins = (mins: number) => {
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            return h > 0 ? `${h}h ${m}m` : `${m}m`;
+          };
+          return (
+            <View style={[s.historySection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+              <View style={s.logHeader}>
+                <LinearGradient colors={["#374151", "#52525B"]} style={s.logIconWrap}>
+                  <Feather name="clock" size={15} color="#fff" />
+                </LinearGradient>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.logTitle, { color: colors.foreground }]}>
+                    {c.status === "active" ? "Check-in History" : "Analysis History"}
+                  </Text>
+                  <Text style={[s.logSub, { color: colors.mutedForeground }]}>
+                    {history.length} {history.length === 1 ? "entry" : "entries"} · all feedback retained
+                  </Text>
+                </View>
+              </View>
+              {[...history].reverse().map((entry, i) => {
+                const topDecision = (entry.decisions ?? [])[0];
+                const urgencyColor = topDecision
+                  ? (topDecision.action === "maintain" ? "#22c55e" : (URGENCY_COLORS[topDecision.urgency] ?? "#6C3BF5"))
+                  : null;
+                const verdict = entry.assessment?.verdict;
+                const verdictColor = verdict ? (VERDICT_COLORS[verdict] ?? colors.mutedForeground) : null;
+                return (
+                  <View
+                    key={i}
+                    style={[
+                      s.historyEntry,
+                      { borderTopColor: colors.border },
+                      i > 0 && { borderTopWidth: 1 },
+                    ]}
+                  >
+                    {/* Entry header */}
+                    <View style={s.historyEntryHeader}>
+                      <View style={[s.historyIndex, { backgroundColor: colors.muted }]}>
+                        <Text style={[s.historyIndexText, { color: colors.mutedForeground }]}>
+                          {history.length - i}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[s.historyTimestamp, { color: colors.foreground }]}>
+                          {entry.savedAt ? fmtSavedAt(entry.savedAt) : "Unknown time"}
+                        </Text>
+                        <View style={s.historyMeta}>
+                          {entry.snapshotElapsedMinutes != null && (
+                            <Text style={[s.historyMetaChip, { color: colors.mutedForeground }]}>
+                              {fmtMins(entry.snapshotElapsedMinutes)} in
+                            </Text>
+                          )}
+                          {entry.snapshotTempF != null && (
+                            <Text style={[s.historyMetaChip, { color: colors.mutedForeground }]}>
+                              {entry.snapshotTempF}°F
+                            </Text>
+                          )}
+                          {entry.detectedFoodType && entry.detectedFoodType !== c.foodType && (
+                            <Text style={[s.historyMetaChip, { color: colors.mutedForeground }]}>
+                              {entry.detectedFoodType}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                      {verdictColor && (
+                        <View style={[s.historyVerdictBadge, { backgroundColor: verdictColor + "22" }]}>
+                          <Text style={[s.historyVerdictText, { color: verdictColor }]}>
+                            {verdict?.replace(/_/g, " ")}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Top decision */}
+                    {topDecision && (
+                      <View style={[s.historyDecision, { backgroundColor: urgencyColor! + "10", borderColor: urgencyColor! + "30" }]}>
+                        <View style={[s.historyDecisionDot, { backgroundColor: urgencyColor! }]} />
+                        <Text style={[s.historyDecisionText, { color: colors.foreground }]} numberOfLines={2}>
+                          {topDecision.instruction}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Phase + summary */}
+                    {entry.phasePrediction?.phaseLabel && (
+                      <Text style={[s.historyPhase, { color: colors.mutedForeground }]}>
+                        Phase: {entry.phasePrediction.phaseLabel}
+                      </Text>
+                    )}
+                    {entry.assessment?.summary && (
+                      <Text style={[s.historySummary, { color: colors.mutedForeground }]} numberOfLines={2}>
+                        {entry.assessment.summary}
+                      </Text>
+                    )}
+                    {entry.snapshotNotes && (
+                      <Text style={[s.historyNotes, { color: colors.mutedForeground }]} numberOfLines={1}>
+                        Notes: {entry.snapshotNotes}
+                      </Text>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          );
+        })()}
+
         {/* Status action button */}
         {nextStatus && (
           <Pressable
@@ -2009,6 +2142,30 @@ const s = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     lineHeight: 21,
   },
+
+  historySection: { borderWidth: 1, padding: 16, gap: 0 },
+  historyEntry: { paddingTop: 12, gap: 8 },
+  historyEntryHeader: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  historyIndex: {
+    width: 24, height: 24, borderRadius: 12,
+    alignItems: "center", justifyContent: "center",
+    flexShrink: 0,
+  },
+  historyIndexText: { fontSize: 11, fontFamily: "Inter_700Bold" },
+  historyTimestamp: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
+  historyMeta: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  historyMetaChip: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  historyVerdictBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  historyVerdictText: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "capitalize" },
+  historyDecision: {
+    flexDirection: "row", alignItems: "flex-start", gap: 8,
+    borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8,
+  },
+  historyDecisionDot: { width: 6, height: 6, borderRadius: 3, marginTop: 5, flexShrink: 0 },
+  historyDecisionText: { fontSize: 13, fontFamily: "Inter_500Medium", flex: 1, lineHeight: 19 },
+  historyPhase: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  historySummary: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
+  historyNotes: { fontSize: 11, fontFamily: "Inter_400Regular", fontStyle: "italic" },
 
   metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, borderTopWidth: 1, paddingTop: 10 },
   metaPill: { flexDirection: "row", alignItems: "center", gap: 5 },

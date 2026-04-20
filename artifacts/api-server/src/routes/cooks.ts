@@ -100,6 +100,16 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
   }
   if (req.body.analysisResult !== undefined) {
     updateData.analysisResult = req.body.analysisResult;
+    // Append to history — fetch current history first, then accumulate
+    const [current] = await db
+      .select({ analysisHistory: cooksTable.analysisHistory })
+      .from(cooksTable)
+      .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)));
+    const existingHistory = Array.isArray(current?.analysisHistory) ? (current.analysisHistory as unknown[]) : [];
+    updateData.analysisHistory = [
+      ...existingHistory,
+      { ...req.body.analysisResult, savedAt: new Date().toISOString() },
+    ];
   }
   const [cook] = await db.update(cooksTable).set(updateData)
     .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)))
