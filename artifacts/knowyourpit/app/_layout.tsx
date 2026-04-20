@@ -6,7 +6,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { ClerkProvider, useAuth } from "@clerk/expo";
-import { tokenCache } from "@clerk/expo/token-cache";
+import { tokenCache as nativeTokenCache } from "@clerk/expo/token-cache";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -84,7 +84,7 @@ export default function RootLayout() {
   const content = (
     <ClerkProvider
       publishableKey={clerkPubKey}
-      tokenCache={tokenCache}
+      tokenCache={Platform.OS !== "web" ? nativeTokenCache : undefined}
       {...(clerkProxyUrl ? { proxyUrl: clerkProxyUrl } : {})}
     >
       <SafeAreaProvider>

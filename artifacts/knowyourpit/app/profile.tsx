@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
 } from "react-native";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -31,6 +32,7 @@ export default function ProfileScreen() {
   const { user } = useUser();
   const qc = useQueryClient();
   const { data: grills } = useListGrills();
+  const scrollRef = useRef<ScrollView>(null);
 
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
@@ -101,9 +103,16 @@ export default function ProfileScreen() {
 
       <AppHeader title="Profile" showBack dark />
 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      >
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{ paddingBottom: botPad + 40 }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Avatar + name */}
         <View style={[s.profileSection, { borderBottomColor: colors.border }]}>
@@ -290,7 +299,10 @@ export default function ProfileScreen() {
           {/* Link button when not linked */}
           {!meaterLoading && !meaterStatus?.linked && !showLinkForm && (
             <Pressable
-              onPress={() => setShowLinkForm(true)}
+              onPress={() => {
+                setShowLinkForm(true);
+                setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+              }}
               style={[s.linkBtn, { backgroundColor: "#FF6B2B" }]}
             >
               <Feather name="link" size={15} color="#fff" />
@@ -370,6 +382,7 @@ export default function ProfileScreen() {
           )}
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
