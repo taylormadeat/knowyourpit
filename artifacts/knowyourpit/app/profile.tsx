@@ -65,10 +65,14 @@ export default function ProfileScreen() {
       setShowLinkForm(false);
       invalidateMeaterStatus();
     } catch (e: any) {
-      Alert.alert(
-        "Link failed",
-        e?.data?.error ?? e?.message ?? "Could not link MEATER account. Check your credentials.",
-      );
+      const isNetworkError = !e?.status;
+      const isSessionError = e?.status === 401 && e?.data?.error === "Unauthorized";
+      const message = isNetworkError
+        ? "Could not reach the server. Please check your connection and try again."
+        : isSessionError
+          ? "Your session has expired — sign out and sign back in, then try again."
+          : e?.data?.error ?? e?.message ?? "Could not link MEATER account. Check your credentials.";
+      Alert.alert("Link failed", message);
     }
   };
 
