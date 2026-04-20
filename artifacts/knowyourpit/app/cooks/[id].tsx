@@ -304,9 +304,10 @@ export default function CookDetailScreen() {
     if (rateSaving) return;
     setRateSaving(true);
     try {
-      const avg = tenderness > 0 && flavor > 0 && bark > 0
-        ? Math.round((tenderness + flavor + bark) / 3)
-        : tenderness || flavor || bark || null;
+      const nonZero = [tenderness, flavor, bark].filter(v => v > 0);
+      const avg = nonZero.length > 0
+        ? Math.round(nonZero.reduce((s, v) => s + v, 0) / nonZero.length)
+        : null;
       await updateCook.mutateAsync({
         id: Number(id),
         data: {
