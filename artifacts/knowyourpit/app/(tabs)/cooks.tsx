@@ -65,6 +65,22 @@ export default function CooksScreen() {
             {new Date(item.plannedStartAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
           </Text>
         )}
+        {item.status === "completed" && (item.ratingTenderness || item.ratingFlavor || item.ratingBark) ? (
+          <View style={s.starsRow}>
+            {[
+              { label: "T", val: item.ratingTenderness },
+              { label: "F", val: item.ratingFlavor },
+              { label: "B", val: item.ratingBark },
+            ].filter(r => r.val).map((r) => (
+              <View key={r.label} style={s.starChip}>
+                <Text style={s.starChipLabel}>{r.label}</Text>
+                <Text style={s.starChipStars}>
+                  {"★".repeat(r.val!)}{"☆".repeat(5 - r.val!)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
       <View style={{ alignItems: "flex-end", gap: 6 }}>
         <View
@@ -179,6 +195,10 @@ const s = StyleSheet.create({
   name: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
   meta: { fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 2 },
   date: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  starsRow: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 },
+  starChip: { flexDirection: "row", alignItems: "center", gap: 2 },
+  starChipLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold", color: "#9ca3af" },
+  starChipStars: { fontSize: 9, color: "#eab308", letterSpacing: 0.5 },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   badgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
