@@ -226,7 +226,7 @@ export default function CookDetailScreen() {
       setUserTempInput(String(meaterProbes[0].internalTempF));
     }
     if (meaterProbes.length > 0 && meaterProbes[0].internalTempF != null) {
-      const startAt = (cook as any)?.actualStartAt;
+      const startAt = cook?.actualStartAt;
       const elapsedMins = startAt
         ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000)
         : 0;
