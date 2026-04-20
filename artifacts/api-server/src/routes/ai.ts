@@ -25,6 +25,23 @@ const PIT_PROBE_NAMES = ["pit", "ambient", "grill", "chamber", "dome", "lid"];
 const isPitProbe = (name: string | null) =>
   name ? PIT_PROBE_NAMES.some(k => name.toLowerCase().includes(k)) : false;
 
+interface StoredAssessment {
+  verdict?: string;
+  summary?: string;
+  whatWentWell?: string[];
+  suggestions?: string[];
+}
+
+interface StoredAnalysisResult {
+  assessment?: StoredAssessment | null;
+}
+
+function getAssessment(analysisResult: unknown): StoredAssessment | null {
+  if (!analysisResult || typeof analysisResult !== "object") return null;
+  const result = analysisResult as StoredAnalysisResult;
+  return result.assessment ?? null;
+}
+
 async function buildUserCookHistory(userId: string): Promise<string> {
   const cooks = await db.select().from(cooksTable)
     .where(eq(cooksTable.userId, userId))
@@ -65,9 +82,9 @@ async function buildUserCookHistory(userId: string): Promise<string> {
     if (c.notes) parts.push(`notes: "${c.notes}"`);
     const date = c.actualStartAt ? new Date(c.actualStartAt).toLocaleDateString() : (c.createdAt ? new Date(c.createdAt).toLocaleDateString() : null);
     if (date) parts.push(`date: ${date}`);
-    const analysis = c.analysisResult as any;
-    if (analysis?.assessment?.verdict) parts.push(`verdict: ${analysis.assessment.verdict}`);
-    if (analysis?.assessment?.suggestions?.[0]) parts.push(`tip: "${analysis.assessment.suggestions[0]}"`);
+    const assessment = getAssessment(c.analysisResult);
+    if (assessment?.verdict) parts.push(`verdict: ${assessment.verdict}`);
+    if (assessment?.suggestions?.[0]) parts.push(`tip: "${assessment.suggestions[0]}"`);
     return `- ${parts.join(" · ")}`;
   });
 
@@ -401,9 +418,9 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
     const grillName = c.grillId ? (grillNameCache[c.grillId] || "unknown grill") : "no grill";
     const ratings = [c.ratingTenderness ? `T:${c.ratingTenderness}` : null, c.ratingBark ? `B:${c.ratingBark}` : null, c.ratingFlavor ? `F:${c.ratingFlavor}` : null].filter(Boolean).join("/");
     const wrap = c.wrapMethod && c.wrapMethod !== "none" ? `, wrapped: ${c.wrapMethod}${c.wrapAtMinutes ? ` at ${c.wrapAtMinutes}min` : ""}` : "";
-    const analysis = c.analysisResult as any;
-    const verdict = analysis?.assessment?.verdict ? ` → verdict: ${analysis.assessment.verdict}` : "";
-    const tip = analysis?.assessment?.suggestions?.[0] ? ` · tip: "${analysis.assessment.suggestions[0]}"` : "";
+    const assessment = getAssessment(c.analysisResult);
+    const verdict = assessment?.verdict ? ` → verdict: ${assessment.verdict}` : "";
+    const tip = assessment?.suggestions?.[0] ? ` · tip: "${assessment.suggestions[0]}"` : "";
     return `  • ${c.foodType}${c.weightLbs ? ` (${c.weightLbs} lbs)` : ""}` +
       `${durationMins ? ` → ${durationMins} min` : ""}${minsPerLbActual ? ` (${minsPerLbActual})` : ""}` +
       `${c.cookTempF ? ` at ${c.cookTempF}°F` : ""} on ${grillName}${wrap}` +
@@ -413,7 +430,7 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
   // Boost confidence to "high" if user has 2+ similar cooks that BOTH have ratings AND have assessments
   const similarWithFeedback = similarCooksAllGrills.filter(c => {
     const hasRating = !!(c.ratingTenderness || c.ratingBark || c.ratingFlavor);
-    const hasAssessment = !!(c.analysisResult as any)?.assessment?.verdict;
+    const hasAssessment = !!getAssessment(c.analysisResult)?.verdict;
     return hasRating && hasAssessment;
   });
   const hasRichHistory = similarWithFeedback.length >= 2;

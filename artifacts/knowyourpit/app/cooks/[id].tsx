@@ -314,7 +314,7 @@ export default function CookDetailScreen() {
           ratingFlavor: flavor || null,
           ratingBark: bark || null,
           rating: avg,
-        } as any,
+        },
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
