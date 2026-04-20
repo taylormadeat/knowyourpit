@@ -15,7 +15,7 @@ import { LogoBackground } from "@/components/LogoBackground";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { useListAlerts, useDeleteAlert, getListAlertsQueryKey } from "@workspace/api-client-react";
+import { useListAlerts, useDeleteAlert, getListAlertsQueryKey, useListCooks } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 function fmtTimeAgo(dateStr: string | null | undefined): string {
@@ -40,7 +40,18 @@ export default function AlertsScreen() {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const { data: alerts, isLoading } = useListAlerts();
+  const { data: cooks } = useListCooks();
   const deleteAlert = useDeleteAlert();
+
+  const cookNameById = React.useMemo(() => {
+    const map = new Map<number, string>();
+    if (Array.isArray(cooks)) {
+      for (const c of cooks as any[]) {
+        map.set(c.id, c.foodType ? `${c.foodType}` : `Cook #${c.id}`);
+      }
+    }
+    return map;
+  }, [cooks]);
 
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
@@ -109,7 +120,9 @@ export default function AlertsScreen() {
           <View style={s.metaRow}>
             <Text style={[s.metaChip, { color: colors.mutedForeground }]}>{typeStr}</Text>
             {item.cookId != null && (
-              <Text style={[s.metaChip, { color: colors.mutedForeground }]}>Cook #{item.cookId}</Text>
+              <Text style={[s.metaChip, { color: colors.mutedForeground }]}>
+                {cookNameById.get(item.cookId) ?? `Cook #${item.cookId}`}
+              </Text>
             )}
             {!isActive && item.triggeredAt && (
               <Text style={[s.metaChip, { color: "#22c55e" }]}>

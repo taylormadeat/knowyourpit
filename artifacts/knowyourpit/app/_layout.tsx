@@ -16,7 +16,7 @@ import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { setBaseUrl, setAuthTokenGetter, patchAlert } from "@workspace/api-client-react";
+import { setBaseUrl, setAuthTokenGetter, patchAlert, listAlerts } from "@workspace/api-client-react";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -57,6 +57,33 @@ function RootLayoutNav() {
 
   useEffect(() => {
     requestNotificationPermissions();
+  }, []);
+
+  // Startup reconciliation: mark any timer alerts whose scheduled notification already fired
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    async function reconcileOverdueTimerAlerts() {
+      try {
+        const [activeAlerts, scheduled] = await Promise.all([
+          listAlerts(),
+          Notifications.getAllScheduledNotificationsAsync(),
+        ]);
+        const scheduledIds = new Set(scheduled.map((n) => n.identifier));
+        const overdue = activeAlerts.filter(
+          (a) =>
+            a.alertType === "time_before_serve" &&
+            a.isActive &&
+            a.scheduledNotificationId != null &&
+            !scheduledIds.has(a.scheduledNotificationId),
+        );
+        for (const alert of overdue) {
+          await patchAlert(alert.id, { triggered: true }).catch(() => {});
+        }
+      } catch {
+        // Non-critical — ignore errors
+      }
+    }
+    reconcileOverdueTimerAlerts();
   }, []);
 
   // Global notification listeners — mark timer alerts triggered regardless of which screen is open
