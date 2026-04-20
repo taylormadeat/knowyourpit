@@ -35,6 +35,93 @@ const router: IRouter = Router();
 
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
+// ── Live-cook analysis helpers ──────────────────────────────────────────────
+
+interface LiveReading { timeMinutes: number; tempF: number; }
+
+/** Least-squares linear regression slope in °F/min over the last N readings. */
+function computeSlope(readings: LiveReading[], windowSize = 8): number | null {
+  if (readings.length < 2) return null;
+  const pts = readings.slice(-windowSize);
+  const n = pts.length;
+  const sumX = pts.reduce((s, r) => s + r.timeMinutes, 0);
+  const sumY = pts.reduce((s, r) => s + r.tempF, 0);
+  const sumXY = pts.reduce((s, r) => s + r.timeMinutes * r.tempF, 0);
+  const sumX2 = pts.reduce((s, r) => s + r.timeMinutes * r.timeMinutes, 0);
+  const denom = n * sumX2 - sumX * sumX;
+  if (Math.abs(denom) < 0.001) return 0;
+  return (n * sumXY - sumX * sumY) / denom;
+}
+
+type CookPhase = "heat_up" | "stall" | "finishing" | "done";
+
+/** Classify the current cook phase from slope + current temp. */
+function detectPhase(
+  slope: number | null,
+  currentTempF: number,
+  targetTempF?: number | null,
+): CookPhase {
+  if (targetTempF != null && currentTempF >= targetTempF - 5) return "done";
+  if (currentTempF > 180) return "finishing";
+  if (currentTempF < 140) return "heat_up";
+  // 140–180°F zone: slope determines stall vs progress
+  if (slope != null && Math.abs(slope) < 0.2) return "stall";
+  return slope != null && slope > 0 ? "heat_up" : "stall";
+}
+
+/** Heuristic time-to-stall, stall duration, and time-to-finish estimates. */
+function computeHeuristics(
+  phase: CookPhase,
+  currentTempF: number,
+  slope: number | null,
+  targetTempF?: number | null,
+  weightLbs?: number | null,
+  pitTempF?: number | null,
+): { timeToStallMinutes: number | null; stallDurationMinutes: number | null; timeToFinishMinutes: number | null } {
+  const STALL_ENTRY_TEMP = 158;   // °F — typical stall onset for large cuts
+  const STALL_EXIT_TEMP  = 175;   // °F — stall breaks around here
+  const FINISH_SLOPE     = 0.35;  // °F/min — average finishing rate at 225°F
+  const pit = pitTempF && pitTempF > 150 ? pitTempF : 225;
+  const pitFactor = pit / 225;    // scale stall duration and speeds by pit temp
+
+  // Stall duration heuristic: ~10 min/lb at 225°F, adjusted for pit temp
+  const stallDurationBase = weightLbs && weightLbs > 0 ? Math.round(weightLbs * 10 / pitFactor) : 90;
+  const stallDuration = Math.min(Math.max(stallDurationBase, 45), 360);
+
+  let timeToStall: number | null = null;
+  let timeToFinish: number | null = null;
+
+  if (phase === "heat_up") {
+    timeToStall = slope && slope > 0.05
+      ? Math.max(0, Math.round((STALL_ENTRY_TEMP - currentTempF) / slope))
+      : null;
+    const finishAfterStall = targetTempF
+      ? Math.max(0, Math.round((targetTempF - STALL_EXIT_TEMP) / (FINISH_SLOPE * pitFactor)))
+      : null;
+    timeToFinish = timeToStall != null && finishAfterStall != null
+      ? timeToStall + stallDuration + finishAfterStall
+      : null;
+  } else if (phase === "stall") {
+    timeToStall = 0;
+    const finishAfterStall = targetTempF
+      ? Math.max(0, Math.round((targetTempF - STALL_EXIT_TEMP) / (FINISH_SLOPE * pitFactor)))
+      : null;
+    // Rough remaining stall: assume halfway through
+    const remainingStall = Math.round(stallDuration * 0.5);
+    timeToFinish = finishAfterStall != null ? remainingStall + finishAfterStall : null;
+  } else if (phase === "finishing" && targetTempF) {
+    timeToStall = 0;
+    const s = slope && slope > 0.05 ? slope : FINISH_SLOPE * pitFactor;
+    timeToFinish = Math.max(0, Math.round((targetTempF - currentTempF) / s));
+  }
+
+  return {
+    timeToStallMinutes: timeToStall,
+    stallDurationMinutes: phase !== "done" ? stallDuration : null,
+    timeToFinishMinutes: timeToFinish,
+  };
+}
+
 router.post("/temperature/scan-image", requireAuth, aiRateLimit, async (req, res): Promise<void> => {
   const { base64Image, mimeType = "image/jpeg" } = req.body as { base64Image?: string; mimeType?: string };
   if (!base64Image || typeof base64Image !== "string") {
@@ -187,6 +274,9 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, r
       plannedStartAt?: string | null;
       plannedEndAt?: string | null;
       userEnteredTempF?: number | null;
+      liveReadings?: Array<{ timeMinutes: number; tempF: number }> | null;
+      elapsedMinutes?: number | null;
+      currentPitTempF?: number | null;
     } | null;
   };
 
@@ -277,9 +367,54 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, r
   }
   if (cookContext?.restMinutes) contextLines.push(`Planned rest time: ${cookContext.restMinutes} min`);
 
-  const contextBlock = contextLines.length > 0
-    ? `\n\nCook plan & context provided by pitmaster:\n${contextLines.join("\n")}\n\nNotes on interpreting this data:\n- All ISO timestamps above are in UTC. Convert them mentally to understand the cook timeline (e.g. "Planned serve time (ISO): 2026-04-20T23:00:00.000Z" means 6pm Eastern or 7pm Central, etc.).\n- "Planned meat-on time" is when the meat was supposed to go on the grill (after preheat). "Actual cook start time" is when the meat actually went on. These two are the correct pair to compare for timing adherence.\n- "Time window from actual cook start to planned serve time" is the total time available for the cook. Use this with the food type and weight to assess whether the pitmaster is on track.\n\nWhen assessing this cook:\n- Comment on whether the cook is on track to hit the planned serve time given the actual start and time window.\n- If started late, call out whether the serve window is at risk.\n- If a user-measured temperature is provided, compare it to the target: within ±5°F = on target, 6–15°F off = close, 16°F+ off = significant deviation.\n- When the pitmaster followed an AI plan, compare what actually happened to the plan — wrap timing, target temp, overall adherence.`
-    : "";
+  // ── Live MEATER readings analysis ────────────────────────────────────────
+  const rawLive = Array.isArray(cookContext?.liveReadings) ? cookContext.liveReadings : [];
+  const validLive: LiveReading[] = rawLive.filter(
+    (r): r is LiveReading =>
+      r != null && typeof r.timeMinutes === "number" && typeof r.tempF === "number" &&
+      isFinite(r.timeMinutes) && isFinite(r.tempF),
+  );
+
+  let phaseContext = "";
+  let heuristicPhase: CookPhase | null = null;
+  let heuristicEstimates: { timeToStallMinutes: number | null; stallDurationMinutes: number | null; timeToFinishMinutes: number | null } | null = null;
+
+  if (validLive.length >= 2) {
+    const slope = computeSlope(validLive);
+    const currentTempF = cookContext?.userEnteredTempF ?? validLive[validLive.length - 1].tempF;
+    heuristicPhase = detectPhase(slope, currentTempF, cookContext?.targetTempF);
+    heuristicEstimates = computeHeuristics(
+      heuristicPhase, currentTempF, slope,
+      cookContext?.targetTempF, cookContext?.weightLbs, cookContext?.currentPitTempF ?? cookContext?.cookTempF,
+    );
+
+    const phaseLabels: Record<CookPhase, string> = {
+      heat_up: "Heating Up", stall: "In the Stall", finishing: "Finishing", done: "Done",
+    };
+    const spanMin = validLive[validLive.length - 1].timeMinutes - validLive[0].timeMinutes;
+
+    const hintLines: string[] = [
+      `Live probe readings: ${validLive.length} data points spanning ${Math.round(spanMin)} minutes`,
+      slope != null ? `Current rise rate (slope): ${slope.toFixed(2)}°F/min (smoothed over last ${Math.min(validLive.length, 8)} readings)` : "",
+      `Current internal temp: ${currentTempF}°F`,
+      `Detected cook phase: ${phaseLabels[heuristicPhase]}`,
+    ];
+    if (cookContext?.currentPitTempF) hintLines.push(`Current pit/ambient temp: ${cookContext.currentPitTempF}°F`);
+    if (cookContext?.elapsedMinutes) hintLines.push(`Elapsed cook time: ${cookContext.elapsedMinutes} min`);
+    if (heuristicEstimates.timeToStallMinutes != null) hintLines.push(`Heuristic estimate — time to stall: ~${heuristicEstimates.timeToStallMinutes} min`);
+    if (heuristicEstimates.stallDurationMinutes != null) hintLines.push(`Heuristic estimate — stall duration: ~${heuristicEstimates.stallDurationMinutes} min`);
+    if (heuristicEstimates.timeToFinishMinutes != null) hintLines.push(`Heuristic estimate — time to finish: ~${heuristicEstimates.timeToFinishMinutes} min`);
+
+    // Include a snapshot of the readings
+    const snapshot = validLive.slice(-5).map(r => `  ${r.timeMinutes.toFixed(0)}min: ${r.tempF}°F`).join("\n");
+    hintLines.push(`Recent readings:\n${snapshot}`);
+
+    phaseContext = `\n\nLIVE COOK DATA (real-time MEATER probe):\n${hintLines.filter(Boolean).join("\n")}`;
+  }
+
+  const contextBlock = contextLines.length > 0 || phaseContext
+    ? `\n\nCook plan & context provided by pitmaster:\n${contextLines.join("\n")}\n\nNotes on interpreting this data:\n- All ISO timestamps above are in UTC. Convert them mentally to understand the cook timeline (e.g. "Planned serve time (ISO): 2026-04-20T23:00:00.000Z" means 6pm Eastern or 7pm Central, etc.).\n- "Planned meat-on time" is when the meat was supposed to go on the grill (after preheat). "Actual cook start time" is when the meat actually went on. These two are the correct pair to compare for timing adherence.\n- "Time window from actual cook start to planned serve time" is the total time available for the cook. Use this with the food type and weight to assess whether the pitmaster is on track.\n\nWhen assessing this cook:\n- Comment on whether the cook is on track to hit the planned serve time given the actual start and time window.\n- If started late, call out whether the serve window is at risk.\n- If a user-measured temperature is provided, compare it to the target: within ±5°F = on target, 6–15°F off = close, 16°F+ off = significant deviation.\n- When the pitmaster followed an AI plan, compare what actually happened to the plan — wrap timing, target temp, overall adherence.${phaseContext}`
+    : phaseContext;
 
   const systemPrompt = `You are an expert BBQ pit master and cook analyst. You receive one or more photos from a cook (thermometer displays, grill screens, temperature app screenshots) plus optional notes from the pitmaster and optional cook parameters.
 
@@ -326,7 +461,15 @@ Return ONLY valid JSON — no markdown, no explanation:
       "Another specific improvement",
       "Another specific improvement"
     ]
-  }
+  },
+  "phasePrediction": {
+    "phase": "heat_up" | "stall" | "finishing" | "done",
+    "phaseLabel": "Heating Up" | "In the Stall" | "Finishing" | "Done!",
+    "timeToStallMinutes": number or null,
+    "stallDurationMinutes": number or null,
+    "timeToFinishMinutes": number or null,
+    "narrative": "string — conversational pitmaster voice, e.g. 'You\\'ll hit the stall in about 42 minutes. Expect a solid 2.5 hour plateau at this weight and pit temp. Wrap in butcher paper as it enters stall to push through faster.'"
+  } or null
 }
 
 === PROBES ===
@@ -377,7 +520,40 @@ whatWentWell: 2-3 specific things that went right (e.g. "Pit held steady at 225�
 suggestions: 3-5 specific, actionable improvements. Reference actual temperatures and timing. Coach like a seasoned pit master.
 
 If cook context is provided, use those values to fill any gaps and assess against stated targets.
-If noDataFound is true, still assess and suggest based on cook notes and any provided context alone.`;
+If noDataFound is true, still assess and suggest based on cook notes and any provided context alone.
+
+=== PHASE PREDICTION ===
+Only populate "phasePrediction" when LIVE COOK DATA is present in the context. Otherwise set it to null.
+
+When live data IS present:
+- "phase": use the detected phase from context. Validate against slope + current temp.
+- "phaseLabel": human-readable label matching the phase.
+- "timeToStallMinutes": only relevant in heat_up phase. Use heuristic estimates as a starting point, then adjust based on:
+  - current slope (faster rise = sooner stall)
+  - pit temp (higher pit temp = slightly earlier stall onset)
+  - food type (chicken/fish don't stall; pork/beef always do)
+  - null if not applicable (already in stall, finishing, or done; or food type doesn't stall)
+- "stallDurationMinutes": expected total stall length. Null if phase is "finishing" or "done".
+  - Scales with weight: heavier = longer stall (~8-12 min/lb at 225°F for unwrapped)
+  - Foil wrap (Texas Crutch): cuts stall duration by 40-60%
+  - Higher pit temp: shorter stall
+  - If already IN stall, estimate the REMAINING stall duration (not total)
+- "timeToFinishMinutes": estimated minutes until the cook is done. Refine the heuristic using:
+  - Current slope and temp trajectory
+  - Remaining stall time
+  - Post-stall finishing rate (typically 0.3–0.5°F/min at 225°F)
+  - Wrap method effects (Texas Crutch speeds finish, no-wrap is slower)
+  - null if cook is "done"
+- "narrative": 1-3 sentence pitmaster-voice prediction. Be specific with numbers (e.g. "~42 minutes", "2.5 hour plateau"). Include any action the pitmaster should take now (e.g. wrap tip, fuel check, vent adjustment). Keep it conversational and confident.
+
+BBQ stall physics cheat sheet:
+- Stall onset: typically 150–165°F internal (collagen breakdown + evaporative cooling)
+- Stall duration: 12lb brisket unwrapped at 225°F = ~2.5-3.5 hours; foil wrapping cuts it to ~1-1.5 hours
+- Post-stall: meat climbs again at ~0.3-0.5°F/min until target
+- Brisket target: 200-205°F; Pork butt: 195-205°F; Ribs: 190-195°F (bend test); Chicken: 165°F (no stall)
+- Stall can repeat briefly at 175°F on large cuts (second collagen breakdown)
+- A rising pit temp will accelerate both the rate of rise and shorten the stall
+- A dropping pit temp does the opposite — watch your fuel`;
 
   type AnalyzeCookAIResult = {
     probes: Array<{
@@ -405,6 +581,14 @@ If noDataFound is true, still assess and suggest based on cook notes and any pro
       whatWentWell: string[];
       suggestions: string[];
     };
+    phasePrediction?: {
+      phase: string;
+      phaseLabel: string;
+      timeToStallMinutes: number | null;
+      stallDurationMinutes: number | null;
+      timeToFinishMinutes: number | null;
+      narrative: string;
+    } | null;
   };
 
   const notesBlock = cookNotes ? `\n\nPitmaster notes about this cook:\n${cookNotes}` : "";
@@ -500,6 +684,40 @@ If noDataFound is true, still assess and suggest based on cook notes and any pro
     const safeNum = (v: any) => (typeof v === "number" && isFinite(v) ? v : null);
     const safeStr = (v: any) => (typeof v === "string" && v.trim() ? v.trim() : null);
 
+    // ── phasePrediction: AI result, with heuristic fallback if live data existed ──
+    const VALID_PHASES = new Set(["heat_up", "stall", "finishing", "done"]);
+    const PHASE_LABELS: Record<string, string> = {
+      heat_up: "Heating Up", stall: "In the Stall", finishing: "Finishing", done: "Done!",
+    };
+
+    let safePhasePrediction: {
+      phase: string; phaseLabel: string;
+      timeToStallMinutes: number | null; stallDurationMinutes: number | null;
+      timeToFinishMinutes: number | null; narrative: string;
+    } | null = null;
+
+    const aiPhase = result.phasePrediction;
+    if (aiPhase && typeof aiPhase === "object" && VALID_PHASES.has(aiPhase.phase)) {
+      safePhasePrediction = {
+        phase: aiPhase.phase,
+        phaseLabel: typeof aiPhase.phaseLabel === "string" ? aiPhase.phaseLabel : PHASE_LABELS[aiPhase.phase],
+        timeToStallMinutes: safeNum(aiPhase.timeToStallMinutes),
+        stallDurationMinutes: safeNum(aiPhase.stallDurationMinutes),
+        timeToFinishMinutes: safeNum(aiPhase.timeToFinishMinutes),
+        narrative: typeof aiPhase.narrative === "string" && aiPhase.narrative.trim() ? aiPhase.narrative.trim() : "",
+      };
+    } else if (heuristicPhase && heuristicEstimates) {
+      // AI didn't return phasePrediction despite live data — use our heuristics
+      safePhasePrediction = {
+        phase: heuristicPhase,
+        phaseLabel: PHASE_LABELS[heuristicPhase],
+        timeToStallMinutes: heuristicEstimates.timeToStallMinutes,
+        stallDurationMinutes: heuristicEstimates.stallDurationMinutes,
+        timeToFinishMinutes: heuristicEstimates.timeToFinishMinutes,
+        narrative: "",
+      };
+    }
+
     res.json({
       probes: safeProbes,
       events: safeEvents,
@@ -515,6 +733,7 @@ If noDataFound is true, still assess and suggest based on cook notes and any pro
       detectedWoodType: safeStr(result.detectedWoodType),
       detectedRub: safeStr(result.detectedRub),
       assessment: safeAssessment,
+      phasePrediction: safePhasePrediction,
     });
   } catch (err) {
     console.error("analyze-cook error:", err);

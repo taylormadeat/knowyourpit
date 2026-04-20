@@ -134,6 +134,15 @@ type Assessment = {
   suggestions: string[];
 };
 
+type PhasePrediction = {
+  phase: "heat_up" | "stall" | "finishing" | "done";
+  phaseLabel: string;
+  timeToStallMinutes: number | null;
+  stallDurationMinutes: number | null;
+  timeToFinishMinutes: number | null;
+  narrative: string;
+};
+
 type AnalysisResult = {
   probes: Array<{ probeName: string; finishingTempF: number; minTempF: number | null; maxTempF: number | null }>;
   events: Array<{ type: string; timeMinutes: number; description: string }>;
@@ -142,6 +151,7 @@ type AnalysisResult = {
   noDataFound: boolean;
   rawExtraction: string | null;
   assessment: Assessment | null;
+  phasePrediction: PhasePrediction | null;
 };
 
 export default function CookDetailScreen() {
@@ -436,6 +446,10 @@ export default function CookDetailScreen() {
             plannedStartAt: c?.plannedStartAt ? new Date(c.plannedStartAt).toISOString() : null,
             plannedEndAt: c?.plannedEndAt ? new Date(c.plannedEndAt).toISOString() : null,
             userEnteredTempF: userTempInput.trim() && !isNaN(parseFloat(userTempInput)) ? parseFloat(userTempInput) : null,
+            // Live probe data for phase detection (active cooks only)
+            liveReadings: liveReadings.length >= 2 ? liveReadings : null,
+            elapsedMinutes: c?.actualStartAt ? Math.round((Date.now() - new Date(c.actualStartAt).getTime()) / 60000) : null,
+            currentPitTempF: meaterProbes[0]?.ambientTempF ?? null,
           },
         } as any,
       });
@@ -450,6 +464,7 @@ export default function CookDetailScreen() {
             cookDurationMinutes: data.cookDurationMinutes,
             detectedFoodType: data.detectedFoodType,
             assessment: data.assessment,
+            phasePrediction: data.phasePrediction ?? null,
           },
         } as any,
       });
@@ -936,6 +951,74 @@ export default function CookDetailScreen() {
             {/* Results */}
             {result && (
               <View style={[s.results, { borderTopColor: colors.border }]}>
+
+                {/* ── Phase prediction banner ─────────────────────── */}
+                {result.phasePrediction && (() => {
+                  const pp = result.phasePrediction!;
+                  const PHASE_COLORS: Record<string, string> = {
+                    heat_up: "#3B82F6",
+                    stall: "#F59E0B",
+                    finishing: "#22c55e",
+                    done: "#6B7280",
+                  };
+                  const PHASE_ICONS: Record<string, string> = {
+                    heat_up: "thermometer",
+                    stall: "clock",
+                    finishing: "trending-up",
+                    done: "check-circle",
+                  };
+                  const phaseColor = PHASE_COLORS[pp.phase] ?? "#6B7280";
+                  const phaseIcon = PHASE_ICONS[pp.phase] ?? "activity";
+
+                  const fmtTime = (mins: number) => {
+                    if (mins < 60) return `~${mins}m`;
+                    const h = Math.floor(mins / 60);
+                    const m = mins % 60;
+                    return m > 0 ? `~${h}h ${m}m` : `~${h}h`;
+                  };
+
+                  return (
+                    <View style={[s.phaseCard, { backgroundColor: phaseColor + "15", borderColor: phaseColor + "40", borderRadius: colors.radius }]}>
+                      {/* Phase label row */}
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: pp.narrative ? 8 : 0 }}>
+                        <View style={[s.phaseChip, { backgroundColor: phaseColor + "25", borderColor: phaseColor + "50" }]}>
+                          <Feather name={phaseIcon as any} size={12} color={phaseColor} />
+                          <Text style={[s.phaseChipText, { color: phaseColor }]}>{pp.phaseLabel}</Text>
+                        </View>
+                      </View>
+
+                      {/* Narrative */}
+                      {pp.narrative ? (
+                        <Text style={[s.phaseNarrative, { color: colors.foreground }]}>{pp.narrative}</Text>
+                      ) : null}
+
+                      {/* Time prediction chips */}
+                      {(pp.timeToStallMinutes != null || pp.stallDurationMinutes != null || pp.timeToFinishMinutes != null) && (
+                        <View style={s.phaseChips}>
+                          {pp.timeToStallMinutes != null && pp.phase === "heat_up" && (
+                            <View style={[s.timeChip, { backgroundColor: phaseColor + "20", borderColor: phaseColor + "40" }]}>
+                              <Feather name="clock" size={11} color={phaseColor} />
+                              <Text style={[s.timeChipText, { color: phaseColor }]}>Stall in {fmtTime(pp.timeToStallMinutes)}</Text>
+                            </View>
+                          )}
+                          {pp.stallDurationMinutes != null && pp.phase === "stall" && (
+                            <View style={[s.timeChip, { backgroundColor: "#F59E0B20", borderColor: "#F59E0B40" }]}>
+                              <Feather name="pause-circle" size={11} color="#F59E0B" />
+                              <Text style={[s.timeChipText, { color: "#F59E0B" }]}>Stall ends in {fmtTime(pp.stallDurationMinutes)}</Text>
+                            </View>
+                          )}
+                          {pp.timeToFinishMinutes != null && (
+                            <View style={[s.timeChip, { backgroundColor: "#22c55e20", borderColor: "#22c55e40" }]}>
+                              <Feather name="flag" size={11} color="#22c55e" />
+                              <Text style={[s.timeChipText, { color: "#22c55e" }]}>Done in {fmtTime(pp.timeToFinishMinutes)}</Text>
+                            </View>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
+
                 {verdictCfg && assessment && (
                   <View style={[s.verdictBanner, { backgroundColor: verdictCfg.color + "18", borderColor: verdictCfg.color + "40", borderRadius: colors.radius }]}>
                     <Feather name={verdictCfg.icon as any} size={20} color={verdictCfg.color} />
@@ -1723,6 +1806,14 @@ const s = StyleSheet.create({
 
   noDataRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   noDataText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
+
+  phaseCard: { borderWidth: 1, padding: 14, gap: 10 },
+  phaseChip: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
+  phaseChipText: { fontSize: 12, fontFamily: "Inter_700Bold" },
+  phaseNarrative: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 21 },
+  phaseChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  timeChip: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
+  timeChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
 
   metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, borderTopWidth: 1, paddingTop: 10 },
   metaPill: { flexDirection: "row", alignItems: "center", gap: 5 },
