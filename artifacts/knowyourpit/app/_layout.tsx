@@ -6,6 +6,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { ClerkProvider, useAuth } from "@clerk/expo";
+import { tokenCache } from "@clerk/expo/token-cache";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -28,14 +29,11 @@ const clerkPubKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL ?? "";
 
 function RootLayoutNav() {
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken } = useAuth();
 
   useEffect(() => {
-    setAuthTokenGetter(async () => {
-      if (!isSignedIn) return null;
-      return await getToken();
-    });
-  }, [isSignedIn, getToken]);
+    setAuthTokenGetter(() => getToken());
+  }, [getToken]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
@@ -86,6 +84,7 @@ export default function RootLayout() {
   const content = (
     <ClerkProvider
       publishableKey={clerkPubKey}
+      tokenCache={tokenCache}
       {...(clerkProxyUrl ? { proxyUrl: clerkProxyUrl } : {})}
     >
       <SafeAreaProvider>
