@@ -5,6 +5,7 @@ import { db, cooksTable, grillsTable, temperatureReadingsTable } from "@workspac
 import { AiChatBody, AiPredictBody } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../middlewares/requireAuth";
+import { computeSmokerInsights, formatSmokerProfile } from "../lib/smokerCalibration";
 
 interface AuthedRequest extends Request {
   userId: string;
@@ -109,13 +110,17 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
   }
   const { message, context } = parsed.data;
 
-  const cookHistory = await buildUserCookHistory(req.userId);
+  const [cookHistory, smokerInsights] = await Promise.all([
+    buildUserCookHistory(req.userId),
+    computeSmokerInsights(req.userId),
+  ]);
+  const smokerProfile = formatSmokerProfile(smokerInsights);
 
   const systemPrompt = `You are KnowYourPit AI, an expert BBQ assistant and personal pit coach. You help users with BBQ cooking, grilling techniques, temperature guidance, timing predictions, and recipe suggestions. You are knowledgeable about all BBQ styles including Texas BBQ, Carolina BBQ, Kansas City style, and more. Provide practical, specific advice.
 
 You have full access to this user's personal cook logs. Use this data to give personalized advice, reference their past cooks, and help them improve. When relevant, refer to their actual cook history by name and date.
 
-${cookHistory}${context ? `\n\nAdditional context: ${context}` : ""}`;
+${cookHistory}${smokerProfile ? `\n\n${smokerProfile}` : ""}${context ? `\n\nAdditional context: ${context}` : ""}`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-5.2",
@@ -449,6 +454,9 @@ Use this as your primary baseline. Adjust based on actual user data, grill speci
     ? `\nThis user's own history with similar cooks (${similarCookSummaries.length} records — strongest signal for personalized estimate):\n${similarCookSummaries.join("\n")}${hasRichHistory ? `\n\nIMPORTANT: This user has ${similarWithFeedback.length} prior cooks of this type with ratings and/or PitMaster assessments. You have rich feedback data — set confidence to "high" and directly incorporate the verdicts and tips from past cooks into your rationale and tips.` : ""}`
     : "\nNo similar cooks in user's history — rely on baseline knowledge and grill context.";
 
+  const predictInsights = await computeSmokerInsights(req.userId);
+  const predictSmokerProfile = formatSmokerProfile(predictInsights);
+
   const systemPrompt = `You are KnowYourPit AI, a world-class BBQ pit master assistant with deep knowledge of competition-level BBQ. You have access to verified cook data, industry baselines, and the user's personal cook history. Your predictions are trusted and actionable.
 
 Return ONLY valid JSON with this exact structure — no markdown, no extra text:
@@ -490,6 +498,7 @@ Cook temperature: ${cookTempF ? `${cookTempF}°F` : "unknown"}
 Target internal temp: ${targetTempF ? `${targetTempF}°F` : "unknown"}
 Preheat time (tracked separately, not in estimatedDurationMinutes): ${preheatMinutes} min
 ${desiredFinishAt ? `Desired serve time: ${new Date(desiredFinishAt).toLocaleString()}` : ""}
+${predictSmokerProfile ? `\n${predictSmokerProfile}\n` : ""}
 ${grillContext}
 ${grillTempContext}
 ${baselineSection}
@@ -581,6 +590,15 @@ ${userHistorySection}`;
     rationale: prediction.rationale || "Based on food type and weight.",
     tips: prediction.tips || [],
   });
+});
+
+router.get("/ai/smoker-profile", requireAuth, async (req: any, res): Promise<void> => {
+  try {
+    const insights = await computeSmokerInsights(req.userId);
+    res.json(insights);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to compute smoker profile" });
+  }
 });
 
 export default router;

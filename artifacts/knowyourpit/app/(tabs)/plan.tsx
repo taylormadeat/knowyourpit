@@ -39,6 +39,7 @@ import {
   type MeatCut,
 } from "@/constants/meatCuts";
 import { useMeaterReadings, type MeaterProbe } from "@/hooks/useMeaterReadings";
+import { useSmokerProfile } from "@/hooks/useSmokerProfile";
 
 const UPCOMING_DAYS = 14;
 
@@ -201,6 +202,8 @@ export default function PlanScreen() {
   const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
   const { data: meaterData } = useMeaterReadings();
   const activeProbes: MeaterProbe[] = meaterData?.linked ? (meaterData.probes ?? []) : [];
+
+  const { data: smokerProfile } = useSmokerProfile();
 
   const selectProbe = (probe: MeaterProbe) => {
     if (selectedProbeId === probe.deviceId) {
@@ -373,6 +376,92 @@ export default function PlanScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* ── Smoker Profile Card ── */}
+        {smokerProfile && smokerProfile.cookCount >= 2 && (() => {
+          const insights: { icon: string; label: string; value: string; color: string }[] = [];
+
+          if (smokerProfile.pitBiasF != null) {
+            const abs = Math.abs(smokerProfile.pitBiasF);
+            if (abs >= 3) {
+              const hot = smokerProfile.pitBiasF > 0;
+              insights.push({
+                icon: hot ? "thermometer" : "thermometer",
+                label: "Smoker Runs",
+                value: hot ? `+${abs}°F Hot` : `-${abs}°F Cold`,
+                color: hot ? "#EF4444" : "#3B82F6",
+              });
+            } else {
+              insights.push({ icon: "check-circle", label: "Pit Temp", value: "Accurate", color: "#22c55e" });
+            }
+          }
+
+          if (smokerProfile.overshootF != null) {
+            const abs = Math.abs(smokerProfile.overshootF);
+            if (abs >= 3) {
+              const over = smokerProfile.overshootF > 0;
+              insights.push({
+                icon: "target",
+                label: "Pull Temp",
+                value: over ? `+${abs}°F Overshoot` : `-${abs}°F Undershoot`,
+                color: over ? "#F59E0B" : "#6C3BF5",
+              });
+            } else {
+              insights.push({ icon: "target", label: "Pull Temp", value: "Nails It", color: "#22c55e" });
+            }
+          }
+
+          const meatKeys = Object.keys(smokerProfile.durationByMeat);
+          if (meatKeys.length > 0) {
+            const allDeltas = meatKeys
+              .map(k => smokerProfile.durationByMeat[k])
+              .filter(d => d.baselineMinsPerLb != null)
+              .map(d => (d.actualMinsPerLb - d.baselineMinsPerLb!) / d.baselineMinsPerLb!);
+            if (allDeltas.length > 0) {
+              const avg = allDeltas.reduce((s, v) => s + v, 0) / allDeltas.length;
+              const pct = Math.abs(Math.round(avg * 100));
+              if (pct > 8) {
+                const slow = avg > 0;
+                insights.push({
+                  icon: "clock",
+                  label: "Cook Pace",
+                  value: slow ? `${pct}% Slower` : `${pct}% Faster`,
+                  color: slow ? "#F59E0B" : "#22c55e",
+                });
+              } else {
+                insights.push({ icon: "clock", label: "Cook Pace", value: "On Baseline", color: "#22c55e" });
+              }
+            }
+          }
+
+          if (insights.length === 0) return null;
+
+          return (
+            <View style={[s.smokerProfileCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+              <View style={s.smokerProfileHeader}>
+                <Feather name="bar-chart-2" size={14} color={colors.primary} />
+                <Text style={[s.smokerProfileTitle, { color: colors.foreground }]}>Your Smoker Profile</Text>
+                <Text style={[s.smokerProfileSub, { color: colors.mutedForeground }]}>
+                  from {smokerProfile.cookCount} cook{smokerProfile.cookCount !== 1 ? "s" : ""}
+                </Text>
+              </View>
+              <View style={s.smokerProfileChips}>
+                {insights.map((ins, i) => (
+                  <View key={i} style={[s.smokerChip, { backgroundColor: ins.color + "18", borderColor: ins.color + "40" }]}>
+                    <Feather name={ins.icon as any} size={12} color={ins.color} />
+                    <View>
+                      <Text style={[s.smokerChipLabel, { color: colors.mutedForeground }]}>{ins.label}</Text>
+                      <Text style={[s.smokerChipValue, { color: ins.color }]}>{ins.value}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+              <Text style={[s.smokerProfileHint, { color: colors.mutedForeground }]}>
+                AI plans automatically account for your smoker's behavior
+              </Text>
+            </View>
+          );
+        })()}
+
         {/* ── Cook Name ── */}
         <Label colors={colors}>Cook Name (optional)</Label>
         <View style={[s.inputWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
@@ -1366,6 +1455,34 @@ const s = StyleSheet.create({
     borderWidth: 1,
   },
   dismissBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+
+  // Smoker profile card
+  smokerProfileCard: {
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 16,
+    gap: 10,
+  },
+  smokerProfileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  smokerProfileTitle: { fontSize: 13, fontFamily: "Inter_700Bold", flex: 1 },
+  smokerProfileSub: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  smokerProfileChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  smokerChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  smokerChipLabel: { fontSize: 10, fontFamily: "Inter_500Medium", marginBottom: 1 },
+  smokerChipValue: { fontSize: 12, fontFamily: "Inter_700Bold" },
+  smokerProfileHint: { fontSize: 11, fontFamily: "Inter_400Regular", fontStyle: "italic" },
 
   // Modals
   modalOverlay: {

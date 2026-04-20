@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../middlewares/requireAuth";
+import { computeSmokerInsights, formatSmokerProfile } from "../lib/smokerCalibration";
 
 interface AuthedRequest extends Request {
   userId: string;
@@ -416,6 +417,9 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, r
     ? `\n\nCook plan & context provided by pitmaster:\n${contextLines.join("\n")}\n\nNotes on interpreting this data:\n- All ISO timestamps above are in UTC. Convert them mentally to understand the cook timeline (e.g. "Planned serve time (ISO): 2026-04-20T23:00:00.000Z" means 6pm Eastern or 7pm Central, etc.).\n- "Planned meat-on time" is when the meat was supposed to go on the grill (after preheat). "Actual cook start time" is when the meat actually went on. These two are the correct pair to compare for timing adherence.\n- "Time window from actual cook start to planned serve time" is the total time available for the cook. Use this with the food type and weight to assess whether the pitmaster is on track.\n\nWhen assessing this cook:\n- Comment on whether the cook is on track to hit the planned serve time given the actual start and time window.\n- If started late, call out whether the serve window is at risk.\n- If a user-measured temperature is provided, compare it to the target: within ±5°F = on target, 6–15°F off = close, 16°F+ off = significant deviation.\n- When the pitmaster followed an AI plan, compare what actually happened to the plan — wrap timing, target temp, overall adherence.${phaseContext}`
     : phaseContext;
 
+  const tempInsights = await computeSmokerInsights((req as AuthedRequest).userId);
+  const tempSmokerProfile = formatSmokerProfile(tempInsights);
+
   const systemPrompt = `You are an expert BBQ pit master and cook analyst. You receive one or more photos from a cook (thermometer displays, grill screens, temperature app screenshots) plus optional notes from the pitmaster and optional cook parameters.
 
 Your job is to:
@@ -636,7 +640,8 @@ MAINTAIN decision:
 4. Keep instructions to 1 sentence. Put all the why in rationale.
 5. Never duplicate information between instruction and rationale — instruction = WHAT, rationale = WHY
 6. Maximum 3 decisions per response. Prioritize by urgency (now > soon > when_ready)
-7. For completed cooks: preface instructions with "For your next cook:" to make retrospective framing clear`;
+7. For completed cooks: preface instructions with "For your next cook:" to make retrospective framing clear
+${tempSmokerProfile ? `\n${tempSmokerProfile}` : ""}`;
 
   type AnalyzeCookAIResult = {
     probes: Array<{
