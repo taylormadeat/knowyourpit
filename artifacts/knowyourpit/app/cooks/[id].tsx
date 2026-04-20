@@ -711,6 +711,15 @@ export default function CookDetailScreen() {
               </View>
             )}
 
+            {/* Collecting readings placeholder (MEATER linked but < 2 readings yet) */}
+            {meaterLinked === true && meaterProbes.length > 0 && liveReadings.length < 2 && (
+              <View style={[s.liveGraphWrap, { borderTopColor: colors.border }]}>
+                <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground, textAlign: "left" }]}>
+                  📡 Collecting readings — chart will appear shortly
+                </Text>
+              </View>
+            )}
+
             {/* MEATER probe readings (when linked and active) */}
             {meaterLinked === true && meaterProbes.map((probe, i) => (
               <View key={probe.deviceId + i} style={[s.subSection, { borderTopColor: colors.border, paddingHorizontal: 14, paddingBottom: 12 }]}>
