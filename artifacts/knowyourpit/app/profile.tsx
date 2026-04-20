@@ -14,7 +14,7 @@ import {
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
 import { useQueryClient } from "@tanstack/react-query";
@@ -27,6 +27,22 @@ import {
   useListCooks,
   type Cook,
 } from "@workspace/api-client-react";
+
+function StarRating({ score, color }: { score: number; color: string }) {
+  const stars = Array.from({ length: 5 }, (_, i) => {
+    const pos = i + 1;
+    if (score >= pos) return "star" as const;
+    if (score >= pos - 0.5) return "star-half" as const;
+    return "star-border" as const;
+  });
+  return (
+    <View style={{ flexDirection: "row", gap: 2 }}>
+      {stars.map((icon, i) => (
+        <MaterialIcons key={i} name={icon} size={15} color={color} />
+      ))}
+    </View>
+  );
+}
 
 export default function ProfileScreen() {
   const colors = useColors();
@@ -220,6 +236,9 @@ export default function ProfileScreen() {
                         </Text>
                       )}
                     </View>
+                    {item.value != null && (
+                      <StarRating score={parseFloat(item.value)} color={colors.primary} />
+                    )}
                     <Text style={[s.qualityLabel, { color: colors.mutedForeground }]}>
                       {item.label}
                     </Text>
