@@ -539,7 +539,7 @@ export default function CookDetailScreen() {
                 <Feather name="activity" size={15} color="#fff" />
               </LinearGradient>
               <View style={{ flex: 1 }}>
-                <Text style={[s.logTitle, { color: colors.foreground }]}>AI Cook Analysis</Text>
+                <Text style={[s.logTitle, { color: colors.foreground }]}>PitMaster Cook Analysis</Text>
                 <Text style={[s.logSub, { color: colors.mutedForeground }]}>Saved from image scan</Text>
               </View>
               {storedVerdictCfg && (
@@ -793,7 +793,7 @@ export default function CookDetailScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[s.logTitle, { color: colors.foreground }]}>Log This Cook</Text>
               <Text style={[s.logSub, { color: colors.mutedForeground }]}>
-                Upload thermometer photos · AI reads temps, assesses the cook, and gives personalized tips
+                Upload thermometer photos · PitMaster reads temps, assesses the cook, and gives personalized tips
               </Text>
             </View>
           </View>
@@ -888,7 +888,7 @@ export default function CookDetailScreen() {
           {/* Notes input */}
           <View>
             <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
-              Cook notes <Text style={{ fontWeight: "400" }}>(optional — tell AI what happened)</Text>
+              Cook notes <Text style={{ fontWeight: "400" }}>(optional — tell PitMaster what happened)</Text>
             </Text>
             <TextInput
               style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
@@ -916,15 +916,15 @@ export default function CookDetailScreen() {
               {analyzing ? (
                 <>
                   <ActivityIndicator color="#fff" size="small" />
-                  <Text style={s.analyzeBtnText}>AI is analyzing your cook…</Text>
+                  <Text style={s.analyzeBtnText}>PitMaster is analyzing your cook…</Text>
                 </>
               ) : (
                 <>
                   <Feather name="zap" size={16} color="#fff" />
                   <Text style={s.analyzeBtnText}>
                     {images.length > 0
-                      ? `Analyze ${images.length} image${images.length > 1 ? "s" : ""} with AI`
-                      : "Analyze Cook with AI"}
+                      ? `Analyze ${images.length} image${images.length > 1 ? "s" : ""} with PitMaster`
+                      : "Analyze Cook with PitMaster"}
                   </Text>
                 </>
               )}
@@ -1088,7 +1088,7 @@ export default function CookDetailScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[s.gradePromptTitle, { color: colors.foreground }]}>Get your cook graded</Text>
               <Text style={[s.gradePromptSub, { color: colors.mutedForeground }]}>
-                Upload thermometer photos or add notes below — AI will grade this cook{c.wrapMethod ? " against your original plan" : ""}.
+                Upload thermometer photos or add notes below — PitMaster will grade this cook{c.wrapMethod ? " against your original plan" : ""}.
               </Text>
             </View>
           </View>

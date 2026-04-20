@@ -118,7 +118,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="ai"
         options={{
-          title: "AI",
+          title: "PitMaster",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="bolt" tintColor={color} size={22} />

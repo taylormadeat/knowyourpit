@@ -367,9 +367,9 @@ export default function LogCookScreen() {
               <Feather name="camera" size={15} color="#fff" />
             </LinearGradient>
             <View style={{ flex: 1 }}>
-              <Text style={[s.sectionTitle, { color: colors.foreground }]}>AI Image Scanner</Text>
+              <Text style={[s.sectionTitle, { color: colors.foreground }]}>PitMaster Image Scanner</Text>
               <Text style={[s.sectionSub, { color: colors.mutedForeground }]}>
-                Upload thermometer photos — AI reads temps, builds a graph, and grades the cook
+                Upload thermometer photos — PitMaster reads temps, builds a graph, and grades the cook
               </Text>
             </View>
           </View>
@@ -407,7 +407,7 @@ export default function LogCookScreen() {
 
           <View>
             <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>
-              Describe the cook <Text style={{ fontWeight: "400" }}>(helps AI when images are unclear)</Text>
+              Describe the cook <Text style={{ fontWeight: "400" }}>(helps PitMaster when images are unclear)</Text>
             </Text>
             <TextInput
               style={[s.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
@@ -430,15 +430,15 @@ export default function LogCookScreen() {
               {analyzing ? (
                 <>
                   <ActivityIndicator color="#fff" size="small" />
-                  <Text style={s.scanBtnText}>AI is reading your cook…</Text>
+                  <Text style={s.scanBtnText}>PitMaster is reading your cook…</Text>
                 </>
               ) : (
                 <>
                   <Feather name="zap" size={16} color="#fff" />
                   <Text style={s.scanBtnText}>
                     {images.length > 0
-                      ? `Scan ${images.length} image${images.length > 1 ? "s" : ""} with AI`
-                      : "Analyze Cook Notes with AI"}
+                      ? `Scan ${images.length} image${images.length > 1 ? "s" : ""} with PitMaster`
+                      : "Analyze Cook Notes with PitMaster"}
                   </Text>
                 </>
               )}
@@ -583,7 +583,7 @@ export default function LogCookScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[s.sectionTitle, { color: colors.foreground }]}>Cook Details</Text>
               <Text style={[s.sectionSub, { color: colors.mutedForeground }]}>
-                AI fills these in automatically — review and adjust before saving
+                PitMaster fills these in automatically — review and adjust before saving
               </Text>
             </View>
           </View>

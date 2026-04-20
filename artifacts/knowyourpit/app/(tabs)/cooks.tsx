@@ -136,7 +136,7 @@ export default function CooksScreen() {
               <Feather name="thermometer" size={36} color={colors.mutedForeground} />
               <Text style={[s.emptyTitle, { color: colors.foreground }]}>No cooks logged yet</Text>
               <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
-                Tap "Log Cook" to scan thermometer photos with AI, or use the + button to plan your next session
+                Tap "Log Cook" to scan thermometer photos with PitMaster, or use the + button to plan your next session
               </Text>
             </View>
           }

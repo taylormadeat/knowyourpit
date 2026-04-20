@@ -150,7 +150,7 @@ export default function AIScreen() {
       keyboardVerticalOffset={0}
     >
       <LogoBackground opacity={0.04} />
-      <AppHeader title="Pit AI" dark />
+      <AppHeader title="PitMaster" dark />
 
       {messages.length === 0 && !streaming && (
         <View style={s.welcome}>

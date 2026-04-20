@@ -242,7 +242,7 @@ export default function PlanScreen() {
       setAiResult(result);
       setAiResultOpen(true);
     } catch (e: any) {
-      Alert.alert("AI Error", e?.message || "Could not get AI prediction. Try again.");
+      Alert.alert("PitMaster Error", e?.message || "Could not get PitMaster prediction. Try again.");
     }
   };
 
@@ -286,7 +286,7 @@ export default function PlanScreen() {
     if (cookName) noteParts.push(`Name: ${cookName}`);
     if (selectedCut.cookMethod) noteParts.push(`Method: ${selectedCut.cookMethod}`);
     if (notes.trim()) noteParts.push(notes.trim());
-    if (aiResult?.rationale) noteParts.push(`AI Analysis:\n${aiResult.rationale}`);
+    if (aiResult?.rationale) noteParts.push(`PitMaster Analysis:\n${aiResult.rationale}`);
     if (aiResult?.tips?.length) {
       noteParts.push(`Pit Master Tips:\n${(aiResult.tips as string[]).map((t, i) => `${i + 1}. ${t}`).join("\n")}`);
     }
@@ -565,16 +565,16 @@ export default function PlanScreen() {
             {aiPredict.isPending ? (
               <>
                 <ActivityIndicator color="#fff" size="small" />
-                <Text style={s.aiBtnText}>AI is planning your cook…</Text>
+                <Text style={s.aiBtnText}>PitMaster is planning your cook…</Text>
               </>
             ) : (
               <>
                 <Feather name="cpu" size={18} color="#fff" />
                 <View style={{ flex: 1 }}>
-                  <Text style={s.aiBtnText}>AI Plan This Cook</Text>
+                  <Text style={s.aiBtnText}>Ask PitMaster</Text>
                   <Text style={s.aiBtnSub}>
                     {selectedCut
-                      ? `Get AI timing, wrap tips & rest guidance for ${selectedCut.name}`
+                      ? `Get PitMaster timing, wrap tips & rest guidance for ${selectedCut.name}`
                       : "Select a meat cut first"}
                   </Text>
                 </View>
@@ -592,7 +592,7 @@ export default function PlanScreen() {
           >
             <Feather name="check-circle" size={14} color="#6C3BF5" />
             <Text style={[s.aiAppliedText, { color: "#6C3BF5" }]}>
-              AI plan applied · {aiResult.confidence} confidence · Tap to review
+              PitMaster plan applied · {aiResult.confidence} confidence · Tap to review
             </Text>
           </Pressable>
         )}
@@ -881,7 +881,7 @@ export default function PlanScreen() {
             >
               <Feather name="cpu" size={20} color="#fff" />
               <View style={{ flex: 1 }}>
-                <Text style={s.aiModalTitle}>AI Cook Plan</Text>
+                <Text style={s.aiModalTitle}>PitMaster Plan</Text>
                 {aiResult && (
                   <Text style={s.aiModalSub}>
                     {aiResult.confidence?.toUpperCase()} confidence · {aiResult.estimatedDurationMinutes} min active cook
@@ -898,7 +898,7 @@ export default function PlanScreen() {
                 <>
                   {/* Rationale */}
                   <View style={[s.aiSection, { borderColor: colors.border }]}>
-                    <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>AI Analysis</Text>
+                    <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>PitMaster Analysis</Text>
                     <Text style={[s.aiBody, { color: colors.mutedForeground }]}>{aiResult.rationale}</Text>
                   </View>
 
@@ -991,7 +991,7 @@ export default function PlanScreen() {
                       style={s.applyBtnGradient}
                     >
                       <Feather name="check" size={18} color="#fff" />
-                      <Text style={s.applyBtnText}>Apply AI Plan</Text>
+                      <Text style={s.applyBtnText}>Apply PitMaster Plan</Text>
                     </LinearGradient>
                   </Pressable>
                   <Pressable
