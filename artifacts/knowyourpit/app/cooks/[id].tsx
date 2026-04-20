@@ -143,6 +143,14 @@ type PhasePrediction = {
   narrative: string;
 };
 
+type Decision = {
+  action: "wrap" | "spritz" | "increase_pit" | "decrease_pit" | "pull" | "recover_schedule" | "maintain";
+  urgency: "now" | "soon" | "when_ready";
+  instruction: string;
+  rationale: string;
+  targetValue: number | null;
+};
+
 type AnalysisResult = {
   probes: Array<{ probeName: string; finishingTempF: number; minTempF: number | null; maxTempF: number | null }>;
   events: Array<{ type: string; timeMinutes: number; description: string }>;
@@ -152,6 +160,7 @@ type AnalysisResult = {
   rawExtraction: string | null;
   assessment: Assessment | null;
   phasePrediction: PhasePrediction | null;
+  decisions: Decision[];
 };
 
 export default function CookDetailScreen() {
@@ -465,6 +474,7 @@ export default function CookDetailScreen() {
             detectedFoodType: data.detectedFoodType,
             assessment: data.assessment,
             phasePrediction: data.phasePrediction ?? null,
+            decisions: data.decisions ?? [],
           },
         } as any,
       });
@@ -518,6 +528,62 @@ export default function CookDetailScreen() {
   const storedAssessment = storedAnalysis?.assessment ?? null;
   const storedVerdictCfg = storedAssessment ? (VERDICT_CONFIG[storedAssessment.verdict] ?? VERDICT_CONFIG.needs_work) : null;
   const storedGraphProbes = (storedAnalysis?.probes ?? []).filter((p: any) => p.timeSeries && p.timeSeries.length >= 2);
+
+  // ── Decision engine renderer ──────────────────────────────────────────────
+  const ACTION_CONFIG: Record<string, { icon: string; label: string }> = {
+    wrap:              { icon: "package",       label: "Wrap Now"         },
+    spritz:            { icon: "cloud-drizzle", label: "Spritz"           },
+    increase_pit:      { icon: "trending-up",   label: "Raise Pit Temp"   },
+    decrease_pit:      { icon: "trending-down", label: "Lower Pit Temp"   },
+    pull:              { icon: "scissors",      label: "Pull Time"        },
+    recover_schedule:  { icon: "alert-triangle",label: "Recover Schedule" },
+    maintain:          { icon: "check-circle",  label: "Hold Steady"      },
+  };
+  const URGENCY_CONFIG: Record<string, { label: string; color: string }> = {
+    now:        { label: "NOW",        color: "#EF4444" },
+    soon:       { label: "SOON",       color: "#F59E0B" },
+    when_ready: { label: "WHEN READY", color: "#6C3BF5" },
+  };
+
+  const renderDecisions = (decisions: Decision[]) => {
+    if (!decisions || decisions.length === 0) return null;
+    return (
+      <View style={[s.decisionsSection, { borderColor: colors.border }]}>
+        <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Decisions</Text>
+        {decisions.map((d, i) => {
+          const actionCfg = ACTION_CONFIG[d.action] ?? { icon: "zap", label: d.action };
+          const urgencyCfg = URGENCY_CONFIG[d.urgency] ?? { label: d.urgency.toUpperCase(), color: "#6B7280" };
+          const isMaintain = d.action === "maintain";
+          const cardColor = isMaintain ? "#22c55e" : urgencyCfg.color;
+          return (
+            <View
+              key={i}
+              style={[
+                s.decisionCard,
+                { backgroundColor: cardColor + "12", borderColor: cardColor + "35", borderRadius: colors.radius },
+              ]}
+            >
+              <View style={s.decisionHeader}>
+                <View style={[s.decisionActionChip, { backgroundColor: cardColor + "22", borderColor: cardColor + "45" }]}>
+                  <Feather name={actionCfg.icon as any} size={12} color={cardColor} />
+                  <Text style={[s.decisionActionText, { color: cardColor }]}>{actionCfg.label}</Text>
+                </View>
+                {!isMaintain && (
+                  <View style={[s.decisionUrgencyBadge, { backgroundColor: urgencyCfg.color }]}>
+                    <Text style={s.decisionUrgencyText}>{urgencyCfg.label}</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={[s.decisionInstruction, { color: colors.foreground }]}>{d.instruction}</Text>
+              {d.rationale ? (
+                <Text style={[s.decisionRationale, { color: colors.mutedForeground }]}>{d.rationale}</Text>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
@@ -952,6 +1018,9 @@ export default function CookDetailScreen() {
             {result && (
               <View style={[s.results, { borderTopColor: colors.border }]}>
 
+                {/* ── Decision engine ──────────────────────────────── */}
+                {renderDecisions(result.decisions ?? [])}
+
                 {/* ── Phase prediction banner ─────────────────────── */}
                 {result.phasePrediction && (() => {
                   const pp = result.phasePrediction!;
@@ -1268,6 +1337,9 @@ export default function CookDetailScreen() {
           {/* ── Results ───────────────────────────────────────── */}
           {result && (
             <View style={[s.results, { borderTopColor: colors.border }]}>
+
+              {/* ── Decision engine ──────────────────────────────── */}
+              {renderDecisions(result.decisions ?? [])}
 
               {/* Verdict banner */}
               {verdictCfg && assessment && (
@@ -1814,6 +1886,16 @@ const s = StyleSheet.create({
   phaseChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   timeChip: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
   timeChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+
+  decisionsSection: { gap: 10 },
+  decisionCard: { borderWidth: 1, padding: 14, gap: 8 },
+  decisionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  decisionActionChip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
+  decisionActionText: { fontSize: 12, fontFamily: "Inter_700Bold" },
+  decisionUrgencyBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  decisionUrgencyText: { fontSize: 10, fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: 0.5 },
+  decisionInstruction: { fontSize: 15, fontFamily: "Inter_600SemiBold", lineHeight: 22 },
+  decisionRationale: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 20 },
 
   metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, borderTopWidth: 1, paddingTop: 10 },
   metaPill: { flexDirection: "row", alignItems: "center", gap: 5 },

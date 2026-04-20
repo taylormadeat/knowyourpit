@@ -469,7 +469,16 @@ Return ONLY valid JSON — no markdown, no explanation:
     "stallDurationMinutes": number or null,
     "timeToFinishMinutes": number or null,
     "narrative": "string — conversational pitmaster voice, e.g. 'You\\'ll hit the stall in about 42 minutes. Expect a solid 2.5 hour plateau at this weight and pit temp. Wrap in butcher paper as it enters stall to push through faster.'"
-  } or null
+  } or null,
+  "decisions": [
+    {
+      "action": "wrap" | "spritz" | "increase_pit" | "decrease_pit" | "pull" | "recover_schedule" | "maintain",
+      "urgency": "now" | "soon" | "when_ready",
+      "instruction": "string — direct command in second person, e.g. 'Wrap in butcher paper now to push through the stall'",
+      "rationale": "string — specific why with actual numbers, e.g. 'At 158°F with a 0.05°F/min rise rate you\\'ve been plateaued 45 min. Foil crutch cuts remaining stall time 40-60%.'",
+      "targetValue": number or null
+    }
+  ]
 }
 
 === PROBES ===
@@ -553,7 +562,81 @@ BBQ stall physics cheat sheet:
 - Brisket target: 200-205°F; Pork butt: 195-205°F; Ribs: 190-195°F (bend test); Chicken: 165°F (no stall)
 - Stall can repeat briefly at 175°F on large cuts (second collagen breakdown)
 - A rising pit temp will accelerate both the rate of rise and shorten the stall
-- A dropping pit temp does the opposite — watch your fuel`;
+- A dropping pit temp does the opposite — watch your fuel
+
+=== DECISION ENGINE ===
+The "decisions" array is the most important part of your response for ACTIVE cooks. It replaces vague status reports with specific, immediate commands. Think like a competition pitmaster coaching someone in real time.
+
+ALWAYS return at least one decision. When everything is on track, use "maintain". For active cooks with live data, prioritize decisions over assessment. For completed-cook analysis, keep decisions brief (1-2 max), framed retrospectively ("Next cook: pull at 200°F to allow a 1h rest").
+
+=== DECISION TRIGGERS ===
+
+WRAP decision:
+- Trigger: meat probe in stall (145–175°F, slope < 0.15°F/min) AND no wrap yet applied
+- Trigger also: approaching stall (within 10°F of typical stall entry) AND behind schedule by 30+ min
+- Urgency: "now" if already in stall; "soon" if within 10°F of stall
+- instruction: name the wrap material — "Wrap tightly in foil (Texas Crutch)" or "Wrap in butcher paper to push through while preserving bark"
+- Foil vs paper guidance: foil = fastest/most steam = tender bark; paper = slower/better bark = competition style
+- targetValue: wrap temp if triggering early (e.g. 155)
+- Skip if: already wrapped, chicken/fish/thin cuts, naked-cook plan where pitmaster has explicitly chosen no wrap
+
+SPRITZ decision:
+- Trigger: heat_up phase, temp > 140°F, no wrap in place, elapsed > 90 min
+- Also trigger if bark looks at risk (mentioned in notes, very high pit temp, long cook time)
+- Urgency: "soon" or "when_ready"
+- instruction: specify liquid — apple cider vinegar, apple juice, water, or whatever is relevant
+- rationale: bark building, evaporative cooling, color development
+- Do NOT trigger if meat is wrapped or is chicken/fish
+
+INCREASE_PIT decision:
+- Trigger: behind schedule (time window shrinking) AND stall is dragging AND current pit ≤ 235°F
+- Trigger also: pit temp reading shows actual temp has dropped from setpoint
+- Urgency: "now" if serve window is at risk, "soon" if buffer exists
+- targetValue: suggested new pit temp (usually 250-275°F)
+- instruction: be specific — "Raise your pit to 250°F" not just "increase pit"
+- rationale: quantify the time recovery — "+25°F saves roughly 20-30 min on this cook"
+- Cap recommendation at 275°F to avoid overcooking the outside
+
+DECREASE_PIT decision:
+- Trigger: finishing phase, slope > 0.8°F/min (climbing fast), target within 15°F
+- Trigger also: notes mention temp spike, flare-up, or accidental overshoot
+- Urgency: "now" for runaway temp; "soon" for fast climb
+- targetValue: suggested reduction (e.g. 215 if was at 250)
+- rationale: "At this rate you'll overshoot your 203°F target by ~10°F in 20 min"
+
+PULL decision:
+- Trigger: temp within 10°F of target (active cook), or just hit/passed target
+- Urgency: "now" if at/above target; "when_ready" if within 5-10°F
+- instruction: specify exact pull temp + rest time + rest method
+  - Brisket: "Pull at 200°F, rest 1-2h wrapped in butcher paper in a cooler"
+  - Pork butt: "Pull at 200°F when it probes tender, rest 45 min tented in foil"
+  - Ribs: "Pull when they pass the bend test — bones visible, slight crack, don't probe temp"
+  - Chicken: "Pull at 160°F (carryover takes it to 165°F), rest 10 min tented"
+- targetValue: pull temperature
+- Include rest time in instruction — rest is part of the cook, not optional
+
+RECOVER_SCHEDULE decision:
+- Trigger: cook is behind schedule by 45+ min AND serve time is known AND stall/phase suggests it won't self-correct
+- This is a multi-step recovery plan, not just one action
+- instruction: list 2-3 concrete steps — e.g. "1) Foil wrap right now to cut stall short. 2) Raise pit to 260°F for the next 2 hours. 3) Pull slightly early at 198°F and rest 45 min in a foil-lined cooler."
+- rationale: frame the math — "You're 75 min behind with 3h left. These steps can recover 60-90 min."
+- urgency: "now"
+
+MAINTAIN decision:
+- Trigger: cook is on track, no actionable intervention needed
+- Use when: temp climbing steadily, pit stable, on schedule, no stall issues
+- urgency: "when_ready"
+- instruction: reassure but with specifics — "Hold steady at 225°F — you're on pace for a perfect finish in ~2h 15m"
+- Do NOT use maintain alongside urgent decisions — pick the most actionable ones
+
+=== DECISION WRITING RULES ===
+1. Instructions are commands, not questions. "Wrap now" not "Consider wrapping"
+2. Use exact numbers whenever possible — temps, times, percentages
+3. Lead with the action in the instruction: "Wrap in butcher paper now" not "Now would be a good time to wrap"
+4. Keep instructions to 1 sentence. Put all the why in rationale.
+5. Never duplicate information between instruction and rationale — instruction = WHAT, rationale = WHY
+6. Maximum 3 decisions per response. Prioritize by urgency (now > soon > when_ready)
+7. For completed cooks: preface instructions with "For your next cook:" to make retrospective framing clear`;
 
   type AnalyzeCookAIResult = {
     probes: Array<{
@@ -589,6 +672,13 @@ BBQ stall physics cheat sheet:
       timeToFinishMinutes: number | null;
       narrative: string;
     } | null;
+    decisions?: Array<{
+      action: string;
+      urgency: string;
+      instruction: string;
+      rationale: string;
+      targetValue: number | null;
+    }>;
   };
 
   const notesBlock = cookNotes ? `\n\nPitmaster notes about this cook:\n${cookNotes}` : "";
@@ -600,7 +690,7 @@ BBQ stall physics cheat sheet:
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-5.2",
-      max_completion_tokens: 3000,
+      max_completion_tokens: 4000,
       messages: [
         { role: "system", content: systemPrompt },
         {
@@ -718,6 +808,32 @@ BBQ stall physics cheat sheet:
       };
     }
 
+    // ── decisions: sanitize and cap at 3 ────────────────────────────────────
+    const VALID_ACTIONS = new Set(["wrap", "spritz", "increase_pit", "decrease_pit", "pull", "recover_schedule", "maintain"]);
+    const VALID_URGENCY = new Set(["now", "soon", "when_ready"]);
+
+    const safeDecisions: Array<{
+      action: string; urgency: string;
+      instruction: string; rationale: string; targetValue: number | null;
+    }> = Array.isArray(result.decisions)
+      ? result.decisions
+          .filter((d: any) =>
+            d && typeof d === "object" &&
+            VALID_ACTIONS.has(d.action) &&
+            VALID_URGENCY.has(d.urgency) &&
+            typeof d.instruction === "string" && d.instruction.trim() &&
+            typeof d.rationale === "string" && d.rationale.trim()
+          )
+          .slice(0, 3)
+          .map((d: any) => ({
+            action: d.action,
+            urgency: d.urgency,
+            instruction: d.instruction.trim(),
+            rationale: d.rationale.trim(),
+            targetValue: safeNum(d.targetValue),
+          }))
+      : [];
+
     res.json({
       probes: safeProbes,
       events: safeEvents,
@@ -734,6 +850,7 @@ BBQ stall physics cheat sheet:
       detectedRub: safeStr(result.detectedRub),
       assessment: safeAssessment,
       phasePrediction: safePhasePrediction,
+      decisions: safeDecisions,
     });
   } catch (err) {
     console.error("analyze-cook error:", err);
