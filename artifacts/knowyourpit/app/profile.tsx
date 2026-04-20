@@ -24,6 +24,8 @@ import {
   getGetMeaterStatusQueryKey,
   useLinkMeater,
   useUnlinkMeater,
+  useListCooks,
+  type Cook,
 } from "@workspace/api-client-react";
 
 export default function ProfileScreen() {
@@ -32,7 +34,27 @@ export default function ProfileScreen() {
   const { user } = useUser();
   const qc = useQueryClient();
   const { data: grills } = useListGrills();
+  const { data: cooks } = useListCooks();
   const scrollRef = useRef<ScrollView>(null);
+
+  const ratedCooks = cooks?.filter(
+    (c) =>
+      c.status === "completed" &&
+      (c.ratingTenderness != null || c.ratingBark != null || c.ratingFlavor != null)
+  ) ?? [];
+
+  const avg = (key: keyof Pick<Cook, "ratingTenderness" | "ratingBark" | "ratingFlavor">): string | null => {
+    const values = ratedCooks
+      .map((c) => c[key])
+      .filter((v): v is number => v != null);
+    if (values.length === 0) return null;
+    return (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
+  };
+
+  const avgTenderness = avg("ratingTenderness");
+  const avgBark = avg("ratingBark");
+  const avgFlavor = avg("ratingFlavor");
+  const showQuality = ratedCooks.length > 0;
 
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
@@ -158,6 +180,55 @@ export default function ProfileScreen() {
             </View>
           ))}
         </View>
+
+        {/* Cook Quality */}
+        {showQuality && (
+          <>
+            <View style={s.sectionHeader}>
+              <Feather name="star" size={16} color={colors.primary} />
+              <Text style={[s.sectionTitle, { color: colors.foreground }]}>
+                Your Cook Quality
+              </Text>
+            </View>
+            <View
+              style={[
+                s.qualityCard,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                  borderRadius: colors.radius,
+                },
+              ]}
+            >
+              <Text style={[s.qualitySubtitle, { color: colors.mutedForeground }]}>
+                Based on {ratedCooks.length} rated {ratedCooks.length === 1 ? "cook" : "cooks"} · per-metric averages
+              </Text>
+              <View style={s.qualityRow}>
+                {[
+                  { label: "Tenderness", value: avgTenderness },
+                  { label: "Bark", value: avgBark },
+                  { label: "Flavor", value: avgFlavor },
+                ].map((item) => (
+                  <View key={item.label} style={s.qualityItem}>
+                    <View style={s.qualityScoreRow}>
+                      <Text style={[s.qualityScore, { color: colors.primary }]}>
+                        {item.value ?? "—"}
+                      </Text>
+                      {item.value != null && (
+                        <Text style={[s.qualityScoreMax, { color: colors.mutedForeground }]}>
+                          /5
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={[s.qualityLabel, { color: colors.mutedForeground }]}>
+                      {item.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </>
+        )}
 
         {/* Account info */}
         <View
@@ -529,4 +600,12 @@ const s = StyleSheet.create({
   },
   cancelBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
   confirmLinkBtn: { flex: 1, borderRadius: 8, paddingVertical: 11, alignItems: "center" },
+  qualityCard: { marginHorizontal: 16, borderWidth: 1, overflow: "hidden", padding: 16, gap: 14 },
+  qualitySubtitle: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  qualityRow: { flexDirection: "row", justifyContent: "space-around" },
+  qualityItem: { alignItems: "center", gap: 4 },
+  qualityScoreRow: { flexDirection: "row", alignItems: "flex-end", gap: 2 },
+  qualityScore: { fontSize: 26, fontFamily: "Inter_700Bold" },
+  qualityScoreMax: { fontSize: 13, fontFamily: "Inter_400Regular", paddingBottom: 3 },
+  qualityLabel: { fontSize: 12, fontFamily: "Inter_500Medium" },
 });
