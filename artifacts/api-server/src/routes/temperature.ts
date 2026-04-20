@@ -229,35 +229,39 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, r
   if (cookContext?.userEnteredTempF != null) contextLines.push(`Pitmaster's measured temperature right now: ${cookContext.userEnteredTempF}°F`);
   if (cookContext?.preheatMinutes) contextLines.push(`Preheat time: ${cookContext.preheatMinutes} min`);
 
-  // Timing context — enables plan-vs-actual timing comparison
-  const fmtTime = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-  };
-  if (cookContext?.actualStartAt) contextLines.push(`Actual cook start time: ${fmtTime(cookContext.actualStartAt)}`);
-  if (cookContext?.plannedStartAt) contextLines.push(`Planned cook start time: ${fmtTime(cookContext.plannedStartAt)}`);
-  if (cookContext?.plannedEndAt) contextLines.push(`Planned serve time: ${fmtTime(cookContext.plannedEndAt)}`);
+  // Timing context — pass ISO strings directly so the AI interprets them correctly
+  // (avoid server-side toLocaleString which would use UTC and confuse the AI)
+  if (cookContext?.actualStartAt) contextLines.push(`Actual cook start time (ISO): ${cookContext.actualStartAt}`);
+  if (cookContext?.plannedEndAt) contextLines.push(`Planned serve time (ISO): ${cookContext.plannedEndAt}`);
 
-  // Timing deviation summary (for prompt clarity)
-  let timingNote = "";
-  if (cookContext?.actualStartAt && cookContext?.plannedStartAt) {
-    const actualStart = new Date(cookContext.actualStartAt).getTime();
-    const plannedStart = new Date(cookContext.plannedStartAt).getTime();
-    const diffMin = Math.round((actualStart - plannedStart) / 60000);
-    if (Math.abs(diffMin) >= 5) {
-      timingNote = diffMin > 0
-        ? `The cook started ${diffMin} minutes LATE vs the plan.`
-        : `The cook started ${Math.abs(diffMin)} minutes EARLY vs the plan.`;
-    } else {
-      timingNote = "The cook started right on schedule.";
+  // plannedStartAt in the DB is the GRILL LIGHT time (before preheat).
+  // The planned meat-on time = plannedStartAt + preheatMinutes.
+  // We compare that against actualStartAt (when meat actually went on) so the
+  // deviation calculation is apples-to-apples.
+  if (cookContext?.plannedStartAt) {
+    const preheatMs = (cookContext?.preheatMinutes ?? 0) * 60 * 1000;
+    const plannedMeatOnMs = new Date(cookContext.plannedStartAt).getTime() + preheatMs;
+    contextLines.push(`Planned meat-on time (ISO): ${new Date(plannedMeatOnMs).toISOString()}`);
+
+    if (cookContext?.actualStartAt) {
+      const actualStart = new Date(cookContext.actualStartAt).getTime();
+      const diffMin = Math.round((actualStart - plannedMeatOnMs) / 60000);
+      if (Math.abs(diffMin) >= 5) {
+        const timingNote = diffMin > 0
+          ? `The cook started ${diffMin} minutes LATE vs the plan (meat went on later than planned).`
+          : `The cook started ${Math.abs(diffMin)} minutes EARLY vs the plan.`;
+        contextLines.push(timingNote);
+      } else {
+        contextLines.push("The cook started right on schedule.");
+      }
     }
-    contextLines.push(timingNote);
   }
+
   if (cookContext?.actualStartAt && cookContext?.plannedEndAt) {
     const actualStart = new Date(cookContext.actualStartAt).getTime();
     const serveTime = new Date(cookContext.plannedEndAt).getTime();
     const windowMin = Math.round((serveTime - actualStart) / 60000);
-    if (windowMin > 0) contextLines.push(`Time window from actual start to planned serve time: ${windowMin} minutes`);
+    if (windowMin > 0) contextLines.push(`Time window from actual cook start to planned serve time: ${windowMin} minutes`);
   }
 
   // AI plan data — enables plan-vs-actual grading
@@ -274,7 +278,7 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, r
   if (cookContext?.restMinutes) contextLines.push(`Planned rest time: ${cookContext.restMinutes} min`);
 
   const contextBlock = contextLines.length > 0
-    ? `\n\nCook plan & context provided by pitmaster:\n${contextLines.join("\n")}\n\nWhen assessing this cook:\n- If actual start time vs planned start time is provided, comment on whether the pitmaster was on time and whether they are likely to hit the planned serve time.\n- If a user-measured temperature is provided, compare it to the target temp and factor the delta into your grade: within ±5°F = on target, 6-15°F off = close, 16°F+ off = significant deviation.\n- When the pitmaster followed an AI plan, compare what actually happened to the plan — did they follow the wrap timing? Did the meat hit the planned target? Mention any deviations in your suggestions.`
+    ? `\n\nCook plan & context provided by pitmaster:\n${contextLines.join("\n")}\n\nNotes on interpreting this data:\n- All ISO timestamps above are in UTC. Convert them mentally to understand the cook timeline (e.g. "Planned serve time (ISO): 2026-04-20T23:00:00.000Z" means 6pm Eastern or 7pm Central, etc.).\n- "Planned meat-on time" is when the meat was supposed to go on the grill (after preheat). "Actual cook start time" is when the meat actually went on. These two are the correct pair to compare for timing adherence.\n- "Time window from actual cook start to planned serve time" is the total time available for the cook. Use this with the food type and weight to assess whether the pitmaster is on track.\n\nWhen assessing this cook:\n- Comment on whether the cook is on track to hit the planned serve time given the actual start and time window.\n- If started late, call out whether the serve window is at risk.\n- If a user-measured temperature is provided, compare it to the target: within ±5°F = on target, 6–15°F off = close, 16°F+ off = significant deviation.\n- When the pitmaster followed an AI plan, compare what actually happened to the plan — wrap timing, target temp, overall adherence.`
     : "";
 
   const systemPrompt = `You are an expert BBQ pit master and cook analyst. You receive one or more photos from a cook (thermometer displays, grill screens, temperature app screenshots) plus optional notes from the pitmaster and optional cook parameters.
