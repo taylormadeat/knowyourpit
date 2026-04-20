@@ -11,6 +11,7 @@ import alertsRouter from "./alerts";
 import dashboardRouter from "./dashboard";
 import profileRouter from "./profile";
 import conversationsRouter from "./conversations";
+import meaterRouter from "./meater";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(alertsRouter);
 router.use(dashboardRouter);
 router.use(profileRouter);
 router.use(conversationsRouter);
+router.use(meaterRouter);
 
 export default router;

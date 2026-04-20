@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
+import { useAuthFetch } from "@/hooks/useAuthFetch";
 import { LogoBackground } from "@/components/LogoBackground";
 import { TempGraph } from "@/components/TempGraph";
 import {
@@ -143,12 +144,28 @@ export default function CookDetailScreen() {
   const updateCook = useUpdateCook();
   const analyzeMutation = useAnalyzeCook();
 
+  const authFetch = useAuthFetch();
+
   const [images, setImages] = useState<PickedImage[]>([]);
   const [cookNotes, setCookNotes] = useState("");
   const [userTempInput, setUserTempInput] = useState("");
+  const [userTempEdited, setUserTempEdited] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [cardWidth, setCardWidth] = useState(300);
+
+  const [meaterLinked, setMeaterLinked] = useState<boolean | null>(null);
+  const [meaterProbes, setMeaterProbes] = useState<Array<{
+    deviceId: string;
+    deviceName: string;
+    internalTempF: number | null;
+    ambientTempF: number | null;
+    targetMinTempF: number | null;
+    targetMaxTempF: number | null;
+    cookName: string | null;
+    cookState: string | null;
+  }>>([]);
+  const meaterIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Edit modal state
   const [editVisible, setEditVisible] = useState(false);
@@ -177,6 +194,32 @@ export default function CookDetailScreen() {
     const w = e.nativeEvent.layout.width - 32;
     if (w > 100) setCardWidth(w);
   };
+
+  const fetchMeaterReadings = useCallback(async () => {
+    try {
+      const data = await authFetch("/api/meater/readings");
+      setMeaterLinked(data.linked ?? false);
+      const probes = data.probes ?? [];
+      setMeaterProbes(probes);
+      if (!userTempEdited && probes.length > 0 && probes[0].internalTempF != null) {
+        setUserTempInput(String(probes[0].internalTempF));
+      }
+    } catch {
+      // silently ignore polling errors
+    }
+  }, [authFetch, userTempEdited]);
+
+  useEffect(() => {
+    const cookStatus = (cook as any)?.status;
+    if (cookStatus !== "active") return;
+    fetchMeaterReadings();
+    const interval = setInterval(fetchMeaterReadings, 15000);
+    meaterIntervalRef.current = interval;
+    return () => {
+      clearInterval(interval);
+      meaterIntervalRef.current = null;
+    };
+  }, [(cook as any)?.status, fetchMeaterReadings]);
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
@@ -565,6 +608,76 @@ export default function CookDetailScreen() {
           </View>
         )}
 
+        {/* ── MEATER Live card (active cooks only) ─────────────── */}
+        {c.status === "active" && meaterLinked === true && (
+          <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            <View style={s.logHeader}>
+              <View style={[s.logIconWrap, { backgroundColor: "#FF6B2B" }]}>
+                <Feather name="wifi" size={15} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.logTitle, { color: colors.foreground }]}>MEATER Live</Text>
+                <Text style={[s.logSub, { color: colors.mutedForeground }]}>
+                  {meaterProbes.length > 0
+                    ? "Live probe readings · refreshing every 15s"
+                    : "No active cook detected on your MEATER"}
+                </Text>
+              </View>
+              <View style={[s.connectedBadgeSmall, { backgroundColor: "#22c55e18" }]}>
+                <View style={[s.liveIndicator, { backgroundColor: "#22c55e" }]} />
+                <Text style={[s.liveText, { color: "#22c55e" }]}>LIVE</Text>
+              </View>
+            </View>
+            {meaterProbes.map((probe, i) => (
+              <View key={probe.deviceId + i} style={[s.subSection, { borderTopColor: colors.border }]}>
+                <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 8 }]}>
+                  {probe.deviceName}
+                  {probe.cookName ? ` · ${probe.cookName}` : ""}
+                </Text>
+                <View style={s.meaterTempsRow}>
+                  <View style={s.meaterTempChip}>
+                    <Feather name="thermometer" size={14} color="#FF6B2B" />
+                    <View>
+                      <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
+                        {probe.internalTempF != null ? `${probe.internalTempF}°F` : "—"}
+                      </Text>
+                      <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Internal</Text>
+                    </View>
+                  </View>
+                  <View style={s.meaterTempChip}>
+                    <Feather name="wind" size={14} color="#3b82f6" />
+                    <View>
+                      <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
+                        {probe.ambientTempF != null ? `${probe.ambientTempF}°F` : "—"}
+                      </Text>
+                      <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Ambient</Text>
+                    </View>
+                  </View>
+                  {(probe.targetMinTempF != null || probe.targetMaxTempF != null) && (
+                    <View style={s.meaterTempChip}>
+                      <Feather name="target" size={14} color="#22c55e" />
+                      <View>
+                        <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
+                          {probe.targetMinTempF}–{probe.targetMaxTempF}°F
+                        </Text>
+                        <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Target</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+                {!userTempEdited && probe.internalTempF != null && (
+                  <View style={[s.meaterAutoFillBadge, { backgroundColor: "#FF6B2B15" }]}>
+                    <Feather name="zap" size={11} color="#FF6B2B" />
+                    <Text style={[s.meaterAutoFillText, { color: "#FF6B2B" }]}>
+                      Auto-filled temperature input with {probe.internalTempF}°F
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* ── Log This Cook section ───────────────────────────── */}
         <View
           style={[s.logSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
@@ -661,7 +774,10 @@ export default function CookDetailScreen() {
                 placeholder="e.g. 195"
                 placeholderTextColor={colors.mutedForeground}
                 value={userTempInput}
-                onChangeText={setUserTempInput}
+                onChangeText={(v) => {
+                  setUserTempInput(v);
+                  setUserTempEdited(true);
+                }}
                 keyboardType="decimal-pad"
               />
             </View>
@@ -1294,6 +1410,16 @@ const s = StyleSheet.create({
   grillItemText: { fontSize: 15, fontFamily: "Inter_500Medium", flex: 1 },
   grillItemSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginRight: 8 },
   grillEmpty: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
+
+  connectedBadgeSmall: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 99, paddingHorizontal: 8, paddingVertical: 5 },
+  liveIndicator: { width: 7, height: 7, borderRadius: 99 },
+  liveText: { fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+  meaterTempsRow: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
+  meaterTempChip: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1, minWidth: 90 },
+  meaterTempValue: { fontSize: 18, fontFamily: "Inter_700Bold" },
+  meaterTempLabel: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 1 },
+  meaterAutoFillBadge: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginTop: 8 },
+  meaterAutoFillText: { fontSize: 12, fontFamily: "Inter_500Medium", flex: 1 },
 });
 
 const edt = StyleSheet.create({

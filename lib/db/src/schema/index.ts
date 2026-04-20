@@ -8,3 +8,4 @@ export * from "./cooking_tips";
 export * from "./alerts";
 export * from "./conversations";
 export * from "./messages";
+export * from "./meater_credentials";
