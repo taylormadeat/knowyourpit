@@ -329,37 +329,8 @@ export default function CookDetailScreen() {
     }
   }, [meaterProbes]);
 
-  // Notification-received listener: marks timer alerts as triggered when notification fires in foreground
-  useEffect(() => {
-    if (Platform.OS === "web" || cookStatus !== "active") return;
-    const sub = Notifications.addNotificationReceivedListener((notification) => {
-      const data = notification.request.content.data as { alertId?: number; cookId?: number } | undefined;
-      if (data?.alertId && data?.cookId === Number(id)) {
-        patchAlert.mutate(
-          { id: data.alertId, data: { triggered: true } },
-          { onSuccess: () => qc.invalidateQueries({ queryKey: getListAlertsQueryKey() }) },
-        );
-      }
-    });
-    return () => sub.remove();
-  }, [cookStatus, id]);
-
-  // Notification-response listener: marks triggered when user taps a notification from background/killed
-  useEffect(() => {
-    if (Platform.OS === "web") return;
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as { alertId?: number; cookId?: number } | undefined;
-      if (data?.alertId && data?.cookId === Number(id)) {
-        patchAlert.mutate(
-          { id: data.alertId, data: { triggered: true } },
-          { onSuccess: () => qc.invalidateQueries({ queryKey: getListAlertsQueryKey() }) },
-        );
-      }
-    });
-    return () => sub.remove();
-  }, [id]);
-
-  // Reconciliation: on mount (and when alerts load), mark overdue timer alerts as triggered
+  // Reconciliation: on screen mount (and when alerts load), mark overdue timer alerts as triggered
+  // Handles the case where the app was backgrounded or killed when a scheduled notification fired
   useEffect(() => {
     if (!activeCookAlerts.length || !cook) return;
     const c = cook as any;

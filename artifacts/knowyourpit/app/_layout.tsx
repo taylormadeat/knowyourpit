@@ -16,7 +16,7 @@ import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { setBaseUrl, setAuthTokenGetter } from "@workspace/api-client-react";
+import { setBaseUrl, setAuthTokenGetter, patchAlert } from "@workspace/api-client-react";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -57,6 +57,32 @@ function RootLayoutNav() {
 
   useEffect(() => {
     requestNotificationPermissions();
+  }, []);
+
+  // Global notification listeners — mark timer alerts triggered regardless of which screen is open
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+
+    function markAlertTriggered(alertId: number) {
+      patchAlert(alertId, { triggered: true }).catch(() => {});
+    }
+
+    // Fired when a notification is received while the app is in the foreground
+    const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
+      const data = notification.request.content.data as { alertId?: number } | undefined;
+      if (data?.alertId) markAlertTriggered(data.alertId);
+    });
+
+    // Fired when the user taps a notification from the background or lock screen
+    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as { alertId?: number } | undefined;
+      if (data?.alertId) markAlertTriggered(data.alertId);
+    });
+
+    return () => {
+      receivedSub.remove();
+      responseSub.remove();
+    };
   }, []);
 
   return (

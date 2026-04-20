@@ -1,26 +1,34 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, alertsTable } from "@workspace/db";
 import { CreateAlertBody, DeleteAlertParams, PatchAlertParams, PatchAlertBody } from "@workspace/api-zod";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-router.get("/alerts", async (_req, res): Promise<void> => {
-  const alerts = await db.select().from(alertsTable).orderBy(alertsTable.createdAt);
+router.get("/alerts", requireAuth, async (req: any, res): Promise<void> => {
+  const alerts = await db
+    .select()
+    .from(alertsTable)
+    .where(eq(alertsTable.userId, req.userId))
+    .orderBy(alertsTable.createdAt);
   res.json(alerts);
 });
 
-router.post("/alerts", async (req, res): Promise<void> => {
+router.post("/alerts", requireAuth, async (req: any, res): Promise<void> => {
   const parsed = CreateAlertBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [alert] = await db.insert(alertsTable).values(parsed.data).returning();
+  const [alert] = await db
+    .insert(alertsTable)
+    .values({ ...parsed.data, userId: req.userId })
+    .returning();
   res.status(201).json(alert);
 });
 
-router.patch("/alerts/:id", async (req, res): Promise<void> => {
+router.patch("/alerts/:id", requireAuth, async (req: any, res): Promise<void> => {
   const params = PatchAlertParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = PatchAlertBody.safeParse(req.body);
@@ -47,21 +55,24 @@ router.patch("/alerts/:id", async (req, res): Promise<void> => {
   const [updated] = await db
     .update(alertsTable)
     .set(updateData)
-    .where(eq(alertsTable.id, params.data.id))
+    .where(and(eq(alertsTable.id, params.data.id), eq(alertsTable.userId, req.userId)))
     .returning();
-  if (!updated) { res.status(404).json({ error: "Alert not found" }); return; }
+  if (!updated) { res.status(404).json({ error: "Alert not found or not owned by user" }); return; }
   res.json(updated);
 });
 
-router.delete("/alerts/:id", async (req, res): Promise<void> => {
+router.delete("/alerts/:id", requireAuth, async (req: any, res): Promise<void> => {
   const params = DeleteAlertParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const [deleted] = await db.delete(alertsTable).where(eq(alertsTable.id, params.data.id)).returning();
+  const [deleted] = await db
+    .delete(alertsTable)
+    .where(and(eq(alertsTable.id, params.data.id), eq(alertsTable.userId, req.userId)))
+    .returning();
   if (!deleted) {
-    res.status(404).json({ error: "Alert not found" });
+    res.status(404).json({ error: "Alert not found or not owned by user" });
     return;
   }
   res.sendStatus(204);
