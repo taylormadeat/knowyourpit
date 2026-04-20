@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -37,6 +37,17 @@ import {
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
 } from "@workspace/api-client-react";
+
+function fmtElapsed(ms: number): string {
+  if (ms <= 0) return "0s";
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m`;
+  if (m > 0) return `${m}m ${String(sec).padStart(2, "0")}s`;
+  return `${sec}s`;
+}
 
 function formatDT(d: Date | string | null | undefined): string {
   if (!d) return "";
@@ -162,6 +173,26 @@ export default function CookDetailScreen() {
   const meaterLinked = meaterData?.linked ?? null;
   const meaterProbes = meaterData?.probes ?? [];
 
+  const [nowMs, setNowMs] = useState(Date.now());
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [liveReadings, setLiveReadings] = useState<Array<{ timeMinutes: number; tempF: number }>>([]);
+
+  useEffect(() => {
+    setLiveReadings([]);
+    setNowMs(Date.now());
+  }, [id]);
+
+  useEffect(() => {
+    if (cookStatus !== "active") {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return;
+    }
+    timerRef.current = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [cookStatus]);
+
   // Edit modal state
   const [editVisible, setEditVisible] = useState(false);
   const [editGrillPickerVisible, setEditGrillPickerVisible] = useState(false);
@@ -194,7 +225,17 @@ export default function CookDetailScreen() {
     if (!userTempEdited && meaterProbes.length > 0 && meaterProbes[0].internalTempF != null) {
       setUserTempInput(String(meaterProbes[0].internalTempF));
     }
-  }, [meaterProbes, userTempEdited]);
+    if (meaterProbes.length > 0 && meaterProbes[0].internalTempF != null) {
+      const startAt = (cook as any)?.actualStartAt;
+      const elapsedMins = startAt
+        ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000)
+        : 0;
+      setLiveReadings((prev) => [
+        ...prev,
+        { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: meaterProbes[0].internalTempF! },
+      ]);
+    }
+  }, [meaterProbes]);
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
@@ -394,6 +435,15 @@ export default function CookDetailScreen() {
   const assessment = result?.assessment as Assessment | null | undefined;
   const verdictCfg = assessment ? (VERDICT_CONFIG[assessment.verdict] ?? VERDICT_CONFIG.needs_work) : null;
 
+  // Live timer computed values
+  const elapsedMs = c.actualStartAt ? nowMs - new Date(c.actualStartAt).getTime() : 0;
+  const remainingMs = c.plannedEndAt ? new Date(c.plannedEndAt).getTime() - nowMs : null;
+
+  // Live graph from accumulated MEATER readings
+  const liveGraphProbes = liveReadings.length >= 2
+    ? [{ probeName: meaterProbes[0]?.deviceName ?? "Probe 1", timeSeries: liveReadings, finishingTempF: liveReadings[liveReadings.length - 1].tempF }]
+    : [];
+
   // Stored analysis from DB
   const storedAnalysis = c.analysisResult as AnalysisResult | null | undefined;
   const storedAssessment = storedAnalysis?.assessment ?? null;
@@ -583,31 +633,89 @@ export default function CookDetailScreen() {
           </View>
         )}
 
-        {/* ── MEATER Live card (active cooks only) ─────────────── */}
-        {c.status === "active" && meaterLinked === true && (
-          <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-            <View style={s.logHeader}>
+        {/* ── Live Cook section (active cooks only) ──────────── */}
+        {c.status === "active" && (
+          <View style={[s.card, { backgroundColor: colors.card, borderColor: "#FF6B2B40", borderRadius: colors.radius }]}>
+            {/* Header */}
+            <View style={[s.logHeader, { padding: 14 }]}>
               <View style={[s.logIconWrap, { backgroundColor: "#FF6B2B" }]}>
-                <Feather name="wifi" size={15} color="#fff" />
+                <Feather name="activity" size={15} color="#fff" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[s.logTitle, { color: colors.foreground }]}>MEATER Live</Text>
+                <Text style={[s.logTitle, { color: colors.foreground }]}>Live Cook</Text>
                 <Text style={[s.logSub, { color: colors.mutedForeground }]}>
-                  {meaterProbes.length > 0
-                    ? "Live probe readings · refreshing every 15s"
-                    : "No active cook detected on your MEATER"}
+                  {meaterLinked === true && meaterProbes.length > 0
+                    ? "Live probe · auto-updating every 15s"
+                    : meaterLinked === true
+                    ? "MEATER linked · no active probe detected"
+                    : "Timer running · link MEATER for live temps"}
                 </Text>
               </View>
-              <View style={[s.connectedBadgeSmall, { backgroundColor: "#22c55e18" }]}>
-                <View style={[s.liveIndicator, { backgroundColor: "#22c55e" }]} />
-                <Text style={[s.liveText, { color: "#22c55e" }]}>LIVE</Text>
+              <View style={[s.connectedBadgeSmall, { backgroundColor: "#FF6B2B18" }]}>
+                <View style={[s.liveIndicator, { backgroundColor: "#FF6B2B" }]} />
+                <Text style={[s.liveText, { color: "#FF6B2B" }]}>LIVE</Text>
               </View>
             </View>
-            {meaterProbes.map((probe, i) => (
-              <View key={probe.deviceId + i} style={[s.subSection, { borderTopColor: colors.border }]}>
+
+            {/* Timer chips */}
+            <View style={[s.timerRow, { borderTopColor: colors.border }]}>
+              <View style={[s.timerChip, { backgroundColor: colors.primary + "18", borderColor: colors.primary + "30" }]}>
+                <Feather name="clock" size={13} color={colors.primary} />
+                <View>
+                  <Text style={[s.timerValue, { color: colors.primary }]}>
+                    {c.actualStartAt ? fmtElapsed(elapsedMs) : "—"}
+                  </Text>
+                  <Text style={[s.timerLabel, { color: colors.mutedForeground }]}>Elapsed</Text>
+                </View>
+              </View>
+              {c.plannedEndAt && (
+                <View style={[
+                  s.timerChip,
+                  remainingMs !== null && remainingMs < 0
+                    ? { backgroundColor: "#ef444418", borderColor: "#ef444430" }
+                    : { backgroundColor: "#22c55e18", borderColor: "#22c55e30" },
+                ]}>
+                  <Feather
+                    name="flag"
+                    size={13}
+                    color={remainingMs !== null && remainingMs < 0 ? "#ef4444" : "#22c55e"}
+                  />
+                  <View>
+                    <Text style={[
+                      s.timerValue,
+                      { color: remainingMs !== null && remainingMs < 0 ? "#ef4444" : "#22c55e" },
+                    ]}>
+                      {remainingMs !== null
+                        ? remainingMs < 0
+                          ? `+${fmtElapsed(-remainingMs)} over`
+                          : fmtElapsed(remainingMs)
+                        : "—"}
+                    </Text>
+                    <Text style={[s.timerLabel, { color: colors.mutedForeground }]}>Until serve</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Live graph (when we have ≥ 2 readings) */}
+            {liveGraphProbes.length > 0 && (
+              <View style={[s.liveGraphWrap, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+                <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 8 }]}>Live Temperature</Text>
+                <TempGraph
+                  probes={liveGraphProbes}
+                  events={[]}
+                  targetTempF={c.targetTempF ?? null}
+                  width={cardWidth}
+                  height={160}
+                />
+              </View>
+            )}
+
+            {/* MEATER probe readings (when linked and active) */}
+            {meaterLinked === true && meaterProbes.map((probe, i) => (
+              <View key={probe.deviceId + i} style={[s.subSection, { borderTopColor: colors.border, paddingHorizontal: 14, paddingBottom: 12 }]}>
                 <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 8 }]}>
-                  {probe.deviceName}
-                  {probe.cookName ? ` · ${probe.cookName}` : ""}
+                  {probe.deviceName}{probe.cookName ? ` · ${probe.cookName}` : ""}
                 </Text>
                 <View style={s.meaterTempsRow}>
                   <View style={s.meaterTempChip}>
@@ -641,15 +749,25 @@ export default function CookDetailScreen() {
                   )}
                 </View>
                 {!userTempEdited && probe.internalTempF != null && (
-                  <View style={[s.meaterAutoFillBadge, { backgroundColor: "#FF6B2B15" }]}>
+                  <View style={[s.meaterAutoFillBadge, { backgroundColor: "#FF6B2B15", marginTop: 8 }]}>
                     <Feather name="zap" size={11} color="#FF6B2B" />
                     <Text style={[s.meaterAutoFillText, { color: "#FF6B2B" }]}>
-                      Auto-filled temperature input with {probe.internalTempF}°F
+                      Auto-filling temperature input with {probe.internalTempF}°F
                     </Text>
                   </View>
                 )}
               </View>
             ))}
+
+            {/* No-MEATER placeholder */}
+            {meaterLinked !== true && (
+              <View style={[s.meaterPlaceholder, { borderTopColor: colors.border }]}>
+                <Feather name="thermometer" size={20} color={colors.mutedForeground} />
+                <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground }]}>
+                  Link your MEATER thermometer in Profile to see live probe data here.
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -1377,6 +1495,13 @@ const s = StyleSheet.create({
   nowBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   editPickerBtn: { flexDirection: "row", alignItems: "center", gap: 7 },
 
+  timerRow: { flexDirection: "row", gap: 10, padding: 14, borderTopWidth: 1 },
+  timerChip: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 10, padding: 10 },
+  timerValue: { fontSize: 17, fontFamily: "Inter_700Bold" },
+  timerLabel: { fontSize: 10, fontFamily: "Inter_500Medium", marginTop: 1 },
+  liveGraphWrap: { borderTopWidth: 1, padding: 14 },
+  meaterPlaceholder: { borderTopWidth: 1, flexDirection: "row", alignItems: "center", gap: 10, padding: 16 },
+  meaterPlaceholderText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
   grillOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)" },
   grillSheet: { maxHeight: "65%", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
   grillSheetHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 16 },

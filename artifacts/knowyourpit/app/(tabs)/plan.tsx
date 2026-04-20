@@ -25,6 +25,7 @@ import {
   useListGrills,
   useCreateCook,
   useAiPredict,
+  useListCooks,
   getListCooksQueryKey,
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
@@ -112,6 +113,15 @@ function fmtDuration(mins: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+function fmtElapsedPlan(ms: number): string {
+  if (ms <= 0) return "0m";
+  const totalMins = Math.floor(ms / 60000);
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
 // ─── Time slot helpers ──────────────────────────────────────────────────
 const TIME_SLOTS: Array<{ h: number; m: number }> = (() => {
   const slots: Array<{ h: number; m: number }> = [];
@@ -130,6 +140,12 @@ export default function PlanScreen() {
 
   const { data: grills } = useListGrills();
   const createCook = useCreateCook();
+
+  const { data: activeCooks } = useListCooks({ status: "active" as any });
+  const activeCook = (activeCooks as any[] | undefined)?.[0] ?? null;
+  const activeElapsedMs = activeCook?.actualStartAt
+    ? Date.now() - new Date(activeCook.actualStartAt).getTime()
+    : 0;
 
   // ── Form state ───────────────────────────────────────────────────────
   const [cookName, setCookName] = useState("");
@@ -288,6 +304,25 @@ export default function PlanScreen() {
     <View style={[s.container, { backgroundColor: colors.background }]}>
       <LogoBackground opacity={0.04} />
       <AppHeader title="Plan a Cook" dark />
+
+      {/* ── Now Cooking banner ───────────────────────────────── */}
+      {activeCook && (
+        <Pressable
+          onPress={() => router.push(`/cooks/${activeCook.id}` as any)}
+          style={[s.nowCookingBanner, { backgroundColor: "#FF6B2B" }]}
+        >
+          <View style={s.nowCookingLeft}>
+            <View style={[s.nowCookingDot, { backgroundColor: "#fff" }]} />
+            <Text style={s.nowCookingTitle} numberOfLines={1}>
+              🔥 Now cooking · {activeCook.foodType ?? "Cook in progress"}
+            </Text>
+          </View>
+          <Text style={s.nowCookingElapsed}>
+            {activeElapsedMs > 0 ? fmtElapsedPlan(activeElapsedMs) : "Just started"}
+          </Text>
+          <Feather name="chevron-right" size={16} color="#fff" />
+        </Pressable>
+      )}
 
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: botPad + 120 }}
@@ -1264,4 +1299,16 @@ const s = StyleSheet.create({
   },
   dateText: { fontSize: 16, fontFamily: "Inter_600SemiBold", flex: 1 },
   dateSubText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+
+  nowCookingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    gap: 8,
+  },
+  nowCookingLeft: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  nowCookingDot: { width: 8, height: 8, borderRadius: 4, opacity: 0.9 },
+  nowCookingTitle: { flex: 1, fontSize: 14, fontFamily: "Inter_700Bold", color: "#fff" },
+  nowCookingElapsed: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff", opacity: 0.85 },
 });
