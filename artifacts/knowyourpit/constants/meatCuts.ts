@@ -32,6 +32,7 @@ export const MEAT_CUTS: MeatCut[] = [
   { category: "Beef", name: "Skirt Steak", targetTempF: 130, cookTempF: 450, minsPerLb: 8, restMins: 5, cookMethod: "Direct Heat" },
   { category: "Beef", name: "Burger Patties", targetTempF: 160, cookTempF: 400, minsPerLb: 12, restMins: 3, cookMethod: "Direct Heat" },
   { category: "Beef", name: "Beef Back Ribs", targetTempF: 200, cookTempF: 250, minsPerLb: 50, restMins: 20, cookMethod: "Low & Slow" },
+  { category: "Beef", name: "Oxtail", targetTempF: 210, cookTempF: 275, minsPerLb: 90, restMins: 20, cookMethod: "Low & Slow", notes: "Collagen-rich; cook until probe tender and meat pulls freely from bone" },
   { category: "Beef", name: "Prime Rib (Bone-In)", targetTempF: 130, cookTempF: 250, minsPerLb: 20, restMins: 30, cookMethod: "Indirect", notes: "Rest 30+ min before carving" },
 
   // ── PORK ──────────────────────────────────────────────────────────
