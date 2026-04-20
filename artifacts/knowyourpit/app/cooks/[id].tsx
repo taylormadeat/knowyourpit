@@ -699,6 +699,21 @@ export default function CookDetailScreen() {
               )}
             </View>
 
+            {/* Key Takeaway — top suggestion surfaced immediately */}
+            {storedAssessment?.suggestions?.length > 0 && (
+              <View style={[s.keyTakeawayCard, { backgroundColor: "#A855F715", borderColor: "#A855F740" }]}>
+                <View style={s.keyTakeawayHeader}>
+                  <Feather name="star" size={13} color="#A855F7" />
+                  <Text style={[s.keyTakeawayLabel, { color: "#A855F7" }]}>
+                    For your next {c.foodType || "cook"}
+                  </Text>
+                </View>
+                <Text style={[s.keyTakeawayText, { color: colors.foreground }]}>
+                  {storedAssessment.suggestions[0]}
+                </Text>
+              </View>
+            )}
+
             {storedAssessment?.summary ? (
               <Text style={[s.storedSummary, { color: colors.foreground }]}>{storedAssessment.summary}</Text>
             ) : null}
@@ -781,6 +796,43 @@ export default function CookDetailScreen() {
             )}
           </View>
         )}
+
+        {/* ── Last Decision Banner (active cooks only) ─────── */}
+        {c.status === "active" && (() => {
+          const stored = c.analysisResult as any;
+          const decisions: any[] = stored?.decisions ?? [];
+          if (decisions.length === 0) return null;
+          const top = decisions[0];
+          const URGENCY_COLORS: Record<string, string> = {
+            now: "#EF4444",
+            soon: "#F59E0B",
+            when_ready: "#6C3BF5",
+          };
+          const color = top.action === "maintain" ? "#22c55e" : (URGENCY_COLORS[top.urgency] ?? "#6C3BF5");
+          const urgencyLabel = top.action === "maintain"
+            ? "HOLD STEADY"
+            : (top.urgency === "now" ? "ACTION NEEDED" : top.urgency === "soon" ? "DO THIS SOON" : "WHEN READY");
+          return (
+            <View style={[s.persistentDecisionBanner, { backgroundColor: color + "12", borderColor: color + "45" }]}>
+              <View style={s.persistentDecisionHeader}>
+                <View style={[s.persistentUrgencyBadge, { backgroundColor: color }]}>
+                  <Text style={s.persistentUrgencyText}>{urgencyLabel}</Text>
+                </View>
+                <Text style={[s.persistentDecisionLabel, { color: colors.mutedForeground }]}>
+                  Last PitMaster guidance
+                </Text>
+              </View>
+              <Text style={[s.persistentDecisionInstruction, { color: colors.foreground }]}>
+                {top.instruction}
+              </Text>
+              {top.rationale ? (
+                <Text style={[s.persistentDecisionRationale, { color: colors.mutedForeground }]}>
+                  {top.rationale}
+                </Text>
+              ) : null}
+            </View>
+          );
+        })()}
 
         {/* ── Live Cook section (active cooks only) ──────────── */}
         {c.status === "active" && (
@@ -940,11 +992,11 @@ export default function CookDetailScreen() {
                 <Feather name="zap" size={15} color="#fff" />
               </LinearGradient>
               <View style={{ flex: 1 }}>
-                <Text style={[s.logTitle, { color: colors.foreground }]}>Ask PitMaster</Text>
+                <Text style={[s.logTitle, { color: colors.foreground }]}>What Should I Do Next?</Text>
                 <Text style={[s.logSub, { color: colors.mutedForeground }]}>
                   {meaterLinked === true && meaterProbes.length > 0
-                    ? "Temperature auto-filled from your probe · add notes for context"
-                    : "Enter your current probe temperature for a mid-cook check-in"}
+                    ? "Temperature auto-filled from your probe · add any notes and get your next step"
+                    : "Enter your current probe temperature and get your next action"}
                 </Text>
               </View>
             </View>
@@ -1896,6 +1948,67 @@ const s = StyleSheet.create({
   decisionUrgencyText: { fontSize: 10, fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: 0.5 },
   decisionInstruction: { fontSize: 15, fontFamily: "Inter_600SemiBold", lineHeight: 22 },
   decisionRationale: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 20 },
+
+  persistentDecisionBanner: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+  },
+  persistentDecisionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  persistentUrgencyBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  persistentUrgencyText: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+    letterSpacing: 0.6,
+  },
+  persistentDecisionLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    flex: 1,
+  },
+  persistentDecisionInstruction: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    lineHeight: 23,
+  },
+  persistentDecisionRationale: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 19,
+  },
+
+  keyTakeawayCard: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    gap: 6,
+  },
+  keyTakeawayHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  keyTakeawayLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  keyTakeawayText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    lineHeight: 21,
+  },
 
   metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, borderTopWidth: 1, paddingTop: 10 },
   metaPill: { flexDirection: "row", alignItems: "center", gap: 5 },

@@ -46,6 +46,24 @@ function avgRating(item: any): number {
   return 0;
 }
 
+function fmtElapsed(ms: number): string {
+  const totalMins = Math.floor(ms / 60000);
+  const hrs = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hrs > 0) return `${hrs}h ${mins}m`;
+  return `${mins}m`;
+}
+
+function fmtCountdown(targetMs: number): string {
+  const diff = targetMs - Date.now();
+  if (diff <= 0) return "starting now";
+  const totalMins = Math.floor(diff / 60000);
+  const hrs = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hrs > 0) return `in ${hrs}h ${mins}m`;
+  return `in ${mins}m`;
+}
+
 export default function CooksScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -69,92 +87,139 @@ export default function CooksScreen() {
     if (ratedOnly) {
       list = list.filter((item) => avgRating(item) > 0);
     }
-    list = [...list].sort((a, b) => {
+
+    const STATUS_PRIORITY: Record<string, number> = { active: 0, planned: 1 };
+    const getStatusPriority = (item: any) => STATUS_PRIORITY[item.status] ?? 2;
+
+    const sortWithinGroup = (a: any, b: any) => {
       if (sortKey === "date-desc") {
         return new Date(b.plannedStartAt || 0).getTime() - new Date(a.plannedStartAt || 0).getTime();
       }
       if (sortKey === "date-asc") {
         return new Date(a.plannedStartAt || 0).getTime() - new Date(b.plannedStartAt || 0).getTime();
       }
-      if (sortKey === "rating-desc") {
-        return avgRating(b) - avgRating(a);
-      }
-      if (sortKey === "rating-asc") {
-        return avgRating(a) - avgRating(b);
-      }
+      if (sortKey === "rating-desc") return avgRating(b) - avgRating(a);
+      if (sortKey === "rating-asc") return avgRating(a) - avgRating(b);
       return 0;
+    };
+
+    list = [...list].sort((a, b) => {
+      const pA = getStatusPriority(a);
+      const pB = getStatusPriority(b);
+      if (pA !== pB) return pA - pB;
+      return sortWithinGroup(a, b);
     });
+
     return list;
   }, [cooks, sortKey, ratedOnly]);
 
-  const renderItem = ({ item }: { item: any }) => (
-    <Pressable
-      style={({ pressed }) => [
-        s.card,
-        { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
-        pressed && { opacity: 0.75 },
-      ]}
-      onPress={() => router.push(`/cooks/${item.id}` as any)}
-    >
-      <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.iconWrap}>
-        <Feather name="zap" size={20} color="#fff" />
-      </LinearGradient>
-      <View style={s.info}>
-        <Text style={[s.name, { color: colors.foreground }]} numberOfLines={1}>
-          {item.foodType || "Unnamed Cook"}
-        </Text>
-        <Text style={[s.meta, { color: colors.mutedForeground }]}>
-          {item.grillName || "No grill"}{item.targetTempF ? ` · ${item.targetTempF}°F target` : ""}
-        </Text>
-        {item.plannedStartAt && (
-          <Text style={[s.date, { color: colors.mutedForeground }]}>
-            {new Date(item.plannedStartAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-          </Text>
-        )}
-        {item.status === "completed" && (item.ratingTenderness || item.ratingFlavor || item.ratingBark) ? (
-          <View style={s.starsRow}>
-            {[
-              { label: "T", val: item.ratingTenderness },
-              { label: "F", val: item.ratingFlavor },
-              { label: "B", val: item.ratingBark },
-            ].filter(r => r.val).map((r) => (
-              <View key={r.label} style={s.starChip}>
-                <Text style={s.starChipLabel}>{r.label}</Text>
-                <Text style={s.starChipStars}>
-                  {"★".repeat(r.val!)}{"☆".repeat(5 - r.val!)}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-      </View>
-      <View style={{ alignItems: "flex-end", gap: 6 }}>
-        <View
-          style={[
-            s.badge,
-            { backgroundColor: (STATUS_COLORS[item.status] || colors.primary) + "22" },
-          ]}
+  const renderItem = ({ item }: { item: any }) => {
+    const isActive = item.status === "active";
+    const isPlanned = item.status === "planned";
+    const elapsedMs = isActive && item.actualStartAt
+      ? Date.now() - new Date(item.actualStartAt).getTime()
+      : null;
+    const plannedStartMs = isPlanned && item.plannedStartAt
+      ? new Date(item.plannedStartAt).getTime()
+      : null;
+    const isSoon = plannedStartMs !== null && plannedStartMs - Date.now() < 48 * 60 * 60 * 1000;
+
+    return (
+      <Pressable
+        style={({ pressed }) => [
+          s.card,
+          {
+            backgroundColor: colors.card,
+            borderColor: isActive ? "#E8482045" : colors.border,
+            borderRadius: colors.radius,
+          },
+          pressed && { opacity: 0.75 },
+        ]}
+        onPress={() => router.push(`/cooks/${item.id}` as any)}
+      >
+        <LinearGradient
+          colors={isActive ? ["#E84820", "#FF6B2B"] : ["#3A3A3E", "#52525B"]}
+          style={s.iconWrap}
         >
-          <Text
-            style={[s.badgeText, { color: STATUS_COLORS[item.status] || colors.primary }]}
-          >
-            {item.status}
+          <Feather name={isActive ? "activity" : "zap"} size={20} color="#fff" />
+        </LinearGradient>
+        <View style={s.info}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <Text style={[s.name, { color: colors.foreground }]} numberOfLines={1}>
+              {item.foodType || "Unnamed Cook"}
+            </Text>
+            {isActive && (
+              <View style={s.livePill}>
+                <View style={s.liveDot} />
+                <Text style={s.livePillText}>LIVE</Text>
+              </View>
+            )}
+          </View>
+          <Text style={[s.meta, { color: colors.mutedForeground }]}>
+            {item.grillName || "No grill"}{item.targetTempF ? ` · ${item.targetTempF}°F target` : ""}
           </Text>
-        </View>
-        {(() => {
-          if (item.status !== "completed") return null;
-          const avg = avgRating(item);
-          if (avg === 0) return null;
-          return (
-            <View style={s.avgBadge}>
-              <Text style={s.avgBadgeText}>★ {avg.toFixed(1)}</Text>
+          {isActive && elapsedMs !== null && (
+            <Text style={[s.liveElapsed, { color: "#E84820" }]}>
+              {fmtElapsed(elapsedMs)} on the smoker
+            </Text>
+          )}
+          {isPlanned && plannedStartMs !== null && (
+            <Text style={[s.date, { color: isSoon ? "#3b82f6" : colors.mutedForeground }]}>
+              {isSoon
+                ? fmtCountdown(plannedStartMs)
+                : new Date(item.plannedStartAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+            </Text>
+          )}
+          {!isActive && !isPlanned && item.plannedStartAt && (
+            <Text style={[s.date, { color: colors.mutedForeground }]}>
+              {new Date(item.plannedStartAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+            </Text>
+          )}
+          {item.status === "completed" && (item.ratingTenderness || item.ratingFlavor || item.ratingBark) ? (
+            <View style={s.starsRow}>
+              {[
+                { label: "T", val: item.ratingTenderness },
+                { label: "F", val: item.ratingFlavor },
+                { label: "B", val: item.ratingBark },
+              ].filter(r => r.val).map((r) => (
+                <View key={r.label} style={s.starChip}>
+                  <Text style={s.starChipLabel}>{r.label}</Text>
+                  <Text style={s.starChipStars}>
+                    {"★".repeat(r.val!)}{"☆".repeat(5 - r.val!)}
+                  </Text>
+                </View>
+              ))}
             </View>
-          );
-        })()}
-        <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
-      </View>
-    </Pressable>
-  );
+          ) : null}
+        </View>
+        <View style={{ alignItems: "flex-end", gap: 6 }}>
+          <View
+            style={[
+              s.badge,
+              { backgroundColor: (STATUS_COLORS[item.status] || colors.primary) + "22" },
+            ]}
+          >
+            <Text
+              style={[s.badgeText, { color: STATUS_COLORS[item.status] || colors.primary }]}
+            >
+              {item.status}
+            </Text>
+          </View>
+          {(() => {
+            if (item.status !== "completed") return null;
+            const avg = avgRating(item);
+            if (avg === 0) return null;
+            return (
+              <View style={s.avgBadge}>
+                <Text style={s.avgBadgeText}>★ {avg.toFixed(1)}</Text>
+              </View>
+            );
+          })()}
+          <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+        </View>
+      </Pressable>
+    );
+  };
 
   const addBtn = (
     <View style={s.headerBtns}>
@@ -321,6 +386,28 @@ const s = StyleSheet.create({
   name: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
   meta: { fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 2 },
   date: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  liveElapsed: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginTop: 2 },
+  livePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#E8482022",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  liveDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "#E84820",
+  },
+  livePillText: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    color: "#E84820",
+    letterSpacing: 0.6,
+  },
   starsRow: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 },
   starChip: { flexDirection: "row", alignItems: "center", gap: 2 },
   starChipLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold", color: "#9ca3af" },

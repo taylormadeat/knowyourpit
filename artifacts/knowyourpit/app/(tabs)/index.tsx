@@ -27,6 +27,31 @@ const STATUS_COLOR: Record<string, string> = {
   cancelled: "#9ca3af",
 };
 
+const URGENCY_COLOR: Record<string, string> = {
+  now: "#EF4444",
+  soon: "#F59E0B",
+  when_ready: "#6C3BF5",
+  maintain: "#22c55e",
+};
+
+function fmtElapsed(ms: number): string {
+  const totalMins = Math.floor(ms / 60000);
+  const hrs = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hrs > 0) return `${hrs}h ${mins}m`;
+  return `${mins}m`;
+}
+
+function fmtCountdown(targetMs: number): string {
+  const diff = targetMs - Date.now();
+  if (diff <= 0) return "now";
+  const totalMins = Math.floor(diff / 60000);
+  const hrs = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hrs > 0) return `${hrs}h ${mins}m`;
+  return `${mins}m`;
+}
+
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -42,6 +67,28 @@ export default function HomeScreen() {
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+
+  const allCooks = (recentCooks as any[]) || [];
+  const activeCook = allCooks.find((c: any) => c.status === "active") ?? null;
+  const upcomingCook = !activeCook
+    ? allCooks.find((c: any) => {
+        if (c.status !== "planned") return false;
+        if (!c.plannedStartAt) return false;
+        const diff = new Date(c.plannedStartAt).getTime() - Date.now();
+        return diff > 0 && diff < 48 * 60 * 60 * 1000;
+      }) ?? null
+    : null;
+
+  const topDecision = activeCook?.analysisResult?.decisions?.[0] ?? null;
+  const topDecisionColor = topDecision
+    ? URGENCY_COLOR[topDecision.urgency] ?? "#6C3BF5"
+    : null;
+
+  const heroSub = activeCook
+    ? `${activeCook.foodType || "Your cook"} is on the smoker right now`
+    : upcomingCook
+    ? `${upcomingCook.foodType || "Your cook"} is coming up — time to prep`
+    : "Ready to fire it up?";
 
   const quickActions = [
     { icon: "plus-circle", label: "Plan a Cook", route: "/(tabs)/plan" },
@@ -64,21 +111,17 @@ export default function HomeScreen() {
           end={{ x: 1, y: 1 }}
           style={[s.hero, { paddingTop: topPad + 20 }]}
         >
-          {/* Watermark logo */}
           <Image
             source={logoImg}
             style={s.watermark}
             resizeMode="contain"
           />
-
-          {/* Fire accent bar */}
           <View style={s.fireBar} />
 
           <Text style={s.greeting}>Good {getTimeGreeting()}</Text>
           <Text style={s.heroName}>{firstName} 🔥</Text>
-          <Text style={s.heroSub}>Ready to fire it up?</Text>
+          <Text style={s.heroSub}>{heroSub}</Text>
 
-          {/* Stat chips */}
           {summaryLoading ? (
             <ActivityIndicator color="#E84820" style={{ marginTop: 20 }} />
           ) : (
@@ -102,6 +145,94 @@ export default function HomeScreen() {
         <View style={[s.dividerStrip, { backgroundColor: colors.background }]}>
           <View style={s.dividerLine} />
         </View>
+
+        {/* ── Active Cook Widget ── */}
+        {activeCook && (
+          <Pressable
+            style={({ pressed }) => [pressed && { opacity: 0.88 }]}
+            onPress={() => router.push(`/cooks/${activeCook.id}` as any)}
+          >
+            <LinearGradient
+              colors={["#2D1008", "#1E0B04"]}
+              style={[s.activeCookWidget, { borderColor: "#E8482055" }]}
+            >
+              {/* Live indicator row */}
+              <View style={s.activeLiveRow}>
+                <View style={s.liveDot} />
+                <Text style={s.liveLabel}>LIVE ON THE SMOKER</Text>
+                {activeCook.actualStartAt && (
+                  <Text style={s.elapsedBadge}>
+                    {fmtElapsed(Date.now() - new Date(activeCook.actualStartAt).getTime())} in
+                  </Text>
+                )}
+              </View>
+
+              {/* Food type */}
+              <Text style={s.activeFoodType}>
+                {activeCook.foodType || "Cook in progress"}
+              </Text>
+              {activeCook.grillName ? (
+                <Text style={s.activeGrill}>{activeCook.grillName}</Text>
+              ) : null}
+
+              {/* Last decision teaser */}
+              {topDecision ? (
+                <View style={[s.decisionTeaser, { backgroundColor: topDecisionColor! + "18", borderColor: topDecisionColor! + "40" }]}>
+                  <View style={[s.decisionTeaserDot, { backgroundColor: topDecisionColor! }]} />
+                  <Text style={[s.decisionTeaserText, { color: topDecisionColor! }]} numberOfLines={2}>
+                    {topDecision.instruction}
+                  </Text>
+                </View>
+              ) : (
+                <View style={s.decisionTeaser}>
+                  <Feather name="zap" size={13} color="#F59E0B" />
+                  <Text style={[s.decisionTeaserText, { color: "#F59E0B" }]}>
+                    Tap to check in with PitMaster for your next step
+                  </Text>
+                </View>
+              )}
+
+              {/* CTA */}
+              <View style={s.checkOnItRow}>
+                <Text style={s.checkOnItText}>Check on your cook</Text>
+                <Feather name="chevron-right" size={16} color="#E84820" />
+              </View>
+            </LinearGradient>
+          </Pressable>
+        )}
+
+        {/* ── Upcoming Cook Countdown ── */}
+        {upcomingCook && (
+          <Pressable
+            style={({ pressed }) => [pressed && { opacity: 0.88 }]}
+            onPress={() => router.push(`/cooks/${upcomingCook.id}` as any)}
+          >
+            <View style={[s.upcomingCard, { backgroundColor: colors.card, borderColor: "#3b82f655" }]}>
+              <View style={s.upcomingLeft}>
+                <LinearGradient colors={["#3b82f6", "#60a5fa"]} style={s.upcomingIconWrap}>
+                  <Feather name="calendar" size={16} color="#fff" />
+                </LinearGradient>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.upcomingTitle, { color: colors.foreground }]}>
+                    {upcomingCook.foodType || "Planned Cook"}
+                  </Text>
+                  <Text style={[s.upcomingMeta, { color: colors.mutedForeground }]}>
+                    Starts in{" "}
+                    <Text style={{ color: "#3b82f6", fontFamily: "Inter_700Bold" }}>
+                      {fmtCountdown(new Date(upcomingCook.plannedStartAt).getTime())}
+                    </Text>
+                  </Text>
+                  {upcomingCook.cookTempF && (
+                    <Text style={[s.upcomingMeta, { color: colors.mutedForeground }]}>
+                      Pit target: {upcomingCook.cookTempF}°F
+                    </Text>
+                  )}
+                </View>
+              </View>
+              <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+            </View>
+          </Pressable>
+        )}
 
         {/* ── Quick Actions ── */}
         <View style={s.sectionHeader}>
@@ -146,28 +277,28 @@ export default function HomeScreen() {
 
         {cooksLoading ? (
           <ActivityIndicator color={colors.primary} style={{ padding: 20 }} />
-        ) : !recentCooks?.length ? (
+        ) : !allCooks.length ? (
           <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
             <Feather name="inbox" size={36} color={colors.mutedForeground} />
             <Text style={[s.emptyTitle, { color: colors.foreground }]}>No cooks yet</Text>
             <Text style={[s.emptyText, { color: colors.mutedForeground }]}>Fire it up with your first cook!</Text>
           </View>
         ) : (
-          (recentCooks as any[]).slice(0, 5).map((cook: any) => (
+          allCooks.slice(0, 5).map((cook: any) => (
             <Pressable
               key={cook.id}
               style={({ pressed }) => [
                 s.cookCard,
-                { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
+                { backgroundColor: colors.card, borderColor: cook.status === "active" ? "#E8482040" : colors.border, borderRadius: colors.radius },
                 pressed && { opacity: 0.75 },
               ]}
               onPress={() => router.push(`/cooks/${cook.id}` as any)}
             >
               <LinearGradient
-                colors={["#E84820", "#FF6B2B"]}
+                colors={cook.status === "active" ? ["#E84820", "#FF6B2B"] : ["#3A3A3E", "#52525B"]}
                 style={s.cookIconBg}
               >
-                <Feather name="zap" size={16} color="#fff" />
+                <Feather name={cook.status === "active" ? "activity" : "zap"} size={16} color="#fff" />
               </LinearGradient>
               <View style={s.cookInfo}>
                 <Text style={[s.cookName, { color: colors.foreground }]} numberOfLines={1}>
@@ -176,6 +307,11 @@ export default function HomeScreen() {
                 <Text style={[s.cookMeta, { color: colors.mutedForeground }]}>
                   {cook.grillName || "No grill selected"}
                 </Text>
+                {cook.status === "active" && cook.actualStartAt && (
+                  <Text style={[s.cookElapsed, { color: "#E84820" }]}>
+                    {fmtElapsed(Date.now() - new Date(cook.actualStartAt).getTime())} elapsed
+                  </Text>
+                )}
               </View>
               <View style={[s.statusPill, { backgroundColor: (STATUS_COLOR[cook.status] || colors.mutedForeground) + "22" }]}>
                 <Text style={[s.statusText, { color: STATUS_COLOR[cook.status] || colors.mutedForeground }]}>
@@ -282,6 +418,119 @@ const s = StyleSheet.create({
     backgroundColor: "transparent",
   },
 
+  /* Active Cook Widget */
+  activeCookWidget: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 16,
+    gap: 10,
+  },
+  activeLiveRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#E84820",
+  },
+  liveLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    color: "#E84820",
+    letterSpacing: 0.8,
+    flex: 1,
+  },
+  elapsedBadge: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    color: "#96908A",
+  },
+  activeFoodType: {
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    color: "#F3EDE1",
+  },
+  activeGrill: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: "#7A6E62",
+    marginTop: -6,
+  },
+  decisionTeaser: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  decisionTeaserDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    flexShrink: 0,
+  },
+  decisionTeaserText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    flex: 1,
+    lineHeight: 18,
+  },
+  checkOnItRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 4,
+    marginTop: 2,
+  },
+  checkOnItText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: "#E84820",
+  },
+
+  /* Upcoming Cook */
+  upcomingCard: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  upcomingLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  upcomingIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  upcomingTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 2,
+  },
+  upcomingMeta: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+  },
+
   /* Sections */
   sectionHeader: {
     flexDirection: "row",
@@ -373,6 +622,7 @@ const s = StyleSheet.create({
   cookInfo: { flex: 1 },
   cookName: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
   cookMeta: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  cookElapsed: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginTop: 2 },
   statusPill: {
     paddingHorizontal: 8,
     paddingVertical: 4,
