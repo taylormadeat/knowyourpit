@@ -1019,7 +1019,7 @@ export default function PlanScreen() {
                         <View style={{ flex: 1 }}>
                           <Text style={[s.aiScheduleLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
                           <Text style={[s.aiScheduleVal, { color: colors.foreground }]}>
-                            {new Date(row.val).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                            {formatDateTime(new Date(row.val as string))}
                           </Text>
                         </View>
                       </View>
