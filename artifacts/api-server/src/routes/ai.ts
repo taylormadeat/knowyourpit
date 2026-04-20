@@ -65,6 +65,9 @@ async function buildUserCookHistory(userId: string): Promise<string> {
     if (c.notes) parts.push(`notes: "${c.notes}"`);
     const date = c.actualStartAt ? new Date(c.actualStartAt).toLocaleDateString() : (c.createdAt ? new Date(c.createdAt).toLocaleDateString() : null);
     if (date) parts.push(`date: ${date}`);
+    const analysis = c.analysisResult as any;
+    if (analysis?.assessment?.verdict) parts.push(`verdict: ${analysis.assessment.verdict}`);
+    if (analysis?.assessment?.suggestions?.[0]) parts.push(`tip: "${analysis.assessment.suggestions[0]}"`);
     return `- ${parts.join(" · ")}`;
   });
 
@@ -398,11 +401,22 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
     const grillName = c.grillId ? (grillNameCache[c.grillId] || "unknown grill") : "no grill";
     const ratings = [c.ratingTenderness ? `T:${c.ratingTenderness}` : null, c.ratingBark ? `B:${c.ratingBark}` : null, c.ratingFlavor ? `F:${c.ratingFlavor}` : null].filter(Boolean).join("/");
     const wrap = c.wrapMethod && c.wrapMethod !== "none" ? `, wrapped: ${c.wrapMethod}${c.wrapAtMinutes ? ` at ${c.wrapAtMinutes}min` : ""}` : "";
+    const analysis = c.analysisResult as any;
+    const verdict = analysis?.assessment?.verdict ? ` → verdict: ${analysis.assessment.verdict}` : "";
+    const tip = analysis?.assessment?.suggestions?.[0] ? ` · tip: "${analysis.assessment.suggestions[0]}"` : "";
     return `  • ${c.foodType}${c.weightLbs ? ` (${c.weightLbs} lbs)` : ""}` +
       `${durationMins ? ` → ${durationMins} min` : ""}${minsPerLbActual ? ` (${minsPerLbActual})` : ""}` +
       `${c.cookTempF ? ` at ${c.cookTempF}°F` : ""} on ${grillName}${wrap}` +
-      `${c.rating ? ` · rated ${c.rating}/5` : ""}${ratings ? ` [${ratings}]` : ""}`;
+      `${c.rating ? ` · rated ${c.rating}/5` : ""}${ratings ? ` [${ratings}]` : ""}${verdict}${tip}`;
   });
+
+  // Boost confidence to "high" if user has 2+ similar cooks with both ratings and assessments
+  const similarWithFeedback = similarCooksAllGrills.filter(c => {
+    const hasRating = c.ratingTenderness || c.ratingBark || c.ratingFlavor;
+    const hasAssessment = !!(c.analysisResult as any)?.assessment?.verdict;
+    return hasRating || hasAssessment;
+  });
+  const hasRichHistory = similarWithFeedback.length >= 2;
 
   // ── Build prompts ─────────────────────────────────────────────────────
   const baselineSection = baseline ? `
@@ -415,7 +429,7 @@ ${baseline.wrapNote ? `- Wrap guidance: ${baseline.wrapNote}` : ""}
 Use this as your primary baseline. Adjust based on actual user data, grill specifics, and any deviations noted.` : "";
 
   const userHistorySection = similarCookSummaries.length > 0
-    ? `\nThis user's own history with similar cooks (${similarCookSummaries.length} records — strongest signal for personalized estimate):\n${similarCookSummaries.join("\n")}`
+    ? `\nThis user's own history with similar cooks (${similarCookSummaries.length} records — strongest signal for personalized estimate):\n${similarCookSummaries.join("\n")}${hasRichHistory ? `\n\nIMPORTANT: This user has ${similarWithFeedback.length} prior cooks of this type with ratings and/or PitMaster assessments. You have rich feedback data — set confidence to "high" and directly incorporate the verdicts and tips from past cooks into your rationale and tips.` : ""}`
     : "\nNo similar cooks in user's history — rely on baseline knowledge and grill context.";
 
   const systemPrompt = `You are KnowYourPit AI, a world-class BBQ pit master assistant with deep knowledge of competition-level BBQ. You have access to verified cook data, industry baselines, and the user's personal cook history. Your predictions are trusted and actionable.
@@ -528,6 +542,10 @@ ${userHistorySection}`;
     serveAt = new Date(estimatedFinishAt.getTime() + restMs);
   }
 
+  const finalConfidence = hasRichHistory && prediction.confidence !== "high"
+    ? "high"
+    : (prediction.confidence || "medium");
+
   res.json({
     estimatedDurationMinutes: prediction.estimatedDurationMinutes,
     preheatMinutes,
@@ -542,7 +560,7 @@ ${userHistorySection}`;
       reason: wrap.reason ?? "",
       restMinutes: wrap.restMinutes ?? 0,
     },
-    confidence: prediction.confidence || "medium",
+    confidence: finalConfidence,
     rationale: prediction.rationale || "Based on food type and weight.",
     tips: prediction.tips || [],
   });

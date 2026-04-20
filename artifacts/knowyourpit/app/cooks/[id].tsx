@@ -163,6 +163,12 @@ export default function CookDetailScreen() {
   const [analyzing, setAnalyzing] = useState(false);
   const [cardWidth, setCardWidth] = useState(300);
 
+  // Ratings state
+  const [rateTenderness, setRateTenderness] = useState<number>(0);
+  const [rateFlavor, setRateFlavor] = useState<number>(0);
+  const [rateBark, setRateBark] = useState<number>(0);
+  const [rateSaving, setRateSaving] = useState(false);
+
   const cookStatus = (cook as any)?.status;
   const { data: meaterData, isLoading: meaterLoading } = useGetMeaterReadings({
     query: {
@@ -187,6 +193,16 @@ export default function CookDetailScreen() {
     setUserTempInput("");
     setUserTempEdited(false);
   }, [id]);
+
+  // Initialize ratings from saved cook data
+  useEffect(() => {
+    if (cook) {
+      const c2 = cook as any;
+      setRateTenderness(c2.ratingTenderness ?? 0);
+      setRateFlavor(c2.ratingFlavor ?? 0);
+      setRateBark(c2.ratingBark ?? 0);
+    }
+  }, [(cook as any)?.id]);
 
   useEffect(() => {
     if (cookStatus !== "active") {
@@ -281,6 +297,31 @@ export default function CookDetailScreen() {
     qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
     qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
     qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+  };
+
+  const saveRatings = async (tenderness: number, flavor: number, bark: number) => {
+    if (rateSaving) return;
+    setRateSaving(true);
+    try {
+      const avg = tenderness > 0 && flavor > 0 && bark > 0
+        ? Math.round((tenderness + flavor + bark) / 3)
+        : tenderness || flavor || bark || null;
+      await updateCook.mutateAsync({
+        id: Number(id),
+        data: {
+          ratingTenderness: tenderness || null,
+          ratingFlavor: flavor || null,
+          ratingBark: bark || null,
+          rating: avg,
+        } as any,
+      });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+    } catch {
+      Alert.alert("Save failed", "Could not save ratings. Please try again.");
+    } finally {
+      setRateSaving(false);
+    }
   };
 
   const openEdit = () => {
@@ -497,6 +538,20 @@ export default function CookDetailScreen() {
         <View style={[s.statusBar, { backgroundColor: statusColor + "18", borderRadius: colors.radius }]}>
           <View style={[s.statusDot, { backgroundColor: statusColor }]} />
           <Text style={[s.statusText, { color: statusColor }]}>{c.status?.toUpperCase()}</Text>
+          {(c.ratingTenderness || c.ratingBark || c.ratingFlavor) ? (
+            <View style={s.ratingsSummary}>
+              {[
+                { label: "T", val: c.ratingTenderness },
+                { label: "F", val: c.ratingFlavor },
+                { label: "B", val: c.ratingBark },
+              ].filter(r => r.val).map((r, i) => (
+                <View key={i} style={s.ratingsSummaryChip}>
+                  <Text style={[s.ratingsSummaryLabel, { color: colors.mutedForeground }]}>{r.label}</Text>
+                  <Text style={[s.ratingsSummaryStars, { color: "#eab308" }]}>{"★".repeat(r.val!)}{"☆".repeat(5 - r.val!)}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
 
         {/* Cook details card */}
@@ -919,6 +974,57 @@ export default function CookDetailScreen() {
                 )}
               </View>
             )}
+          </View>
+        )}
+
+        {/* ── Rate This Cook (completed cooks only) ──────────── */}
+        {c.status === "completed" && (
+          <View style={[s.card, { backgroundColor: colors.card, borderColor: "#eab30840", borderRadius: colors.radius }]}>
+            <View style={[s.logHeader, { padding: 14 }]}>
+              <View style={[s.logIconWrap, { backgroundColor: "#eab308" }]}>
+                <Feather name="star" size={15} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.logTitle, { color: colors.foreground }]}>Rate This Cook</Text>
+                <Text style={[s.logSub, { color: colors.mutedForeground }]}>
+                  {rateSaving ? "Saving…" : "Tap a star to rate · saves instantly"}
+                </Text>
+              </View>
+            </View>
+
+            {[
+              { label: "Tenderness", icon: "droplet" as const, value: rateTenderness, setter: setRateTenderness, field: "tenderness" },
+              { label: "Flavor",     icon: "heart"   as const, value: rateFlavor,    setter: setRateFlavor,    field: "flavor"    },
+              { label: "Bark/Color", icon: "layers"  as const, value: rateBark,      setter: setRateBark,      field: "bark"      },
+            ].map((row) => (
+              <View key={row.label} style={[s.rateRow, { borderTopColor: colors.border }]}>
+                <View style={s.rateRowLeft}>
+                  <Feather name={row.icon} size={14} color={colors.mutedForeground} />
+                  <Text style={[s.rateRowLabel, { color: colors.foreground }]}>{row.label}</Text>
+                </View>
+                <View style={s.starsRow}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Pressable
+                      key={star}
+                      onPress={() => {
+                        const newVal = star === row.value ? 0 : star;
+                        row.setter(newVal);
+                        const t = row.field === "tenderness" ? newVal : rateTenderness;
+                        const f = row.field === "flavor"     ? newVal : rateFlavor;
+                        const b = row.field === "bark"       ? newVal : rateBark;
+                        saveRatings(t, f, b);
+                      }}
+                      hitSlop={6}
+                      disabled={rateSaving}
+                    >
+                      <Text style={[s.star, { color: star <= row.value ? "#eab308" : colors.border, opacity: rateSaving ? 0.5 : 1 }]}>
+                        {star <= row.value ? "★" : "☆"}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            ))}
           </View>
         )}
 
@@ -1671,6 +1777,17 @@ const s = StyleSheet.create({
   meaterTempLabel: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 1 },
   meaterAutoFillBadge: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginTop: 8 },
   meaterAutoFillText: { fontSize: 12, fontFamily: "Inter_500Medium", flex: 1 },
+
+  ratingsSummary: { flexDirection: "row", alignItems: "center", gap: 10, marginLeft: "auto" },
+  ratingsSummaryChip: { flexDirection: "row", alignItems: "center", gap: 4 },
+  ratingsSummaryLabel: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.3 },
+  ratingsSummaryStars: { fontSize: 11, letterSpacing: -1 },
+
+  rateRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 13, borderTopWidth: 1 },
+  rateRowLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  rateRowLabel: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  starsRow: { flexDirection: "row", gap: 6 },
+  star: { fontSize: 28, lineHeight: 32 },
 });
 
 const edt = StyleSheet.create({
