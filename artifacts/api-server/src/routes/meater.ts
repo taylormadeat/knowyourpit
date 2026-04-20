@@ -135,22 +135,35 @@ router.get("/meater/readings", requireAuth, async (req: any, res): Promise<void>
 
     const toF = (c: number) => Math.round(((c / 1000) * 9) / 5 + 32);
 
-    const activeDevices = devices.filter((d: any) => !!d.cook);
-    if (activeDevices.length === 0) {
+    // Include ALL devices that have temperature data — either from an active
+    // MEATER-app cook session (d.cook.temperature) or from the raw device
+    // temperature (d.temperature). This way probes show live readings even when
+    // the user hasn't started a cook inside the MEATER app itself.
+    const readableDevices = devices.filter((d: any) => {
+      const hasRawTemp = d.temperature?.internal != null;
+      const hasCookTemp = d.cook?.temperature?.internal != null;
+      return hasRawTemp || hasCookTemp;
+    });
+
+    if (readableDevices.length === 0) {
       res.json({ linked: true, probes: [] });
       return;
     }
 
-    const probes = activeDevices.map((d: any) => ({
-      deviceId: d.id,
-      deviceName: d.name ?? "MEATER Probe",
-      internalTempF: d.cook.temperature?.internal != null ? toF(d.cook.temperature.internal) : null,
-      ambientTempF: d.cook.temperature?.ambient != null ? toF(d.cook.temperature.ambient) : null,
-      targetMinTempF: d.cook.temperature?.target?.min != null ? toF(d.cook.temperature.target.min) : null,
-      targetMaxTempF: d.cook.temperature?.target?.max != null ? toF(d.cook.temperature.target.max) : null,
-      cookName: d.cook.name ?? null,
-      cookState: d.cook.state ?? null,
-    }));
+    const probes = readableDevices.map((d: any) => {
+      // Prefer cook-session temps (more accurate with target), fall back to raw device temps
+      const tempSrc = d.cook?.temperature ?? d.temperature ?? {};
+      return {
+        deviceId: d.id,
+        deviceName: d.name ?? "MEATER Probe",
+        internalTempF: tempSrc.internal != null ? toF(tempSrc.internal) : null,
+        ambientTempF: tempSrc.ambient != null ? toF(tempSrc.ambient) : null,
+        targetMinTempF: tempSrc.target?.min != null ? toF(tempSrc.target.min) : null,
+        targetMaxTempF: tempSrc.target?.max != null ? toF(tempSrc.target.max) : null,
+        cookName: d.cook?.name ?? null,
+        cookState: d.cook?.state ?? null,
+      };
+    });
 
     res.json({ linked: true, probes });
   } catch {

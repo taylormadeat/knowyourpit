@@ -164,13 +164,14 @@ export default function CookDetailScreen() {
   const [cardWidth, setCardWidth] = useState(300);
 
   const cookStatus = (cook as any)?.status;
-  const { data: meaterData } = useGetMeaterReadings({
+  const { data: meaterData, isLoading: meaterLoading } = useGetMeaterReadings({
     query: {
       enabled: cookStatus === "active",
       refetchInterval: cookStatus === "active" ? 15000 : false,
     },
   });
-  const meaterLinked = meaterData?.linked ?? null;
+  // null = still loading (don't show placeholder yet), true/false = resolved
+  const meaterLinked = meaterLoading ? null : (meaterData?.linked ?? false);
   const meaterProbes = meaterData?.probes ?? [];
 
   const [nowMs, setNowMs] = useState(Date.now());
