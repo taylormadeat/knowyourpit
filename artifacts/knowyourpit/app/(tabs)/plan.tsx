@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -29,6 +29,8 @@ import {
   getListCooksQueryKey,
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
+  ListCooksStatus,
+  type Cook,
 } from "@workspace/api-client-react";
 import {
   MEAT_CUTS,
@@ -141,10 +143,32 @@ export default function PlanScreen() {
   const { data: grills } = useListGrills();
   const createCook = useCreateCook();
 
-  const { data: activeCooks } = useListCooks({ status: "active" as any });
-  const activeCook = (activeCooks as any[] | undefined)?.[0] ?? null;
+  const { data: activeCooks } = useListCooks({ status: ListCooksStatus.active });
+  const activeCook: Cook | null = activeCooks?.[0] ?? null;
+
+  const [bannerNowMs, setBannerNowMs] = useState(Date.now());
+  const bannerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (activeCook) {
+      setBannerNowMs(Date.now());
+      bannerTimerRef.current = setInterval(() => setBannerNowMs(Date.now()), 60000);
+    } else {
+      if (bannerTimerRef.current) {
+        clearInterval(bannerTimerRef.current);
+        bannerTimerRef.current = null;
+      }
+    }
+    return () => {
+      if (bannerTimerRef.current) {
+        clearInterval(bannerTimerRef.current);
+        bannerTimerRef.current = null;
+      }
+    };
+  }, [activeCook?.id]);
+
   const activeElapsedMs = activeCook?.actualStartAt
-    ? Date.now() - new Date(activeCook.actualStartAt).getTime()
+    ? bannerNowMs - new Date(activeCook.actualStartAt).getTime()
     : 0;
 
   // ── Form state ───────────────────────────────────────────────────────

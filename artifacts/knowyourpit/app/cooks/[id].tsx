@@ -869,7 +869,7 @@ export default function CookDetailScreen() {
                 value={userTempInput}
                 onChangeText={(v) => {
                   setUserTempInput(v);
-                  setUserTempEdited(true);
+                  setUserTempEdited(v.trim().length > 0);
                 }}
                 keyboardType="decimal-pad"
               />
