@@ -73,6 +73,14 @@ export default function ProfileScreen() {
   const avgFlavor = avg("ratingFlavor");
   const showQuality = ratedCooks.length > 0;
 
+  const overallScore = (t: string | null, b: string | null, f: string | null): string | null => {
+    const nums = [t, b, f].filter((v): v is string => v != null).map(parseFloat);
+    if (nums.length === 0) return null;
+    return (nums.reduce((a, n) => a + n, 0) / nums.length).toFixed(1);
+  };
+
+  const overallAvg = overallScore(avgTenderness, avgBark, avgFlavor);
+
   const meatTypeMap = ratedCooks.reduce<Record<string, Cook[]>>((acc, c) => {
     const key = c.foodType ?? "Other";
     if (!acc[key]) acc[key] = [];
@@ -236,6 +244,7 @@ export default function ProfileScreen() {
                     const t = avg("ratingTenderness", pool);
                     const b = avg("ratingBark", pool);
                     const f = avg("ratingFlavor", pool);
+                    const overall = overallScore(t, b, f);
                     return (
                       <View
                         key={meatType}
@@ -252,6 +261,24 @@ export default function ProfileScreen() {
                             {pool.length} {pool.length === 1 ? "cook" : "cooks"}
                           </Text>
                         </View>
+                        {overall != null && (
+                          <View style={[s.overallRow, { borderBottomColor: colors.border }]}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[s.overallLabel, { color: colors.mutedForeground }]}>
+                                Overall
+                              </Text>
+                              <View style={s.overallScoreRow}>
+                                <Text style={[s.overallScore, { color: colors.primary }]}>
+                                  {overall}
+                                </Text>
+                                <Text style={[s.overallScoreMax, { color: colors.mutedForeground }]}>
+                                  / 5
+                                </Text>
+                              </View>
+                              <StarRating score={parseFloat(overall)} color={colors.primary} />
+                            </View>
+                          </View>
+                        )}
                         <View style={s.qualityRow}>
                           {[
                             { label: "T", fullLabel: "Tenderness", value: t },
@@ -287,6 +314,24 @@ export default function ProfileScreen() {
                   <Text style={[s.qualitySubtitle, { color: colors.mutedForeground }]}>
                     Based on {ratedCooks.length} rated {ratedCooks.length === 1 ? "cook" : "cooks"} · per-metric averages
                   </Text>
+                  {overallAvg != null && (
+                    <View style={[s.overallRow, { borderBottomColor: colors.border }]}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[s.overallLabel, { color: colors.mutedForeground }]}>
+                          Overall Score
+                        </Text>
+                        <View style={s.overallScoreRow}>
+                          <Text style={[s.overallScore, { color: colors.primary }]}>
+                            {overallAvg}
+                          </Text>
+                          <Text style={[s.overallScoreMax, { color: colors.mutedForeground }]}>
+                            / 5
+                          </Text>
+                        </View>
+                        <StarRating score={parseFloat(overallAvg)} color={colors.primary} />
+                      </View>
+                    </View>
+                  )}
                   <View style={s.qualityRow}>
                     {[
                       { label: "Tenderness", value: avgTenderness },
@@ -705,4 +750,13 @@ const s = StyleSheet.create({
   qualityLabelCompact: { fontSize: 11, fontFamily: "Inter_500Medium" },
   qualityScoreCompact: { fontSize: 18, fontFamily: "Inter_700Bold" },
   qualityScoreMaxCompact: { fontSize: 11, fontFamily: "Inter_400Regular", paddingBottom: 2 },
+  overallRow: {
+    borderBottomWidth: 1,
+    paddingBottom: 14,
+    gap: 4,
+  },
+  overallLabel: { fontSize: 12, fontFamily: "Inter_500Medium", marginBottom: 2 },
+  overallScoreRow: { flexDirection: "row", alignItems: "flex-end", gap: 4 },
+  overallScore: { fontSize: 36, fontFamily: "Inter_700Bold" },
+  overallScoreMax: { fontSize: 16, fontFamily: "Inter_400Regular", paddingBottom: 5 },
 });
