@@ -44,6 +44,14 @@ function StarRating({ score, color }: { score: number; color: string }) {
   );
 }
 
+type DateRange = "30d" | "90d" | "all";
+
+const DATE_RANGE_OPTIONS: { label: string; value: DateRange }[] = [
+  { label: "30 Days", value: "30d" },
+  { label: "3 Months", value: "90d" },
+  { label: "All Time", value: "all" },
+];
+
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -53,11 +61,21 @@ export default function ProfileScreen() {
   const { data: cooks } = useListCooks();
   const scrollRef = useRef<ScrollView>(null);
 
-  const ratedCooks = cooks?.filter(
+  const [dateRange, setDateRange] = useState<DateRange>("all");
+
+  const allRatedCooks = cooks?.filter(
     (c) =>
       c.status === "completed" &&
       (c.ratingTenderness != null || c.ratingBark != null || c.ratingFlavor != null)
   ) ?? [];
+
+  const ratedCooks = (() => {
+    if (dateRange === "all") return allRatedCooks;
+    const days = dateRange === "30d" ? 30 : 90;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    return allRatedCooks.filter((c) => new Date(c.createdAt) >= cutoff);
+  })();
 
   const avg = (
     key: keyof Pick<Cook, "ratingTenderness" | "ratingBark" | "ratingFlavor">,
@@ -216,13 +234,41 @@ export default function ProfileScreen() {
         </View>
 
         {/* Cook Quality */}
-        {showQuality && (
+        {allRatedCooks.length > 0 && (
           <>
             <View style={s.sectionHeader}>
               <Feather name="star" size={16} color={colors.primary} />
               <Text style={[s.sectionTitle, { color: colors.foreground }]}>
                 Your Cook Quality
               </Text>
+            </View>
+            <View style={s.pillRow}>
+              {DATE_RANGE_OPTIONS.map((opt) => {
+                const active = dateRange === opt.value;
+                return (
+                  <Pressable
+                    key={opt.value}
+                    onPress={() => setDateRange(opt.value)}
+                    style={[
+                      s.pill,
+                      {
+                        backgroundColor: active ? colors.primary : colors.card,
+                        borderColor: active ? colors.primary : colors.border,
+                        borderRadius: 999,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        s.pillText,
+                        { color: active ? "#fff" : colors.mutedForeground },
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
             <View
               style={[
@@ -234,7 +280,11 @@ export default function ProfileScreen() {
                 },
               ]}
             >
-              {showByMeatType ? (
+              {!showQuality ? (
+                <Text style={[s.qualitySubtitle, { color: colors.mutedForeground, textAlign: "center", paddingVertical: 16 }]}>
+                  No rated cooks in this period.
+                </Text>
+              ) : showByMeatType ? (
                 <>
                   <Text style={[s.qualitySubtitle, { color: colors.mutedForeground }]}>
                     Based on {ratedCooks.length} rated {ratedCooks.length === 1 ? "cook" : "cooks"} · by meat type
@@ -643,6 +693,21 @@ const s = StyleSheet.create({
     paddingBottom: 10,
   },
   sectionTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  pillRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+  },
+  pill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+  },
+  pillText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
   deviceCard: { marginHorizontal: 16, borderWidth: 1, overflow: "hidden" },
   deviceRow: {
     flexDirection: "row",
