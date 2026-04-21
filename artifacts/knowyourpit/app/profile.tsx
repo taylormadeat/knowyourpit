@@ -59,10 +59,11 @@ export default function ProfileScreen() {
       (c.ratingTenderness != null || c.ratingBark != null || c.ratingFlavor != null)
   ) ?? [];
 
-  const avg = (key: keyof Pick<Cook, "ratingTenderness" | "ratingBark" | "ratingFlavor">): string | null => {
-    const values = ratedCooks
-      .map((c) => c[key])
-      .filter((v): v is number => v != null);
+  const avg = (
+    key: keyof Pick<Cook, "ratingTenderness" | "ratingBark" | "ratingFlavor">,
+    pool: Cook[] = ratedCooks,
+  ): string | null => {
+    const values = pool.map((c) => c[key]).filter((v): v is number => v != null);
     if (values.length === 0) return null;
     return (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
   };
@@ -71,6 +72,15 @@ export default function ProfileScreen() {
   const avgBark = avg("ratingBark");
   const avgFlavor = avg("ratingFlavor");
   const showQuality = ratedCooks.length > 0;
+
+  const meatTypeMap = ratedCooks.reduce<Record<string, Cook[]>>((acc, c) => {
+    const key = c.foodType ?? "Other";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(c);
+    return acc;
+  }, {});
+  const meatTypes = Object.keys(meatTypeMap).sort();
+  const showByMeatType = meatTypes.length > 1;
 
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
@@ -216,35 +226,95 @@ export default function ProfileScreen() {
                 },
               ]}
             >
-              <Text style={[s.qualitySubtitle, { color: colors.mutedForeground }]}>
-                Based on {ratedCooks.length} rated {ratedCooks.length === 1 ? "cook" : "cooks"} · per-metric averages
-              </Text>
-              <View style={s.qualityRow}>
-                {[
-                  { label: "Tenderness", value: avgTenderness },
-                  { label: "Bark", value: avgBark },
-                  { label: "Flavor", value: avgFlavor },
-                ].map((item) => (
-                  <View key={item.label} style={s.qualityItem}>
-                    <View style={s.qualityScoreRow}>
-                      <Text style={[s.qualityScore, { color: colors.primary }]}>
-                        {item.value ?? "—"}
-                      </Text>
-                      {item.value != null && (
-                        <Text style={[s.qualityScoreMax, { color: colors.mutedForeground }]}>
-                          /5
+              {showByMeatType ? (
+                <>
+                  <Text style={[s.qualitySubtitle, { color: colors.mutedForeground }]}>
+                    Based on {ratedCooks.length} rated {ratedCooks.length === 1 ? "cook" : "cooks"} · by meat type
+                  </Text>
+                  {meatTypes.map((meatType, idx) => {
+                    const pool = meatTypeMap[meatType];
+                    const t = avg("ratingTenderness", pool);
+                    const b = avg("ratingBark", pool);
+                    const f = avg("ratingFlavor", pool);
+                    return (
+                      <View
+                        key={meatType}
+                        style={[
+                          s.meatTypeSection,
+                          idx > 0 && { borderTopWidth: 1, borderTopColor: colors.border },
+                        ]}
+                      >
+                        <View style={s.meatTypeHeader}>
+                          <Text style={[s.meatTypeLabel, { color: colors.foreground }]}>
+                            {meatType}
+                          </Text>
+                          <Text style={[s.meatTypeCount, { color: colors.mutedForeground }]}>
+                            {pool.length} {pool.length === 1 ? "cook" : "cooks"}
+                          </Text>
+                        </View>
+                        <View style={s.qualityRow}>
+                          {[
+                            { label: "T", fullLabel: "Tenderness", value: t },
+                            { label: "B", fullLabel: "Bark", value: b },
+                            { label: "F", fullLabel: "Flavor", value: f },
+                          ].map((item) => (
+                            <View key={item.label} style={s.qualityItemCompact}>
+                              <Text style={[s.qualityLabelCompact, { color: colors.mutedForeground }]}>
+                                {item.label}
+                              </Text>
+                              <View style={s.qualityScoreRow}>
+                                <Text style={[s.qualityScoreCompact, { color: colors.primary }]}>
+                                  {item.value ?? "—"}
+                                </Text>
+                                {item.value != null && (
+                                  <Text style={[s.qualityScoreMaxCompact, { color: colors.mutedForeground }]}>
+                                    /5
+                                  </Text>
+                                )}
+                              </View>
+                              {item.value != null && (
+                                <StarRating score={parseFloat(item.value)} color={colors.primary} />
+                              )}
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </>
+              ) : (
+                <>
+                  <Text style={[s.qualitySubtitle, { color: colors.mutedForeground }]}>
+                    Based on {ratedCooks.length} rated {ratedCooks.length === 1 ? "cook" : "cooks"} · per-metric averages
+                  </Text>
+                  <View style={s.qualityRow}>
+                    {[
+                      { label: "Tenderness", value: avgTenderness },
+                      { label: "Bark", value: avgBark },
+                      { label: "Flavor", value: avgFlavor },
+                    ].map((item) => (
+                      <View key={item.label} style={s.qualityItem}>
+                        <View style={s.qualityScoreRow}>
+                          <Text style={[s.qualityScore, { color: colors.primary }]}>
+                            {item.value ?? "—"}
+                          </Text>
+                          {item.value != null && (
+                            <Text style={[s.qualityScoreMax, { color: colors.mutedForeground }]}>
+                              /5
+                            </Text>
+                          )}
+                        </View>
+                        {item.value != null && (
+                          <StarRating score={parseFloat(item.value)} color={colors.primary} />
+                        )}
+                        <Text style={[s.qualityLabel, { color: colors.mutedForeground }]}>
+                          {item.label}
                         </Text>
-                      )}
-                    </View>
-                    {item.value != null && (
-                      <StarRating score={parseFloat(item.value)} color={colors.primary} />
-                    )}
-                    <Text style={[s.qualityLabel, { color: colors.mutedForeground }]}>
-                      {item.label}
-                    </Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
+                </>
+              )}
             </View>
           </>
         )}
@@ -627,4 +697,12 @@ const s = StyleSheet.create({
   qualityScore: { fontSize: 26, fontFamily: "Inter_700Bold" },
   qualityScoreMax: { fontSize: 13, fontFamily: "Inter_400Regular", paddingBottom: 3 },
   qualityLabel: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  meatTypeSection: { paddingTop: 12, gap: 10 },
+  meatTypeHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  meatTypeLabel: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  meatTypeCount: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  qualityItemCompact: { alignItems: "center", gap: 3, flex: 1 },
+  qualityLabelCompact: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  qualityScoreCompact: { fontSize: 18, fontFamily: "Inter_700Bold" },
+  qualityScoreMaxCompact: { fontSize: 11, fontFamily: "Inter_400Regular", paddingBottom: 2 },
 });
