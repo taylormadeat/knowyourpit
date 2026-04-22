@@ -17,6 +17,7 @@ import { useUser } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
 import { LogoBackground } from "@/components/LogoBackground";
 import { useGetDashboardSummary, useGetRecentCooks } from "@workspace/api-client-react";
+import { useHomeInsights } from "@/hooks/useHomeInsights";
 
 const logoImg = require("@/assets/images/logo.png");
 
@@ -59,6 +60,7 @@ export default function HomeScreen() {
   const { user } = useUser();
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
   const { data: recentCooks, isLoading: cooksLoading } = useGetRecentCooks();
+  const { data: insights, isLoading: insightsLoading } = useHomeInsights();
 
   const firstName =
     user?.firstName ||
@@ -90,12 +92,6 @@ export default function HomeScreen() {
     ? `${upcomingCook.foodType || "Your cook"} is coming up — time to prep`
     : "Ready to fire it up?";
 
-  const quickActions = [
-    { icon: "plus-circle", label: "Plan a Cook", route: "/(tabs)/plan" },
-    { icon: "edit-3", label: "Log a Cook", route: "/cooks/log" },
-    { icon: "cpu", label: "Ask PitMaster", route: "/(tabs)/ai" },
-    { icon: "book-open", label: "Recipes", route: "/recipes" },
-  ];
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
@@ -234,37 +230,93 @@ export default function HomeScreen() {
           </Pressable>
         )}
 
-        {/* ── Quick Actions ── */}
-        <View style={s.sectionHeader}>
-          <View style={s.sectionAccent} />
-          <Text style={[s.sectionTitle, { color: colors.foreground }]}>Quick Actions</Text>
-        </View>
-        <View style={s.quickGrid}>
-          {quickActions.map((a) => (
-            <Pressable
-              key={a.label}
-              style={({ pressed }) => [
-                s.quickCard,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.border,
-                  borderRadius: colors.radius,
-                },
-                pressed && { opacity: 0.75, transform: [{ scale: 0.97 }] },
-              ]}
-              onPress={() => router.push(a.route as any)}
-            >
-              <LinearGradient
-                colors={["#E84820", "#FF6B2B"]}
-                style={s.quickIconBg}
-              >
-                <Feather name={a.icon as any} size={18} color="#fff" />
-              </LinearGradient>
-              <Text style={[s.quickLabel, { color: colors.foreground }]}>{a.label}</Text>
-              <Feather name="chevron-right" size={14} color={colors.mutedForeground} style={{ alignSelf: "flex-end" }} />
-            </Pressable>
-          ))}
-        </View>
+        {/* ── PitMaster Score ── */}
+        {(insights || insightsLoading) && (
+          <>
+            <View style={s.sectionHeader}>
+              <View style={s.sectionAccent} />
+              <Text style={[s.sectionTitle, { color: colors.foreground }]}>PitMaster Score</Text>
+            </View>
+            {insightsLoading || !insights ? (
+              <ActivityIndicator color={colors.primary} style={{ padding: 16 }} />
+            ) : (
+              <View style={[s.scoreCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                {/* Score circle + label */}
+                <View style={s.scoreTop}>
+                  <View style={[s.scoreCircle, { borderColor: scoreColor(insights.pitMasterScore) }]}>
+                    <Text style={[s.scoreNumber, { color: scoreColor(insights.pitMasterScore) }]}>
+                      {insights.pitMasterScore}
+                    </Text>
+                    <Text style={[s.scoreOutOf, { color: colors.mutedForeground }]}>/100</Text>
+                  </View>
+                  <View style={s.scoreRight}>
+                    <Text style={[s.scoreLabel, { color: colors.foreground }]}>{insights.scoreLabel}</Text>
+                    {/* Progress bar */}
+                    <View style={[s.scoreBarTrack, { backgroundColor: colors.border }]}>
+                      <View style={[s.scoreBarFill, { width: `${insights.pitMasterScore}%` as any, backgroundColor: scoreColor(insights.pitMasterScore) }]} />
+                    </View>
+                    {/* Breakdown chips */}
+                    <View style={s.scoreChips}>
+                      {insights.scoreBreakdown.avgRating != null && (
+                        <View style={[s.scoreChip, { backgroundColor: colors.border }]}>
+                          <Feather name="star" size={11} color={colors.mutedForeground} />
+                          <Text style={[s.scoreChipText, { color: colors.mutedForeground }]}>
+                            {insights.scoreBreakdown.avgRating.toFixed(1)} avg
+                          </Text>
+                        </View>
+                      )}
+                      {insights.scoreBreakdown.planAccuracy != null && (
+                        <View style={[s.scoreChip, { backgroundColor: colors.border }]}>
+                          <Feather name="target" size={11} color={colors.mutedForeground} />
+                          <Text style={[s.scoreChipText, { color: colors.mutedForeground }]}>
+                            {insights.scoreBreakdown.planAccuracy}% accuracy
+                          </Text>
+                        </View>
+                      )}
+                      <View style={[s.scoreChip, { backgroundColor: colors.border }]}>
+                        <Feather name="layers" size={11} color={colors.mutedForeground} />
+                        <Text style={[s.scoreChipText, { color: colors.mutedForeground }]}>
+                          {insights.scoreBreakdown.cookCount} cooks
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
+          </>
+        )}
+
+        {/* ── AI Tips ── */}
+        {(insights?.tips?.length || insightsLoading) && (
+          <>
+            <View style={s.sectionHeader}>
+              <View style={s.sectionAccent} />
+              <Text style={[s.sectionTitle, { color: colors.foreground }]}>Tips for You</Text>
+              <View style={[s.aiBadge, { backgroundColor: "#E8482015", borderColor: "#E8482035" }]}>
+                <Feather name="cpu" size={10} color="#E84820" />
+                <Text style={s.aiBadgeText}>AI</Text>
+              </View>
+            </View>
+            {insightsLoading || !insights ? (
+              <ActivityIndicator color={colors.primary} style={{ padding: 16 }} />
+            ) : (
+              <View style={[s.tipsCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                {insights.tips.map((tip, i) => (
+                  <View
+                    key={i}
+                    style={[s.tipRow, i < insights.tips.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
+                  >
+                    <View style={[s.tipIconWrap, { backgroundColor: "#E8482015" }]}>
+                      <Feather name="zap" size={13} color="#E84820" />
+                    </View>
+                    <Text style={[s.tipText, { color: colors.foreground }]}>{tip}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </>
+        )}
 
         {/* ── Recent Cooks ── */}
         <View style={s.sectionHeader}>
@@ -331,6 +383,12 @@ function getTimeGreeting() {
   if (h < 12) return "morning";
   if (h < 18) return "afternoon";
   return "evening";
+}
+
+function scoreColor(score: number): string {
+  if (score >= 80) return "#22c55e";
+  if (score >= 60) return "#F59E0B";
+  return "#E84820";
 }
 
 const s = StyleSheet.create({
@@ -554,35 +612,114 @@ const s = StyleSheet.create({
   seeAllBtn: { paddingVertical: 4 },
   seeAll: { fontSize: 13, fontFamily: "Inter_500Medium" },
 
-  /* Quick grid */
-  quickGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    paddingHorizontal: 20,
-    marginBottom: 8,
-  },
-  quickCard: {
-    width: "47%",
+  /* PitMaster Score Card */
+  scoreCard: {
     borderWidth: 1,
+    marginHorizontal: 20,
+    marginBottom: 8,
     padding: 16,
-    gap: 10,
-    shadowColor: "#E84820",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
   },
-  quickIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+  scoreTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  scoreCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
-  quickLabel: {
+  scoreNumber: {
+    fontSize: 26,
+    fontFamily: "Inter_700Bold",
+    lineHeight: 30,
+  },
+  scoreOutOf: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+  },
+  scoreRight: {
+    flex: 1,
+    gap: 8,
+  },
+  scoreLabel: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+  },
+  scoreBarTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  scoreBarFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  scoreChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  scoreChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  scoreChipText: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+  },
+
+  /* AI Badge */
+  aiBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  aiBadgeText: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    color: "#E84820",
+    letterSpacing: 0.5,
+  },
+
+  /* Tips Card */
+  tipsCard: {
+    borderWidth: 1,
+    marginHorizontal: 20,
+    marginBottom: 8,
+    overflow: "hidden",
+  },
+  tipRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    padding: 14,
+  },
+  tipIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    marginTop: 1,
+  },
+  tipText: {
     fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_400Regular",
+    lineHeight: 21,
     flex: 1,
   },
 

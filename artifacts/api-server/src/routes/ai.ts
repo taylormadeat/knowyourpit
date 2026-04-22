@@ -601,4 +601,142 @@ router.get("/ai/smoker-profile", requireAuth, async (req: any, res): Promise<voi
   }
 });
 
+// ── Home Insights (PitMaster score + AI tips) ─────────────────────────────────
+interface HomeInsights {
+  pitMasterScore: number;
+  scoreLabel: string;
+  scoreBreakdown: { avgRating: number | null; planAccuracy: number | null; cookCount: number };
+  tips: string[];
+  tipsGeneratedAt: string;
+}
+
+const homeInsightsCache = new Map<string, { data: HomeInsights; expiresAt: number }>();
+
+function getPitMasterLabel(score: number): string {
+  if (score >= 90) return "Pit Legend";
+  if (score >= 75) return "Advanced Pitmaster";
+  if (score >= 60) return "Seasoned Smoker";
+  if (score >= 45) return "Getting There";
+  return "Just Getting Started";
+}
+
+router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void> => {
+  try {
+    const cached = homeInsightsCache.get(req.userId);
+    if (cached && cached.expiresAt > Date.now()) {
+      res.json(cached.data);
+      return;
+    }
+
+    const cooks = await db
+      .select()
+      .from(cooksTable)
+      .where(and(eq(cooksTable.userId, req.userId), eq(cooksTable.status, "completed")))
+      .orderBy(desc(cooksTable.createdAt))
+      .limit(50);
+
+    const cookCount = cooks.length;
+
+    // Average rating score (1–5 → 0–100)
+    const rated = cooks.filter((c) => c.rating != null);
+    const avgRating =
+      rated.length > 0
+        ? rated.reduce((s, c) => s + c.rating!, 0) / rated.length
+        : null;
+    const avgRatingScore = avgRating != null ? (avgRating / 5) * 100 : null;
+
+    // Plan accuracy from cooks that have all four timestamps
+    const accuracies: number[] = [];
+    for (const c of cooks) {
+      if (!c.plannedStartAt || !c.plannedEndAt || !c.actualStartAt || !c.actualEndAt) continue;
+      const planned =
+        new Date(c.plannedEndAt).getTime() - new Date(c.plannedStartAt).getTime();
+      const actual =
+        new Date(c.actualEndAt).getTime() - new Date(c.actualStartAt).getTime();
+      if (planned < 5 * 60 * 1000) continue;
+      const deviationPct = (Math.abs(actual - planned) / planned) * 100;
+      accuracies.push(Math.max(0, Math.round(100 - deviationPct)));
+    }
+    const planAccuracy =
+      accuracies.length > 0
+        ? Math.round(accuracies.reduce((s, a) => s + a, 0) / accuracies.length)
+        : null;
+
+    // Cook count bonus 0–100 (maxes at 20 cooks)
+    const cookCountBonus = Math.min(cookCount / 20, 1) * 100;
+
+    // Weighted composite score
+    let weightedSum = cookCountBonus * 0.2;
+    let totalWeight = 0.2;
+    if (avgRatingScore != null) { weightedSum += avgRatingScore * 0.4; totalWeight += 0.4; }
+    if (planAccuracy != null) { weightedSum += planAccuracy * 0.4; totalWeight += 0.4; }
+    const pitMasterScore = Math.round(weightedSum / totalWeight);
+
+    // Generate tips via AI if enough data, else use fallbacks
+    let tips: string[] = [];
+    if (cookCount >= 2) {
+      const summaryLines = cooks.slice(0, 12).map((c) => {
+        const parts = [c.foodType || "unknown"];
+        if (c.rating) parts.push(`rated ${c.rating}/5`);
+        if (c.ratingTenderness) parts.push(`tenderness ${c.ratingTenderness}/5`);
+        if (c.ratingBark) parts.push(`bark ${c.ratingBark}/5`);
+        if (c.ratingFlavor) parts.push(`flavor ${c.ratingFlavor}/5`);
+        const assessment = getAssessment(c.analysisResult);
+        if (assessment?.verdict) parts.push(`verdict: "${assessment.verdict}"`);
+        if (assessment?.suggestions?.[0]) parts.push(`tip given: "${assessment.suggestions[0]}"`);
+        return `- ${parts.join(", ")}`;
+      });
+
+      const prompt = `You are PitMaster AI, a BBQ expert coach. Based on this pitmaster's cook history, write exactly 3 short tips to help them improve. Each tip must be 1–2 sentences, specific to their patterns — reference their actual food types, ratings, or recurring issues. No generic advice. No bullet points or numbering — just the tip text.
+
+Cook history:
+${summaryLines.join("\n")}
+
+Respond ONLY with a JSON array of exactly 3 strings: ["tip1", "tip2", "tip3"]`;
+
+      try {
+        const aiRes = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          max_completion_tokens: 400,
+          messages: [{ role: "user", content: prompt }],
+        });
+        const text = aiRes.choices[0]?.message?.content ?? "[]";
+        const match = text.match(/\[[\s\S]*\]/);
+        if (match) {
+          const parsed = JSON.parse(match[0]);
+          if (Array.isArray(parsed) && parsed.length > 0) tips = parsed.slice(0, 3);
+        }
+      } catch { /* fall through to defaults */ }
+    }
+
+    if (tips.length === 0) {
+      if (avgRating != null && avgRating < 3.5) {
+        tips.push("Focus on nailing internal temp — it's the single biggest factor in your ratings.");
+      }
+      if (planAccuracy != null && planAccuracy < 70) {
+        tips.push("Your cooks tend to run over plan — build in a 20% time buffer when serving guests.");
+      }
+      tips.push("Keep rating every cook. PitMaster gets more accurate and personal with each entry.");
+      tips = tips.slice(0, 3);
+    }
+
+    const result: HomeInsights = {
+      pitMasterScore,
+      scoreLabel: getPitMasterLabel(pitMasterScore),
+      scoreBreakdown: { avgRating, planAccuracy, cookCount },
+      tips,
+      tipsGeneratedAt: new Date().toISOString(),
+    };
+
+    homeInsightsCache.set(req.userId, {
+      data: result,
+      expiresAt: Date.now() + 60 * 60 * 1000,
+    });
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to compute home insights" });
+  }
+});
+
 export default router;
