@@ -615,11 +615,11 @@ const homeInsightsCache = new Map<string, { data: HomeInsights; expiresAt: numbe
 function getPitMasterLabel(score: number): string {
   if (score >= 95) return "The BBQ Deity";
   if (score >= 85) return "Grand Poobah of the Pit";
-  if (score >= 70) return "Smoke Whisperer";
-  if (score >= 55) return "Technically Smoked It";
-  if (score >= 40) return "Still Blaming the Charcoal";
-  if (score >= 25) return "The Grill Had Other Plans";
-  return "A Walking Fire Hazard";
+  if (score >= 70) return "The Smoke Whisperer";
+  if (score >= 55) return "Lord of the Questionable Bark";
+  if (score >= 40) return "Chief Charcoal Excuse Officer";
+  if (score >= 25) return "Warden of the Wayward Flame";
+  return "The Anointed Fire Hazard";
 }
 
 router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void> => {
