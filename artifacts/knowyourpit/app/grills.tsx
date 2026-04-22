@@ -230,6 +230,28 @@ export default function GrillsScreen() {
                     </View>
                   )}
                 </View>
+                {/* ── Grill stats ── */}
+                <View style={s.grillStatRow}>
+                  <View style={s.grillStatItem}>
+                    <Feather name="zap" size={11} color={colors.mutedForeground} />
+                    <Text style={[s.grillStatText, { color: colors.mutedForeground }]}>
+                      {item.cookCount ?? 0} cook{(item.cookCount ?? 0) !== 1 ? "s" : ""}
+                    </Text>
+                  </View>
+                  {item.avgRating != null && item.cookCount > 0 && (() => {
+                    const avg = parseFloat(item.avgRating);
+                    if (isNaN(avg)) return null;
+                    const grade = grillLetterGrade(avg);
+                    const color = grillGradeColor(avg);
+                    return (
+                      <View style={[s.grillGradePill, { backgroundColor: color + "18", borderColor: color + "40" }]}>
+                        <Feather name="star" size={11} color={color} />
+                        <Text style={[s.grillGradeText, { color }]}>{grade}</Text>
+                        <Text style={[s.grillGradeAvg, { color: color + "cc" }]}>({avg.toFixed(1)})</Text>
+                      </View>
+                    );
+                  })()}
+                </View>
               </View>
               <Pressable
                 style={[s.delBtn, { backgroundColor: colors.destructive + "15", borderRadius: 8 }]}
@@ -433,6 +455,27 @@ export default function GrillsScreen() {
   );
 }
 
+function grillLetterGrade(avg: number): string {
+  if (avg >= 4.7) return "A+";
+  if (avg >= 4.3) return "A";
+  if (avg >= 4.0) return "A-";
+  if (avg >= 3.7) return "B+";
+  if (avg >= 3.3) return "B";
+  if (avg >= 3.0) return "B-";
+  if (avg >= 2.7) return "C+";
+  if (avg >= 2.3) return "C";
+  if (avg >= 2.0) return "C-";
+  if (avg >= 1.7) return "D+";
+  if (avg >= 1.3) return "D";
+  return "D-";
+}
+
+function grillGradeColor(avg: number): string {
+  if (avg >= 4.0) return "#22c55e";
+  if (avg >= 3.0) return "#F59E0B";
+  return "#E84820";
+}
+
 function GrillIcon({ color }: { color: string }) {
   return (
     <View style={{ width: 48, height: 48, alignItems: "center", justifyContent: "center" }}>
@@ -463,6 +506,12 @@ const s = StyleSheet.create({
   tagRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
   tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   tagText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  grillStatRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 7, flexWrap: "wrap" },
+  grillStatItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  grillStatText: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  grillGradePill: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1 },
+  grillGradeText: { fontSize: 12, fontFamily: "Inter_700Bold" },
+  grillGradeAvg: { fontSize: 11, fontFamily: "Inter_400Regular" },
   delBtn: { padding: 8 },
 
   /* Add grill modal */

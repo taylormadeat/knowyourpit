@@ -18,8 +18,26 @@ const isPitProbe = (name: string | null) =>
   name ? PIT_PROBE_NAMES.some(k => name.toLowerCase().includes(k)) : false;
 
 router.get("/grills", requireAuth, async (req: any, res): Promise<void> => {
-  const grills = await db.select().from(grillsTable)
+  const grills = await db
+    .select({
+      id: grillsTable.id,
+      userId: grillsTable.userId,
+      name: grillsTable.name,
+      type: grillsTable.type,
+      fuelType: grillsTable.fuelType,
+      brand: grillsTable.brand,
+      notes: grillsTable.notes,
+      createdAt: grillsTable.createdAt,
+      cookCount: sql<number>`cast(count(${cooksTable.id}) as int)`,
+      avgRating: sql<number | null>`avg(${cooksTable.rating})`,
+    })
+    .from(grillsTable)
+    .leftJoin(
+      cooksTable,
+      and(eq(cooksTable.grillId, grillsTable.id), eq(cooksTable.userId, req.userId))
+    )
     .where(eq(grillsTable.userId, req.userId))
+    .groupBy(grillsTable.id)
     .orderBy(grillsTable.createdAt);
   res.json(grills);
 });
