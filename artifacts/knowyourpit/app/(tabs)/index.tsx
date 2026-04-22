@@ -305,7 +305,7 @@ export default function HomeScreen() {
                       {/* Tap hint */}
                       <View style={s.gradeHint}>
                         <Feather name="chevrons-down" size={10} color={color + "99"} />
-                        <Text style={[s.gradeHintText, { color: color + "99" }]}>See your Smoke Signals</Text>
+                        <Text style={[s.gradeHintText, { color: color + "99" }]}>See your tips</Text>
                       </View>
                     </View>
                   </LinearGradient>
@@ -323,7 +323,7 @@ export default function HomeScreen() {
               onLayout={(e) => { tipsY.current = e.nativeEvent.layout.y; }}
             >
               <View style={s.sectionAccent} />
-              <Text style={[s.sectionTitle, { color: colors.foreground }]}>Smoke Signals 🔥</Text>
+              <Text style={[s.sectionTitle, { color: colors.foreground }]}>Tips for You</Text>
               <View style={[s.aiBadge, { backgroundColor: "#E8482015", borderColor: "#E8482035" }]}>
                 <Feather name="cpu" size={10} color="#E84820" />
                 <Text style={s.aiBadgeText}>AI</Text>

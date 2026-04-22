@@ -613,11 +613,11 @@ interface HomeInsights {
 const homeInsightsCache = new Map<string, { data: HomeInsights; expiresAt: number }>();
 
 function getPitMasterLabel(score: number): string {
-  if (score >= 90) return "Pit Legend";
-  if (score >= 75) return "Advanced Pitmaster";
-  if (score >= 60) return "Seasoned Smoker";
-  if (score >= 45) return "Getting There";
-  return "Just Getting Started";
+  if (score >= 90) return "Grand Poobah of the Pit";
+  if (score >= 75) return "Smoke Whisperer";
+  if (score >= 60) return "Backyard Brisket Boss";
+  if (score >= 45) return "Still Blaming the Charcoal";
+  return "Set the Smoke Detector on Fire";
 }
 
 router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void> => {
