@@ -126,6 +126,113 @@ function fmtElapsedPlan(ms: number): string {
   return `${m}m`;
 }
 
+// ─── Meat prep guide data ────────────────────────────────────────────────
+interface MeatPrepGuide {
+  steps: string[];
+  tip: string;
+}
+
+const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
+  brisket: {
+    steps: [
+      "Trim fat cap to ¼ inch — too thick insulates, too thin dries out.",
+      "Remove hard fat deposits near the point-flat seam.",
+      "Apply rub: equal parts coarse salt and black pepper. Add garlic powder if desired.",
+      "Wrap tightly in plastic wrap, rest in fridge overnight (up to 24h).",
+      "Remove from fridge 1 hour before cooking for more even bark formation.",
+    ],
+    tip: "Grain direction matters for slicing. Cut against the grain after resting.",
+  },
+  pork_shoulder: {
+    steps: [
+      "Leave the fat cap on — it bastes the meat during the long cook.",
+      "Score the fat cap in a cross-hatch pattern for better rub penetration.",
+      "Apply yellow mustard as binder, then generous BBQ rub all over.",
+      "Optional: inject with apple juice, butter, and rub mixture.",
+      "Rest uncovered overnight in the fridge for better bark.",
+    ],
+    tip: "At 160°F the stall hits. Wrap in butcher paper to power through.",
+  },
+  ribs: {
+    steps: [
+      "Remove the membrane from the bone side using a paper towel for grip.",
+      "Trim off any dangly bits of meat or excess fat.",
+      "Apply thin coat of mustard, then generously coat with rub.",
+      "Let sit 30–60 minutes before cooking, or overnight in the fridge.",
+    ],
+    tip: "3-2-1 method (3h smoke, 2h wrapped, 1h unwrapped) works great for baby backs.",
+  },
+  chicken: {
+    steps: [
+      "Brine whole chickens in salt water (1 cup salt per gallon) for 4–12 hours.",
+      "Pat completely dry with paper towels — key for crispy skin.",
+      "Separate skin from breast and apply butter/seasoning underneath.",
+      "Apply oil or mayo on outside, then season liberally.",
+    ],
+    tip: "Spatchcock for faster, more even cooking and better bark.",
+  },
+  turkey: {
+    steps: [
+      "Brine overnight in salt water (1 cup salt per gallon of water).",
+      "Pat completely dry, including inside the cavity.",
+      "Loosen breast skin and rub butter + herbs directly on the meat.",
+      "Let air-dry uncovered in the fridge for 8–24h for crispier skin.",
+    ],
+    tip: "Tuck wings under the bird to prevent burning during the long cook.",
+  },
+  lamb: {
+    steps: [
+      "Trim excess fat but leave some for flavor and moisture.",
+      "Score the fat cap to help rendered fat baste the meat.",
+      "Marinate with garlic, rosemary, olive oil, and lemon zest overnight.",
+      "Bring to room temp 30 minutes before cooking.",
+    ],
+    tip: "Lamb loves smoke from cherry or apple wood — avoid mesquite, it overpowers.",
+  },
+  salmon: {
+    steps: [
+      "Remove pin bones with tweezers.",
+      "Dry brine with salt for 1–4 hours in the fridge — forms the pellicle.",
+      "Rinse, pat dry, let air dry 30 min for sticky pellicle that holds smoke.",
+      "Apply light rub or glaze just before cooking.",
+    ],
+    tip: "Pull at 130°F for moist fish — the white albumin squeezing out means it's overcooked.",
+  },
+  pork_belly: {
+    steps: [
+      "Score the fat side in a cross-hatch pattern.",
+      "Rub with salt, brown sugar, and paprika all over.",
+      "Refrigerate uncovered overnight to dry-brine.",
+      "Bring to room temperature 30 minutes before cooking.",
+    ],
+    tip: "Low and slow at 225°F then blast with high heat at the end for a crackling crust.",
+  },
+  steak: {
+    steps: [
+      "Salt generously on both sides 1 hour before or up to 24h ahead in the fridge.",
+      "Pat completely dry just before cooking.",
+      "Let come to room temperature for 30 minutes.",
+    ],
+    tip: "Reverse sear: smoke to 115°F internal, then sear in a screaming hot cast iron for the crust.",
+  },
+};
+
+function getMeatPrep(cut: MeatCut | null): MeatPrepGuide | null {
+  if (!cut) return null;
+  const name = cut.name.toLowerCase();
+  const category = cut.category.toLowerCase();
+  if (name.includes("brisket")) return PREP_GUIDE_MAP.brisket;
+  if (name.includes("belly")) return PREP_GUIDE_MAP.pork_belly;
+  if (name.includes("rib") && (category === "pork" || name.includes("spare") || name.includes("baby back") || name.includes("st. louis"))) return PREP_GUIDE_MAP.ribs;
+  if (name.includes("shoulder") || name.includes("butt") || name.includes("pulled")) return PREP_GUIDE_MAP.pork_shoulder;
+  if (name.includes("turkey")) return PREP_GUIDE_MAP.turkey;
+  if (name.includes("chicken") || category === "poultry") return PREP_GUIDE_MAP.chicken;
+  if (category === "lamb & goat" || name.includes("lamb")) return PREP_GUIDE_MAP.lamb;
+  if (name.includes("salmon")) return PREP_GUIDE_MAP.salmon;
+  if (name.includes("steak") || name.includes("tri-tip") || name.includes("ribeye") || name.includes("strip") || name.includes("tenderloin") || name.includes("flank") || name.includes("skirt")) return PREP_GUIDE_MAP.steak;
+  return null;
+}
+
 // ─── Time slot helpers ──────────────────────────────────────────────────
 const TIME_SLOTS: Array<{ h: number; m: number }> = (() => {
   const slots: Array<{ h: number; m: number }> = [];
@@ -197,6 +304,7 @@ export default function PlanScreen() {
   // ── Meat picker state ────────────────────────────────────────────────
   const [meatPickerOpen, setMeatPickerOpen] = useState(false);
   const [meatCategory, setMeatCategory] = useState<string>(MEAT_CATEGORIES[0]);
+  const [prepGuideOpen, setPrepGuideOpen] = useState(false);
 
   // ── MEATER probe picker state ─────────────────────────────────────────
   const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
@@ -242,6 +350,7 @@ export default function PlanScreen() {
     setTargetTempF(String(cut.targetTempF));
     setCookTempF(String(cut.cookTempF));
     setMeatPickerOpen(false);
+    setPrepGuideOpen(false);
   };
 
   // ── AI Plan ──────────────────────────────────────────────────────────
@@ -503,6 +612,49 @@ export default function PlanScreen() {
           </View>
           <Feather name="chevron-down" size={18} color={colors.mutedForeground} />
         </Pressable>
+
+        {/* ── Meat Prep Guide ── */}
+        {(() => {
+          const prep = getMeatPrep(selectedCut);
+          if (!prep) return null;
+          return (
+            <Pressable
+              onPress={() => setPrepGuideOpen(o => !o)}
+              style={[s.prepGuideCard, { backgroundColor: colors.card, borderColor: prepGuideOpen ? colors.primary : colors.border, borderRadius: colors.radius }]}
+            >
+              <View style={s.prepGuideHeader}>
+                <View style={[s.prepGuideIconWrap, { backgroundColor: colors.primary + "20" }]}>
+                  <Feather name="scissors" size={14} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.prepGuideTitle, { color: colors.foreground }]}>Prep Guide</Text>
+                  {!prepGuideOpen && (
+                    <Text style={[s.prepGuidePreview, { color: colors.mutedForeground }]} numberOfLines={1}>
+                      {prep.steps[0]}
+                    </Text>
+                  )}
+                </View>
+                <Feather name={prepGuideOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
+              </View>
+              {prepGuideOpen && (
+                <View style={s.prepGuideBody}>
+                  {prep.steps.map((step, i) => (
+                    <View key={i} style={s.prepStep}>
+                      <View style={[s.prepStepNum, { backgroundColor: colors.primary }]}>
+                        <Text style={s.prepStepNumText}>{i + 1}</Text>
+                      </View>
+                      <Text style={[s.prepStepText, { color: colors.foreground }]}>{step}</Text>
+                    </View>
+                  ))}
+                  <View style={[s.prepTipCard, { backgroundColor: colors.primary + "12", borderRadius: colors.radius }]}>
+                    <Feather name="zap" size={14} color={colors.primary} />
+                    <Text style={[s.prepTipText, { color: colors.foreground }]}>{prep.tip}</Text>
+                  </View>
+                </View>
+              )}
+            </Pressable>
+          );
+        })()}
 
         {/* ── Weight ── */}
         <Label colors={colors}>Weight (lbs) *</Label>
@@ -1555,6 +1707,20 @@ const s = StyleSheet.create({
   nowCookingDot: { width: 8, height: 8, borderRadius: 4, opacity: 0.9 },
   nowCookingTitle: { flex: 1, fontSize: 14, fontFamily: "Inter_700Bold", color: "#fff" },
   nowCookingElapsed: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff", opacity: 0.85 },
+
+  // Prep guide
+  prepGuideCard: { borderWidth: 1, marginBottom: 12, overflow: "hidden" },
+  prepGuideHeader: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14 },
+  prepGuideIconWrap: { width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  prepGuideTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginBottom: 1 },
+  prepGuidePreview: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  prepGuideBody: { paddingHorizontal: 14, paddingBottom: 14, gap: 12 },
+  prepStep: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
+  prepStepNum: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center", marginTop: 1 },
+  prepStepNumText: { fontSize: 11, fontFamily: "Inter_700Bold", color: "#fff" },
+  prepStepText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  prepTipCard: { flexDirection: "row", gap: 10, padding: 12, alignItems: "flex-start", marginTop: 4 },
+  prepTipText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 20 },
 });
 
 const sp = StyleSheet.create({

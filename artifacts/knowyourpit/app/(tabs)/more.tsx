@@ -21,16 +21,6 @@ const MENU_SECTIONS = [
     title: "Manage",
     items: [
       { icon: "wind", label: "My Grills", route: "/grills" },
-      { icon: "book-open", label: "Recipes", route: "/recipes" },
-      { icon: "bar-chart-2", label: "Temperature History", route: "/temp-history" },
-    ],
-  },
-  {
-    title: "Learn",
-    items: [
-      { icon: "star", label: "Pro Tips", route: "/tips" },
-      { icon: "scissors", label: "Meat Prep Guide", route: "/meat-prep" },
-      { icon: "shopping-bag", label: "BBQ Shop", route: "/shop" },
     ],
   },
   {
