@@ -35,6 +35,7 @@ import {
   getGetRecentCooksQueryKey,
 } from "@workspace/api-client-react";
 import { useMeaterReadings, type MeaterProbe } from "@/hooks/useMeaterReadings";
+import { MEAT_CATEGORIES, MEAT_CUTS, MEAT_CUTS_BY_CATEGORY, type MeatCut } from "@/constants/meatCuts";
 
 const logoImg = require("@/assets/images/logo.png");
 
@@ -169,6 +170,9 @@ export default function LogCookScreen() {
 
   const [saving, setSaving] = useState(false);
   const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
+  const [meatPickerVisible, setMeatPickerVisible] = useState(false);
+  const [meatCatTab, setMeatCatTab] = useState<string>(MEAT_CATEGORIES[0]);
+  const [aiScanned, setAiScanned] = useState(false);
 
   const { data: meaterData } = useMeaterReadings();
   const activeProbes: MeaterProbe[] = meaterData?.linked ? (meaterData.probes ?? []) : [];
@@ -259,9 +263,25 @@ export default function LogCookScreen() {
       });
 
       setResult(data);
+      setAiScanned(true);
 
       // Auto-populate form fields from detected data (only if field is still empty)
-      if (data.detectedFoodType && !foodType.trim()) setFoodType(data.detectedFoodType);
+      if (data.detectedFoodType && !foodType.trim()) {
+        // Try to fuzzy-match against known meat cuts for a canonical name
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const needle = norm(data.detectedFoodType);
+        const cutMatch = MEAT_CUTS.find((c) => {
+          const hay = norm(c.name);
+          return hay.includes(needle) || needle.includes(norm(c.name.split(" ")[0]));
+        });
+        const resolvedFoodType = cutMatch ? cutMatch.name : data.detectedFoodType;
+        setFoodType(resolvedFoodType);
+        // Auto-set temps from matched cut if still empty
+        if (cutMatch) {
+          if (!targetTempF.trim()) setTargetTempF(String(cutMatch.targetTempF));
+          if (!cookTempF.trim()) setCookTempF(String(cutMatch.cookTempF));
+        }
+      }
       if (data.detectedWeightLbs != null && !weightLbs.trim()) setWeightLbs(String(data.detectedWeightLbs));
       if (data.detectedCookTempF != null && !cookTempF.trim()) setCookTempF(String(Math.round(data.detectedCookTempF)));
       if (data.detectedTargetTempF != null && !targetTempF.trim()) setTargetTempF(String(Math.round(data.detectedTargetTempF)));
@@ -269,7 +289,7 @@ export default function LogCookScreen() {
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
         const needle = norm(data.detectedGrillBrand);
         const match = grills.find((g: any) => {
-          const haystack = norm(`${g.brand ?? ""} ${g.name ?? ""} ${g.model ?? ""}`);
+          const haystack = norm(`${g.brand ?? ""} ${g.name ?? ""} ${g.model ?? ""} ${g.type ?? ""}`);
           return haystack.includes(needle) || needle.includes(norm(g.brand ?? "").substring(0, 4));
         });
         if (match) setSelectedGrillId(match.id);
@@ -684,59 +704,113 @@ export default function LogCookScreen() {
           </View>
 
           <View style={s.formBody}>
+            {/* ── What did you cook? (meat cut selector) ── */}
             <View style={s.fieldWrap}>
-              <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>
-                What did you cook? <Text style={{ color: colors.destructive }}>*</Text>
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
+                  What did you cook? <Text style={{ color: colors.destructive }}>*</Text>
+                </Text>
+                {aiScanned && !foodType.trim() && (
+                  <View style={s.needsFillBadge}>
+                    <Feather name="alert-circle" size={11} color="#F59E0B" />
+                    <Text style={s.needsFillText}>Fill this in</Text>
+                  </View>
+                )}
+              </View>
+              <Pressable
+                onPress={() => setMeatPickerVisible(true)}
+                style={[s.input, s.grillPicker, {
+                  backgroundColor: colors.background,
+                  borderColor: aiScanned && !foodType.trim() ? "#F59E0B" : foodType ? colors.primary : colors.border,
+                  borderRadius: colors.radius,
+                }]}
+              >
+                {foodType ? (
+                  <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Feather name="check-circle" size={13} color={colors.primary} />
+                    <Text style={{ color: colors.foreground, fontSize: 14, fontFamily: "Inter_500Medium", flex: 1 }} numberOfLines={1}>
+                      {foodType}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
+                    Select a meat cut…
+                  </Text>
+                )}
+                <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+
+            {/* ── Weight ── */}
+            <View style={s.fieldWrap}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>Weight (lbs)</Text>
+                {aiScanned && !weightLbs.trim() && (
+                  <View style={s.needsFillBadge}>
+                    <Feather name="alert-circle" size={11} color="#F59E0B" />
+                    <Text style={s.needsFillText}>Fill this in</Text>
+                  </View>
+                )}
+              </View>
               <TextInput
-                style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
-                placeholder="e.g. Brisket, Pork Butt, Baby Back Ribs"
+                style={[s.input, { backgroundColor: colors.background, borderColor: aiScanned && !weightLbs.trim() ? "#F59E0B" : colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                placeholder="14"
                 placeholderTextColor={colors.mutedForeground}
-                value={foodType}
-                onChangeText={setFoodType}
+                value={weightLbs}
+                onChangeText={setWeightLbs}
+                keyboardType="decimal-pad"
               />
             </View>
 
-            <View style={s.row2}>
-              <View style={[s.fieldWrap, { flex: 1 }]}>
-                <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Weight (lbs)</Text>
-                <TextInput
-                  style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
-                  placeholder="14"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={weightLbs}
-                  onChangeText={setWeightLbs}
-                  keyboardType="decimal-pad"
-                />
+            {/* ── Grill (full-width own row) ── */}
+            <View style={s.fieldWrap}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>Grill / Smoker</Text>
+                {aiScanned && !selectedGrillId && (
+                  <View style={s.needsFillBadge}>
+                    <Feather name="alert-circle" size={11} color="#F59E0B" />
+                    <Text style={s.needsFillText}>Fill this in</Text>
+                  </View>
+                )}
               </View>
-              <View style={[s.fieldWrap, { flex: 1 }]}>
-                <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Grill / Smoker</Text>
-                <Pressable
-                  onPress={() => setGrillPickerVisible(true)}
-                  style={[s.input, s.grillPicker, { backgroundColor: colors.background, borderColor: selectedGrill ? "#6C3BF5" : colors.border, borderRadius: colors.radius }]}
-                >
-                  {selectedGrill ? (
-                    <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
-                      <Feather name="check-circle" size={13} color="#6C3BF5" />
-                      <Text style={{ color: colors.foreground, fontSize: 14, fontFamily: "Inter_500Medium", flex: 1 }} numberOfLines={1}>
-                        {selectedGrill.name ?? `${selectedGrill.brand} ${selectedGrill.model ?? ""}`.trim()}
-                      </Text>
-                    </View>
-                  ) : (
-                    <Text style={{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
-                      {grills.length === 0 ? "Add grills to your inventory first" : "Select your grill…"}
+              <Pressable
+                onPress={() => setGrillPickerVisible(true)}
+                style={[s.input, s.grillPicker, {
+                  backgroundColor: colors.background,
+                  borderColor: aiScanned && !selectedGrillId ? "#F59E0B" : selectedGrill ? "#6C3BF5" : colors.border,
+                  borderRadius: colors.radius,
+                }]}
+              >
+                {selectedGrill ? (
+                  <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Feather name="check-circle" size={13} color="#6C3BF5" />
+                    <Text style={{ color: colors.foreground, fontSize: 14, fontFamily: "Inter_500Medium", flex: 1 }} numberOfLines={1}>
+                      {selectedGrill.name ?? `${selectedGrill.brand} ${selectedGrill.model ?? ""}`.trim()}
                     </Text>
-                  )}
-                  <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
-                </Pressable>
-              </View>
+                  </View>
+                ) : (
+                  <Text style={{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
+                    {grills.length === 0 ? "Add grills to your inventory first" : "Select your grill…"}
+                  </Text>
+                )}
+                <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
+              </Pressable>
             </View>
 
+            {/* ── Temps (side by side) ── */}
             <View style={s.row2}>
               <View style={[s.fieldWrap, { flex: 1 }]}>
-                <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Cook Temp (°F)</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>Cook Temp (°F)</Text>
+                  {aiScanned && !cookTempF.trim() && (
+                    <View style={s.needsFillBadge}>
+                      <Feather name="alert-circle" size={11} color="#F59E0B" />
+                      <Text style={s.needsFillText}>Fill</Text>
+                    </View>
+                  )}
+                </View>
                 <TextInput
-                  style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                  style={[s.input, { backgroundColor: colors.background, borderColor: aiScanned && !cookTempF.trim() ? "#F59E0B" : colors.border, color: colors.foreground, borderRadius: colors.radius }]}
                   placeholder="225"
                   placeholderTextColor={colors.mutedForeground}
                   value={cookTempF}
@@ -745,9 +819,17 @@ export default function LogCookScreen() {
                 />
               </View>
               <View style={[s.fieldWrap, { flex: 1 }]}>
-                <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Target Temp (°F)</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>Target Temp (°F)</Text>
+                  {aiScanned && !targetTempF.trim() && (
+                    <View style={s.needsFillBadge}>
+                      <Feather name="alert-circle" size={11} color="#F59E0B" />
+                      <Text style={s.needsFillText}>Fill</Text>
+                    </View>
+                  )}
+                </View>
                 <TextInput
-                  style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                  style={[s.input, { backgroundColor: colors.background, borderColor: aiScanned && !targetTempF.trim() ? "#F59E0B" : colors.border, color: colors.foreground, borderRadius: colors.radius }]}
                   placeholder="203"
                   placeholderTextColor={colors.mutedForeground}
                   value={targetTempF}
@@ -903,6 +985,73 @@ export default function LogCookScreen() {
         </View>
       </Modal>
 
+      {/* ── Meat cut picker modal ── */}
+      <Modal
+        visible={meatPickerVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setMeatPickerVisible(false)}
+      >
+        <Pressable style={gp.overlay} onPress={() => setMeatPickerVisible(false)} />
+        <View style={[gp.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
+          <View style={[gp.handle, { backgroundColor: colors.border }]} />
+          <Text style={[gp.title, { color: colors.foreground }]}>What Did You Cook?</Text>
+
+          {/* Category tabs */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }} contentContainerStyle={{ paddingHorizontal: 14, gap: 8 }}>
+            {MEAT_CATEGORIES.map((cat) => (
+              <Pressable
+                key={cat}
+                onPress={() => setMeatCatTab(cat)}
+                style={[
+                  mp.catTab,
+                  meatCatTab === cat
+                    ? { backgroundColor: "#E84820", borderColor: "#E84820" }
+                    : { backgroundColor: "transparent", borderColor: colors.border },
+                ]}
+              >
+                <Text style={[mp.catTabText, { color: meatCatTab === cat ? "#fff" : colors.mutedForeground }]}>{cat}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          <FlatList
+            data={MEAT_CUTS_BY_CATEGORY[meatCatTab] ?? []}
+            keyExtractor={(item: MeatCut) => item.name}
+            style={{ maxHeight: 340 }}
+            ItemSeparatorComponent={() => <View style={[gp.sep, { backgroundColor: colors.border }]} />}
+            renderItem={({ item }: { item: MeatCut }) => {
+              const isSelected = foodType === item.name;
+              return (
+                <TouchableOpacity
+                  style={[gp.row, isSelected && { backgroundColor: "#E84820" + "12" }]}
+                  onPress={() => {
+                    setFoodType(item.name);
+                    if (!targetTempF.trim()) setTargetTempF(String(item.targetTempF));
+                    if (!cookTempF.trim()) setCookTempF(String(item.cookTempF));
+                    setMeatPickerVisible(false);
+                  }}
+                >
+                  <View style={gp.rowText}>
+                    <Text style={[gp.rowName, { color: colors.foreground }]} numberOfLines={1}>{item.name}</Text>
+                    <Text style={[gp.rowSub, { color: colors.mutedForeground }]}>
+                      {item.cookMethod} · Target {item.targetTempF}°F
+                    </Text>
+                  </View>
+                  {isSelected && <Feather name="check" size={16} color="#E84820" />}
+                </TouchableOpacity>
+              );
+            }}
+          />
+
+          {foodType && (
+            <TouchableOpacity onPress={() => { setFoodType(""); setMeatPickerVisible(false); }} style={gp.clearBtn}>
+              <Text style={[gp.clearBtnText, { color: colors.mutedForeground }]}>Clear selection</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </Modal>
+
       {/* Grill picker modal */}
       <Modal
         visible={grillPickerVisible}
@@ -1035,6 +1184,8 @@ const s = StyleSheet.create({
   fieldLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   input: { borderWidth: 1, paddingHorizontal: 13, paddingVertical: 11, fontSize: 14, fontFamily: "Inter_400Regular" },
   grillPicker: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  needsFillBadge: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#F59E0B18", borderRadius: 10, paddingHorizontal: 7, paddingVertical: 3 },
+  needsFillText: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: "#F59E0B" },
   textArea: { borderWidth: 1, padding: 12, fontSize: 14, fontFamily: "Inter_400Regular", minHeight: 80, lineHeight: 20 },
 
   saveBtn: { overflow: "hidden" },
@@ -1071,6 +1222,11 @@ const gp = StyleSheet.create({
   footerBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
   clearBtn: { alignItems: "center", paddingVertical: 12, marginTop: 4, borderTopWidth: 1, borderTopColor: "#ffffff15" },
   clearBtnText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+});
+
+const mp = StyleSheet.create({
+  catTab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
+  catTabText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 });
 
 const dp2 = StyleSheet.create({
