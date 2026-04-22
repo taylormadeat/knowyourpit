@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -36,6 +36,77 @@ const URGENCY_COLOR: Record<string, string> = {
   when_ready: "#6C3BF5",
   maintain: "#22c55e",
 };
+
+const PITMASTER_TITLES: { minScore: number; titles: string[] }[] = [
+  {
+    minScore: 95,
+    titles: [
+      "The BBQ Deity",
+      "Sovereign of Smoke",
+      "High Priest of the Pit",
+      "The Eternal Flame",
+    ],
+  },
+  {
+    minScore: 85,
+    titles: [
+      "Grand Poobah of the Pit",
+      "Supreme Smoke Commander",
+      "The Brisket Baron",
+      "Duke of Delicious",
+    ],
+  },
+  {
+    minScore: 70,
+    titles: [
+      "The Smoke Whisperer",
+      "Lord of Low & Slow",
+      "Knight of the Ring of Fire",
+      "The Bark Artisan",
+    ],
+  },
+  {
+    minScore: 55,
+    titles: [
+      "Lord of the Questionable Bark",
+      "Baron of Almost Done",
+      "The Optimistic Pitmaster",
+      "Duke of the Stall Zone",
+    ],
+  },
+  {
+    minScore: 40,
+    titles: [
+      "Chief Charcoal Excuse Officer",
+      "The Perpetual Pre-heater",
+      "Knight of the Inconsistent Temp",
+      "Minister of Maybes",
+    ],
+  },
+  {
+    minScore: 25,
+    titles: [
+      "Warden of the Wayward Flame",
+      "Guardian of the Unruly Grill",
+      "Custodian of Chaos",
+      "The Grill's Unfortunate Keeper",
+    ],
+  },
+  {
+    minScore: 0,
+    titles: [
+      "The Anointed Fire Hazard",
+      "Grand Consul of Burnt Offerings",
+      "Ordained Smoke Alarm Conductor",
+      "The Scorched Earth Pitmaster",
+    ],
+  },
+];
+
+function getRandomTitle(score: number): string {
+  const tier = PITMASTER_TITLES.find((t) => score >= t.minScore) ?? PITMASTER_TITLES[PITMASTER_TITLES.length - 1];
+  return tier.titles[Math.floor(Math.random() * tier.titles.length)];
+}
 
 function fmtElapsed(ms: number): string {
   const totalMins = Math.floor(ms / 60000);
@@ -93,6 +164,11 @@ export default function HomeScreen() {
     : upcomingCook
     ? `${upcomingCook.foodType || "Your cook"} is coming up — time to prep`
     : "Ready to fire it up?";
+
+  const randomTitle = useMemo(
+    () => (insights ? getRandomTitle(insights.pitMasterScore) : null),
+    [insights?.pitMasterScore]
+  );
 
   const scrollRef = useRef<ScrollView>(null);
   const [tipsExpanded, setTipsExpanded] = useState(false);
@@ -275,7 +351,7 @@ export default function HomeScreen() {
 
                       {/* Right column */}
                       <View style={s.gradeRight}>
-                        <Text style={s.gradeLabel}>{insights.scoreLabel}</Text>
+                        <Text style={s.gradeLabel}>{randomTitle}</Text>
                         <Text style={[s.gradeScore, { color }]}>{insights.pitMasterScore} / 100</Text>
 
                         {/* Progress bar */}
