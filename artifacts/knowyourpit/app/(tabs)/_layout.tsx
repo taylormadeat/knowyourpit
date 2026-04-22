@@ -8,6 +8,7 @@ import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
+import { GrillIcon } from "@/components/GrillIcon";
 
 function NativeTabLayout() {
   return (
@@ -25,7 +26,7 @@ function NativeTabLayout() {
         <Label>Plan</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="ai">
-        <Icon sf={{ default: "bolt", selected: "bolt.fill" }} />
+        <Icon sf={{ default: "flame", selected: "flame.fill" }} />
         <Label>PitMaster</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="more">
@@ -119,12 +120,7 @@ function ClassicTabLayout() {
         name="ai"
         options={{
           title: "PitMaster",
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="bolt" tintColor={color} size={22} />
-            ) : (
-              <Feather name="zap" size={22} color={color} />
-            ),
+          tabBarIcon: ({ color }) => <GrillIcon color={color} size={26} />,
         }}
       />
       <Tabs.Screen
