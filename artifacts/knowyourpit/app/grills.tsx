@@ -67,9 +67,6 @@ export default function GrillsScreen() {
   const createGrill = useCreateGrill();
   const deleteGrill = useDeleteGrill();
 
-  // My grills: expanded brand groups
-  const [expandedMyBrands, setExpandedMyBrands] = useState<Set<string>>(new Set());
-
   // Add modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCustomForm, setShowCustomForm] = useState(false);
@@ -84,18 +81,6 @@ export default function GrillsScreen() {
 
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
-  // ── Group user's grills by brand ──
-  const grillsByBrand = useMemo(() => {
-    const all = (grills as any[]) ?? [];
-    const map = new Map<string, any[]>();
-    for (const g of all) {
-      const key = g.brand?.trim() || "Custom / Other";
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(g);
-    }
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [grills]);
-
   // ── Filter catalog brands ──
   const filteredBrands = useMemo(() => {
     const q = catalogSearch.trim().toLowerCase();
@@ -109,14 +94,6 @@ export default function GrillsScreen() {
   }, [catalogSearch]);
 
   // ── Handlers ──
-  const toggleMyBrand = (brand: string) => {
-    setExpandedMyBrands((prev) => {
-      const next = new Set(prev);
-      if (next.has(brand)) next.delete(brand); else next.add(brand);
-      return next;
-    });
-  };
-
   const toggleCatalogBrand = (brand: string) => {
     setExpandedCatalogBrands((prev) => {
       const next = new Set(prev);
@@ -228,65 +205,40 @@ export default function GrillsScreen() {
           contentContainerStyle={{ padding: 14, paddingBottom: botPad + 40, gap: 10 }}
           showsVerticalScrollIndicator={false}
         >
-          {grillsByBrand.map(([brandName, brandGrills]) => {
-            const isOpen = expandedMyBrands.has(brandName);
-            return (
-              <View
-                key={brandName}
-                style={[s.brandGroup, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
-              >
-                {/* Brand header row */}
-                <Pressable style={s.brandGroupHeader} onPress={() => toggleMyBrand(brandName)}>
-                  <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.brandInitialBg}>
-                    <Text style={s.brandInitialText}>{brandName[0].toUpperCase()}</Text>
-                  </LinearGradient>
-                  <Text style={[s.brandGroupName, { color: colors.foreground }]}>{brandName}</Text>
-                  <Text style={[s.brandGroupCount, { color: colors.mutedForeground }]}>
-                    {brandGrills.length} {brandGrills.length === 1 ? "grill" : "grills"}
-                  </Text>
-                  <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
-                </Pressable>
-
-                {/* Grill rows */}
-                {isOpen && (
-                  <View style={[s.grillRows, { borderTopColor: colors.border }]}>
-                    {brandGrills.map((item: any, idx: number) => (
-                      <View
-                        key={item.id}
-                        style={[
-                          s.grillRow,
-                          { borderBottomColor: colors.border },
-                          idx === brandGrills.length - 1 && { borderBottomWidth: 0 },
-                        ]}
-                      >
-                        <View style={s.grillRowInfo}>
-                          <Text style={[s.grillRowName, { color: colors.foreground }]}>{item.name}</Text>
-                          <View style={s.tagRow}>
-                            {item.type && (
-                              <View style={[s.tag, { backgroundColor: colors.primary + "18" }]}>
-                                <Text style={[s.tagText, { color: colors.primary }]}>{item.type}</Text>
-                              </View>
-                            )}
-                            {item.fuelType && (
-                              <View style={[s.tag, { backgroundColor: colors.muted }]}>
-                                <Text style={[s.tagText, { color: colors.mutedForeground }]}>{item.fuelType}</Text>
-                              </View>
-                            )}
-                          </View>
-                        </View>
-                        <Pressable
-                          style={[s.delBtn, { backgroundColor: colors.destructive + "15", borderRadius: 8 }]}
-                          onPress={() => handleDelete(item.id, item.name)}
-                        >
-                          <Feather name="trash-2" size={15} color={colors.destructive} />
-                        </Pressable>
-                      </View>
-                    ))}
-                  </View>
+          {allGrills.map((item: any) => (
+            <View
+              key={item.id}
+              style={[s.grillCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
+            >
+              <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.grillCardIcon}>
+                <Feather name="wind" size={20} color="#fff" />
+              </LinearGradient>
+              <View style={s.grillCardInfo}>
+                <Text style={[s.grillCardName, { color: colors.foreground }]}>{item.name}</Text>
+                {item.brand && (
+                  <Text style={[s.grillCardBrand, { color: colors.mutedForeground }]}>{item.brand}</Text>
                 )}
+                <View style={s.tagRow}>
+                  {item.type && (
+                    <View style={[s.tag, { backgroundColor: colors.primary + "18" }]}>
+                      <Text style={[s.tagText, { color: colors.primary }]}>{item.type}</Text>
+                    </View>
+                  )}
+                  {item.fuelType && (
+                    <View style={[s.tag, { backgroundColor: colors.muted }]}>
+                      <Text style={[s.tagText, { color: colors.mutedForeground }]}>{item.fuelType}</Text>
+                    </View>
+                  )}
+                </View>
               </View>
-            );
-          })}
+              <Pressable
+                style={[s.delBtn, { backgroundColor: colors.destructive + "15", borderRadius: 8 }]}
+                onPress={() => handleDelete(item.id, item.name)}
+              >
+                <Feather name="trash-2" size={15} color={colors.destructive} />
+              </Pressable>
+            </View>
+          ))}
         </ScrollView>
       )}
 
@@ -502,18 +454,12 @@ const s = StyleSheet.create({
   browseCta: { marginTop: 8, paddingHorizontal: 24, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 8 },
   browseCtaText: { color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 14 },
 
-  /* My grills brand groups */
-  brandGroup: { borderWidth: 1, overflow: "hidden" },
-  brandGroupHeader: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14 },
-  brandInitialBg: { width: 36, height: 36, borderRadius: 9, alignItems: "center", justifyContent: "center" },
-  brandInitialText: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#fff" },
-  brandGroupName: { flex: 1, fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  brandGroupCount: { fontSize: 12, fontFamily: "Inter_400Regular", marginRight: 4 },
-
-  grillRows: { borderTopWidth: 1 },
-  grillRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1 },
-  grillRowInfo: { flex: 1 },
-  grillRowName: { fontSize: 14, fontFamily: "Inter_500Medium", marginBottom: 4 },
+  /* My grills flat cards */
+  grillCard: { flexDirection: "row", alignItems: "center", gap: 14, borderWidth: 1, padding: 14 },
+  grillCardIcon: { width: 46, height: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  grillCardInfo: { flex: 1 },
+  grillCardName: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
+  grillCardBrand: { fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 5 },
   tagRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
   tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   tagText: { fontSize: 11, fontFamily: "Inter_500Medium" },
