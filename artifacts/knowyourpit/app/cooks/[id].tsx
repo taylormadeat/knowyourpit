@@ -253,6 +253,23 @@ export default function CookDetailScreen() {
   const [alertMinutesBefore, setAlertMinutesBefore] = useState("30");
   const [alertSaving, setAlertSaving] = useState(false);
   const [showCookDetails, setShowCookDetails] = useState(false);
+  const [expandedStoredSections, setExpandedStoredSections] = useState<Set<string>>(new Set());
+  const [expandedResultSections, setExpandedResultSections] = useState<Set<string>>(new Set());
+
+  const toggleStoredSection = (key: string) => {
+    setExpandedStoredSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+  const toggleResultSection = (key: string) => {
+    setExpandedResultSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
   const firedAlertIds = useRef<Set<number>>(new Set());
 
   const { data: meaterData, isLoading: meaterLoading } = useGetMeaterReadings({
@@ -1048,50 +1065,95 @@ export default function CookDetailScreen() {
               </View>
             )}
 
-            {(storedAnalysis?.events?.length ?? 0) > 0 && (
-              <View style={[s.subSection, { borderTopColor: colors.border }]}>
-                <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Cook Timeline</Text>
-                {storedAnalysis!.events.map((ev: any, i: number) => {
-                  const hrs = Math.floor(ev.timeMinutes / 60);
-                  const mins = ev.timeMinutes % 60;
-                  return (
-                    <View key={i} style={[s.eventRow, { borderTopColor: colors.border }]}>
-                      <View style={[s.eventIconWrap, { backgroundColor: "#A855F7" + "18" }]}>
-                        <Feather name={(EVENT_ICONS[ev.type] ?? "circle") as any} size={13} color="#A855F7" />
-                      </View>
-                      <Text style={[s.eventDesc, { color: colors.foreground, flex: 1 }]}>{ev.description}</Text>
-                      <Text style={[s.eventTime, { color: colors.mutedForeground }]}>
-                        {hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`}
-                      </Text>
+            {(storedAnalysis?.events?.length ?? 0) > 0 && (() => {
+              const isOpen = expandedStoredSections.has("timeline");
+              const events = storedAnalysis!.events;
+              return (
+                <View style={[s.subSection, { borderTopColor: colors.border }]}>
+                  <Pressable style={s.collapsibleRow} onPress={() => toggleStoredSection("timeline")}>
+                    <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>Cook Timeline</Text>
+                    <View style={[s.countPill, { backgroundColor: colors.muted }]}>
+                      <Text style={[s.countPillText, { color: colors.mutedForeground }]}>{events.length}</Text>
                     </View>
-                  );
-                })}
-              </View>
-            )}
+                    <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
+                  </Pressable>
+                  {!isOpen && (
+                    <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
+                      {events[0].description}
+                    </Text>
+                  )}
+                  {isOpen && events.map((ev: any, i: number) => {
+                    const hrs = Math.floor(ev.timeMinutes / 60);
+                    const mins = ev.timeMinutes % 60;
+                    return (
+                      <View key={i} style={[s.eventRow, { borderTopColor: colors.border }]}>
+                        <View style={[s.eventIconWrap, { backgroundColor: "#A855F7" + "18" }]}>
+                          <Feather name={(EVENT_ICONS[ev.type] ?? "circle") as any} size={13} color="#A855F7" />
+                        </View>
+                        <Text style={[s.eventDesc, { color: colors.foreground, flex: 1 }]}>{ev.description}</Text>
+                        <Text style={[s.eventTime, { color: colors.mutedForeground }]}>
+                          {hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })()}
 
-            {(storedAssessment?.whatWentWell?.length ?? 0) > 0 && (
-              <View style={[s.subSection, { borderTopColor: colors.border }]}>
-                <Text style={[s.subLabel, { color: colors.mutedForeground }]}>What Went Well</Text>
-                {storedAssessment!.whatWentWell.map((item: string, i: number) => (
-                  <View key={i} style={s.bulletRow}>
-                    <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
-                    <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
+            {(storedAssessment?.whatWentWell?.length ?? 0) > 0 && (() => {
+              const isOpen = expandedStoredSections.has("wentWell");
+              const items: string[] = storedAssessment!.whatWentWell;
+              return (
+                <View style={[s.subSection, { borderTopColor: colors.border }]}>
+                  <Pressable style={s.collapsibleRow} onPress={() => toggleStoredSection("wentWell")}>
+                    <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>What Went Well</Text>
+                    <View style={[s.countPill, { backgroundColor: "#22c55e18" }]}>
+                      <Text style={[s.countPillText, { color: "#22c55e" }]}>{items.length}</Text>
+                    </View>
+                    <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
+                  </Pressable>
+                  {!isOpen && (
+                    <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
+                      {items[0]}
+                    </Text>
+                  )}
+                  {isOpen && items.map((item, i) => (
+                    <View key={i} style={s.bulletRow}>
+                      <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
+                      <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })()}
 
-            {(storedAssessment?.suggestions?.length ?? 0) > 0 && (
-              <View style={[s.subSection, { borderTopColor: colors.border }]}>
-                <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Next Time, Try This</Text>
-                {storedAssessment!.suggestions.map((tip: string, i: number) => (
-                  <View key={i} style={s.bulletRow}>
-                    <Text style={[s.bulletNum, { color: "#A855F7" }]}>{i + 1}</Text>
-                    <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
+            {(storedAssessment?.suggestions?.length ?? 0) > 0 && (() => {
+              const isOpen = expandedStoredSections.has("nextTime");
+              const tips: string[] = storedAssessment!.suggestions;
+              return (
+                <View style={[s.subSection, { borderTopColor: colors.border }]}>
+                  <Pressable style={s.collapsibleRow} onPress={() => toggleStoredSection("nextTime")}>
+                    <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>Next Time, Try This</Text>
+                    <View style={[s.countPill, { backgroundColor: "#A855F718" }]}>
+                      <Text style={[s.countPillText, { color: "#A855F7" }]}>{tips.length}</Text>
+                    </View>
+                    <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
+                  </Pressable>
+                  {!isOpen && (
+                    <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
+                      {tips[0]}
+                    </Text>
+                  )}
+                  {isOpen && tips.map((tip, i) => (
+                    <View key={i} style={s.bulletRow}>
+                      <Text style={[s.bulletNum, { color: "#A855F7" }]}>{i + 1}</Text>
+                      <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })()}
           </View>
         )}
 
@@ -1755,53 +1817,95 @@ export default function CookDetailScreen() {
               )}
 
               {/* Events timeline */}
-              {result.events.length > 0 && (
-                <View style={[s.subSection, { borderColor: colors.border }]}>
-                  <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Cook Timeline</Text>
-                  {result.events.map((ev, i) => {
-                    const hrs = Math.floor(ev.timeMinutes / 60);
-                    const mins = ev.timeMinutes % 60;
-                    const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
-                    return (
-                      <View key={i} style={[s.eventRow, { borderTopColor: colors.border }]}>
-                        <View style={[s.eventIconWrap, { backgroundColor: colors.primary + "18" }]}>
-                          <Feather name={(EVENT_ICONS[ev.type] ?? "circle") as any} size={13} color={colors.primary} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[s.eventDesc, { color: colors.foreground }]}>{ev.description}</Text>
-                        </View>
-                        <Text style={[s.eventTime, { color: colors.mutedForeground }]}>{timeStr}</Text>
+              {result.events.length > 0 && (() => {
+                const isOpen = expandedResultSections.has("timeline");
+                return (
+                  <View style={[s.subSection, { borderColor: colors.border }]}>
+                    <Pressable style={s.collapsibleRow} onPress={() => toggleResultSection("timeline")}>
+                      <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>Cook Timeline</Text>
+                      <View style={[s.countPill, { backgroundColor: colors.muted }]}>
+                        <Text style={[s.countPillText, { color: colors.mutedForeground }]}>{result.events.length}</Text>
                       </View>
-                    );
-                  })}
-                </View>
-              )}
+                      <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
+                    </Pressable>
+                    {!isOpen && (
+                      <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
+                        {result.events[0].description}
+                      </Text>
+                    )}
+                    {isOpen && result.events.map((ev, i) => {
+                      const hrs = Math.floor(ev.timeMinutes / 60);
+                      const mins = ev.timeMinutes % 60;
+                      const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+                      return (
+                        <View key={i} style={[s.eventRow, { borderTopColor: colors.border }]}>
+                          <View style={[s.eventIconWrap, { backgroundColor: colors.primary + "18" }]}>
+                            <Feather name={(EVENT_ICONS[ev.type] ?? "circle") as any} size={13} color={colors.primary} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[s.eventDesc, { color: colors.foreground }]}>{ev.description}</Text>
+                          </View>
+                          <Text style={[s.eventTime, { color: colors.mutedForeground }]}>{timeStr}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                );
+              })()}
 
               {/* What went well */}
-              {assessment?.whatWentWell?.length > 0 && (
-                <View style={[s.subSection, { borderColor: colors.border }]}>
-                  <Text style={[s.subLabel, { color: colors.mutedForeground }]}>What Went Well</Text>
-                  {assessment.whatWentWell.map((item, i) => (
-                    <View key={i} style={s.bulletRow}>
-                      <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
-                      <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
+              {assessment?.whatWentWell?.length > 0 && (() => {
+                const isOpen = expandedResultSections.has("wentWell");
+                return (
+                  <View style={[s.subSection, { borderColor: colors.border }]}>
+                    <Pressable style={s.collapsibleRow} onPress={() => toggleResultSection("wentWell")}>
+                      <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>What Went Well</Text>
+                      <View style={[s.countPill, { backgroundColor: "#22c55e18" }]}>
+                        <Text style={[s.countPillText, { color: "#22c55e" }]}>{assessment.whatWentWell.length}</Text>
+                      </View>
+                      <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
+                    </Pressable>
+                    {!isOpen && (
+                      <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
+                        {assessment.whatWentWell[0]}
+                      </Text>
+                    )}
+                    {isOpen && assessment.whatWentWell.map((item, i) => (
+                      <View key={i} style={s.bulletRow}>
+                        <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
+                        <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
+                      </View>
+                    ))}
+                  </View>
+                );
+              })()}
 
               {/* Suggestions */}
-              {assessment?.suggestions?.length > 0 && (
-                <View style={[s.subSection, { borderColor: colors.border }]}>
-                  <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Next Time, Try This</Text>
-                  {assessment.suggestions.map((tip, i) => (
-                    <View key={i} style={s.bulletRow}>
-                      <Text style={[s.bulletNum, { color: colors.primary }]}>{i + 1}</Text>
-                      <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
+              {assessment?.suggestions?.length > 0 && (() => {
+                const isOpen = expandedResultSections.has("nextTime");
+                return (
+                  <View style={[s.subSection, { borderColor: colors.border }]}>
+                    <Pressable style={s.collapsibleRow} onPress={() => toggleResultSection("nextTime")}>
+                      <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>Next Time, Try This</Text>
+                      <View style={[s.countPill, { backgroundColor: "#A855F718" }]}>
+                        <Text style={[s.countPillText, { color: "#A855F7" }]}>{assessment.suggestions.length}</Text>
+                      </View>
+                      <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
+                    </Pressable>
+                    {!isOpen && (
+                      <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
+                        {assessment.suggestions[0]}
+                      </Text>
+                    )}
+                    {isOpen && assessment.suggestions.map((tip, i) => (
+                      <View key={i} style={s.bulletRow}>
+                        <Text style={[s.bulletNum, { color: colors.primary }]}>{i + 1}</Text>
+                        <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
+                      </View>
+                    ))}
+                  </View>
+                );
+              })()}
 
               {/* No data fallback */}
               {result.noDataFound && result.probes.length === 0 && (
@@ -2540,6 +2644,10 @@ const s = StyleSheet.create({
 
   subSection: { borderTopWidth: 1, paddingTop: 12, gap: 0 },
   subLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 },
+  collapsibleRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  countPill: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10 },
+  countPillText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  sectionPreview: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18, marginBottom: 4, opacity: 0.8 },
 
   probeRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 1, paddingVertical: 10 },
   probeName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
