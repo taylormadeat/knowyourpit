@@ -40,6 +40,26 @@ function smoothPath(points: { x: number; y: number }[]): string {
   return d;
 }
 
+/** Pick a readable whole-minute interval that fits within the chart width */
+function pickTickInterval(rangeMinutes: number, chartWidth: number): number {
+  const MIN_TICK_PX = 52;
+  const maxTicks = Math.max(2, Math.floor(chartWidth / MIN_TICK_PX));
+  const INTERVALS = [5, 10, 15, 20, 30, 60, 90, 120, 180, 240, 360, 480, 720];
+  for (const iv of INTERVALS) {
+    if (rangeMinutes / iv + 1 <= maxTicks) return iv;
+  }
+  return INTERVALS[INTERVALS.length - 1];
+}
+
+function fmtTick(totalMinutesRaw: number): string {
+  const totalMins = Math.round(totalMinutesRaw);
+  const hrs = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hrs === 0) return `${mins}m`;
+  if (mins === 0) return `${hrs}h`;
+  return `${hrs}h${mins}m`;
+}
+
 export function TempGraph({ probes, events = [], targetTempF, width = 320, height = 200 }: Props) {
   const colors = useColors();
 
@@ -70,8 +90,16 @@ export function TempGraph({ probes, events = [], targetTempF, width = 320, heigh
   const toX = (t: number) => PAD.left + ((t - minTime) / rangeTime) * chartW;
   const toY = (f: number) => PAD.top + ((maxTemp - f) / rangeTemp) * chartH;
 
+  // Smart X-axis ticks — round-minute boundaries, evenly spaced, never crowded
+  const tickInterval = pickTickInterval(rangeTime, chartW);
+  const firstTick = Math.ceil(minTime / tickInterval) * tickInterval;
+  const xTicks: number[] = [];
+  if (minTime < firstTick - tickInterval * 0.1) xTicks.push(minTime);
+  for (let t = firstTick; t <= maxTime + 0.5; t += tickInterval) {
+    xTicks.push(t);
+  }
+
   const yGridLines = 5;
-  const xGridLines = Math.min(6, Math.ceil(rangeTime / 60) + 1);
 
   return (
     <View>
@@ -101,18 +129,18 @@ export function TempGraph({ probes, events = [], targetTempF, width = 320, heigh
           );
         })}
 
-        {/* X axis labels */}
-        {Array.from({ length: xGridLines }, (_, i) => {
-          const t = minTime + (rangeTime * i) / (xGridLines - 1);
+        {/* X axis ticks + labels — clean integer minutes, no overlap */}
+        {xTicks.map((t, i) => {
           const x = toX(t);
-          const hrs = Math.floor(t / 60);
-          const mins = t % 60;
-          const label = hrs > 0 ? (mins === 0 ? `${hrs}h` : `${hrs}h${mins}m`) : `${mins}m`;
           return (
-            <SvgText key={i} x={x} y={height - 4} fontSize="9" fill={colors.mutedForeground}
-              textAnchor="middle" fontFamily="Inter_400Regular">
-              {label}
-            </SvgText>
+            <React.Fragment key={i}>
+              <Line x1={x} y1={PAD.top + chartH} x2={x} y2={PAD.top + chartH + 4}
+                stroke={colors.border} strokeWidth="1" />
+              <SvgText x={x} y={height - 4} fontSize="9" fill={colors.mutedForeground}
+                textAnchor="middle" fontFamily="Inter_400Regular">
+                {fmtTick(t - minTime)}
+              </SvgText>
+            </React.Fragment>
           );
         })}
 
@@ -148,15 +176,8 @@ export function TempGraph({ probes, events = [], targetTempF, width = 320, heigh
               <Path d={closedFill} fill={`url(#probeFill${pi})`} />
               <Path d={smoothPath(pts)} stroke={color} strokeWidth="2.2" fill="none"
                 strokeLinecap="round" strokeLinejoin="round" />
-              {/* Finishing dot */}
-              <Circle
-                cx={pts[pts.length - 1].x}
-                cy={pts[pts.length - 1].y}
-                r={4} fill={color} />
-              <Circle
-                cx={pts[pts.length - 1].x}
-                cy={pts[pts.length - 1].y}
-                r={7} fill={color} fillOpacity="0.2" />
+              <Circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r={4} fill={color} />
+              <Circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r={7} fill={color} fillOpacity="0.2" />
             </React.Fragment>
           );
         })}
@@ -184,7 +205,7 @@ export function TempGraph({ probes, events = [], targetTempF, width = 320, heigh
       </Svg>
 
       {/* Legend */}
-      {probes.length > 1 && (
+      {probes.length > 0 && (
         <View style={s.legend}>
           {probes.map((probe, pi) => (
             <View key={pi} style={s.legendItem}>
@@ -203,7 +224,7 @@ export function TempGraph({ probes, events = [], targetTempF, width = 320, heigh
 const s = StyleSheet.create({
   empty: { alignItems: "center", justifyContent: "center", borderWidth: 1, borderRadius: 8, borderStyle: "dashed" },
   emptyText: { fontSize: 13, fontFamily: "Inter_400Regular" },
-  legend: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 44, paddingTop: 2 },
+  legend: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 44, paddingTop: 4 },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 5 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 11, fontFamily: "Inter_400Regular" },

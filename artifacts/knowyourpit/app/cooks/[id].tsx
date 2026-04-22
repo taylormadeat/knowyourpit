@@ -44,6 +44,21 @@ import {
 } from "@workspace/api-client-react";
 import * as Notifications from "expo-notifications";
 
+/** Replace any ISO-8601 timestamps in a string with human-readable local time */
+function fmtISOInText(text: string): string {
+  return text.replace(
+    /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?/g,
+    (match) => {
+      const d = new Date(match);
+      if (isNaN(d.getTime())) return match;
+      return d.toLocaleString(undefined, {
+        month: "short", day: "numeric",
+        hour: "numeric", minute: "2-digit", hour12: true,
+      });
+    }
+  );
+}
+
 function fmtElapsed(ms: number): string {
   if (ms <= 0) return "0s";
   const s = Math.floor(ms / 1000);
@@ -1079,7 +1094,7 @@ export default function CookDetailScreen() {
                   </Pressable>
                   {!isOpen && (
                     <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
-                      {events[0].description}
+                      {fmtISOInText(events[0].description)}
                     </Text>
                   )}
                   {isOpen && events.map((ev: any, i: number) => {
@@ -1090,7 +1105,7 @@ export default function CookDetailScreen() {
                         <View style={[s.eventIconWrap, { backgroundColor: "#A855F7" + "18" }]}>
                           <Feather name={(EVENT_ICONS[ev.type] ?? "circle") as any} size={13} color="#A855F7" />
                         </View>
-                        <Text style={[s.eventDesc, { color: colors.foreground, flex: 1 }]}>{ev.description}</Text>
+                        <Text style={[s.eventDesc, { color: colors.foreground, flex: 1 }]}>{fmtISOInText(ev.description)}</Text>
                         <Text style={[s.eventTime, { color: colors.mutedForeground }]}>
                           {hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`}
                         </Text>
@@ -1830,7 +1845,7 @@ export default function CookDetailScreen() {
                     </Pressable>
                     {!isOpen && (
                       <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
-                        {result.events[0].description}
+                        {fmtISOInText(result.events[0].description)}
                       </Text>
                     )}
                     {isOpen && result.events.map((ev, i) => {
@@ -1843,7 +1858,7 @@ export default function CookDetailScreen() {
                             <Feather name={(EVENT_ICONS[ev.type] ?? "circle") as any} size={13} color={colors.primary} />
                           </View>
                           <View style={{ flex: 1 }}>
-                            <Text style={[s.eventDesc, { color: colors.foreground }]}>{ev.description}</Text>
+                            <Text style={[s.eventDesc, { color: colors.foreground }]}>{fmtISOInText(ev.description)}</Text>
                           </View>
                           <Text style={[s.eventTime, { color: colors.mutedForeground }]}>{timeStr}</Text>
                         </View>
