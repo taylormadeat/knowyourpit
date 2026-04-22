@@ -934,6 +934,12 @@ export default function CookDetailScreen() {
                           <Text style={[s.rowValue, { color: colors.foreground }]}>{row.value}</Text>
                         </View>
                       ))}
+                      {c.notes && (
+                        <View style={[s.row, { flexDirection: "column", alignItems: "flex-start", gap: 6, borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                          <Text style={[s.rowLabel, { color: colors.mutedForeground }]}>Notes</Text>
+                          <Text style={[s.notesText, { color: colors.foreground }]}>{c.notes}</Text>
+                        </View>
+                      )}
                     </>
                   )}
                   {actualDetailRows.length > 0 && (
@@ -968,13 +974,6 @@ export default function CookDetailScreen() {
             </View>
           );
         })()}
-
-        {c.notes && (
-          <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, padding: 14 }]}>
-            <Text style={[s.notesLabel, { color: colors.mutedForeground }]}>Notes</Text>
-            <Text style={[s.notesText, { color: colors.foreground }]}>{c.notes}</Text>
-          </View>
-        )}
 
         {/* ── Stored AI analysis ──────────────────────────────── */}
         {storedAnalysis && (
