@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Platform,
   ActivityIndicator,
   Image,
+  LayoutAnimation,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -95,6 +96,12 @@ export default function HomeScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
   const tipsY = useRef(0);
+  const [tipsExpanded, setTipsExpanded] = useState(false);
+
+  const toggleTips = (expand?: boolean) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setTipsExpanded((prev) => (expand !== undefined ? expand : !prev));
+  };
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
@@ -251,7 +258,10 @@ export default function HomeScreen() {
                 <Pressable
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    scrollRef.current?.scrollTo({ y: tipsY.current - 12, animated: true });
+                    toggleTips(true);
+                    setTimeout(() => {
+                      scrollRef.current?.scrollTo({ y: tipsY.current - 12, animated: true });
+                    }, 80);
                   }}
                   style={({ pressed }) => [{ opacity: pressed ? 0.88 : 1 }]}
                 >
@@ -318,9 +328,13 @@ export default function HomeScreen() {
         {/* ── AI Tips ── */}
         {(insights?.tips?.length || insightsLoading) && (
           <>
-            <View
+            <Pressable
               style={s.sectionHeader}
               onLayout={(e) => { tipsY.current = e.nativeEvent.layout.y; }}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                toggleTips();
+              }}
             >
               <View style={s.sectionAccent} />
               <Text style={[s.sectionTitle, { color: colors.foreground }]}>Tips for You</Text>
@@ -328,23 +342,31 @@ export default function HomeScreen() {
                 <Feather name="cpu" size={10} color="#E84820" />
                 <Text style={s.aiBadgeText}>AI</Text>
               </View>
-            </View>
-            {insightsLoading || !insights ? (
-              <ActivityIndicator color={colors.primary} style={{ padding: 16 }} />
-            ) : (
-              <View style={[s.tipsCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-                {insights.tips.map((tip, i) => (
-                  <View
-                    key={i}
-                    style={[s.tipRow, i < insights.tips.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
-                  >
-                    <View style={[s.tipIconWrap, { backgroundColor: "#E8482015" }]}>
-                      <Feather name="zap" size={13} color="#E84820" />
+              <View style={{ flex: 1 }} />
+              <Feather
+                name={tipsExpanded ? "chevron-up" : "chevron-down"}
+                size={16}
+                color={colors.mutedForeground}
+              />
+            </Pressable>
+            {tipsExpanded && (
+              insightsLoading || !insights ? (
+                <ActivityIndicator color={colors.primary} style={{ padding: 16 }} />
+              ) : (
+                <View style={[s.tipsCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                  {insights.tips.map((tip, i) => (
+                    <View
+                      key={i}
+                      style={[s.tipRow, i < insights.tips.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
+                    >
+                      <View style={[s.tipIconWrap, { backgroundColor: "#E8482015" }]}>
+                        <Feather name="zap" size={13} color="#E84820" />
+                      </View>
+                      <Text style={[s.tipText, { color: colors.foreground }]}>{tip}</Text>
                     </View>
-                    <Text style={[s.tipText, { color: colors.foreground }]}>{tip}</Text>
-                  </View>
-                ))}
-              </View>
+                  ))}
+                </View>
+              )
             )}
           </>
         )}
