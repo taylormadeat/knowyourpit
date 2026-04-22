@@ -252,6 +252,7 @@ export default function CookDetailScreen() {
   const [alertLabel, setAlertLabel] = useState("");
   const [alertMinutesBefore, setAlertMinutesBefore] = useState("30");
   const [alertSaving, setAlertSaving] = useState(false);
+  const [showCookDetails, setShowCookDetails] = useState(false);
   const firedAlertIds = useRef<Set<number>>(new Set());
 
   const { data: meaterData, isLoading: meaterLoading } = useGetMeaterReadings({
@@ -824,7 +825,7 @@ export default function CookDetailScreen() {
           ) : null}
         </View>
 
-        {/* ── THE PLAN ────────────────────────────────────────── */}
+        {/* ── COOK SUMMARY CARD (plan + actual + grade) ─────────── */}
         {(() => {
           const wrapStr = (() => {
             const parts: string[] = [];
@@ -838,7 +839,25 @@ export default function CookDetailScreen() {
           const plannedDurMs = c.plannedStartAt && c.plannedEndAt
             ? new Date(c.plannedEndAt).getTime() - new Date(c.plannedStartAt).getTime()
             : null;
-          const planRows = [
+          const actualDurMs = c.actualStartAt && c.actualEndAt
+            ? new Date(c.actualEndAt).getTime() - new Date(c.actualStartAt).getTime()
+            : c.actualStartAt && cookStatus === "active" ? nowMs - new Date(c.actualStartAt).getTime() : null;
+          const planGrade = cookStatus === "completed" ? computePlanGrade(c) : null;
+
+          // Compact stat tiles — max 4 key facts
+          const statTiles: { icon: string; label: string; value: string; sub?: string }[] = [];
+          if (c.targetTempF) statTiles.push({ icon: "thermometer", label: "Target", value: `${c.targetTempF}°F` });
+          if (c.cookTempF) statTiles.push({ icon: "wind", label: "Pit Temp", value: `${c.cookTempF}°F` });
+          if (plannedDurMs) statTiles.push({ icon: "clock", label: "Planned", value: fmtDuration(plannedDurMs) });
+          if (actualDurMs) statTiles.push({
+            icon: cookStatus === "active" ? "loader" : "check-circle",
+            label: cookStatus === "active" ? "Elapsed" : "Actual",
+            value: fmtDuration(actualDurMs),
+          });
+          if (!statTiles.length && c.weightLbs) statTiles.push({ icon: "package", label: "Weight", value: `${c.weightLbs} lbs` });
+
+          // Full detail rows — plan section
+          const planDetailRows = [
             { label: "Food", value: c.foodType },
             { label: "Grill", value: (c as any).grillName },
             { label: "Weight", value: c.weightLbs ? `${c.weightLbs} lbs` : null },
@@ -852,72 +871,100 @@ export default function CookDetailScreen() {
             { label: "Wrap Notes", value: c.wrapReason ?? null },
             { label: "Rest", value: c.restMinutes ? `${c.restMinutes} min` : null },
           ].filter((r) => r.value);
-          return (
-            <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-              <View style={[s.sectionHeaderRow, { borderBottomColor: colors.border }]}>
-                <View style={[s.sectionIconWrap, { backgroundColor: "#3b82f618" }]}>
-                  <Feather name="clipboard" size={13} color="#3b82f6" />
-                </View>
-                <Text style={[s.sectionHeaderLabel, { color: "#3b82f6" }]}>The Plan</Text>
-              </View>
-              {planRows.map((row, i) => (
-                <View key={row.label} style={[s.row, i < planRows.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
-                  <Text style={[s.rowLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
-                  <Text style={[s.rowValue, { color: colors.foreground }]}>{row.value}</Text>
-                </View>
-              ))}
-            </View>
-          );
-        })()}
 
-        {/* ── HOW IT WENT (active + completed) ────────────────── */}
-        {(cookStatus === "active" || cookStatus === "completed") && (c.actualStartAt || c.actualEndAt) && (() => {
-          const actualDurMs = c.actualStartAt && c.actualEndAt
-            ? new Date(c.actualEndAt).getTime() - new Date(c.actualStartAt).getTime()
-            : c.actualStartAt ? nowMs - new Date(c.actualStartAt).getTime() : null;
-          const actualRows = [
+          // Full detail rows — actual section
+          const actualDetailRows = (cookStatus === "active" || cookStatus === "completed") ? [
             { label: "Started", value: c.actualStartAt ? formatDT(c.actualStartAt) : null },
             { label: "Finished", value: c.actualEndAt ? formatDT(c.actualEndAt) : null },
             { label: "Actual Duration", value: actualDurMs ? fmtDuration(actualDurMs) : null },
-          ].filter((r) => r.value);
-          if (!actualRows.length) return null;
-          return (
-            <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-              <View style={[s.sectionHeaderRow, { borderBottomColor: colors.border }]}>
-                <View style={[s.sectionIconWrap, { backgroundColor: "#22c55e18" }]}>
-                  <Feather name="bar-chart-2" size={13} color="#22c55e" />
-                </View>
-                <Text style={[s.sectionHeaderLabel, { color: "#22c55e" }]}>How It Went</Text>
-              </View>
-              {actualRows.map((row, i) => (
-                <View key={row.label} style={[s.row, i < actualRows.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
-                  <Text style={[s.rowLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
-                  <Text style={[s.rowValue, { color: colors.foreground }]}>{row.value}</Text>
-                </View>
-              ))}
-            </View>
-          );
-        })()}
+          ].filter((r) => r.value) : [];
 
-        {/* ── PLAN ACCURACY GRADE (completed only) ────────────── */}
-        {cookStatus === "completed" && (() => {
-          const g = computePlanGrade(c);
-          if (!g) return null;
           return (
-            <View style={[s.gradeCard, { backgroundColor: colors.card, borderColor: g.color + "50", borderRadius: colors.radius }]}>
-              <View style={s.gradeLeft}>
-                <Text style={[s.gradeLetter, { color: g.color }]}>{g.grade}</Text>
-                <Text style={[s.gradeNote, { color: colors.mutedForeground }]}>{g.note}</Text>
-              </View>
-              <View style={s.gradeRight}>
-                <Text style={[s.gradeTitle, { color: colors.foreground }]}>Plan Accuracy</Text>
-                <View style={[s.gradeBarTrack, { backgroundColor: colors.border }]}>
-                  <View style={[s.gradeBarFill, { width: `${g.accuracy}%` as any, backgroundColor: g.color }]} />
+            <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, overflow: "hidden" }]}>
+
+              {/* ── Compact summary: stat tiles ── */}
+              {statTiles.length > 0 && (
+                <View style={[s.statTileRow, { borderBottomColor: colors.border }]}>
+                  {statTiles.map((tile, i) => (
+                    <View
+                      key={tile.label}
+                      style={[
+                        s.statTile,
+                        i < statTiles.length - 1 && { borderRightWidth: 1, borderRightColor: colors.border },
+                      ]}
+                    >
+                      <Feather name={tile.icon as any} size={14} color={colors.mutedForeground} style={{ marginBottom: 4 }} />
+                      <Text style={[s.statTileValue, { color: colors.foreground }]}>{tile.value}</Text>
+                      <Text style={[s.statTileLabel, { color: colors.mutedForeground }]}>{tile.label}</Text>
+                    </View>
+                  ))}
                 </View>
-                <Text style={[s.gradeDeviation, { color: colors.mutedForeground }]}>
-                  {g.accuracy}% — {g.deviation}
+              )}
+
+              {/* ── Plan accuracy grade inline ── */}
+              {planGrade && (
+                <View style={[s.inlineGradeRow, { borderBottomColor: colors.border }]}>
+                  <View style={[s.inlineGradeBadge, { backgroundColor: planGrade.color + "18", borderColor: planGrade.color + "40" }]}>
+                    <Text style={[s.inlineGradeLetter, { color: planGrade.color }]}>{planGrade.grade}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.inlineGradeTitle, { color: colors.foreground }]}>Plan Accuracy · {planGrade.accuracy}%</Text>
+                    <Text style={[s.inlineGradeSub, { color: colors.mutedForeground }]}>{planGrade.deviation}</Text>
+                  </View>
+                  <View style={[s.gradeBarTrackSmall, { backgroundColor: colors.border, width: 52 }]}>
+                    <View style={[s.gradeBarFill, { width: `${planGrade.accuracy}%` as any, backgroundColor: planGrade.color }]} />
+                  </View>
+                </View>
+              )}
+
+              {/* ── Full details (collapsible) ── */}
+              {showCookDetails && (
+                <>
+                  {planDetailRows.length > 0 && (
+                    <>
+                      <View style={[s.sectionHeaderRow, { borderBottomColor: colors.border, borderTopWidth: planGrade || statTiles.length ? 0 : 0 }]}>
+                        <View style={[s.sectionIconWrap, { backgroundColor: "#3b82f618" }]}>
+                          <Feather name="clipboard" size={13} color="#3b82f6" />
+                        </View>
+                        <Text style={[s.sectionHeaderLabel, { color: "#3b82f6" }]}>The Plan</Text>
+                      </View>
+                      {planDetailRows.map((row, i) => (
+                        <View key={row.label} style={[s.row, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                          <Text style={[s.rowLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
+                          <Text style={[s.rowValue, { color: colors.foreground }]}>{row.value}</Text>
+                        </View>
+                      ))}
+                    </>
+                  )}
+                  {actualDetailRows.length > 0 && (
+                    <>
+                      <View style={[s.sectionHeaderRow, { borderBottomColor: colors.border }]}>
+                        <View style={[s.sectionIconWrap, { backgroundColor: "#22c55e18" }]}>
+                          <Feather name="bar-chart-2" size={13} color="#22c55e" />
+                        </View>
+                        <Text style={[s.sectionHeaderLabel, { color: "#22c55e" }]}>How It Went</Text>
+                      </View>
+                      {actualDetailRows.map((row, i) => (
+                        <View key={row.label} style={[s.row, i < actualDetailRows.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                          <Text style={[s.rowLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
+                          <Text style={[s.rowValue, { color: colors.foreground }]}>{row.value}</Text>
+                        </View>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* ── Toggle button ── */}
+              <Pressable
+                onPress={() => setShowCookDetails((v) => !v)}
+                style={[s.detailsToggle, { borderTopColor: colors.border }]}
+              >
+                <Text style={[s.detailsToggleText, { color: colors.primary }]}>
+                  {showCookDetails ? "Hide details" : "View full details"}
                 </Text>
-              </View>
+                <Feather name={showCookDetails ? "chevron-up" : "chevron-down"} size={14} color={colors.primary} />
+              </Pressable>
             </View>
           );
         })()}
@@ -2433,6 +2480,21 @@ const s = StyleSheet.create({
   sectionHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderBottomWidth: 1 },
   sectionIconWrap: { width: 24, height: 24, borderRadius: 6, alignItems: "center", justifyContent: "center" },
   sectionHeaderLabel: { fontSize: 12, fontFamily: "Inter_700Bold", textTransform: "uppercase", letterSpacing: 0.8 },
+
+  statTileRow: { flexDirection: "row", borderBottomWidth: 1 },
+  statTile: { flex: 1, alignItems: "center", paddingVertical: 16, paddingHorizontal: 8 },
+  statTileValue: { fontSize: 18, fontFamily: "Inter_700Bold", marginBottom: 2 },
+  statTileLabel: { fontSize: 11, fontFamily: "Inter_500Medium" },
+
+  inlineGradeRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1 },
+  inlineGradeBadge: { width: 40, height: 40, borderRadius: 10, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
+  inlineGradeLetter: { fontSize: 20, fontFamily: "Inter_700Bold" },
+  inlineGradeTitle: { fontSize: 13, fontFamily: "Inter_700Bold" },
+  inlineGradeSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 1 },
+  gradeBarTrackSmall: { height: 5, borderRadius: 3, overflow: "hidden" },
+
+  detailsToggle: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderTopWidth: 1, paddingVertical: 12 },
+  detailsToggleText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 
   gradeCard: { borderWidth: 2, flexDirection: "row", alignItems: "center", padding: 16, gap: 16 },
   gradeLeft: { alignItems: "center", minWidth: 52 },
