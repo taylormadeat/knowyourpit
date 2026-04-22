@@ -107,6 +107,44 @@ const EDIT_TIME_SLOTS: Array<{ h: number; m: number }> = (() => {
 
 const logoImg = require("@/assets/images/logo.png");
 
+function fmtDuration(ms: number): string {
+  const totalMins = Math.round(Math.abs(ms) / 60000);
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+type PlanGrade = { grade: string; color: string; accuracy: number; deviation: string; note: string };
+
+function computePlanGrade(c: {
+  plannedStartAt?: string | null;
+  plannedEndAt?: string | null;
+  actualStartAt?: string | null;
+  actualEndAt?: string | null;
+}): PlanGrade | null {
+  const pStart = c.plannedStartAt ? new Date(c.plannedStartAt).getTime() : null;
+  const pEnd = c.plannedEndAt ? new Date(c.plannedEndAt).getTime() : null;
+  const aStart = c.actualStartAt ? new Date(c.actualStartAt).getTime() : null;
+  const aEnd = c.actualEndAt ? new Date(c.actualEndAt).getTime() : null;
+  if (!pStart || !pEnd || !aStart || !aEnd) return null;
+  const plannedMs = pEnd - pStart;
+  if (plannedMs <= 0) return null;
+  const actualMs = aEnd - aStart;
+  const diff = actualMs - plannedMs;
+  const deviationRatio = Math.abs(diff) / plannedMs;
+  const accuracy = Math.max(0, Math.round((1 - deviationRatio) * 100));
+  const overUnder = diff > 0 ? `ran ${fmtDuration(diff)} over` : diff < 0 ? `wrapped up ${fmtDuration(-diff)} early` : "right on schedule";
+  let grade: string, color: string, note: string;
+  if (accuracy >= 88)       { grade = "A"; color = "#22c55e"; note = "Nailed the timeline"; }
+  else if (accuracy >= 74)  { grade = "B"; color = "#84cc16"; note = "Close to the plan"; }
+  else if (accuracy >= 57)  { grade = "C"; color = "#eab308"; note = "Some variation from plan"; }
+  else if (accuracy >= 38)  { grade = "D"; color = "#f97316"; note = "Notable deviation"; }
+  else                      { grade = "F"; color = "#ef4444"; note = "Far off the plan"; }
+  return { grade, color, accuracy, deviation: overUnder, note };
+}
+
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
   active: "#EB6C2B",
@@ -786,37 +824,103 @@ export default function CookDetailScreen() {
           ) : null}
         </View>
 
-        {/* Cook details card */}
-        <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-          {[
+        {/* ── THE PLAN ────────────────────────────────────────── */}
+        {(() => {
+          const wrapStr = (() => {
+            const parts: string[] = [];
+            if (c.wrapMethod === "foil") parts.push("Foil (Texas Crutch)");
+            else if (c.wrapMethod === "butcher_paper") parts.push("Butcher Paper");
+            else if (c.wrapMethod === "none") parts.push("No wrap");
+            if (c.wrapAtMinutes) parts.push(`at ${Math.floor(c.wrapAtMinutes / 60)}h ${c.wrapAtMinutes % 60}m`);
+            if (c.wrapTempF) parts.push(`${c.wrapTempF}°F internal`);
+            return parts.length ? parts.join(" · ") : null;
+          })();
+          const plannedDurMs = c.plannedStartAt && c.plannedEndAt
+            ? new Date(c.plannedEndAt).getTime() - new Date(c.plannedStartAt).getTime()
+            : null;
+          const planRows = [
             { label: "Food", value: c.foodType },
             { label: "Grill", value: (c as any).grillName },
             { label: "Weight", value: c.weightLbs ? `${c.weightLbs} lbs` : null },
             { label: "Target Temp", value: c.targetTempF ? `${c.targetTempF}°F` : null },
-            { label: "Cook Temp", value: c.cookTempF ? `${c.cookTempF}°F` : null },
+            { label: "Pit Temp", value: c.cookTempF ? `${c.cookTempF}°F` : null },
             { label: "Planned Start", value: c.plannedStartAt ? new Date(c.plannedStartAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null },
             { label: "Serve By", value: c.plannedEndAt ? new Date(c.plannedEndAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null },
-            { label: "Started", value: c.actualStartAt ? formatDT(c.actualStartAt) : null },
-            { label: "Finished", value: c.actualEndAt ? formatDT(c.actualEndAt) : null },
+            { label: "Planned Duration", value: plannedDurMs ? fmtDuration(plannedDurMs) : null },
             { label: "Preheat", value: c.preheatMinutes ? `${c.preheatMinutes} min` : null },
-            { label: "Wrap", value: (() => {
-                const parts: string[] = [];
-                if (c.wrapMethod === "foil") parts.push("Foil (Texas Crutch)");
-                else if (c.wrapMethod === "butcher_paper") parts.push("Butcher Paper");
-                else if (c.wrapMethod === "none") parts.push("No wrap");
-                if (c.wrapAtMinutes) parts.push(`at ${Math.floor(c.wrapAtMinutes / 60)}h ${c.wrapAtMinutes % 60}m`);
-                if (c.wrapTempF) parts.push(`${c.wrapTempF}°F internal`);
-                return parts.length ? parts.join(" · ") : null;
-              })() },
+            { label: "Wrap", value: wrapStr },
             { label: "Wrap Notes", value: c.wrapReason ?? null },
             { label: "Rest", value: c.restMinutes ? `${c.restMinutes} min` : null },
-          ].filter((r) => r.value).map((row, i, arr) => (
-            <View key={row.label} style={[s.row, i < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
-              <Text style={[s.rowLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
-              <Text style={[s.rowValue, { color: colors.foreground }]}>{row.value}</Text>
+          ].filter((r) => r.value);
+          return (
+            <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+              <View style={[s.sectionHeaderRow, { borderBottomColor: colors.border }]}>
+                <View style={[s.sectionIconWrap, { backgroundColor: "#3b82f618" }]}>
+                  <Feather name="clipboard" size={13} color="#3b82f6" />
+                </View>
+                <Text style={[s.sectionHeaderLabel, { color: "#3b82f6" }]}>The Plan</Text>
+              </View>
+              {planRows.map((row, i) => (
+                <View key={row.label} style={[s.row, i < planRows.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                  <Text style={[s.rowLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
+                  <Text style={[s.rowValue, { color: colors.foreground }]}>{row.value}</Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
+          );
+        })()}
+
+        {/* ── HOW IT WENT (active + completed) ────────────────── */}
+        {(cookStatus === "active" || cookStatus === "completed") && (c.actualStartAt || c.actualEndAt) && (() => {
+          const actualDurMs = c.actualStartAt && c.actualEndAt
+            ? new Date(c.actualEndAt).getTime() - new Date(c.actualStartAt).getTime()
+            : c.actualStartAt ? nowMs - new Date(c.actualStartAt).getTime() : null;
+          const actualRows = [
+            { label: "Started", value: c.actualStartAt ? formatDT(c.actualStartAt) : null },
+            { label: "Finished", value: c.actualEndAt ? formatDT(c.actualEndAt) : null },
+            { label: "Actual Duration", value: actualDurMs ? fmtDuration(actualDurMs) : null },
+          ].filter((r) => r.value);
+          if (!actualRows.length) return null;
+          return (
+            <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+              <View style={[s.sectionHeaderRow, { borderBottomColor: colors.border }]}>
+                <View style={[s.sectionIconWrap, { backgroundColor: "#22c55e18" }]}>
+                  <Feather name="bar-chart-2" size={13} color="#22c55e" />
+                </View>
+                <Text style={[s.sectionHeaderLabel, { color: "#22c55e" }]}>How It Went</Text>
+              </View>
+              {actualRows.map((row, i) => (
+                <View key={row.label} style={[s.row, i < actualRows.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                  <Text style={[s.rowLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
+                  <Text style={[s.rowValue, { color: colors.foreground }]}>{row.value}</Text>
+                </View>
+              ))}
+            </View>
+          );
+        })()}
+
+        {/* ── PLAN ACCURACY GRADE (completed only) ────────────── */}
+        {cookStatus === "completed" && (() => {
+          const g = computePlanGrade(c);
+          if (!g) return null;
+          return (
+            <View style={[s.gradeCard, { backgroundColor: colors.card, borderColor: g.color + "50", borderRadius: colors.radius }]}>
+              <View style={s.gradeLeft}>
+                <Text style={[s.gradeLetter, { color: g.color }]}>{g.grade}</Text>
+                <Text style={[s.gradeNote, { color: colors.mutedForeground }]}>{g.note}</Text>
+              </View>
+              <View style={s.gradeRight}>
+                <Text style={[s.gradeTitle, { color: colors.foreground }]}>Plan Accuracy</Text>
+                <View style={[s.gradeBarTrack, { backgroundColor: colors.border }]}>
+                  <View style={[s.gradeBarFill, { width: `${g.accuracy}%` as any, backgroundColor: g.color }]} />
+                </View>
+                <Text style={[s.gradeDeviation, { color: colors.mutedForeground }]}>
+                  {g.accuracy}% — {g.deviation}
+                </Text>
+              </View>
+            </View>
+          );
+        })()}
 
         {c.notes && (
           <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, padding: 14 }]}>
@@ -2325,6 +2429,20 @@ const s = StyleSheet.create({
   rowValue: { fontSize: 14, fontFamily: "Inter_400Regular", maxWidth: "55%", textAlign: "right" },
   notesLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginBottom: 6 },
   notesText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
+
+  sectionHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderBottomWidth: 1 },
+  sectionIconWrap: { width: 24, height: 24, borderRadius: 6, alignItems: "center", justifyContent: "center" },
+  sectionHeaderLabel: { fontSize: 12, fontFamily: "Inter_700Bold", textTransform: "uppercase", letterSpacing: 0.8 },
+
+  gradeCard: { borderWidth: 2, flexDirection: "row", alignItems: "center", padding: 16, gap: 16 },
+  gradeLeft: { alignItems: "center", minWidth: 52 },
+  gradeLetter: { fontSize: 44, fontFamily: "Inter_700Bold", lineHeight: 50 },
+  gradeNote: { fontSize: 11, fontFamily: "Inter_500Medium", textAlign: "center", marginTop: 2 },
+  gradeRight: { flex: 1, gap: 6 },
+  gradeTitle: { fontSize: 13, fontFamily: "Inter_700Bold" },
+  gradeBarTrack: { height: 6, borderRadius: 3, overflow: "hidden" },
+  gradeBarFill: { height: 6, borderRadius: 3 },
+  gradeDeviation: { fontSize: 12, fontFamily: "Inter_400Regular" },
 
   logSection: { borderWidth: 1, padding: 16, gap: 14 },
   logHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
