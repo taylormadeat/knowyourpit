@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Image,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -92,11 +93,14 @@ export default function HomeScreen() {
     ? `${upcomingCook.foodType || "Your cook"} is coming up — time to prep`
     : "Ready to fire it up?";
 
+  const scrollRef = useRef<ScrollView>(null);
+  const tipsY = useRef(0);
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
       <LogoBackground opacity={0.04} />
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: botPad + 100 }}
       >
@@ -244,54 +248,68 @@ export default function HomeScreen() {
               const grade = letterGrade(insights.pitMasterScore);
               const color = scoreColor(insights.pitMasterScore);
               return (
-                <LinearGradient
-                  colors={["#1C1C1F", "#2A1A10"]}
-                  style={[s.gradeCard, { borderColor: color + "55", borderRadius: colors.radius }]}
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    scrollRef.current?.scrollTo({ y: tipsY.current - 12, animated: true });
+                  }}
+                  style={({ pressed }) => [{ opacity: pressed ? 0.88 : 1 }]}
                 >
-                  {/* Grade circle */}
-                  <View style={s.gradeLeft}>
-                    <View style={[s.gradeBubble, { borderColor: color, backgroundColor: color + "18" }]}>
-                      <Text style={[s.gradeLetter, { color }]}>{grade}</Text>
-                    </View>
-                  </View>
-
-                  {/* Right column */}
-                  <View style={s.gradeRight}>
-                    <Text style={s.gradeLabel}>{insights.scoreLabel}</Text>
-                    <Text style={[s.gradeScore, { color }]}>{insights.pitMasterScore} / 100</Text>
-
-                    {/* Progress bar */}
-                    <View style={[s.gradeBarTrack, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
-                      <View style={[s.gradeBarFill, { width: `${insights.pitMasterScore}%` as any, backgroundColor: color }]} />
-                    </View>
-
-                    {/* Breakdown chips */}
-                    <View style={s.gradeChips}>
-                      {insights.scoreBreakdown.avgRating != null && (
-                        <View style={[s.gradeChip, { backgroundColor: color + "18", borderColor: color + "35" }]}>
-                          <Feather name="star" size={10} color={color} />
-                          <Text style={[s.gradeChipText, { color }]}>
-                            {insights.scoreBreakdown.avgRating.toFixed(1)} rating
-                          </Text>
-                        </View>
-                      )}
-                      {insights.scoreBreakdown.planAccuracy != null && (
-                        <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
-                          <Feather name="target" size={10} color="#96908A" />
-                          <Text style={[s.gradeChipText, { color: "#96908A" }]}>
-                            {insights.scoreBreakdown.planAccuracy}% accuracy
-                          </Text>
-                        </View>
-                      )}
-                      <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
-                        <Feather name="layers" size={10} color="#96908A" />
-                        <Text style={[s.gradeChipText, { color: "#96908A" }]}>
-                          {insights.scoreBreakdown.cookCount} cooks
-                        </Text>
+                  <LinearGradient
+                    colors={["#1C1C1F", "#2A1A10"]}
+                    style={[s.gradeCard, { borderColor: color + "55", borderRadius: colors.radius }]}
+                  >
+                    {/* Grade circle */}
+                    <View style={s.gradeLeft}>
+                      <View style={[s.gradeBubble, { borderColor: color, backgroundColor: color + "18" }]}>
+                        <Text style={[s.gradeLetter, { color }]}>{grade}</Text>
                       </View>
                     </View>
-                  </View>
-                </LinearGradient>
+
+                    {/* Right column */}
+                    <View style={s.gradeRight}>
+                      <Text style={s.gradeLabel}>{insights.scoreLabel}</Text>
+                      <Text style={[s.gradeScore, { color }]}>{insights.pitMasterScore} / 100</Text>
+
+                      {/* Progress bar */}
+                      <View style={[s.gradeBarTrack, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+                        <View style={[s.gradeBarFill, { width: `${insights.pitMasterScore}%` as any, backgroundColor: color }]} />
+                      </View>
+
+                      {/* Breakdown chips */}
+                      <View style={s.gradeChips}>
+                        {insights.scoreBreakdown.avgRating != null && (
+                          <View style={[s.gradeChip, { backgroundColor: color + "18", borderColor: color + "35" }]}>
+                            <Feather name="star" size={10} color={color} />
+                            <Text style={[s.gradeChipText, { color }]}>
+                              {insights.scoreBreakdown.avgRating.toFixed(1)} rating
+                            </Text>
+                          </View>
+                        )}
+                        {insights.scoreBreakdown.planAccuracy != null && (
+                          <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
+                            <Feather name="target" size={10} color="#96908A" />
+                            <Text style={[s.gradeChipText, { color: "#96908A" }]}>
+                              {insights.scoreBreakdown.planAccuracy}% accuracy
+                            </Text>
+                          </View>
+                        )}
+                        <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
+                          <Feather name="layers" size={10} color="#96908A" />
+                          <Text style={[s.gradeChipText, { color: "#96908A" }]}>
+                            {insights.scoreBreakdown.cookCount} cooks
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Tap hint */}
+                      <View style={s.gradeHint}>
+                        <Feather name="chevrons-down" size={10} color={color + "99"} />
+                        <Text style={[s.gradeHintText, { color: color + "99" }]}>See your Smoke Signals</Text>
+                      </View>
+                    </View>
+                  </LinearGradient>
+                </Pressable>
               );
             })()}
           </>
@@ -300,9 +318,12 @@ export default function HomeScreen() {
         {/* ── AI Tips ── */}
         {(insights?.tips?.length || insightsLoading) && (
           <>
-            <View style={s.sectionHeader}>
+            <View
+              style={s.sectionHeader}
+              onLayout={(e) => { tipsY.current = e.nativeEvent.layout.y; }}
+            >
               <View style={s.sectionAccent} />
-              <Text style={[s.sectionTitle, { color: colors.foreground }]}>Tips for You</Text>
+              <Text style={[s.sectionTitle, { color: colors.foreground }]}>Smoke Signals 🔥</Text>
               <View style={[s.aiBadge, { backgroundColor: "#E8482015", borderColor: "#E8482035" }]}>
                 <Feather name="cpu" size={10} color="#E84820" />
                 <Text style={s.aiBadgeText}>AI</Text>
@@ -707,6 +728,16 @@ const s = StyleSheet.create({
   gradeChipText: {
     fontSize: 11,
     fontFamily: "Inter_500Medium",
+  },
+  gradeHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 10,
+  },
+  gradeHintText: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
   },
 
   /* AI Badge */
