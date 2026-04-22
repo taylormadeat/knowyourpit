@@ -118,20 +118,21 @@ export default function HomeScreen() {
           <Text style={s.heroName}>{firstName} 🔥</Text>
           <Text style={s.heroSub}>{heroSub}</Text>
 
-          {summaryLoading ? (
-            <ActivityIndicator color="#E84820" style={{ marginTop: 20 }} />
-          ) : (
-            <View style={s.chipRow}>
+          {!summaryLoading && (
+            <View style={s.statStrip}>
               {[
                 { n: summary?.totalCooks ?? 0, l: "Cooks", icon: "zap" },
                 { n: summary?.totalGrills ?? 0, l: "Grills", icon: "wind" },
                 { n: summary?.plannedCooks ?? 0, l: "Planned", icon: "calendar" },
-              ].map((chip) => (
-                <View key={chip.l} style={s.chip}>
-                  <Feather name={chip.icon as any} size={14} color="#E84820" style={{ marginBottom: 4 }} />
-                  <Text style={s.chipNum}>{chip.n}</Text>
-                  <Text style={s.chipLabel}>{chip.l}</Text>
-                </View>
+              ].map((stat, i) => (
+                <React.Fragment key={stat.l}>
+                  {i > 0 && <View style={s.statDivider} />}
+                  <View style={s.statItem}>
+                    <Feather name={stat.icon as any} size={11} color="#E84820" />
+                    <Text style={s.statNum}>{stat.n}</Text>
+                    <Text style={s.statLabel}>{stat.l}</Text>
+                  </View>
+                </React.Fragment>
               ))}
             </View>
           )}
@@ -239,51 +240,60 @@ export default function HomeScreen() {
             </View>
             {insightsLoading || !insights ? (
               <ActivityIndicator color={colors.primary} style={{ padding: 16 }} />
-            ) : (
-              <View style={[s.scoreCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-                {/* Score circle + label */}
-                <View style={s.scoreTop}>
-                  <View style={[s.scoreCircle, { borderColor: scoreColor(insights.pitMasterScore) }]}>
-                    <Text style={[s.scoreNumber, { color: scoreColor(insights.pitMasterScore) }]}>
-                      {insights.pitMasterScore}
-                    </Text>
-                    <Text style={[s.scoreOutOf, { color: colors.mutedForeground }]}>/100</Text>
-                  </View>
-                  <View style={s.scoreRight}>
-                    <Text style={[s.scoreLabel, { color: colors.foreground }]}>{insights.scoreLabel}</Text>
-                    {/* Progress bar */}
-                    <View style={[s.scoreBarTrack, { backgroundColor: colors.border }]}>
-                      <View style={[s.scoreBarFill, { width: `${insights.pitMasterScore}%` as any, backgroundColor: scoreColor(insights.pitMasterScore) }]} />
+            ) : (() => {
+              const grade = letterGrade(insights.pitMasterScore);
+              const color = scoreColor(insights.pitMasterScore);
+              return (
+                <LinearGradient
+                  colors={["#1C1C1F", "#2A1A10"]}
+                  style={[s.gradeCard, { borderColor: color + "55", borderRadius: colors.radius }]}
+                >
+                  {/* Grade circle */}
+                  <View style={s.gradeLeft}>
+                    <View style={[s.gradeBubble, { borderColor: color, backgroundColor: color + "18" }]}>
+                      <Text style={[s.gradeLetter, { color }]}>{grade}</Text>
                     </View>
+                  </View>
+
+                  {/* Right column */}
+                  <View style={s.gradeRight}>
+                    <Text style={s.gradeLabel}>{insights.scoreLabel}</Text>
+                    <Text style={[s.gradeScore, { color }]}>{insights.pitMasterScore} / 100</Text>
+
+                    {/* Progress bar */}
+                    <View style={[s.gradeBarTrack, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+                      <View style={[s.gradeBarFill, { width: `${insights.pitMasterScore}%` as any, backgroundColor: color }]} />
+                    </View>
+
                     {/* Breakdown chips */}
-                    <View style={s.scoreChips}>
+                    <View style={s.gradeChips}>
                       {insights.scoreBreakdown.avgRating != null && (
-                        <View style={[s.scoreChip, { backgroundColor: colors.border }]}>
-                          <Feather name="star" size={11} color={colors.mutedForeground} />
-                          <Text style={[s.scoreChipText, { color: colors.mutedForeground }]}>
-                            {insights.scoreBreakdown.avgRating.toFixed(1)} avg
+                        <View style={[s.gradeChip, { backgroundColor: color + "18", borderColor: color + "35" }]}>
+                          <Feather name="star" size={10} color={color} />
+                          <Text style={[s.gradeChipText, { color }]}>
+                            {insights.scoreBreakdown.avgRating.toFixed(1)} rating
                           </Text>
                         </View>
                       )}
                       {insights.scoreBreakdown.planAccuracy != null && (
-                        <View style={[s.scoreChip, { backgroundColor: colors.border }]}>
-                          <Feather name="target" size={11} color={colors.mutedForeground} />
-                          <Text style={[s.scoreChipText, { color: colors.mutedForeground }]}>
+                        <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
+                          <Feather name="target" size={10} color="#96908A" />
+                          <Text style={[s.gradeChipText, { color: "#96908A" }]}>
                             {insights.scoreBreakdown.planAccuracy}% accuracy
                           </Text>
                         </View>
                       )}
-                      <View style={[s.scoreChip, { backgroundColor: colors.border }]}>
-                        <Feather name="layers" size={11} color={colors.mutedForeground} />
-                        <Text style={[s.scoreChipText, { color: colors.mutedForeground }]}>
+                      <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
+                        <Feather name="layers" size={10} color="#96908A" />
+                        <Text style={[s.gradeChipText, { color: "#96908A" }]}>
                           {insights.scoreBreakdown.cookCount} cooks
                         </Text>
                       </View>
                     </View>
                   </View>
-                </View>
-              </View>
-            )}
+                </LinearGradient>
+              );
+            })()}
           </>
         )}
 
@@ -391,6 +401,22 @@ function scoreColor(score: number): string {
   return "#E84820";
 }
 
+function letterGrade(score: number): string {
+  if (score >= 97) return "A+";
+  if (score >= 93) return "A";
+  if (score >= 90) return "A-";
+  if (score >= 87) return "B+";
+  if (score >= 83) return "B";
+  if (score >= 80) return "B-";
+  if (score >= 77) return "C+";
+  if (score >= 73) return "C";
+  if (score >= 70) return "C-";
+  if (score >= 67) return "D+";
+  if (score >= 63) return "D";
+  if (score >= 60) return "D-";
+  return "F";
+}
+
 const s = StyleSheet.create({
   container: { flex: 1 },
 
@@ -438,31 +464,33 @@ const s = StyleSheet.create({
     color: "#7A6E62",
     marginBottom: 20,
   },
-  chipRow: {
+  statStrip: {
     flexDirection: "row",
-    gap: 10,
-  },
-  chip: {
-    flex: 1,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    gap: 0,
   },
-  chipNum: {
-    fontSize: 22,
+  statItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  statNum: {
+    fontSize: 13,
     fontFamily: "Inter_700Bold",
     color: "#F3EDE1",
-    marginBottom: 2,
   },
-  chipLabel: {
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-    color: "#96908A",
-    textAlign: "center",
+  statLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: "#7A6E62",
+  },
+  statDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    marginHorizontal: 10,
   },
 
   /* Divider */
@@ -612,67 +640,71 @@ const s = StyleSheet.create({
   seeAllBtn: { paddingVertical: 4 },
   seeAll: { fontSize: 13, fontFamily: "Inter_500Medium" },
 
-  /* PitMaster Score Card */
-  scoreCard: {
-    borderWidth: 1,
+  /* PitMaster Grade Card */
+  gradeCard: {
     marginHorizontal: 20,
     marginBottom: 8,
-    padding: 16,
-  },
-  scoreTop: {
+    padding: 20,
+    borderWidth: 1.5,
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    gap: 20,
   },
-  scoreCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  gradeLeft: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  gradeBubble: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     borderWidth: 3,
     alignItems: "center",
     justifyContent: "center",
-    flexShrink: 0,
   },
-  scoreNumber: {
-    fontSize: 26,
+  gradeLetter: {
+    fontSize: 46,
     fontFamily: "Inter_700Bold",
-    lineHeight: 30,
+    lineHeight: 54,
   },
-  scoreOutOf: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-  },
-  scoreRight: {
+  gradeRight: {
     flex: 1,
-    gap: 8,
+    gap: 6,
   },
-  scoreLabel: {
-    fontSize: 16,
+  gradeLabel: {
+    fontSize: 18,
     fontFamily: "Inter_700Bold",
+    color: "#F3EDE1",
   },
-  scoreBarTrack: {
-    height: 6,
+  gradeScore: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  gradeBarTrack: {
+    height: 5,
     borderRadius: 3,
     overflow: "hidden",
   },
-  scoreBarFill: {
-    height: 6,
+  gradeBarFill: {
+    height: 5,
     borderRadius: 3,
   },
-  scoreChips: {
+  gradeChips: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 6,
+    marginTop: 2,
   },
-  scoreChip: {
+  gradeChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 20,
+    borderWidth: 1,
   },
-  scoreChipText: {
+  gradeChipText: {
     fontSize: 11,
     fontFamily: "Inter_500Medium",
   },
