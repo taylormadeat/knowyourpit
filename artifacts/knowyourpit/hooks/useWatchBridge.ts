@@ -8,15 +8,16 @@
  *   2. Detect temperature stalls (probe temp flat for 30+ min)
  *   3. Push all data to the Watch via WatchConnectivity.updateApplicationContext
  *   4. Handle incoming Watch messages (stopCook, startCook, markDone, pitMasterAsk, etc.)
- *   5. Forward PitMaster questions to the AI chat endpoint and push the answer back
+ *   5. Forward PitMaster questions to /api/ai/chat and push the answer back
  *
- * Call this hook once at the app root (e.g. in _layout.tsx) when signed in.
+ * Call this hook once at the app root (inside ClerkProvider + QueryClientProvider).
  * It is a no-op on Android and web.
  */
 
 import { useEffect, useRef, useCallback } from "react";
 import { Platform } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@clerk/expo";
 import { WatchConnectivity } from "../modules/watch-connectivity";
 
 // ---------------------------------------------------------------------------
@@ -24,43 +25,52 @@ import { WatchConnectivity } from "../modules/watch-connectivity";
 // ---------------------------------------------------------------------------
 
 interface StallWindow {
-  firstSeenAt: number;   // ms epoch when we first saw this temp
+  firstSeenAt: number;
   tempF: number;
 }
 
-const STALL_DELTA = 2;          // °F — if temp moves less than this it's stalled
-const STALL_DURATION_MS = 30 * 60 * 1000;   // 30 min
+const STALL_DELTA_F = 2;
+const STALL_DURATION_MS = 30 * 60 * 1000;
 const ACTIVE_POLL_MS = 15_000;
 const IDLE_POLL_MS = 60_000;
+
+// Default fuel timer sent to Watch until user configures it (task #65)
+const DEFAULT_FUEL_TIMER = {
+  intervalMinutes: 60,
+  elapsedMinutes: 0,
+  fuelType: "Apple Wood",
+};
 
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
 export function useWatchBridge() {
+  const { getToken } = useAuth();
   const queryClient = useQueryClient();
   const stallWindowRef = useRef<StallWindow | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const apiBase = process.env.EXPO_PUBLIC_API_URL ?? "";
 
   // -------------------------------------------------------------------------
-  // Helpers — fetching from the API with the user's auth token
+  // Authenticated API fetch — includes Clerk bearer token
   // -------------------------------------------------------------------------
 
   const apiFetch = useCallback(
     async (path: string, options?: RequestInit) => {
+      const token = await getToken();
       const resp = await fetch(`${apiBase}${path}`, {
         ...options,
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...(options?.headers ?? {}),
         },
-        credentials: "include",
       });
-      if (!resp.ok) throw new Error(`${resp.status}`);
+      if (!resp.ok) throw new Error(`${resp.status} ${path}`);
       return resp.json();
     },
-    [apiBase]
+    [apiBase, getToken]
   );
 
   // -------------------------------------------------------------------------
@@ -72,34 +82,37 @@ export function useWatchBridge() {
       const now = Date.now();
       const win = stallWindowRef.current;
 
-      if (!win || Math.abs(probeTempF - win.tempF) > STALL_DELTA) {
-        // Temp moved — reset window
+      if (!win || Math.abs(probeTempF - win.tempF) > STALL_DELTA_F) {
         stallWindowRef.current = { firstSeenAt: now, tempF: probeTempF };
         return { isStalled: false, stalledForMinutes: 0 };
       }
 
       const elapsed = now - win.firstSeenAt;
-      const isStalled = elapsed >= STALL_DURATION_MS;
-      return { isStalled, stalledForMinutes: Math.floor(elapsed / 60_000) };
+      return {
+        isStalled: elapsed >= STALL_DURATION_MS,
+        stalledForMinutes: Math.floor(elapsed / 60_000),
+      };
     },
     []
   );
 
   // -------------------------------------------------------------------------
-  // Main push — build context and send to Watch
+  // Push to Watch — builds and sends the full application context
   // -------------------------------------------------------------------------
 
   const pushToWatch = useCallback(async () => {
     if (!WatchConnectivity.isSupported()) return;
 
     try {
-      // 1. Fetch active cook
+      // 1. Fetch cooks list
       const cooks: any[] = await apiFetch("/api/cooks").catch(() => []);
       const activeCook = cooks.find((c: any) => c.status === "active");
-      const plannedCook = !activeCook ? cooks.find((c: any) => c.status === "planned") : null;
-      const cook = activeCook ?? plannedCook;
+      const plannedCook = !activeCook
+        ? cooks.find((c: any) => c.status === "planned")
+        : null;
+      const cook = activeCook ?? plannedCook ?? null;
 
-      // 2. Fetch MEATER readings (only meaningful when cook is active)
+      // 2. MEATER readings (only when a cook is active)
       let probeTempF: number | undefined;
       let ambientTempF: number | undefined;
       let stall = { isStalled: false, stalledForMinutes: 0 };
@@ -107,14 +120,13 @@ export function useWatchBridge() {
       if (activeCook) {
         try {
           const meaterData = await apiFetch("/api/meater/readings");
-          const probes: any[] = meaterData?.probes ?? [];
-          const firstProbe = probes[0];
+          const firstProbe = (meaterData?.probes as any[])?.[0];
           if (firstProbe) {
-            probeTempF = firstProbe.internalTempF;
-            ambientTempF = firstProbe.ambientTempF;
+            probeTempF = firstProbe.internalTempF as number;
+            ambientTempF = firstProbe.ambientTempF as number;
           }
         } catch {
-          // MEATER not linked or offline — ignore
+          // MEATER not linked or offline — non-fatal
         }
 
         if (probeTempF !== undefined) {
@@ -124,29 +136,29 @@ export function useWatchBridge() {
         stallWindowRef.current = null;
       }
 
-      // 3. Fetch PitMaster insight
+      // 3. PitMaster insight (non-critical, swallow errors)
       let pitMasterInsight = "Ask PitMaster what to do next.";
       try {
         const homeInsights = await apiFetch("/api/ai/home-insights");
-        if (homeInsights?.insight) pitMasterInsight = homeInsights.insight;
+        if (homeInsights?.insight) pitMasterInsight = homeInsights.insight as string;
       } catch {
-        // Non-critical
+        /* ignore */
       }
 
-      // 4. Build context payload
+      // 4. Build payload
       const cookPayload = cook
         ? {
-            id: cook.id,
-            name: cook.name,
-            status: cook.status,
+            id: cook.id as string,
+            name: cook.name as string,
+            status: cook.status as string,
             probeTempF: probeTempF ?? null,
             ambientTempF: ambientTempF ?? null,
-            targetTempF: cook.targetTempF ?? null,
+            targetTempF: (cook.targetTempF as number | null | undefined) ?? null,
             elapsedMs: activeCook?.actualStartAt
-              ? Date.now() - new Date(activeCook.actualStartAt).getTime()
+              ? Date.now() - new Date(activeCook.actualStartAt as string).getTime()
               : null,
             estimatedRemainingMs: cook.plannedEndAt
-              ? new Date(cook.plannedEndAt).getTime() - Date.now()
+              ? new Date(cook.plannedEndAt as string).getTime() - Date.now()
               : null,
           }
         : null;
@@ -155,8 +167,11 @@ export function useWatchBridge() {
         isStalled: stall.isStalled,
         stalledForMinutes: stall.stalledForMinutes,
         probeTempF: probeTempF ?? 0,
-        targetTempF: activeCook?.targetTempF ?? 0,
+        targetTempF: (activeCook?.targetTempF as number | undefined) ?? 0,
       };
+
+      // Fuel timer: use defaults until task #65 adds per-cook configuration
+      const fuelTimerPayload = DEFAULT_FUEL_TIMER;
 
       const pitMasterPayload = {
         insight: pitMasterInsight,
@@ -166,10 +181,11 @@ export function useWatchBridge() {
       await WatchConnectivity.updateApplicationContext({
         cook: cookPayload,
         stall: stallPayload,
+        fuelTimer: fuelTimerPayload,
         pitMaster: pitMasterPayload,
       });
-    } catch (err) {
-      // Push failures are silent — Watch retries on next wake
+    } catch {
+      // Swallow — Watch retries on next wake
     }
   }, [apiFetch, detectStall]);
 
@@ -180,15 +196,14 @@ export function useWatchBridge() {
   const scheduleNextPoll = useCallback(async () => {
     await pushToWatch();
 
-    const cooks: any[] = queryClient.getQueryData(["cooks"]) ?? [];
+    const cooks = (queryClient.getQueryData(["cooks"]) as any[] | undefined) ?? [];
     const hasActiveCook = cooks.some((c: any) => c.status === "active");
     const delay = hasActiveCook ? ACTIVE_POLL_MS : IDLE_POLL_MS;
-
     pollRef.current = setTimeout(scheduleNextPoll, delay);
   }, [pushToWatch, queryClient]);
 
   // -------------------------------------------------------------------------
-  // Handle incoming messages from the Watch (e.g. stopCook, pitMasterAsk)
+  // Handle incoming messages from the Watch
   // -------------------------------------------------------------------------
 
   useEffect(() => {
@@ -214,7 +229,10 @@ export function useWatchBridge() {
           const cookId = message.cookId as string;
           await apiFetch(`/api/cooks/${cookId}`, {
             method: "PATCH",
-            body: JSON.stringify({ status: "active", actualStartAt: new Date().toISOString() }),
+            body: JSON.stringify({
+              status: "active",
+              actualStartAt: new Date().toISOString(),
+            }),
           }).catch(() => {});
           queryClient.invalidateQueries({ queryKey: ["cooks"] });
           pushToWatch();
@@ -235,12 +253,18 @@ export function useWatchBridge() {
         case "pitMasterAsk": {
           const question = message.question as string;
           try {
+            // POST /api/ai/chat returns { reply, suggestions }
             const result = await apiFetch("/api/ai/chat", {
               method: "POST",
               body: JSON.stringify({ message: question }),
             });
-            const answer = result?.response ?? result?.message ?? "No response";
-            await WatchConnectivity.sendMessage({ action: "pitMasterResponse", response: answer });
+            const answer =
+              (result?.reply as string | undefined) ??
+              "No response from PitMaster.";
+            await WatchConnectivity.sendMessage({
+              action: "pitMasterResponse",
+              response: answer,
+            });
           } catch {
             await WatchConnectivity.sendMessage({
               action: "pitMasterResponse",
@@ -251,27 +275,13 @@ export function useWatchBridge() {
         }
 
         case "fuelAdded": {
-          // Log the fuel addition to the active cook's timeline on the server
-          const cookId = message.cookId as string | undefined;
-          const fuelType = message.fuelType as string;
-          if (cookId) {
-            await apiFetch(`/api/cooks/${cookId}/notes`, {
-              method: "POST",
-              body: JSON.stringify({ note: `Added ${fuelType}` }),
-            }).catch(() => {});
-          }
+          // Logged locally on the Watch; nothing to persist server-side until
+          // cook notes endpoint is available (task #65 adds the phone UI side).
           break;
         }
 
         case "stallAction": {
-          const choice = message.choice as string; // "wrap" | "ride"
-          const cookId = message.cookId as string | undefined;
-          if (cookId) {
-            await apiFetch(`/api/cooks/${cookId}/notes`, {
-              method: "POST",
-              body: JSON.stringify({ note: choice === "wrap" ? "Wrapped in butcher paper" : "Riding out the stall" }),
-            }).catch(() => {});
-          }
+          // No server notes endpoint exists yet; action is handled on Watch.
           break;
         }
 
@@ -286,7 +296,7 @@ export function useWatchBridge() {
   }, [apiFetch, pushToWatch, queryClient]);
 
   // -------------------------------------------------------------------------
-  // Start polling on mount
+  // Start polling on mount (no-op on non-iOS)
   // -------------------------------------------------------------------------
 
   useEffect(() => {
@@ -294,7 +304,6 @@ export function useWatchBridge() {
     if (!WatchConnectivity.isSupported()) return;
 
     scheduleNextPoll();
-
     return () => {
       if (pollRef.current) clearTimeout(pollRef.current);
     };

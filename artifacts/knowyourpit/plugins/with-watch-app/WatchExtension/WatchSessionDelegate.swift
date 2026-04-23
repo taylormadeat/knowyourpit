@@ -63,7 +63,12 @@ final class WatchSessionDelegate: NSObject, WCSessionDelegate, ObservableObject 
     // Called when the phone sends a message without reply handler
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         Task { @MainActor in
-            self.model.applyContext(message)
+            // Route PitMaster responses separately so they don't overwrite cook/stall state
+            if let action = message["action"] as? String, action == "pitMasterResponse" {
+                self.model.applyPitMasterResponse(message)
+            } else {
+                self.model.applyContext(message)
+            }
         }
     }
 

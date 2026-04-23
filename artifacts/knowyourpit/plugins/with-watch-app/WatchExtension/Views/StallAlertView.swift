@@ -87,6 +87,7 @@ struct StallAlertView: View {
                 Button {
                     WKInterfaceDevice.current().play(.click)
                     WatchSessionDelegate.send(action: "stallAction", payload: ["choice": "ride"])
+                    model.snoozeStall()
                     actionLabel = "Snoozed 20 min"
                     actioned = true
                 } label: {
