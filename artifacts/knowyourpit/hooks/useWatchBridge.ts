@@ -52,6 +52,20 @@ export async function saveFuelTimer(config: Partial<FuelTimerConfig>): Promise<v
   await AsyncStorage.setItem(FUEL_TIMER_KEY, JSON.stringify({ ...current, ...config }));
 }
 
+/**
+ * Module-level push handler — set by useWatchBridge when mounted, cleared on unmount.
+ * Allows any screen to trigger an immediate Watch context sync without re-instantiating
+ * the full hook (which would create duplicate polling loops).
+ */
+let _watchPushHandler: (() => Promise<boolean>) | null = null;
+
+/** Trigger an immediate Watch context sync if the bridge is mounted. */
+export async function triggerWatchSync(): Promise<void> {
+  if (_watchPushHandler) {
+    await _watchPushHandler().catch(() => null);
+  }
+}
+
 export function useWatchBridge() {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
@@ -296,9 +310,11 @@ export function useWatchBridge() {
 
   useEffect(() => {
     if (Platform.OS !== "ios" || !WatchConnectivity.isSupported()) return;
+    _watchPushHandler = pushToWatch;
     scheduleNextPoll();
     return () => {
+      _watchPushHandler = null;
       if (pollTimer.current) clearTimeout(pollTimer.current);
     };
-  }, [scheduleNextPoll]);
+  }, [scheduleNextPoll, pushToWatch]);
 }

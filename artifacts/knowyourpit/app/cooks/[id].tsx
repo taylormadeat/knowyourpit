@@ -23,10 +23,12 @@ import { Feather } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/useColors";
 import { LogoBackground } from "@/components/LogoBackground";
 import { TempGraph } from "@/components/TempGraph";
 import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
+import { saveFuelTimer, triggerWatchSync } from "@/hooks/useWatchBridge";
 import {
   useGetCook,
   useDeleteCook,
@@ -246,6 +248,23 @@ export default function CookDetailScreen() {
 
   const [images, setImages] = useState<PickedImage[]>([]);
   const [cookNotes, setCookNotes] = useState("");
+
+  // Fuel timer configuration
+  const FUEL_INTERVALS = [30, 45, 60, 90];
+  const FUEL_TYPES = ["Apple Wood", "Cherry Wood", "Hickory", "Charcoal", "Pellets"];
+  const [fuelInterval, setFuelInterval] = useState(60);
+  const [fuelType, setFuelType] = useState("Apple Wood");
+
+  useEffect(() => {
+    AsyncStorage.getItem("knowyourpit:fuelTimer")
+      .then((raw) => {
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (saved.intervalMinutes) setFuelInterval(saved.intervalMinutes);
+        if (saved.fuelType) setFuelType(saved.fuelType);
+      })
+      .catch(() => {});
+  }, []);
   const [userTempInput, setUserTempInput] = useState("");
   const [userTempEdited, setUserTempEdited] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -1189,6 +1208,83 @@ export default function CookDetailScreen() {
                 </View>
               );
             })()}
+          </View>
+        )}
+
+        {/* ── Fuel Timer Configuration (planned + active cooks) ── */}
+        {(c.status === "planned" || c.status === "active") && (
+          <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            <View style={[s.logHeader, { padding: 14 }]}>
+              <LinearGradient colors={["#F59E0B", "#EB6C2B"]} style={s.logIconWrap}>
+                <Feather name="clock" size={15} color="#fff" />
+              </LinearGradient>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.logTitle, { color: colors.foreground }]}>Fuel Timer</Text>
+                <Text style={[s.logSub, { color: colors.mutedForeground }]}>
+                  Set reminder interval and fuel type for the Watch
+                </Text>
+              </View>
+            </View>
+
+            <View style={[s.fuelTimerSection, { borderTopColor: colors.border }]}>
+              <Text style={[s.fuelTimerLabel, { color: colors.mutedForeground }]}>Add Fuel Every</Text>
+              <View style={s.fuelChipsRow}>
+                {FUEL_INTERVALS.map((mins) => {
+                  const selected = fuelInterval === mins;
+                  return (
+                    <Pressable
+                      key={mins}
+                      onPress={async () => {
+                        setFuelInterval(mins);
+                        await saveFuelTimer({ intervalMinutes: mins });
+                        await triggerWatchSync();
+                        await Haptics.selectionAsync();
+                      }}
+                      style={[
+                        s.fuelChip,
+                        selected
+                          ? { backgroundColor: colors.primary, borderColor: colors.primary }
+                          : { backgroundColor: "transparent", borderColor: colors.border },
+                      ]}
+                    >
+                      <Text style={[s.fuelChipText, { color: selected ? "#fff" : colors.foreground }]}>
+                        {mins}m
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={[s.fuelTimerSection, { borderTopColor: colors.border }]}>
+              <Text style={[s.fuelTimerLabel, { color: colors.mutedForeground }]}>Fuel Type</Text>
+              <View style={s.fuelChipsRow}>
+                {FUEL_TYPES.map((type) => {
+                  const selected = fuelType === type;
+                  return (
+                    <Pressable
+                      key={type}
+                      onPress={async () => {
+                        setFuelType(type);
+                        await saveFuelTimer({ fuelType: type });
+                        await triggerWatchSync();
+                        await Haptics.selectionAsync();
+                      }}
+                      style={[
+                        s.fuelTypeChip,
+                        selected
+                          ? { backgroundColor: "#F59E0B22", borderColor: "#F59E0B" }
+                          : { backgroundColor: "transparent", borderColor: colors.border },
+                      ]}
+                    >
+                      <Text style={[s.fuelChipText, { color: selected ? "#F59E0B" : colors.foreground }]}>
+                        {type}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
           </View>
         )}
 
@@ -2929,6 +3025,13 @@ const s = StyleSheet.create({
   rateRowLabel: { fontSize: 14, fontFamily: "Inter_500Medium" },
   starsRow: { flexDirection: "row", gap: 6 },
   star: { fontSize: 28, lineHeight: 32 },
+
+  fuelTimerSection: { borderTopWidth: 1, padding: 14, gap: 10 },
+  fuelTimerLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5 },
+  fuelChipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  fuelChip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 9 },
+  fuelTypeChip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9 },
+  fuelChipText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 });
 
 const edt = StyleSheet.create({
