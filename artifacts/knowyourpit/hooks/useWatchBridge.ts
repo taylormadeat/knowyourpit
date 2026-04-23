@@ -189,7 +189,17 @@ export function useWatchBridge() {
     const sub = WatchConnectivity.addMessageListener(async ({ message }) => {
       const action = message.action as string | undefined;
 
-      if (action === "stopCook" || action === "markDone") {
+      if (action === "stopCook") {
+        await apiFetch(`/api/cooks/${message.cookId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "cancelled" }),
+        });
+        queryClient.invalidateQueries({ queryKey: ["cooks"] });
+        await pushToWatch();
+        return;
+      }
+
+      if (action === "markDone") {
         await apiFetch(`/api/cooks/${message.cookId}`, {
           method: "PATCH",
           body: JSON.stringify({ status: "completed" }),
@@ -228,11 +238,16 @@ export function useWatchBridge() {
         const cookId = message.cookId as string | undefined;
         if (cookId) {
           const ts = new Date().toLocaleTimeString();
+          const entry = `[${ts}] Stall — meat wrapped in butcher paper.`;
+          const existing = await apiFetch<{ notes?: string | null }>(
+            `/api/cooks/${cookId}`
+          ).catch(() => null);
+          const combined = existing?.notes
+            ? `${existing.notes}\n${entry}`
+            : entry;
           await apiFetch(`/api/cooks/${cookId}`, {
             method: "PATCH",
-            body: JSON.stringify({
-              notes: `[${ts}] Stall detected — meat wrapped in butcher paper.`,
-            }),
+            body: JSON.stringify({ notes: combined }),
           }).catch(() => null);
         }
         return;

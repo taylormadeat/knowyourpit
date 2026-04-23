@@ -117,7 +117,9 @@ final class WatchDataModel: ObservableObject {
             let decoded = try? JSONDecoder().decode(WatchFuelTimerData.self, from: data)
         else { return }
 
-        if decoded.intervalMinutes != lastFuelIntervalMinutes {
+        // Start the tick on first context apply (fuelTickTimer == nil) or when
+        // the interval changes, so expiry haptics fire even with the default interval
+        if fuelTickTimer == nil || decoded.intervalMinutes != lastFuelIntervalMinutes {
             lastFuelIntervalMinutes = decoded.intervalMinutes
             lastFuelReset = Date()
             startFuelTick(interval: decoded.intervalMinutes)

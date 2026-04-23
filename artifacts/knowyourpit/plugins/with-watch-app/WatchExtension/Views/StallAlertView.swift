@@ -1,12 +1,6 @@
 import SwiftUI
 import WatchKit
 
-// ---------------------------------------------------------------------------
-// Screen 4 — Stall Alert
-// Shown when the phone detects the probe temp has flatlined for 30+ min.
-// Two options: Wrap It (logs the action) or Ride It Out (snooze 20 min).
-// ---------------------------------------------------------------------------
-
 struct StallAlertView: View {
     @EnvironmentObject var model: WatchDataModel
     @State private var actioned = false

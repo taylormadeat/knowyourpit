@@ -1,15 +1,8 @@
 import SwiftUI
 import WatchKit
 
-// ---------------------------------------------------------------------------
-// Screen 3 — PitMaster AI
-// Shows the latest AI insight from the phone. "Ask" opens Siri Dictation and
-// sends the transcribed question to the phone → /api/ai/chat → response back.
-// ---------------------------------------------------------------------------
-
 struct PitMasterView: View {
     @EnvironmentObject var model: WatchDataModel
-    @State private var showDictation = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -96,8 +89,6 @@ struct PitMasterView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
     }
-
-    // MARK: - Siri Dictation
 
     private func presentTextInputController() {
         WKExtension.shared().visibleInterfaceController?.presentTextInputController(

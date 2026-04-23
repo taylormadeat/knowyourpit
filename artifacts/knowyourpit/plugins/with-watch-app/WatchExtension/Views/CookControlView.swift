@@ -1,17 +1,11 @@
 import SwiftUI
 import WatchKit
 
-// ---------------------------------------------------------------------------
-// Screen 2 — Start / Stop Cook
-// Hold the Stop button for 2 s to confirm. Sends action to phone via WCSession.
-// ---------------------------------------------------------------------------
-
 struct CookControlView: View {
     @EnvironmentObject var model: WatchDataModel
 
     @State private var confirmingStop = false
     @State private var holdProgress: CGFloat = 0
-    @State private var holdTimer: Timer? = nil
 
     var body: some View {
         if let cook = model.cook {
@@ -27,8 +21,6 @@ struct CookControlView: View {
             noCookView()
         }
     }
-
-    // MARK: - Active cook: stop + mark done
 
     @ViewBuilder
     private func activeControls(cook: WatchCookData) -> some View {
@@ -102,8 +94,6 @@ struct CookControlView: View {
         .padding(.vertical, 8)
     }
 
-    // MARK: - Planned cook: start
-
     @ViewBuilder
     private func plannedControls(cook: WatchCookData) -> some View {
         VStack(spacing: 10) {
@@ -129,8 +119,6 @@ struct CookControlView: View {
         }
         .padding(10)
     }
-
-    // MARK: - No cook
 
     @ViewBuilder
     private func noCookView() -> some View {

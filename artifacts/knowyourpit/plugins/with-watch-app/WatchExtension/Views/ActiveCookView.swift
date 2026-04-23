@@ -1,10 +1,5 @@
 import SwiftUI
 
-// ---------------------------------------------------------------------------
-// Screen 1 — Active Cook Overview
-// The main glance screen: probe temp hero number, cook name, elapsed & ETA.
-// ---------------------------------------------------------------------------
-
 struct ActiveCookView: View {
     @EnvironmentObject var model: WatchDataModel
 

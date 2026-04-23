@@ -1,13 +1,6 @@
 import SwiftUI
 import WatchKit
 
-// ---------------------------------------------------------------------------
-// Screen 5 — Fuel / Wood Timer
-// A circular progress ring counting down to the next "add fuel" reminder.
-// Interval and fuel type are configured on the phone and pushed via WCSession.
-// The ring animates locally on the Watch each minute without needing the phone.
-// ---------------------------------------------------------------------------
-
 struct FuelTimerView: View {
     @EnvironmentObject var model: WatchDataModel
 
