@@ -21,7 +21,7 @@ struct KnowYourPitWatchApp: App {
                     // Complication tap delivers knowyourpit://active-cook.
                     // Route to ActiveCookView (tab 0) regardless of cook state;
                     // ActiveCookView handles the no-cook fallback itself.
-                    if url.scheme == "knowyourpit" && url.host == "active-cook" {
+                    if WatchDeepLink.isActiveCook(url) {
                         selectedTab = 0
                     }
                 }

@@ -212,14 +212,10 @@ struct ProbeTempComplicationEntryView: View {
 struct ProbeTempComplication: Widget {
     static let kind = "com.knowyourpit.app.ProbeTemp"
 
-    /// Deep-link URL delivered to the Watch app via `onOpenURL` when the
-    /// user taps this complication on the watch face.
-    static let deepLinkURL = URL(string: "knowyourpit://active-cook")!
-
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: Self.kind, provider: ProbeTempProvider()) { entry in
             ProbeTempComplicationEntryView(entry: entry)
-                .widgetURL(ProbeTempComplication.deepLinkURL)
+                .widgetURL(WatchDeepLink.activeCook)
         }
         .configurationDisplayName("Probe Temp")
         .description("Current probe temperature and cook progress.")
