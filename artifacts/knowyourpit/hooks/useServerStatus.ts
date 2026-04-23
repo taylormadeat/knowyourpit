@@ -23,7 +23,10 @@ export function useServerStatus(baseUrl: string): {
         signal: controller.signal,
         cache: "no-store",
       });
-      setStatus(res.ok ? "reachable" : "unreachable");
+      // Treat 4xx as "reachable" — the server is up, just misconfigured or returning
+      // an expected client error. Only 5xx (server crash/unavailable) or a network
+      // exception (no connection, timeout) counts as "unreachable".
+      setStatus(res.status < 500 ? "reachable" : "unreachable");
     } catch {
       setStatus("unreachable");
     } finally {
