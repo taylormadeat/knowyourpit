@@ -545,6 +545,7 @@ export default function CookDetailScreen() {
     }
     await updateCook.mutateAsync({ id: Number(id), data: updatePayload });
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
     qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
     qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
     qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
