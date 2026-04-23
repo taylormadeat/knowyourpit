@@ -98,14 +98,22 @@ The mobile app prepends this base URL to all API calls (e.g., `/api/grills`, `/a
 
 ### Privacy policy
 
-The privacy policy is served at `GET /privacy` (no auth required). The current URL is:
+The privacy policy is served at `GET /privacy` (no auth required).
 
-```
-https://6583df0b-1166-4042-a222-d49fbda4017d-00-lgd8ruzq76oq-ufrk6h68.janeway.replit.dev/privacy
-```
+**Important:** The URL currently hardcoded in two places is a temporary Replit dev domain that may change:
 
-This URL is also set in `artifacts/knowyourpit/app.json` under `expo.privacyPolicyUrl`. If the deployed domain changes (see Task #58), update both this entry and `app.json`.
+1. `artifacts/knowyourpit/eas.json` → `build.production.env.EXPO_PUBLIC_API_URL`
+2. `artifacts/knowyourpit/app.json` → `expo.privacyPolicyUrl`
 
-Use this URL when filling in the privacy policy field in App Store Connect and Google Play Console.
+Both must be updated to the stable `.replit.app` domain before submitting to any app store. Do not paste the current `janeway.replit.dev` URL into App Store Connect or Google Play Console — it is not guaranteed to stay live.
+
+**Once you have a stable domain (see task to stabilize the API URL):**
+1. Update `EXPO_PUBLIC_API_URL` in `eas.json`
+2. Update `privacyPolicyUrl` in `app.json` to `https://<stable-domain>/privacy`
+3. Verify `GET https://<stable-domain>/privacy` returns 200 in a browser
+4. Paste that URL into App Store Connect → App Information → Privacy Policy URL
+5. Paste that URL into Google Play Console → Store Listing → Privacy Policy
+
+**Contact email:** The policy currently references `privacy@knowyourpit.com` — update this to a real monitored address before submitting.
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
