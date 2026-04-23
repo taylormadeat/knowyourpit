@@ -133,7 +133,7 @@ router.get("/meater/readings", requireAuth, async (req: any, res): Promise<void>
       return;
     }
 
-    const toF = (c: number) => Math.round(((c / 1000) * 9) / 5 + 32);
+    const toF = (c: number) => Math.round((c * 9) / 5 + 32);
 
     // Include ALL devices that have temperature data — either from an active
     // MEATER-app cook session (d.cook.temperature) or from the raw device
