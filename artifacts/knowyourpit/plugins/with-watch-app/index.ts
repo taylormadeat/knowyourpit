@@ -11,9 +11,12 @@ const APP_GROUP = "group.com.knowyourpit.app";
 const COMPANION_BUNDLE_ID = "com.knowyourpit.app";
 const WATCH_APP_BUNDLE_ID = "com.knowyourpit.app.watchkitapp";
 const WATCH_EXT_BUNDLE_ID = "com.knowyourpit.app.watchkitextension";
+const COMPLICATION_BUNDLE_ID = "com.knowyourpit.app.watchkitapp.complication";
 const WATCH_APP_TARGET = "KnowYourPitWatch";
 const WATCH_EXT_TARGET = "KnowYourPitWatchExtension";
+const COMPLICATION_TARGET = "KnowYourPitComplications";
 const SWIFT_SOURCES = path.join(__dirname, "WatchExtension");
+const COMPLICATION_SOURCES = path.join(__dirname, "WatchComplications");
 
 const withAppGroup: ConfigPlugin = (config) =>
   withEntitlementsPlist(config, (mod) => {
@@ -61,6 +64,17 @@ const withWatchSources: ConfigPlugin = (config) =>
         }
       }
 
+      // Copy Complication Widget Extension sources
+      const compDest = path.join(ios, COMPLICATION_TARGET);
+      fs.mkdirSync(compDest, { recursive: true });
+      if (fs.existsSync(COMPLICATION_SOURCES)) {
+        for (const file of fs.readdirSync(COMPLICATION_SOURCES)) {
+          if (file.endsWith(".swift") || file === "Info.plist" || file.endsWith(".entitlements")) {
+            fs.copyFileSync(path.join(COMPLICATION_SOURCES, file), path.join(compDest, file));
+          }
+        }
+      }
+
       return mod;
     },
   ]);
@@ -71,59 +85,147 @@ const withWatchTargets: ConfigPlugin = (config) =>
     const ios = mod.modRequest.platformProjectRoot;
 
     const existing = project.pbxNativeTargetSection();
-    const alreadyAdded = Object.values(existing).some(
+    const hasWatchApp = Object.values(existing).some(
       (t: unknown) =>
         t !== null &&
         typeof t === "object" &&
         (t as Record<string, unknown>).name === WATCH_APP_TARGET
     );
-    if (alreadyAdded) return mod;
+    const hasComplication = Object.values(existing).some(
+      (t: unknown) =>
+        t !== null &&
+        typeof t === "object" &&
+        (t as Record<string, unknown>).name === COMPLICATION_TARGET
+    );
+    if (hasWatchApp && hasComplication) return mod;
 
-    const appDest = path.join(ios, WATCH_APP_TARGET);
     const extDest = path.join(ios, WATCH_EXT_TARGET);
     const extViews = path.join(extDest, "Views");
+    const compDest = path.join(ios, COMPLICATION_TARGET);
 
-    const extSources: string[] = [];
-    if (fs.existsSync(extDest)) {
-      for (const f of fs.readdirSync(extDest)) {
-        if (f.endsWith(".swift")) extSources.push(`${WATCH_EXT_TARGET}/${f}`);
+    // ------------------------------------------------------------------
+    // Watch App + Watch Extension (only when not yet present)
+    // ------------------------------------------------------------------
+    let appTargetUuid: string | undefined;
+
+    if (!hasWatchApp) {
+      const extSources: string[] = [];
+      if (fs.existsSync(extDest)) {
+        for (const f of fs.readdirSync(extDest)) {
+          if (f.endsWith(".swift")) extSources.push(`${WATCH_EXT_TARGET}/${f}`);
+        }
+      }
+      if (fs.existsSync(extViews)) {
+        for (const f of fs.readdirSync(extViews)) {
+          if (f.endsWith(".swift")) extSources.push(`${WATCH_EXT_TARGET}/Views/${f}`);
+        }
+      }
+
+      project.addPbxGroup(
+        [`${WATCH_APP_TARGET}/Info.plist`],
+        WATCH_APP_TARGET,
+        WATCH_APP_TARGET
+      );
+      const appTarget = project.addTarget(
+        WATCH_APP_TARGET,
+        "watch2_app",
+        WATCH_APP_TARGET,
+        WATCH_APP_BUNDLE_ID
+      );
+      appTargetUuid = appTarget?.uuid;
+
+      project.addPbxGroup(extSources, WATCH_EXT_TARGET, WATCH_EXT_TARGET);
+      const extTarget = project.addTarget(
+        WATCH_EXT_TARGET,
+        "watch2_extension",
+        WATCH_EXT_TARGET,
+        WATCH_EXT_BUNDLE_ID
+      );
+
+      if (extTarget?.uuid) {
+        for (const src of extSources) {
+          try { project.addSourceFile(src, { target: extTarget.uuid }); } catch { /* dup */ }
+        }
+        try {
+          project.addResourceFile(`${WATCH_EXT_TARGET}/Info.plist`, { target: extTarget.uuid });
+        } catch { /* dup */ }
+      }
+
+      const mainTarget = project.getFirstTarget();
+      if (mainTarget?.uuid && appTarget?.uuid) {
+        try {
+          const watchProduct = appTarget.pbxNativeTarget?.productReference;
+          if (watchProduct) {
+            project.addBuildPhase(
+              [watchProduct],
+              "PBXCopyFilesBuildPhase",
+              "Embed Watch Content",
+              mainTarget.uuid,
+              "watch"
+            );
+          }
+        } catch { /* manual step needed if this fails */ }
+      }
+    } else {
+      // Watch App already exists — find its uuid for the embed phase below
+      const targets = project.pbxNativeTargetSection();
+      const entry = Object.entries(targets).find(
+        ([, t]) =>
+          t !== null &&
+          typeof t === "object" &&
+          (t as Record<string, unknown>).name === WATCH_APP_TARGET
+      );
+      appTargetUuid = entry?.[0];
+    }
+
+    // ------------------------------------------------------------------
+    // Complication Widget Extension (only when not yet present)
+    // ------------------------------------------------------------------
+    if (!hasComplication) {
+      const compSources: string[] = [];
+      if (fs.existsSync(compDest)) {
+        for (const f of fs.readdirSync(compDest)) {
+          if (f.endsWith(".swift")) compSources.push(`${COMPLICATION_TARGET}/${f}`);
+        }
+      }
+
+      project.addPbxGroup(compSources, COMPLICATION_TARGET, COMPLICATION_TARGET);
+      const compTarget = project.addTarget(
+        COMPLICATION_TARGET,
+        "app_extension",
+        COMPLICATION_TARGET,
+        COMPLICATION_BUNDLE_ID
+      );
+
+      if (compTarget?.uuid) {
+        for (const src of compSources) {
+          try { project.addSourceFile(src, { target: compTarget.uuid }); } catch { /* dup */ }
+        }
+        try {
+          project.addResourceFile(`${COMPLICATION_TARGET}/Info.plist`, { target: compTarget.uuid });
+        } catch { /* dup */ }
+
+        // Embed Widget Extension inside the Watch App
+        if (appTargetUuid) {
+          try {
+            const compProduct = compTarget.pbxNativeTarget?.productReference;
+            if (compProduct) {
+              project.addBuildPhase(
+                [compProduct],
+                "PBXCopyFilesBuildPhase",
+                "Embed App Extensions",
+                appTargetUuid,
+                "plugins"
+              );
+            }
+          } catch { /* dup */ }
+        }
       }
     }
-    if (fs.existsSync(extViews)) {
-      for (const f of fs.readdirSync(extViews)) {
-        if (f.endsWith(".swift")) extSources.push(`${WATCH_EXT_TARGET}/Views/${f}`);
-      }
-    }
 
-    project.addPbxGroup(
-      [`${WATCH_APP_TARGET}/Info.plist`],
-      WATCH_APP_TARGET,
-      WATCH_APP_TARGET
-    );
-    const appTarget = project.addTarget(
-      WATCH_APP_TARGET,
-      "watch2_app",
-      WATCH_APP_TARGET,
-      WATCH_APP_BUNDLE_ID
-    );
-
-    project.addPbxGroup(extSources, WATCH_EXT_TARGET, WATCH_EXT_TARGET);
-    const extTarget = project.addTarget(
-      WATCH_EXT_TARGET,
-      "watch2_extension",
-      WATCH_EXT_TARGET,
-      WATCH_EXT_BUNDLE_ID
-    );
-
-    if (extTarget?.uuid) {
-      for (const src of extSources) {
-        try { project.addSourceFile(src, { target: extTarget.uuid }); } catch { /* dup */ }
-      }
-      try {
-        project.addResourceFile(`${WATCH_EXT_TARGET}/Info.plist`, { target: extTarget.uuid });
-      } catch { /* dup */ }
-    }
-
+    // ------------------------------------------------------------------
+    // Build settings (always applied — safe because Object.assign is idempotent)
+    // ------------------------------------------------------------------
     const buildConfigs = project.pbxXCBuildConfigurationSection();
     for (const key of Object.keys(buildConfigs)) {
       const cfg = buildConfigs[key];
@@ -156,22 +258,19 @@ const withWatchTargets: ConfigPlugin = (config) =>
           CODE_SIGN_ENTITLEMENTS: `${WATCH_EXT_TARGET}/WatchExtension.entitlements`,
         });
       }
-    }
 
-    const mainTarget = project.getFirstTarget();
-    if (mainTarget?.uuid && appTarget?.uuid) {
-      try {
-        const watchProduct = appTarget.pbxNativeTarget?.productReference;
-        if (watchProduct) {
-          project.addBuildPhase(
-            [watchProduct],
-            "PBXCopyFilesBuildPhase",
-            "Embed Watch Content",
-            mainTarget.uuid,
-            "watch"
-          );
-        }
-      } catch { /* manual step needed if this fails */ }
+      if (bs?.PRODUCT_BUNDLE_IDENTIFIER === COMPLICATION_BUNDLE_ID) {
+        Object.assign(bs, {
+          SWIFT_VERSION: "5.0",
+          WATCHOS_DEPLOYMENT_TARGET: "9.0",
+          TARGETED_DEVICE_FAMILY: "4",
+          APPLICATION_EXTENSION_API_ONLY: "YES",
+          CODE_SIGN_STYLE: "Automatic",
+          DEVELOPMENT_TEAM: "$(DEVELOPMENT_TEAM)",
+          PRODUCT_NAME: "KnowYourPit Complications",
+          CODE_SIGN_ENTITLEMENTS: `${COMPLICATION_TARGET}/Complication.entitlements`,
+        });
+      }
     }
 
     return mod;

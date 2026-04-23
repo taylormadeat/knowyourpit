@@ -1,5 +1,6 @@
 import Foundation
 import WatchKit
+import WidgetKit
 
 struct WatchCookData: Codable {
     var id: String
@@ -68,18 +69,55 @@ final class WatchDataModel: ObservableObject {
             let data = try? JSONSerialization.data(withJSONObject: dict),
             let decoded = try? JSONDecoder().decode(WatchCookData.self, from: data)
         else {
-            if context["cook"] is NSNull { cook = nil }
+            if context["cook"] is NSNull {
+                cook = nil
+                persistComplicationSnapshot(cookName: nil, probeTempF: nil, targetTempF: nil, estimatedRemainingMs: nil)
+            }
             return
         }
         let prevProbe = cook?.probeTempF
         cook = decoded
         lastUpdated = Date()
 
+        persistComplicationSnapshot(
+            cookName: decoded.name,
+            probeTempF: decoded.probeTempF,
+            targetTempF: decoded.targetTempF,
+            estimatedRemainingMs: decoded.estimatedRemainingMs
+        )
+
         if let probe = decoded.probeTempF,
            let target = decoded.targetTempF,
            probe >= target,
            let prev = prevProbe, prev < target {
             WKInterfaceDevice.current().play(.notification)
+        }
+    }
+
+    private func persistComplicationSnapshot(
+        cookName: String?,
+        probeTempF: Double?,
+        targetTempF: Double?,
+        estimatedRemainingMs: Double?
+    ) {
+        guard let defaults = UserDefaults(suiteName: "group.com.knowyourpit.app") else { return }
+        struct Snap: Codable {
+            var cookName: String?
+            var probeTempF: Double?
+            var targetTempF: Double?
+            var estimatedRemainingMs: Double?
+        }
+        let snap = Snap(
+            cookName: cookName,
+            probeTempF: probeTempF,
+            targetTempF: targetTempF,
+            estimatedRemainingMs: estimatedRemainingMs
+        )
+        if let encoded = try? JSONEncoder().encode(snap) {
+            defaults.set(encoded, forKey: "kyp_complication_cook")
+        }
+        if #available(watchOS 9, *) {
+            WidgetCenter.shared.reloadAllTimelines()
         }
     }
 
