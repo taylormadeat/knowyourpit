@@ -4,6 +4,7 @@
   "description": "Expo native module exposing WCSession to the KnowYourPit JS layer",
   "main": "index",
   "license": "MIT",
-  "author": "KnowYourPit",
-  "homepage": ""
+  "peerDependencies": {
+    "expo-modules-core": "*"
+  }
 }

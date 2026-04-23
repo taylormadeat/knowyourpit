@@ -62,7 +62,9 @@ interface AiChatResponse {
 }
 
 interface HomeInsightsResponse {
-  insight?: string;
+  tips?: string[];
+  pitMasterScore?: number;
+  scoreLabel?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -172,7 +174,9 @@ export function useWatchBridge() {
       let pitMasterInsight = "Ask PitMaster what to do next.";
       try {
         const insights = await apiFetch<HomeInsightsResponse>("/api/ai/home-insights");
-        if (insights.insight) pitMasterInsight = insights.insight;
+        // Endpoint returns { tips: string[], pitMasterScore, scoreLabel, ... }
+        const firstTip = insights.tips?.[0];
+        if (firstTip) pitMasterInsight = firstTip;
       } catch {
         // ignore
       }
