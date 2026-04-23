@@ -118,10 +118,13 @@ final class WatchDataModel: ObservableObject {
         else { return }
 
         // Start the tick on first context apply (fuelTickTimer == nil) or when
-        // the interval changes, so expiry haptics fire even with the default interval
+        // the interval changes, so expiry haptics fire even with the default interval.
+        // Initialize lastFuelReset by back-calculating from the phone-pushed
+        // elapsedMinutes so that progress/remaining are correct after a cold
+        // launch or Watch restart.
         if fuelTickTimer == nil || decoded.intervalMinutes != lastFuelIntervalMinutes {
             lastFuelIntervalMinutes = decoded.intervalMinutes
-            lastFuelReset = Date()
+            lastFuelReset = Date().addingTimeInterval(-Double(decoded.elapsedMinutes) * 60)
             startFuelTick(interval: decoded.intervalMinutes)
         }
         fuelTimer = decoded
