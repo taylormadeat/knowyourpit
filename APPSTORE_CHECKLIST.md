@@ -8,23 +8,15 @@ Complete these steps in order before running `eas build`.
 
 ### Step 1: Get a stable production URL for the API server
 
-**Current status:** The API server is live and running. Both `eas.json` and `app.json` already point to the current server URL (`6583df0b-1166-4042-a222-d49fbda4017d-00-lgd8ruzq76oq.janeway.replit.dev`). This URL works today.
+**Current status: ✅ Done.** The API server is deployed and both config files point to the stable production URL `https://pitking.replit.app`.
 
-**Recommended before submitting to the App Store:** Click **Publish** on the **API Server** artifact in Replit to get a stable `*.replit.app` domain that won't change. Once you have it:
+- `eas.json` → `EXPO_PUBLIC_API_URL: "https://pitking.replit.app"`
+- `app.json` → `privacyPolicyUrl: "https://pitking.replit.app/privacy"`
 
-1. Open `artifacts/knowyourpit/eas.json` and update `EXPO_PUBLIC_API_URL`:
-   ```json
-   "EXPO_PUBLIC_API_URL": "https://your-api-domain.replit.app"
-   ```
-2. Open `artifacts/knowyourpit/app.json` and update `privacyPolicyUrl`:
-   ```json
-   "privacyPolicyUrl": "https://your-api-domain.replit.app/privacy"
-   ```
-3. Also update the comment in `artifacts/knowyourpit/app/_layout.tsx`.
-
-There is also an active task to configure a custom domain (e.g. `api.knowyourpit.com`) — once that's done, update both values to the custom domain and rebuild.
-
-> **If you don't do this step yet:** The current URL still works and EAS builds will succeed. Just update the URLs before any future rebuild after the domain changes.
+If you connect a custom domain (e.g. `knowyourpit.com`), update both values to the custom domain and rebuild. You can verify the live endpoints at:
+- `https://pitking.replit.app/health` → `{"status":"ok"}`
+- `https://pitking.replit.app/privacy` → Privacy Policy page
+- `https://pitking.replit.app/support` → Support page
 
 ---
 
