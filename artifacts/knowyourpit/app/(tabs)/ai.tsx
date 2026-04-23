@@ -8,9 +8,9 @@ import {
   Platform,
   ActivityIndicator,
   TextInput,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { fetch } from "expo/fetch";
@@ -147,56 +147,55 @@ export default function AIScreen() {
       <LogoBackground opacity={0.04} />
       <AppHeader title="PitMaster" dark />
 
-      {messages.length === 0 && !streaming && (
-        <View style={s.welcome}>
-          <Text style={[s.welcomeTitle, { color: colors.foreground }]}>Ask me anything BBQ</Text>
-          <View style={s.suggestions}>
-            {SUGGESTED.map((q) => (
-              <Pressable
-                key={q}
-                onPress={() => sendMessage(q)}
-                style={[s.suggestion, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
-              >
-                <Text style={[s.suggestionText, { color: colors.foreground }]}>{q}</Text>
-              </Pressable>
-            ))}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+      >
+        {messages.length === 0 && !streaming && (
+          <View style={s.welcome}>
+            <Text style={[s.welcomeTitle, { color: colors.foreground }]}>Ask me anything BBQ</Text>
+            <View style={s.suggestions}>
+              {SUGGESTED.map((q) => (
+                <Pressable
+                  key={q}
+                  onPress={() => sendMessage(q)}
+                  style={[s.suggestion, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
+                >
+                  <Text style={[s.suggestionText, { color: colors.foreground }]}>{q}</Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
-        </View>
-      )}
+        )}
 
-      <FlatList
-        ref={listRef}
-        data={allItems}
-        keyExtractor={(item) => item.id}
-        renderItem={renderMsg}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 12,
-          paddingBottom: 16,
-          gap: 12,
-          flexGrow: messages.length === 0 ? 0 : 1,
-        }}
-        showsVerticalScrollIndicator={false}
-        inverted={messages.length > 0}
-        scrollEnabled={messages.length > 0}
-        onContentSizeChange={() => {
-          if (messages.length > 0) listRef.current?.scrollToOffset({ offset: 0, animated: true });
-        }}
-      />
+        <FlatList
+          ref={listRef}
+          data={allItems}
+          keyExtractor={(item) => item.id}
+          renderItem={renderMsg}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 12,
+            paddingBottom: 16,
+            gap: 12,
+            flexGrow: 1,
+          }}
+          showsVerticalScrollIndicator={false}
+          inverted={messages.length > 0}
+          scrollEnabled={messages.length > 0}
+          onContentSizeChange={() => {
+            if (messages.length > 0) listRef.current?.scrollToOffset({ offset: 0, animated: true });
+          }}
+        />
 
-      {/*
-        KeyboardStickyView docks the input bar just above the keyboard.
-        offset.closed = botPad so the bar sits above the home indicator
-        when no keyboard is shown.
-        offset.opened = 0 because the keyboard already absorbs the safe area.
-      */}
-      <KeyboardStickyView offset={{ closed: botPad, opened: 0 }}>
         <View
           style={[
             s.inputBar,
             {
               borderTopColor: colors.border,
               backgroundColor: colors.background,
+              paddingBottom: botPad + 10,
             },
           ]}
         >
@@ -215,6 +214,7 @@ export default function AIScreen() {
               multiline
               maxLength={1000}
               onSubmitEditing={() => sendMessage()}
+              returnKeyType="send"
             />
             <Pressable
               style={[
@@ -232,7 +232,7 @@ export default function AIScreen() {
             </Pressable>
           </View>
         </View>
-      </KeyboardStickyView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
