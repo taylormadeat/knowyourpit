@@ -72,7 +72,9 @@ struct StallAlertView: View {
             VStack(spacing: 5) {
                 Button {
                     WKInterfaceDevice.current().play(.success)
-                    WatchSessionDelegate.send(action: "stallAction", payload: ["choice": "wrap"])
+                    var payload: [String: Any] = ["choice": "wrap"]
+                    if let cookId = model.cook?.id { payload["cookId"] = cookId }
+                    WatchSessionDelegate.send(action: "stallAction", payload: payload)
                     actionLabel = "Wrap logged ✓"
                     actioned = true
                 } label: {

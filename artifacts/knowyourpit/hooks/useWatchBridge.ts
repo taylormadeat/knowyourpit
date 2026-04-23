@@ -1,27 +1,45 @@
 /**
  * useWatchBridge
  *
- * The phone-side bridge between the KnowYourPit app and the Apple Watch.
+ * Phone-side bridge between KnowYourPit and the Apple Watch.
  *
  * Responsibilities:
- *   1. Poll /api/meater/readings and /api/cooks every 15 s (active cook) or 60 s (idle)
+ *   1. Poll /api/meater/readings and /api/cooks every 15 s (active cook) or
+ *      60 s (idle) — cadence derived from each fresh API response
  *   2. Detect temperature stalls (probe temp flat for 30+ min)
  *   3. Push all data to the Watch via WatchConnectivity.updateApplicationContext
- *   4. Handle incoming Watch messages (stopCook, startCook, markDone, pitMasterAsk, etc.)
+ *   4. Handle incoming Watch messages (stopCook, startCook, markDone, etc.)
  *   5. Forward PitMaster questions to /api/ai/chat and push the answer back
  *
- * Call this hook once at the app root (inside ClerkProvider + QueryClientProvider).
- * It is a no-op on Android and web.
+ * Call this hook once inside the app root (inside ClerkProvider +
+ * QueryClientProvider). It is a no-op on Android and web.
  */
 
 import { useEffect, useRef, useCallback } from "react";
 import { Platform } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
+import type { Cook } from "@workspace/api-client-react";
 import { WatchConnectivity } from "../modules/watch-connectivity";
 
 // ---------------------------------------------------------------------------
-// Types
+// Constants
+// ---------------------------------------------------------------------------
+
+const STALL_DELTA_F = 2;
+const STALL_DURATION_MS = 30 * 60 * 1000;
+const ACTIVE_POLL_MS = 15_000;
+const IDLE_POLL_MS = 60_000;
+
+// Default fuel timer values until the user configures them (task #65)
+const DEFAULT_FUEL_TIMER = {
+  intervalMinutes: 60,
+  elapsedMinutes: 0,
+  fuelType: "Apple Wood",
+} as const;
+
+// ---------------------------------------------------------------------------
+// Local types
 // ---------------------------------------------------------------------------
 
 interface StallWindow {
@@ -29,17 +47,23 @@ interface StallWindow {
   tempF: number;
 }
 
-const STALL_DELTA_F = 2;
-const STALL_DURATION_MS = 30 * 60 * 1000;
-const ACTIVE_POLL_MS = 15_000;
-const IDLE_POLL_MS = 60_000;
+interface MeaterProbe {
+  internalTempF: number;
+  ambientTempF: number;
+}
 
-// Default fuel timer sent to Watch until user configures it (task #65)
-const DEFAULT_FUEL_TIMER = {
-  intervalMinutes: 60,
-  elapsedMinutes: 0,
-  fuelType: "Apple Wood",
-};
+interface MeaterReadings {
+  probes?: MeaterProbe[];
+}
+
+interface AiChatResponse {
+  reply?: string;
+  suggestions?: string[];
+}
+
+interface HomeInsightsResponse {
+  insight?: string;
+}
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -53,11 +77,11 @@ export function useWatchBridge() {
   const apiBase = process.env.EXPO_PUBLIC_API_URL ?? "";
 
   // -------------------------------------------------------------------------
-  // Authenticated API fetch — includes Clerk bearer token
+  // Authenticated fetch — always includes Clerk bearer token
   // -------------------------------------------------------------------------
 
   const apiFetch = useCallback(
-    async (path: string, options?: RequestInit) => {
+    async <T>(path: string, options?: RequestInit): Promise<T> => {
       const token = await getToken();
       const resp = await fetch(`${apiBase}${path}`, {
         ...options,
@@ -67,26 +91,24 @@ export function useWatchBridge() {
           ...(options?.headers ?? {}),
         },
       });
-      if (!resp.ok) throw new Error(`${resp.status} ${path}`);
-      return resp.json();
+      if (!resp.ok) throw new Error(`HTTP ${resp.status} – ${path}`);
+      return resp.json() as Promise<T>;
     },
     [apiBase, getToken]
   );
 
   // -------------------------------------------------------------------------
-  // Stall detection
+  // Stall detection (client-side; moves server-side in task #64)
   // -------------------------------------------------------------------------
 
   const detectStall = useCallback(
     (probeTempF: number): { isStalled: boolean; stalledForMinutes: number } => {
       const now = Date.now();
       const win = stallWindowRef.current;
-
       if (!win || Math.abs(probeTempF - win.tempF) > STALL_DELTA_F) {
         stallWindowRef.current = { firstSeenAt: now, tempF: probeTempF };
         return { isStalled: false, stalledForMinutes: 0 };
       }
-
       const elapsed = now - win.firstSeenAt;
       return {
         isStalled: elapsed >= STALL_DURATION_MS,
@@ -97,33 +119,43 @@ export function useWatchBridge() {
   );
 
   // -------------------------------------------------------------------------
-  // Push to Watch — builds and sends the full application context
+  // Main data push — builds and sends the full applicationContext to the Watch
+  // Returns whether an active cook was found (drives next poll delay)
   // -------------------------------------------------------------------------
 
-  const pushToWatch = useCallback(async () => {
-    if (!WatchConnectivity.isSupported()) return;
+  const pushToWatch = useCallback(async (): Promise<boolean> => {
+    if (!WatchConnectivity.isSupported()) return false;
+
+    let hasActiveCook = false;
 
     try {
-      // 1. Fetch cooks list
-      const cooks: any[] = await apiFetch("/api/cooks").catch(() => []);
-      const activeCook = cooks.find((c: any) => c.status === "active");
+      // 1. Fetch cooks — use generated type
+      const cooks = await apiFetch<Cook[]>("/api/cooks").catch(() => [] as Cook[]);
+      const activeCook = cooks.find((c) => c.status === "active") ?? null;
       const plannedCook = !activeCook
-        ? cooks.find((c: any) => c.status === "planned")
+        ? (cooks.find((c) => c.status === "planned") ?? null)
         : null;
-      const cook = activeCook ?? plannedCook ?? null;
+      const cook = activeCook ?? plannedCook;
 
-      // 2. MEATER readings (only when a cook is active)
+      hasActiveCook = activeCook !== null;
+
+      // Invalidate query cache so the app UI stays fresh
+      if (hasActiveCook) {
+        queryClient.invalidateQueries({ queryKey: ["cooks"] });
+      }
+
+      // 2. MEATER readings
       let probeTempF: number | undefined;
       let ambientTempF: number | undefined;
       let stall = { isStalled: false, stalledForMinutes: 0 };
 
       if (activeCook) {
         try {
-          const meaterData = await apiFetch("/api/meater/readings");
-          const firstProbe = (meaterData?.probes as any[])?.[0];
-          if (firstProbe) {
-            probeTempF = firstProbe.internalTempF as number;
-            ambientTempF = firstProbe.ambientTempF as number;
+          const meater = await apiFetch<MeaterReadings>("/api/meater/readings");
+          const probe = meater.probes?.[0];
+          if (probe) {
+            probeTempF = probe.internalTempF;
+            ambientTempF = probe.ambientTempF;
           }
         } catch {
           // MEATER not linked or offline — non-fatal
@@ -136,29 +168,29 @@ export function useWatchBridge() {
         stallWindowRef.current = null;
       }
 
-      // 3. PitMaster insight (non-critical, swallow errors)
+      // 3. PitMaster home insight (non-blocking)
       let pitMasterInsight = "Ask PitMaster what to do next.";
       try {
-        const homeInsights = await apiFetch("/api/ai/home-insights");
-        if (homeInsights?.insight) pitMasterInsight = homeInsights.insight as string;
+        const insights = await apiFetch<HomeInsightsResponse>("/api/ai/home-insights");
+        if (insights.insight) pitMasterInsight = insights.insight;
       } catch {
-        /* ignore */
+        // ignore
       }
 
-      // 4. Build payload
+      // 4. Build payloads
       const cookPayload = cook
         ? {
-            id: cook.id as string,
-            name: cook.name as string,
-            status: cook.status as string,
+            id: String(cook.id),
+            name: cook.foodType,
+            status: cook.status,
             probeTempF: probeTempF ?? null,
             ambientTempF: ambientTempF ?? null,
-            targetTempF: (cook.targetTempF as number | null | undefined) ?? null,
+            targetTempF: cook.targetTempF ?? null,
             elapsedMs: activeCook?.actualStartAt
-              ? Date.now() - new Date(activeCook.actualStartAt as string).getTime()
+              ? Date.now() - new Date(activeCook.actualStartAt).getTime()
               : null,
             estimatedRemainingMs: cook.plannedEndAt
-              ? new Date(cook.plannedEndAt as string).getTime() - Date.now()
+              ? new Date(cook.plannedEndAt).getTime() - Date.now()
               : null,
           }
         : null;
@@ -167,40 +199,34 @@ export function useWatchBridge() {
         isStalled: stall.isStalled,
         stalledForMinutes: stall.stalledForMinutes,
         probeTempF: probeTempF ?? 0,
-        targetTempF: (activeCook?.targetTempF as number | undefined) ?? 0,
-      };
-
-      // Fuel timer: use defaults until task #65 adds per-cook configuration
-      const fuelTimerPayload = DEFAULT_FUEL_TIMER;
-
-      const pitMasterPayload = {
-        insight: pitMasterInsight,
-        updatedAt: Date.now(),
+        targetTempF: activeCook?.targetTempF ?? 0,
       };
 
       await WatchConnectivity.updateApplicationContext({
         cook: cookPayload,
         stall: stallPayload,
-        fuelTimer: fuelTimerPayload,
-        pitMaster: pitMasterPayload,
+        fuelTimer: DEFAULT_FUEL_TIMER,
+        pitMaster: {
+          insight: pitMasterInsight,
+          updatedAt: Date.now(),
+        },
       });
     } catch {
-      // Swallow — Watch retries on next wake
+      // Swallow — Watch retries on next poll
     }
-  }, [apiFetch, detectStall]);
+
+    return hasActiveCook;
+  }, [apiFetch, detectStall, queryClient]);
 
   // -------------------------------------------------------------------------
-  // Polling loop
+  // Polling loop — cadence driven by the fresh API result, not cached state
   // -------------------------------------------------------------------------
 
   const scheduleNextPoll = useCallback(async () => {
-    await pushToWatch();
-
-    const cooks = (queryClient.getQueryData(["cooks"]) as any[] | undefined) ?? [];
-    const hasActiveCook = cooks.some((c: any) => c.status === "active");
-    const delay = hasActiveCook ? ACTIVE_POLL_MS : IDLE_POLL_MS;
+    const hasActive = await pushToWatch();
+    const delay = hasActive ? ACTIVE_POLL_MS : IDLE_POLL_MS;
     pollRef.current = setTimeout(scheduleNextPoll, delay);
-  }, [pushToWatch, queryClient]);
+  }, [pushToWatch]);
 
   // -------------------------------------------------------------------------
   // Handle incoming messages from the Watch
@@ -253,17 +279,14 @@ export function useWatchBridge() {
         case "pitMasterAsk": {
           const question = message.question as string;
           try {
-            // POST /api/ai/chat returns { reply, suggestions }
-            const result = await apiFetch("/api/ai/chat", {
+            // POST /api/ai/chat → { reply, suggestions }
+            const result = await apiFetch<AiChatResponse>("/api/ai/chat", {
               method: "POST",
               body: JSON.stringify({ message: question }),
             });
-            const answer =
-              (result?.reply as string | undefined) ??
-              "No response from PitMaster.";
             await WatchConnectivity.sendMessage({
               action: "pitMasterResponse",
-              response: answer,
+              response: result.reply ?? "No response from PitMaster.",
             });
           } catch {
             await WatchConnectivity.sendMessage({
@@ -274,14 +297,25 @@ export function useWatchBridge() {
           break;
         }
 
-        case "fuelAdded": {
-          // Logged locally on the Watch; nothing to persist server-side until
-          // cook notes endpoint is available (task #65 adds the phone UI side).
+        case "stallAction": {
+          // "Wrap It" — log the action to the cook's notes field
+          const cookId = message.cookId as string | undefined;
+          const choice = message.choice as string | undefined;
+          if (cookId && choice === "wrap") {
+            const timestamp = new Date().toLocaleTimeString();
+            await apiFetch(`/api/cooks/${cookId}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                notes: `[${timestamp}] Stall detected — meat wrapped in butcher paper.`,
+              }),
+            }).catch(() => {});
+          }
+          // "Ride It Out" snooze is handled on the Watch (model.snoozeStall)
           break;
         }
 
-        case "stallAction": {
-          // No server notes endpoint exists yet; action is handled on Watch.
+        case "fuelAdded": {
+          // Fuel addition is tracked locally on the Watch; no server write needed
           break;
         }
 
