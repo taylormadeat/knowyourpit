@@ -253,6 +253,17 @@ export function useWatchBridge() {
         return;
       }
 
+      if (action === "fuelAdded") {
+        // Fuel reset is tracked locally on the Watch; record the timestamp on
+        // the phone so the next context push sends elapsedMinutes: 0.
+        await AsyncStorage.setItem(
+          "knowyourpit:lastFuelAdded",
+          new Date().toISOString()
+        ).catch(() => null);
+        await pushToWatch();
+        return;
+      }
+
       if (action === "refreshTemps") {
         await pushToWatch();
       }

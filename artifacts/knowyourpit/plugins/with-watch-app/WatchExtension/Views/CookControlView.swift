@@ -122,17 +122,22 @@ struct CookControlView: View {
 
     @ViewBuilder
     private func noCookView() -> some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 8) {
             Image(systemName: "flame.slash")
                 .font(.system(size: 26, weight: .thin))
                 .foregroundStyle(.secondary)
             Text("Nothing planned")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
-            Text("Open KnowYourPit on your phone to start a cook.")
-                .font(.system(size: 9))
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
+            Button {
+                WKInterfaceDevice.current().play(.click)
+                WatchSessionDelegate.send(action: "openApp")
+            } label: {
+                Text("Open iPhone App")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Color(red: 0.92, green: 0.42, blue: 0.17))
+            }
+            .buttonStyle(.plain)
         }
         .padding(10)
     }
