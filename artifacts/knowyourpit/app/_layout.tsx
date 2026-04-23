@@ -32,7 +32,18 @@ const apiBaseUrl =
   (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
 setBaseUrl(apiBaseUrl);
 
-const clerkPubKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
+// Clerk publishable key — two env vars are supported:
+//   EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY      → development key (used in Replit dev, starts with pk_test_)
+//   EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD → production key  (must be set before running eas build, starts with pk_live_)
+//
+// Before running "eas build --profile production":
+//   1. Obtain your production publishable key from https://dashboard.clerk.com
+//   2. Set it as an EAS secret: eas secret:create EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD pk_live_xxxx
+//   3. Add it to eas.json build.production.env (see eas.json for the placeholder)
+const clerkPubKey =
+  process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD ??
+  process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ??
+  "";
 const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL ?? "";
 
 if (Platform.OS !== "web") {

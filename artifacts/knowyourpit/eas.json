@@ -21,6 +21,10 @@
       "autoIncrement": true,
       "ios": {
         "buildConfiguration": "Release"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "REPLACE_WITH_YOUR_DEPLOYED_API_URL",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD": "REPLACE_WITH_YOUR_PRODUCTION_CLERK_KEY"
       }
     }
   },
