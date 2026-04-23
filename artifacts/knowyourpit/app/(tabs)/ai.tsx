@@ -184,14 +184,18 @@ export default function AIScreen() {
         }}
       />
 
-      {/* KeyboardStickyView docks the input bar just above the keyboard automatically */}
-      <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
+      {/*
+        KeyboardStickyView docks the input bar just above the keyboard.
+        offset.closed = botPad so the bar sits above the home indicator
+        when no keyboard is shown.
+        offset.opened = 0 because the keyboard already absorbs the safe area.
+      */}
+      <KeyboardStickyView offset={{ closed: botPad, opened: 0 }}>
         <View
           style={[
             s.inputBar,
             {
               borderTopColor: colors.border,
-              paddingBottom: botPad + 8,
               backgroundColor: colors.background,
             },
           ]}
