@@ -6,23 +6,25 @@ Complete these steps in order before running `eas build`.
 
 ## Part 1 — Infrastructure (do first)
 
-### Step 1: Deploy the API server
+### Step 1: Get a stable production URL for the API server
 
-The iOS build bakes the API URL into the app binary. You need a stable, permanent URL before building.
+**Current status:** The API server is live and running. Both `eas.json` and `app.json` already point to the current server URL (`6583df0b-1166-4042-a222-d49fbda4017d-00-lgd8ruzq76oq.janeway.replit.dev`). This URL works today.
 
-1. In Replit, open the **KnowYourPit** project.
-2. In the top navigation, click **Publish** next to the **API Server** artifact.
-3. Wait for the deployment to succeed. Copy the resulting `*.replit.app` domain (e.g. `api-server-yourname.replit.app`).
-4. Open `artifacts/knowyourpit/eas.json` and replace `REPLACE_WITH_DEPLOYED_API_URL` with that domain:
+**Recommended before submitting to the App Store:** Click **Publish** on the **API Server** artifact in Replit to get a stable `*.replit.app` domain that won't change. Once you have it:
+
+1. Open `artifacts/knowyourpit/eas.json` and update `EXPO_PUBLIC_API_URL`:
    ```json
-   "EXPO_PUBLIC_API_URL": "https://api-server-yourname.replit.app"
+   "EXPO_PUBLIC_API_URL": "https://your-api-domain.replit.app"
    ```
-5. Open `artifacts/knowyourpit/app.json` and replace `REPLACE_WITH_DEPLOYED_API_URL` in `privacyPolicyUrl` with the same domain:
+2. Open `artifacts/knowyourpit/app.json` and update `privacyPolicyUrl`:
    ```json
-   "privacyPolicyUrl": "https://api-server-yourname.replit.app/privacy"
+   "privacyPolicyUrl": "https://your-api-domain.replit.app/privacy"
    ```
+3. Also update the comment in `artifacts/knowyourpit/app/_layout.tsx`.
 
-> **Note:** If you later configure a custom domain (e.g. `api.knowyourpit.com`), update both values and rebuild.
+There is also an active task to configure a custom domain (e.g. `api.knowyourpit.com`) — once that's done, update both values to the custom domain and rebuild.
+
+> **If you don't do this step yet:** The current URL still works and EAS builds will succeed. Just update the URLs before any future rebuild after the domain changes.
 
 ---
 
