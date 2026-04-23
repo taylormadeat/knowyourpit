@@ -19,6 +19,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { Platform } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Cook } from "@workspace/api-client-react";
 import { WatchConnectivity } from "../modules/watch-connectivity";
 
@@ -31,12 +32,32 @@ const STALL_DURATION_MS = 30 * 60 * 1000;
 const ACTIVE_POLL_MS = 15_000;
 const IDLE_POLL_MS = 60_000;
 
-// Default fuel timer values until the user configures them (task #65)
+const FUEL_TIMER_STORAGE_KEY = "knowyourpit:fuelTimer";
+
 const DEFAULT_FUEL_TIMER = {
   intervalMinutes: 60,
-  elapsedMinutes: 0,
   fuelType: "Apple Wood",
 } as const;
+
+async function readFuelTimerConfig(): Promise<typeof DEFAULT_FUEL_TIMER> {
+  try {
+    const raw = await AsyncStorage.getItem(FUEL_TIMER_STORAGE_KEY);
+    if (!raw) return DEFAULT_FUEL_TIMER;
+    return { ...DEFAULT_FUEL_TIMER, ...JSON.parse(raw) };
+  } catch {
+    return DEFAULT_FUEL_TIMER;
+  }
+}
+
+export async function saveFuelTimerConfig(
+  config: Partial<typeof DEFAULT_FUEL_TIMER>
+): Promise<void> {
+  const current = await readFuelTimerConfig();
+  await AsyncStorage.setItem(
+    FUEL_TIMER_STORAGE_KEY,
+    JSON.stringify({ ...current, ...config })
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Local types
@@ -76,7 +97,11 @@ export function useWatchBridge() {
   const queryClient = useQueryClient();
   const stallWindowRef = useRef<StallWindow | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const apiBase = process.env.EXPO_PUBLIC_API_URL ?? "";
+  const apiBase =
+    process.env.EXPO_PUBLIC_API_URL ??
+    (process.env.EXPO_PUBLIC_DOMAIN
+      ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+      : "");
 
   // -------------------------------------------------------------------------
   // Authenticated fetch — always includes Clerk bearer token
@@ -206,10 +231,17 @@ export function useWatchBridge() {
         targetTempF: activeCook?.targetTempF ?? 0,
       };
 
+      // Fuel timer: read from AsyncStorage (phone-configurable; task #65 adds UI)
+      const fuelConfig = await readFuelTimerConfig();
+
       await WatchConnectivity.updateApplicationContext({
         cook: cookPayload,
         stall: stallPayload,
-        fuelTimer: DEFAULT_FUEL_TIMER,
+        fuelTimer: {
+          intervalMinutes: fuelConfig.intervalMinutes,
+          elapsedMinutes: 0,
+          fuelType: fuelConfig.fuelType,
+        },
         pitMaster: {
           insight: pitMasterInsight,
           updatedAt: Date.now(),

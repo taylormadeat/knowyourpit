@@ -151,6 +151,26 @@ const withWatchTarget: ConfigPlugin = (config) =>
       WATCH_APP_BUNDLE_ID
     );
 
+    // Explicitly add each Swift source file to the Watch App target so that
+    // Xcode compiles them as part of the Watch App (addTarget alone does not
+    // wire sources into compile-sources build phase).
+    if (addedTarget?.uuid) {
+      for (const srcPath of sourceFiles) {
+        try {
+          project.addSourceFile(srcPath, { target: addedTarget.uuid });
+        } catch {
+          // Skip duplicates — file may already be registered in project
+        }
+      }
+      // Wire Info.plist as a resources file for the Watch App target
+      const plistPath = `${WATCH_APP_TARGET}/Info.plist`;
+      try {
+        project.addResourceFile(plistPath, { target: addedTarget.uuid });
+      } catch {
+        // Ignore if already registered
+      }
+    }
+
     // Apply watchOS-specific build settings to all configs for this bundle ID
     const buildConfigs = project.pbxXCBuildConfigurationSection();
     for (const key of Object.keys(buildConfigs)) {
