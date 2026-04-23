@@ -1,10 +1,6 @@
 import Foundation
 import WatchKit
 
-// ---------------------------------------------------------------------------
-// Shared data types pushed from the phone over WCSession
-// ---------------------------------------------------------------------------
-
 struct WatchCookData: Codable {
     var id: String
     var name: String
@@ -34,96 +30,78 @@ struct WatchPitMasterInsight: Codable {
     var updatedAt: Double
 }
 
-// ---------------------------------------------------------------------------
-// Observable model — single source of truth for all Watch UI
-// ---------------------------------------------------------------------------
-
 @MainActor
 final class WatchDataModel: ObservableObject {
-
-    // Cook
     @Published var cook: WatchCookData? = nil
     @Published var lastUpdated: Date? = nil
-
-    // Stall
-    @Published var stall: WatchStallData = WatchStallData(
-        isStalled: false, stalledForMinutes: 0, probeTempF: 0, targetTempF: 0
-    )
-    /// When "Ride It Out" is tapped the alert is suppressed until this date.
-    private var stallSnoozedUntil: Date? = nil
-    private var lastStallNotified = false
-
-    // Fuel timer
-    @Published var fuelTimer: WatchFuelTimerData = WatchFuelTimerData(
-        intervalMinutes: 60, elapsedMinutes: 0, fuelType: "Apple Wood"
-    )
-    @Published var lastFuelReset: Date = Date()
-    private var fuelTickTimer: Timer?
-    private var lastFuelIntervalMinutes: Int = 60
-
-    // PitMaster
-    @Published var pitMasterInsight: String = "Ask PitMaster what to do next."
-    @Published var pitMasterLoading: Bool = false
+    @Published var stall = WatchStallData(isStalled: false, stalledForMinutes: 0, probeTempF: 0, targetTempF: 0)
+    @Published var fuelTimer = WatchFuelTimerData(intervalMinutes: 60, elapsedMinutes: 0, fuelType: "Apple Wood")
+    @Published var lastFuelReset = Date()
+    @Published var pitMasterInsight = "Ask PitMaster what to do next."
+    @Published var pitMasterLoading = false
     @Published var aiResponse: String? = nil
 
-    // ---------------------------------------------------------------------------
-    // Ingestion — called by WatchSessionDelegate when phone sends new context
-    // ---------------------------------------------------------------------------
+    private var stallSnoozedUntil: Date? = nil
+    private var lastStallNotified = false
+    private var lastFuelIntervalMinutes = 60
+    private var fuelTickTimer: Timer?
 
     func applyContext(_ context: [String: Any]) {
         applyCook(context)
         applyStall(context)
         applyFuelTimer(context)
         applyPitMaster(context)
-        applyPitMasterResponse(context)
     }
 
-    // MARK: - Cook
+    func applyPitMasterResponse(_ context: [String: Any]) {
+        guard
+            let action = context["action"] as? String, action == "pitMasterResponse",
+            let response = context["response"] as? String
+        else { return }
+        aiResponse = response
+        pitMasterLoading = false
+    }
 
     private func applyCook(_ context: [String: Any]) {
-        guard let cookDict = context["cook"] as? [String: Any],
-              let cookJSON = try? JSONSerialization.data(withJSONObject: cookDict),
-              let decoded = try? JSONDecoder().decode(WatchCookData.self, from: cookJSON) else {
+        guard
+            let dict = context["cook"] as? [String: Any],
+            let data = try? JSONSerialization.data(withJSONObject: dict),
+            let decoded = try? JSONDecoder().decode(WatchCookData.self, from: data)
+        else {
             if context["cook"] is NSNull { cook = nil }
             return
         }
-
-        let prevProbeTemp = cook?.probeTempF
+        let prevProbe = cook?.probeTempF
         cook = decoded
         lastUpdated = Date()
 
-        // Haptic: probe reached target temp
         if let probe = decoded.probeTempF,
            let target = decoded.targetTempF,
            probe >= target,
-           let prev = prevProbeTemp, prev < target {
+           let prev = prevProbe, prev < target {
             WKInterfaceDevice.current().play(.notification)
         }
     }
 
-    // MARK: - Stall
-
     private func applyStall(_ context: [String: Any]) {
-        guard let stallDict = context["stall"] as? [String: Any],
-              let stallJSON = try? JSONSerialization.data(withJSONObject: stallDict),
-              let decoded = try? JSONDecoder().decode(WatchStallData.self, from: stallJSON) else { return }
+        guard
+            let dict = context["stall"] as? [String: Any],
+            let data = try? JSONSerialization.data(withJSONObject: dict),
+            let decoded = try? JSONDecoder().decode(WatchStallData.self, from: data)
+        else { return }
 
         let wasStalled = stall.isStalled
 
-        // Honour snooze: if snoozed, treat as not stalled
         if let snoozeUntil = stallSnoozedUntil, Date() < snoozeUntil {
             var muted = decoded
             muted.isStalled = false
             stall = muted
             lastStallNotified = false
             return
-        } else {
-            stallSnoozedUntil = nil
         }
-
+        stallSnoozedUntil = nil
         stall = decoded
 
-        // Haptic: newly entered stall
         if decoded.isStalled && !wasStalled && !lastStallNotified {
             WKInterfaceDevice.current().play(.directionUp)
             lastStallNotified = true
@@ -132,12 +110,12 @@ final class WatchDataModel: ObservableObject {
         }
     }
 
-    // MARK: - Fuel timer
-
     private func applyFuelTimer(_ context: [String: Any]) {
-        guard let fuelDict = context["fuelTimer"] as? [String: Any],
-              let fuelJSON = try? JSONSerialization.data(withJSONObject: fuelDict),
-              let decoded = try? JSONDecoder().decode(WatchFuelTimerData.self, from: fuelJSON) else { return }
+        guard
+            let dict = context["fuelTimer"] as? [String: Any],
+            let data = try? JSONSerialization.data(withJSONObject: dict),
+            let decoded = try? JSONDecoder().decode(WatchFuelTimerData.self, from: data)
+        else { return }
 
         if decoded.intervalMinutes != lastFuelIntervalMinutes {
             lastFuelIntervalMinutes = decoded.intervalMinutes
@@ -147,53 +125,33 @@ final class WatchDataModel: ObservableObject {
         fuelTimer = decoded
     }
 
-    // MARK: - PitMaster insight
-
     private func applyPitMaster(_ context: [String: Any]) {
-        guard let insightDict = context["pitMaster"] as? [String: Any],
-              let insightJSON = try? JSONSerialization.data(withJSONObject: insightDict),
-              let decoded = try? JSONDecoder().decode(WatchPitMasterInsight.self, from: insightJSON) else { return }
+        guard
+            let dict = context["pitMaster"] as? [String: Any],
+            let data = try? JSONSerialization.data(withJSONObject: dict),
+            let decoded = try? JSONDecoder().decode(WatchPitMasterInsight.self, from: data)
+        else { return }
         pitMasterInsight = decoded.insight
     }
-
-    // MARK: - PitMaster response (action reply from phone)
-
-    func applyPitMasterResponse(_ context: [String: Any]) {
-        guard let action = context["action"] as? String, action == "pitMasterResponse",
-              let response = context["response"] as? String else { return }
-        aiResponse = response
-        pitMasterLoading = false
-    }
-
-    // ---------------------------------------------------------------------------
-    // Fuel tick — runs locally so the ring animates without phoning home
-    // ---------------------------------------------------------------------------
 
     func startFuelTick(interval: Int) {
         fuelTickTimer?.invalidate()
         fuelTickTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
+            guard let self else { return }
             Task { @MainActor in
                 let elapsed = Int(Date().timeIntervalSince(self.lastFuelReset) / 60)
-                let hitLimit = elapsed >= self.fuelTimer.intervalMinutes
-
+                let atLimit = elapsed >= self.fuelTimer.intervalMinutes
                 self.fuelTimer = WatchFuelTimerData(
                     intervalMinutes: self.fuelTimer.intervalMinutes,
                     elapsedMinutes: min(elapsed, self.fuelTimer.intervalMinutes),
                     fuelType: self.fuelTimer.fuelType
                 )
-
-                // Haptic: fuel timer expired (at the exact minute boundary)
-                if hitLimit && elapsed == self.fuelTimer.intervalMinutes {
+                if atLimit && elapsed == self.fuelTimer.intervalMinutes {
                     WKInterfaceDevice.current().play(.click)
                 }
             }
         }
     }
-
-    // ---------------------------------------------------------------------------
-    // Public actions
-    // ---------------------------------------------------------------------------
 
     func resetFuelTimer() {
         lastFuelReset = Date()
@@ -204,7 +162,6 @@ final class WatchDataModel: ObservableObject {
         )
     }
 
-    /// Snooze stall alerts for 20 minutes ("Ride It Out").
     func snoozeStall() {
         stallSnoozedUntil = Date().addingTimeInterval(20 * 60)
         var muted = stall
@@ -213,10 +170,6 @@ final class WatchDataModel: ObservableObject {
         lastStallNotified = false
     }
 
-    // ---------------------------------------------------------------------------
-    // Computed helpers for UI
-    // ---------------------------------------------------------------------------
-
     var fuelProgress: Double {
         guard fuelTimer.intervalMinutes > 0 else { return 0 }
         let elapsed = Int(Date().timeIntervalSince(lastFuelReset) / 60)
@@ -224,23 +177,18 @@ final class WatchDataModel: ObservableObject {
     }
 
     var fuelMinutesRemaining: Int {
-        let elapsed = Int(Date().timeIntervalSince(lastFuelReset) / 60)
-        return max(fuelTimer.intervalMinutes - elapsed, 0)
+        max(fuelTimer.intervalMinutes - Int(Date().timeIntervalSince(lastFuelReset) / 60), 0)
     }
 
     func elapsedString() -> String {
         guard let ms = cook?.elapsedMs, ms > 0 else { return "--" }
         let totalMins = Int(ms / 60_000)
-        let hrs = totalMins / 60
-        let mins = totalMins % 60
-        return hrs > 0 ? "\(hrs)h \(mins)m" : "\(mins)m"
+        return totalMins >= 60 ? "\(totalMins / 60)h \(totalMins % 60)m" : "\(totalMins)m"
     }
 
     func remainingString() -> String {
         guard let ms = cook?.estimatedRemainingMs, ms > 0 else { return "--" }
         let totalMins = Int(ms / 60_000)
-        let hrs = totalMins / 60
-        let mins = totalMins % 60
-        return hrs > 0 ? "~\(hrs)h \(mins)m" : "~\(mins)m"
+        return totalMins >= 60 ? "~\(totalMins / 60)h \(totalMins % 60)m" : "~\(totalMins)m"
     }
 }

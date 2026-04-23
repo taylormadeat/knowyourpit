@@ -1,13 +1,5 @@
-import {
-  NativeModule,
-  requireNativeModule,
-  EventEmitter,
-} from "expo-modules-core";
+import { NativeModule, requireNativeModule, EventEmitter } from "expo-modules-core";
 import { Platform } from "react-native";
-
-// ---------------------------------------------------------------------------
-// Native module interface — mirrors WatchConnectivityModule.swift exports
-// ---------------------------------------------------------------------------
 
 interface WatchConnectivityNativeModule {
   isSupported(): boolean;
@@ -15,10 +7,6 @@ interface WatchConnectivityNativeModule {
   updateApplicationContext(context: Record<string, unknown>): Promise<void>;
   sendMessage(message: Record<string, unknown>): Promise<void>;
 }
-
-// ---------------------------------------------------------------------------
-// Event payloads
-// ---------------------------------------------------------------------------
 
 export interface WatchContextUpdateEvent {
   context: Record<string, unknown>;
@@ -28,53 +16,34 @@ export interface WatchMessageEvent {
   message: Record<string, unknown>;
 }
 
-type WatchModuleEvents = {
+type WatchEvents = {
   onWatchContextUpdate: WatchContextUpdateEvent;
   onWatchMessage: WatchMessageEvent;
 };
 
-// ---------------------------------------------------------------------------
-// Module resolution — only available on iOS with a custom dev client / EAS build
-// ---------------------------------------------------------------------------
-
 let nativeMod: WatchConnectivityNativeModule | null = null;
-let emitter: EventEmitter<WatchModuleEvents> | null = null;
+let emitter: EventEmitter<WatchEvents> | null = null;
 
 if (Platform.OS === "ios") {
   try {
-    nativeMod = requireNativeModule<WatchConnectivityNativeModule>(
-      "WatchConnectivity"
-    );
-    emitter = new EventEmitter<WatchModuleEvents>(
-      nativeMod as unknown as NativeModule<WatchModuleEvents>
+    nativeMod = requireNativeModule<WatchConnectivityNativeModule>("WatchConnectivity");
+    emitter = new EventEmitter<WatchEvents>(
+      nativeMod as unknown as NativeModule<WatchEvents>
     );
   } catch {
-    // Not available in Expo Go or on Android/web — bridge will no-op
+    // Not available in Expo Go; isSupported() returns false and bridge is a no-op
   }
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
 export const WatchConnectivity = {
-  isSupported(): boolean {
-    return nativeMod?.isSupported() ?? false;
-  },
+  isSupported: (): boolean => nativeMod?.isSupported() ?? false,
+  isReachable: (): boolean => nativeMod?.isReachable() ?? false,
 
-  isReachable(): boolean {
-    return nativeMod?.isReachable() ?? false;
-  },
+  updateApplicationContext: (context: Record<string, unknown>): Promise<void> =>
+    nativeMod?.updateApplicationContext(context) ?? Promise.resolve(),
 
-  async updateApplicationContext(
-    context: Record<string, unknown>
-  ): Promise<void> {
-    await nativeMod?.updateApplicationContext(context);
-  },
-
-  async sendMessage(message: Record<string, unknown>): Promise<void> {
-    await nativeMod?.sendMessage(message);
-  },
+  sendMessage: (message: Record<string, unknown>): Promise<void> =>
+    nativeMod?.sendMessage(message) ?? Promise.resolve(),
 
   addContextUpdateListener(
     handler: (event: WatchContextUpdateEvent) => void
