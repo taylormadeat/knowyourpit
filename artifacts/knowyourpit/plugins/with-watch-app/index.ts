@@ -283,11 +283,75 @@ const withWatchConnectivityFramework: ConfigPlugin = (config) =>
     return mod;
   });
 
+/**
+ * Links WidgetKit.framework to the KnowYourPitComplications target.
+ * `project.addFramework()` only targets the main iPhone app, so we
+ * manipulate the PBX sections directly.
+ */
+const withWidgetKitFramework: ConfigPlugin = (config) =>
+  withXcodeProject(config, (mod) => {
+    const project = mod.modResults;
+
+    // Locate the complication target
+    const nativeTargets = project.pbxNativeTargetSection();
+    const compEntry = Object.entries(nativeTargets).find(
+      ([, t]) =>
+        t !== null &&
+        typeof t === "object" &&
+        (t as Record<string, unknown>).name === COMPLICATION_TARGET
+    );
+    if (!compEntry) return mod;
+    const [compUuid] = compEntry;
+
+    // Locate the target's frameworks build phase
+    const frameworksPhase = project.pbxFrameworksBuildPhaseObj(compUuid);
+    if (!frameworksPhase) return mod;
+
+    // Skip if WidgetKit is already linked
+    const alreadyLinked = (frameworksPhase.files ?? []).some(
+      (f: Record<string, unknown>) =>
+        typeof f.comment === "string" && f.comment.includes("WidgetKit")
+    );
+    if (alreadyLinked) return mod;
+
+    // Add a PBXFileReference for WidgetKit (system SDK framework)
+    const fileRefUuid = project.generateUuid();
+    const fileRefs = project.pbxFileReferenceSection() as Record<string, unknown>;
+    fileRefs[fileRefUuid] = {
+      isa: "PBXFileReference",
+      lastKnownFileType: "wrapper.framework",
+      name: "WidgetKit.framework",
+      path: "System/Library/Frameworks/WidgetKit.framework",
+      sourceTree: "SDKROOT",
+    };
+    fileRefs[`${fileRefUuid}_comment`] = "WidgetKit.framework";
+
+    // Add a PBXBuildFile that references the file reference
+    const buildFileUuid = project.generateUuid();
+    const buildFiles = project.pbxBuildFileSection() as Record<string, unknown>;
+    buildFiles[buildFileUuid] = {
+      isa: "PBXBuildFile",
+      fileRef: fileRefUuid,
+      fileRef_comment: "WidgetKit.framework",
+    };
+    buildFiles[`${buildFileUuid}_comment`] = "WidgetKit.framework in Frameworks";
+
+    // Append to the complication target's frameworks phase
+    frameworksPhase.files = frameworksPhase.files ?? [];
+    frameworksPhase.files.push({
+      value: buildFileUuid,
+      comment: "WidgetKit.framework in Frameworks",
+    });
+
+    return mod;
+  });
+
 const withWatchApp: ConfigPlugin = (config) => {
   config = withAppGroup(config);
   config = withWatchSources(config);
   config = withWatchTargets(config);
   config = withWatchConnectivityFramework(config);
+  config = withWidgetKitFramework(config);
   return config;
 };
 
