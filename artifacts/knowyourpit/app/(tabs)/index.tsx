@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   LayoutAnimation,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
@@ -165,8 +165,13 @@ export default function HomeScreen() {
     ? `${upcomingCook.foodType || "Your cook"} is coming up — time to prep`
     : "Ready to fire it up?";
 
-  // Stable random seed per mount — new title every login / app open
-  const [titleSeed] = useState(() => Math.random());
+  // New title every time the home screen is focused (login, tab switch, app foreground)
+  const [titleSeed, setTitleSeed] = useState(() => Math.random());
+  useFocusEffect(
+    useCallback(() => {
+      setTitleSeed(Math.random());
+    }, [])
+  );
   const randomTitle = useMemo(() => {
     if (!insights) return null;
     const tier = PITMASTER_TITLES.find((t) => insights.pitMasterScore >= t.minScore) ?? PITMASTER_TITLES[PITMASTER_TITLES.length - 1];
