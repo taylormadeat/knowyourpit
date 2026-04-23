@@ -10,6 +10,7 @@ import {
   ListCooksQueryParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
+import { clearHomeInsightsCache } from "./ai";
 
 const router: IRouter = Router();
 
@@ -60,6 +61,7 @@ router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
     const [grill] = await db.select({ name: grillsTable.name }).from(grillsTable).where(eq(grillsTable.id, cook.grillId));
     grillName = grill?.name ?? null;
   }
+  clearHomeInsightsCache(req.userId);
   res.status(201).json({ ...cook, grillName });
 });
 
@@ -123,6 +125,7 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
     const [grill] = await db.select({ name: grillsTable.name }).from(grillsTable).where(eq(grillsTable.id, cook.grillId));
     grillName = grill?.name ?? null;
   }
+  clearHomeInsightsCache(req.userId);
   res.json({ ...cook, grillName });
 });
 

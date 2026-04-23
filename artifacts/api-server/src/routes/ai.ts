@@ -612,6 +612,10 @@ interface HomeInsights {
 
 const homeInsightsCache = new Map<string, { data: HomeInsights; expiresAt: number }>();
 
+export function clearHomeInsightsCache(userId: string): void {
+  homeInsightsCache.delete(userId);
+}
+
 function getPitMasterLabel(score: number): string {
   if (score >= 95) return "The BBQ Deity";
   if (score >= 85) return "Grand Poobah of the Pit";

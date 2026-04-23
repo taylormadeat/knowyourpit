@@ -39,18 +39,6 @@ import { MEAT_CATEGORIES, MEAT_CUTS, MEAT_CUTS_BY_CATEGORY, type MeatCut } from 
 
 const logoImg = require("@/assets/images/logo.png");
 
-function getPastDates(): Date[] {
-  const dates: Date[] = [];
-  const now = new Date();
-  for (let i = 0; i < 14; i++) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    d.setHours(0, 0, 0, 0);
-    dates.push(d);
-  }
-  return dates;
-}
-
 function formatPickDate(d: Date): string {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
@@ -167,6 +155,9 @@ export default function LogCookScreen() {
   const [actualStartDate, setActualStartDate] = useState<Date | null>(null);
   const [logDatePickerOpen, setLogDatePickerOpen] = useState(false);
   const [logTimePickerOpen, setLogTimePickerOpen] = useState(false);
+  const [calendarViewDate, setCalendarViewDate] = useState(() => {
+    const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d;
+  });
 
   const [saving, setSaving] = useState(false);
   const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
@@ -191,7 +182,27 @@ export default function LogCookScreen() {
     }
   };
 
-  const pastDates = useMemo(() => getPastDates(), []);
+  const todayCal = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
+  const calRows = useMemo(() => {
+    const firstDay = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth(), 1);
+    const startDow = firstDay.getDay();
+    const daysInMonth = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 0).getDate();
+    const cells: (Date | null)[] = [];
+    for (let i = 0; i < startDow; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) {
+      cells.push(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth(), d));
+    }
+    while (cells.length % 7 !== 0) cells.push(null);
+    const rows: (Date | null)[][] = [];
+    for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
+    return rows;
+  }, [calendarViewDate]);
+  const calPrevMonth = () => setCalendarViewDate(d => { const n = new Date(d); n.setMonth(n.getMonth() - 1); return n; });
+  const calNextMonth = () => setCalendarViewDate(d => {
+    const n = new Date(d); n.setMonth(n.getMonth() + 1);
+    const cap = new Date(); cap.setDate(1); cap.setHours(0, 0, 0, 0);
+    return n <= cap ? n : d;
+  });
 
   const { data: grillsList } = useListGrills();
   const grills: any[] = Array.isArray(grillsList) ? grillsList : [];
@@ -353,6 +364,7 @@ export default function LogCookScreen() {
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
       qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: ["home", "insights"] });
 
       const newId = (cook as any)?.id;
       if (newId) router.replace(`/cooks/${newId}` as any);
@@ -810,7 +822,12 @@ export default function LogCookScreen() {
               <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>When did this cook happen?</Text>
               <View style={{ flexDirection: "row", gap: 8 }}>
                 <Pressable
-                  onPress={() => setLogDatePickerOpen(true)}
+                  onPress={() => {
+                    const base = actualStartDate ? new Date(actualStartDate) : new Date();
+                    base.setDate(1); base.setHours(0, 0, 0, 0);
+                    setCalendarViewDate(base);
+                    setLogDatePickerOpen(true);
+                  }}
                   style={[s.input, s.pickerBtn, { flex: 1, backgroundColor: colors.background, borderColor: actualStartDate ? colors.primary : colors.border, borderRadius: colors.radius }]}
                 >
                   <Feather name="calendar" size={14} color={actualStartDate ? colors.primary : colors.mutedForeground} />
@@ -869,34 +886,79 @@ export default function LogCookScreen() {
                 <Feather name="x" size={22} color={colors.mutedForeground} />
               </Pressable>
             </View>
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 30 }}>
-              {pastDates.map((d) => {
-                const isSelected = actualStartDate &&
-                  d.getDate() === actualStartDate.getDate() &&
-                  d.getMonth() === actualStartDate.getMonth() &&
-                  d.getFullYear() === actualStartDate.getFullYear();
-                return (
-                  <Pressable
-                    key={d.toISOString()}
-                    onPress={() => {
-                      const next = actualStartDate ? new Date(actualStartDate) : new Date();
-                      next.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
-                      setActualStartDate(next);
-                      setLogDatePickerOpen(false);
-                    }}
-                    style={[dp2.row, isSelected && { backgroundColor: colors.primary + "18" }, { borderRadius: colors.radius }]}
-                  >
-                    <Text style={[dp2.rowText, { color: isSelected ? colors.primary : colors.foreground }]}>
-                      {formatPickDate(d)}
-                    </Text>
-                    <Text style={[dp2.rowSub, { color: colors.mutedForeground }]}>
-                      {d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-                    </Text>
-                    {isSelected && <Feather name="check" size={16} color={colors.primary} />}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+            {/* Month navigation */}
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 10 }}>
+              <Pressable onPress={calPrevMonth} hitSlop={12} style={{ padding: 6 }}>
+                <Feather name="chevron-left" size={22} color={colors.foreground} />
+              </Pressable>
+              <Text style={{ color: colors.foreground, fontSize: 16, fontFamily: "Inter_600SemiBold" }}>
+                {calendarViewDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+              </Text>
+              <Pressable
+                onPress={calNextMonth}
+                hitSlop={12}
+                style={{ padding: 6 }}
+                disabled={calendarViewDate.getFullYear() === todayCal.getFullYear() && calendarViewDate.getMonth() === todayCal.getMonth()}
+              >
+                <Feather
+                  name="chevron-right"
+                  size={22}
+                  color={calendarViewDate.getFullYear() === todayCal.getFullYear() && calendarViewDate.getMonth() === todayCal.getMonth() ? colors.mutedForeground + "50" : colors.foreground}
+                />
+              </Pressable>
+            </View>
+            {/* Day names */}
+            <View style={{ flexDirection: "row", paddingHorizontal: 10, marginBottom: 4 }}>
+              {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(dn => (
+                <View key={dn} style={{ flex: 1, alignItems: "center", paddingVertical: 4 }}>
+                  <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_600SemiBold" }}>{dn}</Text>
+                </View>
+              ))}
+            </View>
+            {/* Day grid */}
+            <View style={{ paddingHorizontal: 10, paddingBottom: 28 }}>
+              {calRows.map((row, ri) => (
+                <View key={ri} style={{ flexDirection: "row" }}>
+                  {row.map((cell, ci) => {
+                    if (!cell) return <View key={ci} style={{ flex: 1 }} />;
+                    const cellDay = new Date(cell); cellDay.setHours(0, 0, 0, 0);
+                    const isToday = cellDay.getTime() === todayCal.getTime();
+                    const isFuture = cellDay > todayCal;
+                    const isSelected = !!(actualStartDate &&
+                      cellDay.getDate() === actualStartDate.getDate() &&
+                      cellDay.getMonth() === actualStartDate.getMonth() &&
+                      cellDay.getFullYear() === actualStartDate.getFullYear());
+                    return (
+                      <Pressable
+                        key={ci}
+                        disabled={isFuture}
+                        onPress={() => {
+                          const next = actualStartDate ? new Date(actualStartDate) : new Date();
+                          next.setFullYear(cell.getFullYear(), cell.getMonth(), cell.getDate());
+                          setActualStartDate(next);
+                          setLogDatePickerOpen(false);
+                        }}
+                        style={{ flex: 1, alignItems: "center", paddingVertical: 5 }}
+                      >
+                        <View style={{
+                          width: 36, height: 36, borderRadius: 18,
+                          backgroundColor: isSelected ? colors.primary : isToday ? colors.primary + "22" : "transparent",
+                          alignItems: "center", justifyContent: "center",
+                        }}>
+                          <Text style={{
+                            color: isSelected ? "#fff" : isFuture ? colors.mutedForeground + "55" : isToday ? colors.primary : colors.foreground,
+                            fontSize: 14,
+                            fontFamily: isSelected || isToday ? "Inter_600SemiBold" : "Inter_400Regular",
+                          }}>
+                            {cell.getDate()}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
           </View>
         </View>
       </Modal>
