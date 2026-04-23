@@ -22,8 +22,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { setBaseUrl, setAuthTokenGetter, patchAlert, listAlerts } from "@workspace/api-client-react";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { ConnectionBanner } from "@/components/ConnectionBanner";
-import { useServerStatus } from "@/hooks/useServerStatus";
 import { useWatchBridge } from "@/hooks/useWatchBridge";
 import { CACHE_STORAGE_KEY } from "@/constants/cache";
 
@@ -88,8 +86,6 @@ async function requestNotificationPermissions() {
 
 function RootLayoutNav() {
   const { getToken } = useAuth();
-  const { status: serverStatus, retry: retryServer } = useServerStatus(apiBaseUrl);
-
   // Bridges the phone app to the Apple Watch companion app (iOS only, no-op elsewhere)
   useWatchBridge();
 
@@ -172,7 +168,6 @@ function RootLayoutNav() {
         <Stack.Screen name="cooks/[id]" />
         <Stack.Screen name="recipe/[id]" />
       </Stack>
-      <ConnectionBanner status={serverStatus} onRetry={retryServer} />
     </View>
   );
 }
