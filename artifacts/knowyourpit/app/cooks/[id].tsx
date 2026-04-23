@@ -26,6 +26,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
 import { LogoBackground } from "@/components/LogoBackground";
 import { TempGraph } from "@/components/TempGraph";
+import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
 import {
   useGetCook,
   useDeleteCook,
@@ -251,6 +252,9 @@ export default function CookDetailScreen() {
   const patchAlert = usePatchAlert();
 
   const cookStatus = (cook as any)?.status;
+
+  // Ambient outdoor weather — used for live cook display and PitMaster context
+  const weather = useAmbientWeather();
 
   // Alerts for this cook (active ones, used for MEATER threshold checking)
   const { data: cookAlerts } = useListAlerts({
@@ -672,6 +676,7 @@ export default function CookDetailScreen() {
             liveReadings: liveReadings.length >= 2 ? liveReadings : null,
             elapsedMinutes: c?.actualStartAt ? Math.round((Date.now() - new Date(c.actualStartAt).getTime()) / 60000) : null,
             currentPitTempF: meaterProbes[0]?.ambientTempF ?? null,
+            outdoorTempF: weather.tempF ?? null,
           },
         } as any,
       });
@@ -1272,6 +1277,37 @@ export default function CookDetailScreen() {
                 </View>
               )}
             </View>
+
+            {/* Outdoor temperature strip */}
+            {!weather.locationDenied && (
+              <View style={[s.weatherStrip, { borderTopColor: colors.border, borderBottomColor: colors.border }]}>
+                <Feather
+                  name={weatherIcon(weather.conditionCode) as any}
+                  size={14}
+                  color={colors.mutedForeground}
+                />
+                {weather.loading ? (
+                  <Text style={[s.weatherText, { color: colors.mutedForeground }]}>
+                    Fetching outdoor temp…
+                  </Text>
+                ) : weather.error ? (
+                  <Text style={[s.weatherText, { color: colors.mutedForeground }]}>
+                    Outdoor temp unavailable
+                  </Text>
+                ) : weather.tempF != null ? (
+                  <>
+                    <Text style={[s.weatherTemp, { color: colors.foreground }]}>
+                      {weather.tempF}°F outdoors
+                    </Text>
+                    {weatherDescription(weather.conditionCode) && (
+                      <Text style={[s.weatherCondition, { color: colors.mutedForeground }]}>
+                        · {weatherDescription(weather.conditionCode)}
+                      </Text>
+                    )}
+                  </>
+                ) : null}
+              </View>
+            )}
 
             {/* Live graph (when we have ≥ 2 readings) */}
             {liveGraphProbes.length > 0 && (
@@ -2836,6 +2872,10 @@ const s = StyleSheet.create({
   timerValue: { fontSize: 17, fontFamily: "Inter_700Bold" },
   timerLabel: { fontSize: 10, fontFamily: "Inter_500Medium", marginTop: 1 },
   liveGraphWrap: { borderTopWidth: 1, padding: 14 },
+  weatherStrip: { flexDirection: "row", alignItems: "center", gap: 7, borderTopWidth: 1, paddingHorizontal: 14, paddingVertical: 9 },
+  weatherTemp: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  weatherCondition: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  weatherText: { fontSize: 12, fontFamily: "Inter_400Regular" },
   meaterPlaceholder: { borderTopWidth: 1, flexDirection: "row", alignItems: "center", gap: 10, padding: 16 },
   meaterPlaceholderText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
   grillOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)" },

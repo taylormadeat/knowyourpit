@@ -278,6 +278,7 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, r
       liveReadings?: Array<{ timeMinutes: number; tempF: number }> | null;
       elapsedMinutes?: number | null;
       currentPitTempF?: number | null;
+      outdoorTempF?: number | null;
     } | null;
   };
 
@@ -318,6 +319,7 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, r
   if (cookContext?.cookTempF) contextLines.push(`Pit/cook temperature: ${cookContext.cookTempF}°F`);
   if (cookContext?.targetTempF) contextLines.push(`Target internal temp: ${cookContext.targetTempF}°F`);
   if (cookContext?.userEnteredTempF != null) contextLines.push(`Pitmaster's measured temperature right now: ${cookContext.userEnteredTempF}°F`);
+  if (cookContext?.outdoorTempF != null) contextLines.push(`Current outdoor/ambient air temperature: ${cookContext.outdoorTempF}°F (factor this into heat management, stall timing, and cold-weather adjustments)`);
   if (cookContext?.preheatMinutes) contextLines.push(`Preheat time: ${cookContext.preheatMinutes} min`);
 
   // Timing context — pass ISO strings directly so the AI interprets them correctly
