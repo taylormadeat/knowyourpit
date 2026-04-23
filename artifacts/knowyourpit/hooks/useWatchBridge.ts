@@ -246,6 +246,8 @@ export function useWatchBridge() {
         if (cookId) {
           const ts = new Date().toLocaleTimeString();
           const entry = `[${ts}] Stall — meat wrapped in butcher paper.`;
+          // Append to cook notes (used as a chronological timeline until a
+          // dedicated cook-events endpoint is available in the API).
           const existing = await apiFetch<{ notes?: string | null }>(
             `/api/cooks/${cookId}`
           ).catch(() => null);
