@@ -10,7 +10,7 @@ import {
   TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { fetch } from "expo/fetch";
@@ -39,7 +39,6 @@ export default function AIScreen() {
   const [streaming, setStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
 
-  const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
   const sendMessage = async (text?: string) => {
@@ -144,11 +143,7 @@ export default function AIScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[s.container, { backgroundColor: colors.background }]}
-      behavior="padding"
-      keyboardVerticalOffset={0}
-    >
+    <View style={[s.container, { backgroundColor: colors.background }]}>
       <LogoBackground opacity={0.04} />
       <AppHeader title="PitMaster" dark />
 
@@ -189,64 +184,57 @@ export default function AIScreen() {
         }}
       />
 
-      <View
-        style={[
-          s.inputBar,
-          {
-            borderTopColor: colors.border,
-            paddingBottom: botPad + 12,
-            backgroundColor: colors.background,
-          },
-        ]}
-      >
+      {/* KeyboardStickyView docks the input bar just above the keyboard automatically */}
+      <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
         <View
           style={[
-            s.inputWrap,
-            { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius + 8 },
+            s.inputBar,
+            {
+              borderTopColor: colors.border,
+              paddingBottom: botPad + 8,
+              backgroundColor: colors.background,
+            },
           ]}
         >
-          <TextInput
-            style={[s.textInput, { color: colors.foreground }]}
-            placeholder="Ask about temperatures, timing, wood..."
-            placeholderTextColor={colors.mutedForeground}
-            value={input}
-            onChangeText={setInput}
-            multiline
-            maxLength={1000}
-            onSubmitEditing={() => sendMessage()}
-          />
-          <Pressable
+          <View
             style={[
-              s.sendBtn,
-              { backgroundColor: streaming || !input.trim() ? colors.muted : colors.primary },
+              s.inputWrap,
+              { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius + 8 },
             ]}
-            onPress={() => sendMessage()}
-            disabled={streaming || !input.trim()}
           >
-            {streaming ? (
-              <ActivityIndicator size="small" color={colors.mutedForeground} />
-            ) : (
-              <Feather name="send" size={16} color={streaming || !input.trim() ? colors.mutedForeground : "#fff"} />
-            )}
-          </Pressable>
+            <TextInput
+              style={[s.textInput, { color: colors.foreground }]}
+              placeholder="Ask about temperatures, timing, wood..."
+              placeholderTextColor={colors.mutedForeground}
+              value={input}
+              onChangeText={setInput}
+              multiline
+              maxLength={1000}
+              onSubmitEditing={() => sendMessage()}
+            />
+            <Pressable
+              style={[
+                s.sendBtn,
+                { backgroundColor: streaming || !input.trim() ? colors.muted : colors.primary },
+              ]}
+              onPress={() => sendMessage()}
+              disabled={streaming || !input.trim()}
+            >
+              {streaming ? (
+                <ActivityIndicator size="small" color={colors.mutedForeground} />
+              ) : (
+                <Feather name="send" size={16} color={streaming || !input.trim() ? colors.mutedForeground : "#fff"} />
+              )}
+            </Pressable>
+          </View>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardStickyView>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row", alignItems: "center", gap: 12,
-    paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1,
-  },
-  headerIcon: {
-    width: 36, height: 36, borderRadius: 10,
-    alignItems: "center", justifyContent: "center",
-  },
-  headerTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
-  headerSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
   welcome: { paddingHorizontal: 20, paddingTop: 32, alignItems: "center" },
   welcomeTitle: { fontSize: 20, fontFamily: "Inter_600SemiBold", marginBottom: 20, textAlign: "center" },
   suggestions: { width: "100%", gap: 10 },
