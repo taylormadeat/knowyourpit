@@ -2699,7 +2699,7 @@ const s = StyleSheet.create({
   addMoreThumb: { width: 72, height: 72, alignItems: "center", justifyContent: "center", borderWidth: 1, borderStyle: "dashed" },
 
   notesInputLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginBottom: 6 },
-  notesInput: { borderWidth: 1, padding: 12, fontSize: 14, fontFamily: "Inter_400Regular", minHeight: 80, lineHeight: 20 },
+  notesInput: { borderWidth: 1, padding: 12, fontSize: 14, fontFamily: "Inter_400Regular", minHeight: 80 },
 
   analyzeBtn: { overflow: "hidden" },
   analyzeBtnGradient: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, height: 50 },
