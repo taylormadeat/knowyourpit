@@ -64,16 +64,64 @@ const withWatchSources: ConfigPlugin = (config) =>
         }
       }
 
-      // Copy Complication Widget Extension sources
+      // Copy Complication Widget Extension Swift sources
       const compDest = path.join(ios, COMPLICATION_TARGET);
       fs.mkdirSync(compDest, { recursive: true });
       if (fs.existsSync(COMPLICATION_SOURCES)) {
         for (const file of fs.readdirSync(COMPLICATION_SOURCES)) {
-          if (file.endsWith(".swift") || file === "Info.plist" || file.endsWith(".entitlements")) {
+          if (file.endsWith(".swift")) {
             fs.copyFileSync(path.join(COMPLICATION_SOURCES, file), path.join(compDest, file));
           }
         }
       }
+
+      // Write the complication Info.plist programmatically so the
+      // NSExtensionPointIdentifier registration is explicit and always
+      // present — regardless of what the source file contains.
+      const compInfoPlist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>$(DEVELOPMENT_LANGUAGE)</string>
+    <key>CFBundleDisplayName</key>
+    <string>KnowYourPit Complications</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key>
+    <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(MARKETING_VERSION)</string>
+    <key>CFBundleVersion</key>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
+    <key>NSExtension</key>
+    <dict>
+        <key>NSExtensionPointIdentifier</key>
+        <string>com.apple.widgetkit-extension</string>
+    </dict>
+</dict>
+</plist>`;
+      fs.writeFileSync(path.join(compDest, "Info.plist"), compInfoPlist, "utf8");
+
+      // Write the complication entitlements programmatically so the
+      // App Group (shared with the Watch Extension) is always present.
+      const compEntitlements = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>${APP_GROUP}</string>
+    </array>
+</dict>
+</plist>`;
+      fs.writeFileSync(path.join(compDest, "Complication.entitlements"), compEntitlements, "utf8");
 
       return mod;
     },
