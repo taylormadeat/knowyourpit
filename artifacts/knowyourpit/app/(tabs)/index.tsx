@@ -165,10 +165,13 @@ export default function HomeScreen() {
     ? `${upcomingCook.foodType || "Your cook"} is coming up — time to prep`
     : "Ready to fire it up?";
 
-  const randomTitle = useMemo(
-    () => (insights ? getRandomTitle(insights.pitMasterScore) : null),
-    [insights?.pitMasterScore]
-  );
+  // Stable random seed per mount — new title every login / app open
+  const [titleSeed] = useState(() => Math.random());
+  const randomTitle = useMemo(() => {
+    if (!insights) return null;
+    const tier = PITMASTER_TITLES.find((t) => insights.pitMasterScore >= t.minScore) ?? PITMASTER_TITLES[PITMASTER_TITLES.length - 1];
+    return tier.titles[Math.floor(titleSeed * tier.titles.length)];
+  }, [insights?.pitMasterScore, titleSeed]);
 
   const scrollRef = useRef<ScrollView>(null);
   const [tipsExpanded, setTipsExpanded] = useState(false);
