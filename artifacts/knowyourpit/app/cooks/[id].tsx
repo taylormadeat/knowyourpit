@@ -375,7 +375,7 @@ export default function CookDetailScreen() {
   };
 
   useEffect(() => {
-    if (meaterProbes.length > 0 && meaterProbes[0].internalTempF != null) {
+    if (!userTempEdited && meaterProbes.length > 0 && meaterProbes[0].internalTempF != null) {
       setUserTempInput(String(meaterProbes[0].internalTempF));
     }
     if (meaterProbes.length > 0 && meaterProbes[0].internalTempF != null) {
