@@ -125,18 +125,18 @@ type AnalysisResult = {
   assessment: Assessment | null;
 };
 
-function DetectedPill({ label, value, colors }: { label: string; value: string; colors: any }) {
+function SummaryCell({ label, value, colors, highlight }: { label: string; value: string; colors: any; highlight?: boolean }) {
   return (
-    <View style={[dp.pill, { backgroundColor: "#A855F7" + "12", borderColor: "#A855F7" + "25" }]}>
-      <Text style={[dp.label, { color: colors.mutedForeground }]}>{label}</Text>
-      <Text style={[dp.value, { color: colors.foreground }]}>{value}</Text>
+    <View style={sc.cell}>
+      <Text style={[sc.label, { color: colors.mutedForeground }]}>{label}</Text>
+      <Text style={[sc.value, { color: highlight ? "#A855F7" : colors.foreground }]}>{value}</Text>
     </View>
   );
 }
-const dp = StyleSheet.create({
-  pill: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, minWidth: 90 },
-  label: { fontSize: 10, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 2 },
-  value: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+const sc = StyleSheet.create({
+  cell: { width: "48%", paddingVertical: 10, paddingHorizontal: 12 },
+  label: { fontSize: 10, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 3 },
+  value: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
 });
 
 export default function LogCookScreen() {
@@ -416,14 +416,8 @@ export default function LogCookScreen() {
           <View style={s.photoRow}>
             <Pressable style={[s.photoBtn, { borderColor: colors.border, borderRadius: colors.radius }]} onPress={pickImages}>
               <Feather name="image" size={16} color="#A855F7" />
-              <Text style={[s.photoBtnText, { color: colors.foreground }]}>Gallery</Text>
+              <Text style={[s.photoBtnText, { color: colors.foreground }]}>Upload Photos</Text>
             </Pressable>
-            {Platform.OS !== "web" && (
-              <Pressable style={[s.photoBtn, { borderColor: colors.border, borderRadius: colors.radius }]} onPress={takePhoto}>
-                <Feather name="camera" size={16} color="#A855F7" />
-                <Text style={[s.photoBtnText, { color: colors.foreground }]}>Camera</Text>
-              </Pressable>
-            )}
           </View>
 
           {images.length > 0 && (
@@ -488,7 +482,7 @@ export default function LogCookScreen() {
           {result && (
             <View style={[s.results, { borderTopColor: colors.border }]}>
 
-              {/* Verdict */}
+              {/* Verdict banner */}
               {verdictCfg && assessment && (
                 <View style={[s.verdictBanner, { backgroundColor: verdictCfg.color + "18", borderColor: verdictCfg.color + "40", borderRadius: colors.radius }]}>
                   <Feather name={verdictCfg.icon as any} size={20} color={verdictCfg.color} />
@@ -499,22 +493,23 @@ export default function LogCookScreen() {
                 </View>
               )}
 
-              {/* Auto-detected cook details */}
-              {(result.detectedFoodType || result.detectedWeightLbs != null || result.detectedCookTempF != null || result.detectedTargetTempF != null || result.detectedGrillBrand || result.detectedWoodType || result.detectedRub || result.cookDurationMinutes != null) && (
-                <View style={[s.detectedCard, { backgroundColor: colors.background, borderColor: "#A855F7" + "30", borderRadius: colors.radius }]}>
-                  <View style={s.detectedHeader}>
-                    <Feather name="check-circle" size={13} color="#A855F7" />
-                    <Text style={[s.detectedTitle, { color: "#A855F7" }]}>Auto-filled your cook details</Text>
-                  </View>
-                  <View style={s.detectedGrid}>
-                    {result.detectedFoodType ? <DetectedPill label="Cut" value={result.detectedFoodType} colors={colors} /> : null}
-                    {result.detectedWeightLbs != null ? <DetectedPill label="Weight" value={`${result.detectedWeightLbs} lbs`} colors={colors} /> : null}
-                    {result.detectedCookTempF != null ? <DetectedPill label="Cook temp" value={`${Math.round(result.detectedCookTempF)}°F`} colors={colors} /> : null}
-                    {result.detectedTargetTempF != null ? <DetectedPill label="Target temp" value={`${Math.round(result.detectedTargetTempF)}°F`} colors={colors} /> : null}
-                    {result.detectedGrillBrand ? <DetectedPill label="Grill" value={result.detectedGrillBrand} colors={colors} /> : null}
-                    {result.detectedWoodType ? <DetectedPill label="Wood" value={result.detectedWoodType} colors={colors} /> : null}
-                    {result.detectedRub ? <DetectedPill label="Rub" value={result.detectedRub} colors={colors} /> : null}
-                    {result.cookDurationMinutes != null ? <DetectedPill label="Duration" value={`${Math.floor(result.cookDurationMinutes / 60)}h ${result.cookDurationMinutes % 60}m`} colors={colors} /> : null}
+              {/* Cook summary card — matches Plan a Cook schedule style */}
+              {(result.cookDurationMinutes != null || result.detectedFoodType || result.detectedWeightLbs != null || result.detectedCookTempF != null || result.detectedTargetTempF != null || result.detectedGrillBrand || result.detectedWoodType || result.detectedRub) && (
+                <View style={[s.summaryCard, { backgroundColor: colors.background, borderColor: "#A855F7" + "30", borderRadius: colors.radius }]}>
+                  <LinearGradient colors={["#6C3BF5", "#A855F7"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.summaryHeader}>
+                    <Feather name="cpu" size={14} color="#fff" />
+                    <Text style={s.summaryHeaderText}>PitMaster Scan Summary</Text>
+                  </LinearGradient>
+                  <View style={s.summaryGrid}>
+                    {result.detectedFoodType ? <SummaryCell label="Cut Detected" value={result.detectedFoodType} colors={colors} /> : null}
+                    {result.cookDurationMinutes != null ? <SummaryCell label="Cook Duration" value={`${Math.floor(result.cookDurationMinutes / 60)}h ${result.cookDurationMinutes % 60}m`} colors={colors} highlight /> : null}
+                    {result.detectedWeightLbs != null ? <SummaryCell label="Weight" value={`${result.detectedWeightLbs} lbs`} colors={colors} /> : null}
+                    {result.detectedCookTempF != null ? <SummaryCell label="Cook Temp" value={`${Math.round(result.detectedCookTempF)}°F`} colors={colors} /> : null}
+                    {result.detectedTargetTempF != null ? <SummaryCell label="Finish Temp" value={`${Math.round(result.detectedTargetTempF)}°F`} colors={colors} /> : null}
+                    {result.detectedGrillBrand ? <SummaryCell label="Grill / Smoker" value={result.detectedGrillBrand} colors={colors} /> : null}
+                    {result.detectedWoodType ? <SummaryCell label="Wood / Pellets" value={result.detectedWoodType} colors={colors} /> : null}
+                    {result.detectedRub ? <SummaryCell label="Rub / Season" value={result.detectedRub} colors={colors} /> : null}
+                    {result.probes.length > 0 ? <SummaryCell label="Probes Read" value={`${result.probes.length} probe${result.probes.length > 1 ? "s" : ""}`} colors={colors} /> : null}
                   </View>
                 </View>
               )}
@@ -533,71 +528,29 @@ export default function LogCookScreen() {
                 </View>
               )}
 
-              {/* Probe readings */}
-              {result.probes.length > 0 && (
-                <View style={[s.subSection, { borderTopColor: colors.border }]}>
-                  <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Temperature Readings</Text>
-                  {result.probes.map((p, i) => (
-                    <View key={i} style={[s.probeRow, { borderTopColor: colors.border }]}>
-                      <View>
-                        <Text style={[s.probeName, { color: colors.foreground }]}>{p.probeName}</Text>
-                        {(p.minTempF != null || p.maxTempF != null) && (
-                          <Text style={[s.probeRange, { color: colors.mutedForeground }]}>
-                            {p.minTempF ?? "?"}°F → {p.maxTempF ?? "?"}°F
-                          </Text>
-                        )}
+              {/* PitMaster tips */}
+              {((assessment?.whatWentWell?.length ?? 0) > 0 || (assessment?.suggestions?.length ?? 0) > 0) && (
+                <View style={[s.tipsCard, { backgroundColor: colors.background, borderColor: "#A855F7" + "30", borderRadius: colors.radius }]}>
+                  <LinearGradient colors={["#6C3BF5", "#A855F7"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.summaryHeader}>
+                    <Feather name="zap" size={14} color="#fff" />
+                    <Text style={s.summaryHeaderText}>PitMaster Feedback</Text>
+                  </LinearGradient>
+                  <View style={{ padding: 12, gap: 8 }}>
+                    {(assessment?.whatWentWell ?? []).map((item, i) => (
+                      <View key={`w${i}`} style={s.bulletRow}>
+                        <Feather name="check-circle" size={14} color="#22c55e" style={{ marginTop: 2 }} />
+                        <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
                       </View>
-                      <Text style={[s.probeFinish, { color: "#A855F7" }]}>{p.finishingTempF}°F</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {/* Events timeline */}
-              {result.events.length > 0 && (
-                <View style={[s.subSection, { borderTopColor: colors.border }]}>
-                  <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Cook Timeline</Text>
-                  {result.events.map((ev, i) => {
-                    const hrs = Math.floor(ev.timeMinutes / 60);
-                    const mins = ev.timeMinutes % 60;
-                    return (
-                      <View key={i} style={[s.eventRow, { borderTopColor: colors.border }]}>
-                        <View style={[s.eventIconWrap, { backgroundColor: "#A855F7" + "18" }]}>
-                          <Feather name={(EVENT_ICONS[ev.type] ?? "circle") as any} size={13} color="#A855F7" />
+                    ))}
+                    {(assessment?.suggestions ?? []).map((tip, i) => (
+                      <View key={`s${i}`} style={s.bulletRow}>
+                        <View style={[s.tipNum, { backgroundColor: "#A855F7" + "20" }]}>
+                          <Text style={[s.tipNumText, { color: "#A855F7" }]}>{i + 1}</Text>
                         </View>
-                        <Text style={[s.eventDesc, { color: colors.foreground, flex: 1 }]}>{ev.description}</Text>
-                        <Text style={[s.eventTime, { color: colors.mutedForeground }]}>
-                          {hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`}
-                        </Text>
+                        <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
                       </View>
-                    );
-                  })}
-                </View>
-              )}
-
-              {/* What went well */}
-              {(assessment?.whatWentWell?.length ?? 0) > 0 && (
-                <View style={[s.subSection, { borderTopColor: colors.border }]}>
-                  <Text style={[s.subLabel, { color: colors.mutedForeground }]}>What Went Well</Text>
-                  {assessment!.whatWentWell.map((item, i) => (
-                    <View key={i} style={s.bulletRow}>
-                      <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
-                      <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {/* Suggestions */}
-              {(assessment?.suggestions?.length ?? 0) > 0 && (
-                <View style={[s.subSection, { borderTopColor: colors.border }]}>
-                  <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Next Time, Try This</Text>
-                  {assessment!.suggestions.map((tip, i) => (
-                    <View key={i} style={s.bulletRow}>
-                      <Text style={[s.bulletNum, { color: "#A855F7" }]}>{i + 1}</Text>
-                      <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
-                    </View>
-                  ))}
+                    ))}
+                  </View>
                 </View>
               )}
 
@@ -605,7 +558,7 @@ export default function LogCookScreen() {
                 <View style={s.infoRow}>
                   <Feather name="info" size={14} color={colors.mutedForeground} />
                   <Text style={[s.infoText, { color: colors.mutedForeground }]}>
-                    No temperature data detected in images — assessment based on notes only.
+                    No temperature data detected — assessment based on notes only.
                   </Text>
                 </View>
               )}
@@ -992,8 +945,9 @@ export default function LogCookScreen() {
         transparent
         onRequestClose={() => setMeatPickerVisible(false)}
       >
-        <Pressable style={gp.overlay} onPress={() => setMeatPickerVisible(false)} />
-        <View style={[gp.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
+        <View style={gp.modalWrap}>
+          <Pressable style={gp.backdrop} onPress={() => setMeatPickerVisible(false)} />
+          <View style={[gp.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
           <View style={[gp.handle, { backgroundColor: colors.border }]} />
           <Text style={[gp.title, { color: colors.foreground }]}>What Did You Cook?</Text>
 
@@ -1049,6 +1003,7 @@ export default function LogCookScreen() {
               <Text style={[gp.clearBtnText, { color: colors.mutedForeground }]}>Clear selection</Text>
             </TouchableOpacity>
           )}
+          </View>
         </View>
       </Modal>
 
@@ -1059,8 +1014,9 @@ export default function LogCookScreen() {
         animationType="slide"
         onRequestClose={() => setGrillPickerVisible(false)}
       >
-        <Pressable style={gp.overlay} onPress={() => setGrillPickerVisible(false)} />
-        <View style={[gp.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
+        <View style={gp.modalWrap}>
+          <Pressable style={gp.backdrop} onPress={() => setGrillPickerVisible(false)} />
+          <View style={[gp.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
           <View style={[gp.handle, { backgroundColor: colors.border }]} />
           <Text style={[gp.title, { color: colors.foreground }]}>Select Grill / Smoker</Text>
 
@@ -1118,6 +1074,7 @@ export default function LogCookScreen() {
               <Text style={[gp.clearBtnText, { color: colors.mutedForeground }]}>Clear selection</Text>
             </TouchableOpacity>
           )}
+          </View>
         </View>
       </Modal>
     </KeyboardAvoidingView>
@@ -1157,24 +1114,19 @@ const s = StyleSheet.create({
   verdictLabel: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: 3 },
   verdictSummary: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
 
-  graphWrap: { borderWidth: 1, padding: 12, overflow: "hidden" },
-  subSection: { borderTopWidth: 1, paddingTop: 12, gap: 0 },
-  subLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5 },
-  probeRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 1, paddingVertical: 10 },
-  probeName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  probeRange: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
-  probeFinish: { fontSize: 22, fontFamily: "Inter_700Bold" },
-  eventRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, borderTopWidth: 1, paddingVertical: 9 },
-  eventIconWrap: { width: 26, height: 26, borderRadius: 6, alignItems: "center", justifyContent: "center", marginTop: 1 },
-  eventDesc: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
-  eventTime: { fontSize: 12, fontFamily: "Inter_500Medium", paddingTop: 4 },
+  summaryCard: { borderWidth: 1, overflow: "hidden" },
+  summaryHeader: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 10 },
+  summaryHeaderText: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#fff" },
+  summaryGrid: { flexDirection: "row", flexWrap: "wrap", paddingVertical: 4 },
+  tipsCard: { borderWidth: 1, overflow: "hidden" },
+
   bulletRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, paddingBottom: 5 },
-  bulletNum: { fontSize: 13, fontFamily: "Inter_700Bold", minWidth: 16 },
   bulletText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 20 },
-  detectedCard: { borderWidth: 1, padding: 12, gap: 8 },
-  detectedHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
-  detectedTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  detectedGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  tipNum: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center", marginTop: 1 },
+  tipNumText: { fontSize: 11, fontFamily: "Inter_700Bold" },
+
+  graphWrap: { borderWidth: 1, padding: 12, overflow: "hidden" },
+  subLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5 },
   infoRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   infoText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
 
@@ -1204,6 +1156,8 @@ const s = StyleSheet.create({
 });
 
 const gp = StyleSheet.create({
+  modalWrap: { flex: 1, justifyContent: "flex-end" },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
   sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 10, paddingHorizontal: 16, maxHeight: "80%" },
   handle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 14 },
