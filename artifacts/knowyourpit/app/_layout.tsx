@@ -43,8 +43,8 @@ const asyncStoragePersister = createAsyncStoragePersister({
 });
 
 // EXPO_PUBLIC_API_URL: set to the deployed API server URL for production builds.
-// Current deployed URL: "https://6583df0b-1166-4042-a222-d49fbda4017d-00-lgd8ruzq76oq-ufrk6h68.janeway.replit.dev"
-// (already set in eas.json build.production.env — update here and in eas.json if the domain changes)
+// Deploy the API Server artifact in Replit to get a stable *.replit.app domain, then update
+// eas.json build.production.env.EXPO_PUBLIC_API_URL (see APPSTORE_CHECKLIST.md Step 1).
 // In development (Replit), EXPO_PUBLIC_DOMAIN is used as a fallback.
 const apiBaseUrl =
   process.env.EXPO_PUBLIC_API_URL ??

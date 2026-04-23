@@ -20,7 +20,8 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "KnowYourPit uses your location to show the current outdoor temperature during live cook sessions.",
         "NSPhotoLibraryUsageDescription": "KnowYourPit accesses your photo library so you can scan cook progress images for AI temperature analysis.",
-        "NSCameraUsageDescription": "KnowYourPit uses your camera to capture cook progress images for AI temperature analysis."
+        "NSCameraUsageDescription": "KnowYourPit uses your camera to capture cook progress images for AI temperature analysis.",
+        "NSUserNotificationUsageDescription": "KnowYourPit sends you alerts when your probe hits the target temperature and reminders to add fuel during long cooks."
       }
     },
     "android": {
@@ -37,7 +38,8 @@
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.SCHEDULE_EXACT_ALARM",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -74,6 +76,11 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "privacyPolicyUrl": "https://6583df0b-1166-4042-a222-d49fbda4017d-00-lgd8ruzq76oq-ufrk6h68.janeway.replit.dev/privacy"
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE_WITH_YOUR_EAS_PROJECT_ID"
+      }
+    },
+    "privacyPolicyUrl": "https://REPLACE_WITH_DEPLOYED_API_URL/privacy"
   }
 }
