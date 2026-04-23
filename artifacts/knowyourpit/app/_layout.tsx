@@ -7,7 +7,10 @@ import {
 } from "@expo-google-fonts/inter";
 import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache as nativeTokenCache } from "@clerk/expo/token-cache";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
@@ -21,10 +24,24 @@ import { setBaseUrl, setAuthTokenGetter, patchAlert, listAlerts } from "@workspa
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { useServerStatus } from "@/hooks/useServerStatus";
+import { CACHE_STORAGE_KEY } from "@/constants/cache";
 
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient();
+const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24; // 24 hours
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      gcTime: CACHE_MAX_AGE_MS,
+    },
+  },
+});
+
+const asyncStoragePersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  key: CACHE_STORAGE_KEY,
+});
 
 // EXPO_PUBLIC_API_URL: set to the deployed API server URL for production builds.
 // Current deployed URL: "https://6583df0b-1166-4042-a222-d49fbda4017d-00-lgd8ruzq76oq-ufrk6h68.janeway.replit.dev"
@@ -188,11 +205,14 @@ export default function RootLayout() {
     >
       <SafeAreaProvider>
         <ErrorBoundary>
-          <QueryClientProvider client={queryClient}>
+          <PersistQueryClientProvider
+            client={queryClient}
+            persistOptions={{ persister: asyncStoragePersister, maxAge: CACHE_MAX_AGE_MS }}
+          >
             <GestureHandlerRootView style={{ flex: 1 }}>
               <RootLayoutNav />
             </GestureHandlerRootView>
-          </QueryClientProvider>
+          </PersistQueryClientProvider>
         </ErrorBoundary>
       </SafeAreaProvider>
     </ClerkProvider>

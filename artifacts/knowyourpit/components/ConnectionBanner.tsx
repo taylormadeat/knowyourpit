@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { ServerStatus } from "@/hooks/useServerStatus";
+import { useLastUpdated } from "@/hooks/useLastUpdated";
 
 type ConnectionBannerProps = {
   status: ServerStatus;
@@ -18,6 +19,7 @@ export function ConnectionBanner({ status, onRetry }: ConnectionBannerProps) {
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-BANNER_HEIGHT)).current;
   const visible = status === "unreachable";
+  const lastUpdated = useLastUpdated();
 
   useEffect(() => {
     Animated.timing(translateY, {
@@ -28,6 +30,10 @@ export function ConnectionBanner({ status, onRetry }: ConnectionBannerProps) {
   }, [visible, translateY]);
 
   if (status === "unknown") return null;
+
+  const bannerLabel = lastUpdated
+    ? `Offline — last updated ${lastUpdated}`
+    : "Can't reach server — check your connection";
 
   return (
     <Animated.View
@@ -46,7 +52,7 @@ export function ConnectionBanner({ status, onRetry }: ConnectionBannerProps) {
       <View style={styles.inner}>
         <Feather name="wifi-off" size={14} color={colors.destructiveForeground} />
         <Text style={[styles.label, { color: colors.destructiveForeground }]}>
-          Can't reach server — check your connection
+          {bannerLabel}
         </Text>
         <Pressable
           onPress={onRetry}

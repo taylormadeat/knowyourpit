@@ -12,9 +12,12 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useUser, useClerk } from "@clerk/expo";
+import { useQueryClient } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/useColors";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
+import { CACHE_STORAGE_KEY } from "@/constants/cache";
 
 const MENU_SECTIONS = [
   {
@@ -38,6 +41,7 @@ export default function MoreScreen() {
   const router = useRouter();
   const { user } = useUser();
   const { signOut } = useClerk();
+  const qc = useQueryClient();
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
@@ -48,7 +52,11 @@ export default function MoreScreen() {
       {
         text: "Sign Out",
         style: "destructive",
-        onPress: () => signOut(),
+        onPress: async () => {
+          qc.clear();
+          await AsyncStorage.removeItem(CACHE_STORAGE_KEY).catch(() => {});
+          signOut();
+        },
       },
     ]);
   };
