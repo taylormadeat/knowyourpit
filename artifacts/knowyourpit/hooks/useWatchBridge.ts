@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Notifications from "expo-notifications";
 import type { Cook } from "@workspace/api-client-react";
 import { WatchConnectivity } from "../modules/watch-connectivity";
 
@@ -135,6 +136,12 @@ export function useWatchBridge() {
       insights?.tips?.[0] ?? "Ask PitMaster what to do next.";
 
     const fuelConfig = await readFuelTimer();
+    const lastFuelAdded = await AsyncStorage.getItem("knowyourpit:lastFuelAdded").catch(
+      () => null
+    );
+    const fuelElapsedMinutes = lastFuelAdded
+      ? Math.floor((Date.now() - new Date(lastFuelAdded).getTime()) / 60_000)
+      : 0;
 
     const cookPayload = cook
       ? {
@@ -163,7 +170,7 @@ export function useWatchBridge() {
       },
       fuelTimer: {
         intervalMinutes: fuelConfig.intervalMinutes,
-        elapsedMinutes: 0,
+        elapsedMinutes: Math.min(fuelElapsedMinutes, fuelConfig.intervalMinutes),
         fuelType: fuelConfig.fuelType,
       },
       pitMaster: {
@@ -253,9 +260,22 @@ export function useWatchBridge() {
         return;
       }
 
+      if (action === "openApp") {
+        // Watch requested the user open the phone app. Schedule an immediate
+        // local notification — tapping it foregrounds KnowYourPit on iPhone.
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "KnowYourPit",
+            body: "Tap to continue on your iPhone.",
+          },
+          trigger: null,
+        }).catch(() => null);
+        return;
+      }
+
       if (action === "fuelAdded") {
-        // Fuel reset is tracked locally on the Watch; record the timestamp on
-        // the phone so the next context push sends elapsedMinutes: 0.
+        // Record the timestamp on the phone so the next context push can
+        // compute the real elapsed minutes since last fuel addition.
         await AsyncStorage.setItem(
           "knowyourpit:lastFuelAdded",
           new Date().toISOString()
