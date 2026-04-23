@@ -127,6 +127,10 @@ export default function GrillsScreen() {
       Alert.alert("Required", "Enter a grill name");
       return;
     }
+    if (!grillType) {
+      Alert.alert("Required", "Select a grill type");
+      return;
+    }
     try {
       await createGrill.mutateAsync({
         data: {

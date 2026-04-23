@@ -7,6 +7,7 @@ export const grillsTable = pgTable("grills", {
   userId: text("user_id"),
   name: text("name").notNull(),
   type: text("type").notNull(),
+  fuelType: text("fuel_type"),
   brand: text("brand"),
   model: text("model"),
   description: text("description"),

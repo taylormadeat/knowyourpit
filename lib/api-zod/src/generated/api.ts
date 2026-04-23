@@ -23,6 +23,7 @@ export const ListGrillsResponseItem = zod.object({
   type: zod
     .string()
     .describe("charcoal, gas, pellet, electric, smoker, kamado, offset, etc."),
+  fuelType: zod.string().nullable(),
   brand: zod.string().nullable(),
   model: zod.string().nullable(),
   description: zod.string().nullable(),
@@ -47,6 +48,7 @@ export const ListGrillsResponse = zod.array(ListGrillsResponseItem);
 export const CreateGrillBody = zod.object({
   name: zod.string(),
   type: zod.string(),
+  fuelType: zod.string().nullish(),
   brand: zod.string().nullish(),
   model: zod.string().nullish(),
   description: zod.string().nullish(),
@@ -74,6 +76,7 @@ export const GetGrillResponse = zod.object({
   type: zod
     .string()
     .describe("charcoal, gas, pellet, electric, smoker, kamado, offset, etc."),
+  fuelType: zod.string().nullable(),
   brand: zod.string().nullable(),
   model: zod.string().nullable(),
   description: zod.string().nullable(),
@@ -101,6 +104,7 @@ export const UpdateGrillParams = zod.object({
 export const UpdateGrillBody = zod.object({
   name: zod.string().nullish(),
   type: zod.string().nullish(),
+  fuelType: zod.string().nullish(),
   brand: zod.string().nullish(),
   model: zod.string().nullish(),
   description: zod.string().nullish(),
@@ -121,6 +125,7 @@ export const UpdateGrillResponse = zod.object({
   type: zod
     .string()
     .describe("charcoal, gas, pellet, electric, smoker, kamado, offset, etc."),
+  fuelType: zod.string().nullable(),
   brand: zod.string().nullable(),
   model: zod.string().nullable(),
   description: zod.string().nullable(),

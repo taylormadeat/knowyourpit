@@ -807,6 +807,9 @@ components:
         type:
           type: string
           description: "charcoal, gas, pellet, electric, smoker, kamado, offset, etc."
+        fuelType:
+          type: ["string", "null"]
+          description: "charcoal, propane, natural gas, wood pellet, electric, wood, etc."
         brand:
           type: ["string", "null"]
         model:
@@ -866,6 +869,8 @@ components:
           type: string
         type:
           type: string
+        fuelType:
+          type: ["string", "null"]
         brand:
           type: ["string", "null"]
         model:
@@ -900,6 +905,8 @@ components:
         name:
           type: ["string", "null"]
         type:
+          type: ["string", "null"]
+        fuelType:
           type: ["string", "null"]
         brand:
           type: ["string", "null"]

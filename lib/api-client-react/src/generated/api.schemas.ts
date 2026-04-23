@@ -14,6 +14,8 @@ export interface Grill {
   name: string;
   /** charcoal, gas, pellet, electric, smoker, kamado, offset, etc. */
   type: string;
+  /** charcoal, propane, natural gas, wood pellet, electric, wood, etc. @nullable */
+  fuelType: string | null;
   /** @nullable */
   brand: string | null;
   /** @nullable */
@@ -47,6 +49,8 @@ export interface CreateGrillBody {
   name: string;
   type: string;
   /** @nullable */
+  fuelType?: string | null;
+  /** @nullable */
   brand?: string | null;
   /** @nullable */
   model?: string | null;
@@ -77,6 +81,8 @@ export interface UpdateGrillBody {
   name?: string | null;
   /** @nullable */
   type?: string | null;
+  /** @nullable */
+  fuelType?: string | null;
   /** @nullable */
   brand?: string | null;
   /** @nullable */
