@@ -59,6 +59,38 @@ KnowYourPit is a comprehensive BBQ planning and management app powered by AI. Us
 - `AI_INTEGRATIONS_OPENAI_API_KEY` — OpenAI API key (auto-provisioned)
 - `SESSION_SECRET` — Session secret
 
+## Apple Watch Companion App
+
+The Watch app is implemented as a native WatchKit Extension built via EAS Build. It cannot run in Expo Go.
+
+### Architecture
+- **Config plugin**: `artifacts/knowyourpit/plugins/with-watch-app/index.ts` — run during `expo prebuild` to inject the Watch targets into the Xcode project
+- **Swift source files**: `artifacts/knowyourpit/plugins/with-watch-app/WatchExtension/` — 5 SwiftUI screens + WCSession delegate + data model
+- **Native module**: `artifacts/knowyourpit/modules/watch-connectivity/` — Expo module exposing WCSession to JS (`updateApplicationContext`, `sendMessage`, events)
+- **Phone bridge**: `artifacts/knowyourpit/hooks/useWatchBridge.ts` — polls API every 15 s, detects stalls, pushes data to Watch. Called in `_layout.tsx` (no-op on Android/web)
+
+### 5 Watch Screens
+1. **Active Cook** — probe temp hero, cook name, elapsed time, estimated finish
+2. **Start / Stop Cook** — hold-to-stop (2 s), mark done, start planned cook
+3. **PitMaster AI** — latest AI insight + Siri Dictation → /api/ai/chat
+4. **Stall Alert** — amber alert when probe flatlines 30+ min; Wrap It / Ride It Out
+5. **Fuel Timer** — countdown ring for wood/charcoal add reminders; one-tap reset
+
+### Data flow
+Phone polls API → `useWatchBridge` → `WatchConnectivity.updateApplicationContext` → WCSession → Watch `WatchSessionDelegate` → `WatchDataModel` → SwiftUI views
+
+Watch actions (stop cook, ask PitMaster, etc.) → WCSession message → `onWatchMessage` event → `useWatchBridge` handler → API mutation
+
+### Build requirements
+- Apple Developer account with Watch extension bundle IDs registered:
+  - `com.knowyourpit.app.watchkitapp`
+  - `com.knowyourpit.app.watchkitextension`
+- App Group: `group.com.knowyourpit.app` (shared keychain for auth relay)
+- EAS Build: `eas build --platform ios --profile production`
+- Targets watchOS 7+, Apple Watch Series 4+ (41mm and 45mm)
+
+---
+
 ## Deploying the API Server
 
 The API server (`artifacts/api-server`) must be published via Replit's Publish feature before running a production EAS build of the mobile app.
