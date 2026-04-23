@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
   Pressable,
   TextInput,
@@ -11,7 +10,9 @@ import {
   Alert,
   Modal,
   FlatList,
+  ScrollView,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -731,7 +732,7 @@ export default function PlanScreen() {
         </Pressable>
       )}
 
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: botPad + 120 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -1279,7 +1280,7 @@ export default function PlanScreen() {
             </>
           )}
         </Pressable>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* ════ MEAT PICKER MODAL ════ */}
       <Modal

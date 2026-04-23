@@ -12,22 +12,27 @@ type ConnectionBannerProps = {
   onRetry: () => void;
 };
 
-const BANNER_HEIGHT = 44;
+const CONTENT_HEIGHT = 44;
 
 export function ConnectionBanner({ status, onRetry }: ConnectionBannerProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const translateY = useRef(new Animated.Value(-BANNER_HEIGHT)).current;
   const visible = status === "unreachable";
   const lastUpdated = useLastUpdated();
 
+  // Total banner height = safe-area top + visible content strip
+  const totalHeight = insets.top + CONTENT_HEIGHT;
+
+  // Start fully above the screen; slide down to 0 when visible
+  const translateY = useRef(new Animated.Value(-totalHeight)).current;
+
   useEffect(() => {
     Animated.timing(translateY, {
-      toValue: visible ? 0 : -BANNER_HEIGHT,
+      toValue: visible ? 0 : -totalHeight,
       duration: 280,
       useNativeDriver: true,
     }).start();
-  }, [visible, translateY]);
+  }, [visible, totalHeight]);
 
   if (status === "unknown") return null;
 
@@ -41,7 +46,8 @@ export function ConnectionBanner({ status, onRetry }: ConnectionBannerProps) {
         styles.banner,
         {
           backgroundColor: colors.destructive,
-          top: insets.top,
+          height: totalHeight,
+          paddingTop: insets.top,
           transform: [{ translateY }],
         },
       ]}
@@ -73,14 +79,15 @@ export function ConnectionBanner({ status, onRetry }: ConnectionBannerProps) {
 const styles = StyleSheet.create({
   banner: {
     position: "absolute",
+    top: 0,
     left: 0,
     right: 0,
-    height: BANNER_HEIGHT,
     zIndex: 9999,
     elevation: 20,
-    justifyContent: "center",
+    justifyContent: "flex-end",
   },
   inner: {
+    height: CONTENT_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
