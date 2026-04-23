@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, cooksTable, grillsTable } from "@workspace/db";
+import { db, cooksTable, grillsTable, alertsTable } from "@workspace/db";
 import {
   CreateCookBody,
   UpdateCookBody,
@@ -132,13 +132,14 @@ router.delete("/cooks/:id", requireAuth, async (req: any, res): Promise<void> =>
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const [deleted] = await db.delete(cooksTable)
-    .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)))
-    .returning();
-  if (!deleted) {
+  const [cook] = await db.select().from(cooksTable)
+    .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)));
+  if (!cook) {
     res.status(404).json({ error: "Cook not found" });
     return;
   }
+  await db.delete(alertsTable).where(eq(alertsTable.cookId, params.data.id));
+  await db.delete(cooksTable).where(eq(cooksTable.id, params.data.id));
   res.sendStatus(204);
 });
 

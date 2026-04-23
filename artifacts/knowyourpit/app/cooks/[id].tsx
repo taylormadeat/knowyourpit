@@ -222,6 +222,16 @@ type AnalysisResult = {
   decisions: Decision[];
 };
 
+function getOutdoorTempEffect(tempF: number | null): string | null {
+  if (tempF == null) return null;
+  if (tempF < 20) return "Extreme cold — expect 30%+ longer cook times. Pit will struggle to hold temp.";
+  if (tempF < 40) return "Cold conditions — allow 20-25% extra cook time. Use windbreaks and monitor closely.";
+  if (tempF < 55) return "Cool weather — preheat thoroughly and budget 10-15% extra time.";
+  if (tempF < 80) return "Good conditions. No major weather adjustments needed.";
+  if (tempF < 95) return "Warm day — pit temps may run hot. Check vents frequently.";
+  return "Very hot — your pit needs less fuel. Watch for temperature spikes.";
+}
+
 export default function CookDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -365,7 +375,7 @@ export default function CookDetailScreen() {
   };
 
   useEffect(() => {
-    if (!userTempEdited && meaterProbes.length > 0 && meaterProbes[0].internalTempF != null) {
+    if (meaterProbes.length > 0 && meaterProbes[0].internalTempF != null) {
       setUserTempInput(String(meaterProbes[0].internalTempF));
     }
     if (meaterProbes.length > 0 && meaterProbes[0].internalTempF != null) {
@@ -511,11 +521,15 @@ export default function CookDetailScreen() {
       {
         text: "Delete", style: "destructive",
         onPress: async () => {
-          await deleteCook.mutateAsync({ id: Number(id) });
-          qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
-          qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
-          qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
-          goBack();
+          try {
+            await deleteCook.mutateAsync({ id: Number(id) });
+            qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+            qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+            qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+            goBack();
+          } catch (e: any) {
+            Alert.alert("Delete Failed", e?.message ?? "Could not delete this cook. Please try again.");
+          }
         },
       },
     ]);
@@ -1280,32 +1294,39 @@ export default function CookDetailScreen() {
 
             {/* Outdoor temperature strip */}
             {!weather.locationDenied && (
-              <View style={[s.weatherStrip, { borderTopColor: colors.border, borderBottomColor: colors.border }]}>
-                <Feather
-                  name={weatherIcon(weather.conditionCode) as any}
-                  size={14}
-                  color={colors.mutedForeground}
-                />
-                {weather.loading ? (
-                  <Text style={[s.weatherText, { color: colors.mutedForeground }]}>
-                    Fetching outdoor temp…
-                  </Text>
-                ) : weather.error ? (
-                  <Text style={[s.weatherText, { color: colors.mutedForeground }]}>
-                    Outdoor temp unavailable
-                  </Text>
-                ) : weather.tempF != null ? (
-                  <>
-                    <Text style={[s.weatherTemp, { color: colors.foreground }]}>
-                      {weather.tempF}°F outdoors
+              <View style={[s.weatherStrip, { borderTopColor: colors.border, borderBottomColor: colors.border, flexDirection: "column", alignItems: "flex-start", gap: 4 }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+                  <Feather
+                    name={weatherIcon(weather.conditionCode) as any}
+                    size={14}
+                    color={colors.mutedForeground}
+                  />
+                  {weather.loading ? (
+                    <Text style={[s.weatherText, { color: colors.mutedForeground }]}>
+                      Fetching outdoor temp…
                     </Text>
-                    {weatherDescription(weather.conditionCode) && (
-                      <Text style={[s.weatherCondition, { color: colors.mutedForeground }]}>
-                        · {weatherDescription(weather.conditionCode)}
+                  ) : weather.error ? (
+                    <Text style={[s.weatherText, { color: colors.mutedForeground }]}>
+                      Outdoor temp unavailable
+                    </Text>
+                  ) : weather.tempF != null ? (
+                    <>
+                      <Text style={[s.weatherTemp, { color: colors.foreground }]}>
+                        {weather.tempF}°F outdoors
                       </Text>
-                    )}
-                  </>
-                ) : null}
+                      {weatherDescription(weather.conditionCode) && (
+                        <Text style={[s.weatherCondition, { color: colors.mutedForeground }]}>
+                          · {weatherDescription(weather.conditionCode)}
+                        </Text>
+                      )}
+                    </>
+                  ) : null}
+                </View>
+                {getOutdoorTempEffect(weather.tempF) && (
+                  <Text style={[s.weatherText, { color: colors.mutedForeground, fontStyle: "italic" }]}>
+                    {getOutdoorTempEffect(weather.tempF)}
+                  </Text>
+                )}
               </View>
             )}
 
