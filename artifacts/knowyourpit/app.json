@@ -14,21 +14,46 @@
       "backgroundColor": "#232327"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.knowyourpit.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "KnowYourPit uses your location to show the current outdoor temperature during live cook sessions.",
+        "NSPhotoLibraryUsageDescription": "KnowYourPit accesses your photo library so you can scan cook progress images for AI temperature analysis.",
+        "NSCameraUsageDescription": "KnowYourPit uses your camera to capture cook progress images for AI temperature analysis."
+      }
     },
-    "android": {},
+    "android": {
+      "package": "com.knowyourpit.app"
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-web-browser",
       [
-        "expo-router",
+        "expo-notifications",
         {
-          "origin": "https://replit.com/"
+          "icon": "./assets/images/icon.png",
+          "color": "#232327",
+          "sounds": []
         }
       ],
-      "expo-font",
-      "expo-web-browser"
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "KnowYourPit uses your location to show the current outdoor temperature during live cook sessions."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "KnowYourPit accesses your photo library so you can scan cook progress images for AI temperature analysis.",
+          "cameraPermission": "KnowYourPit uses your camera to capture cook progress images for AI temperature analysis."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

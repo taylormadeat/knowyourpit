@@ -24,7 +24,13 @@ SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
-setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
+// EXPO_PUBLIC_API_URL: set this to your deployed API server URL before running
+// a production build, e.g. "https://api.knowyourpit.com".
+// In development (Replit), EXPO_PUBLIC_DOMAIN is used as a fallback.
+const apiBaseUrl =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
+setBaseUrl(apiBaseUrl);
 
 const clerkPubKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL ?? "";
