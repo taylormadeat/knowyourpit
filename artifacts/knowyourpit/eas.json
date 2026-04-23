@@ -35,7 +35,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://6583df0b-1166-4042-a222-d49fbda4017d-00-lgd8ruzq76oq.janeway.replit.dev",
+        "EXPO_PUBLIC_API_URL": "https://pitking.replit.app",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD": "REPLACE_WITH_YOUR_PRODUCTION_CLERK_KEY"
       }
     }
