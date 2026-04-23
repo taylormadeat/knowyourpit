@@ -16,18 +16,18 @@ export function useServerStatus(baseUrl: string): {
   const check = useCallback(async () => {
     if (!baseUrl || checkingRef.current) return;
     checkingRef.current = true;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-      const res = await fetch(`${baseUrl}/health`, {
+      const res = await fetch(`${baseUrl}/api/healthz`, {
         signal: controller.signal,
         cache: "no-store",
       });
-      clearTimeout(timeout);
       setStatus(res.ok ? "reachable" : "unreachable");
     } catch {
       setStatus("unreachable");
     } finally {
+      clearTimeout(timeout);
       checkingRef.current = false;
     }
   }, [baseUrl]);
