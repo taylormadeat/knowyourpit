@@ -30,7 +30,9 @@ export function useLastUpdated(): string | null {
     setLabel(computeLabel(queryClient));
 
     const unsub = queryClient.getQueryCache().subscribe(() => {
-      setLabel(computeLabel(queryClient));
+      // Defer to avoid "setState during render" errors — cache subscribers
+      // can fire synchronously while another component is mid-render.
+      setTimeout(() => setLabel(computeLabel(queryClient)), 0);
     });
 
     const interval = setInterval(() => {
