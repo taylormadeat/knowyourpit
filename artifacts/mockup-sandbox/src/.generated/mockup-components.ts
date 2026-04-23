@@ -6,5 +6,7 @@ export const modules: ModuleMap = {
   "./components/mockups/watch-screens/MainCookView.tsx": () => import("../components/mockups/watch-screens/MainCookView.tsx"),
   "./components/mockups/watch-screens/WatchActiveCook.tsx": () => import("../components/mockups/watch-screens/WatchActiveCook.tsx"),
   "./components/mockups/watch-screens/WatchCookControl.tsx": () => import("../components/mockups/watch-screens/WatchCookControl.tsx"),
-  "./components/mockups/watch-screens/WatchPitMaster.tsx": () => import("../components/mockups/watch-screens/WatchPitMaster.tsx")
+  "./components/mockups/watch-screens/WatchFuelTimer.tsx": () => import("../components/mockups/watch-screens/WatchFuelTimer.tsx"),
+  "./components/mockups/watch-screens/WatchPitMaster.tsx": () => import("../components/mockups/watch-screens/WatchPitMaster.tsx"),
+  "./components/mockups/watch-screens/WatchStallAlert.tsx": () => import("../components/mockups/watch-screens/WatchStallAlert.tsx")
 };
