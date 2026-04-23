@@ -6,6 +6,7 @@ import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxy
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { PRIVACY_POLICY_HTML } from "./privacy-policy";
+import { SUPPORT_PAGE_HTML } from "./support-page";
 
 const app: Express = express();
 
@@ -17,6 +18,12 @@ app.get("/privacy", (_req, res) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=86400");
   res.status(200).send(PRIVACY_POLICY_HTML);
+});
+
+app.get("/support", (_req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.status(200).send(SUPPORT_PAGE_HTML);
 });
 
 app.use(

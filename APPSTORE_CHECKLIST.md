@@ -146,7 +146,7 @@ Use the Simulator or a physical device to capture screenshots of:
 
 - **Description** (up to 4,000 characters)
 - **Keywords** (100 characters, comma-separated) — e.g. `bbq,smoker,grill,pitmaster,thermometer,cook,brisket,pork`
-- **Support URL** — a working URL where users can get help (you can point this to `https://YOUR_API_DOMAIN/privacy` initially or a contact page)
+- **Support URL** — `https://YOUR_API_DOMAIN/support` (live once you complete Step 1 — includes a contact email and FAQ)
 - **Age Rating** — answer the questionnaire (KnowYourPit rates 4+)
 - **Category** — Food & Drink (primary), Utilities (secondary)
 - **Privacy Policy URL** — `https://YOUR_API_DOMAIN/privacy` (already live once you complete Step 1)
