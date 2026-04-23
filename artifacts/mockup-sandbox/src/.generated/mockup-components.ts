@@ -3,5 +3,8 @@ type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 export const modules: ModuleMap = {
   "./components/mockups/watch-screens/AlertView.tsx": () => import("../components/mockups/watch-screens/AlertView.tsx"),
   "./components/mockups/watch-screens/ComplicationView.tsx": () => import("../components/mockups/watch-screens/ComplicationView.tsx"),
-  "./components/mockups/watch-screens/MainCookView.tsx": () => import("../components/mockups/watch-screens/MainCookView.tsx")
+  "./components/mockups/watch-screens/MainCookView.tsx": () => import("../components/mockups/watch-screens/MainCookView.tsx"),
+  "./components/mockups/watch-screens/WatchActiveCook.tsx": () => import("../components/mockups/watch-screens/WatchActiveCook.tsx"),
+  "./components/mockups/watch-screens/WatchCookControl.tsx": () => import("../components/mockups/watch-screens/WatchCookControl.tsx"),
+  "./components/mockups/watch-screens/WatchPitMaster.tsx": () => import("../components/mockups/watch-screens/WatchPitMaster.tsx")
 };
