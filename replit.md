@@ -59,4 +59,39 @@ KnowYourPit is a comprehensive BBQ planning and management app powered by AI. Us
 - `AI_INTEGRATIONS_OPENAI_API_KEY` — OpenAI API key (auto-provisioned)
 - `SESSION_SECRET` — Session secret
 
+## Deploying the API Server
+
+The API server (`artifacts/api-server`) must be published via Replit's Publish feature before running a production EAS build of the mobile app.
+
+### Steps to deploy
+
+1. Click the **Publish** button in the Replit header (or re-publish if already deployed).
+2. After publishing, your deployed URL appears in the Replit header — it follows the pattern:
+   `https://<your-replit-app>.replit.app`
+3. Verify the health check returns 200 from the deployed URL:
+   `GET https://<your-replit-app>.replit.app/health` → `{"status":"ok"}`
+
+The API server is currently deployed and serving traffic (confirmed via deployment logs:
+`GET /api/healthz` returns 200, DB-backed routes return correct responses).
+
+### Setting EXPO_PUBLIC_API_URL for EAS builds
+
+Before running `eas build --profile production`, update `artifacts/knowyourpit/eas.json` to set `EXPO_PUBLIC_API_URL` to your deployed API server's root URL:
+
+```json
+"EXPO_PUBLIC_API_URL": "https://<your-replit-app>.replit.app"
+```
+
+Or pass it as an EAS secret:
+```
+eas secret:create EXPO_PUBLIC_API_URL https://<your-replit-app>.replit.app
+```
+
+The mobile app prepends this base URL to all API calls (e.g., `/api/grills`, `/api/cooks`).
+
+### Health check endpoints
+
+- `GET /health` — top-level health check (used by Replit deployment)
+- `GET /api/healthz` — API-prefixed health check
+
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
