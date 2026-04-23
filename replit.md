@@ -96,4 +96,16 @@ The mobile app prepends this base URL to all API calls (e.g., `/api/grills`, `/a
 - `GET /health` — top-level health check (used by Replit deployment)
 - `GET /api/healthz` — API-prefixed health check
 
+### Privacy policy
+
+The privacy policy is served at `GET /privacy` (no auth required). The current URL is:
+
+```
+https://6583df0b-1166-4042-a222-d49fbda4017d-00-lgd8ruzq76oq-ufrk6h68.janeway.replit.dev/privacy
+```
+
+This URL is also set in `artifacts/knowyourpit/app.json` under `expo.privacyPolicyUrl`. If the deployed domain changes (see Task #58), update both this entry and `app.json`.
+
+Use this URL when filling in the privacy policy field in App Store Connect and Google Play Console.
+
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
