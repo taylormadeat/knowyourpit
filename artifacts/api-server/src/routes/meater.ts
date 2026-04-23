@@ -135,15 +135,14 @@ router.get("/meater/readings", requireAuth, async (req: any, res): Promise<void>
 
     const toF = (c: number) => Math.round((c * 9) / 5 + 32);
 
-    // Include ALL devices that have temperature data — either from an active
-    // MEATER-app cook session (d.cook.temperature) or from the raw device
-    // temperature (d.temperature). This way probes show live readings even when
-    // the user hasn't started a cook inside the MEATER app itself.
-    const readableDevices = devices.filter((d: any) => {
-      const hasRawTemp = d.temperature?.internal != null;
-      const hasCookTemp = d.cook?.temperature?.internal != null;
-      return hasRawTemp || hasCookTemp;
-    });
+    // Only surface devices that have an active cook session running inside
+    // the MEATER app itself. Idle probes that are merely powered on will have
+    // raw d.temperature data but no d.cook — we deliberately exclude those so
+    // that temperatures never appear in KnowYourPit unless the user has
+    // intentionally started a cook in the MEATER app.
+    const readableDevices = devices.filter((d: any) =>
+      d.cook?.temperature?.internal != null
+    );
 
     if (readableDevices.length === 0) {
       res.json({ linked: true, probes: [] });
@@ -151,8 +150,7 @@ router.get("/meater/readings", requireAuth, async (req: any, res): Promise<void>
     }
 
     const probes = readableDevices.map((d: any) => {
-      // Prefer cook-session temps (more accurate with target), fall back to raw device temps
-      const tempSrc = d.cook?.temperature ?? d.temperature ?? {};
+      const tempSrc = d.cook.temperature;
       return {
         deviceId: d.id,
         deviceName: d.name ?? "MEATER Probe",
