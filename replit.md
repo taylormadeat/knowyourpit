@@ -76,15 +76,17 @@ The API server is currently deployed and serving traffic (confirmed via deployme
 
 ### Setting EXPO_PUBLIC_API_URL for EAS builds
 
-Before running `eas build --profile production`, update `artifacts/knowyourpit/eas.json` to set `EXPO_PUBLIC_API_URL` to your deployed API server's root URL:
+`artifacts/knowyourpit/eas.json` has `EXPO_PUBLIC_API_URL` set in `build.production.env` to the confirmed live deployed URL:
 
-```json
-"EXPO_PUBLIC_API_URL": "https://<your-replit-app>.replit.app"
+```
+https://6583df0b-1166-4042-a222-d49fbda4017d-00-lgd8ruzq76oq-ufrk6h68.janeway.replit.dev
 ```
 
-Or pass it as an EAS secret:
+If the project is later re-deployed under a new `.replit.app` custom domain, update this value in `eas.json` and in the comment at the top of `artifacts/knowyourpit/app/_layout.tsx`.
+
+Alternatively, pass it as an EAS secret instead of hardcoding in eas.json:
 ```
-eas secret:create EXPO_PUBLIC_API_URL https://<your-replit-app>.replit.app
+eas secret:create EXPO_PUBLIC_API_URL <deployed-url>
 ```
 
 The mobile app prepends this base URL to all API calls (e.g., `/api/grills`, `/api/cooks`).
