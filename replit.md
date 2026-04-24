@@ -89,6 +89,9 @@ Watch actions (stop cook, ask PitMaster, etc.) → WCSession message → `onWatc
 - EAS Build: `eas build --platform ios --profile production` — **must be run from `artifacts/knowyourpit/`**, never from the repo root (see "EAS / Expo command location" below)
 - Targets watchOS 7+, Apple Watch Series 4+ (41mm and 45mm)
 
+### iOS resource bundle signing — `ios.appleTeamId` is required
+`artifacts/knowyourpit/app.json` must keep `expo.ios.appleTeamId: "W8AY23XJTF"` set. Xcode 14+ signs every CocoaPods resource bundle target by default, and Expo prebuild only writes `DEVELOPMENT_TEAM` into the generated Xcode project (and the Podfile `post_install` hook that propagates it to bundle targets) when this field is present in app config. The watch-app config plugin's three targets also reference `$(DEVELOPMENT_TEAM)` and rely on the same field. Removing it will cause EAS iOS production builds to fail with "Starting from Xcode 14, resource bundles are signed by default…". The same team ID must continue to match `eas.json`'s `submit.production.ios.appleTeamId`.
+
 ---
 
 ## EAS / Expo command location (important — read before running eas or expo commands)
