@@ -111,12 +111,19 @@ for scope_dir in "$REPO_ROOT/artifacts/knowyourpit/node_modules"/@*; do
   done
 done
 
-# Sanity check: confirm every plugin referenced by app.json resolves from the
-# repo root. Fail fast with a clear remediation so the next failure mode
-# (cryptic "Failed to resolve plugin..." from Expo deep in the build) becomes
-# deterministic. Required plugins are derived from the current app.json plugin
-# list — keep this in sync if the list grows or shrinks.
-REQUIRED_PLUGINS="expo-router expo-font expo-web-browser expo-notifications expo-location expo-image-picker"
+# Sanity check: confirm every node-modules plugin referenced by app.json
+# resolves from the repo root. Fail fast with a clear remediation so the next
+# failure mode (cryptic "Failed to resolve plugin..." from Expo deep in the
+# build) becomes deterministic. The plugin list is extracted dynamically from
+# app.json so this check stays in sync as plugins are added/removed.
+REQUIRED_PLUGINS="$(node -e '
+  const cfg = require("./artifacts/knowyourpit/app.json");
+  const plugins = (cfg.expo && cfg.expo.plugins) || [];
+  const names = plugins
+    .map(p => Array.isArray(p) ? p[0] : p)
+    .filter(name => typeof name === "string" && !name.startsWith("./") && !name.startsWith("../"));
+  console.log(names.join(" "));
+' 2>/dev/null || echo "")"
 MISSING_PLUGINS=""
 for plugin in $REQUIRED_PLUGINS; do
   if [ ! -e "$REPO_ROOT/node_modules/$plugin/package.json" ]; then
