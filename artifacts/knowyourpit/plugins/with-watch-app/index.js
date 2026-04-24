@@ -328,12 +328,46 @@ const withWidgetKitFramework = (config) => (0, config_plugins_1.withXcodeProject
     });
     return mod;
 });
+/**
+ * Adds a Podfile post_install hook that sets CODE_SIGNING_ALLOWED=NO on all
+ * resource bundle targets. Required for Xcode 14+ which signs resource bundles
+ * by default — without this, EAS builds fail with:
+ * "resource bundles are signed by default, which requires setting the
+ *  development team for each resource bundle target."
+ */
+const withResourceBundleSigning = (config) => (0, config_plugins_1.withDangerousMod)(config, [
+    "ios",
+    async (mod) => {
+        const podfilePath = require("path").join(mod.modRequest.platformProjectRoot, "Podfile");
+        if (!fs_1.default.existsSync(podfilePath))
+            return mod;
+        let podfile = fs_1.default.readFileSync(podfilePath, "utf-8");
+        // Guard: only append once
+        if (podfile.includes("CODE_SIGNING_ALLOWED"))
+            return mod;
+        const hook = `
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    if target.respond_to?(:product_type) && target.product_type == "com.apple.product-type.bundle"
+      target.build_configurations.each do |config|
+        config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+      end
+    end
+  end
+end
+`;
+        podfile += hook;
+        fs_1.default.writeFileSync(podfilePath, podfile, "utf-8");
+        return mod;
+    },
+]);
 const withWatchApp = (config) => {
     config = withAppGroup(config);
     config = withWatchSources(config);
     config = withWatchTargets(config);
     config = withWatchConnectivityFramework(config);
     config = withWidgetKitFramework(config);
+    config = withResourceBundleSigning(config);
     return config;
 };
 exports.default = withWatchApp;
