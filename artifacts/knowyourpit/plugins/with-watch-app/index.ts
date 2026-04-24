@@ -441,14 +441,23 @@ const withResourceBundleSigning: ConfigPlugin = (config) =>
         "  end",
       ].join("\n");
 
-      // Inject inside the existing post_install block, right after its opening line.
-      // Expo SDK 46+ generates a post_install block with react_native_post_install;
-      // we must add our snippet inside it, not as a second top-level block.
+      // Inject inside the existing post_install block, BEFORE its closing `end`.
+      // This ensures our fix runs AFTER react_native_post_install (which can re-enable
+      // signing on bundle targets) and AFTER Expo's own target_installation_results fix.
+      // The post_install block is always the last block in the Expo-generated Podfile,
+      // so the last occurrence of `\nend` is its closing delimiter.
       const openingPattern = /^\s*post_install do \|installer\|/m;
       const match = openingPattern.exec(podfile);
       if (match !== null) {
-        const insertAt = match.index + match[0].length;
-        podfile = podfile.slice(0, insertAt) + snippet + podfile.slice(insertAt);
+        const lastEndIdx = podfile.lastIndexOf("\nend");
+        if (lastEndIdx !== -1) {
+          // Insert before the last closing `end` (closes post_install block)
+          podfile = podfile.slice(0, lastEndIdx) + snippet + podfile.slice(lastEndIdx);
+        } else {
+          // Fallback: insert after opening line (should not occur in practice)
+          const insertAt = match.index + match[0].length;
+          podfile = podfile.slice(0, insertAt) + snippet + podfile.slice(insertAt);
+        }
       } else {
         // Fallback for edge cases where no post_install block exists yet
         podfile += [
