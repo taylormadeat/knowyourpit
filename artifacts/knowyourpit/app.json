@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.knowyourpit.app",
-      "buildNumber": "7",
+      "buildNumber": "8",
       "appleTeamId": "W8AY23XJTF",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "KnowYourPit uses your location to show the current outdoor temperature during live cook sessions.",
@@ -51,6 +51,7 @@
     },
     "plugins": [
       "./plugins/with-watch-app",
+      "./plugins/with-pod-bundle-signing",
       "expo-router",
       "expo-font",
       "expo-web-browser",

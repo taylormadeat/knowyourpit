@@ -89,8 +89,11 @@ Watch actions (stop cook, ask PitMaster, etc.) → WCSession message → `onWatc
 - EAS Build: `eas build --platform ios --profile production` — **must be run from `artifacts/knowyourpit/`**, never from the repo root (see "EAS / Expo command location" below)
 - Targets watchOS 7+, Apple Watch Series 4+ (41mm and 45mm)
 
-### iOS resource bundle signing — `ios.appleTeamId` is required
-`artifacts/knowyourpit/app.json` must keep `expo.ios.appleTeamId: "W8AY23XJTF"` set. Xcode 14+ signs every CocoaPods resource bundle target by default, and Expo prebuild only writes `DEVELOPMENT_TEAM` into the generated Xcode project (and the Podfile `post_install` hook that propagates it to bundle targets) when this field is present in app config. The watch-app config plugin's three targets also reference `$(DEVELOPMENT_TEAM)` and rely on the same field. Removing it will cause EAS iOS production builds to fail with "Starting from Xcode 14, resource bundles are signed by default…". The same team ID must continue to match `eas.json`'s `submit.production.ios.appleTeamId`.
+### iOS resource bundle signing — two-part fix
+EAS iOS builds under Xcode 14+ require both of these to be in place. Removing either will reintroduce the "Starting from Xcode 14, resource bundles are signed by default…" build error:
+
+1. **`expo.ios.appleTeamId: "W8AY23XJTF"` in `artifacts/knowyourpit/app.json`.** Expo prebuild reads this to populate `DEVELOPMENT_TEAM` in the generated Xcode project. The watch-app config plugin's three targets also reference `$(DEVELOPMENT_TEAM)` and rely on the same field. The same team ID must continue to match `eas.json`'s `submit.production.ios.appleTeamId`.
+2. **`./plugins/with-pod-bundle-signing` in the `expo.plugins` array.** The team-ID alone does not propagate to every CocoaPods-generated resource bundle target (e.g., bundles produced by `expo-image`, `expo-notifications`, etc.), so this plugin injects a Podfile `post_install` hook that sets `CODE_SIGNING_ALLOWED = NO` on every `com.apple.product-type.bundle` target. Resource bundles do not need their own signature for App Store submission — the parent app's signature covers them. The plugin is idempotent (looks for a `# PIT_RESOURCE_BUNDLE_SIGNING_FIX` marker before injecting).
 
 ---
 
