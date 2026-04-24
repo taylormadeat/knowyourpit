@@ -5,24 +5,23 @@ import {
   ScrollView,
   StyleSheet,
   Pressable,
-  Platform,
   ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { useTopInset } from "@/hooks/useTopInset";
+import { useBottomInset } from "@/hooks/useBottomInset";
 import { useGetRecipe } from "@workspace/api-client-react";
 
 export default function RecipeDetailScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: recipe, isLoading } = useGetRecipe({ id: Number(id) });
 
-  const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
-  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const topPad = useTopInset();
+  const botPad = useBottomInset();
 
   if (isLoading) {
     return (

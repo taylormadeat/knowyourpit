@@ -12,9 +12,9 @@ import {
 import { useRouter } from "expo-router";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { useBottomInset } from "@/hooks/useBottomInset";
 import { useListAlerts, useDeleteAlert, getListAlertsQueryKey, useListCooks } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -37,7 +37,6 @@ function alertTypeLabel(alertType: string, thresholdTempF: number): string {
 
 export default function AlertsScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const { data: alerts, isLoading } = useListAlerts();
   const { data: cooks } = useListCooks();
@@ -53,7 +52,7 @@ export default function AlertsScreen() {
     return map;
   }, [cooks]);
 
-  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const botPad = useBottomInset();
 
   const handleDelete = (id: number, scheduledNotificationId?: string | null) => {
     Alert.alert("Delete Alert", "Remove this alert?", [

@@ -24,6 +24,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
+import { useTopInset } from "@/hooks/useTopInset";
+import { useBottomInset } from "@/hooks/useBottomInset";
 import { LogoBackground } from "@/components/LogoBackground";
 import { TempGraph } from "@/components/TempGraph";
 import {
@@ -136,8 +138,8 @@ export default function LogCookScreen() {
   const analyzeMutation = useAnalyzeCook();
   const createCook = useCreateCook();
 
-  const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
-  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const topPad = useTopInset();
+  const botPad = useBottomInset();
 
   const [images, setImages] = useState<PickedImage[]>([]);
   const [analyzing, setAnalyzing] = useState(false);

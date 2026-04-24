@@ -5,25 +5,24 @@ import {
   FlatList,
   StyleSheet,
   Pressable,
-  Platform,
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { useTopInset } from "@/hooks/useTopInset";
+import { useBottomInset } from "@/hooks/useBottomInset";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { useGetTemperatureHistory } from "@workspace/api-client-react";
 
 export default function TempHistoryScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { data: history, isLoading } = useGetTemperatureHistory();
 
-  const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
-  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const topPad = useTopInset();
+  const botPad = useBottomInset();
 
   const renderItem = ({ item }: { item: any }) => (
     <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>

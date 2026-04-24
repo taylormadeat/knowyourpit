@@ -25,6 +25,8 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 
 import { useColors } from "@/hooks/useColors";
+import { useTopInset } from "@/hooks/useTopInset";
+import { useBottomInset } from "@/hooks/useBottomInset";
 import { LogoBackground } from "@/components/LogoBackground";
 import { TempGraph } from "@/components/TempGraph";
 import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
@@ -436,8 +438,8 @@ export default function CookDetailScreen() {
     }
   }, [activeCookAlerts.length, cook]);
 
-  const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
-  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const topPad = useTopInset();
+  const botPad = useBottomInset();
 
   const saveAlert = async () => {
     setAlertSaving(true);

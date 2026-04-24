@@ -13,10 +13,10 @@ import {
 } from "react-native";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
+import { useBottomInset } from "@/hooks/useBottomInset";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListGrills,
@@ -54,7 +54,6 @@ const DATE_RANGE_OPTIONS: { label: string; value: DateRange }[] = [
 
 export default function ProfileScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const { user } = useUser();
   const qc = useQueryClient();
   const { data: grills } = useListGrills();
@@ -108,7 +107,7 @@ export default function ProfileScreen() {
   const meatTypes = Object.keys(meatTypeMap).sort();
   const showByMeatType = meatTypes.length > 1;
 
-  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const botPad = useBottomInset();
 
   const initials = (
     user?.firstName?.[0] ||

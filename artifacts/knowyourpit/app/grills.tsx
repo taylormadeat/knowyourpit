@@ -12,7 +12,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { Feather } from "@expo/vector-icons";
@@ -20,6 +19,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
+import { useBottomInset } from "@/hooks/useBottomInset";
 import {
   useListGrills,
   useCreateGrill,
@@ -60,7 +60,6 @@ const ALL_BRANDS = buildBrandList();
 
 export default function GrillsScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const qc = useQueryClient();
 
   const { data: grills, isLoading } = useListGrills();
@@ -79,7 +78,7 @@ export default function GrillsScreen() {
   const [fuelType, setFuelType] = useState("");
   const [customBrand, setCustomBrand] = useState("");
 
-  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const botPad = useBottomInset();
 
   // ── Filter catalog brands ──
   const filteredBrands = useMemo(() => {

@@ -6,23 +6,22 @@ import {
   StyleSheet,
   Pressable,
   TextInput,
-  Platform,
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { useTopInset } from "@/hooks/useTopInset";
+import { useBottomInset } from "@/hooks/useBottomInset";
 import { useListRecipes, useToggleRecipeFavorite } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function RecipesScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -30,8 +29,8 @@ export default function RecipesScreen() {
   const { data: recipes, isLoading, refetch } = useListRecipes();
   const toggleFav = useToggleRecipeFavorite();
 
-  const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
-  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const topPad = useTopInset();
+  const botPad = useBottomInset();
 
   const filtered = ((recipes as any[]) || []).filter((r: any) =>
     !search || r.name?.toLowerCase().includes(search.toLowerCase()) || r.meatType?.toLowerCase().includes(search.toLowerCase())

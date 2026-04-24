@@ -5,26 +5,25 @@ import {
   FlatList,
   StyleSheet,
   Pressable,
-  Platform,
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { useTopInset } from "@/hooks/useTopInset";
+import { useBottomInset } from "@/hooks/useBottomInset";
 import { useListTips } from "@workspace/api-client-react";
 
 export default function TipsScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [expanded, setExpanded] = useState<number | null>(null);
   const { data: tips, isLoading } = useListTips();
 
-  const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
-  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const topPad = useTopInset();
+  const botPad = useBottomInset();
 
   const renderItem = ({ item }: { item: any }) => {
     const isOpen = expanded === item.id;

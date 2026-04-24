@@ -5,14 +5,14 @@ import {
   ScrollView,
   StyleSheet,
   Pressable,
-  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { useTopInset } from "@/hooks/useTopInset";
+import { useBottomInset } from "@/hooks/useBottomInset";
 
 const MEATS = [
   {
@@ -100,12 +100,11 @@ const MEATS = [
 
 export default function MeatPrepScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [selected, setSelected] = useState<string | null>(null);
 
-  const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
-  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const topPad = useTopInset();
+  const botPad = useBottomInset();
 
   const meat = MEATS.find((m) => m.name === selected);
 

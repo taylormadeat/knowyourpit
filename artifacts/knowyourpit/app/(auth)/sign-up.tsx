@@ -16,9 +16,10 @@ import { useSignUp, useSSO } from "@clerk/expo";
 import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
 import { Link, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { useTopInset } from "@/hooks/useTopInset";
+import { useBottomInset } from "@/hooks/useBottomInset";
 import { LogoBackground } from "@/components/LogoBackground";
 
 const logoImg = require("@/assets/images/logo.png");
@@ -36,7 +37,8 @@ function useWarmUpBrowser() {
 export default function SignUpScreen() {
   useWarmUpBrowser();
   const colors = useColors();
-  const insets = useSafeAreaInsets();
+  const topInset = useTopInset();
+  const bottomInset = useBottomInset();
   const router = useRouter();
   const { signUp, setActive, isLoaded } = useSignUp();
   const { startSSOFlow } = useSSO();
@@ -110,8 +112,8 @@ export default function SignUpScreen() {
       flexGrow: 1,
       justifyContent: "center",
       paddingHorizontal: 24,
-      paddingTop: insets.top + (Platform.OS === "web" ? 67 : 0) + 40,
-      paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 32,
+      paddingTop: topInset + 40,
+      paddingBottom: bottomInset + 32,
     },
     logo: {
       width: 96, height: 96, marginBottom: 20,
