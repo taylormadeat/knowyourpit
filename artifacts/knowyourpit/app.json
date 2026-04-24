@@ -16,12 +16,13 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.knowyourpit.app",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "KnowYourPit uses your location to show the current outdoor temperature during live cook sessions.",
         "NSPhotoLibraryUsageDescription": "KnowYourPit accesses your photo library so you can scan cook progress images for AI temperature analysis.",
         "NSCameraUsageDescription": "KnowYourPit uses your camera to capture cook progress images for AI temperature analysis.",
-        "NSUserNotificationUsageDescription": "KnowYourPit sends you alerts when your probe hits the target temperature and reminders to add fuel during long cooks."
+        "NSUserNotificationUsageDescription": "KnowYourPit sends you alerts when your probe hits the target temperature and reminders to add fuel during long cooks.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -39,7 +40,8 @@
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.VIBRATE",
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -78,9 +80,10 @@
     },
     "extra": {
       "eas": {
-        "projectId": "REPLACE_WITH_YOUR_EAS_PROJECT_ID"
+        "projectId": "21f048d2-8424-41d4-9e01-6395719bdc30"
       }
     },
-    "privacyPolicyUrl": "https://pitking.replit.app/privacy"
+    "privacyPolicyUrl": "https://pitking.replit.app/privacy",
+    "owner": "taylormadeat"
   }
 }
