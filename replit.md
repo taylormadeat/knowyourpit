@@ -104,7 +104,7 @@ ios        -> artifacts/knowyourpit/ios          (created by `expo prebuild`)
 android    -> artifacts/knowyourpit/android      (created by `expo prebuild`)
 ```
 
-The first two are checked in as committed symlinks. The remaining four are auto-created by `scripts/expo-eas.sh` (idempotent `ln -sfn`) and ignored by git. The script also runs an integrity guard at startup that errors out with a restore command if any of these slots is ever replaced by a regular file or directory.
+The first two are checked in as committed symlinks. The remaining four are auto-created by `scripts/expo-eas.sh` (idempotent `ln -sfn`) and ignored by git — `plugins`/`assets` on every script invocation (the source dirs always exist), and `ios`/`android` after `expo prebuild` runs (those source dirs are prebuild-generated). Each block also runs a clobber guard that errors out with an explicit restore command if a slot is ever replaced by a regular file or directory.
 
 **Why all six exist:** Expo and EAS resolve relative paths inside `app.json` (e.g. `"./plugins/with-watch-app"`, `"./assets/images/icon.png"`) from the *location of the file being loaded*, not from the project root. When EAS reads `app.json` via the workspace-root symlink, those relative paths resolve to `/home/runner/workspace/...` — so the directories must also exist at that location.
 
