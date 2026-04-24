@@ -18,6 +18,7 @@
     "preview": {
       "distribution": "internal",
       "credentialsSource": "remote",
+      "prebuildCommand": "cd artifacts/knowyourpit && pnpm exec expo prebuild --no-install",
       "ios": {
         "simulator": false,
         "resourceClass": "m-medium"
@@ -29,6 +30,7 @@
     "production": {
       "autoIncrement": true,
       "credentialsSource": "remote",
+      "prebuildCommand": "cd artifacts/knowyourpit && pnpm exec expo prebuild --no-install",
       "ios": {
         "buildConfiguration": "Release",
         "resourceClass": "m-medium"
