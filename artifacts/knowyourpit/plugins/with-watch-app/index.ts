@@ -485,12 +485,24 @@ const XCODE_BYPASS_SENTINEL = "# KnowYourPit: xcode version bypass";
 
 /**
  * Inserts a Ruby monkey-patch into the Podfile immediately before
- * `use_react_native!` so that ReactNativePodsUtils.verify_xcode_version!
- * becomes a no-op during pod install.
+ * `use_react_native!` so that the Xcode minimum-version check in
+ * react-native@0.81.x becomes a no-op during pod install.
  *
- * EAS default machines ship Xcode 15.4; React Native 0.77 added an
- * error-level check requiring Xcode >= 16.1. Xcode 15.4 can actually build
- * RN 0.77 apps — this bypasses the overly-conservative check.
+ * EAS default machines ship Xcode 15.4; React Native 0.81 raises
+ * `Helpers::Constants.min_xcode_version_supported` to '16.1' and aborts
+ * if the installed Xcode is older. Xcode 15.4 can actually build the
+ * project — this bypasses the overly-conservative check.
+ *
+ * The real method is `ReactNativePodsUtils.check_minimum_required_xcode`
+ * (NOT `verify_xcode_version!`), defined in
+ * `react-native/scripts/cocoapods/utils.rb` and called from
+ * `react_native_pods.rb` inside `use_react_native!`. We:
+ *   1) Reopen `ReactNativePodsUtils` and replace
+ *      `check_minimum_required_xcode` with a no-op (matching the real
+ *      keyword-arg signature so reopening cleanly overrides it).
+ *   2) Defensively reopen `Helpers::Constants` and lower
+ *      `min_xcode_version_supported` to '15.0', so even if a future RN
+ *      version renames the check method, the threshold is neutralized.
  *
  * Doing this inside a config plugin (vs a shell script) is the only
  * reliable approach: it runs as part of expo prebuild with a guaranteed
@@ -512,8 +524,13 @@ const withXcodeVersionBypass: ConfigPlugin = (config) =>
 
       const override = [
         `${XCODE_BYPASS_SENTINEL}`,
-        "module ReactNativePodsUtils",
-        "  def self.verify_xcode_version!; end",
+        "class ReactNativePodsUtils",
+        "  def self.check_minimum_required_xcode(xcodebuild_manager: nil); end",
+        "end",
+        "module Helpers",
+        "  class Constants",
+        "    def self.min_xcode_version_supported; '15.0'; end",
+        "  end",
         "end",
         "",
       ].join("\n");
