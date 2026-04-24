@@ -94,8 +94,6 @@ const withWatchSources = (config) => (0, config_plugins_1.withDangerousMod)(conf
     <dict>
         <key>NSExtensionPointIdentifier</key>
         <string>com.apple.widgetkit-extension</string>
-        <key>NSExtensionPrincipalClass</key>
-        <string>$(PRODUCT_MODULE_NAME).KnowYourPitComplicationBundle</string>
     </dict>
 </dict>
 </plist>`;
