@@ -361,23 +361,30 @@ const withResourceBundleSigning = (config) => (0, config_plugins_1.withDangerous
             "    end",
             "  end",
         ].join("\n");
-        // Inject inside the existing post_install block, BEFORE its closing `end`.
-        // This ensures our fix runs AFTER react_native_post_install (which can re-enable
-        // signing on bundle targets) and AFTER Expo's own target_installation_results fix.
-        // The post_install block is always the last block in the Expo-generated Podfile,
-        // so the last occurrence of `\nend` is its closing delimiter.
-        const openingPattern = /^\s*post_install do \|installer\|/m;
+        // Inject our snippet INSIDE the post_install block, before its closing `end`.
+        // Strategy: capture the leading indentation of the `post_install do |installer|`
+        // line, then look for the FIRST `\n{indent}end` after it — that is the block's
+        // own closing `end` (nested blocks are indented further and won't match).
+        //
+        // This is necessary because in Expo SDK 54 the `post_install` block is nested
+        // INSIDE `target '...' do`, so the two blocks close at DIFFERENT indent levels.
+        // Using lastIndexOf("\nend") would land outside post_install (but inside target),
+        // where `installer` is not in scope — causing a Ruby NameError on pod install.
+        const openingPattern = /^([ \t]*)post_install do \|installer\|/m;
         const match = openingPattern.exec(podfile);
         if (match !== null) {
-            const lastEndIdx = podfile.lastIndexOf("\nend");
-            if (lastEndIdx !== -1) {
-                // Insert before the last closing `end` (closes post_install block)
-                podfile = podfile.slice(0, lastEndIdx) + snippet + podfile.slice(lastEndIdx);
+            const leadingSpaces = match[1]; // indentation of the `post_install` line
+            const searchFrom = match.index + match[0].length;
+            // The closing `end` for this block has the SAME leading indentation
+            const closingToken = `\n${leadingSpaces}end`;
+            const closingIdx = podfile.indexOf(closingToken, searchFrom);
+            if (closingIdx !== -1) {
+                // Insert before the block's own closing `end`
+                podfile = podfile.slice(0, closingIdx) + snippet + podfile.slice(closingIdx);
             }
             else {
-                // Fallback: insert after opening line (should not occur in practice)
-                const insertAt = match.index + match[0].length;
-                podfile = podfile.slice(0, insertAt) + snippet + podfile.slice(insertAt);
+                // Fallback: insert immediately after the opening line
+                podfile = podfile.slice(0, searchFrom) + snippet + podfile.slice(searchFrom);
             }
         }
         else {
