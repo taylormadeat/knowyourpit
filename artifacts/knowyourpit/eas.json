@@ -19,7 +19,6 @@
     "preview": {
       "distribution": "internal",
       "credentialsSource": "remote",
-      "prebuildCommand": "bash scripts/expo-eas.sh prebuild --no-install --platform $EAS_BUILD_PLATFORM",
       "ios": {
         "image": "macos-sequoia-15.6-xcode-16.4",
         "simulator": false,
@@ -32,7 +31,6 @@
     "production": {
       "autoIncrement": true,
       "credentialsSource": "remote",
-      "prebuildCommand": "bash scripts/expo-eas.sh prebuild --no-install --platform $EAS_BUILD_PLATFORM",
       "ios": {
         "image": "macos-sequoia-15.6-xcode-16.4",
         "buildConfiguration": "Release",

@@ -86,42 +86,32 @@ Watch actions (stop cook, ask PitMaster, etc.) → WCSession message → `onWatc
   - `com.knowyourpit.app.watchkitapp`
   - `com.knowyourpit.app.watchkitextension`
 - App Group: `group.com.knowyourpit.app` (shared keychain for auth relay)
-- EAS Build: `eas build --platform ios --profile production` (run from repo root — see "EAS config layout" below)
+- EAS Build: `eas build --platform ios --profile production` — **must be run from `artifacts/knowyourpit/`**, never from the repo root (see "EAS / Expo command location" below)
 - Targets watchOS 7+, Apple Watch Series 4+ (41mm and 45mm)
 
 ---
 
-## EAS config layout (important — read before editing eas.json or app.json)
+## EAS / Expo command location (important — read before running eas or expo commands)
 
-The `eas build` command must be run from the **repo root**, because EAS expects the native dirs and asset paths alongside the config files it reads. The repo root mirrors the artifact's config files and directories via **symlinks**:
+**All `eas` and `expo` commands must be run from `artifacts/knowyourpit/`, never from the workspace root.** The mobile app is a self-contained pnpm workspace package: its `eas.json`, `app.json`, `plugins/`, `assets/`, `node_modules/`, and (after `expo prebuild`) `ios/`/`android/` all live inside `artifacts/knowyourpit/`. Run from there and every relative path and bare-module plugin name resolves naturally.
 
+```bash
+cd artifacts/knowyourpit
+eas build --platform ios --profile production
+eas submit --platform ios --latest
+expo prebuild --no-install --platform ios
+eas init       # if ever needed
 ```
-eas.json   -> artifacts/knowyourpit/eas.json     (canonical EAS config)
-app.json   -> artifacts/knowyourpit/app.json     (canonical Expo config)
-plugins    -> artifacts/knowyourpit/plugins      (resolves ./plugins/* in app.json)
-assets     -> artifacts/knowyourpit/assets       (resolves ./assets/* in app.json)
-ios        -> artifacts/knowyourpit/ios          (created by `expo prebuild`)
-android    -> artifacts/knowyourpit/android      (created by `expo prebuild`)
-```
 
-The first two are checked in as committed symlinks. The remaining four are auto-created by `scripts/expo-eas.sh` (idempotent `ln -sfn`) and ignored by git — `plugins`/`assets` on every script invocation (the source dirs always exist), and `ios`/`android` after `expo prebuild` runs (those source dirs are prebuild-generated). Each block also runs a clobber guard that errors out with an explicit restore command if a slot is ever replaced by a regular file or directory.
+**Do not run these commands from the workspace root.** Doing so used to "work" only by maintaining an elaborate mirror of symlinks at the workspace root (`/eas.json`, `/app.json`, `/plugins`, `/assets`, `/ios`, `/android`, plus a per-package `node_modules` mirror). That layer was deleted because each addition surfaced new resolution bugs:
 
-**Why all six exist:** Expo and EAS resolve relative paths inside `app.json` (e.g. `"./plugins/with-watch-app"`, `"./assets/images/icon.png"`) from the *location of the file being loaded*, not from the project root. When EAS reads `app.json` via the workspace-root symlink, those relative paths resolve to `/home/runner/workspace/...` — so the directories must also exist at that location.
+- [Task #91](.local/tasks/task-91.md): `eas init` run from the repo root wrote standalone `eas.json`/`app.json` files that overwrote the symlinks, and EAS silently used the stale configs (wrong `image`, wrong `projectId`, no env vars).
+- [Task #92](.local/tasks/task-92.md): after Task #91's symlinks were restored, Expo failed with `Failed to resolve plugin for module './plugins/with-watch-app' relative to '/home/runner/workspace'` because the relative paths inside `app.json` no longer resolved.
+- A follow-up node_modules incident: bare-name plugins (`expo-router`, `expo-notifications`, etc.) failed to resolve because the workspace-root `node_modules/` did not contain them.
 
-### node_modules mirror (third symlink layer)
+The clean fix — running from the artifact directory — eliminates all three failure modes at once.
 
-In addition to the six dirs above, `scripts/expo-eas.sh` mirrors **every package** from `artifacts/knowyourpit/node_modules/` into `/home/runner/workspace/node_modules/` as leaf-level symlinks. This is required because `app.json` references node-modules plugins by bare name (`"expo-router"`, `"expo-notifications"`, etc.), and Node module resolution starts from the directory of the file that loaded `app.json`. When EAS reads `app.json` from the workspace root, plugin lookups would fail without these symlinks because the workspace-root `node_modules/` only contains a few workspace-level dev tools (`prettier`, `typescript`).
-
-The mirror has two important rules:
-- **Never overwrite an existing entry** at the repo root — pnpm may have already linked it (e.g. workspace-hoisted `typescript`).
-- **Scoped (`@scope`) directories at the repo root must be real directories, not symlinks.** If `node_modules/@clerk` were a symlink to `artifacts/knowyourpit/node_modules/@clerk`, then any subsequent `ln -sfn artifact/.../@clerk/expo node_modules/@clerk/expo` call would resolve `dst` *through* the symlink and overwrite the original pnpm-managed entry inside the artifact's tree, leaving it as a self-loop. The script materializes each `@scope` directory at the root with `mkdir -p` (replacing any pre-existing symlink) before placing per-package symlinks inside it. See the post-mortem comment in `scripts/expo-eas.sh` for the gory details of the "@clerk/expo self-symlink" incident.
-
-**Do not replace these symlinks with regular files or directories.** Three prior incidents:
-- [Task #91](.local/tasks/task-91.md): `eas init` run from the repo root wrote standalone `eas.json` and `app.json`. Those stale files had no `image` field, no env vars, and a different `extra.eas.projectId`, so EAS silently ignored the artifact's `"image": "macos-sequoia-15.6-xcode-16.4"` and `appVersionSource: "local"` settings.
-- [Task #92](.local/tasks/task-92.md): after Task #91's symlinks were in place, Expo failed with `"Failed to resolve plugin for module './plugins/with-watch-app' relative to '/home/runner/workspace'"` because the `plugins/` and `assets/` directories had not yet been mirrored at the repo root.
-- After Task #92, Expo failed with `"Failed to resolve plugin for module 'expo-router' relative to '/home/runner/workspace'"` because node-modules plugins like `expo-router`, `expo-notifications`, `expo-location`, `expo-image-picker`, `expo-font`, `expo-web-browser` were not present at the workspace-root `node_modules/`. Fixed by adding the node_modules mirror described above.
-
-If you ever need to re-run `eas init`, do it from `artifacts/knowyourpit/` — never from the repo root.
+The Expo dev server (`pnpm --filter @workspace/knowyourpit dev`) is unaffected; it has always run inside the artifact's package via pnpm filters.
 
 ---
 
