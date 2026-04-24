@@ -32,6 +32,27 @@ for cfg in eas.json app.json; do
   fi
 done
 
+# Mirror the artifact's plugins/ and assets/ directories at the repo root so
+# the relative paths inside app.json (./plugins/with-watch-app, ./assets/...)
+# resolve correctly when Expo or EAS reads app.json via the workspace-root
+# symlink. Without this, expo errors with:
+#   "Failed to resolve plugin for module './plugins/with-watch-app' relative
+#    to '/home/runner/workspace'"
+# These source dirs exist in the artifact at all times, so we recreate the
+# symlinks on every invocation (idempotent). See Task #92 in replit.md.
+for dir in plugins assets; do
+  src="$REPO_ROOT/artifacts/knowyourpit/$dir"
+  dst="$REPO_ROOT/$dir"
+  if [ -e "$dst" ] && [ ! -L "$dst" ]; then
+    echo "ERROR: $dir at the repo root must be a symlink to artifacts/knowyourpit/$dir." >&2
+    echo "       Found a regular file/directory instead. Without this symlink, paths in" >&2
+    echo "       app.json like './plugins/with-watch-app' fail to resolve. Restore with:" >&2
+    echo "         rm -rf $dir && ln -s artifacts/knowyourpit/$dir $dir" >&2
+    exit 1
+  fi
+  [ -d "$src" ] && ln -sfn "$src" "$dst" 2>/dev/null || true
+done
+
 # Defense-in-depth: patch React Native's Xcode-version check so the build does
 # not abort if EAS ever falls back to an older macOS image (Sonoma 14.5 + Xcode
 # 15.4). With the symlinks above intact, EAS uses macos-sequoia-15.6-xcode-16.4

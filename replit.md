@@ -93,16 +93,24 @@ Watch actions (stop cook, ask PitMaster, etc.) → WCSession message → `onWatc
 
 ## EAS config layout (important — read before editing eas.json or app.json)
 
-The `eas build` command must be run from the **repo root**, because `expo-eas.sh prebuild` symlinks `ios/` and `android/` from `artifacts/knowyourpit/` into the root, and EAS expects the native dirs alongside the config files it reads.
-
-To make sure EAS reads the canonical KnowYourPit config (and not stale root scaffolding), the root `eas.json` and `app.json` are **symlinks** pointing into `artifacts/knowyourpit/`:
+The `eas build` command must be run from the **repo root**, because EAS expects the native dirs and asset paths alongside the config files it reads. The repo root mirrors the artifact's config files and directories via **symlinks**:
 
 ```
-eas.json   -> artifacts/knowyourpit/eas.json
-app.json   -> artifacts/knowyourpit/app.json
+eas.json   -> artifacts/knowyourpit/eas.json     (canonical EAS config)
+app.json   -> artifacts/knowyourpit/app.json     (canonical Expo config)
+plugins    -> artifacts/knowyourpit/plugins      (resolves ./plugins/* in app.json)
+assets     -> artifacts/knowyourpit/assets       (resolves ./assets/* in app.json)
+ios        -> artifacts/knowyourpit/ios          (created by `expo prebuild`)
+android    -> artifacts/knowyourpit/android      (created by `expo prebuild`)
 ```
 
-**Do not replace these symlinks with regular files.** A previous incident — see [Task #91](.local/tasks/task-91.md) — was caused by `eas init` writing standalone `eas.json` and `app.json` files at the repo root. Those files had no `image` field, so EAS silently ignored the artifact's `"image": "macos-sequoia-15.6-xcode-16.4"` setting and provisioned the default Sonoma 14.5 + Xcode 15.4 worker. They also had a different `extra.eas.projectId` and `appVersionSource: "remote"`, which caused the `buildNumber` in `app.json` to be silently ignored. The symlinks make the artifact configs the single source of truth.
+The first two are checked in as committed symlinks. The remaining four are auto-created by `scripts/expo-eas.sh` (idempotent `ln -sfn`) and ignored by git. The script also runs an integrity guard at startup that errors out with a restore command if any of these slots is ever replaced by a regular file or directory.
+
+**Why all six exist:** Expo and EAS resolve relative paths inside `app.json` (e.g. `"./plugins/with-watch-app"`, `"./assets/images/icon.png"`) from the *location of the file being loaded*, not from the project root. When EAS reads `app.json` via the workspace-root symlink, those relative paths resolve to `/home/runner/workspace/...` — so the directories must also exist at that location.
+
+**Do not replace these symlinks with regular files or directories.** Two prior incidents:
+- [Task #91](.local/tasks/task-91.md): `eas init` run from the repo root wrote standalone `eas.json` and `app.json`. Those stale files had no `image` field, no env vars, and a different `extra.eas.projectId`, so EAS silently ignored the artifact's `"image": "macos-sequoia-15.6-xcode-16.4"` and `appVersionSource: "local"` settings.
+- [Task #92](.local/tasks/task-92.md): after Task #91's symlinks were in place, Expo failed with `"Failed to resolve plugin for module './plugins/with-watch-app' relative to '/home/runner/workspace'"` because the `plugins/` and `assets/` directories had not yet been mirrored at the repo root.
 
 If you ever need to re-run `eas init`, do it from `artifacts/knowyourpit/` — never from the repo root.
 
