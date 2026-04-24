@@ -66,8 +66,19 @@ find "$REPO_ROOT/node_modules" -name "utils.rb" \
 pnpm --filter @workspace/knowyourpit exec expo "$@"
 
 if [[ " $* " == *" prebuild "* ]]; then
-  IOS_DIR="$REPO_ROOT/artifacts/knowyourpit/ios"
-  AND_DIR="$REPO_ROOT/artifacts/knowyourpit/android"
-  [ -d "$IOS_DIR" ] && ln -sfn "$IOS_DIR" "$REPO_ROOT/ios" 2>/dev/null || true
-  [ -d "$AND_DIR" ] && ln -sfn "$AND_DIR" "$REPO_ROOT/android" 2>/dev/null || true
+  # Mirror the prebuild-generated native dirs at the repo root so EAS finds
+  # them next to the symlinked config files. Same clobber-guard pattern as
+  # the plugins/assets block at the top of this script.
+  for dir in ios android; do
+    src="$REPO_ROOT/artifacts/knowyourpit/$dir"
+    dst="$REPO_ROOT/$dir"
+    if [ -e "$dst" ] && [ ! -L "$dst" ]; then
+      echo "ERROR: $dir at the repo root must be a symlink to artifacts/knowyourpit/$dir." >&2
+      echo "       Found a regular file/directory instead. EAS would build against the" >&2
+      echo "       wrong native project. Restore with:" >&2
+      echo "         rm -rf $dir && ln -s artifacts/knowyourpit/$dir $dir" >&2
+      exit 1
+    fi
+    [ -d "$src" ] && ln -sfn "$src" "$dst" 2>/dev/null || true
+  done
 fi
