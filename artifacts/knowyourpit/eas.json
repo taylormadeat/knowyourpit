@@ -17,6 +17,7 @@
     },
     "preview": {
       "distribution": "internal",
+      "credentialsSource": "remote",
       "ios": {
         "simulator": false,
         "resourceClass": "m-medium"

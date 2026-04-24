@@ -9,7 +9,8 @@
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "register:app-ids": "bash scripts/register-app-ids.sh"
   },
   "devDependencies": {
     "@expo/config-plugins": "^54.0.4",
