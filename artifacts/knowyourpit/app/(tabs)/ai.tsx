@@ -10,7 +10,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { fetch } from "expo/fetch";
@@ -32,14 +32,14 @@ const SUGGESTED = [
 
 export default function AIScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const listRef = useRef<FlatList>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
 
-  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const botPad = tabBarHeight;
 
   const sendMessage = async (text?: string) => {
     const msg = (text || input).trim();
