@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useColors } from "@/hooks/useColors";
@@ -74,7 +75,7 @@ export default function CooksScreen() {
   const { data: cooks, isLoading, refetch } = useListCooks();
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
-  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const botPad = useBottomTabBarHeight();
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -303,7 +304,7 @@ export default function CooksScreen() {
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingTop: 12,
-            paddingBottom: botPad + 100,
+            paddingBottom: botPad,
             gap: 10,
           }}
           showsVerticalScrollIndicator={false}

@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { useUser, useClerk } from "@clerk/expo";
 import { useQueryClient } from "@tanstack/react-query";
@@ -44,7 +45,7 @@ export default function MoreScreen() {
   const qc = useQueryClient();
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
-  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const botPad = useBottomTabBarHeight();
 
   const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -67,7 +68,7 @@ export default function MoreScreen() {
       <AppHeader title="More" dark />
 
       <ScrollView
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: botPad + 100 }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: botPad }}
         showsVerticalScrollIndicator={false}
       >
         <Pressable

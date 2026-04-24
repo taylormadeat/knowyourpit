@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   TextInput,
-  Platform,
   ActivityIndicator,
   Alert,
   Modal,
@@ -14,7 +13,7 @@ import {
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { AppHeader } from "@/components/AppHeader";
@@ -497,7 +496,6 @@ const TIME_SLOTS: Array<{ h: number; m: number }> = (() => {
 
 export default function PlanScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const qc = useQueryClient();
 
@@ -706,7 +704,7 @@ export default function PlanScreen() {
     }
   };
 
-  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const botPad = useBottomTabBarHeight();
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
@@ -733,7 +731,7 @@ export default function PlanScreen() {
       )}
 
       <KeyboardAwareScrollView
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: botPad + 120 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: botPad }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

@@ -13,6 +13,7 @@ import {
 import * as Haptics from "expo-haptics";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
@@ -141,7 +142,7 @@ export default function HomeScreen() {
     "Pitmaster";
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
-  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const botPad = useBottomTabBarHeight();
 
   const allCooks = (recentCooks as any[]) || [];
   const activeCook = allCooks.find((c: any) => c.status === "active") ?? null;
@@ -192,7 +193,7 @@ export default function HomeScreen() {
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: botPad + 100 }}
+        contentContainerStyle={{ paddingBottom: botPad }}
       >
         {/* ── Hero banner ── */}
         <LinearGradient
