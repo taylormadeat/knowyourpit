@@ -481,6 +481,49 @@ const withResourceBundleSigning: ConfigPlugin = (config) =>
     },
   ]);
 
+const XCODE_BYPASS_SENTINEL = "# KnowYourPit: xcode version bypass";
+
+/**
+ * Inserts a Ruby monkey-patch into the Podfile immediately before
+ * `use_react_native!` so that ReactNativePodsUtils.verify_xcode_version!
+ * becomes a no-op during pod install.
+ *
+ * EAS default machines ship Xcode 15.4; React Native 0.77 added an
+ * error-level check requiring Xcode >= 16.1. Xcode 15.4 can actually build
+ * RN 0.77 apps — this bypasses the overly-conservative check.
+ *
+ * Doing this inside a config plugin (vs a shell script) is the only
+ * reliable approach: it runs as part of expo prebuild with a guaranteed
+ * Podfile path, zero shell-compatibility issues, and idempotent output.
+ */
+const withXcodeVersionBypass: ConfigPlugin = (config) =>
+  withDangerousMod(config, [
+    "ios",
+    async (mod) => {
+      const podfilePath = path.join(
+        mod.modRequest.platformProjectRoot,
+        "Podfile"
+      );
+      if (!fs.existsSync(podfilePath)) return mod;
+
+      let podfile = fs.readFileSync(podfilePath, "utf-8");
+
+      if (podfile.includes(XCODE_BYPASS_SENTINEL)) return mod;
+
+      const override = [
+        `${XCODE_BYPASS_SENTINEL}`,
+        "module ReactNativePodsUtils",
+        "  def self.verify_xcode_version!; end",
+        "end",
+        "",
+      ].join("\n");
+
+      podfile = podfile.replace("use_react_native!", override + "use_react_native!");
+      fs.writeFileSync(podfilePath, podfile, "utf-8");
+      return mod;
+    },
+  ]);
+
 const withWatchApp: ConfigPlugin = (config) => {
   config = withAppGroup(config);
   config = withWatchSources(config);
@@ -488,6 +531,7 @@ const withWatchApp: ConfigPlugin = (config) => {
   config = withWatchConnectivityFramework(config);
   config = withWidgetKitFramework(config);
   config = withResourceBundleSigning(config);
+  config = withXcodeVersionBypass(config);
   return config;
 };
 

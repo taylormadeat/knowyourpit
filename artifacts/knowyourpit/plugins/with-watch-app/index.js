@@ -158,12 +158,12 @@ const withWatchTargets = (config) => (0, config_plugins_1.withXcodeProject)(conf
                 try {
                     project.addSourceFile(src, { target: extTarget.uuid });
                 }
-                catch ( /* dup */_c) { /* dup */ }
+                catch { /* dup */ }
             }
             try {
                 project.addResourceFile(`${WATCH_EXT_TARGET}/Info.plist`, { target: extTarget.uuid });
             }
-            catch ( /* dup */_d) { /* dup */ }
+            catch { /* dup */ }
         }
         const mainTarget = project.getFirstTarget();
         if ((mainTarget === null || mainTarget === void 0 ? void 0 : mainTarget.uuid) && (appTarget === null || appTarget === void 0 ? void 0 : appTarget.uuid)) {
@@ -173,7 +173,7 @@ const withWatchTargets = (config) => (0, config_plugins_1.withXcodeProject)(conf
                     project.addBuildPhase([watchProduct], "PBXCopyFilesBuildPhase", "Embed Watch Content", mainTarget.uuid, "watch");
                 }
             }
-            catch ( /* manual step needed if this fails */_e) { /* manual step needed if this fails */ }
+            catch { /* manual step needed if this fails */ }
         }
     }
     else {
@@ -202,12 +202,12 @@ const withWatchTargets = (config) => (0, config_plugins_1.withXcodeProject)(conf
                 try {
                     project.addSourceFile(src, { target: compTarget.uuid });
                 }
-                catch ( /* dup */_f) { /* dup */ }
+                catch { /* dup */ }
             }
             try {
                 project.addResourceFile(`${COMPLICATION_TARGET}/Info.plist`, { target: compTarget.uuid });
             }
-            catch ( /* dup */_g) { /* dup */ }
+            catch { /* dup */ }
             // Embed Widget Extension inside the Watch App
             if (appTargetUuid) {
                 try {
@@ -216,7 +216,7 @@ const withWatchTargets = (config) => (0, config_plugins_1.withXcodeProject)(conf
                         project.addBuildPhase([compProduct], "PBXCopyFilesBuildPhase", "Embed App Extensions", appTargetUuid, "plugins");
                     }
                 }
-                catch ( /* dup */_h) { /* dup */ }
+                catch { /* dup */ }
             }
         }
     }
@@ -273,7 +273,7 @@ const withWatchConnectivityFramework = (config) => (0, config_plugins_1.withXcod
     try {
         mod.modResults.addFramework("WatchConnectivity.framework", { weak: false });
     }
-    catch ( /* already linked */_a) { /* already linked */ }
+    catch { /* already linked */ }
     return mod;
 });
 /**
@@ -328,6 +328,13 @@ const withWidgetKitFramework = (config) => (0, config_plugins_1.withXcodeProject
     });
     return mod;
 });
+/**
+ * Adds a Podfile post_install hook that sets CODE_SIGNING_ALLOWED=NO on all
+ * resource bundle targets. Required for Xcode 14+ which signs resource bundles
+ * by default — without this, EAS builds fail with:
+ * "resource bundles are signed by default, which requires setting the
+ *  development team for each resource bundle target."
+ */
 const RESOURCE_BUNDLE_SENTINEL = "# KnowYourPit: resource bundle signing";
 /**
  * Adds a snippet inside the existing Podfile post_install block that sets
@@ -401,6 +408,41 @@ const withResourceBundleSigning = (config) => (0, config_plugins_1.withDangerous
         return mod;
     },
 ]);
+const XCODE_BYPASS_SENTINEL = "# KnowYourPit: xcode version bypass";
+/**
+ * Inserts a Ruby monkey-patch into the Podfile immediately before
+ * `use_react_native!` so that ReactNativePodsUtils.verify_xcode_version!
+ * becomes a no-op during pod install.
+ *
+ * EAS default machines ship Xcode 15.4; React Native 0.77 added an
+ * error-level check requiring Xcode >= 16.1. Xcode 15.4 can actually build
+ * RN 0.77 apps — this bypasses the overly-conservative check.
+ *
+ * Doing this inside a config plugin (vs a shell script) is the only
+ * reliable approach: it runs as part of expo prebuild with a guaranteed
+ * Podfile path, zero shell-compatibility issues, and idempotent output.
+ */
+const withXcodeVersionBypass = (config) => (0, config_plugins_1.withDangerousMod)(config, [
+    "ios",
+    async (mod) => {
+        const podfilePath = path_1.default.join(mod.modRequest.platformProjectRoot, "Podfile");
+        if (!fs_1.default.existsSync(podfilePath))
+            return mod;
+        let podfile = fs_1.default.readFileSync(podfilePath, "utf-8");
+        if (podfile.includes(XCODE_BYPASS_SENTINEL))
+            return mod;
+        const override = [
+            `${XCODE_BYPASS_SENTINEL}`,
+            "module ReactNativePodsUtils",
+            "  def self.verify_xcode_version!; end",
+            "end",
+            "",
+        ].join("\n");
+        podfile = podfile.replace("use_react_native!", override + "use_react_native!");
+        fs_1.default.writeFileSync(podfilePath, podfile, "utf-8");
+        return mod;
+    },
+]);
 const withWatchApp = (config) => {
     config = withAppGroup(config);
     config = withWatchSources(config);
@@ -408,6 +450,7 @@ const withWatchApp = (config) => {
     config = withWatchConnectivityFramework(config);
     config = withWidgetKitFramework(config);
     config = withResourceBundleSigning(config);
+    config = withXcodeVersionBypass(config);
     return config;
 };
 exports.default = withWatchApp;
