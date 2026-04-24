@@ -18,7 +18,7 @@
     "preview": {
       "distribution": "internal",
       "credentialsSource": "remote",
-      "prebuildCommand": "pnpm --filter @workspace/knowyourpit exec expo prebuild --no-install --platform $EAS_BUILD_PLATFORM && ln -sfn $(pwd)/artifacts/knowyourpit/ios ios && ln -sfn $(pwd)/artifacts/knowyourpit/android android",
+      "prebuildCommand": "bash scripts/expo-eas.sh prebuild --no-install --platform $EAS_BUILD_PLATFORM",
       "ios": {
         "simulator": false,
         "resourceClass": "m-medium"
@@ -30,7 +30,7 @@
     "production": {
       "autoIncrement": true,
       "credentialsSource": "remote",
-      "prebuildCommand": "pnpm --filter @workspace/knowyourpit exec expo prebuild --no-install --platform $EAS_BUILD_PLATFORM && ln -sfn $(pwd)/artifacts/knowyourpit/ios ios && ln -sfn $(pwd)/artifacts/knowyourpit/android android",
+      "prebuildCommand": "bash scripts/expo-eas.sh prebuild --no-install --platform $EAS_BUILD_PLATFORM",
       "ios": {
         "buildConfiguration": "Release",
         "resourceClass": "m-medium"
