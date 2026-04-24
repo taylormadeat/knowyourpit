@@ -30,6 +30,8 @@ const SUGGESTED = [
   "Bark tips",
 ];
 
+const INPUT_BAR_GAP_ABOVE_TABS = 10;
+
 export default function AIScreen() {
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
@@ -195,7 +197,7 @@ export default function AIScreen() {
             {
               borderTopColor: colors.border,
               backgroundColor: colors.background,
-              paddingBottom: botPad + 10,
+              paddingBottom: botPad + INPUT_BAR_GAP_ABOVE_TABS,
             },
           ]}
         >
