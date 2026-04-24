@@ -18,6 +18,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.knowyourpit.app",
       "buildNumber": "7",
+      "appleTeamId": "W8AY23XJTF",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "KnowYourPit uses your location to show the current outdoor temperature during live cook sessions.",
         "NSPhotoLibraryUsageDescription": "KnowYourPit accesses your photo library so you can scan cook progress images for AI temperature analysis.",
