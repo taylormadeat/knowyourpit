@@ -5,11 +5,9 @@ import {
   ScrollView,
   StyleSheet,
   Pressable,
-  Platform,
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { useUser, useClerk } from "@clerk/expo";
@@ -38,13 +36,11 @@ const MENU_SECTIONS = [
 
 export default function MoreScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useUser();
   const { signOut } = useClerk();
   const qc = useQueryClient();
 
-  const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const botPad = useBottomTabBarHeight();
 
   const handleSignOut = () => {

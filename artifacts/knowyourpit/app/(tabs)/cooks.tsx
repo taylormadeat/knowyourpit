@@ -5,13 +5,11 @@ import {
   FlatList,
   StyleSheet,
   Pressable,
-  Platform,
   ActivityIndicator,
   RefreshControl,
   ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -67,14 +65,12 @@ function fmtCountdown(targetMs: number): string {
 
 export default function CooksScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("date-desc");
   const [ratedOnly, setRatedOnly] = useState(false);
   const { data: cooks, isLoading, refetch } = useListCooks();
 
-  const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const botPad = useBottomTabBarHeight();
 
   const handleRefresh = async () => {

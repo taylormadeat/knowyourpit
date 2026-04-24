@@ -1,10 +1,10 @@
 import React from "react";
-import { View, Text, Image, StyleSheet, Platform, Pressable } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { View, Text, Image, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
+import { useTopInset } from "@/hooks/useTopInset";
 import { LogoBackground } from "@/components/LogoBackground";
 
 const logoImg = require("@/assets/images/logo.png");
@@ -18,9 +18,8 @@ interface AppHeaderProps {
 
 export function AppHeader({ title, showBack = false, right, dark = false }: AppHeaderProps) {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
-  const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
+  const topPad = useTopInset();
 
   const textColor = dark ? "#F3EDE1" : colors.foreground;
   const subBg = dark ? ["#1C1C1F", "#2A1608"] as const : [colors.card, colors.card] as const;

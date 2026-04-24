@@ -5,19 +5,18 @@ import {
   ScrollView,
   StyleSheet,
   Pressable,
-  Platform,
   ActivityIndicator,
   Image,
   LayoutAnimation,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter, useFocusEffect } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
+import { useTopInset } from "@/hooks/useTopInset";
 import { LogoBackground } from "@/components/LogoBackground";
 import { useGetDashboardSummary, useGetRecentCooks } from "@workspace/api-client-react";
 import { useHomeInsights } from "@/hooks/useHomeInsights";
@@ -129,7 +128,6 @@ function fmtCountdown(targetMs: number): string {
 
 export default function HomeScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useUser();
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
@@ -141,7 +139,7 @@ export default function HomeScreen() {
     user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] ||
     "Pitmaster";
 
-  const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
+  const topPad = useTopInset();
   const botPad = useBottomTabBarHeight();
 
   const allCooks = (recentCooks as any[]) || [];
