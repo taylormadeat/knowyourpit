@@ -1,3 +1,15 @@
 {
-  "expo": {}
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "f71efc82-91f4-47e2-822e-d6b6430fa969"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.knowyourpit.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
 }

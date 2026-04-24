@@ -1,0 +1,37 @@
+Fix the build failure for @taylormadeat/knowyourpit:
+
+<build id="3182a11b-73ff-4a8b-a635-051842a3400a" platform="IOS">
+<project fullName="@taylormadeat/knowyourpit"/>
+<profile>production</profile>
+<buildMode>BUILD</buildMode>
+<distribution>STORE</distribution>
+<environment>production</environment>
+<appVersion>1.0.0</appVersion>
+<appBuildVersion>2</appBuildVersion>
+<sdkVersion>54.0.0</sdkVersion>
+<fingerprint>cebf61b3270d71a3827acb4a7b6fbedb425747b9</fingerprint>
+<git commit="8841c3b9d3459f8c6eb454f389dd490ad699464c" message="Improve Expo app startup by preventing login prompts
+
+Set CI=1 environment variable in the dev script to suppress interactive prompts during Expo app startup.
+
+Replit-Commit-Author: Agent
+Replit-Commit-Session-Id: 77419e44-bc27-4b03-8b9b-6c805ce317b4
+Replit-Commit-Checkpoint-Type: full_checkpoint
+Replit-Commit-Event-Id: 8eb743ce-d31c-4f8c-ac96-123f6d0604d3
+Replit-Commit-Screenshot-Url: https://storage.googleapis.com/screenshot-production-us-central1/6583df0b-1166-4042-a222-d49fbda4017d/77419e44-bc27-4b03-8b9b-6c805ce317b4/OyOW7KW
+Replit-Helium-Checkpoint-Created: true"/>
+<cliVersion>18.8.1</cliVersion>
+<logFiles>
+<logFile>https://job-logs.eascdn.net/production/3182a11b-73ff-4a8b-a635-051842a3400a/1776999432263-55ebf670-34ac-4b8b-be9d-e6b9eb108fa8.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260424%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260424T050033Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=891faf77417e5a24b9065e34f4022926dcfc34ac08b74034c1fe5d35fc9be1e47f9c05d58d25de0ba77decc6405002611d8ff7008739f7bb42fd305bb1623d3fe9191dd0a85c95c1c1bc36db7364d4ca2ad877ce08addd702f5cb79c92df561af07dfa62f9328974811ef482ac9c66fb20b9010fb1acad8ff599bb5972d6ac1d8eed8bd0070d068ccb01e2c46bebabff96f01bb66c4664e24e1408f4d87e8119d172d4c3a121c0f62051cbdf17c53a8bc1718a2a08b64505e8b76b69c78df243d67cf9f7bf08248391f1d5399df90ab13bc5b7ce8d5f053eae2c835edfd04caa25570a2cc34e3ea49e2179ee5871e6e0312714bfba0c93985a6e453d3afa0974</logFile>
+<logFile>https://job-logs.eascdn.net/production/3182a11b-73ff-4a8b-a635-051842a3400a/1776999434479-d62ae761-d40e-42d3-b352-7a4f38416d81.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260424%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260424T050033Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=0fe37a4af68217a18e299d96e0d32c07e660ffe1344a47391f93fc8bb692476c23bc36db3211e150ca9394294f443151b0d166acdd829f0b8817290d64b99bf53606c480e6f00fe9d50a21ef67ba1ff940a58fed5c107ffcd8c67f4118ff2ae3542b2186d8252093048ce55fa78f2cb866e41e944e7c6efd6953f8af4403b7677ceef6aec50e1c505446783008bffd411a025ebb28e91599c66563014f02d9b7613e16bba32812cac82eaab61e4365f11d6791153f5fc6addca7f2715668420d775707ecaf7b3d10c887c541d018af8ad539422185167f3074297e7610cc339f14f3638ee5d7f2a219e13e23f0416e89dfb529c1495c84137ce632ab98e5cb98</logFile>
+<logFile>https://job-logs.eascdn.net/production/3182a11b-73ff-4a8b-a635-051842a3400a/1776999434713-4e975af2-b43b-46dc-8ab3-160d37168f64.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260424%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260424T050033Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=2dc37652fc03007e63cd3759cf7d6ef6e00d0659c7216148847997da7cc261fcb0b02a4a024df6d29b96bb405243a83d6b3a132da86c0afc4cdc6770f2cd201a82e3d25c90933d79ae14d56b63b8a8c118e0051961b5420fbfce0c6c3842ecf7b8e14ca998e32483142f6acebcc1c4d1cc7f4e5578e7759172f07c7d5396420399054eb3401bd6016def1aa5b32ad9fb85814cba78f26cb23dd12bf36b441ba92648415b288bcf97cc66e7424c2a749d6286a03fc13944502e9c857526084dcf63033b6064a1bca6c7397bb4844db8138b9aa6577e8d71d0e219e532a3b6a5d1b70080769ea22f8e20bab039672783fc4b8560b4c359e34dee8a2bc6c7851d50</logFile>
+<logFile>https://job-logs.eascdn.net/production/3182a11b-73ff-4a8b-a635-051842a3400a/1776999434917-7fd8bf01-815e-4aae-b24c-be3fde967ce1.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260424%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260424T050033Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=9db9a11435e60c325ff5223c5b7cf06904bd374415a3394f1a90603e3c95ee461cdff81980146ef17602f64eec8d1633b30c50a47136c8b53d90ce0e14768cafef800f26251cd00859294702cc4a72bbe5367f71d44774e1e87ef4922e428b27aa31ec223745fe37cd925e60ec5eb55bd465d3792f4b6a11bddb3fd79b75b49e232190e18692087fc48d9993a57b37b050fa80cae6736a7ec723a8ea361975db48d6578f9bad65b01c43673559dca4a335eebe43da03e91705e4fde02fa380d4d4f49e633f8fd3d8d74c96d0fe9b5106986bafe3fd327c425213209a4360543f5a763f4b776716a84263ae71cfb746e4fdffcf7be1ee64abf6fc17be9ad780d6</logFile>
+</logFiles>
+</build>
+
+<instructions>
+Investigate the build failure and propose a fix.
+You can use `eas build:view 3182a11b-73ff-4a8b-a635-051842a3400a --json` for build metadata.
+
+If you have the Expo MCP server connected, you can also use the `build_info` and `build_logs` tools: https://docs.expo.dev/eas/ai/mcp/
+</instructions>
