@@ -31,18 +31,24 @@ If you connect a custom domain (e.g. `knowyourpit.com`), update both values to t
 
 In the [Apple Developer Portal → Identifiers](https://developer.apple.com/account/resources/identifiers/list), register all four bundle IDs:
 
-| Identifier | Description |
-|---|---|
-| `com.knowyourpit.app` | Main iOS app |
-| `com.knowyourpit.app.watchkitapp` | Apple Watch app |
-| `com.knowyourpit.app.watchkitextension` | Watch extension |
-| `com.knowyourpit.app.watchkitapp.complication` | Watch complication widget |
+| Identifier | Description | App ID registered | App Store profile created |
+|---|---|---|---|
+| `com.knowyourpit.app` | Main iOS app | ☐ | ☐ |
+| `com.knowyourpit.app.watchkitapp` | Apple Watch app | ☐ | ☐ |
+| `com.knowyourpit.app.watchkitextension` | Watch extension | ☐ | ☐ |
+| `com.knowyourpit.complications` | Watch complication widget | ☐ | ☐ |
+
+**Apple Team ID:** `W8AY23XJTF`
+
+These identifiers are the exact values used in `artifacts/knowyourpit/plugins/with-watch-app/index.ts` (`COMPANION_BUNDLE_ID`, `WATCH_APP_BUNDLE_ID`, `WATCH_EXT_BUNDLE_ID`, `COMPLICATION_BUNDLE_ID`). They must match the portal exactly or provisioning will fail.
 
 For **`com.knowyourpit.app`**, enable these capabilities:
 - **Push Notifications**
 - **App Groups** → add group: `group.com.knowyourpit.app`
 
 For all Watch identifiers, enable **App Groups** → `group.com.knowyourpit.app`.
+
+**EAS managed signing:** `artifacts/knowyourpit/eas.json` production profile already has `"credentialsSource": "remote"`. Once the App IDs and profiles exist in the portal, EAS will download and use them automatically — no manual certificate export needed.
 
 ### Step 4: Create an App Store Connect record
 
