@@ -444,7 +444,7 @@ const withResourceBundleSigning: ConfigPlugin = (config) =>
       // Inject inside the existing post_install block, right after its opening line.
       // Expo SDK 46+ generates a post_install block with react_native_post_install;
       // we must add our snippet inside it, not as a second top-level block.
-      const openingPattern = /^post_install do \|installer\|/m;
+      const openingPattern = /^\s*post_install do \|installer\|/m;
       const match = openingPattern.exec(podfile);
       if (match !== null) {
         const insertAt = match.index + match[0].length;
