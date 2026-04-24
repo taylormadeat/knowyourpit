@@ -86,8 +86,25 @@ Watch actions (stop cook, ask PitMaster, etc.) → WCSession message → `onWatc
   - `com.knowyourpit.app.watchkitapp`
   - `com.knowyourpit.app.watchkitextension`
 - App Group: `group.com.knowyourpit.app` (shared keychain for auth relay)
-- EAS Build: `eas build --platform ios --profile production`
+- EAS Build: `eas build --platform ios --profile production` (run from repo root — see "EAS config layout" below)
 - Targets watchOS 7+, Apple Watch Series 4+ (41mm and 45mm)
+
+---
+
+## EAS config layout (important — read before editing eas.json or app.json)
+
+The `eas build` command must be run from the **repo root**, because `expo-eas.sh prebuild` symlinks `ios/` and `android/` from `artifacts/knowyourpit/` into the root, and EAS expects the native dirs alongside the config files it reads.
+
+To make sure EAS reads the canonical KnowYourPit config (and not stale root scaffolding), the root `eas.json` and `app.json` are **symlinks** pointing into `artifacts/knowyourpit/`:
+
+```
+eas.json   -> artifacts/knowyourpit/eas.json
+app.json   -> artifacts/knowyourpit/app.json
+```
+
+**Do not replace these symlinks with regular files.** A previous incident — see [Task #91](.local/tasks/task-91.md) — was caused by `eas init` writing standalone `eas.json` and `app.json` files at the repo root. Those files had no `image` field, so EAS silently ignored the artifact's `"image": "macos-sequoia-15.6-xcode-16.4"` setting and provisioned the default Sonoma 14.5 + Xcode 15.4 worker. They also had a different `extra.eas.projectId` and `appVersionSource: "remote"`, which caused the `buildNumber` in `app.json` to be silently ignored. The symlinks make the artifact configs the single source of truth.
+
+If you ever need to re-run `eas init`, do it from `artifacts/knowyourpit/` — never from the repo root.
 
 ---
 

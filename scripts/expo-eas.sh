@@ -3,10 +3,40 @@ set -e
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-# Patch React Native's Xcode version check to allow Xcode 15.x (EAS default machine).
-# The check gates on XCODE_REQUIRED_MAJOR_VERSION = 16; lowering it to 15 lets
-# Xcode 15.4 pass (15 >= 15). Xcode 15.4 can build RN 0.77 — the check is
-# a conservative warning turned error, not a real capability limit.
+# Guard: the root eas.json and app.json MUST be symlinks into
+# artifacts/knowyourpit/. If they were ever replaced by standalone files
+# (e.g. by `eas init` run from the repo root), EAS would silently use those
+# stale configs and ignore the artifact's `image` and projectId settings.
+# See "EAS config layout" in replit.md and Task #91 for context.
+for cfg in eas.json app.json; do
+  path="$REPO_ROOT/$cfg"
+  expected_target="artifacts/knowyourpit/$cfg"
+  if [ ! -L "$path" ]; then
+    if [ -e "$path" ]; then
+      reason="Found a regular file instead of a symlink."
+    else
+      reason="The symlink is missing entirely."
+    fi
+    echo "ERROR: $cfg at the repo root must be a symlink to $expected_target." >&2
+    echo "       $reason EAS would read a stale or wrong file and silently" >&2
+    echo "       ignore the artifact's image/projectId/env settings. Restore with:" >&2
+    echo "         rm -f $cfg && ln -s $expected_target $cfg" >&2
+    exit 1
+  fi
+  actual_target="$(readlink "$path")"
+  if [ "$actual_target" != "$expected_target" ]; then
+    echo "ERROR: $cfg symlink points at '$actual_target' but must point at '$expected_target'." >&2
+    echo "       Restore with:" >&2
+    echo "         rm -f $cfg && ln -s $expected_target $cfg" >&2
+    exit 1
+  fi
+done
+
+# Defense-in-depth: patch React Native's Xcode-version check so the build does
+# not abort if EAS ever falls back to an older macOS image (Sonoma 14.5 + Xcode
+# 15.4). With the symlinks above intact, EAS uses macos-sequoia-15.6-xcode-16.4
+# and this patch is a no-op. Kept as belt-and-suspenders in case the image
+# is ever overridden.
 find "$REPO_ROOT/node_modules" -name "utils.rb" \
   -path "*/react-native/scripts/cocoapods/*" 2>/dev/null | \
   xargs -I{} perl -pi -e \
