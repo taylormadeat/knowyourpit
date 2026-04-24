@@ -68,9 +68,6 @@
   "dependencies": {
     "@tanstack/query-async-storage-persister": "^5.99.2",
     "@tanstack/react-query-persist-client": "^5.99.2",
-    "watch-connectivity": "file:./modules/watch-connectivity",
-    "expo": "~54.0.33",
-    "react": "19.1.0",
-    "react-native": "0.81.5"
+    "watch-connectivity": "file:./modules/watch-connectivity"
   }
 }
