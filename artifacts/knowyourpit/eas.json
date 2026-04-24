@@ -7,6 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "image": "macos-sequoia-15.2-xcode-16.2",
       "ios": {
         "simulator": true,
         "resourceClass": "m-medium"
@@ -19,6 +20,7 @@
       "distribution": "internal",
       "credentialsSource": "remote",
       "prebuildCommand": "bash scripts/expo-eas.sh prebuild --no-install --platform $EAS_BUILD_PLATFORM",
+      "image": "macos-sequoia-15.2-xcode-16.2",
       "ios": {
         "simulator": false,
         "resourceClass": "m-medium"
@@ -31,6 +33,7 @@
       "autoIncrement": true,
       "credentialsSource": "remote",
       "prebuildCommand": "bash scripts/expo-eas.sh prebuild --no-install --platform $EAS_BUILD_PLATFORM",
+      "image": "macos-sequoia-15.2-xcode-16.2",
       "ios": {
         "buildConfiguration": "Release",
         "resourceClass": "m-medium"
