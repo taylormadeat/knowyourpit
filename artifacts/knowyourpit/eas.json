@@ -8,7 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "image": "macos-sequoia-15.2-xcode-16.2",
+        "image": "sdk-54",
         "simulator": true,
         "resourceClass": "m-medium"
       },
@@ -21,7 +21,7 @@
       "credentialsSource": "remote",
       "prebuildCommand": "bash scripts/expo-eas.sh prebuild --no-install --platform $EAS_BUILD_PLATFORM",
       "ios": {
-        "image": "macos-sequoia-15.2-xcode-16.2",
+        "image": "sdk-54",
         "simulator": false,
         "resourceClass": "m-medium"
       },
@@ -34,7 +34,7 @@
       "credentialsSource": "remote",
       "prebuildCommand": "bash scripts/expo-eas.sh prebuild --no-install --platform $EAS_BUILD_PLATFORM",
       "ios": {
-        "image": "macos-sequoia-15.2-xcode-16.2",
+        "image": "sdk-54",
         "buildConfiguration": "Release",
         "resourceClass": "m-medium"
       },
