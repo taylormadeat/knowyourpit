@@ -401,11 +401,24 @@ const withWidgetKitFramework: ConfigPlugin = (config) =>
  * "resource bundles are signed by default, which requires setting the
  *  development team for each resource bundle target."
  */
+const RESOURCE_BUNDLE_SENTINEL = "# KnowYourPit: resource bundle signing";
+
+/**
+ * Adds a snippet inside the existing Podfile post_install block that sets
+ * CODE_SIGNING_ALLOWED=NO on all resource bundle targets. Required for
+ * Xcode 14+ which signs resource bundles by default — without this, EAS
+ * builds fail with "resource bundles are signed by default, which requires
+ * setting the development team for each resource bundle target."
+ *
+ * Injects INSIDE the existing post_install block (created by Expo's template)
+ * rather than appending a second top-level block, which would conflict with
+ * react_native_post_install and other required hooks.
+ */
 const withResourceBundleSigning: ConfigPlugin = (config) =>
   withDangerousMod(config, [
     "ios",
     async (mod) => {
-      const podfilePath = require("path").join(
+      const podfilePath = path.join(
         mod.modRequest.platformProjectRoot,
         "Podfile"
       );
@@ -413,21 +426,40 @@ const withResourceBundleSigning: ConfigPlugin = (config) =>
 
       let podfile = fs.readFileSync(podfilePath, "utf-8");
 
-      // Guard: only append once
-      if (podfile.includes("CODE_SIGNING_ALLOWED")) return mod;
+      // Idempotency guard using a specific sentinel comment
+      if (podfile.includes(RESOURCE_BUNDLE_SENTINEL)) return mod;
 
-      const hook = `
-post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    if target.respond_to?(:product_type) && target.product_type == "com.apple.product-type.bundle"
-      target.build_configurations.each do |config|
-        config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
-      end
-    end
-  end
-end
-`;
-      podfile += hook;
+      const snippet = [
+        "",
+        `  ${RESOURCE_BUNDLE_SENTINEL}`,
+        "  installer.pods_project.targets.each do |target|",
+        "    if target.respond_to?(:product_type) && target.product_type == \"com.apple.product-type.bundle\"",
+        "      target.build_configurations.each do |config|",
+        "        config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'",
+        "      end",
+        "    end",
+        "  end",
+      ].join("\n");
+
+      // Inject inside the existing post_install block, right after its opening line.
+      // Expo SDK 46+ generates a post_install block with react_native_post_install;
+      // we must add our snippet inside it, not as a second top-level block.
+      const openingPattern = /^post_install do \|installer\|/m;
+      const match = openingPattern.exec(podfile);
+      if (match !== null) {
+        const insertAt = match.index + match[0].length;
+        podfile = podfile.slice(0, insertAt) + snippet + podfile.slice(insertAt);
+      } else {
+        // Fallback for edge cases where no post_install block exists yet
+        podfile += [
+          "",
+          "post_install do |installer|",
+          snippet,
+          "end",
+          "",
+        ].join("\n");
+      }
+
       fs.writeFileSync(podfilePath, podfile, "utf-8");
       return mod;
     },
