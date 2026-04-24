@@ -108,9 +108,18 @@ The first two are checked in as committed symlinks. The remaining four are auto-
 
 **Why all six exist:** Expo and EAS resolve relative paths inside `app.json` (e.g. `"./plugins/with-watch-app"`, `"./assets/images/icon.png"`) from the *location of the file being loaded*, not from the project root. When EAS reads `app.json` via the workspace-root symlink, those relative paths resolve to `/home/runner/workspace/...` — so the directories must also exist at that location.
 
-**Do not replace these symlinks with regular files or directories.** Two prior incidents:
+### node_modules mirror (third symlink layer)
+
+In addition to the six dirs above, `scripts/expo-eas.sh` mirrors **every package** from `artifacts/knowyourpit/node_modules/` into `/home/runner/workspace/node_modules/` as leaf-level symlinks. This is required because `app.json` references node-modules plugins by bare name (`"expo-router"`, `"expo-notifications"`, etc.), and Node module resolution starts from the directory of the file that loaded `app.json`. When EAS reads `app.json` from the workspace root, plugin lookups would fail without these symlinks because the workspace-root `node_modules/` only contains a few workspace-level dev tools (`prettier`, `typescript`).
+
+The mirror has two important rules:
+- **Never overwrite an existing entry** at the repo root — pnpm may have already linked it (e.g. workspace-hoisted `typescript`).
+- **Scoped (`@scope`) directories at the repo root must be real directories, not symlinks.** If `node_modules/@clerk` were a symlink to `artifacts/knowyourpit/node_modules/@clerk`, then any subsequent `ln -sfn artifact/.../@clerk/expo node_modules/@clerk/expo` call would resolve `dst` *through* the symlink and overwrite the original pnpm-managed entry inside the artifact's tree, leaving it as a self-loop. The script materializes each `@scope` directory at the root with `mkdir -p` (replacing any pre-existing symlink) before placing per-package symlinks inside it. See the post-mortem comment in `scripts/expo-eas.sh` for the gory details of the "@clerk/expo self-symlink" incident.
+
+**Do not replace these symlinks with regular files or directories.** Three prior incidents:
 - [Task #91](.local/tasks/task-91.md): `eas init` run from the repo root wrote standalone `eas.json` and `app.json`. Those stale files had no `image` field, no env vars, and a different `extra.eas.projectId`, so EAS silently ignored the artifact's `"image": "macos-sequoia-15.6-xcode-16.4"` and `appVersionSource: "local"` settings.
 - [Task #92](.local/tasks/task-92.md): after Task #91's symlinks were in place, Expo failed with `"Failed to resolve plugin for module './plugins/with-watch-app' relative to '/home/runner/workspace'"` because the `plugins/` and `assets/` directories had not yet been mirrored at the repo root.
+- After Task #92, Expo failed with `"Failed to resolve plugin for module 'expo-router' relative to '/home/runner/workspace'"` because node-modules plugins like `expo-router`, `expo-notifications`, `expo-location`, `expo-image-picker`, `expo-font`, `expo-web-browser` were not present at the workspace-root `node_modules/`. Fixed by adding the node_modules mirror described above.
 
 If you ever need to re-run `eas init`, do it from `artifacts/knowyourpit/` — never from the repo root.
 
