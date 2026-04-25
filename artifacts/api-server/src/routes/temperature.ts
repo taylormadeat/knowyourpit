@@ -201,7 +201,7 @@ WRONG — one entry per data point (DO NOT DO THIS):
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model: "gpt-4.1-mini",
       max_completion_tokens: 1024,
       messages: [
         {
@@ -724,7 +724,7 @@ ${tempSmokerProfile ? `\n${tempSmokerProfile}` : ""}`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model: "gpt-4.1-mini",
       max_completion_tokens: 4000,
       messages: [
         { role: "system", content: systemPrompt },

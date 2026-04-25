@@ -131,7 +131,7 @@ ${cookHistory}`;
   ];
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: "gpt-4.1-mini",
     max_completion_tokens: 1024,
     messages: aiMessages,
   });

@@ -266,7 +266,7 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
     .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: "gpt-4.1-mini",
     max_completion_tokens: 1024,
     messages: [
       { role: "system", content: systemPrompt },
@@ -369,7 +369,7 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
       .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
     const stream = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model: "gpt-4.1-mini",
       max_completion_tokens: 1024,
       messages: [
         { role: "system", content: systemPrompt },
@@ -800,7 +800,7 @@ ${baselineSection}
 ${userHistorySection}`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: "gpt-4.1-mini",
     max_completion_tokens: 1024,
     messages: [
       { role: "system", content: systemPrompt },
