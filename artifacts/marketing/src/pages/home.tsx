@@ -170,7 +170,7 @@ export default function Home() {
                   <img
                     src={`${BASE}${shot.src}`}
                     alt={shot.alt}
-                    loading="eager"
+                    loading="lazy"
                     className="absolute inset-0 w-full h-full object-cover object-center"
                   />
                   {/* Mask iOS chrome + Expo dev bar from source PNG */}
