@@ -279,8 +279,11 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, r
       elapsedMinutes?: number | null;
       currentPitTempF?: number | null;
       outdoorTempF?: number | null;
+      cookStatus?: string | null;
     } | null;
   };
+
+  const isActiveCook = cookContext?.cookStatus === "active";
 
   const imageList = Array.isArray(images) ? images : [];
   if (imageList.length === 0 && !cookNotes?.trim() && !cookContext?.userEnteredTempF) {
@@ -536,6 +539,31 @@ suggestions: 3-5 specific, actionable improvements. Reference actual temperature
 
 If cook context is provided, use those values to fill any gaps and assess against stated targets.
 If noDataFound is true, still assess and suggest based on cook notes and any provided context alone.
+
+${isActiveCook ? `=== ACTIVE COOK MODE — LIVE LANGUAGE REQUIRED ===
+This cook is IN PROGRESS RIGHT NOW. The pitmaster is checking in mid-cook for live guidance, NOT reviewing a finished cook. You MUST write the assessment in present tense as a live status report:
+
+- "summary": ONE sentence describing what is happening RIGHT NOW. Use present tense. Reference current temp, current phase, and on-track status. Examples:
+  ✅ "You're cruising through the stall at 162°F — pit is steady at 225°F and you're tracking on time for serve."
+  ✅ "Internal just hit 195°F and the slope is flattening — finishing window opens in roughly 30 minutes."
+  ❌ DO NOT say "The cook went well" or "You hit your target" or anything past tense.
+
+- "whatWentWell": 2-3 things going RIGHT at this moment. Present tense, observational. Examples:
+  ✅ "Pit is holding rock-steady at 224°F"
+  ✅ "Stall recovery is on track — slope picked back up to 0.4°F/min"
+  ❌ NOT "Pit held steady" (past tense)
+
+- "suggestions": 2-4 things to ADJUST OR DO NOW (or in the next 30-60 minutes), NOT advice for a future cook. Present/imperative tense. Examples:
+  ✅ "Spritz with apple juice in the next 15 minutes — bark is starting to firm up"
+  ✅ "Crack the bottom vent another 1/4 turn — pit drifted down 8°F over the last reading window"
+  ❌ NOT "Next time, try wrapping earlier" — that's for completed cooks only.
+
+- "verdict": choose based on CURRENT trajectory, not finished outcome:
+  - "perfect": cook is on track, no concerns
+  - "good": minor adjustments suggested but trending well
+  - "needs_work": at-risk for serve time or temp targets without intervention
+  - "undercooked"/"overcooked": only if literally at finishing temp and over/under
+` : ""}
 
 === PHASE PREDICTION ===
 Only populate "phasePrediction" when LIVE COOK DATA is present in the context. Otherwise set it to null.

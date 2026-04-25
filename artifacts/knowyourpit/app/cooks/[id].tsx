@@ -707,6 +707,7 @@ export default function CookDetailScreen() {
             elapsedMinutes: c?.actualStartAt ? Math.round((Date.now() - new Date(c.actualStartAt).getTime()) / 60000) : null,
             currentPitTempF: meaterProbes[0]?.ambientTempF ?? null,
             outdoorTempF: weather.tempF ?? null,
+            cookStatus: c?.status ?? null,
           },
         } as any,
       });
@@ -891,358 +892,6 @@ export default function CookDetailScreen() {
             </View>
           ) : null}
         </View>
-
-        {/* ── COOK SUMMARY CARD (plan + actual + grade) ─────────── */}
-        {(() => {
-          const wrapStr = (() => {
-            const parts: string[] = [];
-            if (c.wrapMethod === "foil") parts.push("Foil (Texas Crutch)");
-            else if (c.wrapMethod === "butcher_paper") parts.push("Butcher Paper");
-            else if (c.wrapMethod === "none") parts.push("No wrap");
-            if (c.wrapAtMinutes) parts.push(`at ${Math.floor(c.wrapAtMinutes / 60)}h ${c.wrapAtMinutes % 60}m`);
-            if (c.wrapTempF) parts.push(`${c.wrapTempF}°F internal`);
-            return parts.length ? parts.join(" · ") : null;
-          })();
-          const plannedDurMs = c.plannedStartAt && c.plannedEndAt
-            ? new Date(c.plannedEndAt).getTime() - new Date(c.plannedStartAt).getTime()
-            : null;
-          const actualDurMs = c.actualStartAt && c.actualEndAt
-            ? new Date(c.actualEndAt).getTime() - new Date(c.actualStartAt).getTime()
-            : c.actualStartAt && cookStatus === "active" ? nowMs - new Date(c.actualStartAt).getTime() : null;
-          const planGrade = cookStatus === "completed" ? computePlanGrade(c) : null;
-
-          // Compact stat tiles — max 4 key facts
-          const statTiles: { icon: string; label: string; value: string; sub?: string }[] = [];
-          if (c.targetTempF) statTiles.push({ icon: "thermometer", label: "Target", value: `${c.targetTempF}°F` });
-          if (c.cookTempF) statTiles.push({ icon: "wind", label: "Pit Temp", value: `${c.cookTempF}°F` });
-          if (plannedDurMs) statTiles.push({ icon: "clock", label: "Planned", value: fmtDuration(plannedDurMs) });
-          if (actualDurMs) statTiles.push({
-            icon: cookStatus === "active" ? "loader" : "check-circle",
-            label: cookStatus === "active" ? "Elapsed" : "Actual",
-            value: fmtDuration(actualDurMs),
-          });
-          if (!statTiles.length && c.weightLbs) statTiles.push({ icon: "package", label: "Weight", value: `${c.weightLbs} lbs` });
-
-          // Full detail rows — plan section
-          const planDetailRows = [
-            { label: "Food", value: c.foodType },
-            { label: "Grill", value: (c as any).grillName },
-            { label: "Weight", value: c.weightLbs ? `${c.weightLbs} lbs` : null },
-            { label: "Target Temp", value: c.targetTempF ? `${c.targetTempF}°F` : null },
-            { label: "Pit Temp", value: c.cookTempF ? `${c.cookTempF}°F` : null },
-            { label: "Planned Start", value: c.plannedStartAt ? new Date(c.plannedStartAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null },
-            { label: "Serve By", value: c.plannedEndAt ? new Date(c.plannedEndAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null },
-            { label: "Planned Duration", value: plannedDurMs ? fmtDuration(plannedDurMs) : null },
-            { label: "Preheat", value: c.preheatMinutes ? `${c.preheatMinutes} min` : null },
-            { label: "Wrap", value: wrapStr },
-            { label: "Wrap Notes", value: c.wrapReason ?? null },
-            { label: "Rest", value: c.restMinutes ? `${c.restMinutes} min` : null },
-          ].filter((r) => r.value);
-
-          // Full detail rows — actual section
-          const actualDetailRows = (cookStatus === "active" || cookStatus === "completed") ? [
-            { label: "Started", value: c.actualStartAt ? formatDT(c.actualStartAt) : null },
-            { label: "Finished", value: c.actualEndAt ? formatDT(c.actualEndAt) : null },
-            { label: "Actual Duration", value: actualDurMs ? fmtDuration(actualDurMs) : null },
-          ].filter((r) => r.value) : [];
-
-          return (
-            <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, overflow: "hidden" }]}>
-
-              {/* ── Compact summary: stat tiles ── */}
-              {statTiles.length > 0 && (
-                <View style={[s.statTileRow, { borderBottomColor: colors.border }]}>
-                  {statTiles.map((tile, i) => (
-                    <View
-                      key={tile.label}
-                      style={[
-                        s.statTile,
-                        i < statTiles.length - 1 && { borderRightWidth: 1, borderRightColor: colors.border },
-                      ]}
-                    >
-                      <Feather name={tile.icon as any} size={14} color={colors.mutedForeground} style={{ marginBottom: 4 }} />
-                      <Text style={[s.statTileValue, { color: colors.foreground }]}>{tile.value}</Text>
-                      <Text style={[s.statTileLabel, { color: colors.mutedForeground }]}>{tile.label}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {/* ── Plan accuracy grade inline ── */}
-              {planGrade && (
-                <View style={[s.inlineGradeRow, { borderBottomColor: colors.border }]}>
-                  <View style={[s.inlineGradeBadge, { backgroundColor: planGrade.color + "18", borderColor: planGrade.color + "40" }]}>
-                    <Text style={[s.inlineGradeLetter, { color: planGrade.color }]}>{planGrade.grade}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[s.inlineGradeTitle, { color: colors.foreground }]}>Plan Accuracy · {planGrade.accuracy}%</Text>
-                    <Text style={[s.inlineGradeSub, { color: colors.mutedForeground }]}>{planGrade.deviation}</Text>
-                  </View>
-                  <View style={[s.gradeBarTrackSmall, { backgroundColor: colors.border, width: 52 }]}>
-                    <View style={[s.gradeBarFill, { width: `${planGrade.accuracy}%` as any, backgroundColor: planGrade.color }]} />
-                  </View>
-                </View>
-              )}
-
-              {/* ── Full details (collapsible) ── */}
-              {showCookDetails && (
-                <>
-                  {planDetailRows.length > 0 && (
-                    <>
-                      <View style={[s.sectionHeaderRow, { borderBottomColor: colors.border, borderTopWidth: planGrade || statTiles.length ? 0 : 0 }]}>
-                        <View style={[s.sectionIconWrap, { backgroundColor: "#3b82f618" }]}>
-                          <Feather name="clipboard" size={13} color="#3b82f6" />
-                        </View>
-                        <Text style={[s.sectionHeaderLabel, { color: "#3b82f6" }]}>The Plan</Text>
-                      </View>
-                      {planDetailRows.map((row, i) => (
-                        <View key={row.label} style={[s.row, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
-                          <Text style={[s.rowLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
-                          <Text style={[s.rowValue, { color: colors.foreground }]}>{row.value}</Text>
-                        </View>
-                      ))}
-                      {c.notes && (
-                        <View style={[s.row, { flexDirection: "column", alignItems: "flex-start", gap: 6, borderBottomWidth: 1, borderBottomColor: colors.border }]}>
-                          <Text style={[s.rowLabel, { color: colors.mutedForeground }]}>Notes</Text>
-                          <Text style={[s.notesText, { color: colors.foreground }]}>{c.notes}</Text>
-                        </View>
-                      )}
-                    </>
-                  )}
-                  {actualDetailRows.length > 0 && (
-                    <>
-                      <View style={[s.sectionHeaderRow, { borderBottomColor: colors.border }]}>
-                        <View style={[s.sectionIconWrap, { backgroundColor: "#22c55e18" }]}>
-                          <Feather name="bar-chart-2" size={13} color="#22c55e" />
-                        </View>
-                        <Text style={[s.sectionHeaderLabel, { color: "#22c55e" }]}>How It Went</Text>
-                      </View>
-                      {actualDetailRows.map((row, i) => (
-                        <View key={row.label} style={[s.row, i < actualDetailRows.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
-                          <Text style={[s.rowLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
-                          <Text style={[s.rowValue, { color: colors.foreground }]}>{row.value}</Text>
-                        </View>
-                      ))}
-                    </>
-                  )}
-                </>
-              )}
-
-              {/* ── Toggle button ── */}
-              <Pressable
-                onPress={() => setShowCookDetails((v) => !v)}
-                style={[s.detailsToggle, { borderTopColor: colors.border }]}
-              >
-                <Text style={[s.detailsToggleText, { color: colors.primary }]}>
-                  {showCookDetails ? "Hide details" : "View full details"}
-                </Text>
-                <Feather name={showCookDetails ? "chevron-up" : "chevron-down"} size={14} color={colors.primary} />
-              </Pressable>
-            </View>
-          );
-        })()}
-
-        {/* ── Stored AI analysis ──────────────────────────────── */}
-        {storedAnalysis && (
-          <View
-            style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
-            onLayout={onCardLayout}
-          >
-            <View style={s.logHeader}>
-              <LinearGradient colors={["#6C3BF5", "#A855F7"]} style={s.logIconWrap}>
-                <Feather name="activity" size={15} color="#fff" />
-              </LinearGradient>
-              <View style={{ flex: 1 }}>
-                <Text style={[s.logTitle, { color: colors.foreground }]}>PitMaster Cook Analysis</Text>
-                <Text style={[s.logSub, { color: colors.mutedForeground }]}>Saved from image scan</Text>
-              </View>
-              {storedVerdictCfg && (
-                <View style={[s.verdictPill, { backgroundColor: storedVerdictCfg.color + "22" }]}>
-                  <Feather name={storedVerdictCfg.icon as any} size={12} color={storedVerdictCfg.color} />
-                  <Text style={[s.verdictPillText, { color: storedVerdictCfg.color }]}>{storedVerdictCfg.label}</Text>
-                </View>
-              )}
-            </View>
-
-            {/* Key Takeaway — top suggestion surfaced immediately */}
-            {storedAssessment?.suggestions?.length > 0 && (
-              <View style={[s.keyTakeawayCard, { backgroundColor: "#A855F715", borderColor: "#A855F740" }]}>
-                <View style={s.keyTakeawayHeader}>
-                  <Feather name="star" size={13} color="#A855F7" />
-                  <Text style={[s.keyTakeawayLabel, { color: "#A855F7" }]}>
-                    For your next {c.foodType || "cook"}
-                  </Text>
-                </View>
-                <Text style={[s.keyTakeawayText, { color: colors.foreground }]}>
-                  {storedAssessment.suggestions[0]}
-                </Text>
-              </View>
-            )}
-
-            {storedAssessment?.summary ? (
-              <Text style={[s.storedSummary, { color: colors.foreground }]}>{storedAssessment.summary}</Text>
-            ) : null}
-
-            {storedGraphProbes.length > 0 && (
-              <View style={[s.graphWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
-                <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 8 }]}>Temperature Graph</Text>
-                <TempGraph
-                  probes={storedGraphProbes}
-                  events={storedAnalysis?.events ?? []}
-                  targetTempF={c.targetTempF ?? null}
-                  width={cardWidth}
-                  height={190}
-                />
-              </View>
-            )}
-
-            {(storedAnalysis?.probes?.length ?? 0) > 0 && (
-              <View style={[s.subSection, { borderTopColor: colors.border }]}>
-                <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Probe Readings</Text>
-                {storedAnalysis!.probes.map((p: any, i: number) => (
-                  <View key={i} style={[s.probeRow, { borderTopColor: colors.border }]}>
-                    <View>
-                      <Text style={[s.probeName, { color: colors.foreground }]}>{p.probeName}</Text>
-                      {(p.minTempF != null || p.maxTempF != null) && (
-                        <Text style={[s.probeRange, { color: colors.mutedForeground }]}>
-                          {p.minTempF ?? "?"}°F → {p.maxTempF ?? "?"}°F
-                        </Text>
-                      )}
-                    </View>
-                    <Text style={[s.probeFinish, { color: "#A855F7" }]}>{p.finishingTempF}°F</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {(storedAnalysis?.events?.length ?? 0) > 0 && (() => {
-              const isOpen = expandedStoredSections.has("timeline");
-              const events = storedAnalysis!.events;
-              return (
-                <View style={[s.subSection, { borderTopColor: colors.border }]}>
-                  <Pressable style={s.collapsibleRow} onPress={() => toggleStoredSection("timeline")}>
-                    <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>Cook Timeline</Text>
-                    <View style={[s.countPill, { backgroundColor: colors.muted }]}>
-                      <Text style={[s.countPillText, { color: colors.mutedForeground }]}>{events.length}</Text>
-                    </View>
-                    <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
-                  </Pressable>
-                  {!isOpen && (
-                    <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
-                      {fmtISOInText(events[0].description)}
-                    </Text>
-                  )}
-                  {isOpen && events.map((ev: any, i: number) => {
-                    const hrs = Math.floor(ev.timeMinutes / 60);
-                    const mins = ev.timeMinutes % 60;
-                    return (
-                      <View key={i} style={[s.eventRow, { borderTopColor: colors.border }]}>
-                        <View style={[s.eventIconWrap, { backgroundColor: "#A855F7" + "18" }]}>
-                          <Feather name={(EVENT_ICONS[ev.type] ?? "circle") as any} size={13} color="#A855F7" />
-                        </View>
-                        <Text style={[s.eventDesc, { color: colors.foreground, flex: 1 }]}>{fmtISOInText(ev.description)}</Text>
-                        <Text style={[s.eventTime, { color: colors.mutedForeground }]}>
-                          {hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              );
-            })()}
-
-            {(storedAssessment?.whatWentWell?.length ?? 0) > 0 && (() => {
-              const isOpen = expandedStoredSections.has("wentWell");
-              const items: string[] = storedAssessment!.whatWentWell;
-              return (
-                <View style={[s.subSection, { borderTopColor: colors.border }]}>
-                  <Pressable style={s.collapsibleRow} onPress={() => toggleStoredSection("wentWell")}>
-                    <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>What Went Well</Text>
-                    <View style={[s.countPill, { backgroundColor: "#22c55e18" }]}>
-                      <Text style={[s.countPillText, { color: "#22c55e" }]}>{items.length}</Text>
-                    </View>
-                    <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
-                  </Pressable>
-                  {!isOpen && (
-                    <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
-                      {items[0]}
-                    </Text>
-                  )}
-                  {isOpen && items.map((item, i) => (
-                    <View key={i} style={s.bulletRow}>
-                      <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
-                      <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
-                    </View>
-                  ))}
-                </View>
-              );
-            })()}
-
-            {(storedAssessment?.suggestions?.length ?? 0) > 0 && (() => {
-              const isOpen = expandedStoredSections.has("nextTime");
-              const tips: string[] = storedAssessment!.suggestions;
-              return (
-                <View style={[s.subSection, { borderTopColor: colors.border }]}>
-                  <Pressable style={s.collapsibleRow} onPress={() => toggleStoredSection("nextTime")}>
-                    <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>Next Time, Try This</Text>
-                    <View style={[s.countPill, { backgroundColor: "#A855F718" }]}>
-                      <Text style={[s.countPillText, { color: "#A855F7" }]}>{tips.length}</Text>
-                    </View>
-                    <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
-                  </Pressable>
-                  {!isOpen && (
-                    <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
-                      {tips[0]}
-                    </Text>
-                  )}
-                  {isOpen && tips.map((tip, i) => (
-                    <View key={i} style={s.bulletRow}>
-                      <Text style={[s.bulletNum, { color: "#A855F7" }]}>{i + 1}</Text>
-                      <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
-                    </View>
-                  ))}
-                </View>
-              );
-            })()}
-          </View>
-        )}
-
-        {/* ── Last Decision Banner (active cooks only) ─────── */}
-        {c.status === "active" && (() => {
-          const stored = c.analysisResult as any;
-          const decisions: any[] = stored?.decisions ?? [];
-          if (decisions.length === 0) return null;
-          const top = decisions[0];
-          const URGENCY_COLORS: Record<string, string> = {
-            now: "#EF4444",
-            soon: "#F59E0B",
-            when_ready: "#6C3BF5",
-          };
-          const color = top.action === "maintain" ? "#22c55e" : (URGENCY_COLORS[top.urgency] ?? "#6C3BF5");
-          const urgencyLabel = top.action === "maintain"
-            ? "HOLD STEADY"
-            : (top.urgency === "now" ? "ACTION NEEDED" : top.urgency === "soon" ? "DO THIS SOON" : "WHEN READY");
-          return (
-            <View style={[s.persistentDecisionBanner, { backgroundColor: color + "12", borderColor: color + "45" }]}>
-              <View style={s.persistentDecisionHeader}>
-                <View style={[s.persistentUrgencyBadge, { backgroundColor: color }]}>
-                  <Text style={s.persistentUrgencyText}>{urgencyLabel}</Text>
-                </View>
-                <Text style={[s.persistentDecisionLabel, { color: colors.mutedForeground }]}>
-                  Last PitMaster guidance
-                </Text>
-              </View>
-              <Text style={[s.persistentDecisionInstruction, { color: colors.foreground }]}>
-                {top.instruction}
-              </Text>
-              {top.rationale ? (
-                <Text style={[s.persistentDecisionRationale, { color: colors.mutedForeground }]}>
-                  {top.rationale}
-                </Text>
-              ) : null}
-            </View>
-          );
-        })()}
 
         {/* ── Live Cook section (active cooks only) ──────────── */}
         {c.status === "active" && (
@@ -1467,6 +1116,376 @@ export default function CookDetailScreen() {
                 )}
               </Pressable>
             </View>
+          </View>
+        )}
+
+        {/* ── Last Decision Banner (active cooks only) ─────── */}
+        {c.status === "active" && (() => {
+          const stored = c.analysisResult as any;
+          const decisions: any[] = stored?.decisions ?? [];
+          if (decisions.length === 0) return null;
+          const top = decisions[0];
+          const URGENCY_COLORS: Record<string, string> = {
+            now: "#EF4444",
+            soon: "#F59E0B",
+            when_ready: "#6C3BF5",
+          };
+          const color = top.action === "maintain" ? "#22c55e" : (URGENCY_COLORS[top.urgency] ?? "#6C3BF5");
+          const urgencyLabel = top.action === "maintain"
+            ? "HOLD STEADY"
+            : (top.urgency === "now" ? "ACTION NEEDED" : top.urgency === "soon" ? "DO THIS SOON" : "WHEN READY");
+          return (
+            <View style={[s.persistentDecisionBanner, { backgroundColor: color + "12", borderColor: color + "45" }]}>
+              <View style={s.persistentDecisionHeader}>
+                <View style={[s.persistentUrgencyBadge, { backgroundColor: color }]}>
+                  <Text style={s.persistentUrgencyText}>{urgencyLabel}</Text>
+                </View>
+                <Text style={[s.persistentDecisionLabel, { color: colors.mutedForeground }]}>
+                  Last PitMaster guidance
+                </Text>
+              </View>
+              <Text style={[s.persistentDecisionInstruction, { color: colors.foreground }]}>
+                {top.instruction}
+              </Text>
+              {top.rationale ? (
+                <Text style={[s.persistentDecisionRationale, { color: colors.mutedForeground }]}>
+                  {top.rationale}
+                </Text>
+              ) : null}
+            </View>
+          );
+        })()}
+
+        {/* ── COOK SUMMARY CARD (plan + actual + grade) ─────────── */}
+        {(() => {
+          const wrapStr = (() => {
+            const parts: string[] = [];
+            if (c.wrapMethod === "foil") parts.push("Foil (Texas Crutch)");
+            else if (c.wrapMethod === "butcher_paper") parts.push("Butcher Paper");
+            else if (c.wrapMethod === "none") parts.push("No wrap");
+            if (c.wrapAtMinutes) parts.push(`at ${Math.floor(c.wrapAtMinutes / 60)}h ${c.wrapAtMinutes % 60}m`);
+            if (c.wrapTempF) parts.push(`${c.wrapTempF}°F internal`);
+            return parts.length ? parts.join(" · ") : null;
+          })();
+          const plannedDurMs = c.plannedStartAt && c.plannedEndAt
+            ? new Date(c.plannedEndAt).getTime() - new Date(c.plannedStartAt).getTime()
+            : null;
+          const actualDurMs = c.actualStartAt && c.actualEndAt
+            ? new Date(c.actualEndAt).getTime() - new Date(c.actualStartAt).getTime()
+            : c.actualStartAt && cookStatus === "active" ? nowMs - new Date(c.actualStartAt).getTime() : null;
+          const planGrade = cookStatus === "completed" ? computePlanGrade(c) : null;
+
+          // Compact stat tiles — max 4 key facts
+          const statTiles: { icon: string; label: string; value: string; sub?: string }[] = [];
+          if (c.targetTempF) statTiles.push({ icon: "thermometer", label: "Target", value: `${c.targetTempF}°F` });
+          if (c.cookTempF) statTiles.push({ icon: "wind", label: "Pit Temp", value: `${c.cookTempF}°F` });
+          if (plannedDurMs) statTiles.push({ icon: "clock", label: "Planned", value: fmtDuration(plannedDurMs) });
+          if (actualDurMs) statTiles.push({
+            icon: cookStatus === "active" ? "loader" : "check-circle",
+            label: cookStatus === "active" ? "Elapsed" : "Actual",
+            value: fmtDuration(actualDurMs),
+          });
+          if (!statTiles.length && c.weightLbs) statTiles.push({ icon: "package", label: "Weight", value: `${c.weightLbs} lbs` });
+
+          // Full detail rows — plan section
+          const planDetailRows = [
+            { label: "Food", value: c.foodType },
+            { label: "Grill", value: (c as any).grillName },
+            { label: "Weight", value: c.weightLbs ? `${c.weightLbs} lbs` : null },
+            { label: "Target Temp", value: c.targetTempF ? `${c.targetTempF}°F` : null },
+            { label: "Pit Temp", value: c.cookTempF ? `${c.cookTempF}°F` : null },
+            { label: "Planned Start", value: c.plannedStartAt ? new Date(c.plannedStartAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null },
+            { label: "Serve By", value: c.plannedEndAt ? new Date(c.plannedEndAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null },
+            { label: "Planned Duration", value: plannedDurMs ? fmtDuration(plannedDurMs) : null },
+            { label: "Preheat", value: c.preheatMinutes ? `${c.preheatMinutes} min` : null },
+            { label: "Wrap", value: wrapStr },
+            { label: "Wrap Notes", value: c.wrapReason ?? null },
+            { label: "Rest", value: c.restMinutes ? `${c.restMinutes} min` : null },
+          ].filter((r) => r.value);
+
+          // Full detail rows — actual section
+          const actualDetailRows = (cookStatus === "active" || cookStatus === "completed") ? [
+            { label: "Started", value: c.actualStartAt ? formatDT(c.actualStartAt) : null },
+            { label: "Finished", value: c.actualEndAt ? formatDT(c.actualEndAt) : null },
+            { label: "Actual Duration", value: actualDurMs ? fmtDuration(actualDurMs) : null },
+          ].filter((r) => r.value) : [];
+
+          return (
+            <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, overflow: "hidden" }]}>
+
+              {/* ── Compact summary: stat tiles ── */}
+              {statTiles.length > 0 && (
+                <View style={[s.statTileRow, { borderBottomColor: colors.border }]}>
+                  {statTiles.map((tile, i) => (
+                    <View
+                      key={tile.label}
+                      style={[
+                        s.statTile,
+                        i < statTiles.length - 1 && { borderRightWidth: 1, borderRightColor: colors.border },
+                      ]}
+                    >
+                      <Feather name={tile.icon as any} size={14} color={colors.mutedForeground} style={{ marginBottom: 4 }} />
+                      <Text style={[s.statTileValue, { color: colors.foreground }]}>{tile.value}</Text>
+                      <Text style={[s.statTileLabel, { color: colors.mutedForeground }]}>{tile.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* ── Plan accuracy grade inline ── */}
+              {planGrade && (
+                <View style={[s.inlineGradeRow, { borderBottomColor: colors.border }]}>
+                  <View style={[s.inlineGradeBadge, { backgroundColor: planGrade.color + "18", borderColor: planGrade.color + "40" }]}>
+                    <Text style={[s.inlineGradeLetter, { color: planGrade.color }]}>{planGrade.grade}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.inlineGradeTitle, { color: colors.foreground }]}>Plan Accuracy · {planGrade.accuracy}%</Text>
+                    <Text style={[s.inlineGradeSub, { color: colors.mutedForeground }]}>{planGrade.deviation}</Text>
+                  </View>
+                  <View style={[s.gradeBarTrackSmall, { backgroundColor: colors.border, width: 52 }]}>
+                    <View style={[s.gradeBarFill, { width: `${planGrade.accuracy}%` as any, backgroundColor: planGrade.color }]} />
+                  </View>
+                </View>
+              )}
+
+              {/* ── Full details (collapsible) ── */}
+              {showCookDetails && (
+                <>
+                  {planDetailRows.length > 0 && (
+                    <>
+                      <View style={[s.sectionHeaderRow, { borderBottomColor: colors.border, borderTopWidth: planGrade || statTiles.length ? 0 : 0 }]}>
+                        <View style={[s.sectionIconWrap, { backgroundColor: "#3b82f618" }]}>
+                          <Feather name="clipboard" size={13} color="#3b82f6" />
+                        </View>
+                        <Text style={[s.sectionHeaderLabel, { color: "#3b82f6" }]}>The Plan</Text>
+                      </View>
+                      {planDetailRows.map((row, i) => (
+                        <View key={row.label} style={[s.row, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                          <Text style={[s.rowLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
+                          <Text style={[s.rowValue, { color: colors.foreground }]}>{row.value}</Text>
+                        </View>
+                      ))}
+                      {c.notes && (
+                        <View style={[s.row, { flexDirection: "column", alignItems: "flex-start", gap: 6, borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                          <Text style={[s.rowLabel, { color: colors.mutedForeground }]}>Notes</Text>
+                          <Text style={[s.notesText, { color: colors.foreground }]}>{c.notes}</Text>
+                        </View>
+                      )}
+                    </>
+                  )}
+                  {actualDetailRows.length > 0 && (
+                    <>
+                      <View style={[s.sectionHeaderRow, { borderBottomColor: colors.border }]}>
+                        <View style={[s.sectionIconWrap, { backgroundColor: "#22c55e18" }]}>
+                          <Feather name="bar-chart-2" size={13} color="#22c55e" />
+                        </View>
+                        <Text style={[s.sectionHeaderLabel, { color: "#22c55e" }]}>How It Went</Text>
+                      </View>
+                      {actualDetailRows.map((row, i) => (
+                        <View key={row.label} style={[s.row, i < actualDetailRows.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                          <Text style={[s.rowLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
+                          <Text style={[s.rowValue, { color: colors.foreground }]}>{row.value}</Text>
+                        </View>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* ── Toggle button ── */}
+              <Pressable
+                onPress={() => setShowCookDetails((v) => !v)}
+                style={[s.detailsToggle, { borderTopColor: colors.border }]}
+              >
+                <Text style={[s.detailsToggleText, { color: colors.primary }]}>
+                  {showCookDetails ? "Hide details" : "View full details"}
+                </Text>
+                <Feather name={showCookDetails ? "chevron-up" : "chevron-down"} size={14} color={colors.primary} />
+              </Pressable>
+            </View>
+          );
+        })()}
+
+        {/* ── Stored AI analysis ──────────────────────────────── */}
+        {storedAnalysis && (
+          <View
+            style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
+            onLayout={onCardLayout}
+          >
+            <View style={s.logHeader}>
+              <LinearGradient colors={["#6C3BF5", "#A855F7"]} style={s.logIconWrap}>
+                <Feather name="activity" size={15} color="#fff" />
+              </LinearGradient>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.logTitle, { color: colors.foreground }]}>
+                  {c.status === "active" ? "PitMaster Live Check-in" : "PitMaster Cook Analysis"}
+                </Text>
+                <Text style={[s.logSub, { color: colors.mutedForeground }]}>
+                  {c.status === "active"
+                    ? (() => {
+                        const m = (storedAnalysis as any)?.snapshotElapsedMinutes;
+                        if (typeof m === "number" && m >= 0) {
+                          const h = Math.floor(m / 60);
+                          const mm = m % 60;
+                          return `Last check-in at ${h > 0 ? `${h}h ${mm}m` : `${mm}m`} into cook`;
+                        }
+                        return "Latest check-in";
+                      })()
+                    : "Saved from image scan"}
+                </Text>
+              </View>
+              {storedVerdictCfg && (
+                <View style={[s.verdictPill, { backgroundColor: storedVerdictCfg.color + "22" }]}>
+                  <Feather name={storedVerdictCfg.icon as any} size={12} color={storedVerdictCfg.color} />
+                  <Text style={[s.verdictPillText, { color: storedVerdictCfg.color }]}>{storedVerdictCfg.label}</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Key Takeaway — top suggestion surfaced immediately */}
+            {storedAssessment?.suggestions?.length > 0 && (
+              <View style={[s.keyTakeawayCard, { backgroundColor: "#A855F715", borderColor: "#A855F740" }]}>
+                <View style={s.keyTakeawayHeader}>
+                  <Feather name="star" size={13} color="#A855F7" />
+                  <Text style={[s.keyTakeawayLabel, { color: "#A855F7" }]}>
+                    {c.status === "active" ? "Do this now" : `For your next ${c.foodType || "cook"}`}
+                  </Text>
+                </View>
+                <Text style={[s.keyTakeawayText, { color: colors.foreground }]}>
+                  {storedAssessment.suggestions[0]}
+                </Text>
+              </View>
+            )}
+
+            {storedAssessment?.summary ? (
+              <Text style={[s.storedSummary, { color: colors.foreground }]}>{storedAssessment.summary}</Text>
+            ) : null}
+
+            {storedGraphProbes.length > 0 && (
+              <View style={[s.graphWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 8 }]}>Temperature Graph</Text>
+                <TempGraph
+                  probes={storedGraphProbes}
+                  events={storedAnalysis?.events ?? []}
+                  targetTempF={c.targetTempF ?? null}
+                  width={cardWidth}
+                  height={190}
+                />
+              </View>
+            )}
+
+            {(storedAnalysis?.probes?.length ?? 0) > 0 && (
+              <View style={[s.subSection, { borderTopColor: colors.border }]}>
+                <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Probe Readings</Text>
+                {storedAnalysis!.probes.map((p: any, i: number) => (
+                  <View key={i} style={[s.probeRow, { borderTopColor: colors.border }]}>
+                    <View>
+                      <Text style={[s.probeName, { color: colors.foreground }]}>{p.probeName}</Text>
+                      {(p.minTempF != null || p.maxTempF != null) && (
+                        <Text style={[s.probeRange, { color: colors.mutedForeground }]}>
+                          {p.minTempF ?? "?"}°F → {p.maxTempF ?? "?"}°F
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={[s.probeFinish, { color: "#A855F7" }]}>{p.finishingTempF}°F</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {(storedAnalysis?.events?.length ?? 0) > 0 && (() => {
+              const isOpen = expandedStoredSections.has("timeline");
+              const events = storedAnalysis!.events;
+              return (
+                <View style={[s.subSection, { borderTopColor: colors.border }]}>
+                  <Pressable style={s.collapsibleRow} onPress={() => toggleStoredSection("timeline")}>
+                    <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>Cook Timeline</Text>
+                    <View style={[s.countPill, { backgroundColor: colors.muted }]}>
+                      <Text style={[s.countPillText, { color: colors.mutedForeground }]}>{events.length}</Text>
+                    </View>
+                    <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
+                  </Pressable>
+                  {!isOpen && (
+                    <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
+                      {fmtISOInText(events[0].description)}
+                    </Text>
+                  )}
+                  {isOpen && events.map((ev: any, i: number) => {
+                    const hrs = Math.floor(ev.timeMinutes / 60);
+                    const mins = ev.timeMinutes % 60;
+                    return (
+                      <View key={i} style={[s.eventRow, { borderTopColor: colors.border }]}>
+                        <View style={[s.eventIconWrap, { backgroundColor: "#A855F7" + "18" }]}>
+                          <Feather name={(EVENT_ICONS[ev.type] ?? "circle") as any} size={13} color="#A855F7" />
+                        </View>
+                        <Text style={[s.eventDesc, { color: colors.foreground, flex: 1 }]}>{fmtISOInText(ev.description)}</Text>
+                        <Text style={[s.eventTime, { color: colors.mutedForeground }]}>
+                          {hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })()}
+
+            {(storedAssessment?.whatWentWell?.length ?? 0) > 0 && (() => {
+              const isOpen = expandedStoredSections.has("wentWell");
+              const items: string[] = storedAssessment!.whatWentWell;
+              return (
+                <View style={[s.subSection, { borderTopColor: colors.border }]}>
+                  <Pressable style={s.collapsibleRow} onPress={() => toggleStoredSection("wentWell")}>
+                    <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>
+                      {c.status === "active" ? "What's Working" : "What Went Well"}
+                    </Text>
+                    <View style={[s.countPill, { backgroundColor: "#22c55e18" }]}>
+                      <Text style={[s.countPillText, { color: "#22c55e" }]}>{items.length}</Text>
+                    </View>
+                    <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
+                  </Pressable>
+                  {!isOpen && (
+                    <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
+                      {items[0]}
+                    </Text>
+                  )}
+                  {isOpen && items.map((item, i) => (
+                    <View key={i} style={s.bulletRow}>
+                      <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
+                      <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })()}
+
+            {(storedAssessment?.suggestions?.length ?? 0) > 0 && (() => {
+              const isOpen = expandedStoredSections.has("nextTime");
+              const tips: string[] = storedAssessment!.suggestions;
+              return (
+                <View style={[s.subSection, { borderTopColor: colors.border }]}>
+                  <Pressable style={s.collapsibleRow} onPress={() => toggleStoredSection("nextTime")}>
+                    <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>
+                      {c.status === "active" ? "What to Adjust" : "Next Time, Try This"}
+                    </Text>
+                    <View style={[s.countPill, { backgroundColor: "#A855F718" }]}>
+                      <Text style={[s.countPillText, { color: "#A855F7" }]}>{tips.length}</Text>
+                    </View>
+                    <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
+                  </Pressable>
+                  {!isOpen && (
+                    <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
+                      {tips[0]}
+                    </Text>
+                  )}
+                  {isOpen && tips.map((tip, i) => (
+                    <View key={i} style={s.bulletRow}>
+                      <Text style={[s.bulletNum, { color: "#A855F7" }]}>{i + 1}</Text>
+                      <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })()}
           </View>
         )}
 
@@ -2969,7 +2988,6 @@ const s = StyleSheet.create({
   rateRowLabel: { fontSize: 14, fontFamily: "Inter_500Medium" },
   starsRow: { flexDirection: "row", gap: 6 },
   star: { fontSize: 28, lineHeight: 32 },
-
 
 });
 
