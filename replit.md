@@ -193,12 +193,21 @@ The route is mounted at `/api/contact` and is **not** behind Clerk auth, since i
 
 The user owns `knowyourpit.com` at their registrar. To wire it to the deployed Replit web artifact:
 
-1. Deploy the project (this picks up the `marketing` artifact alongside `api-server`).
-2. In the Replit Publishing UI, open **Domains** → **Link a domain** and enter `knowyourpit.com` (and `www.knowyourpit.com`).
-3. Replit will display **exactly** the DNS records to add (typically: an `A` record for the apex, a `CNAME` for `www`, and a `TXT` record for verification). The exact values are issued per-deployment — do not guess.
-4. The user adds those records at their domain registrar / DNS provider.
-5. Wait for verification (usually minutes; can take up to 24h for full propagation). Replit auto-provisions TLS once the records resolve.
-6. Confirm `https://knowyourpit.com/privacy` and `https://knowyourpit.com/terms` load before pointing App Store metadata at them.
+1. **Deploy the project first** (this picks up the `marketing` artifact alongside `api-server`). The default URL after publish will be `<deployment-name>.replit.app`.
+2. In the Replit Publishing UI, open **Settings → Domains → Link a domain** and add **both** `knowyourpit.com` and `www.knowyourpit.com`. Replit issues the verification token at this step.
+3. **Add three records at the user's DNS provider.** Replit will display the exact final values in the Publishing UI (the IP and verification token are deployment-specific and must be copied from the UI verbatim — do not guess). The records will look like this:
+
+   | Host | Type | Value | TTL |
+   | --- | --- | --- | --- |
+   | `@` (apex) | `A` | (IPv4 shown in Publishing UI, e.g. `34.x.x.x`) | 3600 |
+   | `www` | `CNAME` | (target shown in Publishing UI, e.g. `<deployment>.replit.app`) | 3600 |
+   | `_replit-verify` | `TXT` | `replit-verify=<token>` (token shown in Publishing UI) | 3600 |
+
+   Apex `CNAME` is not allowed at most registrars — that's why Replit uses an `A` record at `@`. If the user's registrar supports `ALIAS`/`ANAME` flattening, that also works in place of `A`.
+
+4. Wait for verification (usually minutes; can take up to 24h for full propagation). Replit auto-provisions Let's Encrypt TLS once the records resolve.
+5. Confirm in a browser: `https://knowyourpit.com/`, `https://knowyourpit.com/privacy`, `https://knowyourpit.com/terms`, `https://knowyourpit.com/support` — all should return 200 with a valid TLS certificate. Submit the support form and verify a row lands in the `contact_messages` table.
+6. Only **after** all of the above is green, update the Apple Privacy Policy URL in App Store Connect to `https://knowyourpit.com/privacy` and submit the next build.
 
 The marketing artifact's `previewPath` is `/marketing/`, so during local/dev preview it lives under that base path. In production behind the custom apex domain, the proxy serves it at `/`.
 
