@@ -191,6 +191,16 @@ The route is mounted at `/api/contact` and is **not** behind Clerk auth, since i
 
 **Schema rollout to production.** The api-server's `build` script runs `pnpm --filter @workspace/db run push-force` before bundling. Because Replit's autoscale deployment runs `pnpm run build` from the workspace root (which fans out to `pnpm -r --if-present run build`), the contact_messages table — and any future schema additions — are pushed to the deployment-time `DATABASE_URL` automatically as part of every publish. No manual `db push` step is needed at deploy. The push is idempotent and safe in dev as well (where it's a no-op against an already-synced local DB).
 
+### Production routing (which artifact serves which path)
+
+The published deployment hosts both artifacts behind the same custom domain. Path ownership at the proxy is:
+
+- `/api/*` — api-server (all REST routes including `/api/contact`)
+- `/health` — api-server (deployment health probe)
+- everything else — marketing static site (`/`, `/privacy`, `/terms`, `/support`, plus any future marketing routes)
+
+This is wired by `paths` in each artifact's `.replit-artifact/artifact.toml`. The marketing artifact runs at `BASE_PATH=/` in both dev and production (so the React routes `/`, `/privacy`, `/terms`, `/support` resolve at the apex), and api-server intentionally does **not** claim `/privacy` or `/support` — those legacy static-HTML handlers and the `privacy-policy.ts` / `support-page.ts` modules were removed when the marketing site shipped. Apple's Privacy Policy URL of `https://knowyourpit.com/privacy` is therefore served by the React marketing app, not the API server.
+
 ### Custom domain hand-off (DNS — user action required)
 
 The user owns `knowyourpit.com` at their registrar. To wire it to the deployed Replit web artifact:
