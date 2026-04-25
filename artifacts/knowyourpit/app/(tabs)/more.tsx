@@ -27,6 +27,7 @@ const MENU_SECTIONS = [
     title: "Account",
     items: [
       { icon: "user", label: "Profile", route: "/profile" },
+      { icon: "bluetooth", label: "Connected Devices", route: "/devices" },
       { icon: "bell", label: "Alerts", route: "/alerts" },
     ],
   },
