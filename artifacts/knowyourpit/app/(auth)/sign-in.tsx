@@ -52,7 +52,7 @@ export default function SignInScreen() {
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
   const handleSignIn = async () => {
-    if (!isLoaded || !signIn) return;
+    if (!signIn) return;
     try {
       setIsLoading(true);
       setErrorMsg(null);

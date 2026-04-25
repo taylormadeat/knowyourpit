@@ -10,7 +10,6 @@ import {
   ScrollView,
   ActivityIndicator,
   Image,
-  Alert,
 } from "react-native";
 
 import { useSignUp, useSSO } from "@clerk/expo";
@@ -54,32 +53,23 @@ export default function SignUpScreen() {
   const [pendingVerification, setPendingVerification] = React.useState(false);
 
   const handleSignUp = async () => {
-    console.log("[SignUp] button pressed", { isLoaded, hasSignUp: !!signUp, hasEmail: !!email, hasPassword: !!password });
-    if (!isLoaded || !signUp) {
-      Alert.alert("Sign Up", "Auth not ready yet — please wait a moment and try again.");
-      return;
-    }
+    if (!signUp) return;
     try {
       setIsLoading(true);
       setErrorMsg(null);
-      console.log("[SignUp] calling signUp.create");
       await signUp.create({ emailAddress: email, password });
-      console.log("[SignUp] create succeeded, calling prepareEmailAddressVerification");
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-      console.log("[SignUp] verification prepared, switching to verification screen");
       setPendingVerification(true);
     } catch (e: any) {
-      console.error("[SignUp] error:", JSON.stringify(e?.errors ?? e, null, 2));
       const msg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "Sign up failed.";
       setErrorMsg(msg);
-      Alert.alert("Sign Up Failed", msg);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleVerify = async () => {
-    if (!isLoaded || !signUp) return;
+    if (!signUp) return;
     try {
       setIsLoading(true);
       setErrorMsg(null);
