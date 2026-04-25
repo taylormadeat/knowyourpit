@@ -27,7 +27,7 @@ export default function Home() {
             <img
               src={`${BASE}logo.png`}
               alt="KnowYourPit"
-              className="w-56 md:w-80 lg:w-96 rounded-3xl [filter:drop-shadow(0_0_60px_rgba(221,107,32,0.45))]"
+              className="w-56 md:w-80 lg:w-96 rounded-3xl [filter:drop-shadow(0_0_60px_rgba(210,80,30,0.5))]"
             />
           </motion.div>
 
@@ -49,7 +49,7 @@ export default function Home() {
               href="https://apps.apple.com/app/id6763445064" 
               target="_blank" 
               rel="noreferrer"
-              className="inline-flex items-center justify-center h-14 px-8 rounded-lg bg-primary text-primary-foreground font-bold text-lg hover:bg-primary/90 transition-all hover:scale-105 active:scale-95 shadow-[0_0_40px_-10px_rgba(221,107,32,0.5)]"
+              className="inline-flex items-center justify-center h-14 px-8 rounded-lg bg-primary text-primary-foreground font-bold text-lg hover:bg-primary/90 transition-all hover:scale-105 active:scale-95 shadow-[0_0_40px_-10px_rgba(210,80,30,0.5)]"
             >
               Available on iOS
             </a>
