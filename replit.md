@@ -166,22 +166,40 @@ The mobile app prepends this base URL to all API calls (e.g., `/api/grills`, `/a
 
 ### Privacy policy
 
-The privacy policy is served at `GET /privacy` (no auth required).
+The privacy policy is served by the marketing website at `https://knowyourpit.com/privacy` (see "Marketing website" section below).
 
-**Important:** The URL currently hardcoded in two places is a temporary Replit dev domain that may change:
+The legacy server-rendered `/privacy` and `/support` HTML routes on the API server (`artifacts/api-server/src/app.ts`) are still mounted as a fallback so existing App Store metadata pointing at `https://pitking.replit.app/privacy` continues to resolve, but the canonical URL is now on the marketing domain.
 
-1. `artifacts/knowyourpit/eas.json` → `build.production.env.EXPO_PUBLIC_API_URL`
-2. `artifacts/knowyourpit/app.json` → `expo.privacyPolicyUrl`
+`artifacts/knowyourpit/app.json` → `expo.privacyPolicyUrl` is set to `https://knowyourpit.com/privacy`.
 
-Both must be updated to the stable `.replit.app` domain before submitting to any app store. Do not paste the current `janeway.replit.dev` URL into App Store Connect or Google Play Console — it is not guaranteed to stay live.
+**Contact email:** The marketing site (and the privacy/terms it serves) reference `support@knowyourpit.com` — set up forwarding for this address before submitting any new build that points at the new URL.
 
-**Once you have a stable domain (see task to stabilize the API URL):**
-1. Update `EXPO_PUBLIC_API_URL` in `eas.json`
-2. Update `privacyPolicyUrl` in `app.json` to `https://<stable-domain>/privacy`
-3. Verify `GET https://<stable-domain>/privacy` returns 200 in a browser
-4. Paste that URL into App Store Connect → App Information → Privacy Policy URL
-5. Paste that URL into Google Play Console → Store Listing → Privacy Policy
+## Marketing website (artifacts/marketing)
 
-**Contact email:** The policy currently references `privacy@knowyourpit.com` — update this to a real monitored address before submitting.
+A React + Vite presentation site for `knowyourpit.com`. Four routes:
+
+- `/` — landing page (hero, features, App Store CTA)
+- `/privacy` — privacy policy (canonical)
+- `/terms` — terms of service (canonical)
+- `/support` — FAQs + contact form
+
+### Contact form backend
+
+`POST /api/contact` on the API server (`artifacts/api-server/src/routes/contact.ts`) accepts JSON `{ name, email, subject, message, website? }`. The `website` field is a hidden honeypot — non-empty values are silently dropped. The route uses `express-rate-limit` (5 requests / 15 minutes per IP). Submissions are stored in the `contact_messages` table (`lib/db/src/schema/contact_messages.ts`).
+
+The route is mounted at `/api/contact` and is **not** behind Clerk auth, since it's posted from the public marketing site at a different origin. CORS is already wide-open via `cors({ credentials: true, origin: true })` in `app.ts`.
+
+### Custom domain hand-off (DNS — user action required)
+
+The user owns `knowyourpit.com` at their registrar. To wire it to the deployed Replit web artifact:
+
+1. Deploy the project (this picks up the `marketing` artifact alongside `api-server`).
+2. In the Replit Publishing UI, open **Domains** → **Link a domain** and enter `knowyourpit.com` (and `www.knowyourpit.com`).
+3. Replit will display **exactly** the DNS records to add (typically: an `A` record for the apex, a `CNAME` for `www`, and a `TXT` record for verification). The exact values are issued per-deployment — do not guess.
+4. The user adds those records at their domain registrar / DNS provider.
+5. Wait for verification (usually minutes; can take up to 24h for full propagation). Replit auto-provisions TLS once the records resolve.
+6. Confirm `https://knowyourpit.com/privacy` and `https://knowyourpit.com/terms` load before pointing App Store metadata at them.
+
+The marketing artifact's `previewPath` is `/marketing/`, so during local/dev preview it lives under that base path. In production behind the custom apex domain, the proxy serves it at `/`.
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

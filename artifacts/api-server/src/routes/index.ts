@@ -13,6 +13,7 @@ import profileRouter from "./profile";
 import conversationsRouter from "./conversations";
 import meaterRouter from "./meater";
 import thermoworksRouter from "./thermoworks";
+import contactRouter from "./contact";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(profileRouter);
 router.use(conversationsRouter);
 router.use(meaterRouter);
 router.use(thermoworksRouter);
+router.use(contactRouter);
 
 export default router;

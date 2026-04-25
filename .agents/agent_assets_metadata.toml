@@ -6,6 +6,30 @@ uri = "file://artifacts/knowyourpit/assets/images/icon.png"
 type = "image"
 title = "generated_image"
 
+[[generated]]
+id = "J03jjq7nTsE-KwgIlQm9y"
+uri = "file://artifacts/marketing/public/hero-smoker.png"
+type = "image"
+title = "BBQ smoker with glowing coals"
+
+[[generated]]
+id = "NU9va6UTPvA6KSRjnVHng"
+uri = "file://artifacts/marketing/public/brisket-smoke.png"
+type = "image"
+title = "Brisket with smoke"
+
+[[generated]]
+id = "-JNF0XcdCJlc77P5UuT6b"
+uri = "file://artifacts/marketing/public/glowing-coals.png"
+type = "image"
+title = "Glowing coals"
+
+[[generated]]
+id = "MYvWvupaxzDZn52BV8Wux"
+uri = "file://artifacts/marketing/public/thermometer.png"
+type = "image"
+title = "Thermometer on dark wood"
+
 [[outputs]]
 id = "Qp7H6VGZ9ofBB5-ABXfas"
 uri = "file://screenshots/app-store-6.7in/IMG_1746.png"
