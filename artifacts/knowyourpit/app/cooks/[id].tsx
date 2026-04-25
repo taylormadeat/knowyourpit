@@ -730,6 +730,7 @@ export default function CookDetailScreen() {
             snapshotTempF: userTempInput.trim() && !isNaN(parseFloat(userTempInput)) ? parseFloat(userTempInput) : null,
             snapshotNotes: cookNotes.trim() || null,
             snapshotElapsedMinutes: c?.actualStartAt ? Math.round((Date.now() - new Date(c.actualStartAt).getTime()) / 60000) : null,
+            analyzedAt: new Date().toISOString(),
           },
         } as any,
       });
@@ -1324,12 +1325,34 @@ export default function CookDetailScreen() {
                   {c.status === "active"
                     ? (() => {
                         const m = (storedAnalysis as any)?.snapshotElapsedMinutes;
+                        let intoCook = "";
                         if (typeof m === "number" && m >= 0) {
                           const h = Math.floor(m / 60);
                           const mm = m % 60;
-                          return `Last check-in at ${h > 0 ? `${h}h ${mm}m` : `${mm}m`} into cook`;
+                          intoCook = `Last check-in at ${h > 0 ? `${h}h ${mm}m` : `${mm}m`} into cook`;
+                        } else {
+                          intoCook = "Latest check-in";
                         }
-                        return "Latest check-in";
+                        // Resolve analyzedAt from current analysisResult, falling back to
+                        // the most recent analysisHistory entry's savedAt for older cooks.
+                        const analyzedAtRaw =
+                          (storedAnalysis as any)?.analyzedAt ??
+                          (() => {
+                            const hist: any[] = Array.isArray((c as any).analysisHistory) ? (c as any).analysisHistory : [];
+                            return hist.length > 0 ? hist[hist.length - 1]?.savedAt : null;
+                          })();
+                        const analyzedAtMs = analyzedAtRaw ? new Date(analyzedAtRaw).getTime() : NaN;
+                        if (!Number.isFinite(analyzedAtMs)) return intoCook;
+                        const ageSec = Math.max(0, Math.round((nowMs - analyzedAtMs) / 1000));
+                        let ago: string;
+                        if (ageSec < 60) ago = "just now";
+                        else if (ageSec < 3600) ago = `${Math.floor(ageSec / 60)} min ago`;
+                        else {
+                          const ah = Math.floor(ageSec / 3600);
+                          const am = Math.floor((ageSec % 3600) / 60);
+                          ago = am > 0 ? `${ah}h ${am}m ago` : `${ah}h ago`;
+                        }
+                        return `${intoCook} · ${ago}`;
                       })()
                     : "Saved from image scan"}
                 </Text>
