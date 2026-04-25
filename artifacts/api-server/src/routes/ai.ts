@@ -211,28 +211,58 @@ async function ensureSession(
 
 // ─── Original non-streaming endpoint ──────────────────────────────────────
 router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
-  const parsed = AiChatBody.safeParse(req.body);
+  const parsed = AiChatBodyWithSession.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { message, context } = parsed.data;
+  const { message, context, sessionId: requestedSessionId } = parsed.data;
+
+  const resolvedSessionId = await ensureSession(req.userId, message, requestedSessionId);
+  await db.insert(messages).values({
+    conversationId: resolvedSessionId,
+    role: "user",
+    content: message,
+  });
 
   const systemPrompt = await buildChatSystemPrompt(req.userId, context);
+
+  const HISTORY_LIMIT = 20;
+  const priorMessages = await db
+    .select({ role: messages.role, content: messages.content })
+    .from(messages)
+    .where(eq(messages.conversationId, resolvedSessionId))
+    .orderBy(desc(messages.createdAt))
+    .limit(HISTORY_LIMIT);
+
+  const historyTurns = priorMessages
+    .reverse()
+    .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
   const response = await openai.chat.completions.create({
     model: "gpt-5.2",
     max_completion_tokens: 1024,
     messages: [
       { role: "system", content: systemPrompt },
-      { role: "user", content: message },
+      ...historyTurns,
     ],
   });
 
   const reply = response.choices[0]?.message?.content ?? "I'm sorry, I couldn't process that request.";
+
+  await db.insert(messages).values({
+    conversationId: resolvedSessionId,
+    role: "assistant",
+    content: reply,
+  });
+  await db
+    .update(conversations)
+    .set({ updatedAt: new Date() })
+    .where(eq(conversations.id, resolvedSessionId));
+
   const suggestions = pickChatSuggestions();
 
-  res.json({ reply, suggestions });
+  res.json({ reply, suggestions, sessionId: resolvedSessionId });
 });
 
 router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
