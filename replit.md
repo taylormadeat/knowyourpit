@@ -189,6 +189,8 @@ A React + Vite presentation site for `knowyourpit.com`. Four routes:
 
 The route is mounted at `/api/contact` and is **not** behind Clerk auth, since it's posted from the public marketing site at a different origin. CORS is already wide-open via `cors({ credentials: true, origin: true })` in `app.ts`.
 
+**Schema rollout to production.** The api-server's `build` script runs `pnpm --filter @workspace/db run push-force` before bundling. Because Replit's autoscale deployment runs `pnpm run build` from the workspace root (which fans out to `pnpm -r --if-present run build`), the contact_messages table — and any future schema additions — are pushed to the deployment-time `DATABASE_URL` automatically as part of every publish. No manual `db push` step is needed at deploy. The push is idempotent and safe in dev as well (where it's a no-op against an already-synced local DB).
+
 ### Custom domain hand-off (DNS — user action required)
 
 The user owns `knowyourpit.com` at their registrar. To wire it to the deployed Replit web artifact:
