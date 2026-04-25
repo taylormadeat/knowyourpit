@@ -11,7 +11,8 @@ import {
   ActivityIndicator,
   Image,
 } from "react-native";
-import { useSignIn, useSSO } from "@clerk/expo";
+import { useSignIn } from "@clerk/expo/legacy";
+import { useSSO } from "@clerk/expo";
 import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
 import { Link, useRouter } from "expo-router";
