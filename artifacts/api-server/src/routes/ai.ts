@@ -158,6 +158,22 @@ router.get("/ai/chats/:id", requireAuth, async (req: any, res): Promise<void> =>
   res.json({ conversation: conv, messages: msgs });
 });
 
+router.patch("/ai/chats/:id", requireAuth, async (req: any, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { title } = req.body;
+  if (typeof title !== "string" || !title.trim()) {
+    res.status(400).json({ error: "title is required" }); return;
+  }
+  const [updated] = await db
+    .update(conversations)
+    .set({ title: title.trim().slice(0, 200) })
+    .where(and(eq(conversations.id, id), eq(conversations.userId, req.userId)))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+  res.json({ conversation: updated });
+});
+
 router.delete("/ai/chats/:id", requireAuth, async (req: any, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }

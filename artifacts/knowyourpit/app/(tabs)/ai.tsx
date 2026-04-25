@@ -116,6 +116,11 @@ export default function AIScreen() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [loadingChatId, setLoadingChatId] = useState<number | null>(null);
 
+  // Rename modal state
+  const [renameTarget, setRenameTarget] = useState<Conversation | null>(null);
+  const [renameText, setRenameText] = useState("");
+  const [renaming, setRenaming] = useState(false);
+
   const streamingIdRef = useRef<string | null>(null);
 
   // ─── Auth header helper ─────────────────────────────────────────────────
@@ -198,6 +203,38 @@ export default function AIScreen() {
       ]
     );
   }, [authHeaders, currentSessionId]);
+
+  // ─── Rename a conversation ──────────────────────────────────────────────
+  const openRename = useCallback((conv: Conversation) => {
+    setRenameTarget(conv);
+    setRenameText(conv.title);
+  }, []);
+
+  const submitRename = useCallback(async () => {
+    if (!renameTarget || !renameText.trim() || !API_BASE_URL) return;
+    setRenaming(true);
+    try {
+      const headers = await authHeaders();
+      const res = await expoFetch(`${API_BASE_URL}/api/ai/chats/${renameTarget.id}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ title: renameText.trim() }),
+      });
+      if (res.ok) {
+        const newTitle = renameText.trim();
+        setConversations((prev) =>
+          prev.map((c) => (c.id === renameTarget.id ? { ...c, title: newTitle } : c))
+        );
+      } else {
+        Alert.alert("Error", "Could not rename chat. Please try again.");
+      }
+    } catch {
+      Alert.alert("Error", "Could not rename chat. Please try again.");
+    } finally {
+      setRenaming(false);
+      setRenameTarget(null);
+    }
+  }, [renameTarget, renameText, authHeaders]);
 
   // ─── Start a fresh chat ─────────────────────────────────────────────────
   const startNewChat = useCallback(() => {
@@ -478,7 +515,7 @@ export default function AIScreen() {
                 <Pressable
                   key={conv.id}
                   onPress={() => loadConversation(conv)}
-                  onLongPress={() => deleteConversation(conv)}
+                  onLongPress={() => openRename(conv)}
                   style={[
                     s.historyItem,
                     {
@@ -499,13 +536,22 @@ export default function AIScreen() {
                   {loadingChatId === conv.id ? (
                     <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
-                    <Pressable
-                      onPress={() => deleteConversation(conv)}
-                      hitSlop={8}
-                      style={s.deleteBtn}
-                    >
-                      <Feather name="trash-2" size={14} color={colors.mutedForeground} />
-                    </Pressable>
+                    <View style={s.historyItemActions}>
+                      <Pressable
+                        onPress={() => openRename(conv)}
+                        hitSlop={8}
+                        style={s.deleteBtn}
+                      >
+                        <Feather name="edit-2" size={14} color={colors.mutedForeground} />
+                      </Pressable>
+                      <Pressable
+                        onPress={() => deleteConversation(conv)}
+                        hitSlop={8}
+                        style={s.deleteBtn}
+                      >
+                        <Feather name="trash-2" size={14} color={colors.mutedForeground} />
+                      </Pressable>
+                    </View>
                   )}
                 </Pressable>
               ))}
@@ -513,6 +559,70 @@ export default function AIScreen() {
           ))}
         </ScrollView>
       </View>
+    </Modal>
+  );
+
+  // ─── Rename modal ───────────────────────────────────────────────────────
+  const renameModal = (
+    <Modal
+      visible={renameTarget !== null}
+      animationType="fade"
+      transparent
+      onRequestClose={() => setRenameTarget(null)}
+    >
+      <Pressable
+        style={s.renameOverlay}
+        onPress={() => setRenameTarget(null)}
+      >
+        <Pressable
+          style={[s.renameBox, { backgroundColor: colors.card, borderRadius: colors.radius + 4 }]}
+          onPress={() => {}}
+        >
+          <Text style={[s.renameTitle, { color: colors.foreground }]}>Rename Chat</Text>
+          <TextInput
+            style={[
+              s.renameInput,
+              {
+                backgroundColor: colors.background,
+                borderColor: colors.border,
+                color: colors.foreground,
+                borderRadius: colors.radius,
+              },
+            ]}
+            value={renameText}
+            onChangeText={setRenameText}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={submitRename}
+            maxLength={200}
+            placeholderTextColor={colors.mutedForeground}
+            placeholder="Chat name"
+          />
+          <View style={s.renameActions}>
+            <Pressable
+              onPress={() => setRenameTarget(null)}
+              style={[s.renameCancelBtn, { borderColor: colors.border, borderRadius: colors.radius }]}
+            >
+              <Text style={[s.renameCancelText, { color: colors.mutedForeground }]}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              onPress={submitRename}
+              disabled={renaming || !renameText.trim()}
+              style={[
+                s.renameSaveBtn,
+                { backgroundColor: colors.primary, borderRadius: colors.radius },
+                (renaming || !renameText.trim()) && { opacity: 0.5 },
+              ]}
+            >
+              {renaming ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={s.renameSaveText}>Save</Text>
+              )}
+            </Pressable>
+          </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 
@@ -547,6 +657,7 @@ export default function AIScreen() {
       <AppHeader title="PitMaster" dark right={headerRight} />
 
       {historyPanel}
+      {renameModal}
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -698,6 +809,25 @@ const s = StyleSheet.create({
     borderWidth: 1, padding: 14, marginBottom: 8,
   },
   historyItemTitle: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
-  deleteBtn: { padding: 4, marginLeft: 8 },
+  historyItemActions: { flexDirection: "row", alignItems: "center", gap: 2 },
+  deleteBtn: { padding: 4, marginLeft: 4 },
   emptyHistory: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 40 },
+
+  // Rename modal
+  renameOverlay: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center", justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  renameBox: { width: "100%", padding: 20, gap: 16 },
+  renameTitle: { fontSize: 17, fontFamily: "Inter_600SemiBold" },
+  renameInput: {
+    borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 15, fontFamily: "Inter_400Regular",
+  },
+  renameActions: { flexDirection: "row", gap: 10, justifyContent: "flex-end" },
+  renameCancelBtn: { borderWidth: 1, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
+  renameCancelText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  renameSaveBtn: { paddingHorizontal: 20, paddingVertical: 10, alignItems: "center", minWidth: 70 },
+  renameSaveText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#fff" },
 });
