@@ -94,11 +94,11 @@ export default function Home() {
               {/* Responsive phone frame containing the real Home/Dashboard screenshot.
                   The top black band masks the iOS status bar and Expo dev pill from the
                   source PNG so they never appear on the marketing site. */}
-              <div className="relative w-[min(260px,80vw)] sm:w-[280px] md:w-[300px] aspect-[1/2] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(221,107,32,0.4)] overflow-hidden">
+              <div className="relative w-[min(260px,80vw)] sm:w-[280px] md:w-[300px] aspect-[35/76] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(221,107,32,0.4)] overflow-hidden">
                 <img
                   src={`${BASE}app-dashboard.png`}
                   alt="KnowYourPit home screen showing PitMaster Score, recent cooks, and grill stats"
-                  className="absolute inset-0 w-full h-full object-cover object-top"
+                  className="absolute inset-0 w-full h-full object-cover object-center"
                 />
                 {/* Top black band that hides the iOS chrome + dev bar from the source PNG */}
                 <div className="absolute top-0 inset-x-0 h-[10%] bg-black z-[5]" />
@@ -166,12 +166,12 @@ export default function Home() {
                 transition={{ delay: (i % 3) * 0.1 }}
                 className="flex flex-col gap-4"
               >
-                <div className="relative w-full aspect-[1/2] rounded-[2rem] border-[8px] border-zinc-800 bg-black shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] overflow-hidden">
+                <div className="relative w-full aspect-[35/76] rounded-[2rem] border-[8px] border-zinc-800 bg-black shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] overflow-hidden">
                   <img
                     src={`${BASE}${shot.src}`}
                     alt={shot.alt}
-                    loading="lazy"
-                    className="absolute inset-0 w-full h-full object-cover object-top"
+                    loading="eager"
+                    className="absolute inset-0 w-full h-full object-cover object-center"
                   />
                   {/* Mask iOS chrome + Expo dev bar from source PNG */}
                   <div className="absolute top-0 inset-x-0 h-[10%] bg-black z-[5]" />
