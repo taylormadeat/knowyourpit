@@ -157,12 +157,6 @@ export default function Home() {
                 caption: "Tenderness, flavor, and bark ratings on every session so PitMaster gets sharper over time.",
                 alt: "Cook Log screen listing past cooks with star ratings",
               },
-              {
-                src: "app-dashboard.png",
-                title: "Your PitMaster Score",
-                caption: "A grade and rank that reflect your cooking — built from your ratings, accuracy, and consistency.",
-                alt: "Home screen showing PitMaster Score 'The Smoke Whisperer' with grade C+",
-              },
             ].map((shot, i) => (
               <motion.figure
                 key={shot.src}
