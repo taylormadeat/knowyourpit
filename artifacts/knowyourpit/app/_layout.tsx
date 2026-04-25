@@ -11,7 +11,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
 import React, { useEffect, useState } from "react";
@@ -85,13 +85,26 @@ async function requestNotificationPermissions() {
 }
 
 function RootLayoutNav() {
-  const { getToken } = useAuth();
+  const { getToken, isSignedIn, isLoaded } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
   // Bridges the phone app to the Apple Watch companion app (iOS only, no-op elsewhere)
   useWatchBridge();
 
   useEffect(() => {
     setAuthTokenGetter(() => getToken());
   }, [getToken]);
+
+  // Global auth gate: keep signed-in users out of /(auth) and signed-out users out of /(tabs)
+  useEffect(() => {
+    if (!isLoaded) return;
+    const inAuthGroup = segments[0] === "(auth)";
+    if (isSignedIn && inAuthGroup) {
+      router.replace("/(tabs)");
+    } else if (!isSignedIn && !inAuthGroup) {
+      router.replace("/(auth)/sign-in");
+    }
+  }, [isSignedIn, isLoaded, segments, router]);
 
   useEffect(() => {
     requestNotificationPermissions();
