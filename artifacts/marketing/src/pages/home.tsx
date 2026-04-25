@@ -19,26 +19,18 @@ export default function Home() {
         
         <div className="container relative z-10 px-4 flex flex-col items-center text-center">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.9, ease: "easeOut" }}
+            className="mb-8"
           >
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6">
-              <Flame className="w-4 h-4" />
-              The Pitmaster's Brain, Digitized
-            </span>
+            <img
+              src={`${BASE}logo.png`}
+              alt="KnowYourPit"
+              className="w-56 md:w-80 lg:w-96 rounded-3xl [filter:drop-shadow(0_0_60px_rgba(221,107,32,0.45))]"
+            />
           </motion.div>
-          
-          <motion.h1 
-            className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter text-white max-w-4xl mb-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.1, ease: "easeOut" }}
-          >
-            Never ruin a <br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-b from-primary to-orange-600">brisket</span> again.
-          </motion.h1>
-          
+
           <motion.p 
             className="text-lg md:text-xl text-muted-foreground max-w-2xl mb-10"
             initial={{ opacity: 0, y: 20 }}
