@@ -64,39 +64,45 @@ export default function Support() {
           <h2 className="text-2xl font-bold mb-6">Frequently Asked Questions</h2>
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="item-1">
-              <AccordionTrigger>Which thermometers does KnowYourPit work with?</AccordionTrigger>
+              <AccordionTrigger>How do I start a cook session?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                We currently integrate with MEATER Cloud and ThermoWorks Cloud (BlueDOT, Signals, Smoke X). You can also log temperatures manually or by snapping a photo of any thermometer display — our AI will read it.
+                From the Home screen, tap <strong>Plan a Cook</strong>. Choose your meat type and weight, set your target internal temperature, and the app will calculate an estimated cook time. Tap <strong>Start Cook</strong> to begin the live session.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-2">
-              <AccordionTrigger>Can I use KnowYourPit without a smart thermometer?</AccordionTrigger>
+              <AccordionTrigger>How do I connect my MEATER probe?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Yes. The cook planner, AI assistant, recipe library, and photo-based temperature scanning all work without any hardware. The probes just make live monitoring easier.
+                Go to <strong>Settings → Thermometer Devices</strong> and tap <strong>Add MEATER</strong>. Enter your MEATER account email and password. Once linked, your probe readings will appear automatically on the Cook screen during an active session.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-3">
-              <AccordionTrigger>Does it work on Android?</AccordionTrigger>
+              <AccordionTrigger>Why isn't my probe temperature showing up?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Right now KnowYourPit is iOS only. Android is on the roadmap — email support@knowyourpit.com to get notified.
+                Check that your thermometer is powered on and within Bluetooth range of the MEATER Block or Link. Also confirm your MEATER credentials are saved correctly in Settings. If the problem persists, remove the device connection and re-add it.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-4">
-              <AccordionTrigger>How does the AI assistant work?</AccordionTrigger>
+              <AccordionTrigger>How do temperature alerts work?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                It's tuned specifically for low-and-slow BBQ. It knows your grill profile, your cook history, the weather, and current probe temperatures, and gives you the next move — when to wrap, when to add fuel, when to pull.
+                You can set a target temperature alert on the Cook screen. When your probe hits that temperature, the app sends a local notification — even when the app is in the background. Make sure notifications are enabled for KnowYourPit in your iPhone Settings.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-5">
-              <AccordionTrigger>How do I delete my account?</AccordionTrigger>
+              <AccordionTrigger>How do I delete my account or my data?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Email support@knowyourpit.com. We'll fully delete your account and all associated data within 30 days.
+                Email us at <a href="mailto:support@knowyourpit.com" className="text-primary hover:underline">support@knowyourpit.com</a> with the subject line "Delete my account" and we will permanently remove your account and all associated data within 7 days.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-6">
-              <AccordionTrigger>Is my cook data backed up?</AccordionTrigger>
+              <AccordionTrigger>The AI cook time prediction seems off — what should I do?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Yes — your cooks, recipes, grills, and photos are stored securely in the cloud and synchronized across your devices when you sign in.
+                AI predictions improve as you log more cooks with ratings. After each session, rate your results (tenderness, flavor, bark) so the app can refine its estimates for your grill and cook style. If predictions are consistently off, check that your grill profile (type, size, fuel) is set up accurately in Settings.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="item-7">
+              <AccordionTrigger>Is my data private?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Yes. Your cook sessions and temperature readings are only visible to you. We never sell personal information. See our <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a> for full details.
               </AccordionContent>
             </AccordionItem>
           </Accordion>
