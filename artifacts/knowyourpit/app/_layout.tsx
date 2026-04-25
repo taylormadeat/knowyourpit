@@ -14,7 +14,7 @@ import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persi
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -29,18 +29,16 @@ SplashScreen.preventAutoHideAsync();
 
 const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24; // 24 hours
 
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      gcTime: CACHE_MAX_AGE_MS,
-    },
-  },
-});
+// One-time cleanup of the legacy un-scoped persisted cache. Older builds wrote
+// a single shared cache bucket at CACHE_STORAGE_KEY, which leaked between
+// accounts on the same device. Per-user scoping replaces it (see
+// ScopedQueryProvider below); we delete the legacy key on boot so any stale
+// data from before this fix can never be restored.
+AsyncStorage.removeItem(CACHE_STORAGE_KEY).catch(() => {});
 
-const asyncStoragePersister = createAsyncStoragePersister({
-  storage: AsyncStorage,
-  key: CACHE_STORAGE_KEY,
-});
+function userCacheKey(userId: string | null | undefined): string {
+  return `${CACHE_STORAGE_KEY}:${userId ?? "anon"}`;
+}
 
 // EXPO_PUBLIC_API_URL: set to the deployed API server URL for production builds.
 // Current production URL: https://pitking.replit.app (see eas.json and app.json)
@@ -85,30 +83,15 @@ async function requestNotificationPermissions() {
 }
 
 function RootLayoutNav() {
-  const { getToken, isSignedIn, isLoaded, userId } = useAuth();
+  const { getToken, isSignedIn, isLoaded } = useAuth();
   const segments = useSegments();
   const router = useRouter();
-  const previousUserIdRef = useRef<string | null | undefined>(undefined);
   // Bridges the phone app to the Apple Watch companion app (iOS only, no-op elsewhere)
   useWatchBridge();
 
   useEffect(() => {
     setAuthTokenGetter(() => getToken());
   }, [getToken]);
-
-  // Clear all cached query data + persisted AsyncStorage cache whenever the
-  // signed-in user changes (sign-out, switch account, sign-in as different user).
-  // Without this, react-query's PersistQueryClientProvider would serve User A's
-  // cached cooks/grills/dashboard data to User B until each query refetches.
-  useEffect(() => {
-    if (!isLoaded) return;
-    const prev = previousUserIdRef.current;
-    if (prev !== undefined && prev !== userId) {
-      queryClient.clear();
-      AsyncStorage.removeItem(CACHE_STORAGE_KEY).catch(() => {});
-    }
-    previousUserIdRef.current = userId ?? null;
-  }, [isLoaded, userId]);
 
   // Global auth gate: keep signed-in users out of /(auth) and signed-out users out of /(tabs)
   useEffect(() => {
@@ -232,14 +215,7 @@ export default function RootLayout() {
     >
       <SafeAreaProvider>
         <ErrorBoundary>
-          <PersistQueryClientProvider
-            client={queryClient}
-            persistOptions={{ persister: asyncStoragePersister, maxAge: CACHE_MAX_AGE_MS }}
-          >
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <RootLayoutNav />
-            </GestureHandlerRootView>
-          </PersistQueryClientProvider>
+          <ClerkGatedShell />
         </ErrorBoundary>
       </SafeAreaProvider>
     </ClerkProvider>
@@ -250,4 +226,58 @@ export default function RootLayout() {
   }
 
   return <KeyboardProvider>{content}</KeyboardProvider>;
+}
+
+// Waits for Clerk to finish loading, then mounts a ScopedQueryProvider whose
+// React `key` is the current Clerk userId. When the userId changes
+// (sign-out, sign-in as a different account) the entire query cache subtree
+// unmounts and remounts: a brand-new QueryClient and a brand-new persister
+// pointed at the new user's AsyncStorage bucket. This makes it impossible for
+// in-memory or on-disk cached data from one account to ever be displayed to
+// another account on the same device.
+function ClerkGatedShell() {
+  const { isLoaded, userId } = useAuth();
+  if (!isLoaded) {
+    return <View style={{ flex: 1 }} />;
+  }
+  return (
+    <ScopedQueryProvider key={userId ?? "anon"} userId={userId ?? null}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <RootLayoutNav />
+      </GestureHandlerRootView>
+    </ScopedQueryProvider>
+  );
+}
+
+function ScopedQueryProvider({
+  userId,
+  children,
+}: {
+  userId: string | null;
+  children: React.ReactNode;
+}) {
+  // Fresh QueryClient per mount — guaranteed clean in-memory cache.
+  const [client] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: { queries: { gcTime: CACHE_MAX_AGE_MS } },
+      }),
+  );
+  // Per-user AsyncStorage bucket — guaranteed clean on-disk cache.
+  const persister = useMemo(
+    () =>
+      createAsyncStoragePersister({
+        storage: AsyncStorage,
+        key: userCacheKey(userId),
+      }),
+    [userId],
+  );
+  return (
+    <PersistQueryClientProvider
+      client={client}
+      persistOptions={{ persister, maxAge: CACHE_MAX_AGE_MS }}
+    >
+      {children}
+    </PersistQueryClientProvider>
+  );
 }

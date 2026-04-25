@@ -59,9 +59,13 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     } catch (err: any) {
       logger.warn({ msg: "requireAuth: verifyToken failed", reason: err?.message });
 
-      // Fallback: trust the JWT payload if the sub/sid are present and plausible
-      // Only safe in development mode — skip in production
-      if (process.env.NODE_ENV !== "production" && payload?.sub) {
+      // Fallback: trust the JWT payload if the sub/sid are present and plausible.
+      // ONLY enabled when NODE_ENV is explicitly "development". This is a strict
+      // allowlist (not a "anything-but-production" denylist) so that any
+      // misconfigured staging / preview / test deployment with NODE_ENV unset
+      // or set to anything else cannot accidentally trust unverified tokens
+      // and leak data to forged sub claims.
+      if (process.env.NODE_ENV === "development" && payload?.sub) {
         logger.warn({ msg: "requireAuth: dev fallback — trusting unverified sub", sub: payload.sub });
         (req as any).userId = payload.sub;
         next();

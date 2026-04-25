@@ -12,11 +12,9 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { useUser, useClerk } from "@clerk/expo";
 import { useQueryClient } from "@tanstack/react-query";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/useColors";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
-import { CACHE_STORAGE_KEY } from "@/constants/cache";
 
 const MENU_SECTIONS = [
   {
@@ -50,8 +48,12 @@ export default function MoreScreen() {
         text: "Sign Out",
         style: "destructive",
         onPress: async () => {
+          // Cache isolation is handled at the provider level: signing out flips
+          // the userId, which remounts ScopedQueryProvider in app/_layout.tsx
+          // with a fresh QueryClient and a fresh "anon" persister. We keep
+          // qc.clear() here as a belt-and-suspenders defense for the brief
+          // moment before the remount fires.
           qc.clear();
-          await AsyncStorage.removeItem(CACHE_STORAGE_KEY).catch(() => {});
           await signOut();
         },
       },
