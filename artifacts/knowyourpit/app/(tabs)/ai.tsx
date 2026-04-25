@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,10 +9,12 @@ import {
   ActivityIndicator,
   TextInput,
   KeyboardAvoidingView,
+  Alert,
 } from "react-native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/useColors";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -36,21 +38,94 @@ const SUGGESTED = [
 ];
 
 const INPUT_BAR_GAP_ABOVE_TABS = 10;
+const CHAT_STORAGE_PREFIX = "kyp_pitmaster_chat:";
+const MAX_STORED_MESSAGES = 100;
+
+const getStorageKey = (userId: string | null | undefined) =>
+  `${CHAT_STORAGE_PREFIX}${userId ?? "anon"}`;
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null;
+
+const parseStoredMessages = (raw: unknown): Message[] => {
+  if (!Array.isArray(raw)) return [];
+  const out: Message[] = [];
+  for (const entry of raw) {
+    if (!isRecord(entry)) continue;
+    const { id, role, content, suggestions } = entry;
+    if (typeof id !== "string") continue;
+    if (role !== "user" && role !== "assistant") continue;
+    if (typeof content !== "string") continue;
+    const cleanedSuggestions = Array.isArray(suggestions)
+      ? suggestions.filter((s): s is string => typeof s === "string")
+      : undefined;
+    out.push({
+      id,
+      role,
+      content,
+      suggestions: cleanedSuggestions && cleanedSuggestions.length > 0 ? cleanedSuggestions : undefined,
+    });
+  }
+  return out;
+};
 
 export default function AIScreen() {
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
   const listRef = useRef<FlatList>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   const botPad = tabBarHeight;
+  const storageKey = getStorageKey(userId);
+
+  // Load persisted history when the user (or storage key) changes.
+  useEffect(() => {
+    let cancelled = false;
+    setHydrated(false);
+    AsyncStorage.getItem(storageKey)
+      .then((raw) => {
+        if (cancelled) return;
+        if (!raw) {
+          setMessages([]);
+          return;
+        }
+        let parsed: unknown = null;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          parsed = null;
+        }
+        setMessages(parseStoredMessages(parsed));
+      })
+      .catch(() => {
+        if (!cancelled) setMessages([]);
+      })
+      .finally(() => {
+        if (!cancelled) setHydrated(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storageKey]);
+
+  // Persist chat history whenever it changes (after hydration).
+  useEffect(() => {
+    if (!hydrated) return;
+    const toStore = messages.slice(-MAX_STORED_MESSAGES);
+    if (toStore.length === 0) {
+      AsyncStorage.removeItem(storageKey).catch(() => {});
+    } else {
+      AsyncStorage.setItem(storageKey, JSON.stringify(toStore)).catch(() => {});
+    }
+  }, [messages, hydrated, storageKey]);
 
   const sendMessage = async (text?: string) => {
     const msg = (text || input).trim();
-    if (!msg || loading) return;
+    if (!msg || loading || !hydrated) return;
     setInput("");
 
     const userMsg: Message = {
@@ -105,6 +180,24 @@ export default function AIScreen() {
     }
   };
 
+  const clearChat = () => {
+    if (messages.length === 0 || loading) return;
+    Alert.alert(
+      "Clear chat?",
+      "This will remove your PitMaster conversation history on this device.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: () => {
+            setMessages([]);
+          },
+        },
+      ]
+    );
+  };
+
   const allItems: Message[] = loading
     ? [...messages, { id: "loading", role: "assistant", content: "…" }]
     : messages;
@@ -112,6 +205,19 @@ export default function AIScreen() {
   const lastMsg = messages[messages.length - 1];
   const showSuggestionsForId =
     !loading && lastMsg?.role === "assistant" && !input.trim() ? lastMsg.id : null;
+
+  const headerRight =
+    messages.length > 0 ? (
+      <Pressable
+        onPress={clearChat}
+        hitSlop={8}
+        disabled={loading}
+        accessibilityLabel="Clear chat history"
+        style={s.headerBtn}
+      >
+        <Feather name="trash-2" size={18} color="#F3EDE1" />
+      </Pressable>
+    ) : null;
 
   const renderMsg = ({ item }: { item: Message }) => {
     const isUser = item.role === "user";
@@ -171,7 +277,7 @@ export default function AIScreen() {
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
       <LogoBackground opacity={0.04} />
-      <AppHeader title="PitMaster" dark />
+      <AppHeader title="PitMaster" dark right={headerRight} />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -246,15 +352,19 @@ export default function AIScreen() {
             <Pressable
               style={[
                 s.sendBtn,
-                { backgroundColor: loading || !input.trim() ? colors.muted : colors.primary },
+                { backgroundColor: loading || !hydrated || !input.trim() ? colors.muted : colors.primary },
               ]}
               onPress={() => sendMessage()}
-              disabled={loading || !input.trim()}
+              disabled={loading || !hydrated || !input.trim()}
             >
               {loading ? (
                 <ActivityIndicator size="small" color={colors.mutedForeground} />
               ) : (
-                <Feather name="send" size={16} color={loading || !input.trim() ? colors.mutedForeground : "#fff"} />
+                <Feather
+                  name="send"
+                  size={16}
+                  color={loading || !hydrated || !input.trim() ? colors.mutedForeground : "#fff"}
+                />
               )}
             </Pressable>
           </View>
@@ -295,5 +405,8 @@ const s = StyleSheet.create({
   sendBtn: {
     width: 34, height: 34, borderRadius: 10,
     alignItems: "center", justifyContent: "center", marginLeft: 8,
+  },
+  headerBtn: {
+    padding: 6,
   },
 });
