@@ -14,7 +14,7 @@ import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persi
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -85,15 +85,30 @@ async function requestNotificationPermissions() {
 }
 
 function RootLayoutNav() {
-  const { getToken, isSignedIn, isLoaded } = useAuth();
+  const { getToken, isSignedIn, isLoaded, userId } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const previousUserIdRef = useRef<string | null | undefined>(undefined);
   // Bridges the phone app to the Apple Watch companion app (iOS only, no-op elsewhere)
   useWatchBridge();
 
   useEffect(() => {
     setAuthTokenGetter(() => getToken());
   }, [getToken]);
+
+  // Clear all cached query data + persisted AsyncStorage cache whenever the
+  // signed-in user changes (sign-out, switch account, sign-in as different user).
+  // Without this, react-query's PersistQueryClientProvider would serve User A's
+  // cached cooks/grills/dashboard data to User B until each query refetches.
+  useEffect(() => {
+    if (!isLoaded) return;
+    const prev = previousUserIdRef.current;
+    if (prev !== undefined && prev !== userId) {
+      queryClient.clear();
+      AsyncStorage.removeItem(CACHE_STORAGE_KEY).catch(() => {});
+    }
+    previousUserIdRef.current = userId ?? null;
+  }, [isLoaded, userId]);
 
   // Global auth gate: keep signed-in users out of /(auth) and signed-out users out of /(tabs)
   useEffect(() => {
