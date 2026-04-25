@@ -39,7 +39,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           >
-            KnowYourPit tracks your MEATER and ThermoWorks probes, learns your grill profile, and tells you exactly when to wrap, when to add fuel, and when to rest.
+            KnowYourPit is your AI barbecue coach. It watches every temperature, reads every stall, and tells you exactly what to do at each stage of the cook — wrap, adjust, hold, or pull. No more guessing at the pit.
           </motion.p>
 
           <motion.div
@@ -72,7 +72,7 @@ export default function Home() {
                 Your pit, in your pocket.
               </h2>
               <p className="text-muted-foreground text-base md:text-lg text-center md:text-left mb-6 leading-relaxed">
-                Live probe temps, predicted finish times, and the next move on your cook — all in one feed. Designed for one-handed use while you're holding tongs.
+                Your personal AI pitmaster, always on call. PitMaster coaches you through every stage of the cook — when to wrap, when to add fuel, when to rest — so you stop guessing and start nailing it every time.
               </p>
               <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
                 <div className="rounded-lg border border-white/10 bg-card/40 p-3 text-sm">
