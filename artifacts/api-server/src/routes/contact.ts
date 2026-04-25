@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { db, contactMessagesTable } from "@workspace/db";
 import { logger } from "../lib/logger";
 

@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request } from "express";
 import { eq, and, desc, asc } from "drizzle-orm";
 import { rateLimit } from "express-rate-limit";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { db, cooksTable, grillsTable, temperatureReadingsTable, conversations, messages } from "@workspace/db";
 import { AiChatBody, AiPredictBody } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
