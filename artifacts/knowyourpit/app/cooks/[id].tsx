@@ -1472,7 +1472,7 @@ export default function CookDetailScreen() {
                   Current temperature <Text style={{ fontWeight: "400" }}>(°F)</Text>
                 </Text>
                 <TextInput
-                  style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, height: 38, paddingTop: 0, paddingBottom: 0, paddingHorizontal: 10, fontSize: 13 }]}
+                  style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, height: 38, minHeight: 38, paddingTop: 0, paddingBottom: 0, paddingHorizontal: 10, fontSize: 13 }]}
                   placeholder="e.g. 165"
                   placeholderTextColor={colors.mutedForeground}
                   value={userTempInput}

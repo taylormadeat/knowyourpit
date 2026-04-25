@@ -135,16 +135,12 @@ router.get("/meater/readings", requireAuth, async (req: any, res): Promise<void>
 
     const toF = (c: number) => Math.round((c * 9) / 5 + 32);
 
-    // Surface any powered-on probe reading a temperature. Prefer the live
-    // reading from the cook session (when the user has started one in the
-    // MEATER app) and fall back to the device's raw temperature so probes
-    // work even when no MEATER-app cook has been started — the user often
-    // tracks the cook in KnowYourPit instead.
-    const readableDevices = devices.filter((d: any) => {
-      const cookInternal = d.cook?.temperature?.internal;
-      const rawInternal = d.temperature?.internal;
-      return cookInternal != null || rawInternal != null;
-    });
+    // Only surface probes that have an active cook session in the MEATER app
+    // (d.cook exists). Use the raw device temperature as the reading source
+    // since d.cook.temperature can sometimes be null even when d.cook exists.
+    const readableDevices = devices.filter((d: any) =>
+      d.cook != null && (d.temperature?.internal != null || d.cook?.temperature?.internal != null)
+    );
 
     if (readableDevices.length === 0) {
       res.json({ linked: true, probes: [] });
