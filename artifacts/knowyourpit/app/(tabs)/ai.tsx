@@ -325,6 +325,7 @@ export default function AIScreen() {
       let sawDone = false;
       let finalSuggestions: string[] = [];
       let streamError: string | null = null;
+      let localSessionId: number | null = currentSessionId;
 
       const handleLine = (line: string) => {
         const trimmed = line.trim();
@@ -332,6 +333,7 @@ export default function AIScreen() {
         let evt: any;
         try { evt = JSON.parse(trimmed); } catch { return; }
         if (evt?.type === "session" && typeof evt.sessionId === "number") {
+          localSessionId = evt.sessionId;
           setCurrentSessionId(evt.sessionId);
           // Add new session to top of history list if not already there
           setConversations((prev) => {
@@ -353,6 +355,14 @@ export default function AIScreen() {
             finalSuggestions = evt.suggestions
               .filter((s: unknown): s is string => typeof s === "string" && s.trim().length > 0)
               .slice(0, 3);
+          }
+          if (typeof evt.title === "string" && evt.title.trim()) {
+            const smartTitle = evt.title.trim();
+            setConversations((prev) =>
+              prev.map((c) =>
+                c.id === localSessionId ? { ...c, title: smartTitle } : c
+              )
+            );
           }
         } else if (evt?.type === "error") {
           streamError = typeof evt.message === "string" && evt.message

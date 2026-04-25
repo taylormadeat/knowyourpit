@@ -193,20 +193,46 @@ async function ensureSession(
   userId: string,
   userMessage: string,
   sessionId?: number,
-): Promise<number> {
+): Promise<{ id: number; isNew: boolean }> {
   if (sessionId != null) {
     const [existing] = await db
       .select({ id: conversations.id })
       .from(conversations)
       .where(and(eq(conversations.id, sessionId), eq(conversations.userId, userId)));
-    if (existing) return existing.id;
+    if (existing) return { id: existing.id, isNew: false };
   }
   const title = userMessage.trim().slice(0, 80) || "New chat";
   const [created] = await db
     .insert(conversations)
     .values({ userId, title })
     .returning({ id: conversations.id });
-  return created.id;
+  return { id: created.id, isNew: true };
+}
+
+// ─── Helper: generate a short AI title for a conversation ─────────────────
+async function generateChatTitle(userMessage: string, assistantReply: string): Promise<string | null> {
+  try {
+    const preview = assistantReply.slice(0, 200);
+    const response = await openai.chat.completions.create({
+      model: "gpt-4.1-nano",
+      max_completion_tokens: 20,
+      messages: [
+        {
+          role: "system",
+          content: "You are a title generator. Given a user's BBQ question and the start of the assistant's reply, produce a concise 3–5 word title that captures the topic. Respond with ONLY the title — no quotes, no punctuation at the end, no explanation.",
+        },
+        {
+          role: "user",
+          content: `User asked: ${userMessage}\nAssistant started: ${preview}`,
+        },
+      ],
+    });
+    const raw = response.choices[0]?.message?.content?.trim() ?? "";
+    if (!raw) return null;
+    return raw.slice(0, 200);
+  } catch {
+    return null;
+  }
 }
 
 // ─── Original non-streaming endpoint ──────────────────────────────────────
@@ -218,7 +244,7 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
   }
   const { message, context, sessionId: requestedSessionId } = parsed.data;
 
-  const resolvedSessionId = await ensureSession(req.userId, message, requestedSessionId);
+  const { id: resolvedSessionId, isNew } = await ensureSession(req.userId, message, requestedSessionId);
   await db.insert(messages).values({
     conversationId: resolvedSessionId,
     role: "user",
@@ -255,14 +281,32 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
     role: "assistant",
     content: reply,
   });
-  await db
-    .update(conversations)
-    .set({ updatedAt: new Date() })
-    .where(eq(conversations.id, resolvedSessionId));
+
+  let generatedTitle: string | undefined;
+  if (isNew) {
+    const aiTitle = await generateChatTitle(message, reply);
+    if (aiTitle) {
+      generatedTitle = aiTitle;
+      await db
+        .update(conversations)
+        .set({ title: aiTitle, updatedAt: new Date() })
+        .where(eq(conversations.id, resolvedSessionId));
+    } else {
+      await db
+        .update(conversations)
+        .set({ updatedAt: new Date() })
+        .where(eq(conversations.id, resolvedSessionId));
+    }
+  } else {
+    await db
+      .update(conversations)
+      .set({ updatedAt: new Date() })
+      .where(eq(conversations.id, resolvedSessionId));
+  }
 
   const suggestions = pickChatSuggestions();
 
-  res.json({ reply, suggestions, sessionId: resolvedSessionId });
+  res.json({ reply, suggestions, sessionId: resolvedSessionId, ...(generatedTitle ? { title: generatedTitle } : {}) });
 });
 
 router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
@@ -295,10 +339,13 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
   });
 
   let resolvedSessionId: number | null = null;
+  let isNewSession = false;
 
   try {
     // Create or resolve the session, then persist the user message.
-    resolvedSessionId = await ensureSession(req.userId, message, requestedSessionId);
+    const sessionResult = await ensureSession(req.userId, message, requestedSessionId);
+    resolvedSessionId = sessionResult.id;
+    isNewSession = sessionResult.isNew;
     await db.insert(messages).values({
       conversationId: resolvedSessionId,
       role: "user",
@@ -355,12 +402,34 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
         role: "assistant",
         content: fullReply,
       });
-      // Touch updatedAt on the conversation.
-      await db
-        .update(conversations)
-        .set({ updatedAt: new Date() })
-        .where(eq(conversations.id, resolvedSessionId));
-      writeEvent({ type: "done", suggestions: pickChatSuggestions() });
+
+      // Generate a smart title for new sessions.
+      let generatedTitle: string | undefined;
+      if (isNewSession) {
+        const aiTitle = await generateChatTitle(message, fullReply);
+        if (aiTitle) {
+          generatedTitle = aiTitle;
+          await db
+            .update(conversations)
+            .set({ title: aiTitle, updatedAt: new Date() })
+            .where(eq(conversations.id, resolvedSessionId));
+        } else {
+          await db
+            .update(conversations)
+            .set({ updatedAt: new Date() })
+            .where(eq(conversations.id, resolvedSessionId));
+        }
+      } else {
+        // Touch updatedAt on the conversation.
+        await db
+          .update(conversations)
+          .set({ updatedAt: new Date() })
+          .where(eq(conversations.id, resolvedSessionId));
+      }
+
+      const doneEvent: Record<string, unknown> = { type: "done", suggestions: pickChatSuggestions() };
+      if (generatedTitle) doneEvent.title = generatedTitle;
+      writeEvent(doneEvent);
     }
   } catch (err: any) {
     writeEvent({
