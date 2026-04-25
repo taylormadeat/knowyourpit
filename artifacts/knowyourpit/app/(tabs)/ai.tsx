@@ -12,10 +12,14 @@ import {
 } from "react-native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
+import { useAuth } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
-import { fetch } from "expo/fetch";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
+
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
 
 interface Message {
   id: string;
@@ -35,17 +39,17 @@ const INPUT_BAR_GAP_ABOVE_TABS = 10;
 export default function AIScreen() {
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
+  const { getToken } = useAuth();
   const listRef = useRef<FlatList>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [streaming, setStreaming] = useState(false);
-  const [streamingContent, setStreamingContent] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const botPad = tabBarHeight;
 
   const sendMessage = async (text?: string) => {
     const msg = (text || input).trim();
-    if (!msg || streaming) return;
+    if (!msg || loading) return;
     setInput("");
 
     const userMsg: Message = {
@@ -53,68 +57,51 @@ export default function AIScreen() {
       role: "user",
       content: msg,
     };
-    const allMessages = [...messages, userMsg];
-    setMessages(allMessages);
-    setStreaming(true);
-    setStreamingContent("");
+    setMessages((prev) => [...prev, userMsg]);
+    setLoading(true);
 
     try {
-      const domain = process.env.EXPO_PUBLIC_DOMAIN;
-      const res = await fetch(`https://${domain}/api/ai/chat`, {
+      if (!API_BASE_URL) throw new Error("API base URL not configured");
+
+      const token = await getToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_BASE_URL}/api/ai/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: msg,
-          history: allMessages.map((m) => ({ role: m.role, content: m.content })),
-        }),
+        headers,
+        body: JSON.stringify({ message: msg }),
       });
 
-      if (!res.body) throw new Error("No response body");
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let full = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n");
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            if (data === "[DONE]") break;
-            try {
-              const parsed = JSON.parse(data);
-              const delta = parsed?.choices?.[0]?.delta?.content || "";
-              full += delta;
-              setStreamingContent(full);
-            } catch {}
-          }
-        }
+      if (!res.ok) {
+        if (res.status === 401) throw new Error("Please sign in again to use PitMaster.");
+        if (res.status === 429) throw new Error("Too many questions in a row. Please wait a moment.");
+        throw new Error(`Request failed (${res.status})`);
       }
+
+      const data = (await res.json()) as { reply?: string };
+      const reply = (data.reply ?? "").trim();
 
       const assistantMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: full || "Sorry, I couldn't get a response.",
+        content: reply || "Sorry, I couldn't get a response.",
       };
       setMessages((prev) => [...prev, assistantMsg]);
-    } catch (e) {
+    } catch (e: any) {
       const errMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Connection error. Check your internet and try again.",
+        content: e?.message || "Connection error. Check your internet and try again.",
       };
       setMessages((prev) => [...prev, errMsg]);
     } finally {
-      setStreaming(false);
-      setStreamingContent("");
+      setLoading(false);
     }
   };
 
-  const allItems: Message[] = streaming
-    ? [...messages, { id: "streaming", role: "assistant", content: streamingContent || "…" }]
+  const allItems: Message[] = loading
+    ? [...messages, { id: "loading", role: "assistant", content: "…" }]
     : messages;
 
   const renderMsg = ({ item }: { item: Message }) => {
@@ -154,7 +141,7 @@ export default function AIScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        {messages.length === 0 && !streaming && (
+        {messages.length === 0 && !loading && (
           <View style={s.welcome}>
             <Text style={[s.welcomeTitle, { color: colors.foreground }]}>Ask me anything BBQ</Text>
             <View style={s.suggestions}>
@@ -221,15 +208,15 @@ export default function AIScreen() {
             <Pressable
               style={[
                 s.sendBtn,
-                { backgroundColor: streaming || !input.trim() ? colors.muted : colors.primary },
+                { backgroundColor: loading || !input.trim() ? colors.muted : colors.primary },
               ]}
               onPress={() => sendMessage()}
-              disabled={streaming || !input.trim()}
+              disabled={loading || !input.trim()}
             >
-              {streaming ? (
+              {loading ? (
                 <ActivityIndicator size="small" color={colors.mutedForeground} />
               ) : (
-                <Feather name="send" size={16} color={streaming || !input.trim() ? colors.mutedForeground : "#fff"} />
+                <Feather name="send" size={16} color={loading || !input.trim() ? colors.mutedForeground : "#fff"} />
               )}
             </Pressable>
           </View>
