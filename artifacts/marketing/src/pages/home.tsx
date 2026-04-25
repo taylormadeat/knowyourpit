@@ -98,10 +98,10 @@ export default function Home() {
                 <img
                   src={`${BASE}app-dashboard.png`}
                   alt="KnowYourPit home screen showing PitMaster Score, recent cooks, and grill stats"
-                  className="absolute inset-0 w-full h-full object-cover object-center"
+                  className="absolute inset-0 w-full h-full object-cover object-top"
                 />
-                {/* Top black band that hides the iOS chrome + dev bar from the source PNG */}
-                <div className="absolute top-0 inset-x-0 h-[10%] bg-black z-[5]" />
+                {/* Narrow band hides iOS status bar + Expo dev bar only (~6% = ~160px of source) */}
+                <div className="absolute top-0 inset-x-0 h-[6%] bg-black z-[5]" />
                 {/* Notch */}
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 md:w-32 h-5 md:h-6 bg-zinc-900 rounded-b-2xl z-10" />
               </div>
@@ -171,10 +171,10 @@ export default function Home() {
                     src={`${BASE}${shot.src}`}
                     alt={shot.alt}
                     loading="lazy"
-                    className="absolute inset-0 w-full h-full object-cover object-center"
+                    className="absolute inset-0 w-full h-full object-cover object-top"
                   />
-                  {/* Mask iOS chrome + Expo dev bar from source PNG */}
-                  <div className="absolute top-0 inset-x-0 h-[10%] bg-black z-[5]" />
+                  {/* Narrow band hides iOS status bar + Expo dev bar only (~6% = ~160px of source) */}
+                  <div className="absolute top-0 inset-x-0 h-[6%] bg-black z-[5]" />
                   {/* Notch */}
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-4 bg-zinc-900 rounded-b-2xl z-10" />
                 </div>
