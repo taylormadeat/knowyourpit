@@ -1472,7 +1472,7 @@ export default function CookDetailScreen() {
                   Current temperature <Text style={{ fontWeight: "400" }}>(°F)</Text>
                 </Text>
                 <TextInput
-                  style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, height: 44, paddingTop: 0, paddingBottom: 0 }]}
+                  style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, height: 38, paddingTop: 0, paddingBottom: 0, paddingHorizontal: 10, fontSize: 13 }]}
                   placeholder="e.g. 165"
                   placeholderTextColor={colors.mutedForeground}
                   value={userTempInput}
@@ -1488,13 +1488,13 @@ export default function CookDetailScreen() {
                 What's happening? <Text style={{ fontWeight: "400" }}>(optional)</Text>
               </Text>
               <TextInput
-                style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, minHeight: 56, padding: 10, fontSize: 13 }]}
                 placeholder="e.g. Going into the stall around 160°F, just wrapped it in butcher paper..."
                 placeholderTextColor={colors.mutedForeground}
                 value={cookNotes}
                 onChangeText={setCookNotes}
                 multiline
-                numberOfLines={3}
+                numberOfLines={2}
                 textAlignVertical="top"
               />
             </View>

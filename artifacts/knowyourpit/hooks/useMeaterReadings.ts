@@ -33,7 +33,7 @@ export function useMeaterReadings(enabled = true) {
       const token = await getToken();
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch(`${baseUrl}/meater/readings`, { headers });
+      const res = await fetch(`${baseUrl}/api/meater/readings`, { headers });
       if (!res.ok) throw new Error("Failed to fetch MEATER readings");
       return res.json() as Promise<MeaterReadingsResponse>;
     },
