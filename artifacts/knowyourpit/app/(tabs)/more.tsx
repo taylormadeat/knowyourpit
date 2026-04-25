@@ -52,7 +52,7 @@ export default function MoreScreen() {
         onPress: async () => {
           qc.clear();
           await AsyncStorage.removeItem(CACHE_STORAGE_KEY).catch(() => {});
-          signOut();
+          await signOut();
         },
       },
     ]);

@@ -50,6 +50,7 @@ export default function SignUpScreen() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [googleLoading, setGoogleLoading] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const [pendingVerification, setPendingVerification] = React.useState(false);
 
   const handleSignUp = async () => {
     if (!isLoaded || !signUp) return;
@@ -58,6 +59,7 @@ export default function SignUpScreen() {
       setErrorMsg(null);
       await signUp.create({ emailAddress: email, password });
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      setPendingVerification(true);
     } catch (e: any) {
       const msg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Sign up failed.";
       setErrorMsg(msg);
@@ -101,11 +103,6 @@ export default function SignUpScreen() {
       setGoogleLoading(false);
     }
   }, []);
-  const isVerifying = !!signUp &&
-    signUp.status === "missing_requirements" &&
-    signUp.unverifiedFields?.includes("email_address") &&
-    signUp.missingFields?.length === 0;
-
   const styles = StyleSheet.create({
     outer: { flex: 1, backgroundColor: colors.background },
     scroll: {
@@ -152,7 +149,7 @@ export default function SignUpScreen() {
     resendText: { fontSize: 14, fontFamily: "Inter_500Medium", color: colors.primary },
   });
 
-  if (isVerifying) {
+  if (pendingVerification) {
     return (
       <KeyboardAvoidingView style={styles.outer} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
