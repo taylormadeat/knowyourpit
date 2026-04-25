@@ -8,13 +8,11 @@ import {
 import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache as nativeTokenCache } from "@clerk/expo/token-cache";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { QueryClient } from "@tanstack/react-query";
-import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -27,18 +25,29 @@ import { CACHE_STORAGE_KEY } from "@/constants/cache";
 
 SplashScreen.preventAutoHideAsync();
 
-const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24; // 24 hours
-
-// One-time cleanup of the legacy un-scoped persisted cache. Older builds wrote
-// a single shared cache bucket at CACHE_STORAGE_KEY, which leaked between
-// accounts on the same device. Per-user scoping replaces it (see
-// ScopedQueryProvider below); we delete the legacy key on boot so any stale
-// data from before this fix can never be restored.
-AsyncStorage.removeItem(CACHE_STORAGE_KEY).catch(() => {});
-
-function userCacheKey(userId: string | null | undefined): string {
-  return `${CACHE_STORAGE_KEY}:${userId ?? "anon"}`;
+// Aggressive boot-time cleanup of any persisted react-query caches from older
+// builds. We previously experimented with PersistQueryClientProvider (both
+// un-scoped at CACHE_STORAGE_KEY and per-user at `${CACHE_STORAGE_KEY}:*`).
+// Either could leak data between accounts on the same device. This release
+// removes on-disk react-query persistence entirely — all query state lives in
+// memory only and is destroyed when the user signs out — and we proactively
+// purge every legacy bucket on launch so no future code path can ever rehydrate
+// stale data into the wrong session.
+async function purgeLegacyQueryCaches() {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const stale = keys.filter(
+      (k) => k === CACHE_STORAGE_KEY || k.startsWith(`${CACHE_STORAGE_KEY}:`),
+    );
+    if (stale.length > 0) {
+      await AsyncStorage.multiRemove(stale);
+    }
+  } catch {
+    // Non-critical — if we cannot enumerate storage, the per-user QueryClient
+    // remount in IsolatedQueryProvider still prevents in-memory leaks.
+  }
 }
+purgeLegacyQueryCaches();
 
 // EXPO_PUBLIC_API_URL: set to the deployed API server URL for production builds.
 // Current production URL: https://pitking.replit.app (see eas.json and app.json)
@@ -48,6 +57,24 @@ const apiBaseUrl =
   process.env.EXPO_PUBLIC_API_URL ??
   (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
 setBaseUrl(apiBaseUrl);
+
+// Module-level holder for the current Clerk session's getToken function.
+// ClerkGatedShell updates this synchronously during render whenever the active
+// userId or getToken reference changes, so any descendant mounted in the same
+// commit cycle (including the per-user QueryClient and any of its queries)
+// always reads the *current* user's token at request time. The wrapper passed
+// to setAuthTokenGetter is stable and never re-registered — only the inner
+// pointer changes — which closes the post-mount useEffect window where a
+// freshly-mounted query could otherwise fire with the previous user's token.
+let _currentGetToken: (() => Promise<string | null>) | null = null;
+setAuthTokenGetter(async () => {
+  if (!_currentGetToken) return null;
+  try {
+    return await _currentGetToken();
+  } catch {
+    return null;
+  }
+});
 
 // Clerk publishable key — two env vars are supported:
 //   EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY      → development key (used in Replit dev, starts with pk_test_)
@@ -83,15 +110,11 @@ async function requestNotificationPermissions() {
 }
 
 function RootLayoutNav() {
-  const { getToken, isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   // Bridges the phone app to the Apple Watch companion app (iOS only, no-op elsewhere)
   useWatchBridge();
-
-  useEffect(() => {
-    setAuthTokenGetter(() => getToken());
-  }, [getToken]);
 
   // Global auth gate: keep signed-in users out of /(auth) and signed-out users out of /(tabs)
   useEffect(() => {
@@ -228,56 +251,47 @@ export default function RootLayout() {
   return <KeyboardProvider>{content}</KeyboardProvider>;
 }
 
-// Waits for Clerk to finish loading, then mounts a ScopedQueryProvider whose
+// Waits for Clerk to finish loading, then mounts an IsolatedQueryProvider whose
 // React `key` is the current Clerk userId. When the userId changes
 // (sign-out, sign-in as a different account) the entire query cache subtree
-// unmounts and remounts: a brand-new QueryClient and a brand-new persister
-// pointed at the new user's AsyncStorage bucket. This makes it impossible for
-// in-memory or on-disk cached data from one account to ever be displayed to
-// another account on the same device.
+// unmounts and remounts with a brand-new in-memory QueryClient. Combined with
+// the absence of any on-disk persistence (see purgeLegacyQueryCaches above),
+// this makes it impossible for cached data from one account to ever be
+// displayed to another account on the same device.
+//
+// We also call setAuthTokenGetter here, BEFORE the QueryClient mounts, so that
+// the very first network request fired by any descendant screen is guaranteed
+// to use the currently-signed-in user's token. If we set this in a child of
+// QueryClientProvider, there would be a brief render window where queries
+// could fire with the previous user's token.
 function ClerkGatedShell() {
-  const { isLoaded, userId } = useAuth();
+  const { isLoaded, userId, getToken } = useAuth();
+
+  // Synchronous-during-render update of the module-level token getter.
+  // Doing this here (rather than in a useEffect) guarantees that when the
+  // child IsolatedQueryProvider remounts on a userId change, every query it
+  // owns will read the current user's token from the very first request —
+  // no useEffect-timing gap during which the previous user's getter is still
+  // wired up. Writing to a module-level pointer is idempotent and side-effect
+  // safe for our purposes (single source of truth, no React state involved).
+  _currentGetToken = isLoaded && userId ? getToken : null;
+
   if (!isLoaded) {
     return <View style={{ flex: 1 }} />;
   }
   return (
-    <ScopedQueryProvider key={userId ?? "anon"} userId={userId ?? null}>
+    <IsolatedQueryProvider key={userId ?? "anon"}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <RootLayoutNav />
       </GestureHandlerRootView>
-    </ScopedQueryProvider>
+    </IsolatedQueryProvider>
   );
 }
 
-function ScopedQueryProvider({
-  userId,
-  children,
-}: {
-  userId: string | null;
-  children: React.ReactNode;
-}) {
-  // Fresh QueryClient per mount — guaranteed clean in-memory cache.
-  const [client] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: { queries: { gcTime: CACHE_MAX_AGE_MS } },
-      }),
-  );
-  // Per-user AsyncStorage bucket — guaranteed clean on-disk cache.
-  const persister = useMemo(
-    () =>
-      createAsyncStoragePersister({
-        storage: AsyncStorage,
-        key: userCacheKey(userId),
-      }),
-    [userId],
-  );
-  return (
-    <PersistQueryClientProvider
-      client={client}
-      persistOptions={{ persister, maxAge: CACHE_MAX_AGE_MS }}
-    >
-      {children}
-    </PersistQueryClientProvider>
-  );
+function IsolatedQueryProvider({ children }: { children: React.ReactNode }) {
+  // Fresh QueryClient per mount (per Clerk userId) — guaranteed clean
+  // in-memory cache. No persister is attached: nothing is written to disk,
+  // so no leakage path between accounts exists.
+  const [client] = useState(() => new QueryClient());
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
