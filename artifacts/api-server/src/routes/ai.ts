@@ -263,12 +263,24 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
 
     const systemPrompt = await buildChatSystemPrompt(req.userId, context);
 
+    const HISTORY_LIMIT = 20;
+    const priorMessages = await db
+      .select({ role: messages.role, content: messages.content })
+      .from(messages)
+      .where(eq(messages.conversationId, resolvedSessionId))
+      .orderBy(desc(messages.createdAt))
+      .limit(HISTORY_LIMIT);
+
+    const historyTurns = priorMessages
+      .reverse()
+      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+
     const stream = await openai.chat.completions.create({
       model: "gpt-5.2",
       max_completion_tokens: 1024,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: message },
+        ...historyTurns,
       ],
       stream: true,
     });
