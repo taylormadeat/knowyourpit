@@ -1,8 +1,67 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "Nu4SvbdVxQN7CAwLMUEF4"
 uri = "file://artifacts/knowyourpit/assets/images/icon.png"
 type = "image"
 title = "generated_image"
+
+[[outputs]]
+id = "Qp7H6VGZ9ofBB5-ABXfas"
+uri = "file://screenshots/app-store-6.7in/IMG_1746.png"
+type = "image"
+title = "1 – PitMaster Image Scanner"
+
+[[outputs]]
+id = "WB2ttm8hrxhVjBzN0Dxa7"
+uri = "file://screenshots/app-store-6.7in/IMG_1747.png"
+type = "image"
+title = "2 – Scan Summary & Temperature Graph"
+
+[[outputs]]
+id = "QE9dejgVu9QG1sQ6RU5FG"
+uri = "file://screenshots/app-store-6.7in/IMG_1748.png"
+type = "image"
+title = "3 – Home / PitMaster Score"
+
+[[outputs]]
+id = "TA4lUQoD79wg-Q5Z-4rf4"
+uri = "file://screenshots/app-store-6.7in/IMG_1749.png"
+type = "image"
+title = "4 – Cook Log"
+
+[[outputs]]
+id = "9UEOvn641i_ofVOvziPx-"
+uri = "file://screenshots/app-store-6.7in/IMG_1750.png"
+type = "image"
+title = "5 – Plan a Cook"
+
+[[outputs]]
+id = "Nxm52XNq4HC4HNzC2-q7c"
+uri = "file://screenshots/app-store-6.7in/IMG_1751.png"
+type = "image"
+title = "6 – PitMaster Plan Detail"
+
+[[outputs]]
+id = "r4qOx7Kf9sCL36tkmsI4o"
+uri = "file://screenshots/app-store-6.7in/IMG_1752.png"
+type = "image"
+title = "7 – My Grills"
+
+[[outputs]]
+id = "nvvIW-uaJrLBFBN1kOfSo"
+uri = "file://screenshots/app-store-6.7in/IMG_1754.png"
+type = "image"
+title = "8 – Live Cook"
+
+[[outputs]]
+id = "XWb3Xl_rRKs0TWl5JAmfU"
+uri = "file://screenshots/app-store-6.7in/IMG_1755.png"
+type = "image"
+title = "9 – PitMaster Decisions"
+
+[[outputs]]
+id = "4VVTUvaFl9Gn4hMc92H23"
+uri = "file://screenshots/app-store-6.7in/IMG_1756.png"
+type = "image"
+title = "10 – Cook Assessment"
