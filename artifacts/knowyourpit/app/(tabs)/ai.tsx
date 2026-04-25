@@ -25,6 +25,7 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  suggestions?: string[];
 }
 
 const SUGGESTED = [
@@ -79,13 +80,17 @@ export default function AIScreen() {
         throw new Error(`Request failed (${res.status})`);
       }
 
-      const data = (await res.json()) as { reply?: string };
+      const data = (await res.json()) as { reply?: string; suggestions?: string[] };
       const reply = (data.reply ?? "").trim();
+      const suggestions = Array.isArray(data.suggestions)
+        ? data.suggestions.filter((s): s is string => typeof s === "string" && s.trim().length > 0).slice(0, 3)
+        : undefined;
 
       const assistantMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content: reply || "Sorry, I couldn't get a response.",
+        suggestions,
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (e: any) {
@@ -104,8 +109,17 @@ export default function AIScreen() {
     ? [...messages, { id: "loading", role: "assistant", content: "…" }]
     : messages;
 
+  const lastMsg = messages[messages.length - 1];
+  const showSuggestionsForId =
+    !loading && lastMsg?.role === "assistant" && !input.trim() ? lastMsg.id : null;
+
   const renderMsg = ({ item }: { item: Message }) => {
     const isUser = item.role === "user";
+    const showChips =
+      !isUser &&
+      item.id === showSuggestionsForId &&
+      !!item.suggestions &&
+      item.suggestions.length > 0;
     return (
       <View style={[s.msgRow, isUser && s.msgRowUser]}>
         {!isUser && (
@@ -113,19 +127,42 @@ export default function AIScreen() {
             <Feather name="zap" size={12} color="#fff" />
           </View>
         )}
-        <View
-          style={[
-            s.bubble,
-            {
-              backgroundColor: isUser ? colors.primary : colors.card,
-              borderColor: isUser ? colors.primary : colors.border,
-              borderRadius: colors.radius,
-            },
-          ]}
-        >
-          <Text style={[s.bubbleText, { color: isUser ? "#fff" : colors.foreground }]}>
-            {item.content}
-          </Text>
+        <View style={[s.msgColumn, { alignItems: isUser ? "flex-end" : "flex-start" }]}>
+          <View
+            style={[
+              s.bubble,
+              {
+                backgroundColor: isUser ? colors.primary : colors.card,
+                borderColor: isUser ? colors.primary : colors.border,
+                borderRadius: colors.radius,
+              },
+            ]}
+          >
+            <Text style={[s.bubbleText, { color: isUser ? "#fff" : colors.foreground }]}>
+              {item.content}
+            </Text>
+          </View>
+          {showChips && (
+            <View style={s.chips}>
+              {item.suggestions!.slice(0, 3).map((q) => (
+                <Pressable
+                  key={q}
+                  onPress={() => sendMessage(q)}
+                  disabled={loading}
+                  style={[
+                    s.chip,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      borderRadius: colors.radius,
+                    },
+                  ]}
+                >
+                  <Text style={[s.chipText, { color: colors.foreground }]}>{q}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
         </View>
       </View>
     );
@@ -161,6 +198,7 @@ export default function AIScreen() {
         <FlatList
           ref={listRef}
           data={allItems}
+          extraData={`${showSuggestionsForId ?? ""}|${input.length === 0}`}
           keyExtractor={(item) => item.id}
           renderItem={renderMsg}
           contentContainerStyle={{
@@ -235,12 +273,16 @@ const s = StyleSheet.create({
   suggestionText: { fontSize: 14, fontFamily: "Inter_500Medium" },
   msgRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
   msgRowUser: { flexDirection: "row-reverse" },
+  msgColumn: { flex: 1, gap: 10 },
   avatar: {
     width: 24, height: 24, borderRadius: 12,
     alignItems: "center", justifyContent: "center",
   },
   bubble: { maxWidth: "78%", borderWidth: 1, padding: 12 },
   bubbleText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  chips: { width: "100%", gap: 10 },
+  chip: { borderWidth: 1, padding: 14 },
+  chipText: { fontSize: 14, fontFamily: "Inter_500Medium" },
   inputBar: { paddingHorizontal: 16, paddingTop: 10, borderTopWidth: 1 },
   inputWrap: {
     flexDirection: "row", alignItems: "flex-end",
