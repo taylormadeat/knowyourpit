@@ -1442,15 +1442,6 @@ export default function CookDetailScreen() {
               </View>
             ))}
 
-            {/* ThermoWorks linked but no live channels */}
-            {thermoworksLinked === true && thermoworksProbes.length === 0 && (
-              <View style={[s.subSection, { borderTopColor: colors.border, paddingHorizontal: 14, paddingBottom: 12 }]}>
-                <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground, textAlign: "left" }]}>
-                  ThermoWorks linked · waiting for an active probe
-                </Text>
-              </View>
-            )}
-
             {/* No-thermometer placeholder (only when neither MEATER nor ThermoWorks is linked) */}
             {meaterLinked !== true && thermoworksLinked !== true && (
               <View style={[s.meaterPlaceholder, { borderTopColor: colors.border }]}>

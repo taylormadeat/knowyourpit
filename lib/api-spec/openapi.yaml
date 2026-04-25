@@ -1986,7 +1986,7 @@ components:
           type: ["integer", "null"]
         alertType:
           type: string
-          enum: [min_temp, max_temp, target_reached, stall_detected]
+          enum: [min_temp, max_temp, target_reached, stall_detected, time_before_serve]
         thresholdTempF:
           type: number
         message:
@@ -1996,6 +1996,8 @@ components:
         triggeredAt:
           type: ["string", "null"]
           format: date-time
+        scheduledNotificationId:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -2019,11 +2021,13 @@ components:
           type: ["integer", "null"]
         alertType:
           type: string
-          enum: [min_temp, max_temp, target_reached, stall_detected]
+          enum: [min_temp, max_temp, target_reached, stall_detected, time_before_serve]
         thresholdTempF:
           type: number
         message:
           type: string
+        scheduledNotificationId:
+          type: ["string", "null"]
       required:
         - alertType
         - thresholdTempF

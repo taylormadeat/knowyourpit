@@ -15,4 +15,6 @@ export interface CreateAlertBody {
   alertType: CreateAlertBodyAlertType;
   thresholdTempF: number;
   message: string;
+  /** @nullable */
+  scheduledNotificationId?: string | null;
 }

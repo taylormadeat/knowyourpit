@@ -14,4 +14,5 @@ export const AlertAlertType = {
   max_temp: "max_temp",
   target_reached: "target_reached",
   stall_detected: "stall_detected",
+  time_before_serve: "time_before_serve",
 } as const;

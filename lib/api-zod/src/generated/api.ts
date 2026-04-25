@@ -1099,11 +1099,13 @@ export const ListAlertsResponseItem = zod.object({
     "max_temp",
     "target_reached",
     "stall_detected",
+    "time_before_serve",
   ]),
   thresholdTempF: zod.number(),
   message: zod.string(),
   isActive: zod.boolean(),
   triggeredAt: zod.coerce.date().nullable(),
+  scheduledNotificationId: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListAlertsResponse = zod.array(ListAlertsResponseItem);
@@ -1119,9 +1121,11 @@ export const CreateAlertBody = zod.object({
     "max_temp",
     "target_reached",
     "stall_detected",
+    "time_before_serve",
   ]),
   thresholdTempF: zod.number(),
   message: zod.string(),
+  scheduledNotificationId: zod.string().nullish(),
 });
 
 /**
@@ -1145,11 +1149,13 @@ export const PatchAlertResponse = zod.object({
     "max_temp",
     "target_reached",
     "stall_detected",
+    "time_before_serve",
   ]),
   thresholdTempF: zod.number(),
   message: zod.string(),
   isActive: zod.boolean(),
   triggeredAt: zod.coerce.date().nullable(),
+  scheduledNotificationId: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 

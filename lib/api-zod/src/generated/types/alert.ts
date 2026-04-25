@@ -19,5 +19,7 @@ export interface Alert {
   isActive: boolean;
   /** @nullable */
   triggeredAt: Date | null;
+  /** @nullable */
+  scheduledNotificationId?: string | null;
   createdAt: Date;
 }

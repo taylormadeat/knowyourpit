@@ -833,6 +833,7 @@ export const AlertAlertType = {
   max_temp: "max_temp",
   target_reached: "target_reached",
   stall_detected: "stall_detected",
+  time_before_serve: "time_before_serve",
 } as const;
 
 export interface Alert {
@@ -847,6 +848,8 @@ export interface Alert {
   isActive: boolean;
   /** @nullable */
   triggeredAt: string | null;
+  /** @nullable */
+  scheduledNotificationId?: string | null;
   createdAt: string;
 }
 
@@ -858,6 +861,7 @@ export const CreateAlertBodyAlertType = {
   max_temp: "max_temp",
   target_reached: "target_reached",
   stall_detected: "stall_detected",
+  time_before_serve: "time_before_serve",
 } as const;
 
 export interface CreateAlertBody {
@@ -868,6 +872,8 @@ export interface CreateAlertBody {
   alertType: CreateAlertBodyAlertType;
   thresholdTempF: number;
   message: string;
+  /** @nullable */
+  scheduledNotificationId?: string | null;
 }
 
 export interface PatchAlertBody {
