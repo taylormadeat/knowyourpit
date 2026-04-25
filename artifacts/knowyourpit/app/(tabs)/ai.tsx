@@ -424,10 +424,9 @@ export default function AIScreen() {
             flexGrow: 1,
           }}
           showsVerticalScrollIndicator={false}
-          inverted={messages.length > 0}
           scrollEnabled={messages.length > 0}
           onContentSizeChange={() => {
-            if (messages.length > 0) listRef.current?.scrollToOffset({ offset: 0, animated: true });
+            if (messages.length > 0) listRef.current?.scrollToEnd({ animated: true });
           }}
         />
 
