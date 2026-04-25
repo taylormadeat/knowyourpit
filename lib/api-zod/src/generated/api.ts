@@ -23,7 +23,12 @@ export const ListGrillsResponseItem = zod.object({
   type: zod
     .string()
     .describe("charcoal, gas, pellet, electric, smoker, kamado, offset, etc."),
-  fuelType: zod.string().nullable(),
+  fuelType: zod
+    .string()
+    .nullish()
+    .describe(
+      "charcoal, propane, natural gas, wood pellet, electric, wood, etc.",
+    ),
   brand: zod.string().nullable(),
   model: zod.string().nullable(),
   description: zod.string().nullable(),
@@ -76,7 +81,12 @@ export const GetGrillResponse = zod.object({
   type: zod
     .string()
     .describe("charcoal, gas, pellet, electric, smoker, kamado, offset, etc."),
-  fuelType: zod.string().nullable(),
+  fuelType: zod
+    .string()
+    .nullish()
+    .describe(
+      "charcoal, propane, natural gas, wood pellet, electric, wood, etc.",
+    ),
   brand: zod.string().nullable(),
   model: zod.string().nullable(),
   description: zod.string().nullable(),
@@ -125,7 +135,12 @@ export const UpdateGrillResponse = zod.object({
   type: zod
     .string()
     .describe("charcoal, gas, pellet, electric, smoker, kamado, offset, etc."),
-  fuelType: zod.string().nullable(),
+  fuelType: zod
+    .string()
+    .nullish()
+    .describe(
+      "charcoal, propane, natural gas, wood pellet, electric, wood, etc.",
+    ),
   brand: zod.string().nullable(),
   model: zod.string().nullable(),
   description: zod.string().nullable(),
@@ -1075,19 +1090,20 @@ export const ListTipsResponse = zod.array(ListTipsResponseItem);
 /**
  * @summary List temperature alerts
  */
-export const ALERT_TYPES = ["min_temp", "max_temp", "target_reached", "stall_detected", "time_before_serve"] as const;
-export type AlertType = typeof ALERT_TYPES[number];
-
 export const ListAlertsResponseItem = zod.object({
   id: zod.number(),
   cookId: zod.number().nullable(),
   probeNumber: zod.number().nullable(),
-  alertType: zod.enum(ALERT_TYPES),
+  alertType: zod.enum([
+    "min_temp",
+    "max_temp",
+    "target_reached",
+    "stall_detected",
+  ]),
   thresholdTempF: zod.number(),
   message: zod.string(),
   isActive: zod.boolean(),
   triggeredAt: zod.coerce.date().nullable(),
-  scheduledNotificationId: zod.string().nullable(),
   createdAt: zod.coerce.date(),
 });
 export const ListAlertsResponse = zod.array(ListAlertsResponseItem);
@@ -1098,14 +1114,18 @@ export const ListAlertsResponse = zod.array(ListAlertsResponseItem);
 export const CreateAlertBody = zod.object({
   cookId: zod.number().nullish(),
   probeNumber: zod.number().nullish(),
-  alertType: zod.enum(ALERT_TYPES),
+  alertType: zod.enum([
+    "min_temp",
+    "max_temp",
+    "target_reached",
+    "stall_detected",
+  ]),
   thresholdTempF: zod.number(),
   message: zod.string(),
-  scheduledNotificationId: zod.string().nullish(),
 });
 
 /**
- * @summary Patch an alert (mark triggered, set notification id)
+ * @summary Update an alert (mark triggered or store scheduled notification ID)
  */
 export const PatchAlertParams = zod.object({
   id: zod.coerce.number(),
@@ -1113,7 +1133,24 @@ export const PatchAlertParams = zod.object({
 
 export const PatchAlertBody = zod.object({
   triggered: zod.boolean().optional(),
-  scheduledNotificationId: zod.string().nullable().optional(),
+  scheduledNotificationId: zod.string().nullish(),
+});
+
+export const PatchAlertResponse = zod.object({
+  id: zod.number(),
+  cookId: zod.number().nullable(),
+  probeNumber: zod.number().nullable(),
+  alertType: zod.enum([
+    "min_temp",
+    "max_temp",
+    "target_reached",
+    "stall_detected",
+  ]),
+  thresholdTempF: zod.number(),
+  message: zod.string(),
+  isActive: zod.boolean(),
+  triggeredAt: zod.coerce.date().nullable(),
+  createdAt: zod.coerce.date(),
 });
 
 /**
@@ -1278,4 +1315,57 @@ export const GetMeaterReadingsResponse = zod.object({
     }),
   ),
   tokenExpired: zod.boolean().optional(),
+});
+
+/**
+ * @summary Link ThermoWorks Cloud account
+ */
+export const LinkThermoworksBody = zod.object({
+  email: zod.string().email(),
+  password: zod.string(),
+});
+
+export const LinkThermoworksResponse = zod.object({
+  linked: zod.boolean(),
+});
+
+/**
+ * @summary Unlink ThermoWorks Cloud account
+ */
+export const UnlinkThermoworksResponse = zod.object({
+  linked: zod.boolean(),
+});
+
+/**
+ * @summary Get ThermoWorks link status and device list
+ */
+export const GetThermoworksStatusResponse = zod.object({
+  linked: zod.boolean(),
+  devices: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      type: zod.string().nullable(),
+      status: zod.string().nullable(),
+    }),
+  ),
+  error: zod.string().optional(),
+});
+
+/**
+ * @summary Get live readings from active ThermoWorks probes
+ */
+export const GetThermoworksReadingsResponse = zod.object({
+  linked: zod.boolean(),
+  probes: zod.array(
+    zod.object({
+      deviceId: zod.string(),
+      deviceName: zod.string(),
+      channelNumber: zod.string(),
+      channelLabel: zod.string().nullable(),
+      tempF: zod.number().nullable(),
+      lastSeenIso: zod.string().nullable(),
+    }),
+  ),
+  error: zod.string().optional(),
 });

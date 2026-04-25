@@ -24,9 +24,15 @@ import {
   getGetMeaterStatusQueryKey,
   useLinkMeater,
   useUnlinkMeater,
+  useGetThermoworksStatus,
+  getGetThermoworksStatusQueryKey,
+  useLinkThermoworks,
+  useUnlinkThermoworks,
   useListCooks,
   type Cook,
 } from "@workspace/api-client-react";
+
+const THERMOWORKS_COLOR = "#B22222";
 
 function StarRating({ score, color }: { score: number; color: string }) {
   const stars = Array.from({ length: 5 }, (_, i) => {
@@ -125,6 +131,60 @@ export default function ProfileScreen() {
 
   const invalidateMeaterStatus = () =>
     qc.invalidateQueries({ queryKey: getGetMeaterStatusQueryKey() });
+
+  const { data: thermoworksStatus, isLoading: thermoworksLoading } = useGetThermoworksStatus();
+  const linkThermoworks = useLinkThermoworks();
+  const unlinkThermoworks = useUnlinkThermoworks();
+  const [thermoworksEmail, setThermoworksEmail] = useState("");
+  const [thermoworksPassword, setThermoworksPassword] = useState("");
+  const [showThermoworksLinkForm, setShowThermoworksLinkForm] = useState(false);
+
+  const invalidateThermoworksStatus = () =>
+    qc.invalidateQueries({ queryKey: getGetThermoworksStatusQueryKey() });
+
+  const handleLinkThermoworks = async () => {
+    if (!thermoworksEmail.trim() || !thermoworksPassword.trim()) {
+      Alert.alert("Required", "Enter your ThermoWorks Cloud email and password.");
+      return;
+    }
+    try {
+      await linkThermoworks.mutateAsync({
+        data: { email: thermoworksEmail.trim(), password: thermoworksPassword },
+      });
+      setThermoworksEmail("");
+      setThermoworksPassword("");
+      setShowThermoworksLinkForm(false);
+      invalidateThermoworksStatus();
+    } catch (e: any) {
+      const isNetworkError = !e?.status;
+      const isSessionError = e?.status === 401 && e?.data?.error === "Unauthorized";
+      const message = isNetworkError
+        ? "Could not reach the server. Please check your connection and try again."
+        : isSessionError
+          ? "Your session has expired — sign out and sign back in, then try again."
+          : e?.data?.error ?? e?.message ?? "Could not link ThermoWorks account. Check your credentials.";
+      Alert.alert("Link failed", message);
+    }
+  };
+
+  const handleUnlinkThermoworks = () => {
+    Alert.alert("Unlink ThermoWorks", "Remove your ThermoWorks Cloud connection?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Unlink",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await unlinkThermoworks.mutateAsync();
+            setShowThermoworksLinkForm(false);
+            invalidateThermoworksStatus();
+          } catch {
+            Alert.alert("Error", "Could not unlink. Please try again.");
+          }
+        },
+      },
+    ]);
+  };
 
   const handleLinkMeater = async () => {
     if (!meaterEmail.trim() || !meaterPassword.trim()) {
@@ -626,6 +686,180 @@ export default function ProfileScreen() {
                   style={[s.confirmLinkBtn, { backgroundColor: "#FF6B2B" }]}
                 >
                   {linkMeater.isPending ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={s.linkBtnText}>Connect</Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* ── ThermoWorks Cloud ───────────────────────────────── */}
+        <View
+          style={[
+            s.deviceCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              borderRadius: colors.radius,
+              marginTop: 12,
+            },
+          ]}
+        >
+          {/* ThermoWorks header row */}
+          <View style={s.deviceRow}>
+            <View style={[s.deviceIcon, { backgroundColor: THERMOWORKS_COLOR + "22" }]}>
+              <Feather name="thermometer" size={20} color={THERMOWORKS_COLOR} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[s.deviceName, { color: colors.foreground }]}>
+                ThermoWorks Cloud
+              </Text>
+              <Text style={[s.deviceSub, { color: colors.mutedForeground }]}>
+                {thermoworksLoading
+                  ? "Checking…"
+                  : thermoworksStatus?.linked
+                    ? "Connected to ThermoWorks Cloud"
+                    : "Not linked"}
+              </Text>
+            </View>
+            {thermoworksLoading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : thermoworksStatus?.linked ? (
+              <View style={s.connectedBadge}>
+                <Feather name="check-circle" size={13} color="#22c55e" />
+                <Text style={s.connectedText}>Active</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Device list when linked */}
+          {!thermoworksLoading &&
+            thermoworksStatus?.linked &&
+            (thermoworksStatus?.devices?.length ?? 0) > 0 && (
+              <View style={[s.deviceList, { borderTopColor: colors.border }]}>
+                {thermoworksStatus!.devices.map((d) => (
+                  <View key={d.id} style={s.probeRow}>
+                    <Feather name="wifi" size={13} color={colors.mutedForeground} />
+                    <Text style={[s.probeName, { color: colors.foreground }]}>
+                      {d.name}
+                    </Text>
+                    {d.type && (
+                      <View style={[s.cookBadge, { backgroundColor: THERMOWORKS_COLOR + "22" }]}>
+                        <Text style={[s.cookBadgeText, { color: THERMOWORKS_COLOR }]}>{d.type}</Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+
+          {/* No devices message when linked but empty */}
+          {!thermoworksLoading &&
+            thermoworksStatus?.linked &&
+            (thermoworksStatus?.devices?.length ?? 0) === 0 && (
+              <View style={[s.deviceList, { borderTopColor: colors.border }]}>
+                <Text style={[s.deviceSub, { color: colors.mutedForeground }]}>
+                  No devices found on your ThermoWorks account. Make sure your probe is paired in the ThermoWorks app.
+                </Text>
+              </View>
+            )}
+
+          {/* Unlink button when linked */}
+          {!thermoworksLoading && thermoworksStatus?.linked && (
+            <View style={[s.deviceActions, { borderTopColor: colors.border }]}>
+              <Pressable
+                onPress={handleUnlinkThermoworks}
+                disabled={unlinkThermoworks.isPending}
+                style={[s.unlinkBtn, { borderColor: colors.border }]}
+              >
+                {unlinkThermoworks.isPending ? (
+                  <ActivityIndicator size="small" color="#ef4444" />
+                ) : (
+                  <Text style={s.unlinkText}>Unlink Account</Text>
+                )}
+              </Pressable>
+            </View>
+          )}
+
+          {/* Link button when not linked */}
+          {!thermoworksLoading && !thermoworksStatus?.linked && !showThermoworksLinkForm && (
+            <Pressable
+              onPress={() => {
+                setShowThermoworksLinkForm(true);
+                setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+              }}
+              style={[s.linkBtn, { backgroundColor: THERMOWORKS_COLOR }]}
+            >
+              <Feather name="link" size={15} color="#fff" />
+              <Text style={s.linkBtnText}>Link ThermoWorks Account</Text>
+            </Pressable>
+          )}
+
+          {/* Link form */}
+          {!thermoworksLoading && !thermoworksStatus?.linked && showThermoworksLinkForm && (
+            <View style={[s.linkForm, { borderTopColor: colors.border }]}>
+              <Text style={[s.linkFormLabel, { color: colors.mutedForeground }]}>
+                Enter your ThermoWorks Cloud credentials
+              </Text>
+              <TextInput
+                style={[
+                  s.input,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                    color: colors.foreground,
+                  },
+                ]}
+                placeholder="ThermoWorks email"
+                placeholderTextColor={colors.mutedForeground}
+                value={thermoworksEmail}
+                onChangeText={setThermoworksEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoCorrect={false}
+              />
+              <TextInput
+                style={[
+                  s.input,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                    color: colors.foreground,
+                  },
+                ]}
+                placeholder="ThermoWorks password"
+                placeholderTextColor={colors.mutedForeground}
+                value={thermoworksPassword}
+                onChangeText={setThermoworksPassword}
+                secureTextEntry
+              />
+              <View style={s.linkFormActions}>
+                <Pressable
+                  onPress={() => {
+                    setShowThermoworksLinkForm(false);
+                    setThermoworksEmail("");
+                    setThermoworksPassword("");
+                  }}
+                  style={[s.cancelBtn, { borderColor: colors.border }]}
+                >
+                  <Text
+                    style={[
+                      s.cancelBtnText,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    Cancel
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleLinkThermoworks}
+                  disabled={linkThermoworks.isPending}
+                  style={[s.confirmLinkBtn, { backgroundColor: THERMOWORKS_COLOR }]}
+                >
+                  {linkThermoworks.isPending ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
                     <Text style={s.linkBtnText}>Connect</Text>

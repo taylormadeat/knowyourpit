@@ -14,8 +14,11 @@ export interface Grill {
   name: string;
   /** charcoal, gas, pellet, electric, smoker, kamado, offset, etc. */
   type: string;
-  /** charcoal, propane, natural gas, wood pellet, electric, wood, etc. @nullable */
-  fuelType: string | null;
+  /**
+   * charcoal, propane, natural gas, wood pellet, electric, wood, etc.
+   * @nullable
+   */
+  fuelType?: string | null;
   /** @nullable */
   brand: string | null;
   /** @nullable */
@@ -830,10 +833,7 @@ export const AlertAlertType = {
   max_temp: "max_temp",
   target_reached: "target_reached",
   stall_detected: "stall_detected",
-  time_before_serve: "time_before_serve",
 } as const;
-
-export type AlertType = (typeof AlertAlertType)[keyof typeof AlertAlertType];
 
 export interface Alert {
   id: number;
@@ -841,27 +841,33 @@ export interface Alert {
   cookId: number | null;
   /** @nullable */
   probeNumber: number | null;
-  alertType: AlertType;
+  alertType: AlertAlertType;
   thresholdTempF: number;
   message: string;
   isActive: boolean;
   /** @nullable */
   triggeredAt: string | null;
-  /** @nullable */
-  scheduledNotificationId: string | null;
   createdAt: string;
 }
+
+export type CreateAlertBodyAlertType =
+  (typeof CreateAlertBodyAlertType)[keyof typeof CreateAlertBodyAlertType];
+
+export const CreateAlertBodyAlertType = {
+  min_temp: "min_temp",
+  max_temp: "max_temp",
+  target_reached: "target_reached",
+  stall_detected: "stall_detected",
+} as const;
 
 export interface CreateAlertBody {
   /** @nullable */
   cookId?: number | null;
   /** @nullable */
   probeNumber?: number | null;
-  alertType: AlertType;
+  alertType: CreateAlertBodyAlertType;
   thresholdTempF: number;
   message: string;
-  /** @nullable */
-  scheduledNotificationId?: string | null;
 }
 
 export interface PatchAlertBody {
@@ -931,6 +937,48 @@ export interface MeaterReadingsResponse {
   linked: boolean;
   probes: MeaterProbeReading[];
   tokenExpired?: boolean;
+}
+
+export interface ThermoworksLinkBody {
+  email: string;
+  password: string;
+}
+
+export interface ThermoworksLinkedResponse {
+  linked: boolean;
+}
+
+export interface ThermoworksDevice {
+  id: string;
+  name: string;
+  /** @nullable */
+  type: string | null;
+  /** @nullable */
+  status: string | null;
+}
+
+export interface ThermoworksStatusResponse {
+  linked: boolean;
+  devices: ThermoworksDevice[];
+  error?: string;
+}
+
+export interface ThermoworksProbeReading {
+  deviceId: string;
+  deviceName: string;
+  channelNumber: string;
+  /** @nullable */
+  channelLabel: string | null;
+  /** @nullable */
+  tempF: number | null;
+  /** @nullable */
+  lastSeenIso: string | null;
+}
+
+export interface ThermoworksReadingsResponse {
+  linked: boolean;
+  probes: ThermoworksProbeReading[];
+  error?: string;
 }
 
 export type ListCooksParams = {

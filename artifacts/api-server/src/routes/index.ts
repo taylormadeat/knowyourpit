@@ -12,6 +12,7 @@ import dashboardRouter from "./dashboard";
 import profileRouter from "./profile";
 import conversationsRouter from "./conversations";
 import meaterRouter from "./meater";
+import thermoworksRouter from "./thermoworks";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(dashboardRouter);
 router.use(profileRouter);
 router.use(conversationsRouter);
 router.use(meaterRouter);
+router.use(thermoworksRouter);
 
 export default router;

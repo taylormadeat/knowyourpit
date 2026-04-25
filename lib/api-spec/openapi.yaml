@@ -29,6 +29,8 @@ tags:
     description: Dashboard summary data
   - name: meater
     description: MEATER thermometer integration
+  - name: thermoworks
+    description: ThermoWorks Cloud thermometer integration
 
 paths:
   /healthz:
@@ -662,6 +664,29 @@ paths:
                 $ref: "#/components/schemas/Alert"
 
   /alerts/{id}:
+    patch:
+      operationId: patchAlert
+      tags: [alerts]
+      summary: Update an alert (mark triggered or store scheduled notification ID)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchAlertBody"
+      responses:
+        "200":
+          description: Updated alert
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
     delete:
       operationId: deleteAlert
       tags: [alerts]
@@ -786,6 +811,74 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeaterReadingsResponse"
+
+  /thermoworks/link:
+    post:
+      operationId: linkThermoworks
+      tags: [thermoworks]
+      summary: Link ThermoWorks Cloud account
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ThermoworksLinkBody"
+      responses:
+        "200":
+          description: Account linked successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ThermoworksLinkedResponse"
+        "401":
+          description: Invalid ThermoWorks credentials
+
+  /thermoworks/unlink:
+    delete:
+      operationId: unlinkThermoworks
+      tags: [thermoworks]
+      summary: Unlink ThermoWorks Cloud account
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Account unlinked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ThermoworksLinkedResponse"
+
+  /thermoworks/status:
+    get:
+      operationId: getThermoworksStatus
+      tags: [thermoworks]
+      summary: Get ThermoWorks link status and device list
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current ThermoWorks status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ThermoworksStatusResponse"
+
+  /thermoworks/readings:
+    get:
+      operationId: getThermoworksReadings
+      tags: [thermoworks]
+      summary: Get live readings from active ThermoWorks probes
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Live probe readings across all active ThermoWorks channels
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ThermoworksReadingsResponse"
 
 components:
   schemas:
@@ -1936,6 +2029,14 @@ components:
         - thresholdTempF
         - message
 
+    PatchAlertBody:
+      type: object
+      properties:
+        triggered:
+          type: boolean
+        scheduledNotificationId:
+          type: ["string", "null"]
+
     DashboardSummary:
       type: object
       properties:
@@ -2063,6 +2164,96 @@ components:
             $ref: "#/components/schemas/MeaterProbeReading"
         tokenExpired:
           type: boolean
+      required:
+        - linked
+        - probes
+
+    ThermoworksLinkBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    ThermoworksLinkedResponse:
+      type: object
+      properties:
+        linked:
+          type: boolean
+      required:
+        - linked
+
+    ThermoworksDevice:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: ["string", "null"]
+        status:
+          type: ["string", "null"]
+      required:
+        - id
+        - name
+        - type
+        - status
+
+    ThermoworksStatusResponse:
+      type: object
+      properties:
+        linked:
+          type: boolean
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/ThermoworksDevice"
+        error:
+          type: string
+      required:
+        - linked
+        - devices
+
+    ThermoworksProbeReading:
+      type: object
+      properties:
+        deviceId:
+          type: string
+        deviceName:
+          type: string
+        channelNumber:
+          type: string
+        channelLabel:
+          type: ["string", "null"]
+        tempF:
+          type: ["number", "null"]
+        lastSeenIso:
+          type: ["string", "null"]
+      required:
+        - deviceId
+        - deviceName
+        - channelNumber
+        - channelLabel
+        - tempF
+        - lastSeenIso
+
+    ThermoworksReadingsResponse:
+      type: object
+      properties:
+        linked:
+          type: boolean
+        probes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ThermoworksProbeReading"
+        error:
+          type: string
       required:
         - linked
         - probes

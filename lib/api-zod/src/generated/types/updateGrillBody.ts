@@ -12,6 +12,8 @@ export interface UpdateGrillBody {
   /** @nullable */
   type?: string | null;
   /** @nullable */
+  fuelType?: string | null;
+  /** @nullable */
   brand?: string | null;
   /** @nullable */
   model?: string | null;

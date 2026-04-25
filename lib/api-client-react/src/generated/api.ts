@@ -27,7 +27,6 @@ import type {
   Cook,
   CookingTip,
   CreateAlertBody,
-  PatchAlertBody,
   CreateCookBody,
   CreateForumCommentBody,
   CreateForumPostBody,
@@ -50,6 +49,7 @@ import type {
   MeaterLinkedResponse,
   MeaterReadingsResponse,
   MeaterStatusResponse,
+  PatchAlertBody,
   Recipe,
   TemperatureHistorySummary,
   TemperatureReading,
@@ -57,6 +57,10 @@ import type {
   TemperatureScanResult,
   TemperatureUploadBody,
   TemperatureUploadResult,
+  ThermoworksLinkBody,
+  ThermoworksLinkedResponse,
+  ThermoworksReadingsResponse,
+  ThermoworksStatusResponse,
   UpdateCookBody,
   UpdateGrillBody,
   UpdateRecipeBody,
@@ -2914,7 +2918,7 @@ export const useCreateAlert = <
 };
 
 /**
- * @summary Patch an alert (mark triggered, update scheduledNotificationId)
+ * @summary Update an alert (mark triggered or store scheduled notification ID)
  */
 export const getPatchAlertUrl = (id: number) => {
   return `/api/alerts/${id}`;
@@ -2964,16 +2968,22 @@ export const getPatchAlertMutationOptions = <
     { id: number; data: BodyType<PatchAlertBody> }
   > = (props) => {
     const { id, data } = props ?? {};
+
     return patchAlert(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type PatchAlertMutationResult = NonNullable<Awaited<ReturnType<typeof patchAlert>>>;
+export type PatchAlertMutationResult = NonNullable<
+  Awaited<ReturnType<typeof patchAlert>>
+>;
 export type PatchAlertMutationBody = BodyType<PatchAlertBody>;
 export type PatchAlertMutationError = ErrorType<unknown>;
 
+/**
+ * @summary Update an alert (mark triggered or store scheduled notification ID)
+ */
 export const usePatchAlert = <
   TError = ErrorType<unknown>,
   TContext = unknown,
@@ -3615,6 +3625,327 @@ export function useGetMeaterReadings<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetMeaterReadingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Link ThermoWorks Cloud account
+ */
+export const getLinkThermoworksUrl = () => {
+  return `/api/thermoworks/link`;
+};
+
+export const linkThermoworks = async (
+  thermoworksLinkBody: ThermoworksLinkBody,
+  options?: RequestInit,
+): Promise<ThermoworksLinkedResponse> => {
+  return customFetch<ThermoworksLinkedResponse>(getLinkThermoworksUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(thermoworksLinkBody),
+  });
+};
+
+export const getLinkThermoworksMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof linkThermoworks>>,
+    TError,
+    { data: BodyType<ThermoworksLinkBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof linkThermoworks>>,
+  TError,
+  { data: BodyType<ThermoworksLinkBody> },
+  TContext
+> => {
+  const mutationKey = ["linkThermoworks"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof linkThermoworks>>,
+    { data: BodyType<ThermoworksLinkBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return linkThermoworks(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LinkThermoworksMutationResult = NonNullable<
+  Awaited<ReturnType<typeof linkThermoworks>>
+>;
+export type LinkThermoworksMutationBody = BodyType<ThermoworksLinkBody>;
+export type LinkThermoworksMutationError = ErrorType<void>;
+
+/**
+ * @summary Link ThermoWorks Cloud account
+ */
+export const useLinkThermoworks = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof linkThermoworks>>,
+    TError,
+    { data: BodyType<ThermoworksLinkBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof linkThermoworks>>,
+  TError,
+  { data: BodyType<ThermoworksLinkBody> },
+  TContext
+> => {
+  return useMutation(getLinkThermoworksMutationOptions(options));
+};
+
+/**
+ * @summary Unlink ThermoWorks Cloud account
+ */
+export const getUnlinkThermoworksUrl = () => {
+  return `/api/thermoworks/unlink`;
+};
+
+export const unlinkThermoworks = async (
+  options?: RequestInit,
+): Promise<ThermoworksLinkedResponse> => {
+  return customFetch<ThermoworksLinkedResponse>(getUnlinkThermoworksUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getUnlinkThermoworksMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unlinkThermoworks>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unlinkThermoworks>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["unlinkThermoworks"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unlinkThermoworks>>,
+    void
+  > = () => {
+    return unlinkThermoworks(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnlinkThermoworksMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unlinkThermoworks>>
+>;
+
+export type UnlinkThermoworksMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Unlink ThermoWorks Cloud account
+ */
+export const useUnlinkThermoworks = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unlinkThermoworks>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unlinkThermoworks>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getUnlinkThermoworksMutationOptions(options));
+};
+
+/**
+ * @summary Get ThermoWorks link status and device list
+ */
+export const getGetThermoworksStatusUrl = () => {
+  return `/api/thermoworks/status`;
+};
+
+export const getThermoworksStatus = async (
+  options?: RequestInit,
+): Promise<ThermoworksStatusResponse> => {
+  return customFetch<ThermoworksStatusResponse>(getGetThermoworksStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetThermoworksStatusQueryKey = () => {
+  return [`/api/thermoworks/status`] as const;
+};
+
+export const getGetThermoworksStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getThermoworksStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getThermoworksStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetThermoworksStatusQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getThermoworksStatus>>
+  > = ({ signal }) => getThermoworksStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getThermoworksStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetThermoworksStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getThermoworksStatus>>
+>;
+export type GetThermoworksStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get ThermoWorks link status and device list
+ */
+
+export function useGetThermoworksStatus<
+  TData = Awaited<ReturnType<typeof getThermoworksStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getThermoworksStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetThermoworksStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get live readings from active ThermoWorks probes
+ */
+export const getGetThermoworksReadingsUrl = () => {
+  return `/api/thermoworks/readings`;
+};
+
+export const getThermoworksReadings = async (
+  options?: RequestInit,
+): Promise<ThermoworksReadingsResponse> => {
+  return customFetch<ThermoworksReadingsResponse>(
+    getGetThermoworksReadingsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetThermoworksReadingsQueryKey = () => {
+  return [`/api/thermoworks/readings`] as const;
+};
+
+export const getGetThermoworksReadingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getThermoworksReadings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getThermoworksReadings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetThermoworksReadingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getThermoworksReadings>>
+  > = ({ signal }) => getThermoworksReadings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getThermoworksReadings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetThermoworksReadingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getThermoworksReadings>>
+>;
+export type GetThermoworksReadingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get live readings from active ThermoWorks probes
+ */
+
+export function useGetThermoworksReadings<
+  TData = Awaited<ReturnType<typeof getThermoworksReadings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getThermoworksReadings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetThermoworksReadingsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

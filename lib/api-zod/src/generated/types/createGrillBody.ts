@@ -10,6 +10,8 @@ export interface CreateGrillBody {
   name: string;
   type: string;
   /** @nullable */
+  fuelType?: string | null;
+  /** @nullable */
   brand?: string | null;
   /** @nullable */
   model?: string | null;

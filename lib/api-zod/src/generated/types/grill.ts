@@ -11,6 +11,11 @@ export interface Grill {
   name: string;
   /** charcoal, gas, pellet, electric, smoker, kamado, offset, etc. */
   type: string;
+  /**
+   * charcoal, propane, natural gas, wood pellet, electric, wood, etc.
+   * @nullable
+   */
+  fuelType?: string | null;
   /** @nullable */
   brand: string | null;
   /** @nullable */

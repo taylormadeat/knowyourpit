@@ -38,6 +38,7 @@ import {
   useAnalyzeCook,
   useListGrills,
   useGetMeaterReadings,
+  useGetThermoworksReadings,
   useListAlerts,
   useCreateAlert,
   usePatchAlert,
@@ -315,6 +316,15 @@ export default function CookDetailScreen() {
   // null = still loading (don't show placeholder yet), true/false = resolved
   const meaterLinked = meaterLoading ? null : (meaterData?.linked ?? false);
   const meaterProbes = meaterData?.probes ?? [];
+
+  const { data: thermoworksData, isLoading: thermoworksLoading } = useGetThermoworksReadings({
+    query: {
+      enabled: cookStatus === "active",
+      refetchInterval: cookStatus === "active" ? 15000 : false,
+    },
+  });
+  const thermoworksLinked = thermoworksLoading ? null : (thermoworksData?.linked ?? false);
+  const thermoworksProbes = thermoworksData?.probes ?? [];
 
   const [nowMs, setNowMs] = useState(Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1407,12 +1417,46 @@ export default function CookDetailScreen() {
               </View>
             ))}
 
-            {/* No-MEATER placeholder */}
-            {meaterLinked !== true && (
+            {/* ThermoWorks probe readings (when linked and active) */}
+            {thermoworksLinked === true && thermoworksProbes.map((probe, i) => (
+              <View
+                key={`tw-${probe.deviceId}-${probe.channelNumber}-${i}`}
+                style={[s.subSection, { borderTopColor: colors.border, paddingHorizontal: 14, paddingBottom: 12 }]}
+              >
+                <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 8 }]}>
+                  {probe.deviceName}
+                  {probe.channelLabel ? ` · ${probe.channelLabel}` : ` · Ch ${probe.channelNumber}`}
+                  {"  ·  ThermoWorks"}
+                </Text>
+                <View style={s.meaterTempsRow}>
+                  <View style={s.meaterTempChip}>
+                    <Feather name="thermometer" size={14} color="#B22222" />
+                    <View>
+                      <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
+                        {probe.tempF != null ? `${probe.tempF}°F` : "—"}
+                      </Text>
+                      <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Temperature</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ))}
+
+            {/* ThermoWorks linked but no live channels */}
+            {thermoworksLinked === true && thermoworksProbes.length === 0 && (
+              <View style={[s.subSection, { borderTopColor: colors.border, paddingHorizontal: 14, paddingBottom: 12 }]}>
+                <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground, textAlign: "left" }]}>
+                  ThermoWorks linked · waiting for an active probe
+                </Text>
+              </View>
+            )}
+
+            {/* No-thermometer placeholder (only when neither MEATER nor ThermoWorks is linked) */}
+            {meaterLinked !== true && thermoworksLinked !== true && (
               <View style={[s.meaterPlaceholder, { borderTopColor: colors.border }]}>
                 <Feather name="thermometer" size={20} color={colors.mutedForeground} />
                 <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground }]}>
-                  Link your MEATER thermometer in Profile to see live probe data here.
+                  Link MEATER or ThermoWorks in Profile to see live probe data here.
                 </Text>
               </View>
             )}
