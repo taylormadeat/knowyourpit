@@ -49,6 +49,8 @@ interface ConversationGroup {
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
+const HISTORY_LIMIT = 20;
+
 const SUGGESTED = [
   "Best wood for brisket?",
   "How long per lb for pork butt?",
@@ -704,6 +706,15 @@ export default function AIScreen() {
           }}
         />
 
+        {messages.length > HISTORY_LIMIT && (
+          <View style={[s.contextNote, { backgroundColor: colors.background }]}>
+            <Feather name="info" size={11} color={colors.mutedForeground} style={{ marginTop: 1 }} />
+            <Text style={[s.contextNoteText, { color: colors.mutedForeground }]}>
+              AI remembers the last {HISTORY_LIMIT} messages · earlier messages are no longer in context
+            </Text>
+          </View>
+        )}
+
         <View
           style={[
             s.inputBar,
@@ -772,6 +783,11 @@ const s = StyleSheet.create({
   chips: { width: "100%", gap: 10 },
   chip: { borderWidth: 1, padding: 14 },
   chipText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  contextNote: {
+    flexDirection: "row", alignItems: "flex-start", gap: 5,
+    paddingHorizontal: 16, paddingVertical: 5,
+  },
+  contextNoteText: { fontSize: 11, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 16 },
   inputBar: { paddingHorizontal: 16, paddingTop: 10, borderTopWidth: 1 },
   inputWrap: {
     flexDirection: "row", alignItems: "flex-end",
