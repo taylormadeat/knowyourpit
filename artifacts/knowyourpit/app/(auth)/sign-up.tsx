@@ -58,7 +58,7 @@ export default function SignUpScreen() {
       setIsLoading(true);
       setErrorMsg(null);
       await signUp.create({ emailAddress: email, password });
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      await signUp.prepareVerification({ strategy: "email_code" });
       setPendingVerification(true);
     } catch (e: any) {
       const msg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "Sign up failed.";
@@ -73,7 +73,7 @@ export default function SignUpScreen() {
     try {
       setIsLoading(true);
       setErrorMsg(null);
-      const result = await signUp.attemptEmailAddressVerification({ code });
+      const result = await signUp.attemptVerification({ strategy: "email_code", code });
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
         router.replace("/(tabs)");
