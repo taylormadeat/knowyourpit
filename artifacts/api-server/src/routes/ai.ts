@@ -1,7 +1,8 @@
 import { Router, type IRouter, type Request } from "express";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, asc } from "drizzle-orm";
 import { rateLimit } from "express-rate-limit";
-import { db, cooksTable, grillsTable, temperatureReadingsTable } from "@workspace/db";
+import { z } from "zod/v4";
+import { db, cooksTable, grillsTable, temperatureReadingsTable, conversations, messages } from "@workspace/db";
 import { AiChatBody, AiPredictBody } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -129,6 +130,70 @@ function pickChatSuggestions(): string[] {
   ].sort(() => Math.random() - 0.5).slice(0, 3);
 }
 
+// ─── Chat session endpoints ────────────────────────────────────────────────
+
+router.get("/ai/chats", requireAuth, async (req: any, res): Promise<void> => {
+  const convs = await db
+    .select()
+    .from(conversations)
+    .where(eq(conversations.userId, req.userId))
+    .orderBy(desc(conversations.updatedAt))
+    .limit(100);
+  res.json({ conversations: convs });
+});
+
+router.get("/ai/chats/:id", requireAuth, async (req: any, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const [conv] = await db
+    .select()
+    .from(conversations)
+    .where(and(eq(conversations.id, id), eq(conversations.userId, req.userId)));
+  if (!conv) { res.status(404).json({ error: "Not found" }); return; }
+  const msgs = await db
+    .select()
+    .from(messages)
+    .where(eq(messages.conversationId, id))
+    .orderBy(asc(messages.createdAt));
+  res.json({ conversation: conv, messages: msgs });
+});
+
+router.delete("/ai/chats/:id", requireAuth, async (req: any, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db
+    .delete(conversations)
+    .where(and(eq(conversations.id, id), eq(conversations.userId, req.userId)));
+  res.status(204).end();
+});
+
+// ─── Extended body schema with optional sessionId ─────────────────────────
+const AiChatBodyWithSession = AiChatBody.extend({
+  sessionId: z.number().int().optional(),
+});
+
+// ─── Helper: ensure session exists and return its id ──────────────────────
+async function ensureSession(
+  userId: string,
+  userMessage: string,
+  sessionId?: number,
+): Promise<number> {
+  if (sessionId != null) {
+    const [existing] = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(and(eq(conversations.id, sessionId), eq(conversations.userId, userId)));
+    if (existing) return existing.id;
+  }
+  const title = userMessage.trim().slice(0, 80) || "New chat";
+  const [created] = await db
+    .insert(conversations)
+    .values({ userId, title })
+    .returning({ id: conversations.id });
+  return created.id;
+}
+
+// ─── Original non-streaming endpoint ──────────────────────────────────────
 router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
   const parsed = AiChatBody.safeParse(req.body);
   if (!parsed.success) {
@@ -155,12 +220,12 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
 });
 
 router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
-  const parsed = AiChatBody.safeParse(req.body);
+  const parsed = AiChatBodyWithSession.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { message, context } = parsed.data;
+  const { message, context, sessionId: requestedSessionId } = parsed.data;
 
   res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -173,8 +238,6 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
     res.write(JSON.stringify(event) + "\n");
   };
 
-  // Heartbeat keeps proxies/intermediaries from buffering or closing the connection
-  // while we wait on the upstream model.
   const heartbeat = setInterval(() => {
     if (res.writableEnded) return;
     res.write("\n");
@@ -185,7 +248,19 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
     aborted = true;
   });
 
+  let resolvedSessionId: number | null = null;
+
   try {
+    // Create or resolve the session, then persist the user message.
+    resolvedSessionId = await ensureSession(req.userId, message, requestedSessionId);
+    await db.insert(messages).values({
+      conversationId: resolvedSessionId,
+      role: "user",
+      content: message,
+    });
+    // Tell the client which session this belongs to (important when a new session was created).
+    writeEvent({ type: "session", sessionId: resolvedSessionId });
+
     const systemPrompt = await buildChatSystemPrompt(req.userId, context);
 
     const stream = await openai.chat.completions.create({
@@ -198,20 +273,35 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
       stream: true,
     });
 
+    let fullReply = "";
     let anyContent = false;
     for await (const chunk of stream) {
       if (aborted) break;
       const delta = chunk.choices?.[0]?.delta?.content;
       if (typeof delta === "string" && delta.length > 0) {
         anyContent = true;
+        fullReply += delta;
         writeEvent({ type: "delta", text: delta });
       }
     }
 
     if (!aborted) {
       if (!anyContent) {
-        writeEvent({ type: "delta", text: "I'm sorry, I couldn't process that request." });
+        const fallback = "I'm sorry, I couldn't process that request.";
+        fullReply = fallback;
+        writeEvent({ type: "delta", text: fallback });
       }
+      // Persist the assistant's full reply.
+      await db.insert(messages).values({
+        conversationId: resolvedSessionId,
+        role: "assistant",
+        content: fullReply,
+      });
+      // Touch updatedAt on the conversation.
+      await db
+        .update(conversations)
+        .set({ updatedAt: new Date() })
+        .where(eq(conversations.id, resolvedSessionId));
       writeEvent({ type: "done", suggestions: pickChatSuggestions() });
     }
   } catch (err: any) {

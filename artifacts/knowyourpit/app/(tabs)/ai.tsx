@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -10,12 +10,14 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Alert,
+  Modal,
+  ScrollView,
+  RefreshControl,
 } from "react-native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
 import { fetch as expoFetch } from "expo/fetch";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/useColors";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -24,12 +26,28 @@ const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
   (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
 
+// ─── Types ─────────────────────────────────────────────────────────────────
+
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   suggestions?: string[];
 }
+
+interface Conversation {
+  id: number;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ConversationGroup {
+  label: string;
+  items: Conversation[];
+}
+
+// ─── Constants ─────────────────────────────────────────────────────────────
 
 const SUGGESTED = [
   "Best wood for brisket?",
@@ -39,109 +57,172 @@ const SUGGESTED = [
 ];
 
 const INPUT_BAR_GAP_ABOVE_TABS = 10;
-const CHAT_STORAGE_PREFIX = "kyp_pitmaster_chat:";
-const MAX_STORED_MESSAGES = 100;
 
-const getStorageKey = (userId: string | null | undefined) =>
-  `${CHAT_STORAGE_PREFIX}${userId ?? "anon"}`;
+// ─── Date grouping ─────────────────────────────────────────────────────────
 
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null;
+function groupConversations(convs: Conversation[]): ConversationGroup[] {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfYesterday = new Date(startOfToday);
+  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+  const startOfWeek = new Date(startOfToday);
+  startOfWeek.setDate(startOfWeek.getDate() - 7);
+  const startOfMonth = new Date(startOfToday);
+  startOfMonth.setDate(startOfMonth.getDate() - 30);
 
-const parseStoredMessages = (raw: unknown): Message[] => {
-  if (!Array.isArray(raw)) return [];
-  const out: Message[] = [];
-  for (const entry of raw) {
-    if (!isRecord(entry)) continue;
-    const { id, role, content, suggestions } = entry;
-    if (typeof id !== "string") continue;
-    if (role !== "user" && role !== "assistant") continue;
-    if (typeof content !== "string") continue;
-    const cleanedSuggestions = Array.isArray(suggestions)
-      ? suggestions.filter((s): s is string => typeof s === "string")
-      : undefined;
-    out.push({
-      id,
-      role,
-      content,
-      suggestions: cleanedSuggestions && cleanedSuggestions.length > 0 ? cleanedSuggestions : undefined,
-    });
+  const groups: { label: string; items: Conversation[] }[] = [
+    { label: "Today", items: [] },
+    { label: "Yesterday", items: [] },
+    { label: "Past 7 days", items: [] },
+    { label: "Past 30 days", items: [] },
+    { label: "Older", items: [] },
+  ];
+
+  for (const conv of convs) {
+    const d = new Date(conv.updatedAt);
+    if (d >= startOfToday) {
+      groups[0].items.push(conv);
+    } else if (d >= startOfYesterday) {
+      groups[1].items.push(conv);
+    } else if (d >= startOfWeek) {
+      groups[2].items.push(conv);
+    } else if (d >= startOfMonth) {
+      groups[3].items.push(conv);
+    } else {
+      groups[4].items.push(conv);
+    }
   }
-  return out;
-};
+
+  return groups.filter((g) => g.items.length > 0);
+}
+
+// ─── Main screen ───────────────────────────────────────────────────────────
 
 export default function AIScreen() {
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
-  const { getToken, userId } = useAuth();
+  const { getToken, isSignedIn } = useAuth();
   const listRef = useRef<FlatList>(null);
+
+  // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
 
-  const botPad = tabBarHeight;
-  const storageKey = getStorageKey(userId);
-
-  // Load persisted history when the user (or storage key) changes.
-  useEffect(() => {
-    let cancelled = false;
-    setHydrated(false);
-    AsyncStorage.getItem(storageKey)
-      .then((raw) => {
-        if (cancelled) return;
-        if (!raw) {
-          setMessages([]);
-          return;
-        }
-        let parsed: unknown = null;
-        try {
-          parsed = JSON.parse(raw);
-        } catch {
-          parsed = null;
-        }
-        setMessages(parseStoredMessages(parsed));
-      })
-      .catch(() => {
-        if (!cancelled) setMessages([]);
-      })
-      .finally(() => {
-        if (!cancelled) setHydrated(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [storageKey]);
-
-  // Persist chat history whenever it changes (after hydration).
-  useEffect(() => {
-    if (!hydrated) return;
-    const toStore = messages.slice(-MAX_STORED_MESSAGES);
-    if (toStore.length === 0) {
-      AsyncStorage.removeItem(storageKey).catch(() => {});
-    } else {
-      AsyncStorage.setItem(storageKey, JSON.stringify(toStore)).catch(() => {});
-    }
-  }, [messages, hydrated, storageKey]);
+  // History panel state
+  const [showHistory, setShowHistory] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [loadingChatId, setLoadingChatId] = useState<number | null>(null);
 
   const streamingIdRef = useRef<string | null>(null);
 
+  // ─── Auth header helper ─────────────────────────────────────────────────
+  const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
+    const token = await getToken();
+    const h: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) h["Authorization"] = `Bearer ${token}`;
+    return h;
+  }, [getToken]);
+
+  // ─── Fetch conversation list ────────────────────────────────────────────
+  const fetchConversations = useCallback(async () => {
+    if (!isSignedIn || !API_BASE_URL) return;
+    setHistoryLoading(true);
+    try {
+      const headers = await authHeaders();
+      const res = await expoFetch(`${API_BASE_URL}/api/ai/chats`, { headers });
+      if (res.ok) {
+        const data = await res.json() as { conversations: Conversation[] };
+        setConversations(data.conversations ?? []);
+      }
+    } catch {
+      // silently ignore — history is non-critical
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [isSignedIn, authHeaders]);
+
+  // ─── Load a past conversation ───────────────────────────────────────────
+  const loadConversation = useCallback(async (conv: Conversation) => {
+    if (!API_BASE_URL) return;
+    setLoadingChatId(conv.id);
+    try {
+      const headers = await authHeaders();
+      const res = await expoFetch(`${API_BASE_URL}/api/ai/chats/${conv.id}`, { headers });
+      if (!res.ok) return;
+      const data = await res.json() as { messages: { id: number; role: string; content: string }[] };
+      const loaded: Message[] = (data.messages ?? []).map((m) => ({
+        id: String(m.id),
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      }));
+      setMessages(loaded);
+      setCurrentSessionId(conv.id);
+      setShowHistory(false);
+    } catch {
+      Alert.alert("Error", "Could not load that chat. Please try again.");
+    } finally {
+      setLoadingChatId(null);
+    }
+  }, [authHeaders]);
+
+  // ─── Delete a conversation ──────────────────────────────────────────────
+  const deleteConversation = useCallback((conv: Conversation) => {
+    Alert.alert(
+      "Delete chat?",
+      `"${conv.title}" will be permanently deleted.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const headers = await authHeaders();
+              await expoFetch(`${API_BASE_URL}/api/ai/chats/${conv.id}`, {
+                method: "DELETE",
+                headers,
+              });
+              setConversations((prev) => prev.filter((c) => c.id !== conv.id));
+              if (currentSessionId === conv.id) {
+                setMessages([]);
+                setCurrentSessionId(null);
+              }
+            } catch {
+              Alert.alert("Error", "Could not delete chat.");
+            }
+          },
+        },
+      ]
+    );
+  }, [authHeaders, currentSessionId]);
+
+  // ─── Start a fresh chat ─────────────────────────────────────────────────
+  const startNewChat = useCallback(() => {
+    setMessages([]);
+    setCurrentSessionId(null);
+    setShowHistory(false);
+  }, []);
+
+  // ─── Open history panel ─────────────────────────────────────────────────
+  const openHistory = useCallback(() => {
+    fetchConversations();
+    setShowHistory(true);
+  }, [fetchConversations]);
+
+  // ─── Send message ───────────────────────────────────────────────────────
   const sendMessage = async (text?: string) => {
     const msg = (text || input).trim();
-    if (!msg || loading || !hydrated) return;
+    if (!msg || loading) return;
     setInput("");
 
     const baseId = Date.now();
-    const userMsg: Message = {
-      id: baseId.toString(),
-      role: "user",
-      content: msg,
-    };
+    const userMsg: Message = { id: baseId.toString(), role: "user", content: msg };
     const assistantId = (baseId + 1).toString();
     streamingIdRef.current = assistantId;
 
-    // Insert the user message and an empty assistant placeholder up front so
-    // the UI can fill it in as tokens arrive.
     setMessages((prev) => [
       ...prev,
       userMsg,
@@ -154,17 +235,10 @@ export default function AIScreen() {
         prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + delta } : m))
       );
     };
-    const setAssistantContent = (content: string, suggestions?: string[]) => {
+    const setAssistantSuggestions = (suggestions: string[]) => {
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === assistantId
-            ? {
-                ...m,
-                content,
-                suggestions:
-                  suggestions && suggestions.length > 0 ? suggestions : m.suggestions,
-              }
-            : m
+          m.id === assistantId && suggestions.length > 0 ? { ...m, suggestions } : m
         )
       );
     };
@@ -172,13 +246,7 @@ export default function AIScreen() {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantId
-            ? {
-                ...m,
-                content: m.content
-                  ? `${m.content}\n\n[${errText}]`
-                  : errText,
-                suggestions: undefined,
-              }
+            ? { ...m, content: m.content ? `${m.content}\n\n[${errText}]` : errText, suggestions: undefined }
             : m
         )
       );
@@ -194,10 +262,13 @@ export default function AIScreen() {
       };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
+      const body: Record<string, unknown> = { message: msg };
+      if (currentSessionId != null) body.sessionId = currentSessionId;
+
       const res = await expoFetch(`${API_BASE_URL}/api/ai/chat/stream`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ message: msg }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -213,19 +284,28 @@ export default function AIScreen() {
       let buffer = "";
       let sawAnyDelta = false;
       let sawDone = false;
-      let finalSuggestions: string[] | undefined;
+      let finalSuggestions: string[] = [];
       let streamError: string | null = null;
 
       const handleLine = (line: string) => {
         const trimmed = line.trim();
         if (!trimmed) return;
         let evt: any;
-        try {
-          evt = JSON.parse(trimmed);
-        } catch {
-          return;
-        }
-        if (evt?.type === "delta" && typeof evt.text === "string") {
+        try { evt = JSON.parse(trimmed); } catch { return; }
+        if (evt?.type === "session" && typeof evt.sessionId === "number") {
+          setCurrentSessionId(evt.sessionId);
+          // Add new session to top of history list if not already there
+          setConversations((prev) => {
+            if (prev.some((c) => c.id === evt.sessionId)) return prev;
+            const newConv: Conversation = {
+              id: evt.sessionId,
+              title: msg.slice(0, 80),
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            return [newConv, ...prev];
+          });
+        } else if (evt?.type === "delta" && typeof evt.text === "string") {
           sawAnyDelta = true;
           appendDelta(evt.text);
         } else if (evt?.type === "done") {
@@ -253,25 +333,20 @@ export default function AIScreen() {
           handleLine(line);
         }
       }
-      // Flush any trailing buffered line (no trailing newline).
       if (buffer.length > 0) handleLine(buffer);
 
       if (streamError) {
         finalizeWithError(streamError);
       } else if (!sawAnyDelta) {
-        setAssistantContent("Sorry, I couldn't get a response.");
-      } else if (!sawDone) {
-        // Stream ended (clean EOF) before we got an explicit done event —
-        // surface that as a soft failure so the user knows the reply may be
-        // incomplete and can retry.
-        finalizeWithError("Reply ended unexpectedly. Please try again.");
-      } else if (finalSuggestions) {
-        const suggestionsToAttach = finalSuggestions;
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantId ? { ...m, suggestions: suggestionsToAttach } : m
+            m.id === assistantId ? { ...m, content: "Sorry, I couldn't get a response." } : m
           )
         );
+      } else if (!sawDone) {
+        finalizeWithError("Reply ended unexpectedly. Please try again.");
+      } else if (finalSuggestions.length > 0) {
+        setAssistantSuggestions(finalSuggestions);
       }
     } catch (e: any) {
       finalizeWithError(e?.message || "Connection error. Check your internet and try again.");
@@ -281,51 +356,16 @@ export default function AIScreen() {
     }
   };
 
-  const clearChat = () => {
-    if (messages.length === 0 || loading) return;
-    Alert.alert(
-      "Clear chat?",
-      "This will remove your PitMaster conversation history on this device.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Clear",
-          style: "destructive",
-          onPress: () => {
-            setMessages([]);
-          },
-        },
-      ]
-    );
-  };
-
-  const allItems: Message[] = messages;
-
+  // ─── Render helpers ─────────────────────────────────────────────────────
   const lastMsg = messages[messages.length - 1];
   const showSuggestionsForId =
     !loading && lastMsg?.role === "assistant" && !input.trim() ? lastMsg.id : null;
   const streamingId = loading ? streamingIdRef.current : null;
 
-  const headerRight =
-    messages.length > 0 ? (
-      <Pressable
-        onPress={clearChat}
-        hitSlop={8}
-        disabled={loading}
-        accessibilityLabel="Clear chat history"
-        style={s.headerBtn}
-      >
-        <Feather name="trash-2" size={18} color="#F3EDE1" />
-      </Pressable>
-    ) : null;
-
   const renderMsg = ({ item }: { item: Message }) => {
     const isUser = item.role === "user";
     const showChips =
-      !isUser &&
-      item.id === showSuggestionsForId &&
-      !!item.suggestions &&
-      item.suggestions.length > 0;
+      !isUser && item.id === showSuggestionsForId && !!item.suggestions && item.suggestions.length > 0;
     const isStreaming = !isUser && item.id === streamingId;
     const isAwaitingFirstToken = isStreaming && item.content.length === 0;
     return (
@@ -366,11 +406,7 @@ export default function AIScreen() {
                   disabled={loading}
                   style={[
                     s.chip,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      borderRadius: colors.radius,
-                    },
+                    { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
                   ]}
                 >
                   <Text style={[s.chipText, { color: colors.foreground }]}>{q}</Text>
@@ -383,15 +419,139 @@ export default function AIScreen() {
     );
   };
 
+  // ─── History panel ──────────────────────────────────────────────────────
+  const groups = groupConversations(conversations);
+
+  const historyPanel = (
+    <Modal
+      visible={showHistory}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={() => setShowHistory(false)}
+    >
+      <View style={[s.historyContainer, { backgroundColor: colors.background }]}>
+        {/* Header */}
+        <View style={[s.historyHeader, { borderBottomColor: colors.border }]}>
+          <Text style={[s.historyTitle, { color: colors.foreground }]}>Past Chats</Text>
+          <Pressable onPress={() => setShowHistory(false)} hitSlop={8} style={s.headerBtn}>
+            <Feather name="x" size={20} color={colors.foreground} />
+          </Pressable>
+        </View>
+
+        {/* New Chat button */}
+        <Pressable
+          onPress={startNewChat}
+          style={[s.newChatBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
+        >
+          <Feather name="plus" size={16} color="#fff" />
+          <Text style={s.newChatBtnText}>New Chat</Text>
+        </Pressable>
+
+        {/* List */}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={historyLoading}
+              onRefresh={fetchConversations}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          {historyLoading && conversations.length === 0 && (
+            <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
+          )}
+
+          {!historyLoading && conversations.length === 0 && (
+            <Text style={[s.emptyHistory, { color: colors.mutedForeground }]}>
+              No past chats yet. Start a conversation!
+            </Text>
+          )}
+
+          {groups.map((group) => (
+            <View key={group.label} style={s.historyGroup}>
+              <Text style={[s.historyGroupLabel, { color: colors.mutedForeground }]}>
+                {group.label}
+              </Text>
+              {group.items.map((conv) => (
+                <Pressable
+                  key={conv.id}
+                  onPress={() => loadConversation(conv)}
+                  onLongPress={() => deleteConversation(conv)}
+                  style={[
+                    s.historyItem,
+                    {
+                      backgroundColor: currentSessionId === conv.id ? colors.primary + "18" : colors.card,
+                      borderColor: currentSessionId === conv.id ? colors.primary : colors.border,
+                      borderRadius: colors.radius,
+                    },
+                  ]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[s.historyItemTitle, { color: colors.foreground }]}
+                      numberOfLines={2}
+                    >
+                      {conv.title}
+                    </Text>
+                  </View>
+                  {loadingChatId === conv.id ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Pressable
+                      onPress={() => deleteConversation(conv)}
+                      hitSlop={8}
+                      style={s.deleteBtn}
+                    >
+                      <Feather name="trash-2" size={14} color={colors.mutedForeground} />
+                    </Pressable>
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+
+  // ─── Header actions ─────────────────────────────────────────────────────
+  const headerRight = (
+    <View style={s.headerActions}>
+      {messages.length > 0 && (
+        <Pressable
+          onPress={startNewChat}
+          hitSlop={8}
+          disabled={loading}
+          accessibilityLabel="New chat"
+          style={s.headerBtn}
+        >
+          <Feather name="plus-square" size={18} color="#F3EDE1" />
+        </Pressable>
+      )}
+      <Pressable
+        onPress={openHistory}
+        hitSlop={8}
+        accessibilityLabel="Chat history"
+        style={s.headerBtn}
+      >
+        <Feather name="clock" size={18} color="#F3EDE1" />
+      </Pressable>
+    </View>
+  );
+
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
       <LogoBackground opacity={0.04} />
       <AppHeader title="PitMaster" dark right={headerRight} />
 
+      {historyPanel}
+
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+        keyboardVerticalOffset={0}
       >
         {messages.length === 0 && !loading && (
           <View style={s.welcome}>
@@ -401,7 +561,10 @@ export default function AIScreen() {
                 <Pressable
                   key={q}
                   onPress={() => sendMessage(q)}
-                  style={[s.suggestion, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
+                  style={[
+                    s.suggestion,
+                    { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
+                  ]}
                 >
                   <Text style={[s.suggestionText, { color: colors.foreground }]}>{q}</Text>
                 </Pressable>
@@ -412,7 +575,7 @@ export default function AIScreen() {
 
         <FlatList
           ref={listRef}
-          data={allItems}
+          data={messages}
           extraData={`${showSuggestionsForId ?? ""}|${input.length === 0}|${streamingId ?? ""}`}
           keyExtractor={(item) => item.id}
           renderItem={renderMsg}
@@ -436,7 +599,7 @@ export default function AIScreen() {
             {
               borderTopColor: colors.border,
               backgroundColor: colors.background,
-              paddingBottom: botPad + INPUT_BAR_GAP_ABOVE_TABS,
+              paddingBottom: tabBarHeight + INPUT_BAR_GAP_ABOVE_TABS,
             },
           ]}
         >
@@ -460,10 +623,10 @@ export default function AIScreen() {
             <Pressable
               style={[
                 s.sendBtn,
-                { backgroundColor: loading || !hydrated || !input.trim() ? colors.muted : colors.primary },
+                { backgroundColor: loading || !input.trim() ? colors.muted : colors.primary },
               ]}
               onPress={() => sendMessage()}
-              disabled={loading || !hydrated || !input.trim()}
+              disabled={loading || !input.trim()}
             >
               {loading ? (
                 <ActivityIndicator size="small" color={colors.mutedForeground} />
@@ -471,7 +634,7 @@ export default function AIScreen() {
                 <Feather
                   name="send"
                   size={16}
-                  color={loading || !hydrated || !input.trim() ? colors.mutedForeground : "#fff"}
+                  color={loading || !input.trim() ? colors.mutedForeground : "#fff"}
                 />
               )}
             </Pressable>
@@ -492,10 +655,7 @@ const s = StyleSheet.create({
   msgRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
   msgRowUser: { flexDirection: "row-reverse" },
   msgColumn: { flex: 1, gap: 10 },
-  avatar: {
-    width: 24, height: 24, borderRadius: 12,
-    alignItems: "center", justifyContent: "center",
-  },
+  avatar: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   bubble: { maxWidth: "78%", borderWidth: 1, padding: 12 },
   bubbleText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
   chips: { width: "100%", gap: 10 },
@@ -510,11 +670,34 @@ const s = StyleSheet.create({
     flex: 1, fontSize: 15, fontFamily: "Inter_400Regular",
     maxHeight: 100, paddingTop: 4, paddingBottom: 4,
   },
-  sendBtn: {
-    width: 34, height: 34, borderRadius: 10,
-    alignItems: "center", justifyContent: "center", marginLeft: 8,
+  sendBtn: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center", marginLeft: 8 },
+  headerBtn: { padding: 6 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 4 },
+
+  // History panel
+  historyContainer: { flex: 1 },
+  historyHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1,
   },
-  headerBtn: {
-    padding: 6,
+  historyTitle: { fontSize: 18, fontFamily: "Inter_600SemiBold" },
+  newChatBtn: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    marginHorizontal: 16, marginVertical: 12,
+    paddingHorizontal: 16, paddingVertical: 12,
   },
+  newChatBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#fff" },
+  historyGroup: { marginBottom: 20 },
+  historyGroupLabel: {
+    fontSize: 12, fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase", letterSpacing: 0.5,
+    marginBottom: 8, paddingHorizontal: 4,
+  },
+  historyItem: {
+    flexDirection: "row", alignItems: "center",
+    borderWidth: 1, padding: 14, marginBottom: 8,
+  },
+  historyItemTitle: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  deleteBtn: { padding: 4, marginLeft: 8 },
+  emptyHistory: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 40 },
 });
