@@ -168,7 +168,7 @@ The mobile app prepends this base URL to all API calls (e.g., `/api/grills`, `/a
 
 The privacy policy is served by the marketing website at `https://knowyourpit.com/privacy` (see "Marketing website" section below).
 
-The legacy server-rendered `/privacy` and `/support` HTML routes on the API server (`artifacts/api-server/src/app.ts`) are still mounted as a fallback so existing App Store metadata pointing at `https://pitking.replit.app/privacy` continues to resolve, but the canonical URL is now on the marketing domain.
+The legacy server-rendered `/privacy` and `/support` HTML routes that previously lived on the API server have been removed (along with their `privacy-policy.ts` / `support-page.ts` source modules) now that the marketing site owns those paths. The canonical legal URLs are served by the React marketing app at the apex domain.
 
 `artifacts/knowyourpit/app.json` → `expo.privacyPolicyUrl` is set to `https://knowyourpit.com/privacy`.
 
@@ -221,6 +221,6 @@ The user owns `knowyourpit.com` at their registrar. To wire it to the deployed R
 5. Confirm in a browser: `https://knowyourpit.com/`, `https://knowyourpit.com/privacy`, `https://knowyourpit.com/terms`, `https://knowyourpit.com/support` — all should return 200 with a valid TLS certificate. Submit the support form and verify a row lands in the `contact_messages` table.
 6. Only **after** all of the above is green, update the Apple Privacy Policy URL in App Store Connect to `https://knowyourpit.com/privacy` and submit the next build.
 
-The marketing artifact's `previewPath` is `/marketing/`, so during local/dev preview it lives under that base path. In production behind the custom apex domain, the proxy serves it at `/`.
+The marketing artifact's `previewPath` is `/` (set in `artifacts/marketing/.replit-artifact/artifact.toml`), and `BASE_PATH=/` in both dev and production — so the React routes (`/`, `/privacy`, `/terms`, `/support`) resolve at the apex in every environment, including the custom domain.
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
