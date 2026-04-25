@@ -91,51 +91,105 @@ export default function Home() {
             </div>
 
             <div className="order-1 md:order-2 flex justify-center">
-              {/* Responsive phone mockup — uses fluid sizing so it never overflows on narrow devices */}
+              {/* Responsive phone frame containing the real Home/Dashboard screenshot.
+                  The top black band masks the iOS status bar and Expo dev pill from the
+                  source PNG so they never appear on the marketing site. */}
               <div className="relative w-[min(260px,80vw)] sm:w-[280px] md:w-[300px] aspect-[1/2] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(221,107,32,0.4)] overflow-hidden">
+                <img
+                  src={`${BASE}app-dashboard.png`}
+                  alt="KnowYourPit home screen showing PitMaster Score, recent cooks, and grill stats"
+                  className="absolute inset-0 w-full h-full object-cover object-top"
+                />
+                {/* Top black band that hides the iOS chrome + dev bar from the source PNG */}
+                <div className="absolute top-0 inset-x-0 h-[10%] bg-black z-[5]" />
+                {/* Notch */}
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 md:w-32 h-5 md:h-6 bg-zinc-900 rounded-b-2xl z-10" />
-                <div className="w-full h-full bg-gradient-to-b from-[#0e0e10] to-[#1a1a1f] flex flex-col">
-                  <div className="px-5 md:px-6 pt-10 md:pt-12 pb-3 md:pb-4">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-widest">Active cook</div>
-                      <div className="flex items-center gap-1 text-[10px] text-primary">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                        Live
-                      </div>
-                    </div>
-                    <div className="text-foreground font-bold text-base md:text-lg">Texas brisket</div>
-                    <div className="text-muted-foreground text-[11px] md:text-xs">14.2 lb · Offset · 6h 22m elapsed</div>
-                  </div>
-                  <div className="px-5 md:px-6">
-                    <div className="rounded-2xl bg-card/80 border border-white/10 p-4 md:p-5 mb-3">
-                      <div className="text-muted-foreground text-[10px] uppercase tracking-wider mb-1">Internal</div>
-                      <div className="text-4xl md:text-5xl font-black text-primary leading-none">203°</div>
-                      <div className="mt-3 h-1.5 w-full rounded-full bg-zinc-800 overflow-hidden">
-                        <div className="h-full w-[81%] bg-gradient-to-r from-orange-600 to-primary" />
-                      </div>
-                      <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-                        <span>0°</span>
-                        <span className="text-primary">81% to 250°</span>
-                      </div>
-                    </div>
-                    <div className="rounded-xl bg-primary/10 border border-primary/30 p-3 md:p-4 mb-3">
-                      <div className="text-primary text-[10px] font-bold uppercase tracking-wider mb-1">AI suggestion</div>
-                      <div className="text-foreground text-xs md:text-sm">Wrap in butcher paper in ~22 min</div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="rounded-lg bg-card/60 border border-white/5 p-2.5 md:p-3">
-                        <div className="text-muted-foreground text-[10px]">Pit temp</div>
-                        <div className="text-foreground font-bold text-sm md:text-base">274°</div>
-                      </div>
-                      <div className="rounded-lg bg-card/60 border border-white/5 p-2.5 md:p-3">
-                        <div className="text-muted-foreground text-[10px]">Outdoor</div>
-                        <div className="text-foreground font-bold text-sm md:text-base">62°</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Inside the app (real screenshots) ─────────────────────────── */}
+      <section className="py-16 md:py-24 bg-background border-b border-white/5">
+        <div className="container px-4">
+          <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4">
+              Inside the app
+            </span>
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
+              Real screens, real cooks.
+            </h2>
+            <p className="text-muted-foreground text-base md:text-lg">
+              Every screen below is straight out of the live app — no mockups, no stock photos.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 max-w-5xl mx-auto">
+            {[
+              {
+                src: "app-image-scanner.png",
+                title: "Snap any thermometer",
+                caption: "Upload a photo of an analog gauge or thermal camera — the AI reads the temperature graph and grades the cook.",
+                alt: "PitMaster Image Scanner reading a temperature graph from photos",
+              },
+              {
+                src: "app-pitmaster-plan.png",
+                title: "AI cook schedule",
+                caption: "Tell PitMaster what you're cooking. It builds a hour-by-hour plan with wrap timing and serve time.",
+                alt: "PitMaster Plan screen showing a suggested cook schedule for spare ribs",
+              },
+              {
+                src: "app-decisions.png",
+                title: "What to do next",
+                caption: "Mid-cook, get ranked next moves — hold steady, wrap now, raise pit temp — with the why behind each one.",
+                alt: "Decisions screen showing Hold Steady, Wrap Now, and Raise Pit Temp options",
+              },
+              {
+                src: "app-plan-cook.png",
+                title: "Built-in prep guides",
+                caption: "Each cut comes with a prep guide so you know exactly how to trim, season, and time it.",
+                alt: "Plan a Cook screen showing a prep guide for St. Louis spare ribs",
+              },
+              {
+                src: "app-cook-log.png",
+                title: "Every cook, scored",
+                caption: "Tenderness, flavor, and bark ratings on every session so PitMaster gets sharper over time.",
+                alt: "Cook Log screen listing past cooks with star ratings",
+              },
+              {
+                src: "app-dashboard.png",
+                title: "Your PitMaster Score",
+                caption: "A grade and rank that reflect your cooking — built from your ratings, accuracy, and consistency.",
+                alt: "Home screen showing PitMaster Score 'The Smoke Whisperer' with grade C+",
+              },
+            ].map((shot, i) => (
+              <motion.figure
+                key={shot.src}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ delay: (i % 3) * 0.1 }}
+                className="flex flex-col gap-4"
+              >
+                <div className="relative w-full aspect-[1/2] rounded-[2rem] border-[8px] border-zinc-800 bg-black shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] overflow-hidden">
+                  <img
+                    src={`${BASE}${shot.src}`}
+                    alt={shot.alt}
+                    loading="lazy"
+                    className="absolute inset-0 w-full h-full object-cover object-top"
+                  />
+                  {/* Mask iOS chrome + Expo dev bar from source PNG */}
+                  <div className="absolute top-0 inset-x-0 h-[10%] bg-black z-[5]" />
+                  {/* Notch */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-4 bg-zinc-900 rounded-b-2xl z-10" />
+                </div>
+                <figcaption className="px-1">
+                  <h3 className="text-base md:text-lg font-bold text-foreground mb-1">{shot.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{shot.caption}</p>
+                </figcaption>
+              </motion.figure>
+            ))}
           </div>
         </div>
       </section>
