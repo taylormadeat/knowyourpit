@@ -14,6 +14,7 @@ import {
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
+import { fetch as expoFetch } from "expo/fetch";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/useColors";
 import { AppHeader } from "@/components/AppHeader";
@@ -123,27 +124,77 @@ export default function AIScreen() {
     }
   }, [messages, hydrated, storageKey]);
 
+  const streamingIdRef = useRef<string | null>(null);
+
   const sendMessage = async (text?: string) => {
     const msg = (text || input).trim();
     if (!msg || loading || !hydrated) return;
     setInput("");
 
+    const baseId = Date.now();
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: baseId.toString(),
       role: "user",
       content: msg,
     };
-    setMessages((prev) => [...prev, userMsg]);
+    const assistantId = (baseId + 1).toString();
+    streamingIdRef.current = assistantId;
+
+    // Insert the user message and an empty assistant placeholder up front so
+    // the UI can fill it in as tokens arrive.
+    setMessages((prev) => [
+      ...prev,
+      userMsg,
+      { id: assistantId, role: "assistant", content: "" },
+    ]);
     setLoading(true);
+
+    const appendDelta = (delta: string) => {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + delta } : m))
+      );
+    };
+    const setAssistantContent = (content: string, suggestions?: string[]) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? {
+                ...m,
+                content,
+                suggestions:
+                  suggestions && suggestions.length > 0 ? suggestions : m.suggestions,
+              }
+            : m
+        )
+      );
+    };
+    const finalizeWithError = (errText: string) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? {
+                ...m,
+                content: m.content
+                  ? `${m.content}\n\n[${errText}]`
+                  : errText,
+                suggestions: undefined,
+              }
+            : m
+        )
+      );
+    };
 
     try {
       if (!API_BASE_URL) throw new Error("API base URL not configured");
 
       const token = await getToken();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Accept: "application/x-ndjson",
+      };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const res = await fetch(`${API_BASE_URL}/api/ai/chat`, {
+      const res = await expoFetch(`${API_BASE_URL}/api/ai/chat/stream`, {
         method: "POST",
         headers,
         body: JSON.stringify({ message: msg }),
@@ -155,27 +206,77 @@ export default function AIScreen() {
         throw new Error(`Request failed (${res.status})`);
       }
 
-      const data = (await res.json()) as { reply?: string; suggestions?: string[] };
-      const reply = (data.reply ?? "").trim();
-      const suggestions = Array.isArray(data.suggestions)
-        ? data.suggestions.filter((s): s is string => typeof s === "string" && s.trim().length > 0).slice(0, 3)
-        : undefined;
+      if (!res.body) throw new Error("Streaming not supported on this device.");
 
-      const assistantMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: reply || "Sorry, I couldn't get a response.",
-        suggestions,
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let sawAnyDelta = false;
+      let sawDone = false;
+      let finalSuggestions: string[] | undefined;
+      let streamError: string | null = null;
+
+      const handleLine = (line: string) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        let evt: any;
+        try {
+          evt = JSON.parse(trimmed);
+        } catch {
+          return;
+        }
+        if (evt?.type === "delta" && typeof evt.text === "string") {
+          sawAnyDelta = true;
+          appendDelta(evt.text);
+        } else if (evt?.type === "done") {
+          sawDone = true;
+          if (Array.isArray(evt.suggestions)) {
+            finalSuggestions = evt.suggestions
+              .filter((s: unknown): s is string => typeof s === "string" && s.trim().length > 0)
+              .slice(0, 3);
+          }
+        } else if (evt?.type === "error") {
+          streamError = typeof evt.message === "string" && evt.message
+            ? evt.message
+            : "PitMaster ran into a problem mid-reply.";
+        }
       };
-      setMessages((prev) => [...prev, assistantMsg]);
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let nl: number;
+        while ((nl = buffer.indexOf("\n")) !== -1) {
+          const line = buffer.slice(0, nl);
+          buffer = buffer.slice(nl + 1);
+          handleLine(line);
+        }
+      }
+      // Flush any trailing buffered line (no trailing newline).
+      if (buffer.length > 0) handleLine(buffer);
+
+      if (streamError) {
+        finalizeWithError(streamError);
+      } else if (!sawAnyDelta) {
+        setAssistantContent("Sorry, I couldn't get a response.");
+      } else if (!sawDone) {
+        // Stream ended (clean EOF) before we got an explicit done event —
+        // surface that as a soft failure so the user knows the reply may be
+        // incomplete and can retry.
+        finalizeWithError("Reply ended unexpectedly. Please try again.");
+      } else if (finalSuggestions) {
+        const suggestionsToAttach = finalSuggestions;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, suggestions: suggestionsToAttach } : m
+          )
+        );
+      }
     } catch (e: any) {
-      const errMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: e?.message || "Connection error. Check your internet and try again.",
-      };
-      setMessages((prev) => [...prev, errMsg]);
+      finalizeWithError(e?.message || "Connection error. Check your internet and try again.");
     } finally {
+      streamingIdRef.current = null;
       setLoading(false);
     }
   };
@@ -198,13 +299,12 @@ export default function AIScreen() {
     );
   };
 
-  const allItems: Message[] = loading
-    ? [...messages, { id: "loading", role: "assistant", content: "…" }]
-    : messages;
+  const allItems: Message[] = messages;
 
   const lastMsg = messages[messages.length - 1];
   const showSuggestionsForId =
     !loading && lastMsg?.role === "assistant" && !input.trim() ? lastMsg.id : null;
+  const streamingId = loading ? streamingIdRef.current : null;
 
   const headerRight =
     messages.length > 0 ? (
@@ -226,6 +326,8 @@ export default function AIScreen() {
       item.id === showSuggestionsForId &&
       !!item.suggestions &&
       item.suggestions.length > 0;
+    const isStreaming = !isUser && item.id === streamingId;
+    const isAwaitingFirstToken = isStreaming && item.content.length === 0;
     return (
       <View style={[s.msgRow, isUser && s.msgRowUser]}>
         {!isUser && (
@@ -244,9 +346,16 @@ export default function AIScreen() {
               },
             ]}
           >
-            <Text style={[s.bubbleText, { color: isUser ? "#fff" : colors.foreground }]}>
-              {item.content}
-            </Text>
+            {isAwaitingFirstToken ? (
+              <Text style={[s.bubbleText, { color: colors.mutedForeground }]}>…</Text>
+            ) : (
+              <Text style={[s.bubbleText, { color: isUser ? "#fff" : colors.foreground }]}>
+                {item.content}
+                {isStreaming && (
+                  <Text style={[s.bubbleText, { color: colors.mutedForeground }]}>▋</Text>
+                )}
+              </Text>
+            )}
           </View>
           {showChips && (
             <View style={s.chips}>
@@ -304,7 +413,7 @@ export default function AIScreen() {
         <FlatList
           ref={listRef}
           data={allItems}
-          extraData={`${showSuggestionsForId ?? ""}|${input.length === 0}`}
+          extraData={`${showSuggestionsForId ?? ""}|${input.length === 0}|${streamingId ?? ""}`}
           keyExtractor={(item) => item.id}
           renderItem={renderMsg}
           contentContainerStyle={{

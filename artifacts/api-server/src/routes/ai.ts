@@ -102,6 +102,33 @@ async function buildUserCookHistory(userId: string): Promise<string> {
   return summary;
 }
 
+async function buildChatSystemPrompt(userId: string, context: string | null | undefined): Promise<string> {
+  const [cookHistory, smokerInsights] = await Promise.all([
+    buildUserCookHistory(userId),
+    computeSmokerInsights(userId),
+  ]);
+  const smokerProfile = formatSmokerProfile(smokerInsights);
+
+  return `You are KnowYourPit AI, an expert BBQ assistant and personal pit coach. You help users with BBQ cooking, grilling techniques, temperature guidance, timing predictions, and recipe suggestions. You are knowledgeable about all BBQ styles including Texas BBQ, Carolina BBQ, Kansas City style, and more. Provide practical, specific advice.
+
+You have full access to this user's personal cook logs. Use this data to give personalized advice, reference their past cooks, and help them improve. When relevant, refer to their actual cook history by name and date.
+
+${cookHistory}${smokerProfile ? `\n\n${smokerProfile}` : ""}${context ? `\n\nAdditional context: ${context}` : ""}`;
+}
+
+function pickChatSuggestions(): string[] {
+  return [
+    "How long did my last brisket take?",
+    "What's my highest-rated cook?",
+    "What should I cook next based on my history?",
+    "Which grill do I use most?",
+    "How can I improve my bark score?",
+    "What temperature should I cook brisket to?",
+    "How do I push through the stall?",
+    "What wood pairs best with pork ribs?",
+  ].sort(() => Math.random() - 0.5).slice(0, 3);
+}
+
 router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
   const parsed = AiChatBody.safeParse(req.body);
   if (!parsed.success) {
@@ -110,17 +137,7 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
   }
   const { message, context } = parsed.data;
 
-  const [cookHistory, smokerInsights] = await Promise.all([
-    buildUserCookHistory(req.userId),
-    computeSmokerInsights(req.userId),
-  ]);
-  const smokerProfile = formatSmokerProfile(smokerInsights);
-
-  const systemPrompt = `You are KnowYourPit AI, an expert BBQ assistant and personal pit coach. You help users with BBQ cooking, grilling techniques, temperature guidance, timing predictions, and recipe suggestions. You are knowledgeable about all BBQ styles including Texas BBQ, Carolina BBQ, Kansas City style, and more. Provide practical, specific advice.
-
-You have full access to this user's personal cook logs. Use this data to give personalized advice, reference their past cooks, and help them improve. When relevant, refer to their actual cook history by name and date.
-
-${cookHistory}${smokerProfile ? `\n\n${smokerProfile}` : ""}${context ? `\n\nAdditional context: ${context}` : ""}`;
+  const systemPrompt = await buildChatSystemPrompt(req.userId, context);
 
   const response = await openai.chat.completions.create({
     model: "gpt-5.2",
@@ -132,19 +149,80 @@ ${cookHistory}${smokerProfile ? `\n\n${smokerProfile}` : ""}${context ? `\n\nAdd
   });
 
   const reply = response.choices[0]?.message?.content ?? "I'm sorry, I couldn't process that request.";
-
-  const suggestions = [
-    "How long did my last brisket take?",
-    "What's my highest-rated cook?",
-    "What should I cook next based on my history?",
-    "Which grill do I use most?",
-    "How can I improve my bark score?",
-    "What temperature should I cook brisket to?",
-    "How do I push through the stall?",
-    "What wood pairs best with pork ribs?",
-  ].sort(() => Math.random() - 0.5).slice(0, 3);
+  const suggestions = pickChatSuggestions();
 
   res.json({ reply, suggestions });
+});
+
+router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
+  const parsed = AiChatBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { message, context } = parsed.data;
+
+  res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+
+  const writeEvent = (event: Record<string, unknown>): void => {
+    if (res.writableEnded) return;
+    res.write(JSON.stringify(event) + "\n");
+  };
+
+  // Heartbeat keeps proxies/intermediaries from buffering or closing the connection
+  // while we wait on the upstream model.
+  const heartbeat = setInterval(() => {
+    if (res.writableEnded) return;
+    res.write("\n");
+  }, 15000);
+
+  let aborted = false;
+  req.on("close", () => {
+    aborted = true;
+  });
+
+  try {
+    const systemPrompt = await buildChatSystemPrompt(req.userId, context);
+
+    const stream = await openai.chat.completions.create({
+      model: "gpt-5.2",
+      max_completion_tokens: 1024,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message },
+      ],
+      stream: true,
+    });
+
+    let anyContent = false;
+    for await (const chunk of stream) {
+      if (aborted) break;
+      const delta = chunk.choices?.[0]?.delta?.content;
+      if (typeof delta === "string" && delta.length > 0) {
+        anyContent = true;
+        writeEvent({ type: "delta", text: delta });
+      }
+    }
+
+    if (!aborted) {
+      if (!anyContent) {
+        writeEvent({ type: "delta", text: "I'm sorry, I couldn't process that request." });
+      }
+      writeEvent({ type: "done", suggestions: pickChatSuggestions() });
+    }
+  } catch (err: any) {
+    writeEvent({
+      type: "error",
+      message: err?.message || "PitMaster ran into a problem mid-reply.",
+    });
+  } finally {
+    clearInterval(heartbeat);
+    if (!res.writableEnded) res.end();
+  }
 });
 
 // ─── Meat knowledge baseline (server-side, independent of client catalog) ─────
