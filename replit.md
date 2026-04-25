@@ -61,6 +61,12 @@ KnowYourPit is a comprehensive BBQ planning and management app powered by AI. Us
 
 ## Apple Watch Companion App
 
+> **TEMPORARILY DISABLED (2026-04-25).** The `./plugins/with-watch-app` entry was removed from `app.json`'s `expo.plugins` array so iOS production builds can ship without the watch app. The plugin code, all Swift files, and the `modules/watch-connectivity/` native module are still in the repo and unchanged. **Do not delete them** — they are the starting point for the watch modernization work.
+>
+> **Why disabled:** The plugin uses Apple's legacy WatchKit 2 architecture (separate `com.apple.product-type.application.watchapp2` + `com.apple.product-type.watchkit2-extension` targets), which Apple deprecated in Xcode 14 and **removed entirely in Xcode 15+**. The current EAS image is `macos-sequoia-15.6-xcode-16.4`, which fails the build with `unable to resolve product type 'com.apple.product-type.application.watchapp2'`.
+>
+> **To re-enable**, the watch architecture needs to be migrated to a single-target SwiftUI watchOS app (`com.apple.product-type.application` with `SDKROOT = watchos`, `WKApplication = true` in Info.plist) plus an optional Widget Extension for complications. The 5 Swift screens, `WatchSessionDelegate`, `WatchDataModel`, and the WCSession-based phone bridge can mostly be reused as-is — only the targets, build phases, and `@main` app structure need to change. Then re-add `"./plugins/with-watch-app"` to the `expo.plugins` array.
+
 The Watch app is implemented as a native WatchKit Extension built via EAS Build. It cannot run in Expo Go.
 
 ### Architecture
@@ -92,7 +98,7 @@ Watch actions (stop cook, ask PitMaster, etc.) → WCSession message → `onWatc
 ### iOS resource bundle signing — two-part fix
 EAS iOS builds under Xcode 14+ require both of these to be in place. Removing either will reintroduce the "Starting from Xcode 14, resource bundles are signed by default…" build error:
 
-1. **`expo.ios.appleTeamId: "W8AY23XJTF"` in `artifacts/knowyourpit/app.json`.** Expo prebuild reads this to populate `DEVELOPMENT_TEAM` in the generated Xcode project. The watch-app config plugin's three targets also reference `$(DEVELOPMENT_TEAM)` and rely on the same field. The same team ID must continue to match `eas.json`'s `submit.production.ios.appleTeamId`.
+1. **`expo.ios.appleTeamId: "W8AY23XJTF"` in `artifacts/knowyourpit/app.json`.** Expo prebuild reads this to populate `DEVELOPMENT_TEAM` in the generated Xcode project. The same team ID must continue to match `eas.json`'s `submit.production.ios.appleTeamId`. (When the watch-app plugin is re-enabled, its three targets also reference `$(DEVELOPMENT_TEAM)` and rely on this same field.)
 2. **`./plugins/with-pod-bundle-signing` in the `expo.plugins` array.** React Native 0.81's own `react_native_post_install` only disables signing for **React-Core's** resource bundles (see `react-native/scripts/cocoapods/utils.rb` → `turn_off_resource_bundle_react_core` → `if pod_name.to_s == 'React-Core'`). Every other pod (`expo-image`, `expo-font`, `expo-notifications`, etc.) still requires a development team on its bundle targets and fails the build under Xcode 16. This plugin injects code into the **end** of the existing `post_install` block (so it runs AFTER `react_native_post_install` and has the final word) that sets `CODE_SIGNING_ALLOWED = NO`, `CODE_SIGN_IDENTITY = ""`, and `EXPANDED_CODE_SIGN_IDENTITY = ""` on every `com.apple.product-type.bundle` target. Resource bundles do not need their own signature for App Store submission — the parent app's signature covers them. The plugin is idempotent (looks for `# PIT_RESOURCE_BUNDLE_SIGNING_FIX` before injecting) and prints `[KnowYourPit] Disabling code signing for resource bundles` during `pod install` so you can confirm in EAS build logs that it ran.
 
 ---

@@ -50,7 +50,6 @@
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
-      "./plugins/with-watch-app",
       "./plugins/with-pod-bundle-signing",
       "expo-router",
       "expo-font",
