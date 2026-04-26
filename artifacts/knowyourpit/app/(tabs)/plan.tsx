@@ -870,7 +870,6 @@ export default function PlanScreen() {
             ]}
             onPress={() => setPlanMode("single")}
           >
-            <Feather name="coffee" size={14} color={planMode === "single" ? "#fff" : colors.mutedForeground} />
             <Text style={[s.modeToggleText, { color: planMode === "single" ? "#fff" : colors.mutedForeground }]}>Single Cook</Text>
           </Pressable>
           <Pressable
@@ -879,98 +878,18 @@ export default function PlanScreen() {
               planMode === "multi" && { backgroundColor: "#6C3BF5" },
               { borderRadius: colors.radius - 2 },
             ]}
-            onPress={() => setPlanMode("multi")}
+            onPress={() => {
+              if (!effectivePro) {
+                showPaywall({ trigger: "pro_required", featureName: "Multi-Cook Sequencer" });
+                return;
+              }
+              setPlanMode("multi");
+            }}
           >
             <Feather name="layers" size={14} color={planMode === "multi" ? "#fff" : colors.mutedForeground} />
             <Text style={[s.modeToggleText, { color: planMode === "multi" ? "#fff" : colors.mutedForeground }]}>Multi-Cook</Text>
           </Pressable>
         </View>
-
-        {/* ── Smoker Profile Card ── */}
-        {smokerProfile && smokerProfile.cookCount >= 2 && (() => {
-          const insights: { icon: string; label: string; value: string; color: string }[] = [];
-
-          if (smokerProfile.pitBiasF != null) {
-            const abs = Math.abs(smokerProfile.pitBiasF);
-            if (abs >= 3) {
-              const hot = smokerProfile.pitBiasF > 0;
-              insights.push({
-                icon: hot ? "thermometer" : "thermometer",
-                label: "Smoker Runs",
-                value: hot ? `+${abs}°F Hot` : `-${abs}°F Cold`,
-                color: hot ? "#EF4444" : "#3B82F6",
-              });
-            } else {
-              insights.push({ icon: "check-circle", label: "Pit Temp", value: "Accurate", color: "#22c55e" });
-            }
-          }
-
-          if (smokerProfile.overshootF != null) {
-            const abs = Math.abs(smokerProfile.overshootF);
-            if (abs >= 3) {
-              const over = smokerProfile.overshootF > 0;
-              insights.push({
-                icon: "target",
-                label: "Pull Temp",
-                value: over ? `+${abs}°F Overshoot` : `-${abs}°F Undershoot`,
-                color: over ? "#F59E0B" : "#6C3BF5",
-              });
-            } else {
-              insights.push({ icon: "target", label: "Pull Temp", value: "Nails It", color: "#22c55e" });
-            }
-          }
-
-          const meatKeys = Object.keys(smokerProfile.durationByMeat);
-          if (meatKeys.length > 0) {
-            const allDeltas = meatKeys
-              .map(k => smokerProfile.durationByMeat[k])
-              .filter(d => d.baselineMinsPerLb != null)
-              .map(d => (d.actualMinsPerLb - d.baselineMinsPerLb!) / d.baselineMinsPerLb!);
-            if (allDeltas.length > 0) {
-              const avg = allDeltas.reduce((s, v) => s + v, 0) / allDeltas.length;
-              const pct = Math.abs(Math.round(avg * 100));
-              if (pct > 8) {
-                const slow = avg > 0;
-                insights.push({
-                  icon: "clock",
-                  label: "Cook Pace",
-                  value: slow ? `${pct}% Slower` : `${pct}% Faster`,
-                  color: slow ? "#F59E0B" : "#22c55e",
-                });
-              } else {
-                insights.push({ icon: "clock", label: "Cook Pace", value: "On Baseline", color: "#22c55e" });
-              }
-            }
-          }
-
-          if (insights.length === 0) return null;
-
-          return (
-            <View style={[s.smokerProfileCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-              <View style={s.smokerProfileHeader}>
-                <Feather name="bar-chart-2" size={14} color={colors.primary} />
-                <Text style={[s.smokerProfileTitle, { color: colors.foreground }]}>Your Smoker Profile</Text>
-                <Text style={[s.smokerProfileSub, { color: colors.mutedForeground }]}>
-                  from {smokerProfile.cookCount} cook{smokerProfile.cookCount !== 1 ? "s" : ""}
-                </Text>
-              </View>
-              <View style={s.smokerProfileChips}>
-                {insights.map((ins, i) => (
-                  <View key={i} style={[s.smokerChip, { backgroundColor: ins.color + "18", borderColor: ins.color + "40" }]}>
-                    <Feather name={ins.icon as any} size={12} color={ins.color} />
-                    <View>
-                      <Text style={[s.smokerChipLabel, { color: colors.mutedForeground }]}>{ins.label}</Text>
-                      <Text style={[s.smokerChipValue, { color: ins.color }]}>{ins.value}</Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-              <Text style={[s.smokerProfileHint, { color: colors.mutedForeground }]}>
-                AI plans automatically account for your smoker's behavior
-              </Text>
-            </View>
-          );
-        })()}
 
         {planMode === "single" && (<>
 

@@ -9,6 +9,7 @@ import {
   Image,
   LayoutAnimation,
 } from "react-native";
+import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -350,56 +351,61 @@ export default function HomeScreen() {
                 showPaywall({ trigger: "pro_required", featureName: "PitMaster Score" })
               }
               style={({ pressed }) => [
-                {
-                  marginHorizontal: 16,
-                  marginBottom: 16,
-                  padding: 18,
-                  borderRadius: colors.radius,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  backgroundColor: colors.card,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 14,
-                  opacity: pressed ? 0.85 : 1,
-                },
+                s.blurScoreWrap,
+                { borderRadius: colors.radius, opacity: pressed ? 0.9 : 1 },
               ]}
             >
-              <View
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 28,
-                  backgroundColor: colors.muted,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
+              {/* Static card rendered underneath the blur — no API call */}
+              <LinearGradient
+                colors={["#1C1C1F", "#2A1A10"]}
+                style={[s.gradeCard, { borderColor: "#F59E0B55", borderRadius: colors.radius }]}
+                pointerEvents="none"
               >
-                <Feather name="lock" size={22} color={colors.mutedForeground} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={{
-                    fontFamily: "Inter_600SemiBold",
-                    fontSize: 15,
-                    color: colors.foreground,
-                  }}
-                >
-                  Unlock your PitMaster Score
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: "Inter_400Regular",
-                    fontSize: 12.5,
-                    color: colors.mutedForeground,
-                    marginTop: 3,
-                    lineHeight: 17,
-                  }}
-                >
-                  Get a personalized score, AI tips, and weekly insights with Pro.
-                </Text>
-              </View>
-              <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+                <View style={s.gradeLeft}>
+                  <View style={[s.gradeBubble, { borderColor: "#F59E0B", backgroundColor: "#F59E0B18" }]}>
+                    <Text style={[s.gradeLetter, { color: "#F59E0B" }]}>C</Text>
+                  </View>
+                </View>
+                <View style={s.gradeRight}>
+                  <Text style={s.gradeLabel}>Weekend Warrior</Text>
+                  <Text style={[s.gradeScore, { color: "#F59E0B" }]}>72 / 100</Text>
+                  <View style={[s.gradeBarTrack, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+                    <View style={[s.gradeBarFill, { width: "72%", backgroundColor: "#F59E0B" }]} />
+                  </View>
+                  <View style={s.gradeChips}>
+                    <View style={[s.gradeChip, { backgroundColor: "#F59E0B18", borderColor: "#F59E0B35" }]}>
+                      <Feather name="star" size={10} color="#F59E0B" />
+                      <Text style={[s.gradeChipText, { color: "#F59E0B" }]}>4.1 rating</Text>
+                    </View>
+                    <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
+                      <Feather name="target" size={10} color="#96908A" />
+                      <Text style={[s.gradeChipText, { color: "#96908A" }]}>78% accuracy</Text>
+                    </View>
+                    <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
+                      <Feather name="layers" size={10} color="#96908A" />
+                      <Text style={[s.gradeChipText, { color: "#96908A" }]}>12 cooks</Text>
+                    </View>
+                  </View>
+                </View>
+              </LinearGradient>
+
+              {/* Blur + lock overlay */}
+              <BlurView
+                intensity={18}
+                tint="dark"
+                style={[StyleSheet.absoluteFill, { borderRadius: colors.radius, overflow: "hidden", alignItems: "center", justifyContent: "center" }]}
+              >
+                <View style={s.blurOverlay}>
+                  <View style={s.blurLockCircle}>
+                    <Feather name="lock" size={20} color="#fff" />
+                  </View>
+                  <Text style={s.blurUnlockTitle}>Unlock your PitMaster Score</Text>
+                  <Text style={s.blurUnlockSub}>Upgrade to Pro to see your real score, AI tips, and weekly insights</Text>
+                  <View style={s.blurCta}>
+                    <Text style={s.blurCtaText}>Upgrade to Pro →</Text>
+                  </View>
+                </View>
+              </BlurView>
             </Pressable>
           </>
         )}
@@ -1011,6 +1017,56 @@ const s = StyleSheet.create({
   gradeHintText: {
     fontSize: 11,
     fontFamily: "Inter_400Regular",
+  },
+
+  /* Blur tease card (free users) */
+  blurScoreWrap: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+  blurOverlay: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    gap: 8,
+    backgroundColor: "rgba(0,0,0,0.42)",
+  },
+  blurLockCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  blurUnlockTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+    textAlign: "center",
+  },
+  blurUnlockSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: "rgba(255,255,255,0.65)",
+    textAlign: "center",
+    lineHeight: 17,
+  },
+  blurCta: {
+    marginTop: 4,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#E84820",
+  },
+  blurCtaText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
   },
 
   /* AI Badge */
