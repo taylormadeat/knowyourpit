@@ -1,5 +1,15 @@
-import React, { useState } from "react";
-import { View, Text, ScrollView, StyleSheet, Pressable } from "react-native";
+import React, { useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  Pressable,
+  TextInput,
+  Modal,
+  ActivityIndicator,
+  LayoutAnimation,
+} from "react-native";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
@@ -43,7 +53,34 @@ export default function ProfileScreen() {
   const { data: cooks } = useListCooks();
 
   const [dateRange, setDateRange] = useState<DateRange>("all");
+  const [qualityExpanded, setQualityExpanded] = useState(true);
 
+  // ── Name editing ──────────────────────────────────────────────────────────
+  const [nameEditOpen, setNameEditOpen] = useState(false);
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [nameSaving, setNameSaving] = useState(false);
+
+  const openNameEdit = useCallback(() => {
+    setEditFirstName(user?.firstName ?? "");
+    setEditLastName(user?.lastName ?? "");
+    setNameEditOpen(true);
+  }, [user?.firstName, user?.lastName]);
+
+  const saveNameEdit = useCallback(async () => {
+    if (!user) return;
+    setNameSaving(true);
+    try {
+      await user.update({ firstName: editFirstName.trim(), lastName: editLastName.trim() });
+      setNameEditOpen(false);
+    } catch {
+      // silently handled — Clerk occasionally rejects if no change
+    } finally {
+      setNameSaving(false);
+    }
+  }, [user, editFirstName, editLastName]);
+
+  // ── Cook quality calculations ─────────────────────────────────────────────
   const allRatedCooks = cooks?.filter(
     (c) =>
       c.status === "completed" &&
@@ -97,6 +134,11 @@ export default function ProfileScreen() {
     "P"
   ).toUpperCase();
 
+  const toggleQuality = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setQualityExpanded((v) => !v);
+  };
+
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
       <LogoBackground opacity={0.04} />
@@ -112,9 +154,21 @@ export default function ProfileScreen() {
           <View style={[s.avatar, { backgroundColor: colors.primary }]}>
             <Text style={s.avatarText}>{initials}</Text>
           </View>
-          <Text style={[s.profileName, { color: colors.foreground }]}>
-            {user?.fullName || user?.firstName || "Pitmaster"}
-          </Text>
+
+          {/* Name row with edit button */}
+          <View style={s.nameRow}>
+            <Text style={[s.profileName, { color: colors.foreground }]}>
+              {user?.fullName || user?.firstName || "Pitmaster"}
+            </Text>
+            <Pressable
+              onPress={openNameEdit}
+              hitSlop={10}
+              style={({ pressed }) => [s.editBtn, { opacity: pressed ? 0.6 : 1 }]}
+            >
+              <Feather name="edit-2" size={15} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+
           <Text style={[s.profileEmail, { color: colors.mutedForeground }]}>
             {user?.emailAddresses?.[0]?.emailAddress || ""}
           </Text>
@@ -152,188 +206,201 @@ export default function ProfileScreen() {
           ))}
         </View>
 
-        {/* Cook Quality */}
+        {/* Cook Quality — collapsible */}
         {allRatedCooks.length > 0 && (
           <>
-            <View style={s.sectionHeader}>
+            <Pressable
+              onPress={toggleQuality}
+              style={({ pressed }) => [s.sectionHeader, { opacity: pressed ? 0.7 : 1 }]}
+            >
               <Feather name="star" size={16} color={colors.primary} />
-              <Text style={[s.sectionTitle, { color: colors.foreground }]}>
+              <Text style={[s.sectionTitle, { color: colors.foreground, flex: 1 }]}>
                 Your Cook Quality
               </Text>
-            </View>
-            <View style={s.pillRow}>
-              {DATE_RANGE_OPTIONS.map((opt) => {
-                const active = dateRange === opt.value;
-                return (
-                  <Pressable
-                    key={opt.value}
-                    onPress={() => setDateRange(opt.value)}
-                    style={[
-                      s.pill,
-                      {
-                        backgroundColor: active ? colors.primary : colors.card,
-                        borderColor: active ? colors.primary : colors.border,
-                        borderRadius: 999,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        s.pillText,
-                        { color: active ? "#fff" : colors.mutedForeground },
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <View
-              style={[
-                s.qualityCard,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.border,
-                  borderRadius: colors.radius,
-                },
-              ]}
-            >
-              {!showQuality ? (
-                <Text style={[s.qualitySubtitle, { color: colors.mutedForeground, textAlign: "center", paddingVertical: 16 }]}>
-                  No rated cooks in this period.
-                </Text>
-              ) : showByMeatType ? (
-                <>
-                  <Text style={[s.qualitySubtitle, { color: colors.mutedForeground }]}>
-                    Based on {ratedCooks.length} rated {ratedCooks.length === 1 ? "cook" : "cooks"} · by meat type
-                  </Text>
-                  {meatTypes.map((meatType, idx) => {
-                    const pool = meatTypeMap[meatType];
-                    const t = avg("ratingTenderness", pool);
-                    const b = avg("ratingBark", pool);
-                    const f = avg("ratingFlavor", pool);
-                    const overall = overallScore(t, b, f);
+              <Feather
+                name={qualityExpanded ? "chevron-up" : "chevron-down"}
+                size={16}
+                color={colors.mutedForeground}
+              />
+            </Pressable>
+
+            {qualityExpanded && (
+              <>
+                <View style={s.pillRow}>
+                  {DATE_RANGE_OPTIONS.map((opt) => {
+                    const active = dateRange === opt.value;
                     return (
-                      <View
-                        key={meatType}
+                      <Pressable
+                        key={opt.value}
+                        onPress={() => setDateRange(opt.value)}
                         style={[
-                          s.meatTypeSection,
-                          idx > 0 && { borderTopWidth: 1, borderTopColor: colors.border },
+                          s.pill,
+                          {
+                            backgroundColor: active ? colors.primary : colors.card,
+                            borderColor: active ? colors.primary : colors.border,
+                            borderRadius: 999,
+                          },
                         ]}
                       >
-                        <View style={s.meatTypeHeader}>
-                          <Text style={[s.meatTypeLabel, { color: colors.foreground }]}>
-                            {meatType}
-                          </Text>
-                          <Text style={[s.meatTypeCount, { color: colors.mutedForeground }]}>
-                            {pool.length} {pool.length === 1 ? "cook" : "cooks"}
-                          </Text>
-                        </View>
-                        {overall != null && (
-                          <View style={[s.overallRow, { borderBottomColor: colors.border }]}>
-                            <View style={{ flex: 1 }}>
-                              <Text style={[s.overallLabel, { color: colors.mutedForeground }]}>
-                                Overall
-                              </Text>
-                              <View style={s.overallScoreRow}>
-                                <Text style={[s.overallScore, { color: colors.primary }]}>
-                                  {overall}
-                                </Text>
-                                <Text style={[s.overallScoreMax, { color: colors.mutedForeground }]}>
-                                  / 5
-                                </Text>
-                              </View>
-                              <StarRating score={parseFloat(overall)} color={colors.primary} />
-                            </View>
-                          </View>
-                        )}
-                        <View style={s.qualityRow}>
-                          {[
-                            { label: "T", fullLabel: "Tenderness", value: t },
-                            { label: "B", fullLabel: "Bark", value: b },
-                            { label: "F", fullLabel: "Flavor", value: f },
-                          ].map((item) => (
-                            <View key={item.label} style={s.qualityItemCompact}>
-                              <Text style={[s.qualityLabelCompact, { color: colors.mutedForeground }]}>
-                                {item.label}
-                              </Text>
-                              <View style={s.qualityScoreRow}>
-                                <Text style={[s.qualityScoreCompact, { color: colors.primary }]}>
-                                  {item.value ?? "—"}
-                                </Text>
-                                {item.value != null && (
-                                  <Text style={[s.qualityScoreMaxCompact, { color: colors.mutedForeground }]}>
-                                    /5
-                                  </Text>
-                                )}
-                              </View>
-                              {item.value != null && (
-                                <StarRating score={parseFloat(item.value)} color={colors.primary} />
-                              )}
-                            </View>
-                          ))}
-                        </View>
-                      </View>
+                        <Text
+                          style={[
+                            s.pillText,
+                            { color: active ? "#fff" : colors.mutedForeground },
+                          ]}
+                        >
+                          {opt.label}
+                        </Text>
+                      </Pressable>
                     );
                   })}
-                </>
-              ) : (
-                <>
-                  <Text style={[s.qualitySubtitle, { color: colors.mutedForeground }]}>
-                    Based on {ratedCooks.length} rated {ratedCooks.length === 1 ? "cook" : "cooks"} · per-metric averages
-                  </Text>
-                  {overallAvg != null && (
-                    <View style={[s.overallRow, { borderBottomColor: colors.border }]}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[s.overallLabel, { color: colors.mutedForeground }]}>
-                          Overall Score
-                        </Text>
-                        <View style={s.overallScoreRow}>
-                          <Text style={[s.overallScore, { color: colors.primary }]}>
-                            {overallAvg}
-                          </Text>
-                          <Text style={[s.overallScoreMax, { color: colors.mutedForeground }]}>
-                            / 5
-                          </Text>
-                        </View>
-                        <StarRating score={parseFloat(overallAvg)} color={colors.primary} />
-                      </View>
-                    </View>
-                  )}
-                  <View style={s.qualityRow}>
-                    {[
-                      { label: "Tenderness", value: avgTenderness },
-                      { label: "Bark", value: avgBark },
-                      { label: "Flavor", value: avgFlavor },
-                    ].map((item) => (
-                      <View key={item.label} style={s.qualityItem}>
-                        <View style={s.qualityScoreRow}>
-                          <Text style={[s.qualityScore, { color: colors.primary }]}>
-                            {item.value ?? "—"}
-                          </Text>
-                          {item.value != null && (
-                            <Text style={[s.qualityScoreMax, { color: colors.mutedForeground }]}>
-                              /5
+                </View>
+                <View
+                  style={[
+                    s.qualityCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      borderRadius: colors.radius,
+                    },
+                  ]}
+                >
+                  {!showQuality ? (
+                    <Text style={[s.qualitySubtitle, { color: colors.mutedForeground, textAlign: "center", paddingVertical: 16 }]}>
+                      No rated cooks in this period.
+                    </Text>
+                  ) : showByMeatType ? (
+                    <>
+                      <Text style={[s.qualitySubtitle, { color: colors.mutedForeground }]}>
+                        Based on {ratedCooks.length} rated {ratedCooks.length === 1 ? "cook" : "cooks"} · by meat type
+                      </Text>
+                      {meatTypes.map((meatType, idx) => {
+                        const pool = meatTypeMap[meatType];
+                        const t = avg("ratingTenderness", pool);
+                        const b = avg("ratingBark", pool);
+                        const f = avg("ratingFlavor", pool);
+                        const overall = overallScore(t, b, f);
+                        return (
+                          <View
+                            key={meatType}
+                            style={[
+                              s.meatTypeSection,
+                              idx > 0 && { borderTopWidth: 1, borderTopColor: colors.border },
+                            ]}
+                          >
+                            <View style={s.meatTypeHeader}>
+                              <Text style={[s.meatTypeLabel, { color: colors.foreground }]}>
+                                {meatType}
+                              </Text>
+                              <Text style={[s.meatTypeCount, { color: colors.mutedForeground }]}>
+                                {pool.length} {pool.length === 1 ? "cook" : "cooks"}
+                              </Text>
+                            </View>
+                            {overall != null && (
+                              <View style={[s.overallRow, { borderBottomColor: colors.border }]}>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[s.overallLabel, { color: colors.mutedForeground }]}>
+                                    Overall
+                                  </Text>
+                                  <View style={s.overallScoreRow}>
+                                    <Text style={[s.overallScore, { color: colors.primary }]}>
+                                      {overall}
+                                    </Text>
+                                    <Text style={[s.overallScoreMax, { color: colors.mutedForeground }]}>
+                                      / 5
+                                    </Text>
+                                  </View>
+                                  <StarRating score={parseFloat(overall)} color={colors.primary} />
+                                </View>
+                              </View>
+                            )}
+                            <View style={s.qualityRow}>
+                              {[
+                                { label: "T", fullLabel: "Tenderness", value: t },
+                                { label: "B", fullLabel: "Bark", value: b },
+                                { label: "F", fullLabel: "Flavor", value: f },
+                              ].map((item) => (
+                                <View key={item.label} style={s.qualityItemCompact}>
+                                  <Text style={[s.qualityLabelCompact, { color: colors.mutedForeground }]}>
+                                    {item.label}
+                                  </Text>
+                                  <View style={s.qualityScoreRow}>
+                                    <Text style={[s.qualityScoreCompact, { color: colors.primary }]}>
+                                      {item.value ?? "—"}
+                                    </Text>
+                                    {item.value != null && (
+                                      <Text style={[s.qualityScoreMaxCompact, { color: colors.mutedForeground }]}>
+                                        /5
+                                      </Text>
+                                    )}
+                                  </View>
+                                  {item.value != null && (
+                                    <StarRating score={parseFloat(item.value)} color={colors.primary} />
+                                  )}
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </>
+                  ) : (
+                    <>
+                      <Text style={[s.qualitySubtitle, { color: colors.mutedForeground }]}>
+                        Based on {ratedCooks.length} rated {ratedCooks.length === 1 ? "cook" : "cooks"} · per-metric averages
+                      </Text>
+                      {overallAvg != null && (
+                        <View style={[s.overallRow, { borderBottomColor: colors.border }]}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[s.overallLabel, { color: colors.mutedForeground }]}>
+                              Overall Score
                             </Text>
-                          )}
+                            <View style={s.overallScoreRow}>
+                              <Text style={[s.overallScore, { color: colors.primary }]}>
+                                {overallAvg}
+                              </Text>
+                              <Text style={[s.overallScoreMax, { color: colors.mutedForeground }]}>
+                                / 5
+                              </Text>
+                            </View>
+                            <StarRating score={parseFloat(overallAvg)} color={colors.primary} />
+                          </View>
                         </View>
-                        {item.value != null && (
-                          <StarRating score={parseFloat(item.value)} color={colors.primary} />
-                        )}
-                        <Text style={[s.qualityLabel, { color: colors.mutedForeground }]}>
-                          {item.label}
-                        </Text>
+                      )}
+                      <View style={s.qualityRow}>
+                        {[
+                          { label: "Tenderness", value: avgTenderness },
+                          { label: "Bark", value: avgBark },
+                          { label: "Flavor", value: avgFlavor },
+                        ].map((item) => (
+                          <View key={item.label} style={s.qualityItem}>
+                            <View style={s.qualityScoreRow}>
+                              <Text style={[s.qualityScore, { color: colors.primary }]}>
+                                {item.value ?? "—"}
+                              </Text>
+                              {item.value != null && (
+                                <Text style={[s.qualityScoreMax, { color: colors.mutedForeground }]}>
+                                  /5
+                                </Text>
+                              )}
+                            </View>
+                            {item.value != null && (
+                              <StarRating score={parseFloat(item.value)} color={colors.primary} />
+                            )}
+                            <Text style={[s.qualityLabel, { color: colors.mutedForeground }]}>
+                              {item.label}
+                            </Text>
+                          </View>
+                        ))}
                       </View>
-                    ))}
-                  </View>
-                </>
-              )}
-            </View>
+                    </>
+                  )}
+                </View>
+              </>
+            )}
           </>
         )}
 
-        {/* Account info */}
+        {/* Account info — name + email only, no user ID */}
         <View
           style={[
             s.infoSection,
@@ -346,11 +413,7 @@ export default function ProfileScreen() {
         >
           {[
             { label: "Name", value: user?.fullName || "—" },
-            {
-              label: "Email",
-              value: user?.emailAddresses?.[0]?.emailAddress || "—",
-            },
-            { label: "User ID", value: (user?.id?.slice(0, 12) ?? "") + "..." },
+            { label: "Email", value: user?.emailAddresses?.[0]?.emailAddress || "—" },
           ].map((row, i, arr) => (
             <View
               key={row.label}
@@ -375,6 +438,56 @@ export default function ProfileScreen() {
           ))}
         </View>
       </ScrollView>
+
+      {/* ── Edit Name Modal ─────────────────────────────────────────── */}
+      <Modal visible={nameEditOpen} transparent animationType="fade" onRequestClose={() => setNameEditOpen(false)}>
+        <Pressable style={s.modalBackdrop} onPress={() => setNameEditOpen(false)}>
+          <Pressable
+            style={[s.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => {}}
+          >
+            <Text style={[s.modalTitle, { color: colors.foreground }]}>Edit Name</Text>
+
+            <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>First Name</Text>
+            <TextInput
+              style={[s.nameInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={editFirstName}
+              onChangeText={setEditFirstName}
+              placeholder="First name"
+              placeholderTextColor={colors.mutedForeground}
+              autoFocus
+            />
+
+            <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Last Name</Text>
+            <TextInput
+              style={[s.nameInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={editLastName}
+              onChangeText={setEditLastName}
+              placeholder="Last name (optional)"
+              placeholderTextColor={colors.mutedForeground}
+            />
+
+            <View style={s.modalActions}>
+              <Pressable
+                onPress={() => setNameEditOpen(false)}
+                style={[s.modalBtn, s.modalBtnCancel, { borderColor: colors.border }]}
+              >
+                <Text style={[s.modalBtnText, { color: colors.mutedForeground }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={saveNameEdit}
+                disabled={nameSaving}
+                style={[s.modalBtn, s.modalBtnSave, { backgroundColor: colors.primary, opacity: nameSaving ? 0.7 : 1 }]}
+              >
+                {nameSaving
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={[s.modalBtnText, { color: "#fff" }]}>Save</Text>
+                }
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -396,17 +509,15 @@ const s = StyleSheet.create({
     marginBottom: 8,
   },
   avatarText: { fontSize: 30, fontFamily: "Inter_700Bold", color: "#fff" },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   profileName: { fontSize: 22, fontFamily: "Inter_700Bold" },
+  editBtn: { padding: 4 },
   profileEmail: { fontSize: 14, fontFamily: "Inter_400Regular" },
   memberSince: { fontSize: 12, fontFamily: "Inter_400Regular" },
   statsRow: { flexDirection: "row", gap: 10, padding: 16 },
   statCard: { flex: 1, borderWidth: 1, padding: 12, alignItems: "center", gap: 4 },
   statValue: { fontSize: 22, fontFamily: "Inter_700Bold" },
-  statLabel: {
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-    textAlign: "center",
-  },
+  statLabel: { fontSize: 11, fontFamily: "Inter_500Medium", textAlign: "center" },
   infoSection: { margin: 16, marginBottom: 0, borderWidth: 1, overflow: "hidden" },
   infoRow: {
     flexDirection: "row",
@@ -415,12 +526,7 @@ const s = StyleSheet.create({
     padding: 14,
   },
   infoLabel: { fontSize: 14, fontFamily: "Inter_500Medium" },
-  infoValue: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    maxWidth: "60%",
-    textAlign: "right",
-  },
+  infoValue: { fontSize: 14, fontFamily: "Inter_400Regular", maxWidth: "60%", textAlign: "right" },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -430,21 +536,9 @@ const s = StyleSheet.create({
     paddingBottom: 10,
   },
   sectionTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
-  pillRow: {
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-  },
-  pill: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderWidth: 1,
-  },
-  pillText: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
+  pillRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingBottom: 10 },
+  pill: { paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1 },
+  pillText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   qualityCard: { marginHorizontal: 16, borderWidth: 1, overflow: "hidden", padding: 16, gap: 14 },
   qualitySubtitle: { fontSize: 12, fontFamily: "Inter_400Regular" },
   qualityRow: { flexDirection: "row", justifyContent: "space-around" },
@@ -461,13 +555,20 @@ const s = StyleSheet.create({
   qualityLabelCompact: { fontSize: 11, fontFamily: "Inter_500Medium" },
   qualityScoreCompact: { fontSize: 18, fontFamily: "Inter_700Bold" },
   qualityScoreMaxCompact: { fontSize: 11, fontFamily: "Inter_400Regular", paddingBottom: 2 },
-  overallRow: {
-    borderBottomWidth: 1,
-    paddingBottom: 14,
-    gap: 4,
-  },
+  overallRow: { borderBottomWidth: 1, paddingBottom: 14, gap: 4 },
   overallLabel: { fontSize: 12, fontFamily: "Inter_500Medium", marginBottom: 2 },
   overallScoreRow: { flexDirection: "row", alignItems: "flex-end", gap: 4 },
   overallScore: { fontSize: 36, fontFamily: "Inter_700Bold" },
   overallScoreMax: { fontSize: 16, fontFamily: "Inter_400Regular", paddingBottom: 5 },
+  // Modal
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center", padding: 24 },
+  modalSheet: { width: "100%", borderRadius: 16, borderWidth: 1, padding: 24, gap: 4 },
+  modalTitle: { fontSize: 18, fontFamily: "Inter_700Bold", marginBottom: 12 },
+  fieldLabel: { fontSize: 12, fontFamily: "Inter_500Medium", marginBottom: 4, marginTop: 8 },
+  nameInput: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, fontFamily: "Inter_400Regular" },
+  modalActions: { flexDirection: "row", gap: 10, marginTop: 20 },
+  modalBtn: { flex: 1, height: 44, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  modalBtnCancel: { borderWidth: 1 },
+  modalBtnSave: {},
+  modalBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });
