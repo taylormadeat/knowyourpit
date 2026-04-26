@@ -1,26 +1,9 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { PaywallModal, type PaywallTrigger } from "@/components/PaywallModal";
 
-/**
- * ──────────────────────────────────────────────────────────────────────────────
- * PaywallContext
- * ──────────────────────────────────────────────────────────────────────────────
- *
- * A tiny global controller for the PaywallModal so any screen, hook, or
- * mutation onError handler can pop the upgrade sheet without owning local
- * state.
- *
- *   const { showPaywall, parseAndShowFromError } = usePaywall();
- *
- *   // Pre-emptively gate a tap on a Pro feature:
- *   if (!isPro) return showPaywall({ trigger: "pro_required", featureName: "Multi-Cook" });
- *
- *   // Or, route a server 402 response into the modal:
- *   onError: (err) => parseAndShowFromError(err);
- *
- * The modal is mounted exactly once at the root, sourcing its package list
- * from RevenueCat via SubscriptionContext.
- */
+// PaywallContext: global controller for the PaywallModal. Any screen or
+// onError handler can call showPaywall(...) or parseAndShowFromError(err)
+// to pop the upgrade sheet. The modal is mounted once at the root.
 
 interface ShowOptions {
   trigger?: PaywallTrigger;

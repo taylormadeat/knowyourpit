@@ -46,6 +46,7 @@ import { useMeaterReadings, type MeaterProbe } from "@/hooks/useMeaterReadings";
 import { useSmokerProfile } from "@/hooks/useSmokerProfile";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
+import { useEffectivePro } from "@/hooks/useEffectivePro";
 
 const UPCOMING_DAYS = 14;
 
@@ -599,6 +600,7 @@ export default function PlanScreen() {
   const aiMultiCook = useAiMultiCook();
   const { showPaywall, parseAndShowFromError } = usePaywall();
   const { isPro } = useSubscription();
+  const effectivePro = useEffectivePro();
   const [multiItems, setMultiItems] = useState<MultiItem[]>([]);
   const [multiResult, setMultiResult] = useState<{ schedule: MultiCookScheduleItem[]; serveAt: string; summary: string } | null>(null);
   const [multiResultOpen, setMultiResultOpen] = useState(false);
@@ -673,10 +675,9 @@ export default function PlanScreen() {
 
   // ── Multi-Cook Sequence ───────────────────────────────────────────────
   const handleMultiCook = async () => {
-    // Multi-Cook Sequencer is Pro-only — short-circuit with the paywall
-    // before we hit the server (which would also 402, but this is faster
-    // and gives a richer modal context).
-    if (!isPro) {
+    // Pro-only (or unlocked when the kill switch is off). Pre-check before
+    // hitting the server so we can show a richer paywall modal context.
+    if (!effectivePro) {
       showPaywall({ trigger: "pro_required", featureName: "Multi-Cook Sequencer" });
       return;
     }

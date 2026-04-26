@@ -900,10 +900,11 @@ ${tempSmokerProfile ? `\n${tempSmokerProfile}` : ""}`;
 
     // Record the analyze event AFTER a successful response so failed runs
     // (model errors, validation, etc.) don't burn a free user's daily quota.
+    // We deliberately do NOT swallow the insert failure: if this throws, the
+    // outer route handler returns 500 and the user is invited to retry. That
+    // keeps the quota counter authoritative.
     if (!bypass) {
-      await recordAiAnalyzeEvent((req as AuthedRequest).userId).catch((err) => {
-        console.error("recordAiAnalyzeEvent failed:", err);
-      });
+      await recordAiAnalyzeEvent((req as AuthedRequest).userId);
     }
 
     res.json({

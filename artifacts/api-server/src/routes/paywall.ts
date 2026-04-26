@@ -14,20 +14,10 @@ import {
 
 const router: IRouter = Router();
 
-/**
- * GET /api/paywall/usage
- *
- * Returns the user's current free-tier usage so the mobile client can show
- * "X of Y left" badges on locked features without computing them itself. Pro
- * subscribers receive `unlimited: true` and the counters are returned for
- * informational display only (e.g. "You've cooked 23 times this week").
- *
- * NOTE: The original task spec called this endpoint `GET /ai/analyze-usage`,
- * scoped to just the AI analyze cap. We deliberately broadened it because
- * the mobile client needs three counters (cooks lifetime, AI chats/day, AI
- * analyzes/day) and one round-trip per screen render is cheaper than three.
- * This is the documented deviation from the task spec.
- */
+// GET /api/paywall/usage — returns free-tier counters + kill-switch state.
+// Documented deviation from spec's GET /ai/analyze-usage: broadened to
+// three counters (cooks lifetime, AI chats/day, AI analyzes/day) so the
+// client makes one round-trip per screen render instead of three.
 router.get("/paywall/usage", requireAuth, async (req: any, res): Promise<void> => {
   const [cooks, aiMessagesToday, aiAnalyzesToday] = await Promise.all([
     countCooksForUser(req.userId),

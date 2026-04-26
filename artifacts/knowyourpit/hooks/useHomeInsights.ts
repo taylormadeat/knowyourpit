@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { useSubscription } from "@/contexts/SubscriptionContext";
+import { useEffectivePro } from "@/hooks/useEffectivePro";
 
 export interface HomeInsights {
   pitMasterScore: number;
@@ -15,20 +16,11 @@ export interface HomeInsights {
   tipsGeneratedAt: string;
 }
 
-/**
- * Fetches AI Home Insights — a Pro-only feature.
- *
- * Free users: the query stays disabled so we never spend an OpenAI call on a
- * user who can't see the result. The home screen renders a locked upgrade
- * card instead of the score widget.
- *
- * Pro users: we attach `X-Subscription-Active: true` so the server bypasses
- * its paywall guard. (This hook uses raw `fetch`, not the orval-generated
- * customFetch, so the header has to be attached here explicitly.)
- */
+// Pro-only by default; runs for free users when the kill switch is off.
 export function useHomeInsights(enabled = true) {
   const { getToken } = useAuth();
   const { isPro } = useSubscription();
+  const effectivePro = useEffectivePro();
 
   const baseUrl =
     typeof process !== "undefined" && process.env.EXPO_PUBLIC_DOMAIN
@@ -36,7 +28,7 @@ export function useHomeInsights(enabled = true) {
       : "";
 
   return useQuery<HomeInsights>({
-    queryKey: ["home", "insights", isPro],
+    queryKey: ["home", "insights", effectivePro, isPro],
     queryFn: async () => {
       const token = await getToken();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -46,7 +38,7 @@ export function useHomeInsights(enabled = true) {
       if (!res.ok) throw new Error("Failed to fetch home insights");
       return res.json() as Promise<HomeInsights>;
     },
-    enabled: enabled && isPro,
+    enabled: enabled && effectivePro,
     staleTime: 30 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   });

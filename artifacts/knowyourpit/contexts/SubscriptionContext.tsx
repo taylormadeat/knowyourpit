@@ -3,40 +3,10 @@ import { Platform } from "react-native";
 import { useAuth } from "@clerk/expo";
 import { setSubscriptionActiveGetter } from "@workspace/api-client-react";
 
-/**
- * ──────────────────────────────────────────────────────────────────────────────
- * knowyourpit — Subscription Context
- * ──────────────────────────────────────────────────────────────────────────────
- *
- * This provider is the single source of truth for the user's Pro entitlement.
- * It wraps RevenueCat (`react-native-purchases`) and exposes a small surface
- * area to the rest of the app:
- *
- *   const { isPro, isLoading, offerings, purchase, restore, refresh } =
- *     useSubscription();
- *
- * Design notes:
- *
- *  • RevenueCat is loaded LAZILY via `require()` so the JS bundle still loads
- *    even when the native module is missing (e.g. in Expo Go or before the
- *    user runs `eas build` after we install the SDK). When the module is
- *    unavailable we silently fall back to free-tier behavior — no crash, no
- *    stuck loading state.
- *
- *  • The `pro` entitlement (one entitlement, both monthly + annual products
- *    grant it) is the single boolean that drives every UI gate. We store it
- *    in a ref so the API client's synchronous header getter can read the
- *    latest value without re-rendering.
- *
- *  • We register the user with RevenueCat using their Clerk userId so that
- *    grants from the CLI script (`scripts grant-pro <clerkUserId>`) are
- *    automatically picked up on the next `getCustomerInfo()` poll.
- *
- *  • RevenueCat API keys are read from EXPO_PUBLIC_REVENUECAT_IOS_KEY and
- *    EXPO_PUBLIC_REVENUECAT_ANDROID_KEY. These are the *public* RC SDK keys,
- *    safe to bundle. They will be filled in via EAS secrets after the
- *    RevenueCat integration is connected.
- */
+// SubscriptionContext: source of truth for the user's `pro` entitlement.
+// Loads react-native-purchases lazily so the JS bundle still works in Expo
+// Go (no native module). Identifies users to RevenueCat by Clerk userId so
+// grants from `scripts grant-pro` are picked up on the next poll.
 
 interface PurchasePackageLike {
   identifier: string;

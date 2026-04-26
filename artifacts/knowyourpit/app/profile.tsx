@@ -23,6 +23,7 @@ import {
   type Cook,
 } from "@workspace/api-client-react";
 import { useSubscription } from "@/contexts/SubscriptionContext";
+import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePaywall } from "@/contexts/PaywallContext";
 
 function StarRating({ score, color }: { score: number; color: string }) {
@@ -55,6 +56,7 @@ export default function ProfileScreen() {
   const { data: grills } = useListGrills();
   const { data: cooks } = useListCooks();
   const { isPro, expirationDate } = useSubscription();
+  const effectivePro = useEffectivePro();
   const { showPaywall } = usePaywall();
 
   const [dateRange, setDateRange] = useState<DateRange>("all");
@@ -282,7 +284,7 @@ export default function ProfileScreen() {
               <Text style={[s.sectionTitle, { color: colors.foreground, flex: 1 }]}>
                 Your Cook Quality
               </Text>
-              {!isPro && (
+              {!effectivePro && (
                 <View
                   style={{
                     flexDirection: "row",
@@ -314,7 +316,7 @@ export default function ProfileScreen() {
               />
             </Pressable>
 
-            {qualityExpanded && !isPro && (
+            {qualityExpanded && !effectivePro && (
               <Pressable
                 onPress={() =>
                   showPaywall({
@@ -376,7 +378,7 @@ export default function ProfileScreen() {
               </Pressable>
             )}
 
-            {qualityExpanded && isPro && (
+            {qualityExpanded && effectivePro && (
               <>
                 <View style={s.pillRow}>
                   {DATE_RANGE_OPTIONS.map((opt) => {

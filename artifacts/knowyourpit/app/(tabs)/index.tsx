@@ -21,6 +21,7 @@ import { LogoBackground } from "@/components/LogoBackground";
 import { useGetDashboardSummary, useGetRecentCooks } from "@workspace/api-client-react";
 import { useHomeInsights } from "@/hooks/useHomeInsights";
 import { useSubscription } from "@/contexts/SubscriptionContext";
+import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePaywall } from "@/contexts/PaywallContext";
 
 const logoImg = require("@/assets/images/logo.png");
@@ -136,6 +137,7 @@ export default function HomeScreen() {
   const { data: recentCooks, isLoading: cooksLoading } = useGetRecentCooks();
   const { data: insights, isLoading: insightsLoading } = useHomeInsights();
   const { isPro } = useSubscription();
+  const effectivePro = useEffectivePro();
   const { showPaywall } = usePaywall();
 
   const firstName =
@@ -337,7 +339,7 @@ export default function HomeScreen() {
         )}
 
         {/* ── PitMaster Score (Pro-only) ── */}
-        {!isPro && (
+        {!effectivePro && (
           <>
             <View style={s.sectionHeader}>
               <View style={s.sectionAccent} />
@@ -402,7 +404,7 @@ export default function HomeScreen() {
           </>
         )}
 
-        {isPro && (insights || insightsLoading) && (
+        {effectivePro && (insights || insightsLoading) && (
           <>
             <View style={s.sectionHeader}>
               <View style={s.sectionAccent} />
