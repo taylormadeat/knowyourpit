@@ -76,36 +76,36 @@
   --elevate-2: rgba(255,255,255, .09);
 
   /* Warm charcoal background — matches logo's dark icon badge */
-  --background: 22 8% 7%;
-  --foreground: 35 20% 90%;
-  --border: 22 8% 16%;
+  --background: 18 10% 7%;
+  --foreground: 33 22% 89%;
+  --border: 18 10% 15%;
   
-  --card: 22 8% 9%;
-  --card-foreground: 35 20% 90%;
-  --card-border: 22 8% 16%;
+  --card: 18 10% 9.5%;
+  --card-foreground: 33 22% 89%;
+  --card-border: 18 10% 15%;
 
-  --sidebar: 22 8% 5%;
-  --sidebar-foreground: 35 20% 90%;
-  --sidebar-border: 22 8% 16%;
+  --sidebar: 18 10% 5%;
+  --sidebar-foreground: 33 22% 89%;
+  --sidebar-border: 18 10% 15%;
   --sidebar-primary: 14 82% 52%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 22 8% 16%;
-  --sidebar-accent-foreground: 35 20% 90%;
+  --sidebar-accent: 18 10% 15%;
+  --sidebar-accent-foreground: 33 22% 89%;
   --sidebar-ring: 14 82% 52%;
 
-  --popover: 22 8% 9%;
-  --popover-foreground: 35 20% 90%;
-  --popover-border: 22 8% 16%;
+  --popover: 18 10% 9.5%;
+  --popover-foreground: 33 22% 89%;
+  --popover-border: 18 10% 15%;
 
   /* Primary — the red-orange from the flame and "your" wordmark */
   --primary: 14 82% 52%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 22 8% 20%;
-  --secondary-foreground: 35 20% 90%;
+  --secondary: 18 10% 20%;
+  --secondary-foreground: 33 22% 89%;
 
-  --muted: 22 8% 16%;
-  --muted-foreground: 22 5% 58%;
+  --muted: 18 10% 15%;
+  --muted-foreground: 25 8% 57%;
 
   --accent: 14 82% 52%;
   --accent-foreground: 0 0% 100%;
@@ -113,14 +113,14 @@
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 22 8% 18%;
+  --input: 18 10% 18%;
   --ring: 14 82% 52%;
   
   --chart-1: 14 82% 52%;
-  --chart-2: 22 8% 30%;
-  --chart-3: 22 8% 40%;
-  --chart-4: 22 8% 50%;
-  --chart-5: 22 8% 60%;
+  --chart-2: 18 10% 30%;
+  --chart-3: 18 10% 40%;
+  --chart-4: 18 10% 50%;
+  --chart-5: 18 10% 60%;
 
   --app-font-sans: 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;
@@ -146,35 +146,35 @@
 }
 
 .dark {
-  --background: 22 8% 7%;
-  --foreground: 35 20% 90%;
-  --border: 22 8% 16%;
+  --background: 18 10% 7%;
+  --foreground: 33 22% 89%;
+  --border: 18 10% 15%;
   
-  --card: 22 8% 9%;
-  --card-foreground: 35 20% 90%;
-  --card-border: 22 8% 16%;
+  --card: 18 10% 9.5%;
+  --card-foreground: 33 22% 89%;
+  --card-border: 18 10% 15%;
 
-  --sidebar: 22 8% 5%;
-  --sidebar-foreground: 35 20% 90%;
-  --sidebar-border: 22 8% 16%;
+  --sidebar: 18 10% 5%;
+  --sidebar-foreground: 33 22% 89%;
+  --sidebar-border: 18 10% 15%;
   --sidebar-primary: 14 82% 52%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 22 8% 16%;
-  --sidebar-accent-foreground: 35 20% 90%;
+  --sidebar-accent: 18 10% 15%;
+  --sidebar-accent-foreground: 33 22% 89%;
   --sidebar-ring: 14 82% 52%;
 
-  --popover: 22 8% 9%;
-  --popover-foreground: 35 20% 90%;
-  --popover-border: 22 8% 16%;
+  --popover: 18 10% 9.5%;
+  --popover-foreground: 33 22% 89%;
+  --popover-border: 18 10% 15%;
 
   --primary: 14 82% 52%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 22 8% 20%;
-  --secondary-foreground: 35 20% 90%;
+  --secondary: 18 10% 20%;
+  --secondary-foreground: 33 22% 89%;
 
-  --muted: 22 8% 16%;
-  --muted-foreground: 22 5% 58%;
+  --muted: 18 10% 15%;
+  --muted-foreground: 25 8% 57%;
 
   --accent: 14 82% 52%;
   --accent-foreground: 0 0% 100%;
@@ -182,14 +182,14 @@
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 22 8% 18%;
+  --input: 18 10% 18%;
   --ring: 14 82% 52%;
   
   --chart-1: 14 82% 52%;
-  --chart-2: 22 8% 30%;
-  --chart-3: 22 8% 40%;
-  --chart-4: 22 8% 50%;
-  --chart-5: 22 8% 60%;
+  --chart-2: 18 10% 30%;
+  --chart-3: 18 10% 40%;
+  --chart-4: 18 10% 50%;
+  --chart-5: 18 10% 60%;
 }
 
 @layer base {
