@@ -432,10 +432,14 @@ export default function HomeScreen() {
                     }}
                     style={({ pressed }) => [{ opacity: pressed ? 0.88 : 1 }]}
                   >
-                    <LinearGradient
-                      colors={["#1C1C1F", "#2A1A10"]}
-                      style={[s.gradeCard, { borderColor: color + "55", borderRadius: colors.radius }]}
-                    >
+                    {/* Outer View owns the flex layout + border. LinearGradient fills it
+                        absolutely so it always covers the full card height including tips. */}
+                    <View style={[s.gradeCard, { borderColor: color + "55", borderRadius: colors.radius, overflow: "hidden" }]}>
+                      <LinearGradient
+                        colors={["#1C1C1F", "#2A1A10"]}
+                        style={StyleSheet.absoluteFill}
+                      />
+
                       <View style={s.gradeCardRow}>
                         {/* Grade circle */}
                         <View style={s.gradeLeft}>
@@ -501,7 +505,7 @@ export default function HomeScreen() {
                         </View>
                       </View>
 
-                      {/* Tips — expand inside the card */}
+                      {/* Tips — render inside the card on the gradient background */}
                       {tipsExpanded && insights.tips?.length > 0 && (
                         <View style={[s.tipsInCard, { borderTopColor: color + "30" }]}>
                           {insights.tips.map((tip, i) => (
@@ -517,7 +521,7 @@ export default function HomeScreen() {
                           ))}
                         </View>
                       )}
-                    </LinearGradient>
+                    </View>
                   </Pressable>
 
                   {/* How is this scored? toggle */}
