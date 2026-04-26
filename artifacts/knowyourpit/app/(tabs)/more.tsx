@@ -76,12 +76,12 @@ export default function MoreScreen() {
         >
           <View style={[s.avatar, { backgroundColor: colors.primary }]}>
             <Text style={s.avatarText}>
-              {(user?.firstName?.[0] || user?.emailAddresses?.[0]?.emailAddress?.[0] || "P").toUpperCase()}
+              {((user?.unsafeMetadata?.displayName as string | undefined)?.[0] || user?.firstName?.[0] || user?.emailAddresses?.[0]?.emailAddress?.[0] || "P").toUpperCase()}
             </Text>
           </View>
           <View style={s.profileInfo}>
             <Text style={[s.profileName, { color: colors.foreground }]}>
-              {user?.fullName || user?.firstName || "Pitmaster"}
+              {(user?.unsafeMetadata?.displayName as string | undefined) || user?.fullName || user?.firstName || "Pitmaster"}
             </Text>
             <Text style={[s.profileEmail, { color: colors.mutedForeground }]}>
               {user?.emailAddresses?.[0]?.emailAddress || ""}

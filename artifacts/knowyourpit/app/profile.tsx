@@ -61,10 +61,15 @@ export default function ProfileScreen() {
   const [editName, setEditName] = useState("");
   const [nameSaving, setNameSaving] = useState(false);
 
+  const displayName = (user?.unsafeMetadata?.displayName as string | undefined)
+    || user?.fullName || user?.firstName || "";
+
   const openNameEdit = useCallback(() => {
-    setEditName(user?.fullName || user?.firstName || "");
+    const current = (user?.unsafeMetadata?.displayName as string | undefined)
+      || user?.fullName || user?.firstName || "";
+    setEditName(current);
     setNameEditOpen(true);
-  }, [user?.fullName, user?.firstName]);
+  }, [user?.unsafeMetadata?.displayName, user?.fullName, user?.firstName]);
 
   const saveNameEdit = useCallback(async () => {
     if (!user) return;
@@ -72,12 +77,7 @@ export default function ProfileScreen() {
     if (!trimmed) return;
     setNameSaving(true);
     try {
-      // Split on first space so Clerk's firstName/lastName fields both get a value.
-      // If no space, the whole string becomes firstName and lastName is cleared.
-      const spaceIdx = trimmed.indexOf(" ");
-      const firstName = spaceIdx >= 0 ? trimmed.slice(0, spaceIdx) : trimmed;
-      const lastName = spaceIdx >= 0 ? trimmed.slice(spaceIdx + 1) : "";
-      await user.update({ firstName, lastName });
+      await user.update({ unsafeMetadata: { ...((user.unsafeMetadata as object) ?? {}), displayName: trimmed } });
       setNameEditOpen(false);
     } catch (err: any) {
       Alert.alert("Couldn't save name", err?.errors?.[0]?.longMessage || err?.message || "Please try again.");
@@ -135,7 +135,7 @@ export default function ProfileScreen() {
   const botPad = useBottomInset();
 
   const initials = (
-    user?.firstName?.[0] ||
+    displayName?.[0] ||
     user?.emailAddresses?.[0]?.emailAddress?.[0] ||
     "P"
   ).toUpperCase();
@@ -164,7 +164,7 @@ export default function ProfileScreen() {
           {/* Name row with edit button */}
           <View style={s.nameRow}>
             <Text style={[s.profileName, { color: colors.foreground }]}>
-              {user?.fullName || user?.firstName || "Pitmaster"}
+              {displayName || "Pitmaster"}
             </Text>
             <Pressable
               onPress={openNameEdit}
@@ -418,7 +418,7 @@ export default function ProfileScreen() {
           ]}
         >
           {[
-            { label: "Name", value: user?.fullName || "—" },
+            { label: "Name", value: displayName || "—" },
             { label: "Email", value: user?.emailAddresses?.[0]?.emailAddress || "—" },
           ].map((row, i, arr) => (
             <View
