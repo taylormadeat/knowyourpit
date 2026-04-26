@@ -15,6 +15,68 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useColors } from "@/hooks/useColors";
 import { useSubscription, type PurchasePackageLike } from "@/contexts/SubscriptionContext";
 
+interface TrialInfo {
+  label: string;
+}
+
+function formatPeriodLabel(unit: string, value: number): string {
+  const u = unit.toUpperCase();
+  if (u === "DAY") return value === 1 ? "1-day" : `${value}-day`;
+  if (u === "WEEK") return value === 1 ? "1-week" : `${value}-week`;
+  if (u === "MONTH") return value === 1 ? "1-month" : `${value}-month`;
+  if (u === "YEAR") return value === 1 ? "1-year" : `${value}-year`;
+  return "free trial";
+}
+
+function parseLabelFromISO(iso: string): string | null {
+  const match = iso.match(/^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?$/i);
+  if (!match) return null;
+  const [, years, months, weeks, days] = match.map((v) => (v ? parseInt(v, 10) : 0));
+  if (years) return years === 1 ? "1-year" : `${years}-year`;
+  if (months) return months === 1 ? "1-month" : `${months}-month`;
+  if (weeks) return weeks === 1 ? "1-week" : `${weeks}-week`;
+  if (days) return days === 1 ? "1-day" : `${days}-day`;
+  return null;
+}
+
+function getTrialInfo(pkg: PurchasePackageLike | null): TrialInfo | null {
+  if (!pkg) return null;
+
+  if (Platform.OS === "ios") {
+    const discount = pkg.product.introductoryDiscount;
+    if (!discount) return null;
+    const mode = (discount.paymentMode ?? discount.type ?? "").toLowerCase();
+    if (!mode.includes("free")) return null;
+    const unit = discount.periodUnit ?? "";
+    const units = discount.periodNumberOfUnits ?? 1;
+    if (unit) return { label: formatPeriodLabel(unit, units) };
+    const fromISO = parseLabelFromISO(discount.period ?? "");
+    return { label: fromISO ?? "free trial" };
+  }
+
+  if (Platform.OS === "android") {
+    const options = pkg.product.subscriptionOptions ?? [];
+    for (const option of options) {
+      const phases = option.offerPhases ?? [];
+      for (const phase of phases) {
+        if (phase.offerPaymentMode === "FREE_TRIAL") {
+          const bp = phase.billingPeriod;
+          if (bp?.unit && bp.value != null) {
+            return { label: formatPeriodLabel(bp.unit, bp.value) };
+          }
+          if (bp?.iso8601) {
+            const fromISO = parseLabelFromISO(bp.iso8601);
+            return { label: fromISO ?? "free trial" };
+          }
+          return { label: "free trial" };
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 export type PaywallTrigger =
   | "cook_limit_reached"
   | "ai_message_limit_reached"
@@ -86,6 +148,8 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName 
     isLoading,
     isPro,
     currentOffering,
+    isAnnualTrialEligible,
+    isAnnualTrialCheckComplete,
     isRevenueCatAvailable,
     purchasePackage,
     restorePurchases,
@@ -94,6 +158,14 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName 
 
   const annual = currentOffering?.annual ?? null;
   const monthly = currentOffering?.monthly ?? null;
+
+  const annualTrial = useMemo(() => {
+    if (Platform.OS === "ios") {
+      if (!isAnnualTrialCheckComplete) return null;
+      if (isAnnualTrialEligible === false) return null;
+    }
+    return getTrialInfo(annual);
+  }, [annual, isAnnualTrialEligible, isAnnualTrialCheckComplete]);
 
   const savings = useMemo(() => {
     if (!annual || !monthly) return null;
@@ -207,21 +279,42 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName 
                     onPress={() => handlePurchase(annual)}
                     disabled={isLoading}
                   >
-                    {savings != null && (
+                    {savings != null && !annualTrial && (
                       <View style={styles.bestBadge}>
                         <Text style={styles.bestBadgeText}>BEST VALUE — SAVE {savings}%</Text>
                       </View>
                     )}
+                    {annualTrial && (
+                      <View style={styles.bestBadge}>
+                        <Text style={styles.bestBadgeText}>
+                          {savings != null ? `${annualTrial.label.toUpperCase()} FREE · SAVE ${savings}%` : `${annualTrial.label.toUpperCase()} FREE TRIAL`}
+                        </Text>
+                      </View>
+                    )}
                     <Text style={styles.planTitle}>Annual</Text>
-                    <Text style={styles.planPrice}>
-                      {annual.product.priceString}
-                      <Text style={styles.planPeriod}>{periodLabel(annual.product.subscriptionPeriod)}</Text>
-                    </Text>
-                    <Text style={styles.planNote}>
-                      {monthly
-                        ? `Just ${(annual.product.price / 12).toFixed(2)} ${annual.product.currencyCode ?? ""}/mo, billed yearly`
-                        : "Billed yearly"}
-                    </Text>
+                    {annualTrial ? (
+                      <>
+                        <Text style={styles.planPrice}>Free</Text>
+                        <Text style={styles.planNote}>
+                          {`${annualTrial.label} free, then ${annual.product.priceString}${periodLabel(annual.product.subscriptionPeriod)}`}
+                        </Text>
+                        <View style={styles.trialCta}>
+                          <Text style={styles.trialCtaText}>Start free trial →</Text>
+                        </View>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.planPrice}>
+                          {annual.product.priceString}
+                          <Text style={styles.planPeriod}>{periodLabel(annual.product.subscriptionPeriod)}</Text>
+                        </Text>
+                        <Text style={styles.planNote}>
+                          {monthly
+                            ? `Just ${(annual.product.price / 12).toFixed(2)} ${annual.product.currencyCode ?? ""}/mo, billed yearly`
+                            : "Billed yearly"}
+                        </Text>
+                      </>
+                    )}
                   </Pressable>
                 )}
 
@@ -263,8 +356,10 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName 
                 <Text style={[styles.linkText, { color: colors.mutedForeground }]}>Restore purchases</Text>
               </Pressable>
               <Text style={[styles.legal, { color: colors.mutedForeground }]}>
-                Subscriptions auto-renew until canceled. Manage in your{" "}
-                {Platform.OS === "ios" ? "App Store" : "Play Store"} account.
+                {annualTrial
+                  ? `After the ${annualTrial.label} free trial, your subscription auto-renews until canceled. `
+                  : "Subscriptions auto-renew until canceled. "}
+                Manage in your {Platform.OS === "ios" ? "App Store" : "Play Store"} account.
               </Text>
             </View>
           </ScrollView>
@@ -324,6 +419,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   bestBadgeText: { color: "#1C1C1F", fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.4 },
+  trialCta: {
+    marginTop: 10,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+  trialCtaText: { color: "#fff", fontSize: 13, fontFamily: "Inter_700Bold", letterSpacing: 0.2 },
   planTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff", marginBottom: 4, letterSpacing: 0.3, textTransform: "uppercase" },
   planPrice: { fontSize: 28, fontFamily: "Inter_700Bold", color: "#fff" },
   planPeriod: { fontSize: 14, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.8)" },

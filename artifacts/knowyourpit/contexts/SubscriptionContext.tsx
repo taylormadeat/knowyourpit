@@ -3,6 +3,33 @@ import { Platform } from "react-native";
 import { useAuth } from "@clerk/expo";
 import { setSubscriptionActiveGetter, customFetch } from "@workspace/api-client-react";
 
+interface IOSIntroductoryDiscount {
+  identifier?: string;
+  type?: string;
+  paymentMode?: string;
+  price?: number;
+  priceString?: string;
+  period?: string;
+  periodUnit?: string;
+  periodNumberOfUnits?: number;
+}
+
+interface AndroidBillingPeriod {
+  unit?: string;
+  value?: number;
+  iso8601?: string;
+}
+
+interface AndroidOfferPhase {
+  billingPeriod?: AndroidBillingPeriod;
+  offerPaymentMode?: string | null;
+}
+
+interface AndroidSubscriptionOption {
+  id?: string;
+  offerPhases?: AndroidOfferPhase[];
+}
+
 interface PurchasePackageLike {
   identifier: string;
   packageType?: string;
@@ -14,6 +41,8 @@ interface PurchasePackageLike {
     price: number;
     currencyCode?: string;
     subscriptionPeriod?: string | null;
+    introductoryDiscount?: IOSIntroductoryDiscount | null;
+    subscriptionOptions?: AndroidSubscriptionOption[] | null;
   };
 }
 
@@ -36,6 +65,22 @@ interface SubscriptionContextValue {
   expirationDate: Date | null;
   /** RevenueCat current offering (Monthly + Annual packages). null if RC is unavailable. */
   currentOffering: OfferingLike | null;
+  /**
+   * Whether the current user is eligible for the annual plan's introductory
+   * free trial.
+   * - true  → confirmed eligible (iOS checkTrialOrIntroductoryPriceEligibility)
+   * - false → confirmed ineligible
+   * - null  → check failed / SDK unavailable (fall back to product metadata)
+   * On Android this always remains null; RevenueCat already strips ineligible
+   * offer phases from subscriptionOptions, so metadata is reliable.
+   */
+  isAnnualTrialEligible: boolean | null;
+  /**
+   * True once the iOS trial eligibility check has completed (success or error).
+   * Use together with isAnnualTrialEligible to distinguish "pending" from
+   * "check failed" on iOS. Always true on Android (no async check needed).
+   */
+  isAnnualTrialCheckComplete: boolean;
   /** Last error message from a purchase / restore call, or null. */
   lastError: string | null;
   /** Whether RevenueCat is actually loaded (false in dev builds without the SDK). */
@@ -51,6 +96,18 @@ interface SubscriptionContextValue {
 const SubscriptionContext = createContext<SubscriptionContextValue | null>(null);
 
 const PRO_ENTITLEMENT_ID = "pro";
+
+function getEligibleStatus(): number {
+  try {
+    const mod = require("react-native-purchases");
+    const sdkMod = mod?.default ?? mod;
+    const fromSdk = sdkMod?.IntroEligibilityStatus?.INTRO_ELIGIBILITY_STATUS_ELIGIBLE;
+    if (typeof fromSdk === "number") return fromSdk;
+  } catch {}
+  return 2;
+}
+
+const INTRO_ELIGIBILITY_STATUS_ELIGIBLE = getEligibleStatus();
 
 const IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? "";
 const ANDROID_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? "";
@@ -87,6 +144,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [isPro, setIsPro] = useState(false);
   const [expirationDate, setExpirationDate] = useState<Date | null>(null);
   const [currentOffering, setCurrentOffering] = useState<OfferingLike | null>(null);
+  const [isAnnualTrialEligible, setIsAnnualTrialEligible] = useState<boolean | null>(null);
+  const [isAnnualTrialCheckComplete, setIsAnnualTrialCheckComplete] = useState<boolean>(
+    Platform.OS !== "ios",
+  );
   const [lastError, setLastError] = useState<string | null>(null);
 
   const isProRef = useRef(false);
@@ -153,6 +214,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
     purchasesRef.current = purchases;
     setIsRevenueCatAvailable(true);
+    setIsAnnualTrialEligible(null);
+    if (Platform.OS === "ios") setIsAnnualTrialCheckComplete(false);
 
     let listener: ((info: any) => void) | null = null;
 
@@ -183,6 +246,26 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
             monthly: current.monthly ?? null,
             annual: current.annual ?? null,
           });
+
+          if (Platform.OS === "ios" && current.annual) {
+            const annualProductId: string = current.annual.product.identifier;
+            try {
+              if (typeof purchases.checkTrialOrIntroductoryPriceEligibility === "function") {
+                const eligibility = await purchases.checkTrialOrIntroductoryPriceEligibility([annualProductId]);
+                if (!cancelled) {
+                  const status: number = eligibility?.[annualProductId]?.status ?? -1;
+                  setIsAnnualTrialEligible(status === INTRO_ELIGIBILITY_STATUS_ELIGIBLE);
+                }
+              }
+            } catch {
+              // Non-fatal: isAnnualTrialEligible stays null → paywall falls
+              // back to product metadata for trial display.
+            } finally {
+              if (!cancelled) setIsAnnualTrialCheckComplete(true);
+            }
+          } else if (Platform.OS === "ios") {
+            if (!cancelled) setIsAnnualTrialCheckComplete(true);
+          }
         }
 
         if (typeof purchases.addCustomerInfoUpdateListener === "function") {
@@ -297,6 +380,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       isPro,
       expirationDate,
       currentOffering,
+      isAnnualTrialEligible,
+      isAnnualTrialCheckComplete,
       lastError,
       isRevenueCatAvailable,
       purchasePackage,
@@ -309,6 +394,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       isPro,
       expirationDate,
       currentOffering,
+      isAnnualTrialEligible,
+      isAnnualTrialCheckComplete,
       lastError,
       isRevenueCatAvailable,
       purchasePackage,
