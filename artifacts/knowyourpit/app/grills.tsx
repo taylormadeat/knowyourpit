@@ -134,7 +134,7 @@ export default function GrillsScreen() {
       await createGrill.mutateAsync({
         data: {
           name: grillName.trim(),
-          type: grillType || undefined,
+          type: grillType || "",
           fuelType: fuelType || undefined,
           brand: customBrand || undefined,
         },

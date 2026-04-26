@@ -28,7 +28,7 @@ import { useColors } from "@/hooks/useColors";
 import { useTopInset } from "@/hooks/useTopInset";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { LogoBackground } from "@/components/LogoBackground";
-import { TempGraph } from "@/components/TempGraph";
+import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
 import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
 
 import {
@@ -47,6 +47,8 @@ import {
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
   getListAlertsQueryKey,
+  getGetMeaterReadingsQueryKey,
+  getGetThermoworksReadingsQueryKey,
 } from "@workspace/api-client-react";
 import * as Notifications from "expo-notifications";
 
@@ -274,7 +276,7 @@ export default function CookDetailScreen() {
 
   // Alerts for this cook (active ones, used for MEATER threshold checking)
   const { data: cookAlerts } = useListAlerts({
-    query: { enabled: cookStatus === "active" },
+    query: { queryKey: getListAlertsQueryKey(), enabled: cookStatus === "active" },
   });
   const activeCookAlerts = ((cookAlerts as any[]) ?? []).filter(
     (a: any) => a.cookId === Number(id) && a.isActive,
@@ -309,6 +311,7 @@ export default function CookDetailScreen() {
 
   const { data: meaterData, isLoading: meaterLoading } = useGetMeaterReadings({
     query: {
+      queryKey: getGetMeaterReadingsQueryKey(),
       enabled: cookStatus === "active",
       refetchInterval: cookStatus === "active" ? 15000 : false,
     },
@@ -319,6 +322,7 @@ export default function CookDetailScreen() {
 
   const { data: thermoworksData, isLoading: thermoworksLoading } = useGetThermoworksReadings({
     query: {
+      queryKey: getGetThermoworksReadingsQueryKey(),
       enabled: cookStatus === "active",
       refetchInterval: cookStatus === "active" ? 15000 : false,
     },
@@ -1366,7 +1370,7 @@ export default function CookDetailScreen() {
             </View>
 
             {/* Key Takeaway — top suggestion surfaced immediately */}
-            {storedAssessment?.suggestions?.length > 0 && (
+            {(storedAssessment?.suggestions?.length ?? 0) > 0 && (
               <View style={[s.keyTakeawayCard, { backgroundColor: "#A855F715", borderColor: "#A855F740" }]}>
                 <View style={s.keyTakeawayHeader}>
                   <Feather name="star" size={13} color="#A855F7" />
@@ -1375,7 +1379,7 @@ export default function CookDetailScreen() {
                   </Text>
                 </View>
                 <Text style={[s.keyTakeawayText, { color: colors.foreground }]}>
-                  {storedAssessment.suggestions[0]}
+                  {storedAssessment!.suggestions![0]}
                 </Text>
               </View>
             )}
@@ -1388,7 +1392,7 @@ export default function CookDetailScreen() {
               <View style={[s.graphWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
                 <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 8 }]}>Temperature Graph</Text>
                 <TempGraph
-                  probes={storedGraphProbes}
+                  probes={storedGraphProbes as unknown as ProbeTimeSeries[]}
                   events={storedAnalysis?.events ?? []}
                   targetTempF={c.targetTempF ?? null}
                   width={cardWidth}
@@ -1680,10 +1684,10 @@ export default function CookDetailScreen() {
                     </View>
                   </View>
                 )}
-                {assessment?.whatWentWell?.length > 0 && (
+                {(assessment?.whatWentWell?.length ?? 0) > 0 && (
                   <View style={[s.subSection, { borderColor: colors.border }]}>
                     <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Looking Good</Text>
-                    {assessment.whatWentWell.map((item, i) => (
+                    {assessment!.whatWentWell!.map((item, i) => (
                       <View key={i} style={s.bulletRow}>
                         <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
                         <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
@@ -1691,10 +1695,10 @@ export default function CookDetailScreen() {
                     ))}
                   </View>
                 )}
-                {assessment?.suggestions?.length > 0 && (
+                {(assessment?.suggestions?.length ?? 0) > 0 && (
                   <View style={[s.subSection, { borderColor: colors.border }]}>
                     <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Watch Out For</Text>
-                    {assessment.suggestions.map((tip, i) => (
+                    {assessment!.suggestions!.map((tip, i) => (
                       <View key={i} style={s.bulletRow}>
                         <Text style={[s.bulletNum, { color: "#A855F7" }]}>{i + 1}</Text>
                         <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
@@ -2009,23 +2013,23 @@ export default function CookDetailScreen() {
               })()}
 
               {/* What went well */}
-              {assessment?.whatWentWell?.length > 0 && (() => {
+              {(assessment?.whatWentWell?.length ?? 0) > 0 && (() => {
                 const isOpen = expandedResultSections.has("wentWell");
                 return (
                   <View style={[s.subSection, { borderColor: colors.border }]}>
                     <Pressable style={s.collapsibleRow} onPress={() => toggleResultSection("wentWell")}>
                       <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>What Went Well</Text>
                       <View style={[s.countPill, { backgroundColor: "#22c55e18" }]}>
-                        <Text style={[s.countPillText, { color: "#22c55e" }]}>{assessment.whatWentWell.length}</Text>
+                        <Text style={[s.countPillText, { color: "#22c55e" }]}>{assessment!.whatWentWell!.length}</Text>
                       </View>
                       <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
                     </Pressable>
                     {!isOpen && (
                       <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
-                        {assessment.whatWentWell[0]}
+                        {assessment!.whatWentWell![0]}
                       </Text>
                     )}
-                    {isOpen && assessment.whatWentWell.map((item, i) => (
+                    {isOpen && assessment!.whatWentWell!.map((item, i) => (
                       <View key={i} style={s.bulletRow}>
                         <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
                         <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
@@ -2036,23 +2040,23 @@ export default function CookDetailScreen() {
               })()}
 
               {/* Suggestions */}
-              {assessment?.suggestions?.length > 0 && (() => {
+              {(assessment?.suggestions?.length ?? 0) > 0 && (() => {
                 const isOpen = expandedResultSections.has("nextTime");
                 return (
                   <View style={[s.subSection, { borderColor: colors.border }]}>
                     <Pressable style={s.collapsibleRow} onPress={() => toggleResultSection("nextTime")}>
                       <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>Next Time, Try This</Text>
                       <View style={[s.countPill, { backgroundColor: "#A855F718" }]}>
-                        <Text style={[s.countPillText, { color: "#A855F7" }]}>{assessment.suggestions.length}</Text>
+                        <Text style={[s.countPillText, { color: "#A855F7" }]}>{assessment!.suggestions!.length}</Text>
                       </View>
                       <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
                     </Pressable>
                     {!isOpen && (
                       <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
-                        {assessment.suggestions[0]}
+                        {assessment!.suggestions![0]}
                       </Text>
                     )}
-                    {isOpen && assessment.suggestions.map((tip, i) => (
+                    {isOpen && assessment!.suggestions!.map((tip, i) => (
                       <View key={i} style={s.bulletRow}>
                         <Text style={[s.bulletNum, { color: colors.primary }]}>{i + 1}</Text>
                         <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>

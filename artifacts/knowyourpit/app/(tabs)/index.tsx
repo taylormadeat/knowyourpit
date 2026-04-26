@@ -216,7 +216,7 @@ export default function HomeScreen() {
               {[
                 { n: summary?.totalCooks ?? 0, l: "Cooks", icon: "zap" },
                 { n: summary?.totalGrills ?? 0, l: "Grills", icon: "wind" },
-                { n: summary?.plannedCooks ?? 0, l: "Planned", icon: "calendar" },
+                { n: summary?.activeCooks ?? 0, l: "Active", icon: "activity" },
               ].map((stat, i) => (
                 <React.Fragment key={stat.l}>
                   {i > 0 && <View style={s.statDivider} />}
