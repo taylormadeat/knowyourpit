@@ -687,6 +687,11 @@ export interface AiPredictBody {
    * @nullable
    */
   preheatMinutes?: number | null;
+  /**
+   * Current outdoor ambient temperature in Fahrenheit, used to adjust cook time estimates
+   * @nullable
+   */
+  outdoorTempF?: number | null;
 }
 
 /**
@@ -755,6 +760,63 @@ export interface AiPredictResponse {
   confidence: AiPredictResponseConfidence;
   rationale: string;
   tips: string[];
+}
+
+export interface MultiCookItem {
+  foodType: string;
+  /** @nullable */
+  weightLbs?: number | null;
+  /** @nullable */
+  cookTempF?: number | null;
+  /** @nullable */
+  targetTempF?: number | null;
+  /** @nullable */
+  grillId?: number | null;
+  /**
+   * Minutes to preheat the grill before putting meat on
+   * @nullable
+   */
+  preheatMinutes?: number | null;
+}
+
+export interface MultiCookBody {
+  /**
+   * @minItems 2
+   * @maxItems 5
+   */
+  items: MultiCookItem[];
+  /** Target time when all food should be ready to serve */
+  serveAt: string;
+  /**
+   * Current outdoor ambient temperature in Fahrenheit
+   * @nullable
+   */
+  outdoorTempF?: number | null;
+}
+
+export interface MultiCookScheduleItem {
+  foodType: string;
+  /** Active cook time only (meat on grill to off grill), excluding preheat and rest */
+  estimatedDurationMinutes: number;
+  preheatMinutes: number;
+  /** Recommended rest time after pulling from grill */
+  restMinutes: number;
+  /** When to light/start the grill */
+  grillLightAt: string;
+  /** When to place the meat on the grill */
+  meatOnAt: string;
+  /** When meat comes off the grill (before rest) */
+  estimatedFinishAt: string;
+  /** One sentence of specific advice for this item */
+  notes?: string;
+}
+
+export interface MultiCookResponse {
+  /** All cook items sorted by grillLightAt (earliest first) */
+  schedule: MultiCookScheduleItem[];
+  serveAt: string;
+  /** One sentence summary of the overall sequencing plan */
+  summary: string;
 }
 
 export interface ForumPost {

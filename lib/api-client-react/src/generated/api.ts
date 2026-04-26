@@ -49,6 +49,8 @@ import type {
   MeaterLinkedResponse,
   MeaterReadingsResponse,
   MeaterStatusResponse,
+  MultiCookBody,
+  MultiCookResponse,
   PatchAlertBody,
   Recipe,
   TemperatureHistorySummary,
@@ -2224,6 +2226,92 @@ export const useAiPredict = <
   TContext
 > => {
   return useMutation(getAiPredictMutationOptions(options));
+};
+
+/**
+ * @summary Sequence multiple cooks to all be ready at the same serve time
+ */
+export const getAiMultiCookUrl = () => {
+  return `/api/ai/multi-cook`;
+};
+
+export const aiMultiCook = async (
+  multiCookBody: MultiCookBody,
+  options?: RequestInit,
+): Promise<MultiCookResponse> => {
+  return customFetch<MultiCookResponse>(getAiMultiCookUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(multiCookBody),
+  });
+};
+
+export const getAiMultiCookMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiMultiCook>>,
+    TError,
+    { data: BodyType<MultiCookBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof aiMultiCook>>,
+  TError,
+  { data: BodyType<MultiCookBody> },
+  TContext
+> => {
+  const mutationKey = ["aiMultiCook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof aiMultiCook>>,
+    { data: BodyType<MultiCookBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return aiMultiCook(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AiMultiCookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof aiMultiCook>>
+>;
+export type AiMultiCookMutationBody = BodyType<MultiCookBody>;
+export type AiMultiCookMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Sequence multiple cooks to all be ready at the same serve time
+ */
+export const useAiMultiCook = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiMultiCook>>,
+    TError,
+    { data: BodyType<MultiCookBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof aiMultiCook>>,
+  TError,
+  { data: BodyType<MultiCookBody> },
+  TContext
+> => {
+  return useMutation(getAiMultiCookMutationOptions(options));
 };
 
 /**

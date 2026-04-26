@@ -509,6 +509,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/AiPredictResponse"
 
+  /ai/multi-cook:
+    post:
+      operationId: aiMultiCook
+      tags: [ai]
+      summary: Sequence multiple cooks to all be ready at the same serve time
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MultiCookBody"
+      responses:
+        "200":
+          description: Multi-cook schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MultiCookResponse"
+
   /forum/posts:
     get:
       operationId: listForumPosts
@@ -1763,6 +1782,9 @@ components:
         preheatMinutes:
           type: ["integer", "null"]
           description: Minutes needed to start and bring the grill up to cook temperature
+        outdoorTempF:
+          type: ["number", "null"]
+          description: Current outdoor ambient temperature in Fahrenheit, used to adjust cook time estimates
       required:
         - foodType
 
@@ -1839,6 +1861,101 @@ components:
         - confidence
         - rationale
         - tips
+
+    MultiCookItem:
+      type: object
+      properties:
+        foodType:
+          type: string
+        weightLbs:
+          type: ["number", "null"]
+        cookTempF:
+          type: ["number", "null"]
+        targetTempF:
+          type: ["number", "null"]
+        grillId:
+          type: ["integer", "null"]
+        preheatMinutes:
+          type: ["integer", "null"]
+          description: Minutes to preheat the grill before putting meat on
+      required:
+        - foodType
+
+    MultiCookBody:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MultiCookItem"
+          minItems: 2
+          maxItems: 5
+        serveAt:
+          type: string
+          format: date-time
+          description: Target time when all food should be ready to serve
+        outdoorTempF:
+          type: ["number", "null"]
+          description: Current outdoor ambient temperature in Fahrenheit
+      required:
+        - items
+        - serveAt
+
+    MultiCookScheduleItem:
+      type: object
+      properties:
+        foodType:
+          type: string
+        estimatedDurationMinutes:
+          type: integer
+          description: Active cook time only (meat on grill to off grill), excluding preheat and rest
+        preheatMinutes:
+          type: integer
+        restMinutes:
+          type: integer
+          description: Recommended rest time after pulling from grill
+        grillLightAt:
+          type: string
+          format: date-time
+          description: When to light/start the grill
+        meatOnAt:
+          type: string
+          format: date-time
+          description: When to place the meat on the grill
+        estimatedFinishAt:
+          type: string
+          format: date-time
+          description: When meat comes off the grill (before rest)
+        notes:
+          type: string
+          description: One sentence of specific advice for this item
+      required:
+        - foodType
+        - estimatedDurationMinutes
+        - preheatMinutes
+        - restMinutes
+        - grillLightAt
+        - meatOnAt
+        - estimatedFinishAt
+
+    MultiCookResponse:
+      type: object
+      properties:
+        schedule:
+          type: array
+          items:
+            $ref: "#/components/schemas/MultiCookScheduleItem"
+          description: All cook items sorted by grillLightAt (earliest first)
+        serveAt:
+          type: string
+          format: date-time
+        summary:
+          type: string
+          description: One sentence summary of the overall sequencing plan
+      required:
+        - schedule
+        - serveAt
+        - summary
 
     ForumPost:
       type: object

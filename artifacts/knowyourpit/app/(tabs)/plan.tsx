@@ -25,13 +25,16 @@ import {
   useListGrills,
   useCreateCook,
   useAiPredict,
+  useAiMultiCook,
   useListCooks,
   getListCooksQueryKey,
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
   ListCooksStatus,
   type Cook,
+  type MultiCookScheduleItem,
 } from "@workspace/api-client-react";
+import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
 import {
   MEAT_CUTS,
   MEAT_CATEGORIES,
@@ -577,10 +580,27 @@ export default function PlanScreen() {
     }
   };
 
+  // ── Plan mode ─────────────────────────────────────────────────────────
+  const [planMode, setPlanMode] = useState<"single" | "multi">("single");
+
+  // ── Weather ───────────────────────────────────────────────────────────
+  const weather = useAmbientWeather();
+
   // ── AI predict state ──────────────────────────────────────────────────
   const aiPredict = useAiPredict();
   const [aiResult, setAiResult] = useState<any | null>(null);
   const [aiResultOpen, setAiResultOpen] = useState(false);
+
+  // ── Multi-cook state ──────────────────────────────────────────────────
+  interface MultiItem { cut: MeatCut; weightLbs: string; }
+  const aiMultiCook = useAiMultiCook();
+  const [multiItems, setMultiItems] = useState<MultiItem[]>([]);
+  const [multiResult, setMultiResult] = useState<{ schedule: MultiCookScheduleItem[]; serveAt: string; summary: string } | null>(null);
+  const [multiResultOpen, setMultiResultOpen] = useState(false);
+  const [multiAddOpen, setMultiAddOpen] = useState(false);
+  const [multiAddCat, setMultiAddCat] = useState<string>(MEAT_CATEGORIES[0]);
+  const [multiAddWeightInput, setMultiAddWeightInput] = useState("");
+  const [multiPickedCut, setMultiPickedCut] = useState<MeatCut | null>(null);
 
   // ── Derived values ───────────────────────────────────────────────────
   const selectedGrill = useMemo(
@@ -617,14 +637,71 @@ export default function PlanScreen() {
           cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
           targetTempF: targetTempF ? Number(targetTempF) : selectedCut.targetTempF,
           grillId: grillId ?? undefined,
-          desiredFinishAt: serveAt,
+          desiredFinishAt: serveAt instanceof Date ? serveAt.toISOString() : serveAt,
           preheatMinutes: preheatMinsForGrill(selectedGrill),
+          outdoorTempF: weather.tempF ?? undefined,
         },
       });
       setAiResult(result);
       setAiResultOpen(true);
     } catch (e: any) {
       Alert.alert("PitMaster Error", e?.message || "Could not get PitMaster prediction. Try again.");
+    }
+  };
+
+  // ── Multi-Cook Sequence ───────────────────────────────────────────────
+  const handleMultiCook = async () => {
+    if (multiItems.length < 2) {
+      Alert.alert("Add More Items", "Add at least 2 items to sequence a multi-cook.");
+      return;
+    }
+    try {
+      const result = await aiMultiCook.mutateAsync({
+        data: {
+          items: multiItems.map(item => ({
+            foodType: item.cut.name,
+            weightLbs: parseFloat(item.weightLbs) > 0 ? parseFloat(item.weightLbs) : undefined,
+            cookTempF: item.cut.cookTempF,
+            targetTempF: item.cut.targetTempF,
+            preheatMinutes: preheatMinsForGrill(selectedGrill),
+          })),
+          serveAt: serveAt.toISOString(),
+          outdoorTempF: weather.tempF ?? undefined,
+        },
+      });
+      setMultiResult(result as any);
+      setMultiResultOpen(true);
+    } catch (e: any) {
+      Alert.alert("PitMaster Error", e?.message || "Could not sequence cooks. Try again.");
+    }
+  };
+
+  const handleSaveMultiCooks = async () => {
+    if (!multiResult) return;
+    try {
+      for (const item of multiResult.schedule) {
+        const matchedCut = MEAT_CUTS.find(c => c.name.toLowerCase() === item.foodType.toLowerCase());
+        await createCook.mutateAsync({
+          data: {
+            foodType: item.foodType,
+            weightLbs: multiItems.find(m => m.cut.name.toLowerCase() === item.foodType.toLowerCase())
+              ? parseFloat(multiItems.find(m => m.cut.name.toLowerCase() === item.foodType.toLowerCase())!.weightLbs) || undefined
+              : undefined,
+            cookTempF: matchedCut?.cookTempF ?? undefined,
+            targetTempF: matchedCut?.targetTempF ?? undefined,
+            grillId: grillId ?? undefined,
+            plannedStartAt: new Date(item.meatOnAt),
+            notes: `Multi-cook session · Serve at ${new Date(multiResult.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${item.notes ? `\n${item.notes}` : ""}`,
+          } as any,
+        });
+      }
+      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+      setMultiResultOpen(false);
+      Alert.alert("Saved!", `${multiResult.schedule.length} cooks added to your plan.`);
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Failed to save cooks.");
     }
   };
 
@@ -735,6 +812,32 @@ export default function PlanScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* ── Plan Mode Toggle ── */}
+        <View style={[s.modeToggleRow, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+          <Pressable
+            style={[
+              s.modeToggleBtn,
+              planMode === "single" && { backgroundColor: "#6C3BF5" },
+              { borderRadius: colors.radius - 2 },
+            ]}
+            onPress={() => setPlanMode("single")}
+          >
+            <Feather name="coffee" size={14} color={planMode === "single" ? "#fff" : colors.mutedForeground} />
+            <Text style={[s.modeToggleText, { color: planMode === "single" ? "#fff" : colors.mutedForeground }]}>Single Cook</Text>
+          </Pressable>
+          <Pressable
+            style={[
+              s.modeToggleBtn,
+              planMode === "multi" && { backgroundColor: "#6C3BF5" },
+              { borderRadius: colors.radius - 2 },
+            ]}
+            onPress={() => setPlanMode("multi")}
+          >
+            <Feather name="layers" size={14} color={planMode === "multi" ? "#fff" : colors.mutedForeground} />
+            <Text style={[s.modeToggleText, { color: planMode === "multi" ? "#fff" : colors.mutedForeground }]}>Multi-Cook</Text>
+          </Pressable>
+        </View>
+
         {/* ── Smoker Profile Card ── */}
         {smokerProfile && smokerProfile.cookCount >= 2 && (() => {
           const insights: { icon: string; label: string; value: string; color: string }[] = [];
@@ -820,6 +923,8 @@ export default function PlanScreen() {
             </View>
           );
         })()}
+
+        {planMode === "single" && (<>
 
         {/* ── Cook Name ── */}
         <Label colors={colors}>Cook Name (optional)</Label>
@@ -1140,6 +1245,30 @@ export default function PlanScreen() {
           </View>
         </View>
 
+        {/* ── Outdoor Temperature Strip ── */}
+        {!weather.locationDenied && (
+          <View style={[s.weatherStrip, { borderColor: colors.border }]}>
+            <Feather
+              name={weatherIcon(weather.conditionCode) as any}
+              size={13}
+              color={colors.mutedForeground}
+            />
+            {weather.loading ? (
+              <Text style={[s.weatherText, { color: colors.mutedForeground }]}>Fetching outdoor temp…</Text>
+            ) : weather.error || weather.tempF == null ? null : (
+              <>
+                <Text style={[s.weatherTempText, { color: colors.foreground }]}>{weather.tempF}°F outdoors</Text>
+                {weatherDescription(weather.conditionCode) && (
+                  <Text style={[s.weatherText, { color: colors.mutedForeground }]}>
+                    · {weatherDescription(weather.conditionCode)}
+                  </Text>
+                )}
+                <Text style={[s.weatherText, { color: colors.mutedForeground }]}>· factored into AI plan</Text>
+              </>
+            )}
+          </View>
+        )}
+
         {/* ── AI Cook Planner ── */}
         <Pressable
           style={({ pressed }) => [
@@ -1278,6 +1407,185 @@ export default function PlanScreen() {
             </>
           )}
         </Pressable>
+
+        </>)} {/* end planMode === "single" */}
+
+        {/* ════ MULTI-COOK SEQUENCER ════ */}
+        {planMode === "multi" && (<>
+
+        {/* Serve By (shared with single via serveAt state) */}
+        <Label colors={colors}>When do you want to serve?</Label>
+        <View style={[s.serveByCard, { backgroundColor: colors.card, borderColor: colors.primary + "40", borderRadius: colors.radius }]}>
+          <View style={s.serveByRow}>
+            <Feather name="calendar" size={16} color={colors.primary} />
+            <Text style={[s.serveByLabel, { color: colors.mutedForeground }]}>Date</Text>
+            <Pressable
+              onPress={() => setDatePickerOpen(true)}
+              style={[s.serveByBtn, { backgroundColor: colors.primary + "18", borderRadius: 8 }]}
+            >
+              <Text style={[s.serveByBtnText, { color: colors.primary }]}>{formatDate(serveAt)}</Text>
+            </Pressable>
+          </View>
+          <View style={[s.serveByDivider, { backgroundColor: colors.border }]} />
+          <View style={s.serveByRow}>
+            <Feather name="clock" size={16} color={colors.primary} />
+            <Text style={[s.serveByLabel, { color: colors.mutedForeground }]}>Time</Text>
+            <Pressable
+              onPress={() => setTimePickerOpen(true)}
+              style={[s.serveByBtn, { backgroundColor: colors.primary + "18", borderRadius: 8 }]}
+            >
+              <Text style={[s.serveByBtnText, { color: colors.primary }]}>
+                {formatTime(serveAt.getHours(), serveAt.getMinutes())}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Grill selector (shared) */}
+        {(grills as any[] | undefined)?.length ? (
+          <>
+            <Label colors={colors}>Grill (optional)</Label>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                {(grills as any[]).map((g: any) => (
+                  <Pressable
+                    key={g.id}
+                    onPress={() => setGrillId(grillId === g.id ? null : g.id)}
+                    style={[
+                      s.grillChip,
+                      {
+                        borderColor: grillId === g.id ? colors.primary : colors.border,
+                        backgroundColor: grillId === g.id ? colors.primary + "15" : colors.card,
+                        borderRadius: colors.radius,
+                      },
+                    ]}
+                  >
+                    <Text style={[s.grillChipText, { color: grillId === g.id ? colors.primary : colors.foreground }]}>
+                      {g.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
+          </>
+        ) : null}
+
+        {/* Items list */}
+        <Label colors={colors}>Cooks to Sequence</Label>
+        {multiItems.length === 0 ? (
+          <View style={[s.multiEmptyBox, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            <Feather name="layers" size={22} color={colors.mutedForeground} />
+            <Text style={[s.multiEmptyText, { color: colors.mutedForeground }]}>
+              Add 2–5 items and PitMaster will sequence them so everything is ready at the same time.
+            </Text>
+          </View>
+        ) : (
+          <View style={[s.multiItemsList, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            {multiItems.map((item, idx) => (
+              <View key={idx}>
+                {idx > 0 && <View style={[s.multiItemSep, { backgroundColor: colors.border }]} />}
+                <View style={s.multiItemRow}>
+                  <View style={s.multiItemInfo}>
+                    <Text style={[s.multiItemName, { color: colors.foreground }]}>{item.cut.name}</Text>
+                    <Text style={[s.multiItemMeta, { color: colors.mutedForeground }]}>
+                      {parseFloat(item.weightLbs) > 0 ? `${item.weightLbs} lbs` : "weight not set"}
+                      {" · "}{item.cut.cookTempF}°F cook · target {item.cut.targetTempF}°F
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => setMultiItems(prev => prev.filter((_, i) => i !== idx))}
+                    hitSlop={10}
+                    style={{ padding: 4 }}
+                  >
+                    <Feather name="x-circle" size={18} color={colors.mutedForeground} />
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Add Item button */}
+        {multiItems.length < 5 && (
+          <Pressable
+            onPress={() => {
+              setMultiPickedCut(null);
+              setMultiAddWeightInput("");
+              setMultiAddCat(MEAT_CATEGORIES[0]);
+              setMultiAddOpen(true);
+            }}
+            style={[s.multiAddBtn, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.card }]}
+          >
+            <Feather name="plus-circle" size={16} color={colors.primary} />
+            <Text style={[s.multiAddBtnText, { color: colors.primary }]}>Add Item</Text>
+          </Pressable>
+        )}
+
+        {/* Outdoor temp strip */}
+        {!weather.locationDenied && weather.tempF != null && (
+          <View style={[s.weatherStrip, { borderColor: colors.border }]}>
+            <Feather name={weatherIcon(weather.conditionCode) as any} size={13} color={colors.mutedForeground} />
+            <Text style={[s.weatherTempText, { color: colors.foreground }]}>{weather.tempF}°F outdoors</Text>
+            {weatherDescription(weather.conditionCode) && (
+              <Text style={[s.weatherText, { color: colors.mutedForeground }]}>· {weatherDescription(weather.conditionCode)}</Text>
+            )}
+            <Text style={[s.weatherText, { color: colors.mutedForeground }]}>· factored into sequence</Text>
+          </View>
+        )}
+
+        {/* Sequence button */}
+        <Pressable
+          style={({ pressed }) => [
+            s.aiBtn,
+            { borderRadius: colors.radius },
+            (aiMultiCook.isPending || pressed) && { opacity: 0.75 },
+          ]}
+          onPress={handleMultiCook}
+          disabled={aiMultiCook.isPending || multiItems.length < 2}
+        >
+          <LinearGradient
+            colors={["#6C3BF5", "#A855F7"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={s.aiBtnGradient}
+          >
+            {aiMultiCook.isPending ? (
+              <>
+                <ActivityIndicator color="#fff" size="small" />
+                <Text style={s.aiBtnText}>Sequencing your cooks…</Text>
+              </>
+            ) : (
+              <>
+                <Feather name="layers" size={18} color="#fff" />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.aiBtnText}>Sequence My Cook</Text>
+                  <Text style={s.aiBtnSub}>
+                    {multiItems.length < 2
+                      ? "Add at least 2 items first"
+                      : `AI will schedule ${multiItems.length} items for ${formatTime(serveAt.getHours(), serveAt.getMinutes())}`}
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={16} color="rgba(255,255,255,0.7)" />
+              </>
+            )}
+          </LinearGradient>
+        </Pressable>
+
+        {/* Multi result summary (tappable if result exists) */}
+        {multiResult && !multiResultOpen && (
+          <Pressable
+            onPress={() => setMultiResultOpen(true)}
+            style={[s.aiAppliedBanner, { backgroundColor: "#6C3BF5" + "15", borderColor: "#6C3BF5" + "40", borderRadius: colors.radius }]}
+          >
+            <Feather name="check-circle" size={14} color="#6C3BF5" />
+            <Text style={[s.aiAppliedText, { color: "#6C3BF5" }]}>
+              Sequence ready · {multiResult.schedule.length} items · Tap to review
+            </Text>
+          </Pressable>
+        )}
+
+        </>)} {/* end planMode === "multi" */}
+
       </KeyboardAwareScrollView>
 
       {/* ════ MEAT PICKER MODAL ════ */}
@@ -1600,6 +1908,224 @@ export default function PlanScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ════ MULTI-COOK RESULT MODAL ════ */}
+      <Modal
+        visible={multiResultOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setMultiResultOpen(false)}
+      >
+        <View style={s.modalOverlay}>
+          <View style={[s.modalSheet, { backgroundColor: colors.card }]}>
+            <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
+            <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[s.modalTitle, { color: colors.foreground }]}>Cook Sequence</Text>
+              <Pressable onPress={() => setMultiResultOpen(false)} hitSlop={10}>
+                <Feather name="x" size={22} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
+              {multiResult && (
+                <>
+                  {/* Serve time header */}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                    <Feather name="check-circle" size={16} color="#22c55e" />
+                    <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
+                      Everything ready by {new Date(multiResult.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </Text>
+                  </View>
+
+                  {/* Summary */}
+                  {multiResult.summary ? (
+                    <View style={{ backgroundColor: "#6C3BF510", borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                      <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: colors.foreground, lineHeight: 19 }}>
+                        {multiResult.summary}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {/* Timeline */}
+                  {multiResult.schedule.map((item: MultiCookScheduleItem, idx: number) => (
+                    <View
+                      key={idx}
+                      style={[{
+                        borderWidth: 1,
+                        borderRadius: 10,
+                        marginBottom: 10,
+                        overflow: "hidden",
+                        borderColor: colors.border,
+                        backgroundColor: colors.background,
+                      }]}
+                    >
+                      {/* Item header */}
+                      <View style={{ backgroundColor: "#6C3BF518", paddingHorizontal: 14, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#6C3BF5", alignItems: "center", justifyContent: "center" }}>
+                          <Text style={{ color: "#fff", fontSize: 11, fontFamily: "Inter_700Bold" }}>{idx + 1}</Text>
+                        </View>
+                        <Text style={{ fontSize: 14, fontFamily: "Inter_700Bold", color: colors.foreground, flex: 1 }}>{item.foodType}</Text>
+                        <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
+                          {Math.round(item.estimatedDurationMinutes / 60)}h {item.estimatedDurationMinutes % 60 > 0 ? `${item.estimatedDurationMinutes % 60}m` : ""} cook
+                        </Text>
+                      </View>
+                      {/* Timeline rows */}
+                      <View style={{ paddingHorizontal: 14, paddingVertical: 10, gap: 7 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                          <Feather name="power" size={13} color={colors.mutedForeground} />
+                          <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>Light grill</Text>
+                          <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.foreground }}>
+                            {new Date(item.grillLightAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                          <Feather name="zap" size={13} color="#E84820" />
+                          <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>Meat on</Text>
+                          <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: "#E84820" }}>
+                            {new Date(item.meatOnAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                          <Feather name="pause" size={13} color={colors.mutedForeground} />
+                          <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>Pull off · rest {item.restMinutes}m</Text>
+                          <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
+                            {new Date(item.estimatedFinishAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </Text>
+                        </View>
+                        {item.notes ? (
+                          <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontStyle: "italic", marginTop: 2 }}>
+                            {item.notes}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  ))}
+
+                  {/* Save All button */}
+                  <Pressable
+                    onPress={handleSaveMultiCooks}
+                    disabled={createCook.isPending}
+                    style={({ pressed }) => [{
+                      backgroundColor: "#6C3BF5",
+                      borderRadius: colors.radius,
+                      paddingVertical: 14,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      marginTop: 4,
+                      opacity: (pressed || createCook.isPending) ? 0.7 : 1,
+                    }]}
+                  >
+                    {createCook.isPending ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <>
+                        <Feather name="save" size={16} color="#fff" />
+                        <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" }}>
+                          Save {multiResult.schedule.length} Cooks to My Plan
+                        </Text>
+                      </>
+                    )}
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setMultiResultOpen(false)}
+                    style={[s.dismissBtn, { borderRadius: colors.radius, borderColor: colors.border, marginTop: 10 }]}
+                  >
+                    <Text style={[s.dismissBtnText, { color: colors.mutedForeground }]}>Close</Text>
+                  </Pressable>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ════ MULTI-COOK ADD ITEM MODAL ════ */}
+      <Modal
+        visible={multiAddOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setMultiAddOpen(false)}
+      >
+        <View style={s.modalOverlay}>
+          <View style={[s.modalSheet, { backgroundColor: colors.card }]}>
+            <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
+            <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[s.modalTitle, { color: colors.foreground }]}>Add Item</Text>
+              <Pressable onPress={() => setMultiAddOpen(false)} hitSlop={10}>
+                <Feather name="x" size={22} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+            {/* Category tabs */}
+            <View style={s.catTabRow}>
+              {MEAT_CATEGORIES.map(cat => (
+                <Pressable
+                  key={cat}
+                  onPress={() => setMultiAddCat(cat)}
+                  style={[s.catTab, { backgroundColor: multiAddCat === cat ? colors.primary : colors.muted, borderRadius: 20 }]}
+                >
+                  <Text style={[s.catTabText, { color: multiAddCat === cat ? "#fff" : colors.mutedForeground }]}>{cat}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <FlatList
+              data={MEAT_CUTS_BY_CATEGORY[multiAddCat] ?? []}
+              keyExtractor={item => item.name}
+              contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 20 }}
+              ItemSeparatorComponent={() => <View style={[s.cutSep, { backgroundColor: colors.border }]} />}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => setMultiPickedCut(item)}
+                  style={({ pressed }) => [
+                    s.cutRow,
+                    pressed && { opacity: 0.7 },
+                    multiPickedCut?.name === item.name && { backgroundColor: colors.primary + "12" },
+                  ]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.cutName, { color: colors.foreground }]}>{item.name}</Text>
+                    <Text style={[s.cutMeta, { color: colors.mutedForeground }]}>
+                      Target {item.targetTempF}°F · Cook at {item.cookTempF}°F · ~{item.minsPerLb} min/lb
+                    </Text>
+                  </View>
+                  {multiPickedCut?.name === item.name && (
+                    <Feather name="check-circle" size={18} color={colors.primary} />
+                  )}
+                </Pressable>
+              )}
+            />
+            {multiPickedCut && (
+              <View style={{ padding: 14, borderTopWidth: 1, borderTopColor: colors.border, gap: 12 }}>
+                <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                  <TextInput
+                    style={[s.input, { color: colors.foreground }]}
+                    placeholder={`Weight in lbs (optional)`}
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="decimal-pad"
+                    value={multiAddWeightInput}
+                    onChangeText={setMultiAddWeightInput}
+                  />
+                </View>
+                <Pressable
+                  onPress={() => {
+                    setMultiItems(prev => [...prev, { cut: multiPickedCut, weightLbs: multiAddWeightInput }]);
+                    setMultiAddOpen(false);
+                    setMultiPickedCut(null);
+                    setMultiAddWeightInput("");
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  style={[s.submitBtn, { backgroundColor: "#6C3BF5", borderRadius: colors.radius }]}
+                >
+                  <Feather name="plus" size={16} color="#fff" />
+                  <Text style={s.submitText}>Add {multiPickedCut.name}</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -1689,6 +2215,7 @@ const s = StyleSheet.create({
     paddingVertical: 8,
   },
   chipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  grillChipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
 
   grillStatsCard: {
     borderWidth: 1,
@@ -1971,6 +2498,28 @@ const s = StyleSheet.create({
   prepStepText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 20 },
   prepTipCard: { flexDirection: "row", gap: 10, padding: 12, alignItems: "flex-start", marginTop: 4 },
   prepTipText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 20 },
+
+  // Mode toggle
+  modeToggleRow: { flexDirection: "row", padding: 4, gap: 4, borderWidth: 1, marginBottom: 14 },
+  modeToggleBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9 },
+  modeToggleText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+
+  // Weather strip
+  weatherStrip: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 10 },
+  weatherText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  weatherTempText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+
+  // Multi-cook
+  multiEmptyBox: { borderWidth: 1, borderRadius: 10, padding: 20, alignItems: "center", gap: 10, marginBottom: 12 },
+  multiEmptyText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },
+  multiItemsList: { borderWidth: 1, borderRadius: 10, marginBottom: 10, overflow: "hidden" },
+  multiItemRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
+  multiItemInfo: { flex: 1 },
+  multiItemName: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
+  multiItemMeta: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  multiItemSep: { height: 1 },
+  multiAddBtn: { borderWidth: 1, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 13, marginBottom: 12 },
+  multiAddBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
 });
 
 const sp = StyleSheet.create({

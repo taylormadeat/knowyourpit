@@ -3,7 +3,7 @@ import { eq, and, desc, asc } from "drizzle-orm";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { db, cooksTable, grillsTable, temperatureReadingsTable, conversations, messages } from "@workspace/db";
-import { AiChatBody, AiPredictBody } from "@workspace/api-zod";
+import { AiChatBody, AiPredictBody, AiMultiCookBody } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../middlewares/requireAuth";
 import { computeSmokerInsights, formatSmokerProfile } from "../lib/smokerCalibration";
@@ -566,7 +566,7 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes } = parsed.data;
+  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF } = parsed.data;
 
   // ── Meat knowledge baseline ──────────────────────────────────────────
   const baseline = getMeatBaseline(foodType);
@@ -792,6 +792,7 @@ Weight: ${weightLbs ? `${weightLbs} lbs` : "unknown — use baseline minsPerLb w
 Cook temperature: ${cookTempF ? `${cookTempF}°F` : "unknown"}
 Target internal temp: ${targetTempF ? `${targetTempF}°F` : "unknown"}
 Preheat time (tracked separately, not in estimatedDurationMinutes): ${preheatMinutes} min
+${outdoorTempF != null ? `Outdoor ambient temperature: ${outdoorTempF}°F — factor this into your estimate. Cold weather (below 40°F) increases cook time and preheat duration; hot weather (above 90°F) may reduce time or cause temperature spikes.` : ""}
 ${desiredFinishAt ? `Desired serve time: ${new Date(desiredFinishAt).toLocaleString()}` : ""}
 ${predictSmokerProfile ? `\n${predictSmokerProfile}\n` : ""}
 ${grillContext}
@@ -885,6 +886,119 @@ ${userHistorySection}`;
     rationale: prediction.rationale || "Based on food type and weight.",
     tips: prediction.tips || [],
   });
+});
+
+router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
+  const parsed = AiMultiCookBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { items, serveAt, outdoorTempF } = parsed.data;
+
+  if (items.length < 2 || items.length > 5) {
+    res.status(400).json({ error: "Provide between 2 and 5 items." });
+    return;
+  }
+
+  const serveAtDate = new Date(serveAt);
+
+  // Build item lines for the prompt
+  const itemLines = items.map((item, i) => {
+    const preheat = item.preheatMinutes ?? 25;
+    const parts: string[] = [
+      `${i + 1}. ${item.foodType}`,
+      item.weightLbs ? `${item.weightLbs} lbs` : "weight unknown",
+      item.cookTempF ? `cook at ${item.cookTempF}°F` : "cook temp unknown",
+      item.targetTempF ? `target internal ${item.targetTempF}°F` : "",
+      `preheat ${preheat} min`,
+    ].filter(Boolean);
+    return parts.join(" · ");
+  }).join("\n");
+
+  // Fetch user context
+  const [cookHistory, smokerInsights] = await Promise.all([
+    buildUserCookHistory(req.userId),
+    computeSmokerInsights(req.userId),
+  ]);
+  const smokerProfile = formatSmokerProfile(smokerInsights);
+
+  const outdoorLine = outdoorTempF != null
+    ? `\nOutdoor ambient temperature: ${outdoorTempF}°F — factor this into all estimates. Cold weather increases cook times; hot weather may reduce them.\n`
+    : "";
+
+  const systemPrompt = `You are knowyourpit AI, a world-class BBQ pit master. You are sequencing a multi-cook session where everything must be ready to serve at the same time.
+
+For each item, calculate working BACKWARDS from the serveAt time:
+- restMinutes: how long the meat should rest after leaving the grill
+- estimatedDurationMinutes: active cook time only (meat on grill to off grill), NOT including preheat or rest
+- preheatMinutes: use the value provided per item
+- estimatedFinishAt = serveAt - restMinutes
+- meatOnAt = estimatedFinishAt - estimatedDurationMinutes
+- grillLightAt = meatOnAt - preheatMinutes
+
+All times must be ISO 8601 strings. All items finish resting at or just before serveAt.
+
+Return ONLY valid JSON, no markdown:
+{
+  "schedule": [
+    {
+      "foodType": "string",
+      "estimatedDurationMinutes": number,
+      "preheatMinutes": number,
+      "restMinutes": number,
+      "grillLightAt": "ISO string",
+      "meatOnAt": "ISO string",
+      "estimatedFinishAt": "ISO string",
+      "notes": "one specific tip for this item"
+    }
+  ],
+  "serveAt": "ISO string",
+  "summary": "One sentence summary of the full sequencing plan"
+}`;
+
+  const userPrompt = `Multi-cook session. Everything must be ready to serve at: ${serveAtDate.toLocaleString()}
+${outdoorLine}
+Items to cook:
+${itemLines}
+
+${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      max_completion_tokens: 2048,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    });
+
+    const content = response.choices[0]?.message?.content ?? "{}";
+    const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+
+    let result: { schedule: any[]; serveAt: string; summary: string };
+    try {
+      result = JSON.parse(cleaned);
+    } catch {
+      res.status(500).json({ error: "Could not parse AI response. Please try again." });
+      return;
+    }
+
+    // Sort schedule by grillLightAt ascending
+    const schedule = (result.schedule ?? []).sort(
+      (a: any, b: any) => new Date(a.grillLightAt).getTime() - new Date(b.grillLightAt).getTime()
+    );
+
+    res.json({
+      schedule,
+      serveAt: serveAtDate.toISOString(),
+      summary: result.summary ?? "",
+    });
+  } catch (err: any) {
+    console.error("multi-cook error:", err);
+    res.status(500).json({ error: "AI request failed. Please try again." });
+  }
 });
 
 router.get("/ai/smoker-profile", requireAuth, async (req: any, res): Promise<void> => {

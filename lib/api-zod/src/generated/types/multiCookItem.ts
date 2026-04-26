@@ -6,9 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface AiPredictBody {
-  /** @nullable */
-  grillId?: number | null;
+export interface MultiCookItem {
   foodType: string;
   /** @nullable */
   weightLbs?: number | null;
@@ -17,15 +15,10 @@ export interface AiPredictBody {
   /** @nullable */
   targetTempF?: number | null;
   /** @nullable */
-  desiredFinishAt?: Date | null;
+  grillId?: number | null;
   /**
-   * Minutes needed to start and bring the grill up to cook temperature
+   * Minutes to preheat the grill before putting meat on
    * @nullable
    */
   preheatMinutes?: number | null;
-  /**
-   * Current outdoor ambient temperature in Fahrenheit, used to adjust cook time estimates
-   * @nullable
-   */
-  outdoorTempF?: number | null;
 }

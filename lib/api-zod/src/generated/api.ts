@@ -917,6 +917,12 @@ export const AiPredictBody = zod.object({
     .describe(
       "Minutes needed to start and bring the grill up to cook temperature",
     ),
+  outdoorTempF: zod
+    .number()
+    .nullish()
+    .describe(
+      "Current outdoor ambient temperature in Fahrenheit, used to adjust cook time estimates",
+    ),
 });
 
 export const AiPredictResponse = zod.object({
@@ -967,6 +973,74 @@ export const AiPredictResponse = zod.object({
   confidence: zod.enum(["low", "medium", "high"]),
   rationale: zod.string(),
   tips: zod.array(zod.string()),
+});
+
+/**
+ * @summary Sequence multiple cooks to all be ready at the same serve time
+ */
+export const aiMultiCookBodyItemsMin = 2;
+export const aiMultiCookBodyItemsMax = 5;
+
+export const AiMultiCookBody = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        foodType: zod.string(),
+        weightLbs: zod.number().nullish(),
+        cookTempF: zod.number().nullish(),
+        targetTempF: zod.number().nullish(),
+        grillId: zod.number().nullish(),
+        preheatMinutes: zod
+          .number()
+          .nullish()
+          .describe("Minutes to preheat the grill before putting meat on"),
+      }),
+    )
+    .min(aiMultiCookBodyItemsMin)
+    .max(aiMultiCookBodyItemsMax),
+  serveAt: zod.coerce
+    .date()
+    .describe("Target time when all food should be ready to serve"),
+  outdoorTempF: zod
+    .number()
+    .nullish()
+    .describe("Current outdoor ambient temperature in Fahrenheit"),
+});
+
+export const AiMultiCookResponse = zod.object({
+  schedule: zod
+    .array(
+      zod.object({
+        foodType: zod.string(),
+        estimatedDurationMinutes: zod
+          .number()
+          .describe(
+            "Active cook time only (meat on grill to off grill), excluding preheat and rest",
+          ),
+        preheatMinutes: zod.number(),
+        restMinutes: zod
+          .number()
+          .describe("Recommended rest time after pulling from grill"),
+        grillLightAt: zod.coerce
+          .date()
+          .describe("When to light\/start the grill"),
+        meatOnAt: zod.coerce
+          .date()
+          .describe("When to place the meat on the grill"),
+        estimatedFinishAt: zod.coerce
+          .date()
+          .describe("When meat comes off the grill (before rest)"),
+        notes: zod
+          .string()
+          .optional()
+          .describe("One sentence of specific advice for this item"),
+      }),
+    )
+    .describe("All cook items sorted by grillLightAt (earliest first)"),
+  serveAt: zod.coerce.date(),
+  summary: zod
+    .string()
+    .describe("One sentence summary of the overall sequencing plan"),
 });
 
 /**
