@@ -30,6 +30,14 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "#ef4444",
 };
 
+const VERDICT_BADGE: Record<string, { label: string; color: string; icon: keyof typeof Feather.glyphMap }> = {
+  perfect:     { label: "Perfect",    color: "#22c55e", icon: "award" },
+  good:        { label: "Good",       color: "#14b8a6", icon: "thumbs-up" },
+  needs_work:  { label: "Needs Work", color: "#eab308", icon: "tool" },
+  overcooked:  { label: "Overcooked", color: "#ef4444", icon: "thermometer" },
+  undercooked: { label: "Undercooked",color: "#ef4444", icon: "thermometer" },
+};
+
 type SortKey = "date-desc" | "date-asc" | "rating-desc" | "rating-asc";
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
@@ -295,6 +303,17 @@ export default function CooksScreen() {
             return (
               <View style={s.avgBadge}>
                 <Text style={s.avgBadgeText}>★ {avg.toFixed(1)}</Text>
+              </View>
+            );
+          })()}
+          {(() => {
+            const verdict: string | undefined = item.analysisResult?.assessment?.verdict;
+            const cfg = verdict ? VERDICT_BADGE[verdict] : null;
+            if (!cfg) return null;
+            return (
+              <View style={[s.verdictBadge, { backgroundColor: cfg.color + "22" }]}>
+                <Feather name={cfg.icon} size={10} color={cfg.color} />
+                <Text style={[s.verdictBadgeText, { color: cfg.color }]}>{cfg.label}</Text>
               </View>
             );
           })()}
@@ -691,6 +710,8 @@ const s = StyleSheet.create({
   badgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   avgBadge: { backgroundColor: "#eab30822", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   avgBadgeText: { fontSize: 12, fontFamily: "Inter_700Bold", color: "#eab308" },
+  verdictBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
+  verdictBadgeText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   empty: {
     borderWidth: 1, marginTop: 40, padding: 36,
