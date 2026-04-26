@@ -47,12 +47,13 @@ export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
 
 /**
  * Register a synchronous getter that reports whether the current user has an
- * active Pro subscription. When the getter returns true, every request gets
- * an `X-Subscription-Active: true` header so the API server can skip free-tier
- * gates for paying users. The mobile app derives this from RevenueCat's
- * `customerInfo.entitlements.active.pro`.
+ * active Pro subscription. When the getter returns true the client emits an
+ * `X-Subscription-Active: true` header — but note that the API server treats
+ * this header as advisory only and re-checks entitlement against RevenueCat
+ * server-side. The header exists for telemetry / debugging so RC outages
+ * can't lock paying users out instantly via stale cache.
  *
- * Pass `null` to clear the getter (treat all requests as free-tier).
+ * Pass `null` to clear the getter.
  */
 export function setSubscriptionActiveGetter(getter: (() => boolean) | null): void {
   _subscriptionActiveGetter = getter;

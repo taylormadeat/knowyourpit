@@ -58,7 +58,7 @@ router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
 
   // Free-tier cap: lifetime total of FREE_COOK_LIMIT cooks. Pro subscribers and
   // any request when PAYWALL_ENABLED=false bypass this check entirely.
-  if (!userBypassesPaywall(req)) {
+  if (!(await userBypassesPaywall(req))) {
     const existingCount = await countCooksForUser(req.userId);
     if (existingCount >= FREE_COOK_LIMIT) {
       respondPaywall(res, {

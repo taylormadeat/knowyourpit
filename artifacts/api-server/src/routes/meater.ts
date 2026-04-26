@@ -48,7 +48,7 @@ router.post("/meater/link", requireAuth, async (req: any, res): Promise<void> =>
   // MEATER linking is a Pro-only feature. Already-linked users keep working
   // (status/readings endpoints stay open) so they can read existing probes
   // even if their subscription lapses, but they can't relink without Pro.
-  if (!userBypassesPaywall(req)) {
+  if (!(await userBypassesPaywall(req))) {
     respondPaywall(res, {
       code: "pro_required",
       feature: "meater_link",

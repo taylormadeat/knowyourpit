@@ -25,7 +25,7 @@ router.get("/paywall/usage", requireAuth, async (req: any, res): Promise<void> =
     countAiAnalyzesToday(req.userId),
   ]);
 
-  const bypass = userBypassesPaywall(req);
+  const bypass = await userBypassesPaywall(req);
   const resetsAt = startOfNextUtcDay().toISOString();
 
   res.json({

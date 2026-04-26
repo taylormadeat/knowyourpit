@@ -266,7 +266,7 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, r
   // successful analysis (see recordAiAnalyzeEvent below) so failed runs
   // don't burn the user's quota. This is the actual analyzer endpoint the
   // mobile UI hits via useAnalyzeCook (cooks/log.tsx + cooks/[id].tsx).
-  const bypass = userBypassesPaywall(req);
+  const bypass = await userBypassesPaywall(req);
   if (!bypass) {
     const userId = (req as AuthedRequest).userId;
     const used = await countAiAnalyzesToday(userId);

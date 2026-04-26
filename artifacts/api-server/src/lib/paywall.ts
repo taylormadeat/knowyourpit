@@ -1,37 +1,25 @@
 import type { Request, Response } from "express";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { db, cooksTable, conversations, messages, aiAnalyzeEvents } from "@workspace/db";
+import { listCustomerActiveEntitlements, listEntitlements } from "@replit/revenuecat-sdk";
+import { asListItems, getRevenueCatClient } from "./revenuecat";
 
-/**
- * ──────────────────────────────────────────────────────────────────────────────
- * knowyourpit paywall helpers
- * ──────────────────────────────────────────────────────────────────────────────
- *
- * Free tier limits:
- *   - 5 cooks per account (lifetime)
- *   - 5 AI chat messages per UTC day
- *   - 3 AI image analyzes per UTC day
- *
- * Pro features (entirely gated):
- *   - Multi-Cook Sequencer (POST /ai/multi-cook)
- *   - MEATER + ThermoWorks linking (POST /meater/link, POST /thermoworks/link)
- *   - AI Home Insights (GET /ai/home-insights)
- *   - Cook Quality Analytics (Profile screen)
- *
- * Kill-switch:
- *   - Setting PAYWALL_ENABLED=false disables all gates server-side. Use this if
- *     payment processing breaks in production so paying & free users can keep
- *     using the app while we investigate.
- *
- * Subscription verification:
- *   - The mobile client tells the server its current entitlement via the
- *     `X-Subscription-Active: true` header. RevenueCat is the source of truth
- *     on the client (Purchases.getCustomerInfo). The grant/revoke CLI scripts
- *     write to RevenueCat directly so granted users automatically appear as
- *     subscribed on their next API call. A determined attacker could spoof the
- *     header from outside the app, but for launch this trade-off is acceptable
- *     (web-hook-based authoritative verification is tracked as follow-up work).
- */
+// knowyourpit paywall helpers — server-authoritative.
+//
+// Free tier:
+//   - 5 cooks per account (lifetime)
+//   - 5 AI chat messages per UTC day
+//   - 3 AI image analyzes per UTC day
+// Pro-only features: Multi-Cook Sequencer, MEATER/ThermoWorks linking,
+// AI Home Insights, Cook Quality Analytics.
+// Kill-switch: PAYWALL_ENABLED=false bypasses every gate (operational fallback
+// if billing breaks).
+//
+// Subscription verification is fully server-side: we hit the RevenueCat REST
+// API and check whether the user has the `pro` entitlement active. Results
+// are cached per-user for 60 seconds to keep gate latency low. The mobile
+// client may still send `X-Subscription-Active: true` as a UI hint, but the
+// header is NEVER trusted for authorization decisions on this server.
 
 export const FREE_COOK_LIMIT = 5;
 export const FREE_AI_CHAT_DAILY_LIMIT = 5;
@@ -50,18 +38,108 @@ export function isPaywallEnabled(): boolean {
   return !(lower === "false" || lower === "0" || lower === "off" || lower === "no");
 }
 
-/**
- * True when the request is from a Pro subscriber (per the client header) or
- * the kill-switch has globally disabled the paywall. When this returns true,
- * gates should be skipped entirely.
- */
-export function userBypassesPaywall(req: Request): boolean {
-  if (!isPaywallEnabled()) return true;
-  const header = req.headers["x-subscription-active"];
-  if (typeof header === "string" && header.trim().toLowerCase() === "true") {
-    return true;
+// Per-user TTL cache for "is this user Pro according to RevenueCat?". The
+// RC REST API is the source of truth; we just memoize for 60s to keep
+// gated-route latency low. CLI grant/revoke flows are picked up on the next
+// cache miss without any explicit invalidation.
+const PRO_CACHE_TTL_MS = 60_000;
+const proCache = new Map<string, { isPro: boolean; expiresAt: number }>();
+
+const PRO_ENTITLEMENT_LOOKUP_KEY = "pro";
+
+// RC v2 customer.active_entitlement payload is `{ entitlement_id, expires_at }`
+// — it does NOT echo the entitlement's lookup_key. We resolve our `pro`
+// lookup_key to a project-scoped entitlement id once and cache it for the
+// lifetime of the process (the id is stable per project). The grant/revoke
+// CLI scripts use the same resolution pattern.
+let proEntitlementIdCache: string | null = null;
+
+async function resolveProEntitlementId(projectId: string): Promise<string | null> {
+  if (proEntitlementIdCache) return proEntitlementIdCache;
+  const client = await getRevenueCatClient();
+  const list = await listEntitlements({ client, path: { project_id: projectId } });
+  if (list.error) {
+    console.error("RevenueCat listEntitlements failed:", list.error);
+    return null;
   }
-  return false;
+  const match = asListItems<{ id: string; lookup_key: string }>(list.data).find(
+    (e) => e.lookup_key === PRO_ENTITLEMENT_LOOKUP_KEY,
+  );
+  if (!match) {
+    console.error(
+      `RevenueCat entitlement "${PRO_ENTITLEMENT_LOOKUP_KEY}" not found in project ${projectId}`,
+    );
+    return null;
+  }
+  proEntitlementIdCache = match.id;
+  return match.id;
+}
+
+interface ActiveEntitlement {
+  entitlement_id?: string;
+  expires_at?: number | null;
+}
+
+async function fetchUserHasProFromRevenueCat(userId: string): Promise<boolean> {
+  const projectId = process.env.REVENUECAT_PROJECT_ID;
+  if (!projectId) {
+    // Without REVENUECAT_PROJECT_ID we cannot ask RC; treat all users as
+    // free-tier (gates apply). This is a deliberate fail-closed default —
+    // misconfigured deployments should not silently unlock features.
+    return false;
+  }
+  const proEntitlementId = await resolveProEntitlementId(projectId);
+  if (!proEntitlementId) return false;
+  const client = await getRevenueCatClient();
+  const result = await listCustomerActiveEntitlements({
+    client,
+    path: { project_id: projectId, customer_id: userId },
+  });
+  if (result.error) {
+    // RC 404s when the customer record doesn't exist yet (user has never
+    // launched the app or completed a purchase). That's a free-tier user.
+    const status = (result.response as { status?: number } | undefined)?.status;
+    if (status === 404) return false;
+    // Any other RC failure: fail closed (treat as free) and surface a log.
+    console.error("RevenueCat listCustomerActiveEntitlements failed:", result.error);
+    return false;
+  }
+  const items = asListItems<ActiveEntitlement>(result.data);
+  const now = Date.now();
+  return items.some((ent) => {
+    if (ent.entitlement_id !== proEntitlementId) return false;
+    if (ent.expires_at == null) return true;
+    return ent.expires_at > now;
+  });
+}
+
+export async function getUserHasProEntitlement(userId: string): Promise<boolean> {
+  const now = Date.now();
+  const cached = proCache.get(userId);
+  if (cached && cached.expiresAt > now) return cached.isPro;
+  let isPro = false;
+  try {
+    isPro = await fetchUserHasProFromRevenueCat(userId);
+  } catch (err) {
+    console.error("getUserHasProEntitlement: RC lookup threw:", err);
+    isPro = false;
+  }
+  proCache.set(userId, { isPro, expiresAt: now + PRO_CACHE_TTL_MS });
+  return isPro;
+}
+
+export function invalidateProCache(userId: string): void {
+  proCache.delete(userId);
+}
+
+// Server-authoritative bypass check. Returns true when the kill switch is
+// off OR the user has the `pro` entitlement per RevenueCat. The
+// X-Subscription-Active client header is intentionally ignored.
+export async function userBypassesPaywall(req: Request): Promise<boolean> {
+  if (!isPaywallEnabled()) return true;
+  const userId = (req as any).userId as string | undefined;
+  if (!userId) return false;
+  return getUserHasProEntitlement(userId);
 }
 
 /** Returns the start of the current UTC day. */

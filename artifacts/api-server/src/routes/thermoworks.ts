@@ -306,7 +306,7 @@ function isChannelLive(c: ChannelReading): boolean {
 router.post("/thermoworks/link", requireAuth, async (req: any, res): Promise<void> => {
   // ThermoWorks linking is a Pro-only feature. Already-linked accounts keep
   // working via status/readings until the user explicitly unlinks.
-  if (!userBypassesPaywall(req)) {
+  if (!(await userBypassesPaywall(req))) {
     respondPaywall(res, {
       code: "pro_required",
       feature: "thermoworks_link",

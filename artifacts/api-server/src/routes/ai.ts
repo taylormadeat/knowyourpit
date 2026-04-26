@@ -252,7 +252,7 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
   const { message, context, sessionId: requestedSessionId } = parsed.data;
 
   // Free-tier daily AI chat cap.
-  if (!userBypassesPaywall(req)) {
+  if (!(await userBypassesPaywall(req))) {
     const used = await countAiChatMessagesToday(req.userId);
     if (used >= FREE_AI_CHAT_DAILY_LIMIT) {
       respondPaywall(res, {
@@ -341,7 +341,7 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
 
   // Free-tier daily AI chat cap. Check BEFORE setting NDJSON headers so the
   // mobile client can read a normal JSON 402 response.
-  if (!userBypassesPaywall(req)) {
+  if (!(await userBypassesPaywall(req))) {
     const used = await countAiChatMessagesToday(req.userId);
     if (used >= FREE_AI_CHAT_DAILY_LIMIT) {
       respondPaywall(res, {
@@ -939,7 +939,7 @@ ${userHistorySection}`;
 
 router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
   // Multi-Cook Sequencer is a Pro-only feature.
-  if (!userBypassesPaywall(req)) {
+  if (!(await userBypassesPaywall(req))) {
     respondPaywall(res, {
       code: "pro_required",
       feature: "multi_cook",
@@ -1117,7 +1117,7 @@ function getPitMasterLabel(score: number): string {
 router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void> => {
   // Home insights (PitMaster Score breakdown + AI tips) are Pro-only.
   // Free users see a locked card on the home screen instead of real data.
-  if (!userBypassesPaywall(req)) {
+  if (!(await userBypassesPaywall(req))) {
     respondPaywall(res, {
       code: "pro_required",
       feature: "home_insights",
