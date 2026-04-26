@@ -20,6 +20,8 @@ import { useTopInset } from "@/hooks/useTopInset";
 import { LogoBackground } from "@/components/LogoBackground";
 import { useGetDashboardSummary, useGetRecentCooks } from "@workspace/api-client-react";
 import { useHomeInsights } from "@/hooks/useHomeInsights";
+import { useSubscription } from "@/contexts/SubscriptionContext";
+import { usePaywall } from "@/contexts/PaywallContext";
 
 const logoImg = require("@/assets/images/logo.png");
 
@@ -133,6 +135,8 @@ export default function HomeScreen() {
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
   const { data: recentCooks, isLoading: cooksLoading } = useGetRecentCooks();
   const { data: insights, isLoading: insightsLoading } = useHomeInsights();
+  const { isPro } = useSubscription();
+  const { showPaywall } = usePaywall();
 
   const firstName =
     (user?.unsafeMetadata?.displayName as string | undefined) ||
@@ -332,8 +336,73 @@ export default function HomeScreen() {
           </Pressable>
         )}
 
-        {/* ── PitMaster Score ── */}
-        {(insights || insightsLoading) && (
+        {/* ── PitMaster Score (Pro-only) ── */}
+        {!isPro && (
+          <>
+            <View style={s.sectionHeader}>
+              <View style={s.sectionAccent} />
+              <Text style={[s.sectionTitle, { color: colors.foreground }]}>PitMaster Score</Text>
+            </View>
+            <Pressable
+              onPress={() =>
+                showPaywall({ trigger: "pro_required", featureName: "PitMaster Score" })
+              }
+              style={({ pressed }) => [
+                {
+                  marginHorizontal: 16,
+                  marginBottom: 16,
+                  padding: 18,
+                  borderRadius: colors.radius,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.card,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 14,
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}
+            >
+              <View
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
+                  backgroundColor: colors.muted,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Feather name="lock" size={22} color={colors.mutedForeground} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontFamily: "Inter_600SemiBold",
+                    fontSize: 15,
+                    color: colors.foreground,
+                  }}
+                >
+                  Unlock your PitMaster Score
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 12.5,
+                    color: colors.mutedForeground,
+                    marginTop: 3,
+                    lineHeight: 17,
+                  }}
+                >
+                  Get a personalized score, AI tips, and weekly insights with Pro.
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+            </Pressable>
+          </>
+        )}
+
+        {isPro && (insights || insightsLoading) && (
           <>
             <View style={s.sectionHeader}>
               <View style={s.sectionAccent} />

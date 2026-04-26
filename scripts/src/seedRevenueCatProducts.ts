@@ -169,7 +169,7 @@ async function findOrCreateProduct(
       display_name: spec.title,
       title: spec.title,
       subscription: { duration: spec.duration },
-    } as any,
+    },
   });
   if (created.error || !created.data) {
     throw describeApiError(`createProduct(${spec.storeIdentifier}) failed`, created.error);
@@ -187,7 +187,7 @@ async function ensureProductsAttachedToEntitlement(
   const result = await attachProductsToEntitlement({
     client,
     path: { project_id: projectId, entitlement_id: entitlementId },
-    body: { product_ids: productIds } as any,
+    body: { product_ids: productIds },
   });
   if (result.error) {
     // RC returns 409 if any are already attached — surface but don't fail.
@@ -214,7 +214,7 @@ async function findOrCreateOffering(client: Client, projectId: string): Promise<
   const created = await createOffering({
     client,
     path: { project_id: projectId },
-    body: { lookup_key: OFFERING_LOOKUP_KEY, display_name: OFFERING_DISPLAY_NAME } as any,
+    body: { lookup_key: OFFERING_LOOKUP_KEY, display_name: OFFERING_DISPLAY_NAME },
   });
   if (created.error || !created.data) {
     throw describeApiError("createOffering failed", created.error);
@@ -268,7 +268,7 @@ async function ensureProductAttachedToPackage(
   const result = await attachProductsToPackage({
     client,
     path: { project_id: projectId, package_id: packageId },
-    body: { products: [{ product_id: productId, eligibility_criteria: "all" }] } as any,
+    body: { products: [{ product_id: productId, eligibility_criteria: "all" }] },
   });
   if (result.error) {
     const msg = JSON.stringify(result.error);

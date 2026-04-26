@@ -270,7 +270,8 @@ export default function ProfileScreen() {
           ))}
         </View>
 
-        {/* Cook Quality — collapsible */}
+        {/* Cook Quality — collapsible. Visible to all users; analytics body is
+            Pro-only (free users see a locked overlay with upgrade CTA). */}
         {allRatedCooks.length > 0 && (
           <>
             <Pressable
@@ -281,6 +282,31 @@ export default function ProfileScreen() {
               <Text style={[s.sectionTitle, { color: colors.foreground, flex: 1 }]}>
                 Your Cook Quality
               </Text>
+              {!isPro && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 4,
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 999,
+                    backgroundColor: colors.primary + "22",
+                    marginRight: 6,
+                  }}
+                >
+                  <Feather name="lock" size={10} color={colors.primary} />
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontFamily: "Inter_600SemiBold",
+                      color: colors.primary,
+                    }}
+                  >
+                    PRO
+                  </Text>
+                </View>
+              )}
               <Feather
                 name={qualityExpanded ? "chevron-up" : "chevron-down"}
                 size={16}
@@ -288,7 +314,69 @@ export default function ProfileScreen() {
               />
             </Pressable>
 
-            {qualityExpanded && (
+            {qualityExpanded && !isPro && (
+              <Pressable
+                onPress={() =>
+                  showPaywall({
+                    trigger: "pro_required",
+                    featureName: "Cook Quality Analytics",
+                  })
+                }
+                style={({ pressed }) => [
+                  {
+                    marginHorizontal: 16,
+                    marginTop: 8,
+                    padding: 18,
+                    borderRadius: colors.radius,
+                    backgroundColor: colors.card,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 14,
+                    opacity: pressed ? 0.85 : 1,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    backgroundColor: colors.muted,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Feather name="lock" size={20} color={colors.mutedForeground} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 14,
+                      color: colors.foreground,
+                    }}
+                  >
+                    Unlock Cook Quality Analytics
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: "Inter_400Regular",
+                      fontSize: 12,
+                      color: colors.mutedForeground,
+                      marginTop: 2,
+                      lineHeight: 16,
+                    }}
+                  >
+                    See tenderness, bark, and flavor trends across all your cooks with Pro.
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+              </Pressable>
+            )}
+
+            {qualityExpanded && isPro && (
               <>
                 <View style={s.pillRow}>
                   {DATE_RANGE_OPTIONS.map((opt) => {

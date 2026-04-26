@@ -185,9 +185,35 @@ export default function DevicesScreen() {
                 <Feather name="thermometer" size={20} color="#FF6B2B" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[s.deviceName, { color: colors.foreground }]}>
-                  MEATER Thermometer
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={[s.deviceName, { color: colors.foreground }]}>
+                    MEATER Thermometer
+                  </Text>
+                  {!isPro && !meaterStatus?.linked && (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 3,
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                        borderRadius: 999,
+                        backgroundColor: colors.primary + "22",
+                      }}
+                    >
+                      <Feather name="lock" size={9} color={colors.primary} />
+                      <Text
+                        style={{
+                          fontSize: 9.5,
+                          fontFamily: "Inter_600SemiBold",
+                          color: colors.primary,
+                        }}
+                      >
+                        PRO
+                      </Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={[s.deviceSub, { color: colors.mutedForeground }]}>
                   {meaterLoading
                     ? "Checking…"
@@ -333,9 +359,35 @@ export default function DevicesScreen() {
                 <Feather name="thermometer" size={20} color={THERMOWORKS_COLOR} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[s.deviceName, { color: colors.foreground }]}>
-                  ThermoWorks Cloud
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={[s.deviceName, { color: colors.foreground }]}>
+                    ThermoWorks Cloud
+                  </Text>
+                  {!isPro && !thermoworksStatus?.linked && (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 3,
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                        borderRadius: 999,
+                        backgroundColor: colors.primary + "22",
+                      }}
+                    >
+                      <Feather name="lock" size={9} color={colors.primary} />
+                      <Text
+                        style={{
+                          fontSize: 9.5,
+                          fontFamily: "Inter_600SemiBold",
+                          color: colors.primary,
+                        }}
+                      >
+                        PRO
+                      </Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={[s.deviceSub, { color: colors.mutedForeground }]}>
                   {thermoworksLoading
                     ? "Checking…"
