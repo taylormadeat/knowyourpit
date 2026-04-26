@@ -1,4 +1,4 @@
-import { Flame, Clock, Brain, Activity, ChefHat, Camera, LineChart, Bell } from "lucide-react";
+import { Flame, Clock, Brain, Activity, ChefHat, Camera, LineChart, Bell, BarChart2, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
 
@@ -19,7 +19,7 @@ export default function Home() {
         </div>
 
         <div className="container relative z-10 px-4 flex flex-col items-center text-center">
-          <h1 className="sr-only">KnowYourPit — AI BBQ assistant for low-and-slow cooks</h1>
+          <h1 className="sr-only">KnowYourPit — AI that reads your cook data and tells you what it means</h1>
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -39,7 +39,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           >
-            KnowYourPit is your AI barbecue coach. It watches every temperature, reads every stall, and tells you exactly what to do at each stage of the cook — wrap, adjust, hold, or pull. No more guessing at the pit.
+            Every cook generates data. KnowYourPit's AI reads it — temperatures, stalls, deviations, decisions — and tells you exactly what it means. For the championship pitmaster, that's a precise debrief on how close you hit your plan. For the backyard cook, that's the confidence to nail a cook you've never done before.
           </motion.p>
 
           <motion.div
@@ -69,10 +69,10 @@ export default function Home() {
                 The App
               </span>
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-center md:text-left">
-                Your pit, in your pocket.
+                Same data. Same AI. Different insight for every pitmaster.
               </h2>
               <p className="text-muted-foreground text-base md:text-lg text-center md:text-left mb-6 leading-relaxed">
-                Your personal AI pitmaster, always on call. PitMaster coaches you through every stage of the cook — when to wrap, when to add fuel, when to rest — so you stop guessing and start nailing it every time.
+                The AI watches every probe, reads every curve, and gives you back something useful — whether that's a debrief on how your competition brisket tracked against your plan, or step-by-step guidance through your first pork shoulder. What it tells you depends on who you are.
               </p>
               <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
                 <div className="rounded-lg border border-white/10 bg-card/40 p-3 text-sm">
@@ -84,8 +84,8 @@ export default function Home() {
                   <div className="text-muted-foreground text-xs">Pit temp</div>
                 </div>
                 <div className="col-span-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
-                  <div className="text-foreground font-medium">Wrap in ~22 min</div>
-                  <div className="text-muted-foreground text-xs">Stall detected. Spritz now.</div>
+                  <div className="text-foreground font-medium">8°F below plan at hour 4</div>
+                  <div className="text-muted-foreground text-xs">Stall running long. Wrap now to recover.</div>
                 </div>
               </div>
             </div>
@@ -115,13 +115,13 @@ export default function Home() {
         <div className="container px-4">
           <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4">
-              Inside the app
+              The AI in action
             </span>
             <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-              Real screens, real cooks.
+              What the AI gives back.
             </h2>
             <p className="text-muted-foreground text-base md:text-lg">
-              Every screen below is straight out of the live app — no mockups, no stock photos.
+              Every screen shows what KnowYourPit does with your cook data — analysis, feedback, and decisions returned to you in plain language.
             </p>
           </div>
 
@@ -130,31 +130,31 @@ export default function Home() {
               {
                 src: "app-image-scanner.png",
                 title: "Snap any thermometer",
-                caption: "Upload a photo of an analog gauge or thermal camera — the AI reads the temperature graph and grades the cook.",
+                caption: "Point your camera at any analog gauge or thermal image. The AI reads the temperature, grades the cook stage, and adds it to your session — no smart probe required.",
                 alt: "PitMaster Image Scanner reading a temperature graph from photos",
               },
               {
                 src: "app-pitmaster-plan.png",
-                title: "AI cook schedule",
-                caption: "Tell PitMaster what you're cooking. It builds a hour-by-hour plan with wrap timing and serve time.",
+                title: "A plan built for your pit",
+                caption: "Tell PitMaster what you're cooking and when you want to serve. It builds an hour-by-hour schedule around your specific smoker, your history, and today's conditions — not a generic timeline.",
                 alt: "PitMaster Plan screen showing a suggested cook schedule for spare ribs",
               },
               {
                 src: "app-decisions.png",
-                title: "What to do next",
-                caption: "Mid-cook, get ranked next moves — hold steady, wrap now, raise pit temp — with the why behind each one.",
+                title: "Decisions from your data",
+                caption: "The AI reads your live temperature curve and ranks your next moves — hold steady, wrap now, raise pit temp — with the reasoning behind each one. Not generic advice. Decisions from what's happening in your pit right now.",
                 alt: "Decisions screen showing Hold Steady, Wrap Now, and Raise Pit Temp options",
               },
               {
                 src: "app-plan-cook.png",
                 title: "Built-in prep guides",
-                caption: "Each cut comes with a prep guide so you know exactly how to trim, season, and time it.",
+                caption: "Every cut comes with a prep guide so you know exactly how to trim, season, and time it before the fire is even lit.",
                 alt: "Plan a Cook screen showing a prep guide for St. Louis spare ribs",
               },
               {
                 src: "app-cook-log.png",
-                title: "Every cook, scored",
-                caption: "Tenderness, flavor, and bark ratings on every session so PitMaster gets sharper over time.",
+                title: "Your cook, debriefed",
+                caption: "After every session, the AI compares your result to your plan — what you hit, where you drifted, and what the data says about why. Rate tenderness, flavor, and bark and get a full picture of the cook.",
                 alt: "Cook Log screen listing past cooks with star ratings",
               },
             ].map((shot, i) => (
@@ -196,10 +196,10 @@ export default function Home() {
               How it works
             </span>
             <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-              Three steps to a better cook.
+              Light the fire. The AI does the reading.
             </h2>
             <p className="text-muted-foreground text-base md:text-lg">
-              No docs to read. Just light the fire and start.
+              No setup docs. No learning curve. Just cook.
             </p>
           </div>
 
@@ -208,20 +208,20 @@ export default function Home() {
               {
                 num: "01",
                 icon: ChefHat,
-                title: "Set up your pit",
-                desc: "Tell us what you're cooking on — Kamado, offset, pellet, kettle. Pair your MEATER or ThermoWorks if you have one. Takes about 60 seconds.",
+                title: "Tell it about your pit",
+                desc: "Kamado, offset, pellet, kettle — choose your smoker. Pair your MEATER or ThermoWorks if you have one. Takes about 60 seconds and the AI starts learning how your rig runs.",
               },
               {
                 num: "02",
                 icon: Camera,
                 title: "Start the cook",
-                desc: "Pick a recipe or just enter what you're cooking. Snap a photo of any analog gauge if you don't have a smart probe. We'll log everything for you.",
+                desc: "Pick a cut or just describe what you're making. Snap a photo of any analog gauge if you don't have a smart probe. The AI begins reading your data from the first temperature.",
               },
               {
                 num: "03",
-                icon: Bell,
-                title: "Cook smarter, not harder",
-                desc: "Get pinged when it's time to wrap, spritz, add fuel, or pull. The AI watches your stall, your weather, and your grill so you don't have to.",
+                icon: BarChart2,
+                title: "Get the insight back",
+                desc: "The AI watches your stall, your weather, and your grill — and returns real decisions, not reminders. Championship pitmasters get a plan debrief. First-timers get the confidence to pull it off.",
               },
             ].map((step, i) => (
               <motion.div
@@ -248,7 +248,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── Serious tools ─────────────────────────────────────────────── */}
+      {/* ─── Your pit talks ────────────────────────────────────────────── */}
       <section className="py-16 md:py-24 bg-background">
         <div className="container px-4">
           <div className="grid md:grid-cols-2 gap-12 md:gap-16 items-center">
@@ -263,17 +263,17 @@ export default function Home() {
 
             <div className="flex flex-col gap-6 md:gap-8">
               <div>
-                <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">Serious BBQ requires serious tools.</h2>
+                <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">Your pit talks. KnowYourPit listens.</h2>
                 <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
-                  You wouldn't use a cheap thermometer on a $90 piece of meat. Why use a generic timer app? KnowYourPit is built specifically for low-and-slow cooking.
+                  Every cook generates data — temperatures, timing, decisions, results. The AI reads all of it and gives it back as something useful: a debrief, a recommendation, a warning, or a plan. For the pitmaster who's been doing this for 20 years, and the one firing up for the first time.
                 </p>
               </div>
 
               <div className="grid gap-4 md:gap-6">
                 {[
-                  { icon: Brain, title: "AI Cook Assistant", desc: "It learns how your smoker behaves in different weather and predicts the stall before it happens." },
-                  { icon: Activity, title: "Hardware Agnostic", desc: "Connects to MEATER Cloud, ThermoWorks, or you can just snap a photo of any thermometer." },
-                  { icon: Clock, title: "Fuel & Wrap Reminders", desc: "Get alerted precisely when it's time to spritz, wrap in butcher paper, or add more hickory." }
+                  { icon: Brain, title: "AI Data Analysis", desc: "Reads your temperature curves, detects stalls before they peak, and compares every cook against your plan. Returns real feedback grounded in what actually happened — not generic tips." },
+                  { icon: Activity, title: "Hardware Agnostic", desc: "Connects to MEATER Cloud, ThermoWorks, or you can snap a photo of any analog gauge. Any probe, any pit, any setup." },
+                  { icon: Zap, title: "Insight for Every Level", desc: "For the championship pitmaster: a precise session debrief and plan comparison after every cook. For the first-time smoker: step-by-step decisions built on what your pit is actually doing right now." }
                 ].map((feature, i) => (
                   <motion.div
                     key={i}
@@ -304,22 +304,22 @@ export default function Home() {
           <img src={`${BASE}glowing-coals.png`} className="w-full h-full object-cover" alt="" />
         </div>
         <div className="container relative z-10 px-4 text-center">
-          <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-10 md:mb-12">The proof is in the bark.</h2>
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-10 md:mb-12">The data doesn't lie.</h2>
           <div className="grid md:grid-cols-3 gap-5 md:gap-8">
+            <div className="p-6 md:p-8 rounded-2xl bg-background border border-white/10 flex flex-col items-center text-center gap-3 md:gap-4">
+              <div className="text-4xl font-black text-primary">Live</div>
+              <h3 className="font-bold">Instant Analysis</h3>
+              <p className="text-sm text-muted-foreground">The AI reads your temperature data mid-cook and returns feedback in seconds — while there's still time to act on it.</p>
+            </div>
             <div className="p-6 md:p-8 rounded-2xl bg-background border border-white/10 flex flex-col items-center text-center gap-3 md:gap-4">
               <div className="text-4xl font-black text-primary">100+</div>
               <h3 className="font-bold">Grill Profiles</h3>
               <p className="text-sm text-muted-foreground">From Kamado Joes to custom 500-gallon offsets. The AI knows how they run.</p>
             </div>
             <div className="p-6 md:p-8 rounded-2xl bg-background border border-white/10 flex flex-col items-center text-center gap-3 md:gap-4">
-              <div className="text-4xl font-black text-primary">24/7</div>
-              <h3 className="font-bold">Cloud Sync</h3>
-              <p className="text-sm text-muted-foreground">Your cook history, recipes, and notes synced instantly to all your devices.</p>
-            </div>
-            <div className="p-6 md:p-8 rounded-2xl bg-background border border-white/10 flex flex-col items-center text-center gap-3 md:gap-4">
-              <div className="text-4xl font-black text-primary">Smart</div>
-              <h3 className="font-bold">Vision Scanning</h3>
-              <p className="text-sm text-muted-foreground">No smart probe? Snap a pic of your analog gauge and let the AI log it.</p>
+              <div className="text-4xl font-black text-primary">Full</div>
+              <h3 className="font-bold">Cook Debrief</h3>
+              <p className="text-sm text-muted-foreground">After every cook, see exactly how your session tracked against your plan — temperature curves, stall timing, and result scores side by side.</p>
             </div>
           </div>
         </div>
@@ -328,9 +328,9 @@ export default function Home() {
       {/* ─── Final CTA ─────────────────────────────────────────────────── */}
       <section className="py-20 md:py-32 flex flex-col items-center justify-center text-center px-4 bg-background">
         <ChefHat className="w-14 h-14 md:w-16 md:h-16 text-primary mb-5 md:mb-6" />
-        <h2 className="text-4xl md:text-6xl font-black tracking-tight mb-5 md:mb-6">Fire it up.</h2>
+        <h2 className="text-4xl md:text-6xl font-black tracking-tight mb-5 md:mb-6">Your pit. Your data. Your edge.</h2>
         <p className="text-base md:text-xl text-muted-foreground max-w-2xl mb-8 md:mb-10 leading-relaxed">
-          Join the pitmasters who have stopped guessing and started knowing.
+          The AI that makes your cook data mean something — whether you're chasing a ribbon or your first pulled pork.
         </p>
         <a
           href="https://apps.apple.com/app/id6763445064"
