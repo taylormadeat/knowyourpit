@@ -1,10 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { PaywallModal, type PaywallTrigger } from "@/components/PaywallModal";
 
-// PaywallContext: global controller for the PaywallModal. Any screen or
-// onError handler can call showPaywall(...) or parseAndShowFromError(err)
-// to pop the upgrade sheet. The modal is mounted once at the root.
-
 interface ShowOptions {
   trigger?: PaywallTrigger;
   subtitle?: string | null;
@@ -14,12 +10,6 @@ interface ShowOptions {
 interface PaywallContextValue {
   showPaywall: (opts?: ShowOptions) => void;
   hidePaywall: () => void;
-  /**
-   * Inspect an error thrown by a fetch/orval mutation. If it carries a 402
-   * response with a known paywall code, pop the modal. Returns true if the
-   * modal was shown, false otherwise — so callers can fall back to their
-   * usual error toast for non-paywall failures.
-   */
   parseAndShowFromError: (err: unknown) => boolean;
 }
 
@@ -40,15 +30,6 @@ const FEATURE_LABELS: Record<string, string> = {
   cook_quality: "Cook Quality Analytics",
 };
 
-/**
- * Tries to extract a paywall payload from a thrown value. Supports several
- * shapes that show up in this codebase:
- *
- *   - Orval-generated errors:  { status: 402, data: { error, message, feature } }
- *   - Native Fetch errors:     Response (rare — usually wrapped in HTTPError)
- *   - Custom errors with status: { status, body }
- *   - Errors carrying the JSON message string in `.message`
- */
 function extractPaywallPayload(err: any): { code: string; message?: string; feature?: string } | null {
   if (!err || typeof err !== "object") return null;
 
@@ -61,16 +42,13 @@ function extractPaywallPayload(err: any): { code: string; message?: string; feat
     return { code: data.error, message: data.message, feature: data.feature };
   }
 
-  // Sometimes the JSON body ends up serialized into err.message.
   if (typeof err.message === "string" && err.message.includes('"error"')) {
     try {
       const parsed = JSON.parse(err.message);
       if (parsed && typeof parsed.error === "string") {
         return { code: parsed.error, message: parsed.message, feature: parsed.feature };
       }
-    } catch {
-      // Not JSON.
-    }
+    } catch {}
   }
   return null;
 }

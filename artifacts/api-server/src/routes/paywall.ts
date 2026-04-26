@@ -10,6 +10,7 @@ import {
   isPaywallEnabled,
   startOfNextUtcDay,
   userBypassesPaywall,
+  invalidateProCache,
 } from "../lib/paywall";
 
 const router: IRouter = Router();
@@ -49,6 +50,15 @@ router.get("/paywall/usage", requireAuth, async (req: any, res): Promise<void> =
     },
     resetsAt,
   });
+});
+
+// POST /api/paywall/refresh — invalidate the cached Pro entitlement for this
+// user. The mobile client calls this right after a successful purchase or
+// restore so the next gated request hits RevenueCat fresh instead of seeing
+// a stale negative cache entry from the user's free-tier era.
+router.post("/paywall/refresh", requireAuth, async (req: any, res): Promise<void> => {
+  invalidateProCache(req.userId);
+  res.json({ ok: true });
 });
 
 export default router;

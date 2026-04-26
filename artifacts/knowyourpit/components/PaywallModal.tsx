@@ -15,27 +15,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useColors } from "@/hooks/useColors";
 import { useSubscription, type PurchasePackageLike } from "@/contexts/SubscriptionContext";
 
-/**
- * ──────────────────────────────────────────────────────────────────────────────
- * PaywallModal
- * ──────────────────────────────────────────────────────────────────────────────
- *
- * Shown whenever a free user hits a Pro-gated feature or tries to exceed a
- * free-tier cap. It pulls offerings live from RevenueCat (annual + monthly)
- * and routes purchases through the SubscriptionContext.
- *
- * Triggers:
- *  - "cook_limit_reached"          → 5/5 cooks, can't create more
- *  - "ai_message_limit_reached"    → daily chat cap hit
- *  - "ai_analyze_limit_reached"    → daily analyze cap hit
- *  - "pro_required"                → multi-cook, MEATER/ThermoWorks linking,
- *                                    home insights, cook quality analytics
- *
- * The trigger drives the modal headline and feature list emphasis but every
- * Pro feature is always listed so the user understands the full value of
- * upgrading regardless of which gate they hit.
- */
-
 export type PaywallTrigger =
   | "cook_limit_reached"
   | "ai_message_limit_reached"

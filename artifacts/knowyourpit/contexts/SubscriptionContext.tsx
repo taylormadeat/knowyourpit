@@ -1,12 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { useAuth } from "@clerk/expo";
-import { setSubscriptionActiveGetter } from "@workspace/api-client-react";
-
-// SubscriptionContext: source of truth for the user's `pro` entitlement.
-// Loads react-native-purchases lazily so the JS bundle still works in Expo
-// Go (no native module). Identifies users to RevenueCat by Clerk userId so
-// grants from `scripts grant-pro` are picked up on the next poll.
+import { setSubscriptionActiveGetter, customFetch } from "@workspace/api-client-react";
 
 interface PurchasePackageLike {
   identifier: string;
@@ -60,12 +55,6 @@ const PRO_ENTITLEMENT_ID = "pro";
 const IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? "";
 const ANDROID_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? "";
 
-/**
- * Lazy-load react-native-purchases. Returns null if the module is missing or
- * native code isn't linked. We catch synchronously so the rest of the app
- * keeps working in dev builds that haven't been rebuilt against the new
- * native dependency yet.
- */
 function loadPurchases(): any | null {
   if (Platform.OS === "web") return null;
   try {
@@ -100,26 +89,29 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [currentOffering, setCurrentOffering] = useState<OfferingLike | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
 
-  // Mirror isPro into a ref so the API client's synchronous header getter can
-  // read the latest value without going through React state.
   const isProRef = useRef(false);
   useEffect(() => {
     isProRef.current = isPro;
   }, [isPro]);
 
-  // Track RC availability separately so screens can show "subscriptions
-  // unavailable" messages in builds that haven't been rebuilt yet.
   const purchasesRef = useRef<any | null>(null);
   const [isRevenueCatAvailable, setIsRevenueCatAvailable] = useState(false);
 
-  // Register the synchronous subscription getter with the API client exactly
-  // once. The getter reads the ref, so subsequent isPro changes propagate
-  // without re-registering.
   useEffect(() => {
     setSubscriptionActiveGetter(() => isProRef.current);
     return () => {
       setSubscriptionActiveGetter(null);
     };
+  }, []);
+
+  // Tells the API server to drop its negative-cache entry for this user so
+  // gated routes see the new Pro state on the very next request.
+  const refreshServerCache = useCallback(async () => {
+    try {
+      await customFetch("/paywall/refresh", { method: "POST" });
+    } catch {
+      // Server will refresh itself within ~5s anyway.
+    }
   }, []);
 
   const refresh = useCallback(async () => {
@@ -130,8 +122,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       setIsPro(entitlementsHavePro(info));
       setExpirationDate(readExpiration(info));
     } catch {
-      // Network blip: keep the previous entitlement state rather than
-      // accidentally locking the user out mid-cook.
+      // Keep previous state on transient failure.
     }
   }, []);
 
@@ -143,8 +134,6 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     const purchases = loadPurchases();
 
     if (!purchases) {
-      // No RC SDK available — treat as free tier and report ready so screens
-      // don't sit on loading forever.
       setIsRevenueCatAvailable(false);
       setIsReady(true);
       return () => {
@@ -155,8 +144,6 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     const apiKey = Platform.OS === "ios" ? IOS_API_KEY : ANDROID_API_KEY;
 
     if (!apiKey) {
-      // Native SDK is present but the API key hasn't been provisioned yet
-      // (RevenueCat integration not connected). Treat as free tier and ready.
       setIsRevenueCatAvailable(false);
       setIsReady(true);
       return () => {
@@ -167,16 +154,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     purchasesRef.current = purchases;
     setIsRevenueCatAvailable(true);
 
-    // Hold a reference to the listener we register so we can remove it on
-    // cleanup. RC's addCustomerInfoUpdateListener returns nothing, so we have
-    // to keep the function identity ourselves and pass it to
-    // removeCustomerInfoUpdateListener.
     let listener: ((info: any) => void) | null = null;
 
     (async () => {
       try {
-        // Identify with Clerk userId when available so grant/revoke scripts
-        // can target users by their Clerk id.
         if (typeof purchases.configure === "function") {
           purchases.configure({ apiKey, appUserID: userId ?? null });
         }
@@ -204,10 +185,6 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           });
         }
 
-        // Subscribe to live customerInfo updates so external grants surface
-        // without requiring the user to restart the app. The listener is
-        // explicitly removed in the effect cleanup below to prevent stacking
-        // duplicate callbacks across userId changes.
         if (typeof purchases.addCustomerInfoUpdateListener === "function") {
           listener = (info: any) => {
             if (cancelled) return;
@@ -227,19 +204,14 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
     return () => {
       cancelled = true;
-      // Remove the listener we registered above so re-running the effect
-      // (e.g. on userId change or hot-reload) doesn't accumulate callbacks.
       if (listener && typeof purchases.removeCustomerInfoUpdateListener === "function") {
         try {
           purchases.removeCustomerInfoUpdateListener(listener);
-        } catch {
-          // Best effort — ignore if the SDK has changed shape.
-        }
+        } catch {}
       }
     };
   }, [clerkLoaded, userId]);
 
-  // When Clerk userId changes (sign in/out), re-identify with RC.
   useEffect(() => {
     const purchases = purchasesRef.current;
     if (!purchases) return;
@@ -253,9 +225,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           await purchases.logOut();
         }
         await refresh();
-      } catch {
-        // Identity transitions are best-effort — never block the app.
-      }
+      } catch {}
     })();
   }, [userId, clerkLoaded, refresh]);
 
@@ -271,11 +241,13 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       try {
         const result = await purchases.purchasePackage(pkg);
         const info = result?.customerInfo;
+        const pro = entitlementsHavePro(info);
         if (info) {
-          setIsPro(entitlementsHavePro(info));
+          setIsPro(pro);
           setExpirationDate(readExpiration(info));
         }
-        return { success: entitlementsHavePro(info), cancelled: false };
+        if (pro) await refreshServerCache();
+        return { success: pro, cancelled: false };
       } catch (err: any) {
         if (err?.userCancelled) {
           return { success: false, cancelled: true };
@@ -302,6 +274,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       const pro = entitlementsHavePro(info);
       setIsPro(pro);
       setExpirationDate(readExpiration(info));
+      if (pro) await refreshServerCache();
       return { success: pro };
     } catch (err: any) {
       setLastError(err?.message ?? "Restore failed. Please try again.");
