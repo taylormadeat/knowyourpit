@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "./custom-fetch";
 import { getListCooksQueryKey } from "./generated/api";
 
@@ -27,5 +27,21 @@ export function useUpdateSession() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: getListCooksQueryKey() });
     },
+  });
+}
+
+export function getGetSessionCooksQueryKey(sessionId: string) {
+  return ["sessions", sessionId, "cooks"] as const;
+}
+
+export function getSessionCooks(sessionId: string): Promise<any[]> {
+  return customFetch<any[]>(`/api/sessions/${encodeURIComponent(sessionId)}`);
+}
+
+export function useGetSessionCooks(sessionId: string) {
+  return useQuery<any[]>({
+    queryKey: getGetSessionCooksQueryKey(sessionId),
+    queryFn: () => getSessionCooks(sessionId),
+    enabled: Boolean(sessionId),
   });
 }

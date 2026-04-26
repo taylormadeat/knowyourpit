@@ -99,7 +99,6 @@ export default function CooksScreen() {
   const [sortKey, setSortKey] = useState<SortKey>("date-desc");
   const [ratedOnly, setRatedOnly] = useState(false);
   const [showSessions, setShowSessions] = useState(false);
-  const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [editingSession, setEditingSession] = useState<SessionGroup | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editNotes, setEditNotes] = useState("");
@@ -306,7 +305,6 @@ export default function CooksScreen() {
   };
 
   const renderSessionGroup = ({ item: group }: { item: SessionGroup }) => {
-    const isExpanded = expandedSession === group.sessionId;
     const hasActive = group.cooks.some((c) => c.status === "active");
     const allCompleted = group.cooks.every((c) => c.status === "completed");
     const dateLabel = group.earliestStart
@@ -329,7 +327,7 @@ export default function CooksScreen() {
             borderRadius: colors.radius,
           },
         ]}
-        onPress={() => setExpandedSession(isExpanded ? null : group.sessionId)}
+        onPress={() => router.push(`/sessions/${encodeURIComponent(group.sessionId)}` as any)}
       >
         <View style={s.sessionHeader}>
           <LinearGradient
@@ -382,58 +380,9 @@ export default function CooksScreen() {
             >
               <Feather name="edit-2" size={13} color={colors.mutedForeground} />
             </Pressable>
-            <Feather
-              name={isExpanded ? "chevron-up" : "chevron-down"}
-              size={16}
-              color={colors.mutedForeground}
-            />
+            <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
           </View>
         </View>
-
-        {isExpanded && (
-          <View style={[s.sessionItems, { borderTopColor: colors.border }]}>
-            {group.cooks.map((cook, idx) => {
-              const startTime = cook.plannedStartAt ? new Date(cook.plannedStartAt) : null;
-              const isActive = cook.status === "active";
-              return (
-                <Pressable
-                  key={cook.id}
-                  style={[
-                    s.sessionItem,
-                    idx < group.cooks.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth },
-                  ]}
-                  onPress={() => router.push(`/cooks/${cook.id}` as any)}
-                >
-                  <View style={[s.sessionItemDot, { backgroundColor: STATUS_COLORS[cook.status] || colors.primary }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[s.sessionItemName, { color: colors.foreground }]}>
-                      {cook.foodType}
-                    </Text>
-                    <Text style={[s.sessionItemMeta, { color: colors.mutedForeground }]}>
-                      {startTime
-                        ? `Meat on at ${fmtTime(startTime)}`
-                        : "No start time set"}
-                      {cook.grillName ? ` · ${cook.grillName}` : ""}
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: "flex-end", gap: 3 }}>
-                    <View style={[s.badge, { backgroundColor: (STATUS_COLORS[cook.status] || colors.primary) + "22" }]}>
-                      <Text style={[s.badgeText, { color: STATUS_COLORS[cook.status] || colors.primary }]}>
-                        {cook.status}
-                      </Text>
-                    </View>
-                    {isActive && cook.actualStartAt && (
-                      <Text style={[s.sessionItemElapsed, { color: "#E84820" }]}>
-                        {fmtElapsed(Date.now() - new Date(cook.actualStartAt).getTime())}
-                      </Text>
-                    )}
-                  </View>
-                  <Feather name="chevron-right" size={13} color={colors.mutedForeground} style={{ marginLeft: 4 }} />
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
       </Pressable>
     );
   };

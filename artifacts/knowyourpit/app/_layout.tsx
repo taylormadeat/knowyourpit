@@ -200,6 +200,7 @@ function RootLayoutNav() {
         <Stack.Screen name="profile" />
         <Stack.Screen name="alerts" />
         <Stack.Screen name="cooks/[id]" />
+        <Stack.Screen name="sessions/[sessionId]" />
         <Stack.Screen name="recipe/[id]" />
       </Stack>
     </View>

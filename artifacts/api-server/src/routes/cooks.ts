@@ -131,6 +131,34 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
   res.json({ ...cook, grillName });
 });
 
+router.get("/sessions/:sessionId", requireAuth, async (req: any, res): Promise<void> => {
+  const params = UpdateSessionParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const cooks = await db.select().from(cooksTable)
+    .where(and(eq(cooksTable.sessionId, params.data.sessionId), eq(cooksTable.userId, req.userId)));
+  if (!cooks.length) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+  const result = await Promise.all(cooks.map(async (cook) => {
+    let grillName: string | null = null;
+    if (cook.grillId) {
+      const [grill] = await db.select({ name: grillsTable.name }).from(grillsTable).where(eq(grillsTable.id, cook.grillId));
+      grillName = grill?.name ?? null;
+    }
+    return { ...cook, grillName };
+  }));
+  result.sort((a, b) => {
+    const aTime = a.plannedStartAt ? new Date(a.plannedStartAt).getTime() : Infinity;
+    const bTime = b.plannedStartAt ? new Date(b.plannedStartAt).getTime() : Infinity;
+    return aTime - bTime;
+  });
+  res.json(result);
+});
+
 router.patch("/sessions/:sessionId", requireAuth, async (req: any, res): Promise<void> => {
   const params = UpdateSessionParams.safeParse(req.params);
   if (!params.success) {
