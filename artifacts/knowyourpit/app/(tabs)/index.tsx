@@ -361,29 +361,31 @@ export default function HomeScreen() {
                 style={[s.gradeCard, { borderColor: "#F59E0B55", borderRadius: colors.radius }]}
                 pointerEvents="none"
               >
-                <View style={s.gradeLeft}>
-                  <View style={[s.gradeBubble, { borderColor: "#F59E0B", backgroundColor: "#F59E0B18" }]}>
-                    <Text style={[s.gradeLetter, { color: "#F59E0B" }]}>C</Text>
-                  </View>
-                </View>
-                <View style={s.gradeRight}>
-                  <Text style={s.gradeLabel}>Weekend Warrior</Text>
-                  <Text style={[s.gradeScore, { color: "#F59E0B" }]}>72 / 100</Text>
-                  <View style={[s.gradeBarTrack, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
-                    <View style={[s.gradeBarFill, { width: "72%", backgroundColor: "#F59E0B" }]} />
-                  </View>
-                  <View style={s.gradeChips}>
-                    <View style={[s.gradeChip, { backgroundColor: "#F59E0B18", borderColor: "#F59E0B35" }]}>
-                      <Feather name="star" size={10} color="#F59E0B" />
-                      <Text style={[s.gradeChipText, { color: "#F59E0B" }]}>4.1 rating</Text>
+                <View style={s.gradeCardRow}>
+                  <View style={s.gradeLeft}>
+                    <View style={[s.gradeBubble, { borderColor: "#F59E0B", backgroundColor: "#F59E0B18" }]}>
+                      <Text style={[s.gradeLetter, { color: "#F59E0B" }]}>C</Text>
                     </View>
-                    <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
-                      <Feather name="target" size={10} color="#96908A" />
-                      <Text style={[s.gradeChipText, { color: "#96908A" }]}>78% accuracy</Text>
+                  </View>
+                  <View style={s.gradeRight}>
+                    <Text style={s.gradeLabel}>Weekend Warrior</Text>
+                    <Text style={[s.gradeScore, { color: "#F59E0B" }]}>72 / 100</Text>
+                    <View style={[s.gradeBarTrack, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+                      <View style={[s.gradeBarFill, { width: "72%", backgroundColor: "#F59E0B" }]} />
                     </View>
-                    <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
-                      <Feather name="layers" size={10} color="#96908A" />
-                      <Text style={[s.gradeChipText, { color: "#96908A" }]}>12 cooks</Text>
+                    <View style={s.gradeChips}>
+                      <View style={[s.gradeChip, { backgroundColor: "#F59E0B18", borderColor: "#F59E0B35" }]}>
+                        <Feather name="star" size={10} color="#F59E0B" />
+                        <Text style={[s.gradeChipText, { color: "#F59E0B" }]}>4.1 rating</Text>
+                      </View>
+                      <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
+                        <Feather name="target" size={10} color="#96908A" />
+                        <Text style={[s.gradeChipText, { color: "#96908A" }]}>78% accuracy</Text>
+                      </View>
+                      <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
+                        <Feather name="layers" size={10} color="#96908A" />
+                        <Text style={[s.gradeChipText, { color: "#96908A" }]}>12 cooks</Text>
+                      </View>
                     </View>
                   </View>
                 </View>
@@ -434,87 +436,89 @@ export default function HomeScreen() {
                       colors={["#1C1C1F", "#2A1A10"]}
                       style={[s.gradeCard, { borderColor: color + "55", borderRadius: colors.radius }]}
                     >
-                      {/* Grade circle */}
-                      <View style={s.gradeLeft}>
-                        <View style={[s.gradeBubble, { borderColor: color, backgroundColor: color + "18" }]}>
-                          <Text style={[s.gradeLetter, { color }]}>{grade}</Text>
-                        </View>
-                      </View>
-
-                      {/* Right column */}
-                      <View style={s.gradeRight}>
-                        {randomTitle ? (
-                          <Text style={s.gradeLabel}>{randomTitle}</Text>
-                        ) : (
-                          <Text style={[s.gradeLabel, { color: "#96908A", fontStyle: "italic" }]}>Log a cook to earn your title</Text>
-                        )}
-                        <Text style={[s.gradeScore, { color }]}>{insights.pitMasterScore} / 100</Text>
-
-                        {/* Progress bar */}
-                        <View style={[s.gradeBarTrack, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
-                          <View style={[s.gradeBarFill, { width: `${insights.pitMasterScore}%` as any, backgroundColor: color }]} />
+                      <View style={s.gradeCardRow}>
+                        {/* Grade circle */}
+                        <View style={s.gradeLeft}>
+                          <View style={[s.gradeBubble, { borderColor: color, backgroundColor: color + "18" }]}>
+                            <Text style={[s.gradeLetter, { color }]}>{grade}</Text>
+                          </View>
                         </View>
 
-                        {/* Breakdown chips */}
-                        <View style={s.gradeChips}>
-                          {insights.scoreBreakdown.avgRating != null && (
-                            <View style={[s.gradeChip, { backgroundColor: color + "18", borderColor: color + "35" }]}>
-                              <Feather name="star" size={10} color={color} />
-                              <Text style={[s.gradeChipText, { color }]}>
-                                {insights.scoreBreakdown.avgRating.toFixed(1)} rating
-                              </Text>
-                            </View>
-                          )}
-                          {insights.scoreBreakdown.planAccuracy != null && (
-                            <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
-                              <Feather name="target" size={10} color="#96908A" />
-                              <Text style={[s.gradeChipText, { color: "#96908A" }]}>
-                                {insights.scoreBreakdown.planAccuracy}% accuracy
-                              </Text>
-                            </View>
-                          )}
-                          {insights.scoreBreakdown.aiAssessmentScore != null ? (
-                            <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
-                              <Feather name="cpu" size={10} color="#96908A" />
-                              <Text style={[s.gradeChipText, { color: "#96908A" }]}>
-                                {insights.scoreBreakdown.aiAssessmentScore}% AI score
-                              </Text>
-                            </View>
+                        {/* Right column */}
+                        <View style={s.gradeRight}>
+                          {randomTitle ? (
+                            <Text style={s.gradeLabel}>{randomTitle}</Text>
                           ) : (
-                            <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
-                              <Feather name="layers" size={10} color="#96908A" />
-                              <Text style={[s.gradeChipText, { color: "#96908A" }]}>
-                                {insights.scoreBreakdown.cookCount} cooks
-                              </Text>
-                            </View>
+                            <Text style={[s.gradeLabel, { color: "#96908A", fontStyle: "italic" }]}>Log a cook to earn your title</Text>
                           )}
-                        </View>
+                          <Text style={[s.gradeScore, { color }]}>{insights.pitMasterScore} / 100</Text>
 
-                        {/* Tap hint */}
-                        <View style={s.gradeHint}>
-                          <Feather name={tipsExpanded ? "chevron-up" : "chevron-down"} size={10} color={color + "99"} />
-                          <Text style={[s.gradeHintText, { color: color + "99" }]}>Tips from PitMaster</Text>
+                          {/* Progress bar */}
+                          <View style={[s.gradeBarTrack, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+                            <View style={[s.gradeBarFill, { width: `${insights.pitMasterScore}%` as any, backgroundColor: color }]} />
+                          </View>
+
+                          {/* Breakdown chips */}
+                          <View style={s.gradeChips}>
+                            {insights.scoreBreakdown.avgRating != null && (
+                              <View style={[s.gradeChip, { backgroundColor: color + "18", borderColor: color + "35" }]}>
+                                <Feather name="star" size={10} color={color} />
+                                <Text style={[s.gradeChipText, { color }]}>
+                                  {insights.scoreBreakdown.avgRating.toFixed(1)} rating
+                                </Text>
+                              </View>
+                            )}
+                            {insights.scoreBreakdown.planAccuracy != null && (
+                              <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
+                                <Feather name="target" size={10} color="#96908A" />
+                                <Text style={[s.gradeChipText, { color: "#96908A" }]}>
+                                  {insights.scoreBreakdown.planAccuracy}% accuracy
+                                </Text>
+                              </View>
+                            )}
+                            {insights.scoreBreakdown.aiAssessmentScore != null ? (
+                              <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
+                                <Feather name="cpu" size={10} color="#96908A" />
+                                <Text style={[s.gradeChipText, { color: "#96908A" }]}>
+                                  {insights.scoreBreakdown.aiAssessmentScore}% AI score
+                                </Text>
+                              </View>
+                            ) : (
+                              <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
+                                <Feather name="layers" size={10} color="#96908A" />
+                                <Text style={[s.gradeChipText, { color: "#96908A" }]}>
+                                  {insights.scoreBreakdown.cookCount} cooks
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+
+                          {/* Tap hint */}
+                          <View style={s.gradeHint}>
+                            <Feather name={tipsExpanded ? "chevron-up" : "chevron-down"} size={10} color={color + "99"} />
+                            <Text style={[s.gradeHintText, { color: color + "99" }]}>Tips from PitMaster</Text>
+                          </View>
                         </View>
                       </View>
+
+                      {/* Tips — expand inside the card */}
+                      {tipsExpanded && insights.tips?.length > 0 && (
+                        <View style={[s.tipsInCard, { borderTopColor: color + "30" }]}>
+                          {insights.tips.map((tip, i) => (
+                            <View
+                              key={i}
+                              style={[s.tipRow, i < insights.tips.length - 1 && { borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)" }]}
+                            >
+                              <View style={[s.tipIconWrap, { backgroundColor: "#E8482015" }]}>
+                                <Feather name="zap" size={13} color="#E84820" />
+                              </View>
+                              <Text style={[s.tipText, { color: "#F3EDE1" }]}>{tip}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
                     </LinearGradient>
                   </Pressable>
-
-                  {/* Inline tips — only visible when expanded */}
-                  {tipsExpanded && insights.tips?.length > 0 && (
-                    <View style={[s.tipsCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-                      {insights.tips.map((tip, i) => (
-                        <View
-                          key={i}
-                          style={[s.tipRow, i < insights.tips.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
-                        >
-                          <View style={[s.tipIconWrap, { backgroundColor: "#E8482015" }]}>
-                            <Feather name="zap" size={13} color="#E84820" />
-                          </View>
-                          <Text style={[s.tipText, { color: colors.foreground }]}>{tip}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
 
                   {/* How is this scored? toggle */}
                   <Pressable
@@ -947,6 +951,10 @@ const s = StyleSheet.create({
     marginBottom: 8,
     padding: 20,
     borderWidth: 1.5,
+    flexDirection: "column",
+    gap: 0,
+  },
+  gradeCardRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 20,
@@ -1087,12 +1095,18 @@ const s = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  /* Tips Card */
+  /* Tips Card (standalone, unused now but kept for reference) */
   tipsCard: {
     borderWidth: 1,
     marginHorizontal: 20,
     marginBottom: 8,
     overflow: "hidden",
+  },
+  /* Tips inside the grade card */
+  tipsInCard: {
+    marginTop: 16,
+    borderTopWidth: 1,
+    paddingTop: 4,
   },
   tipRow: {
     flexDirection: "row",
