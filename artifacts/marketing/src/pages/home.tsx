@@ -136,8 +136,14 @@ export default function Home() {
               {
                 src: "app-pitmaster-plan.png",
                 title: "A plan built for your pit",
-                caption: "Tell PitMaster what you're cooking and when you want to serve. It builds an hour-by-hour schedule around your specific smoker, your history, and today's conditions — not a generic timeline.",
+                caption: "Tell PitMaster what you're cooking and when you want to serve. It builds an hour-by-hour schedule around your specific smoker, your cook history, and today's outdoor temperature — not a generic timeline.",
                 alt: "PitMaster Plan screen showing a suggested cook schedule for spare ribs",
+              },
+              {
+                src: "app-pitmaster-plan.png",
+                title: "Sequence a full multi-item cook",
+                caption: "Add your brisket, ribs, and chicken — pick one serve time — and PitMaster works out when each item needs to start. It tells you when to light every grill, when to put each cut on, and when to pull it, so everything is resting and ready at the same moment.",
+                alt: "Multi-Cook Sequencer showing a schedule with brisket, ribs, and chicken timed to the same serve time",
               },
               {
                 src: "app-decisions.png",
@@ -154,12 +160,12 @@ export default function Home() {
               {
                 src: "app-cook-log.png",
                 title: "Your cook, debriefed",
-                caption: "After every session, the AI compares your result to your plan — what you hit, where you drifted, and what the data says about why. Rate tenderness, flavor, and bark and get a full picture of the cook.",
-                alt: "Cook Log screen listing past cooks with star ratings",
+                caption: "After every session, the AI compares your result to your plan — what you hit, where you drifted, and what the data says about why. Rate tenderness, flavor, and bark. Multi-cook sessions appear grouped with a visual timeline showing every item side by side.",
+                alt: "Cook Log screen listing past cooks with star ratings and grouped sessions",
               },
             ].map((shot, i) => (
               <motion.figure
-                key={shot.src}
+                key={`${shot.src}-${i}`}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-50px" }}
@@ -221,7 +227,7 @@ export default function Home() {
                 num: "03",
                 icon: Bell,
                 title: "Get the insight back",
-                desc: "The AI watches your stall, your weather, and your grill — and returns real decisions, not reminders. Championship pitmasters get a plan debrief. First-timers get the confidence to pull it off.",
+                desc: "The AI watches your stall, outdoor temperature, and your grill's behavior — and returns real decisions, not reminders. Championship pitmasters get a precise plan debrief. First-timers get the confidence to pull it off.",
               },
             ].map((step, i) => (
               <motion.div
@@ -317,9 +323,9 @@ export default function Home() {
               <p className="text-sm text-muted-foreground">From Kamado Joes to custom 500-gallon offsets. The AI knows how they run.</p>
             </div>
             <div className="p-6 md:p-8 rounded-2xl bg-background border border-white/10 flex flex-col items-center text-center gap-3 md:gap-4">
-              <div className="text-4xl font-black text-primary">Full</div>
-              <h3 className="font-bold">Plan vs. Reality</h3>
-              <p className="text-sm text-muted-foreground">After every cook, see exactly how your session tracked against your plan — temperature curves, stall timing, and result scores side by side.</p>
+              <div className="text-4xl font-black text-primary">Multi</div>
+              <h3 className="font-bold">Cook Sequencer</h3>
+              <p className="text-sm text-muted-foreground">Plan up to 5 items to finish at the same time. PitMaster calculates the start time for each one — brisket, ribs, chicken, and more — all timed to your table.</p>
             </div>
           </div>
         </div>
