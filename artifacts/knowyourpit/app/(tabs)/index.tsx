@@ -173,9 +173,10 @@ export default function HomeScreen() {
   );
   const randomTitle = useMemo(() => {
     if (!insights) return null;
+    if ((insights.scoreBreakdown?.cookCount ?? 0) === 0) return null;
     const tier = PITMASTER_TITLES.find((t) => insights.pitMasterScore >= t.minScore) ?? PITMASTER_TITLES[PITMASTER_TITLES.length - 1];
     return tier.titles[Math.floor(titleSeed * tier.titles.length)];
-  }, [insights?.pitMasterScore, titleSeed]);
+  }, [insights?.pitMasterScore, insights?.scoreBreakdown?.cookCount, titleSeed]);
 
   const scrollRef = useRef<ScrollView>(null);
   const [tipsExpanded, setTipsExpanded] = useState(false);
@@ -358,7 +359,11 @@ export default function HomeScreen() {
 
                       {/* Right column */}
                       <View style={s.gradeRight}>
-                        <Text style={s.gradeLabel}>{randomTitle}</Text>
+                        {randomTitle ? (
+                          <Text style={s.gradeLabel}>{randomTitle}</Text>
+                        ) : (
+                          <Text style={[s.gradeLabel, { color: "#96908A", fontStyle: "italic" }]}>Log a cook to earn your title</Text>
+                        )}
                         <Text style={[s.gradeScore, { color }]}>{insights.pitMasterScore} / 100</Text>
 
                         {/* Progress bar */}
