@@ -501,24 +501,25 @@ export default function HomeScreen() {
                         </View>
                       </View>
 
-                      {/* Tips — expand inside the card */}
-                      {tipsExpanded && insights.tips?.length > 0 && (
-                        <View style={[s.tipsInCard, { borderTopColor: color + "30" }]}>
-                          {insights.tips.map((tip, i) => (
-                            <View
-                              key={i}
-                              style={[s.tipRow, i < insights.tips.length - 1 && { borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)" }]}
-                            >
-                              <View style={[s.tipIconWrap, { backgroundColor: "#E8482015" }]}>
-                                <Feather name="zap" size={13} color="#E84820" />
-                              </View>
-                              <Text style={[s.tipText, { color: "#F3EDE1" }]}>{tip}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
                     </LinearGradient>
                   </Pressable>
+
+                  {/* Tips — expand directly below the score card */}
+                  {tipsExpanded && insights.tips?.length > 0 && (
+                    <View style={[s.tipsCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                      {insights.tips.map((tip, i) => (
+                        <View
+                          key={i}
+                          style={[s.tipRow, i < insights.tips.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
+                        >
+                          <View style={[s.tipIconWrap, { backgroundColor: "#E8482015" }]}>
+                            <Feather name="zap" size={13} color="#E84820" />
+                          </View>
+                          <Text style={[s.tipText, { color: colors.foreground }]}>{tip}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
 
                   {/* How is this scored? toggle */}
                   <Pressable
