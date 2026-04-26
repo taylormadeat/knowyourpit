@@ -19,6 +19,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import * as Haptics from "expo-haptics";
+import * as Crypto from "expo-crypto";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import {
@@ -702,7 +703,7 @@ export default function PlanScreen() {
   const handleSaveMultiCooks = async () => {
     if (!multiResult) return;
     try {
-      const sessionId = crypto.randomUUID();
+      const sessionId = Crypto.randomUUID();
       const remainingItems = [...multiItems];
       for (const item of multiResult.schedule) {
         const matchedCut = MEAT_CUTS.find(c => c.name.toLowerCase() === item.foodType.toLowerCase());
