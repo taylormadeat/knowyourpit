@@ -592,7 +592,7 @@ export default function PlanScreen() {
   const [aiResultOpen, setAiResultOpen] = useState(false);
 
   // ── Multi-cook state ──────────────────────────────────────────────────
-  interface MultiItem { cut: MeatCut; weightLbs: string; }
+  interface MultiItem { cut: MeatCut; weightLbs: string; grillId: number | null; }
   const aiMultiCook = useAiMultiCook();
   const [multiItems, setMultiItems] = useState<MultiItem[]>([]);
   const [multiResult, setMultiResult] = useState<{ schedule: MultiCookScheduleItem[]; serveAt: string; summary: string } | null>(null);
@@ -658,13 +658,19 @@ export default function PlanScreen() {
     try {
       const result = await aiMultiCook.mutateAsync({
         data: {
-          items: multiItems.map(item => ({
-            foodType: item.cut.name,
-            weightLbs: parseFloat(item.weightLbs) > 0 ? parseFloat(item.weightLbs) : undefined,
-            cookTempF: item.cut.cookTempF,
-            targetTempF: item.cut.targetTempF,
-            preheatMinutes: preheatMinsForGrill(selectedGrill),
-          })),
+          items: multiItems.map(item => {
+            const itemGrill = item.grillId != null
+              ? ((grills as any[] | undefined)?.find((g: any) => g.id === item.grillId) ?? null)
+              : selectedGrill;
+            return {
+              foodType: item.cut.name,
+              weightLbs: parseFloat(item.weightLbs) > 0 ? parseFloat(item.weightLbs) : undefined,
+              cookTempF: item.cut.cookTempF,
+              targetTempF: item.cut.targetTempF,
+              grillId: item.grillId ?? grillId ?? undefined,
+              preheatMinutes: preheatMinsForGrill(itemGrill),
+            };
+          }),
           serveAt: serveAt.toISOString(),
           outdoorTempF: weather.tempF ?? undefined,
         },
@@ -684,13 +690,14 @@ export default function PlanScreen() {
         const matchedCut = MEAT_CUTS.find(c => c.name.toLowerCase() === item.foodType.toLowerCase());
         const inputIdx = remainingItems.findIndex(m => m.cut.name.toLowerCase() === item.foodType.toLowerCase());
         const inputItem = inputIdx >= 0 ? remainingItems.splice(inputIdx, 1)[0] : undefined;
+        const resolvedGrillId = inputItem?.grillId ?? grillId ?? undefined;
         await createCook.mutateAsync({
           data: {
             foodType: item.foodType,
             weightLbs: inputItem ? parseFloat(inputItem.weightLbs) || undefined : undefined,
             cookTempF: matchedCut?.cookTempF ?? undefined,
             targetTempF: matchedCut?.targetTempF ?? undefined,
-            grillId: grillId ?? undefined,
+            grillId: resolvedGrillId ?? undefined,
             plannedStartAt: new Date(item.meatOnAt),
             notes: `Multi-cook session · Serve at ${new Date(multiResult.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${item.notes ? `\n${item.notes}` : ""}`,
           } as any,
@@ -1442,10 +1449,10 @@ export default function PlanScreen() {
           </View>
         </View>
 
-        {/* Grill selector (shared) */}
+        {/* Grill selector (default for all items) */}
         {(grills as any[] | undefined)?.length ? (
           <>
-            <Label colors={colors}>Grill (optional)</Label>
+            <Label colors={colors}>Default Grill (override per item)</Label>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
               <View style={{ flexDirection: "row", gap: 8 }}>
                 {(grills as any[]).map((g: any) => (
@@ -1485,18 +1492,55 @@ export default function PlanScreen() {
             {multiItems.map((item, idx) => (
               <View key={idx}>
                 {idx > 0 && <View style={[s.multiItemSep, { backgroundColor: colors.border }]} />}
-                <View style={s.multiItemRow}>
+                <View style={[s.multiItemRow, { alignItems: "flex-start" }]}>
                   <View style={s.multiItemInfo}>
                     <Text style={[s.multiItemName, { color: colors.foreground }]}>{item.cut.name}</Text>
                     <Text style={[s.multiItemMeta, { color: colors.mutedForeground }]}>
                       {parseFloat(item.weightLbs) > 0 ? `${item.weightLbs} lbs` : "weight not set"}
                       {" · "}{item.cut.cookTempF}°F cook · target {item.cut.targetTempF}°F
                     </Text>
+                    {(grills as any[] | undefined)?.length ? (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                        <View style={{ flexDirection: "row", gap: 6 }}>
+                          {(grills as any[]).map((g: any) => {
+                            const active = item.grillId === g.id;
+                            const inherited = item.grillId === null && grillId === g.id;
+                            const chipColor = active ? colors.primary : inherited ? colors.primary + "80" : colors.mutedForeground;
+                            return (
+                              <Pressable
+                                key={g.id}
+                                onPress={() =>
+                                  setMultiItems(prev =>
+                                    prev.map((it, i) =>
+                                      i === idx ? { ...it, grillId: active ? null : g.id } : it
+                                    )
+                                  )
+                                }
+                                style={[
+                                  s.multiItemGrillChip,
+                                  {
+                                    borderColor: active ? colors.primary : inherited ? colors.primary + "50" : colors.border,
+                                    backgroundColor: active ? colors.primary + "18" : inherited ? colors.primary + "08" : colors.muted,
+                                    borderRadius: colors.radius,
+                                    borderStyle: inherited ? "dashed" : "solid",
+                                  },
+                                ]}
+                              >
+                                <Feather name="wind" size={11} color={chipColor} />
+                                <Text style={[s.multiItemGrillChipText, { color: chipColor }]}>
+                                  {inherited ? `${g.name} (default)` : g.name}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </ScrollView>
+                    ) : null}
                   </View>
                   <Pressable
                     onPress={() => setMultiItems(prev => prev.filter((_, i) => i !== idx))}
                     hitSlop={10}
-                    style={{ padding: 4 }}
+                    style={{ padding: 4, marginTop: 2 }}
                   >
                     <Feather name="x-circle" size={18} color={colors.mutedForeground} />
                   </Pressable>
@@ -2110,7 +2154,7 @@ export default function PlanScreen() {
                 </View>
                 <Pressable
                   onPress={() => {
-                    setMultiItems(prev => [...prev, { cut: multiPickedCut, weightLbs: multiAddWeightInput }]);
+                    setMultiItems(prev => [...prev, { cut: multiPickedCut, weightLbs: multiAddWeightInput, grillId: null }]);
                     setMultiAddOpen(false);
                     setMultiPickedCut(null);
                     setMultiAddWeightInput("");
@@ -2519,6 +2563,8 @@ const s = StyleSheet.create({
   multiItemName: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
   multiItemMeta: { fontSize: 12, fontFamily: "Inter_400Regular" },
   multiItemSep: { height: 1 },
+  multiItemGrillChip: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, paddingHorizontal: 9, paddingVertical: 5 },
+  multiItemGrillChipText: { fontSize: 11, fontFamily: "Inter_500Medium" },
   multiAddBtn: { borderWidth: 1, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 13, marginBottom: 12 },
   multiAddBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
 });
