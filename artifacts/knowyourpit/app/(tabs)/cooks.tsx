@@ -8,13 +8,18 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableOpacity,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useColors } from "@/hooks/useColors";
-import { useListCooks } from "@workspace/api-client-react";
+import { useListCooks, useUpdateSession } from "@workspace/api-client-react";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 
@@ -83,6 +88,8 @@ interface SessionGroup {
   sessionId: string;
   cooks: any[];
   earliestStart: Date | null;
+  sessionLabel: string | null;
+  sessionNotes: string | null;
 }
 
 export default function CooksScreen() {
@@ -93,7 +100,11 @@ export default function CooksScreen() {
   const [ratedOnly, setRatedOnly] = useState(false);
   const [showSessions, setShowSessions] = useState(false);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  const [editingSession, setEditingSession] = useState<SessionGroup | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editNotes, setEditNotes] = useState("");
   const { data: cooks, isLoading, refetch } = useListCooks();
+  const updateSession = useUpdateSession();
 
   const botPad = useBottomTabBarHeight();
 
@@ -155,7 +166,10 @@ export default function CooksScreen() {
         const bTime = b.plannedStartAt ? new Date(b.plannedStartAt).getTime() : 0;
         return aTime - bTime;
       });
-      return { sessionId, cooks: sorted, earliestStart };
+      const first = sorted[0] || sessionCooks[0];
+      const sessionLabel = first?.sessionLabel ?? null;
+      const sessionNotes = first?.sessionNotes ?? null;
+      return { sessionId, cooks: sorted, earliestStart, sessionLabel, sessionNotes };
     });
     groups.sort((a, b) => {
       if (!a.earliestStart && !b.earliestStart) return 0;
@@ -166,6 +180,22 @@ export default function CooksScreen() {
     });
     return groups;
   }, [cooks, sortKey]);
+
+  const openEditModal = (group: SessionGroup) => {
+    setEditingSession(group);
+    setEditLabel(group.sessionLabel ?? "");
+    setEditNotes(group.sessionNotes ?? "");
+  };
+
+  const handleSaveSession = async () => {
+    if (!editingSession) return;
+    await updateSession.mutateAsync({
+      sessionId: editingSession.sessionId,
+      sessionLabel: editLabel.trim() || null,
+      sessionNotes: editNotes.trim() || null,
+    });
+    setEditingSession(null);
+  };
 
   const renderCookItem = ({ item }: { item: any }) => {
     const isActive = item.status === "active";
@@ -287,6 +317,7 @@ export default function CooksScreen() {
           }, group.earliestStart)
         )}`
       : "Scheduled";
+    const displayLabel = group.sessionLabel || "Multi-Cook Session";
 
     return (
       <Pressable
@@ -309,8 +340,8 @@ export default function CooksScreen() {
           </LinearGradient>
           <View style={s.sessionInfo}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              <Text style={[s.sessionTitle, { color: colors.foreground }]}>
-                Multi-Cook Session
+              <Text style={[s.sessionTitle, { color: colors.foreground }]} numberOfLines={1}>
+                {displayLabel}
               </Text>
               {hasActive && (
                 <View style={s.livePill}>
@@ -322,6 +353,11 @@ export default function CooksScreen() {
             <Text style={[s.sessionMeta, { color: colors.mutedForeground }]}>
               {group.cooks.length} items · {dateLabel}
             </Text>
+            {group.sessionNotes ? (
+              <Text style={[s.sessionNoteText, { color: colors.mutedForeground }]} numberOfLines={2}>
+                {group.sessionNotes}
+              </Text>
+            ) : null}
             <View style={s.sessionTagsRow}>
               {group.cooks.map((c) => (
                 <View
@@ -338,11 +374,20 @@ export default function CooksScreen() {
               ))}
             </View>
           </View>
-          <Feather
-            name={isExpanded ? "chevron-up" : "chevron-down"}
-            size={16}
-            color={colors.mutedForeground}
-          />
+          <View style={{ alignItems: "center", gap: 8 }}>
+            <Pressable
+              hitSlop={8}
+              onPress={(e) => { e.stopPropagation(); openEditModal(group); }}
+              style={[s.editBtn, { backgroundColor: colors.border }]}
+            >
+              <Feather name="edit-2" size={13} color={colors.mutedForeground} />
+            </Pressable>
+            <Feather
+              name={isExpanded ? "chevron-up" : "chevron-down"}
+              size={16}
+              color={colors.mutedForeground}
+            />
+          </View>
         </View>
 
         {isExpanded && (
@@ -415,6 +460,70 @@ export default function CooksScreen() {
     <View style={[s.container, { backgroundColor: colors.background }]}>
       <LogoBackground opacity={0.04} />
       <AppHeader title="Cook Log" right={addBtn} dark />
+
+      <Modal
+        visible={editingSession !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditingSession(null)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={s.modalOverlay}
+        >
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setEditingSession(null)}
+          />
+          <View style={[s.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[s.modalTitle, { color: colors.foreground }]}>Edit Session</Text>
+
+            <Text style={[s.modalLabel, { color: colors.mutedForeground }]}>Name</Text>
+            <TextInput
+              style={[s.modalInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+              placeholder="e.g. 4th of July BBQ"
+              placeholderTextColor={colors.mutedForeground}
+              value={editLabel}
+              onChangeText={setEditLabel}
+              maxLength={80}
+              returnKeyType="next"
+            />
+
+            <Text style={[s.modalLabel, { color: colors.mutedForeground }]}>Notes (optional)</Text>
+            <TextInput
+              style={[s.modalInput, s.modalInputMulti, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+              placeholder="e.g. Weber 22, used apple wood chunks"
+              placeholderTextColor={colors.mutedForeground}
+              value={editNotes}
+              onChangeText={setEditNotes}
+              multiline
+              numberOfLines={3}
+              maxLength={300}
+              returnKeyType="done"
+            />
+
+            <View style={s.modalBtns}>
+              <Pressable
+                style={[s.modalBtn, { borderColor: colors.border, borderWidth: 1 }]}
+                onPress={() => setEditingSession(null)}
+              >
+                <Text style={[s.modalBtnText, { color: colors.mutedForeground }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[s.modalBtn, { backgroundColor: colors.primary }]}
+                onPress={handleSaveSession}
+                disabled={updateSession.isPending}
+              >
+                {updateSession.isPending
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={[s.modalBtnText, { color: "#fff" }]}>Save</Text>
+                }
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       <View style={[s.controls, { borderBottomColor: colors.border }]}>
         <ScrollView
@@ -685,4 +794,50 @@ const s = StyleSheet.create({
   sessionItemName: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginBottom: 1 },
   sessionItemMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
   sessionItemElapsed: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
+  sessionNoteText: { fontSize: 11, fontFamily: "Inter_400Regular", marginBottom: 4, lineHeight: 15 },
+  editBtn: {
+    width: 28, height: 28, borderRadius: 7,
+    alignItems: "center", justifyContent: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "#00000066",
+  },
+  modalSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    padding: 24,
+    paddingBottom: 36,
+    gap: 10,
+  },
+  modalTitle: { fontSize: 18, fontFamily: "Inter_700Bold", marginBottom: 4 },
+  modalLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+  },
+  modalInputMulti: {
+    height: 80,
+    textAlignVertical: "top",
+    paddingTop: 10,
+  },
+  modalBtns: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 6,
+  },
+  modalBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });

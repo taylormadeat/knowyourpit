@@ -8,6 +8,8 @@ import {
   UpdateCookParams,
   DeleteCookParams,
   ListCooksQueryParams,
+  UpdateSessionParams,
+  UpdateSessionBody,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { clearHomeInsightsCache } from "./ai";
@@ -127,6 +129,32 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
   }
   clearHomeInsightsCache(req.userId);
   res.json({ ...cook, grillName });
+});
+
+router.patch("/sessions/:sessionId", requireAuth, async (req: any, res): Promise<void> => {
+  const params = UpdateSessionParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const parsed = UpdateSessionBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [first] = await db.select({ id: cooksTable.id }).from(cooksTable)
+    .where(and(eq(cooksTable.sessionId, params.data.sessionId), eq(cooksTable.userId, req.userId)))
+    .limit(1);
+  if (!first) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+  const updateData: Record<string, unknown> = {};
+  if (parsed.data.sessionLabel !== undefined) updateData.sessionLabel = parsed.data.sessionLabel;
+  if (parsed.data.sessionNotes !== undefined) updateData.sessionNotes = parsed.data.sessionNotes;
+  await db.update(cooksTable).set(updateData)
+    .where(and(eq(cooksTable.sessionId, params.data.sessionId), eq(cooksTable.userId, req.userId)));
+  res.json({ sessionId: params.data.sessionId, ...parsed.data });
 });
 
 router.delete("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => {
