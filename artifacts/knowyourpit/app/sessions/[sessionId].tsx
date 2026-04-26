@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,13 +6,18 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { useGetSessionCooks } from "@workspace/api-client-react";
+import { useGetSessionCooks, useUpdateSession, getGetSessionCooksQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { LogoBackground } from "@/components/LogoBackground";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -51,8 +56,10 @@ export default function SessionDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
+  const queryClient = useQueryClient();
 
   const { data: cooks, isLoading, isError } = useGetSessionCooks(sessionId ?? "");
+  const updateSession = useUpdateSession();
 
   const hasActive = (cooks ?? []).some((c: any) => c.status === "active");
   const allCompleted = (cooks ?? []).every((c: any) => c.status === "completed");
@@ -60,6 +67,34 @@ export default function SessionDetailScreen() {
   const sessionLabel = cooks?.[0]?.sessionLabel ?? null;
   const sessionNotes = cooks?.[0]?.sessionNotes ?? null;
   const displayLabel = sessionLabel || "Multi-Cook Session";
+
+  const [editVisible, setEditVisible] = useState(false);
+  const [draftLabel, setDraftLabel] = useState("");
+  const [draftNotes, setDraftNotes] = useState("");
+
+  useEffect(() => {
+    if (editVisible) {
+      setDraftLabel(sessionLabel ?? "");
+      setDraftNotes(sessionNotes ?? "");
+    }
+  }, [editVisible, sessionLabel, sessionNotes]);
+
+  const handleSave = () => {
+    if (!sessionId) return;
+    updateSession.mutate(
+      {
+        sessionId,
+        sessionLabel: draftLabel.trim() || null,
+        sessionNotes: draftNotes.trim() || null,
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetSessionCooksQueryKey(sessionId) });
+          setEditVisible(false);
+        },
+      }
+    );
+  };
 
   const earliestStart = cooks && cooks.length > 0
     ? cooks.reduce((min: Date | null, c: any) => {
@@ -108,10 +143,15 @@ export default function SessionDetailScreen() {
         </View>
         <View style={s.headerRight}>
           {hasActive && (
-            <View style={s.livePill}>
+            <View style={[s.livePill, { marginRight: 4 }]}>
               <View style={s.liveDot} />
               <Text style={s.livePillText}>LIVE</Text>
             </View>
+          )}
+          {!isLoading && !isError && (
+            <Pressable onPress={() => setEditVisible(true)} hitSlop={8} style={s.editBtn}>
+              <Feather name="edit-2" size={18} color={colors.foreground} />
+            </Pressable>
           )}
         </View>
       </View>
@@ -289,6 +329,84 @@ export default function SessionDetailScreen() {
           </View>
         </ScrollView>
       )}
+
+      <Modal
+        visible={editVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={s.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <Pressable style={s.modalBackdrop} onPress={() => setEditVisible(false)} />
+          <View style={[s.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={s.modalHandle} />
+
+            <View style={s.modalHeader}>
+              <Text style={[s.modalTitle, { color: colors.foreground }]}>Edit Session</Text>
+              <Pressable onPress={() => setEditVisible(false)} hitSlop={8}>
+                <Feather name="x" size={20} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+
+            <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Session Name</Text>
+            <TextInput
+              style={[
+                s.input,
+                {
+                  color: colors.foreground,
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                },
+              ]}
+              value={draftLabel}
+              onChangeText={setDraftLabel}
+              placeholder="e.g. July 4th BBQ"
+              placeholderTextColor={colors.mutedForeground}
+              returnKeyType="next"
+              maxLength={80}
+            />
+
+            <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Notes</Text>
+            <TextInput
+              style={[
+                s.input,
+                s.inputMultiline,
+                {
+                  color: colors.foreground,
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                },
+              ]}
+              value={draftNotes}
+              onChangeText={setDraftNotes}
+              placeholder="Any notes about this session…"
+              placeholderTextColor={colors.mutedForeground}
+              multiline
+              numberOfLines={4}
+              maxLength={500}
+              textAlignVertical="top"
+            />
+
+            <Pressable
+              style={({ pressed }) => [
+                s.saveBtn,
+                { backgroundColor: colors.primary, opacity: pressed || updateSession.isPending ? 0.7 : 1 },
+              ]}
+              onPress={handleSave}
+              disabled={updateSession.isPending}
+            >
+              {updateSession.isPending ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={s.saveBtnText}>Save Changes</Text>
+              )}
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -324,7 +442,16 @@ const s = StyleSheet.create({
   },
   headerRight: {
     width: 36,
-    alignItems: "flex-end",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 6,
+  },
+  editBtn: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
   },
   center: {
     flex: 1,
@@ -505,5 +632,71 @@ const s = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     textAlign: "center",
     lineHeight: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  modalSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    padding: 20,
+    paddingBottom: 36,
+    gap: 12,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#88888844",
+    alignSelf: "center",
+    marginBottom: 4,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontFamily: "Inter_600SemiBold",
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    letterSpacing: 0.4,
+    marginBottom: -4,
+  },
+  input: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+  },
+  inputMultiline: {
+    minHeight: 90,
+    paddingTop: 11,
+  },
+  saveBtn: {
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 4,
+  },
+  saveBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
   },
 });
