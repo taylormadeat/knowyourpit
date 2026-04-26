@@ -191,7 +191,6 @@ export default function HomeScreen() {
   const [scoreExpanded, setScoreExpanded] = useState(false);
 
   const toggleTips = (expand?: boolean) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setTipsExpanded((prev) => (expand !== undefined ? expand : !prev));
   };
 
@@ -432,14 +431,12 @@ export default function HomeScreen() {
                     }}
                     style={({ pressed }) => [{ opacity: pressed ? 0.88 : 1 }]}
                   >
-                    {/* Outer View owns the flex layout + border. LinearGradient fills it
-                        absolutely so it always covers the full card height including tips. */}
-                    <View style={[s.gradeCard, { borderColor: color + "55", borderRadius: colors.radius }]}>
-                      <LinearGradient
-                        colors={["#1C1C1F", "#2A1A10"]}
-                        style={[StyleSheet.absoluteFill, { borderRadius: colors.radius }]}
-                      />
-
+                    {/* LinearGradient IS the card — it's a View with a gradient background.
+                        flexDirection:"column" (from gradeCard) stacks the score row then tips. */}
+                    <LinearGradient
+                      colors={["#1C1C1F", "#2A1A10"]}
+                      style={[s.gradeCard, { borderColor: color + "55", borderRadius: colors.radius }]}
+                    >
                       <View style={s.gradeCardRow}>
                         {/* Grade circle */}
                         <View style={s.gradeLeft}>
@@ -505,7 +502,7 @@ export default function HomeScreen() {
                         </View>
                       </View>
 
-                      {/* Tips — render inside the card on the gradient background */}
+                      {/* Tips — render inside the gradient card */}
                       {tipsExpanded && insights.tips?.length > 0 && (
                         <View style={[s.tipsInCard, { borderTopColor: color + "30" }]}>
                           {insights.tips.map((tip, i) => (
@@ -521,7 +518,7 @@ export default function HomeScreen() {
                           ))}
                         </View>
                       )}
-                    </View>
+                    </LinearGradient>
                   </Pressable>
 
                   {/* How is this scored? toggle */}
