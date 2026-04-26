@@ -503,8 +503,8 @@ export default function HomeScreen() {
                               <Text style={[s.scoreRowTitle, { color: colors.foreground }]}>AI Assessment</Text>
                               <Text style={[s.scoreRowSub, { color: colors.mutedForeground }]}>
                                 {sb.aiAssessmentScore != null
-                                  ? `${sb.aiAssessmentScore} / 100 avg verdict`
-                                  : "No analyzed cooks yet"}
+                                  ? `${sb.aiAssessmentScore} / 100 avg verdict · ${sb.cookCount} cook${sb.cookCount !== 1 ? "s" : ""}`
+                                  : `No analyzed cooks yet · ${sb.cookCount} cook${sb.cookCount !== 1 ? "s" : ""} logged`}
                               </Text>
                             </View>
                           </View>
