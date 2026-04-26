@@ -608,6 +608,23 @@ export default function PlanScreen() {
     [grills, grillId]
   );
 
+  // Pre-compute per-schedule-item grill labels using a consume-splice pattern
+  // so duplicate food types each resolve to their own distinct grill.
+  // Falls back to the screen-level default grillId (same logic as handleSaveMultiCooks).
+  const scheduleGrillLabels = useMemo<(string | null)[]>(() => {
+    if (!multiResult) return [];
+    const remaining = [...multiItems];
+    return multiResult.schedule.map((item) => {
+      const normalised = item.foodType.trim().toLowerCase();
+      const idx = remaining.findIndex((mi) => mi.cut.name.trim().toLowerCase() === normalised);
+      const matched = idx >= 0 ? remaining.splice(idx, 1)[0] : undefined;
+      const resolvedGrillId = matched?.grillId ?? grillId ?? null;
+      if (resolvedGrillId == null) return null;
+      const grill = (grills as any[] | undefined)?.find((g: any) => g.id === resolvedGrillId) ?? null;
+      return grill?.name ?? null;
+    });
+  }, [multiResult, multiItems, grillId, grills]);
+
   const parsedWeight = parseFloat(weightLbs) || 0;
   const schedule = useMemo(() => {
     if (!selectedCut || parsedWeight <= 0) return null;
@@ -1993,7 +2010,9 @@ export default function PlanScreen() {
                   ) : null}
 
                   {/* Timeline */}
-                  {multiResult.schedule.map((item: MultiCookScheduleItem, idx: number) => (
+                  {multiResult.schedule.map((item: MultiCookScheduleItem, idx: number) => {
+                    const grillLabel = scheduleGrillLabels[idx] ?? null;
+                    return (
                     <View
                       key={idx}
                       style={[{
@@ -2010,7 +2029,17 @@ export default function PlanScreen() {
                         <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#6C3BF5", alignItems: "center", justifyContent: "center" }}>
                           <Text style={{ color: "#fff", fontSize: 11, fontFamily: "Inter_700Bold" }}>{idx + 1}</Text>
                         </View>
-                        <Text style={{ fontSize: 14, fontFamily: "Inter_700Bold", color: colors.foreground, flex: 1 }}>{item.foodType}</Text>
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <Text style={{ fontSize: 14, fontFamily: "Inter_700Bold", color: colors.foreground }}>{item.foodType}</Text>
+                          {grillLabel ? (
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                              <Feather name="sliders" size={10} color={colors.mutedForeground} />
+                              <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>{grillLabel}</Text>
+                            </View>
+                          ) : (
+                            <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontStyle: "italic" }}>No grill selected</Text>
+                          )}
+                        </View>
                         <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
                           {Math.round(item.estimatedDurationMinutes / 60)}h {item.estimatedDurationMinutes % 60 > 0 ? `${item.estimatedDurationMinutes % 60}m` : ""} cook
                         </Text>
@@ -2019,7 +2048,9 @@ export default function PlanScreen() {
                       <View style={{ paddingHorizontal: 14, paddingVertical: 10, gap: 7 }}>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                           <Feather name="power" size={13} color={colors.mutedForeground} />
-                          <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>Light grill</Text>
+                          <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>
+                            {grillLabel ? `Light ${grillLabel}` : "Light grill"}
+                          </Text>
                           <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.foreground }}>
                             {new Date(item.grillLightAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </Text>
@@ -2045,7 +2076,8 @@ export default function PlanScreen() {
                         ) : null}
                       </View>
                     </View>
-                  ))}
+                    );
+                  })}
 
                   {/* Save All button */}
                   <Pressable
