@@ -18,7 +18,7 @@ export default function RecipeDetailScreen() {
   const colors = useColors();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: recipe, isLoading } = useGetRecipe({ id: Number(id) });
+  const { data: recipe, isLoading } = useGetRecipe(Number(id));
 
   const topPad = useTopInset();
   const botPad = useBottomInset();
