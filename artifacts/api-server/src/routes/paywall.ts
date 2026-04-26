@@ -10,7 +10,7 @@ import {
   isPaywallEnabled,
   startOfNextUtcDay,
   userBypassesPaywall,
-  invalidateProCache,
+  pollAndRefreshEntitlement,
 } from "../lib/paywall";
 
 const router: IRouter = Router();
@@ -52,13 +52,13 @@ router.get("/paywall/usage", requireAuth, async (req: any, res): Promise<void> =
   });
 });
 
-// POST /api/paywall/refresh — invalidate the cached Pro entitlement for this
-// user. The mobile client calls this right after a successful purchase or
-// restore so the next gated request hits RevenueCat fresh instead of seeing
-// a stale negative cache entry from the user's free-tier era.
+// POST /api/paywall/refresh — forces a live RevenueCat API poll for this user,
+// updates the Postgres entitlement cache, and invalidates the in-process
+// mem cache. The mobile client calls this right after a successful purchase or
+// restore so the unlock is immediate without waiting for a webhook delivery.
 router.post("/paywall/refresh", requireAuth, async (req: any, res): Promise<void> => {
-  invalidateProCache(req.userId);
-  res.json({ ok: true });
+  const isPro = await pollAndRefreshEntitlement(req.userId);
+  res.json({ ok: true, isPro });
 });
 
 export default router;

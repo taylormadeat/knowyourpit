@@ -15,6 +15,7 @@ import meaterRouter from "./meater";
 import thermoworksRouter from "./thermoworks";
 import contactRouter from "./contact";
 import paywallRouter from "./paywall";
+import webhooksRouter from "./webhooks";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(meaterRouter);
 router.use(thermoworksRouter);
 router.use(contactRouter);
 router.use(paywallRouter);
+router.use(webhooksRouter);
 
 export default router;

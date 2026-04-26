@@ -1,6 +1,13 @@
 import type { Request, Response } from "express";
 import { and, eq, gte, sql } from "drizzle-orm";
-import { db, cooksTable, conversations, messages, aiAnalyzeEvents } from "@workspace/db";
+import {
+  db,
+  cooksTable,
+  conversations,
+  messages,
+  aiAnalyzeEvents,
+  subscriptionEntitlements,
+} from "@workspace/db";
 import { listCustomerActiveEntitlements, listEntitlements } from "@replit/revenuecat-sdk";
 import { asListItems, getRevenueCatClient } from "./revenuecat";
 
@@ -24,13 +31,14 @@ export function isPaywallEnabled(): boolean {
   return !(lower === "false" || lower === "0" || lower === "off" || lower === "no");
 }
 
-// Per-user RC entitlement cache. Positive results live longer (Pro is sticky),
-// negatives expire fast so a freshly-purchased user isn't blocked. The mobile
-// client also calls POST /paywall/refresh after purchase/restore to wipe the
-// negative entry instantly via invalidateProCache.
-const PRO_CACHE_POSITIVE_TTL_MS = 60_000;
-const PRO_CACHE_NEGATIVE_TTL_MS = 5_000;
-const proCache = new Map<string, { isPro: boolean; expiresAt: number }>();
+// Short-lived in-process cache used only to deduplicate burst requests within
+// the same server instance. The Postgres table is the authoritative source.
+const MEM_CACHE_TTL_MS = 10_000;
+
+// If a Postgres row has isPro=false and has not been updated within this window,
+// re-poll the live RC API in case a webhook was missed (e.g. user just purchased).
+const PG_STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
+const proMemCache = new Map<string, { isPro: boolean; expiresAt: number }>();
 
 const PRO_ENTITLEMENT_LOOKUP_KEY = "pro";
 
@@ -89,24 +97,167 @@ async function fetchUserHasProFromRevenueCat(userId: string): Promise<boolean> {
   });
 }
 
+/**
+ * Upsert an entitlement row into Postgres. Called by the webhook handler and
+ * also by the fallback RC API poll so every access path keeps the cache warm.
+ *
+ * Two write modes:
+ *
+ * **Webhook write** (`eventAtMs` is a number):
+ *   - Only applies if the stored `lastEventAtMs` is older (monotonicity guard).
+ *   - Updates all fields including `lastEventAtMs` and `expiresAt`.
+ *
+ * **Poll write** (`eventAtMs` is null/undefined):
+ *   - Updates `isPro`, `lastEventType`, and `updatedAt` only.
+ *   - Preserves existing `lastEventAtMs` and `expiresAt` so that previously
+ *     delivered webhook ordering state is never erased by a poll.
+ */
+export async function upsertEntitlementCache(
+  userId: string,
+  isPro: boolean,
+  eventType: string,
+  expiresAt?: Date | null,
+  eventAtMs?: number | null,
+): Promise<void> {
+  const now = new Date();
+
+  if (eventAtMs != null) {
+    // Webhook write: full update, guarded by monotonicity.
+    await db
+      .insert(subscriptionEntitlements)
+      .values({
+        userId,
+        isPro,
+        expiresAt: expiresAt ?? null,
+        lastEventType: eventType,
+        lastEventAtMs: eventAtMs,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: subscriptionEntitlements.userId,
+        set: {
+          isPro,
+          expiresAt: expiresAt ?? null,
+          lastEventType: eventType,
+          lastEventAtMs: eventAtMs,
+          updatedAt: now,
+        },
+        // Skip if this event is older than what is already stored.
+        where: sql`COALESCE(${subscriptionEntitlements.lastEventAtMs}, 0) < ${eventAtMs}`,
+      });
+  } else {
+    // Poll write: update isPro + bookkeeping but PRESERVE existing
+    // lastEventAtMs so webhook ordering is not disrupted.
+    //
+    // expiresAt handling:
+    //   - Positive poll (isPro=true): set expiresAt=null. A live RC confirmation
+    //     means the subscription is active now; any past expiry is stale and must
+    //     not block access. Future expiry (from cancellation webhooks) can be
+    //     re-established by the next EXPIRATION webhook.
+    //   - Negative poll (isPro=false): preserve existing expiresAt (harmless;
+    //     user is not Pro regardless).
+    await db
+      .insert(subscriptionEntitlements)
+      .values({
+        userId,
+        isPro,
+        expiresAt: null,
+        lastEventType: eventType,
+        lastEventAtMs: null,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: subscriptionEntitlements.userId,
+        set: {
+          isPro,
+          lastEventType: eventType,
+          updatedAt: now,
+          // Keep whatever the webhook put there — do not erase.
+          lastEventAtMs: sql`${subscriptionEntitlements.lastEventAtMs}`,
+          // Clear stale past expiry on positive poll so active Pro users are
+          // not blocked. Preserve on negative poll (user is not Pro anyway).
+          expiresAt: isPro ? null : sql`${subscriptionEntitlements.expiresAt}`,
+        },
+      });
+  }
+}
+
+/**
+ * Reads the Postgres entitlement cache for a user, then falls back to a live
+ * RevenueCat API poll if the cache row is absent or older than the staleness
+ * threshold. The in-process memory cache sits in front of Postgres to avoid
+ * hammering the DB on burst requests within the same server process.
+ *
+ * Authority order (highest → lowest):
+ *   1. In-process memory cache (10 s, burst dedup only)
+ *   2. Postgres subscription_entitlements row (set by webhooks)
+ *   3. Live RevenueCat API poll (fallback when no webhook has arrived yet)
+ */
 export async function getUserHasProEntitlement(userId: string): Promise<boolean> {
   const now = Date.now();
-  const cached = proCache.get(userId);
-  if (cached && cached.expiresAt > now) return cached.isPro;
+
+  // 1. In-process memory cache.
+  const mem = proMemCache.get(userId);
+  if (mem && mem.expiresAt > now) return mem.isPro;
+
+  // 2. Postgres cache (authoritative; kept current by webhooks).
   let isPro = false;
   try {
-    isPro = await fetchUserHasProFromRevenueCat(userId);
+    const [row] = await db
+      .select()
+      .from(subscriptionEntitlements)
+      .where(eq(subscriptionEntitlements.userId, userId))
+      .limit(1);
+
+    if (row) {
+      // A row exists — trust it. If the subscription has a known expiry that
+      // has already passed, treat as not-Pro even if isPro is still true (can
+      // happen if a webhook delivery was delayed or out of order).
+      const expired =
+        row.expiresAt != null && row.expiresAt.getTime() <= now;
+      isPro = row.isPro && !expired;
+
+      // 3. Staleness re-poll: if the row says not-Pro and hasn't been updated
+      // recently, re-poll RC in case a purchase webhook was missed. This
+      // prevents users from being permanently blocked by a stale false-negative.
+      const rowAge = now - row.updatedAt.getTime();
+      if (!isPro && rowAge > PG_STALE_THRESHOLD_MS) {
+        const liveIsPro = await fetchUserHasProFromRevenueCat(userId);
+        if (liveIsPro !== isPro) {
+          await upsertEntitlementCache(userId, liveIsPro, "rc_api_poll");
+        }
+        isPro = liveIsPro;
+      }
+    } else {
+      // 3. No Postgres row yet — fall back to live RC API poll.
+      isPro = await fetchUserHasProFromRevenueCat(userId);
+      // Warm the Postgres cache so subsequent requests hit it.
+      await upsertEntitlementCache(userId, isPro, "rc_api_poll");
+    }
   } catch (err) {
-    console.error("getUserHasProEntitlement: RC lookup threw:", err);
+    console.error("getUserHasProEntitlement: lookup threw:", err);
     isPro = false;
   }
-  const ttl = isPro ? PRO_CACHE_POSITIVE_TTL_MS : PRO_CACHE_NEGATIVE_TTL_MS;
-  proCache.set(userId, { isPro, expiresAt: now + ttl });
+
+  // Update in-process memory cache.
+  proMemCache.set(userId, { isPro, expiresAt: now + MEM_CACHE_TTL_MS });
   return isPro;
 }
 
 export function invalidateProCache(userId: string): void {
-  proCache.delete(userId);
+  proMemCache.delete(userId);
+}
+
+/**
+ * Force a live RevenueCat API poll for this user, update the Postgres cache,
+ * and invalidate the in-process mem cache. Call this from the /paywall/refresh
+ * endpoint so post-purchase unlocks are immediate regardless of webhook lag.
+ */
+export async function pollAndRefreshEntitlement(userId: string): Promise<boolean> {
+  const isPro = await fetchUserHasProFromRevenueCat(userId);
+  await upsertEntitlementCache(userId, isPro, "rc_api_poll");
+  invalidateProCache(userId);
+  return isPro;
 }
 
 export async function userBypassesPaywall(req: Request): Promise<boolean> {
