@@ -1,8 +1,8 @@
-# KnowYourPit
+# knowyourpit
 
 ## Overview
 
-KnowYourPit is a comprehensive BBQ planning and management app powered by AI. Users can manage grill profiles, log cook sessions, get AI-powered cook plans and time predictions, monitor temperatures, browse recipes, and get personalized pit master coaching.
+knowyourpit is a comprehensive BBQ planning and management app powered by AI. Users can manage grill profiles, log cook sessions, get AI-powered cook plans and time predictions, monitor temperatures, browse recipes, and get personalized pit master coaching.
 
 ## Stack
 
@@ -99,7 +99,7 @@ Watch actions (stop cook, ask PitMaster, etc.) → WCSession message → `onWatc
 EAS iOS builds under Xcode 14+ require both of these to be in place. Removing either will reintroduce the "Starting from Xcode 14, resource bundles are signed by default…" build error:
 
 1. **`expo.ios.appleTeamId: "W8AY23XJTF"` in `artifacts/knowyourpit/app.json`.** Expo prebuild reads this to populate `DEVELOPMENT_TEAM` in the generated Xcode project. The same team ID must continue to match `eas.json`'s `submit.production.ios.appleTeamId`. (When the watch-app plugin is re-enabled, its three targets also reference `$(DEVELOPMENT_TEAM)` and rely on this same field.)
-2. **`./plugins/with-pod-bundle-signing` in the `expo.plugins` array.** React Native 0.81's own `react_native_post_install` only disables signing for **React-Core's** resource bundles (see `react-native/scripts/cocoapods/utils.rb` → `turn_off_resource_bundle_react_core` → `if pod_name.to_s == 'React-Core'`). Every other pod (`expo-image`, `expo-font`, `expo-notifications`, etc.) still requires a development team on its bundle targets and fails the build under Xcode 16. This plugin injects code into the **end** of the existing `post_install` block (so it runs AFTER `react_native_post_install` and has the final word) that sets `CODE_SIGNING_ALLOWED = NO`, `CODE_SIGN_IDENTITY = ""`, and `EXPANDED_CODE_SIGN_IDENTITY = ""` on every `com.apple.product-type.bundle` target. Resource bundles do not need their own signature for App Store submission — the parent app's signature covers them. The plugin is idempotent (looks for `# PIT_RESOURCE_BUNDLE_SIGNING_FIX` before injecting) and prints `[KnowYourPit] Disabling code signing for resource bundles` during `pod install` so you can confirm in EAS build logs that it ran.
+2. **`./plugins/with-pod-bundle-signing` in the `expo.plugins` array.** React Native 0.81's own `react_native_post_install` only disables signing for **React-Core's** resource bundles (see `react-native/scripts/cocoapods/utils.rb` → `turn_off_resource_bundle_react_core` → `if pod_name.to_s == 'React-Core'`). Every other pod (`expo-image`, `expo-font`, `expo-notifications`, etc.) still requires a development team on its bundle targets and fails the build under Xcode 16. This plugin injects code into the **end** of the existing `post_install` block (so it runs AFTER `react_native_post_install` and has the final word) that sets `CODE_SIGNING_ALLOWED = NO`, `CODE_SIGN_IDENTITY = ""`, and `EXPANDED_CODE_SIGN_IDENTITY = ""` on every `com.apple.product-type.bundle` target. Resource bundles do not need their own signature for App Store submission — the parent app's signature covers them. The plugin is idempotent (looks for `# PIT_RESOURCE_BUNDLE_SIGNING_FIX` before injecting) and prints `[knowyourpit] Disabling code signing for resource bundles` during `pod install` so you can confirm in EAS build logs that it ran.
 
 ---
 

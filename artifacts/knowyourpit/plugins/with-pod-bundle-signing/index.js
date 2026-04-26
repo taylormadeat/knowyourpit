@@ -14,7 +14,7 @@ ${i}# signing on every product-type.bundle target. Resource bundles do not
 ${i}# need their own signature for App Store submission - the parent app's
 ${i}# signature covers them. This runs AFTER react_native_post_install so
 ${i}# it has the final word on the build settings.
-${i}Pod::UI.puts("[KnowYourPit] Disabling code signing for resource bundles") if defined?(Pod::UI)
+${i}Pod::UI.puts("[knowyourpit] Disabling code signing for resource bundles") if defined?(Pod::UI)
 ${i}installer.pods_project.targets.each do |target|
 ${i}  if target.respond_to?(:product_type) && target.product_type == "com.apple.product-type.bundle"
 ${i}    target.build_configurations.each do |config|

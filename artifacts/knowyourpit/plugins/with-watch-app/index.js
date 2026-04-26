@@ -75,7 +75,7 @@ const withWatchSources = (config) => (0, config_plugins_1.withDangerousMod)(conf
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>KnowYourPit Complications</string>
+    <string>knowyourpit Complications</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -237,7 +237,7 @@ const withWatchTargets = (config) => (0, config_plugins_1.withXcodeProject)(conf
                 APPLICATION_EXTENSION_API_ONLY: "NO",
                 CODE_SIGN_STYLE: "Automatic",
                 DEVELOPMENT_TEAM: "$(DEVELOPMENT_TEAM)",
-                PRODUCT_NAME: "KnowYourPit Watch",
+                PRODUCT_NAME: "knowyourpit Watch",
                 CODE_SIGN_ENTITLEMENTS: `${WATCH_APP_TARGET}/WatchApp.entitlements`,
             });
         }
@@ -249,7 +249,7 @@ const withWatchTargets = (config) => (0, config_plugins_1.withXcodeProject)(conf
                 APPLICATION_EXTENSION_API_ONLY: "YES",
                 CODE_SIGN_STYLE: "Automatic",
                 DEVELOPMENT_TEAM: "$(DEVELOPMENT_TEAM)",
-                PRODUCT_NAME: "KnowYourPit Watch Extension",
+                PRODUCT_NAME: "knowyourpit Watch Extension",
                 WK_APP_BUNDLE_IDENTIFIER: WATCH_APP_BUNDLE_ID,
                 CODE_SIGN_ENTITLEMENTS: `${WATCH_EXT_TARGET}/WatchExtension.entitlements`,
             });
@@ -262,7 +262,7 @@ const withWatchTargets = (config) => (0, config_plugins_1.withXcodeProject)(conf
                 APPLICATION_EXTENSION_API_ONLY: "YES",
                 CODE_SIGN_STYLE: "Automatic",
                 DEVELOPMENT_TEAM: "$(DEVELOPMENT_TEAM)",
-                PRODUCT_NAME: "KnowYourPit Complications",
+                PRODUCT_NAME: "knowyourpit Complications",
                 CODE_SIGN_ENTITLEMENTS: `${COMPLICATION_TARGET}/Complication.entitlements`,
             });
         }

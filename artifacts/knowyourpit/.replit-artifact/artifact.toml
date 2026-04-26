@@ -1,23 +1,24 @@
 kind = "mobile"
-previewPath = "/knowyourpit/"
-title = "KnowYourPit Mobile"
-version = "1.0.0"
-id = "artifacts/knowyourpit"
-router = "expo-domain"
+  previewPath = "/knowyourpit/"
+  title = "knowyourpit Mobile"
+  version = "1.0.0"
+  id = "artifacts/knowyourpit"
+  router = "expo-domain"
 
-[[integratedSkills]]
-name = "expo"
-version = "1.0.0"
+  [[integratedSkills]]
+  name = "expo"
+  version = "1.0.0"
 
-[[services]]
-ensurePreviewReachable = "/status"
-name = "expo"
-paths = [ "/knowyourpit/" ]
-localPort = 19876
+  [[services]]
+  ensurePreviewReachable = "/status"
+  name = "expo"
+  paths = [ "/knowyourpit/" ]
+  localPort = 19876
 
-[services.development]
-run = "pnpm --filter @workspace/knowyourpit run dev"
+  [services.development]
+  run = "pnpm --filter @workspace/knowyourpit run dev"
 
-[services.env]
-PORT = "19876"
-BASE_PATH = "/knowyourpit/"
+  [services.env]
+  PORT = "19876"
+  BASE_PATH = "/knowyourpit/"
+  

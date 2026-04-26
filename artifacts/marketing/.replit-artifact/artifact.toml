@@ -1,31 +1,32 @@
 kind = "web"
-previewPath = "/"
-title = "KnowYourPit Website"
-version = "1.0.0"
-id = "artifacts/marketing"
-router = "path"
+  previewPath = "/"
+  title = "knowyourpit Website"
+  version = "1.0.0"
+  id = "artifacts/marketing"
+  router = "path"
 
-[[integratedSkills]]
-name = "react-vite"
-version = "1.0.0"
+  [[integratedSkills]]
+  name = "react-vite"
+  version = "1.0.0"
 
-[[services]]
-name = "web"
-paths = [ "/" ]
-localPort = 24268
+  [[services]]
+  name = "web"
+  paths = [ "/" ]
+  localPort = 24268
 
-[services.development]
-run = "pnpm --filter @workspace/marketing run dev"
+  [services.development]
+  run = "pnpm --filter @workspace/marketing run dev"
 
-[services.production]
-build = [ "pnpm", "--filter", "@workspace/marketing", "run", "build" ]
-publicDir = "artifacts/marketing/dist/public"
-serve = "static"
+  [services.production]
+  build = [ "pnpm", "--filter", "@workspace/marketing", "run", "build" ]
+  publicDir = "artifacts/marketing/dist/public"
+  serve = "static"
 
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
+  [[services.production.rewrites]]
+  from = "/*"
+  to = "/index.html"
 
-[services.env]
-PORT = "24268"
-BASE_PATH = "/"
+  [services.env]
+  PORT = "24268"
+  BASE_PATH = "/"
+  
