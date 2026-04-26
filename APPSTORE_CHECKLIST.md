@@ -121,6 +121,48 @@ Open `artifacts/knowyourpit/eas.json` and fill in the iOS submit values:
 
 ---
 
+## Part 4b — In-App Purchases (RevenueCat)
+
+### Step 9b: Finish connecting RevenueCat to the stores
+
+RevenueCat has been seeded with the production IAP product identifiers and they are linked to the `pro` entitlement and `default` offering. Two steps remain before subscriptions will process real payments:
+
+**App Store Connect:**
+1. Go to [App Store Connect](https://appstoreconnect.apple.com) → your app → **Monetization → In-App Purchases**.
+2. Create an **Auto-Renewable Subscription Group** (e.g. "Pro").
+3. Add these two subscriptions inside the group:
+
+   | Product ID | Price | Notes |
+   |---|---|---|
+   | `com.knowyourpit.pro.monthly` | $4.99 / month | — |
+   | `com.knowyourpit.pro.annual` | $29.99 / year | Add a **7-day free trial** as an Introductory Offer |
+
+4. Submit both products for review (they'll be approved alongside the app).
+5. In the **RevenueCat Dashboard** → your project → **Apps → knowyourpit iOS**, add your **Apple Shared Secret** (found in App Store Connect → Apps → In-App Purchases → Shared Secret).
+
+**Google Play Console:**
+1. Go to [Play Console](https://play.google.com/console) → your app → **Monetization → Subscriptions**.
+2. Create two subscriptions:
+
+   | Subscription ID | Base plan ID | Price | Trial |
+   |---|---|---|---|
+   | `com.knowyourpit.pro.monthly` | `monthly` | $4.99 / month | — |
+   | `com.knowyourpit.pro.annual` | `annual` | $29.99 / year | 7-day free trial offer |
+
+3. In the **RevenueCat Dashboard** → your project → **Apps → knowyourpit Android**, link your **Google Play service account** (follow RevenueCat's guide at https://www.revenuecat.com/docs/google-server-notifications).
+
+**RevenueCat env vars (already saved):**
+```
+REVENUECAT_PROJECT_ID               = proj9fae344f
+REVENUECAT_TEST_STORE_APP_ID        = app05509e1658
+REVENUECAT_APPLE_APP_STORE_APP_ID   = app68ddd2c135
+REVENUECAT_GOOGLE_PLAY_STORE_APP_ID = app77c70323cc
+```
+
+> **Apple Small Business Program:** Before you launch, enroll at https://developer.apple.com/app-store/small-business-program/enroll/ — this reduces Apple's commission from 30% to 15%.
+
+---
+
 ## Part 5 — App Store Listing
 
 ### Step 10: Prepare screenshots

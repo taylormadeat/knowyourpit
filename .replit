@@ -86,3 +86,11 @@ externalPort = 3003
 [[ports]]
 localPort = 24271
 externalPort = 8008
+
+[userenv]
+
+[userenv.shared]
+REVENUECAT_PROJECT_ID = "proj9fae344f"
+REVENUECAT_TEST_STORE_APP_ID = "app05509e1658"
+REVENUECAT_APPLE_APP_STORE_APP_ID = "app68ddd2c135"
+REVENUECAT_GOOGLE_PLAY_STORE_APP_ID = "app77c70323cc"
