@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Animated,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -106,6 +107,24 @@ export default function CooksScreen() {
   const updateSession = useUpdateSession();
 
   const botPad = useBottomTabBarHeight();
+  const [fabOpen, setFabOpen] = useState(false);
+  const fabAnim = useRef(new Animated.Value(0)).current;
+
+  const toggleFab = () => {
+    const toValue = fabOpen ? 0 : 1;
+    Animated.spring(fabAnim, { toValue, useNativeDriver: true, friction: 7, tension: 80 }).start();
+    setFabOpen(!fabOpen);
+  };
+
+  const closeFab = () => {
+    Animated.spring(fabAnim, { toValue: 0, useNativeDriver: true, friction: 7 }).start();
+    setFabOpen(false);
+  };
+
+  const fabRotation = fabAnim.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "45deg"] });
+  const opt1TranslateY = fabAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -72] });
+  const opt2TranslateY = fabAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -136] });
+  const optOpacity = fabAnim;
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -387,28 +406,10 @@ export default function CooksScreen() {
     );
   };
 
-  const addBtn = (
-    <View style={s.headerBtns}>
-      <Pressable
-        style={[s.scanBtn, { backgroundColor: "#6C3BF5", borderRadius: 8 }]}
-        onPress={() => router.push("/cooks/log" as any)}
-      >
-        <Feather name="camera" size={16} color="#fff" />
-        <Text style={s.scanBtnText}>Log Cook</Text>
-      </Pressable>
-      <Pressable
-        style={[s.addBtn, { backgroundColor: colors.primary, borderRadius: 8 }]}
-        onPress={() => router.push("/(tabs)/plan" as any)}
-      >
-        <Feather name="plus" size={18} color="#fff" />
-      </Pressable>
-    </View>
-  );
-
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
       <LogoBackground opacity={0.04} />
-      <AppHeader title="Cook Log" right={addBtn} dark />
+      <AppHeader title="Cook Log" dark />
 
       <Modal
         visible={editingSession !== null}
@@ -552,7 +553,7 @@ export default function CooksScreen() {
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingTop: 12,
-            paddingBottom: botPad,
+            paddingBottom: botPad + 80,
             gap: 10,
           }}
           showsVerticalScrollIndicator={false}
@@ -584,7 +585,7 @@ export default function CooksScreen() {
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingTop: 12,
-            paddingBottom: botPad,
+            paddingBottom: botPad + 80,
             gap: 10,
           }}
           showsVerticalScrollIndicator={false}
@@ -605,12 +606,61 @@ export default function CooksScreen() {
               <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
                 {ratedOnly
                   ? "Try removing the \"Rated only\" filter to see all cooks"
-                  : "Tap \"Log Cook\" to scan thermometer photos with PitMaster, or use the + button to plan your next session"}
+                  : "Tap the + button to log a past cook or plan your next session"}
               </Text>
             </View>
           }
         />
       )}
+
+      {/* ── Expandable FAB ── */}
+      {fabOpen && (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={closeFab}
+          accessible={false}
+        />
+      )}
+      <View style={[s.fabContainer, { bottom: botPad + 20 }]} pointerEvents="box-none">
+        {/* Option 2: Plan a Cook */}
+        <Animated.View
+          style={[s.fabOptionRow, { opacity: optOpacity, transform: [{ translateY: opt2TranslateY }] }]}
+          pointerEvents={fabOpen ? "auto" : "none"}
+        >
+          <View style={[s.fabOptionLabel, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[s.fabOptionText, { color: colors.foreground }]}>Plan a Cook</Text>
+          </View>
+          <Pressable
+            style={[s.fabOptionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => { closeFab(); router.push("/(tabs)/plan" as any); }}
+          >
+            <Feather name="calendar" size={20} color={colors.primary} />
+          </Pressable>
+        </Animated.View>
+
+        {/* Option 1: Log a Cook */}
+        <Animated.View
+          style={[s.fabOptionRow, { opacity: optOpacity, transform: [{ translateY: opt1TranslateY }] }]}
+          pointerEvents={fabOpen ? "auto" : "none"}
+        >
+          <View style={[s.fabOptionLabel, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[s.fabOptionText, { color: colors.foreground }]}>Log a Cook</Text>
+          </View>
+          <Pressable
+            style={[s.fabOptionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => { closeFab(); router.push("/cooks/log" as any); }}
+          >
+            <Feather name="camera" size={20} color={colors.primary} />
+          </Pressable>
+        </Animated.View>
+
+        {/* Main FAB */}
+        <Pressable style={[s.fab, { backgroundColor: colors.primary }]} onPress={toggleFab}>
+          <Animated.View style={{ transform: [{ rotate: fabRotation }] }}>
+            <Feather name="plus" size={26} color="#fff" />
+          </Animated.View>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -789,4 +839,58 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   modalBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+
+  fabContainer: {
+    position: "absolute",
+    right: 20,
+    alignItems: "flex-end",
+    zIndex: 100,
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  fabOptionRow: {
+    position: "absolute",
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  fabOptionBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  fabOptionLabel: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  fabOptionText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
 });

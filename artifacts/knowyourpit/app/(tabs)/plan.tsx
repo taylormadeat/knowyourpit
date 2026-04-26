@@ -1649,7 +1649,7 @@ export default function PlanScreen() {
           </Pressable>
         )}
 
-        </>)} {/* end planMode === "multi" */}
+        </>)}{/* end planMode === "multi" */}
 
       </KeyboardAwareScrollView>
 
