@@ -39,7 +39,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           >
-            Every cook generates data. KnowYourPit's AI reads it — temperatures, stalls, deviations, decisions — and tells you exactly what it means. For the championship pitmaster, that's a precise debrief on how close you hit your plan. For the backyard cook, that's the confidence to nail a cook you've never done before.
+            Analyze your cook in real-time. KnowYourPit reads it — analyzing temperatures, catching stalls early, and delivering real decisions the moment they matter. For the championship pitmaster, that's a precise debrief on how close you hit your plan. For the backyard cook, that's the confidence to nail a cook you've never done before.
           </motion.p>
 
           <motion.div
