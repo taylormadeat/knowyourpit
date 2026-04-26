@@ -36,6 +36,22 @@ export function useUpdateSession() {
   });
 }
 
+export function deleteSession(sessionId: string): Promise<void> {
+  return customFetch<void>(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+    method: "DELETE",
+  });
+}
+
+export function useDeleteSession() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (sessionId) => deleteSession(sessionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getListCooksQueryKey() });
+    },
+  });
+}
+
 export function getGetSessionCooksQueryKey(sessionId: string) {
   return ["sessions", sessionId, "cooks"] as const;
 }

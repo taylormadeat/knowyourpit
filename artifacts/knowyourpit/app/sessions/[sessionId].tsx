@@ -11,13 +11,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   LayoutChangeEvent,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { useGetSessionCooks, useUpdateSession, getGetSessionCooksQueryKey } from "@workspace/api-client-react";
+import { useGetSessionCooks, useUpdateSession, useDeleteSession, getGetSessionCooksQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { LogoBackground } from "@/components/LogoBackground";
 
@@ -160,6 +161,7 @@ export default function SessionDetailScreen() {
 
   const { data: cooks, isLoading, isError } = useGetSessionCooks(sessionId ?? "");
   const updateSession = useUpdateSession();
+  const deleteSession = useDeleteSession();
 
   const hasActive = (cooks ?? []).some((c: any) => c.status === "active");
   const allCompleted = (cooks ?? []).every((c: any) => c.status === "completed");
@@ -193,6 +195,32 @@ export default function SessionDetailScreen() {
           setEditVisible(false);
         },
       }
+    );
+  };
+
+  const handleDelete = () => {
+    if (!sessionId) return;
+    Alert.alert(
+      "Delete Session",
+      "This will permanently delete this session and all its cooks. This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            setEditVisible(false);
+            deleteSession.mutate(sessionId, {
+              onSuccess: () => {
+                router.replace("/(tabs)/cooks" as any);
+              },
+              onError: () => {
+                Alert.alert("Delete Failed", "Something went wrong. Please try again.");
+              },
+            });
+          },
+        },
+      ]
     );
   };
 
@@ -510,6 +538,24 @@ export default function SessionDetailScreen() {
                 <Text style={s.saveBtnText}>Save Changes</Text>
               )}
             </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                s.deleteBtn,
+                { opacity: pressed || deleteSession.isPending ? 0.7 : 1 },
+              ]}
+              onPress={handleDelete}
+              disabled={deleteSession.isPending || updateSession.isPending}
+            >
+              {deleteSession.isPending ? (
+                <ActivityIndicator color="#ef4444" size="small" />
+              ) : (
+                <>
+                  <Feather name="trash-2" size={15} color="#ef4444" />
+                  <Text style={s.deleteBtnText}>Delete Session</Text>
+                </>
+              )}
+            </Pressable>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -804,6 +850,19 @@ const s = StyleSheet.create({
     color: "#fff",
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
+  },
+  deleteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  deleteBtnText: {
+    color: "#ef4444",
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
   },
 });
 

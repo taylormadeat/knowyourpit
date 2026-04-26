@@ -185,6 +185,26 @@ router.patch("/sessions/:sessionId", requireAuth, async (req: any, res): Promise
   res.json({ sessionId: params.data.sessionId, ...parsed.data });
 });
 
+router.delete("/sessions/:sessionId", requireAuth, async (req: any, res): Promise<void> => {
+  const params = UpdateSessionParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const cooks = await db.select({ id: cooksTable.id }).from(cooksTable)
+    .where(and(eq(cooksTable.sessionId, params.data.sessionId), eq(cooksTable.userId, req.userId)));
+  if (!cooks.length) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+  for (const cook of cooks) {
+    await db.delete(alertsTable).where(eq(alertsTable.cookId, cook.id));
+  }
+  await db.delete(cooksTable)
+    .where(and(eq(cooksTable.sessionId, params.data.sessionId), eq(cooksTable.userId, req.userId)));
+  res.sendStatus(204);
+});
+
 router.delete("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => {
   const params = DeleteCookParams.safeParse(req.params);
   if (!params.success) {
