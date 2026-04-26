@@ -9,6 +9,7 @@ import {
   Modal,
   ActivityIndicator,
   LayoutAnimation,
+  Alert,
 } from "react-native";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -57,28 +58,33 @@ export default function ProfileScreen() {
 
   // ── Name editing ──────────────────────────────────────────────────────────
   const [nameEditOpen, setNameEditOpen] = useState(false);
-  const [editFirstName, setEditFirstName] = useState("");
-  const [editLastName, setEditLastName] = useState("");
+  const [editName, setEditName] = useState("");
   const [nameSaving, setNameSaving] = useState(false);
 
   const openNameEdit = useCallback(() => {
-    setEditFirstName(user?.firstName ?? "");
-    setEditLastName(user?.lastName ?? "");
+    setEditName(user?.fullName || user?.firstName || "");
     setNameEditOpen(true);
-  }, [user?.firstName, user?.lastName]);
+  }, [user?.fullName, user?.firstName]);
 
   const saveNameEdit = useCallback(async () => {
     if (!user) return;
+    const trimmed = editName.trim();
+    if (!trimmed) return;
     setNameSaving(true);
     try {
-      await user.update({ firstName: editFirstName.trim(), lastName: editLastName.trim() });
+      // Split on first space so Clerk's firstName/lastName fields both get a value.
+      // If no space, the whole string becomes firstName and lastName is cleared.
+      const spaceIdx = trimmed.indexOf(" ");
+      const firstName = spaceIdx >= 0 ? trimmed.slice(0, spaceIdx) : trimmed;
+      const lastName = spaceIdx >= 0 ? trimmed.slice(spaceIdx + 1) : "";
+      await user.update({ firstName, lastName });
       setNameEditOpen(false);
-    } catch {
-      // silently handled — Clerk occasionally rejects if no change
+    } catch (err: any) {
+      Alert.alert("Couldn't save name", err?.errors?.[0]?.longMessage || err?.message || "Please try again.");
     } finally {
       setNameSaving(false);
     }
-  }, [user, editFirstName, editLastName]);
+  }, [user, editName]);
 
   // ── Cook quality calculations ─────────────────────────────────────────────
   const allRatedCooks = cooks?.filter(
@@ -448,23 +454,16 @@ export default function ProfileScreen() {
           >
             <Text style={[s.modalTitle, { color: colors.foreground }]}>Edit Name</Text>
 
-            <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>First Name</Text>
+            <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Name</Text>
             <TextInput
               style={[s.nameInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
-              value={editFirstName}
-              onChangeText={setEditFirstName}
-              placeholder="First name"
+              value={editName}
+              onChangeText={setEditName}
+              placeholder="Your name"
               placeholderTextColor={colors.mutedForeground}
               autoFocus
-            />
-
-            <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Last Name</Text>
-            <TextInput
-              style={[s.nameInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
-              value={editLastName}
-              onChangeText={setEditLastName}
-              placeholder="Last name (optional)"
-              placeholderTextColor={colors.mutedForeground}
+              returnKeyType="done"
+              onSubmitEditing={saveNameEdit}
             />
 
             <View style={s.modalActions}>
