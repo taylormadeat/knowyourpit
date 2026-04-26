@@ -16,6 +16,19 @@
         "buildType": "apk"
       }
     },
+    "development-device": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "credentialsSource": "remote",
+      "ios": {
+        "image": "macos-sequoia-15.6-xcode-16.4",
+        "simulator": false,
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "preview": {
       "distribution": "internal",
       "credentialsSource": "remote",
