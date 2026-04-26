@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "./custom-fetch";
 import { getListCooksQueryKey } from "./generated/api";
+import type { Cook } from "./generated/api.schemas";
 
 export interface UpdateSessionBody {
   sessionLabel?: string | null;
@@ -12,6 +13,11 @@ export interface UpdateSessionResult {
   sessionLabel?: string | null;
   sessionNotes?: string | null;
 }
+
+export type SessionCook = Cook & {
+  sessionLabel: string | null;
+  sessionNotes: string | null;
+};
 
 export function updateSession(sessionId: string, body: UpdateSessionBody): Promise<UpdateSessionResult> {
   return customFetch<UpdateSessionResult>(`/api/sessions/${encodeURIComponent(sessionId)}`, {
@@ -34,12 +40,12 @@ export function getGetSessionCooksQueryKey(sessionId: string) {
   return ["sessions", sessionId, "cooks"] as const;
 }
 
-export function getSessionCooks(sessionId: string): Promise<any[]> {
-  return customFetch<any[]>(`/api/sessions/${encodeURIComponent(sessionId)}`);
+export function getSessionCooks(sessionId: string): Promise<SessionCook[]> {
+  return customFetch<SessionCook[]>(`/api/sessions/${encodeURIComponent(sessionId)}`);
 }
 
 export function useGetSessionCooks(sessionId: string) {
-  return useQuery<any[]>({
+  return useQuery<SessionCook[]>({
     queryKey: getGetSessionCooksQueryKey(sessionId),
     queryFn: () => getSessionCooks(sessionId),
     enabled: Boolean(sessionId),
