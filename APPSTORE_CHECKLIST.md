@@ -127,7 +127,7 @@ Open `artifacts/knowyourpit/eas.json` and fill in the iOS submit values:
 
 RevenueCat has been seeded with the production IAP product identifiers and they are linked to the `pro` entitlement and `default` offering. Two steps remain before subscriptions will process real payments:
 
-**App Store Connect:**
+**App Store Connect — create subscriptions:**
 1. Go to [App Store Connect](https://appstoreconnect.apple.com) → your app → **Monetization → In-App Purchases**.
 2. Create an **Auto-Renewable Subscription Group** (e.g. "Pro").
 3. Add these two subscriptions inside the group:
@@ -138,9 +138,15 @@ RevenueCat has been seeded with the production IAP product identifiers and they 
    | `com.knowyourpit.pro.annual` | $29.99 / year | Add a **7-day free trial** as an Introductory Offer |
 
 4. Submit both products for review (they'll be approved alongside the app).
-5. In the **RevenueCat Dashboard** → your project → **Apps → knowyourpit iOS**, add your **Apple Shared Secret** (found in App Store Connect → Apps → In-App Purchases → Shared Secret).
 
-**Google Play Console:**
+**Connect the Apple Shared Secret to RevenueCat (App ID: `app68ddd2c135`):**
+1. In App Store Connect, go to **Apps → KnowYourPit → Monetization → In-App Purchases**.
+2. Click **App-Specific Shared Secret** (top-right of the page).
+3. Click **Generate** (or copy the existing secret if one already exists).
+4. In the [RevenueCat Dashboard](https://app.revenuecat.com) → **knowyourpit project → Apps → knowyourpit iOS**.
+5. Scroll to the **App Store Connect** section → paste the Shared Secret → click **Save**.
+
+**Google Play Console — create subscriptions:**
 1. Go to [Play Console](https://play.google.com/console) → your app → **Monetization → Subscriptions**.
 2. Create two subscriptions:
 
@@ -149,7 +155,22 @@ RevenueCat has been seeded with the production IAP product identifiers and they 
    | `com.knowyourpit.pro.monthly` | `monthly` | $4.99 / month | — |
    | `com.knowyourpit.pro.annual` | `annual` | $29.99 / year | 7-day free trial offer |
 
-3. In the **RevenueCat Dashboard** → your project → **Apps → knowyourpit Android**, link your **Google Play service account** (follow RevenueCat's guide at https://www.revenuecat.com/docs/google-server-notifications).
+**Connect Google Play service account to RevenueCat (App ID: `app77c70323cc`):**
+1. In [Google Play Console](https://play.google.com/console) → **Setup → API access** → link (or create) a Google Cloud project.
+2. Click **Create new service account** → follow the Google Cloud link → create a service account, download the **JSON key** file (you can only download it once).
+3. Back in Play Console → **Users & permissions** → **Invite new users** → paste the service account email → grant **Financial data viewer** + **Order management** permissions.
+4. In the [RevenueCat Dashboard](https://app.revenuecat.com) → **knowyourpit project → Apps → knowyourpit Android**.
+5. Scroll to **Service Credentials** → paste the entire contents of the JSON key file → click **Save**.
+6. Full RevenueCat guide: https://www.revenuecat.com/docs/google-server-notifications
+
+**Verify the connections:**
+Run the verification script to confirm the iOS Shared Secret is accepted and see the next-step guide for Android:
+
+```bash
+pnpm --filter @workspace/scripts exec tsx src/verifyStoreCredentials.ts
+```
+
+A successful iOS result prints `✓ Apple Shared Secret is connected`. Android credential validation must be confirmed visually in the RevenueCat dashboard (green checkmark in **Apps → knowyourpit Android → Service Credentials**).
 
 **RevenueCat env vars (already saved):**
 ```
