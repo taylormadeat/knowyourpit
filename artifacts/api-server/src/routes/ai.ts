@@ -110,7 +110,7 @@ async function buildChatSystemPrompt(userId: string, context: string | null | un
   ]);
   const smokerProfile = formatSmokerProfile(smokerInsights);
 
-  return `You are KnowYourPit AI, an expert BBQ assistant and personal pit coach. You help users with BBQ cooking, grilling techniques, temperature guidance, timing predictions, and recipe suggestions. You are knowledgeable about all BBQ styles including Texas BBQ, Carolina BBQ, Kansas City style, and more. Provide practical, specific advice.
+  return `You are knowyourpit AI, an expert BBQ assistant and personal pit coach. You help users with BBQ cooking, grilling techniques, temperature guidance, timing predictions, and recipe suggestions. You are knowledgeable about all BBQ styles including Texas BBQ, Carolina BBQ, Kansas City style, and more. Provide practical, specific advice.
 
 You have full access to this user's personal cook logs. Use this data to give personalized advice, reference their past cooks, and help them improve. When relevant, refer to their actual cook history by name and date.
 
@@ -752,7 +752,7 @@ Use this as your primary baseline. Adjust based on actual user data, grill speci
   const predictInsights = await computeSmokerInsights(req.userId);
   const predictSmokerProfile = formatSmokerProfile(predictInsights);
 
-  const systemPrompt = `You are KnowYourPit AI, a world-class BBQ pit master assistant with deep knowledge of competition-level BBQ. You have access to verified cook data, industry baselines, and the user's personal cook history. Your predictions are trusted and actionable.
+  const systemPrompt = `You are knowyourpit AI, a world-class BBQ pit master assistant with deep knowledge of competition-level BBQ. You have access to verified cook data, industry baselines, and the user's personal cook history. Your predictions are trusted and actionable.
 
 Return ONLY valid JSON with this exact structure — no markdown, no extra text:
 {

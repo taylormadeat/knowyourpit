@@ -1,7 +1,7 @@
 {
   "name": "watch-connectivity",
   "version": "1.0.0",
-  "description": "Expo native module exposing WCSession to the KnowYourPit JS layer",
+  "description": "Expo native module exposing WCSession to the knowyourpit JS layer",
   "main": "index",
   "license": "MIT",
   "peerDependencies": {

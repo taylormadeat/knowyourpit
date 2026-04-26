@@ -84,7 +84,7 @@ export default function Support() {
             <AccordionItem value="item-4">
               <AccordionTrigger>How do temperature alerts work?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                You can set a target temperature alert on the Cook screen. When your probe hits that temperature, the app sends a local notification — even when the app is in the background. Make sure notifications are enabled for KnowYourPit in your iPhone Settings.
+                You can set a target temperature alert on the Cook screen. When your probe hits that temperature, the app sends a local notification — even when the app is in the background. Make sure notifications are enabled for knowyourpit in your iPhone Settings.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-5">

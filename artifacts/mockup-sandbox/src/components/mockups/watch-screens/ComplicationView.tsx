@@ -61,7 +61,7 @@ export function ComplicationView() {
       >
         {/* Watch face — Modular style */}
 
-        {/* Top complication — KnowYourPit */}
+        {/* Top complication — knowyourpit */}
         <div
           className="absolute flex flex-col items-center"
           style={{ top: 14 }}
@@ -119,7 +119,7 @@ export function ComplicationView() {
             </div>
           </div>
 
-          {/* KnowYourPit complication */}
+          {/* knowyourpit complication */}
           <div
             className="flex flex-col items-center justify-center rounded-xl flex-1"
             style={{ background: "#1c0a00", border: "1px solid #E84820", height: 36 }}

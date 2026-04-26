@@ -7,7 +7,7 @@ export function Screen6Recipes() {
   ];
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-5 px-4" style={bg}>
-      <p className="text-red-400 text-xs font-bold tracking-[0.25em] uppercase">KnowYourPit</p>
+      <p className="text-red-400 text-xs font-bold tracking-[0.25em] uppercase">knowyourpit</p>
       <h1 className="text-white text-2xl font-black text-center leading-tight max-w-[280px]">
         Proven recipes from<br />real pitmasters
       </h1>

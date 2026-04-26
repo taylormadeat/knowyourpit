@@ -231,7 +231,7 @@ export default function SignInScreen() {
       >
         <Image source={logoImg} style={styles.logo} resizeMode="contain" />
         <Text style={styles.title}>Welcome back</Text>
-        <Text style={styles.subtitle}>Sign in to KnowYourPit</Text>
+        <Text style={styles.subtitle}>Sign in to knowyourpit</Text>
 
         <Text style={styles.label}>Email</Text>
         <View style={styles.inputRow}>

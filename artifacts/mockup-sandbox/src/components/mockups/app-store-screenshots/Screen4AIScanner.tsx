@@ -35,7 +35,7 @@ export function Screen4AIScanner() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-5 px-4" style={bg}>
-      <p className="text-blue-400 text-xs font-bold tracking-[0.25em] uppercase">KnowYourPit</p>
+      <p className="text-blue-400 text-xs font-bold tracking-[0.25em] uppercase">knowyourpit</p>
       <h1 className="text-white text-2xl font-black text-center leading-tight max-w-[280px]">
         Snap a photo,<br />get AI guidance
       </h1>

@@ -199,7 +199,7 @@ export default function SignUpScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <Image source={logoImg} style={styles.logo} resizeMode="contain" />
         <Text style={styles.title}>Create account</Text>
-        <Text style={styles.subtitle}>Join KnowYourPit</Text>
+        <Text style={styles.subtitle}>Join knowyourpit</Text>
 
         <Text style={styles.label}>Email</Text>
         <View style={styles.inputRow}>

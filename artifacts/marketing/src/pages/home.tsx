@@ -19,7 +19,7 @@ export default function Home() {
         </div>
 
         <div className="container relative z-10 px-4 flex flex-col items-center text-center">
-          <h1 className="sr-only">KnowYourPit — AI that reads your cook data and tells you what it means</h1>
+          <h1 className="sr-only">knowyourpit — AI that reads your cook data and tells you what it means</h1>
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -28,7 +28,7 @@ export default function Home() {
           >
             <img
               src={`${BASE}logo.png`}
-              alt="KnowYourPit"
+              alt="knowyourpit"
               className="w-44 sm:w-56 md:w-80 lg:w-96 rounded-3xl [filter:drop-shadow(0_0_60px_rgba(210,80,30,0.5))]"
             />
           </motion.div>
@@ -39,7 +39,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           >
-            Analyze your cook in real-time. KnowYourPit reads it — analyzing temperatures, catching stalls early, and delivering real decisions the moment they matter. For the championship pitmaster, that's a precise debrief on how close you hit your plan. For the backyard cook, that's the confidence to nail a cook you've never done before.
+            Analyze your cook in real-time. knowyourpit reads it — analyzing temperatures, catching stalls early, and delivering real decisions the moment they matter. For the championship pitmaster, that's a precise debrief on how close you hit your plan. For the backyard cook, that's the confidence to nail a cook you've never done before.
           </motion.p>
 
           <motion.div
@@ -97,7 +97,7 @@ export default function Home() {
               <div className="relative w-[min(260px,80vw)] sm:w-[280px] md:w-[300px] aspect-[35/76] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(221,107,32,0.4)] overflow-hidden">
                 <img
                   src={`${BASE}app-dashboard.png`}
-                  alt="KnowYourPit home screen showing PitMaster Score, recent cooks, and grill stats"
+                  alt="knowyourpit home screen showing PitMaster Score, recent cooks, and grill stats"
                   className="absolute inset-0 w-full h-full object-cover object-top"
                 />
                 {/* Narrow band hides iOS status bar + Expo dev bar only (~6% = ~160px of source) */}
@@ -121,7 +121,7 @@ export default function Home() {
               What the AI gives back.
             </h2>
             <p className="text-muted-foreground text-base md:text-lg">
-              Every screen shows what KnowYourPit does with your cook data — analysis, feedback, and decisions returned to you in plain language.
+              Every screen shows what knowyourpit does with your cook data — analysis, feedback, and decisions returned to you in plain language.
             </p>
           </div>
 
@@ -263,7 +263,7 @@ export default function Home() {
 
             <div className="flex flex-col gap-6 md:gap-8">
               <div>
-                <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">Your pit talks. KnowYourPit listens.</h2>
+                <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">Your pit talks. knowyourpit listens.</h2>
                 <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
                   Every cook generates data — temperatures, timing, decisions, results. The AI reads all of it and gives it back as something useful: a debrief, a recommendation, a warning, or a plan. For the pitmaster who's been doing this for 20 years, and the one firing up for the first time.
                 </p>

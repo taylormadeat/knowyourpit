@@ -2,7 +2,7 @@ export function Screen1Dashboard() {
   const bg = { background: "radial-gradient(ellipse at 30% 20%, #3d1a00 0%, #1a0800 50%, #0d0400 100%)" };
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-5 px-4" style={bg}>
-      <p className="text-orange-400 text-xs font-bold tracking-[0.25em] uppercase">KnowYourPit</p>
+      <p className="text-orange-400 text-xs font-bold tracking-[0.25em] uppercase">knowyourpit</p>
       <h1 className="text-white text-2xl font-black text-center leading-tight max-w-[280px]">
         Know exactly<br />what to do next
       </h1>

@@ -278,10 +278,10 @@ export function useWatchBridge() {
 
       if (action === "openApp") {
         // Watch requested the user open the phone app. Schedule an immediate
-        // local notification — tapping it foregrounds KnowYourPit on iPhone.
+        // local notification — tapping it foregrounds knowyourpit on iPhone.
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: "KnowYourPit",
+            title: "knowyourpit",
             body: "Tap to continue on your iPhone.",
           },
           trigger: null,

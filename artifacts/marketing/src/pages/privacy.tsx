@@ -8,14 +8,14 @@ export default function Privacy() {
         </p>
 
         <div className="not-prose my-6 rounded-lg border-l-4 border-primary bg-card/60 px-5 py-4 text-[15px] text-foreground/90">
-          KnowYourPit is a BBQ planning and cook-session management app. We
+          knowyourpit is a BBQ planning and cook-session management app. We
           only collect the data we need to make the app work well for you. We
           never sell your personal information.
         </div>
 
         <h2>1. Who We Are</h2>
         <p>
-          KnowYourPit ("we," "our," or "us") is operated by the KnowYourPit
+          knowyourpit ("we," "our," or "us") is operated by the knowyourpit
           team. If you have questions about this policy, contact us at{" "}
           <a href="mailto:privacy@knowyourpit.com">privacy@knowyourpit.com</a>.
         </p>
@@ -143,7 +143,7 @@ export default function Privacy() {
 
         <h2>8. Children's Privacy</h2>
         <p>
-          KnowYourPit is not directed to children under the age of 13 (or 16
+          knowyourpit is not directed to children under the age of 13 (or 16
           in the EU/UK). We do not knowingly collect personal information
           from children. If you believe a child has provided us with personal
           data, please contact us and we will delete it promptly.
