@@ -30,6 +30,18 @@ uri = "file://artifacts/marketing/public/thermometer.png"
 type = "image"
 title = "Thermometer on dark wood"
 
+[[generated]]
+id = "V1NKF9YfVegJ5uRVvvZKx"
+uri = "file://artifacts/promo-video/public/brand/coals-bg.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "7eHZug57oCImCeApr6DHo"
+uri = "file://artifacts/promo-video/public/brand/smoke-wisp.png"
+type = "image"
+title = "generated_image"
+
 [[outputs]]
 id = "Qp7H6VGZ9ofBB5-ABXfas"
 uri = "file://screenshots/app-store-6.7in/IMG_1746.png"
