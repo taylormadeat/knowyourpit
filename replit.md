@@ -48,3 +48,4 @@ The project uses a monorepo structure managed by pnpm workspaces. It is built wi
 - **Clerk**: Potentially used for authentication, though the contact form is not behind Clerk auth.
 - **express-rate-limit**: Middleware used on the API server for rate limiting, specifically on the contact form endpoint.
 - **Let's Encrypt**: Used for automatic TLS certificate provisioning for custom domains.
+- **RevenueCat**: Subscription paywall — `pro` entitlement (monthly + annual). Mobile uses `react-native-purchases`; admin scripts in `scripts/src/{seedRevenueCatProducts,grantPro,revokePro}.ts` use `@replit/revenuecat-sdk` via the Replit RevenueCat connector. Server-side gates live in `artifacts/api-server/src/lib/paywall.ts` and emit a uniform 402 response via `respondPaywall(res, ...)`. Set `PAYWALL_ENABLED=false` to bypass every gate globally.

@@ -5,10 +5,16 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
+    "seed-revenuecat": "tsx ./src/seedRevenueCatProducts.ts",
+    "grant-pro": "tsx ./src/grantPro.ts",
+    "revoke-pro": "tsx ./src/revokePro.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "tsx": "catalog:"
+  },
+  "dependencies": {
+    "@replit/revenuecat-sdk": "4.0.0"
   }
 }
