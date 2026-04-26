@@ -434,10 +434,10 @@ export default function HomeScreen() {
                   >
                     {/* Outer View owns the flex layout + border. LinearGradient fills it
                         absolutely so it always covers the full card height including tips. */}
-                    <View style={[s.gradeCard, { borderColor: color + "55", borderRadius: colors.radius, overflow: "hidden" }]}>
+                    <View style={[s.gradeCard, { borderColor: color + "55", borderRadius: colors.radius }]}>
                       <LinearGradient
                         colors={["#1C1C1F", "#2A1A10"]}
-                        style={StyleSheet.absoluteFill}
+                        style={[StyleSheet.absoluteFill, { borderRadius: colors.radius }]}
                       />
 
                       <View style={s.gradeCardRow}>
