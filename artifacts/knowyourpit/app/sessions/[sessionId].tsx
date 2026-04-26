@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { useGetSessionCooks, useUpdateSession, useDeleteSession, getGetSessionCooksQueryKey } from "@workspace/api-client-react";
+import { useGetSessionCooks, useUpdateSession, useDeleteSession, useRemoveCookFromSession, getGetSessionCooksQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { LogoBackground } from "@/components/LogoBackground";
 
@@ -162,6 +162,7 @@ export default function SessionDetailScreen() {
   const { data: cooks, isLoading, isError } = useGetSessionCooks(sessionId ?? "");
   const updateSession = useUpdateSession();
   const deleteSession = useDeleteSession();
+  const removeCookFromSession = useRemoveCookFromSession(sessionId ?? "");
 
   const hasActive = (cooks ?? []).some((c: any) => c.status === "active");
   const allCompleted = (cooks ?? []).every((c: any) => c.status === "completed");
@@ -240,6 +241,33 @@ export default function SessionDetailScreen() {
         return max === null || d > max ? d : max;
       }, null)
     : null;
+
+  const handleRemoveCook = (cook: any) => {
+    Alert.alert(
+      "Remove from Session",
+      `Remove "${cook.foodType || "this cook"}" from the session? The cook itself won't be deleted.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            removeCookFromSession.mutate(cook.id, {
+              onSuccess: () => {
+                const remaining = (cooks ?? []).filter((c: any) => c.id !== cook.id);
+                if (remaining.length === 0) {
+                  router.replace("/(tabs)/cooks" as any);
+                }
+              },
+              onError: () => {
+                Alert.alert("Error", "Could not remove the cook. Please try again.");
+              },
+            });
+          },
+        },
+      ]
+    );
+  };
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -333,9 +361,14 @@ export default function SessionDetailScreen() {
 
           <CookGanttChart cooks={cooks ?? []} colors={colors} />
 
-          <Text style={[s.sectionTitle, { color: colors.mutedForeground, marginTop: 8 }]}>
-            TIMELINE
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8, marginBottom: 0 }}>
+            <Text style={[s.sectionTitle, { color: colors.mutedForeground, marginTop: 0 }]}>
+              TIMELINE
+            </Text>
+            <Text style={{ fontSize: 11, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginBottom: 2 }}>
+              Long-press to remove
+            </Text>
+          </View>
 
           <View style={[s.timelineCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
             {(cooks ?? []).map((cook: any, idx: number) => {
@@ -356,6 +389,8 @@ export default function SessionDetailScreen() {
                     pressed && { opacity: 0.75 },
                   ]}
                   onPress={() => router.push(`/cooks/${cook.id}` as any)}
+                  onLongPress={() => handleRemoveCook(cook)}
+                  delayLongPress={400}
                 >
                   <View style={s.timelineLeft}>
                     <View style={[s.timelineDot, { backgroundColor: STATUS_COLORS[cook.status] || colors.primary }]} />

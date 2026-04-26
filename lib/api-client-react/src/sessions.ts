@@ -67,3 +67,21 @@ export function useGetSessionCooks(sessionId: string) {
     enabled: Boolean(sessionId),
   });
 }
+
+export function removeCookFromSession(cookId: number): Promise<Cook> {
+  return customFetch<Cook>(`/api/cooks/${cookId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ sessionId: null }),
+  });
+}
+
+export function useRemoveCookFromSession(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<Cook, Error, number>({
+    mutationFn: (cookId) => removeCookFromSession(cookId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getGetSessionCooksQueryKey(sessionId) });
+      queryClient.invalidateQueries({ queryKey: getListCooksQueryKey() });
+    },
+  });
+}

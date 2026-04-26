@@ -115,6 +115,14 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
       { ...req.body.analysisResult, savedAt: new Date().toISOString() },
     ];
   }
+  if ("sessionId" in req.body) {
+    const sid = req.body.sessionId;
+    if (sid !== null && typeof sid !== "string") {
+      res.status(400).json({ error: "sessionId must be a string or null" });
+      return;
+    }
+    updateData.sessionId = sid ?? null;
+  }
   const [cook] = await db.update(cooksTable).set(updateData)
     .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)))
     .returning();
