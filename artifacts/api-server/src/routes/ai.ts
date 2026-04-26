@@ -1029,7 +1029,12 @@ router.get("/ai/smoker-profile", requireAuth, async (req: any, res): Promise<voi
 interface HomeInsights {
   pitMasterScore: number;
   scoreLabel: string;
-  scoreBreakdown: { avgRating: number | null; planAccuracy: number | null; cookCount: number };
+  scoreBreakdown: {
+    avgRating: number | null;
+    planAccuracy: number | null;
+    aiAssessmentScore: number | null;
+    cookCount: number;
+  };
   tips: string[];
   tipsGeneratedAt: string;
 }
@@ -1092,15 +1097,33 @@ router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void
         ? Math.round(accuracies.reduce((s, a) => s + a, 0) / accuracies.length)
         : null;
 
-    // Cook count bonus 0–100 (maxes at 20 cooks)
-    const cookCountBonus = Math.min(cookCount / 20, 1) * 100;
+    // AI assessment quality score — average verdict scores across cooks with analysis
+    const VERDICT_SCORE: Record<string, number> = {
+      perfect: 100,
+      good: 75,
+      needs_work: 50,
+      overcooked: 25,
+      undercooked: 25,
+    };
+    const verdictScores: number[] = [];
+    for (const c of cooks) {
+      const verdict = getAssessment(c.analysisResult)?.verdict;
+      if (verdict && VERDICT_SCORE[verdict] !== undefined) {
+        verdictScores.push(VERDICT_SCORE[verdict]);
+      }
+    }
+    const aiAssessmentScore =
+      verdictScores.length > 0
+        ? Math.round(verdictScores.reduce((s, v) => s + v, 0) / verdictScores.length)
+        : null;
 
-    // Weighted composite score
-    let weightedSum = cookCountBonus * 0.2;
-    let totalWeight = 0.2;
+    // Weighted composite score (ratings 40%, plan accuracy 40%, AI assessment 20%)
+    let weightedSum = 0;
+    let totalWeight = 0;
     if (avgRatingScore != null) { weightedSum += avgRatingScore * 0.4; totalWeight += 0.4; }
     if (planAccuracy != null) { weightedSum += planAccuracy * 0.4; totalWeight += 0.4; }
-    const pitMasterScore = Math.round(weightedSum / totalWeight);
+    if (aiAssessmentScore != null) { weightedSum += aiAssessmentScore * 0.2; totalWeight += 0.2; }
+    const pitMasterScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
 
     // Generate tips via AI if enough data, else use fallbacks
     let tips: string[] = [];
@@ -1153,7 +1176,7 @@ Respond ONLY with a JSON array of exactly 3 strings: ["tip1", "tip2", "tip3"]`;
     const result: HomeInsights = {
       pitMasterScore,
       scoreLabel: getPitMasterLabel(pitMasterScore),
-      scoreBreakdown: { avgRating, planAccuracy, cookCount },
+      scoreBreakdown: { avgRating, planAccuracy, aiAssessmentScore, cookCount },
       tips,
       tipsGeneratedAt: new Date().toISOString(),
     };

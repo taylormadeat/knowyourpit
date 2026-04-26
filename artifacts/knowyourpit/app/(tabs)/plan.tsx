@@ -1436,7 +1436,7 @@ export default function PlanScreen() {
           )}
         </Pressable>
 
-        </>)} {/* end planMode === "single" */}
+        </>)}{/* end planMode === "single" */}
 
         {/* ════ MULTI-COOK SEQUENCER ════ */}
         {planMode === "multi" && (<>

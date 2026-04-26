@@ -181,10 +181,16 @@ export default function HomeScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
   const [tipsExpanded, setTipsExpanded] = useState(false);
+  const [scoreExpanded, setScoreExpanded] = useState(false);
 
   const toggleTips = (expand?: boolean) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setTipsExpanded((prev) => (expand !== undefined ? expand : !prev));
+  };
+
+  const toggleScore = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setScoreExpanded((prev) => !prev);
   };
 
   return (
@@ -390,12 +396,21 @@ export default function HomeScreen() {
                               </Text>
                             </View>
                           )}
-                          <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
-                            <Feather name="layers" size={10} color="#96908A" />
-                            <Text style={[s.gradeChipText, { color: "#96908A" }]}>
-                              {insights.scoreBreakdown.cookCount} cooks
-                            </Text>
-                          </View>
+                          {insights.scoreBreakdown.aiAssessmentScore != null ? (
+                            <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
+                              <Feather name="cpu" size={10} color="#96908A" />
+                              <Text style={[s.gradeChipText, { color: "#96908A" }]}>
+                                {insights.scoreBreakdown.aiAssessmentScore}% AI score
+                              </Text>
+                            </View>
+                          ) : (
+                            <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
+                              <Feather name="layers" size={10} color="#96908A" />
+                              <Text style={[s.gradeChipText, { color: "#96908A" }]}>
+                                {insights.scoreBreakdown.cookCount} cooks
+                              </Text>
+                            </View>
+                          )}
                         </View>
 
                         {/* Tap hint */}
@@ -406,6 +421,113 @@ export default function HomeScreen() {
                       </View>
                     </LinearGradient>
                   </Pressable>
+
+                  {/* How is this scored? toggle */}
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      toggleScore();
+                    }}
+                    style={({ pressed }) => [
+                      s.scoreToggleRow,
+                      { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
+                      pressed && { opacity: 0.75 },
+                    ]}
+                  >
+                    <Feather name="info" size={11} color={color + "AA"} />
+                    <Text style={[s.scoreToggleText, { color: color + "AA" }]}>How is this scored?</Text>
+                    <Feather name={scoreExpanded ? "chevron-up" : "chevron-down"} size={11} color={color + "AA"} />
+                  </Pressable>
+
+                  {/* Score breakdown panel */}
+                  {scoreExpanded && (() => {
+                    const sb = insights.scoreBreakdown;
+                    const ratingPts = sb.avgRating != null ? Math.round((sb.avgRating / 5) * 100 * 0.4) : null;
+                    const planPts = sb.planAccuracy != null ? Math.round(sb.planAccuracy * 0.4) : null;
+                    const aiPts = sb.aiAssessmentScore != null ? Math.round(sb.aiAssessmentScore * 0.2) : null;
+                    return (
+                      <View style={[s.scoreCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                        {/* Row: Ratings */}
+                        <View style={[s.scoreRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                          <View style={s.scoreRowLeft}>
+                            <View style={[s.scoreIconWrap, { backgroundColor: color + "18" }]}>
+                              <Feather name="star" size={13} color={color} />
+                            </View>
+                            <View style={s.scoreRowInfo}>
+                              <Text style={[s.scoreRowTitle, { color: colors.foreground }]}>Your Ratings</Text>
+                              <Text style={[s.scoreRowSub, { color: colors.mutedForeground }]}>
+                                {sb.avgRating != null ? `${sb.avgRating.toFixed(1)} / 5 stars` : "No ratings yet"}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={s.scoreRowRight}>
+                            <View style={[s.weightBadge, { backgroundColor: color + "22", borderColor: color + "44" }]}>
+                              <Text style={[s.weightText, { color }]}>40%</Text>
+                            </View>
+                            <Text style={[s.scorePts, { color: ratingPts != null ? colors.foreground : colors.mutedForeground }]}>
+                              {ratingPts != null ? `${ratingPts} / 40 pts` : "—"}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Row: Plan Accuracy */}
+                        <View style={[s.scoreRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                          <View style={s.scoreRowLeft}>
+                            <View style={[s.scoreIconWrap, { backgroundColor: "rgba(255,255,255,0.07)" }]}>
+                              <Feather name="target" size={13} color="#96908A" />
+                            </View>
+                            <View style={s.scoreRowInfo}>
+                              <Text style={[s.scoreRowTitle, { color: colors.foreground }]}>Plan Accuracy</Text>
+                              <Text style={[s.scoreRowSub, { color: colors.mutedForeground }]}>
+                                {sb.planAccuracy != null ? `${sb.planAccuracy}% on target` : "No timing data yet"}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={s.scoreRowRight}>
+                            <View style={[s.weightBadge, { backgroundColor: "rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.12)" }]}>
+                              <Text style={[s.weightText, { color: "#96908A" }]}>40%</Text>
+                            </View>
+                            <Text style={[s.scorePts, { color: planPts != null ? colors.foreground : colors.mutedForeground }]}>
+                              {planPts != null ? `${planPts} / 40 pts` : "—"}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Row: AI Assessment */}
+                        <View style={s.scoreRow}>
+                          <View style={s.scoreRowLeft}>
+                            <View style={[s.scoreIconWrap, { backgroundColor: "rgba(255,255,255,0.07)" }]}>
+                              <Feather name="cpu" size={13} color="#96908A" />
+                            </View>
+                            <View style={s.scoreRowInfo}>
+                              <Text style={[s.scoreRowTitle, { color: colors.foreground }]}>AI Assessment</Text>
+                              <Text style={[s.scoreRowSub, { color: colors.mutedForeground }]}>
+                                {sb.aiAssessmentScore != null
+                                  ? `${sb.aiAssessmentScore} / 100 avg verdict`
+                                  : "No analyzed cooks yet"}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={s.scoreRowRight}>
+                            <View style={[s.weightBadge, { backgroundColor: "rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.12)" }]}>
+                              <Text style={[s.weightText, { color: "#96908A" }]}>20%</Text>
+                            </View>
+                            <Text style={[s.scorePts, { color: aiPts != null ? colors.foreground : colors.mutedForeground }]}>
+                              {aiPts != null ? `${aiPts} / 20 pts` : "—"}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Plain-English note */}
+                        <View style={[s.scoreNote, { borderTopWidth: 1, borderTopColor: colors.border }]}>
+                          <Feather name="info" size={12} color={colors.mutedForeground} style={{ marginTop: 1 }} />
+                          <Text style={[s.scoreNoteText, { color: colors.mutedForeground }]}>
+                            Self-ratings count for 40% of your score. PitMaster grades your cook results (20%) and how closely you follow planned timelines (40%) — so logging cooks with photos and setting planned start/end times will move your grade the most.
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })()}
 
                   {/* Inline tips — only visible when expanded */}
                   {tipsExpanded && insights.tips?.length > 0 && (
@@ -912,5 +1034,94 @@ const s = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Inter_600SemiBold",
     textTransform: "capitalize",
+  },
+
+  /* Score breakdown toggle row */
+  scoreToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: 20,
+    marginTop: 6,
+    marginBottom: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+  },
+  scoreToggleText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+  },
+
+  /* Score breakdown card */
+  scoreCard: {
+    borderWidth: 1,
+    marginHorizontal: 20,
+    marginBottom: 8,
+    overflow: "hidden",
+  },
+  scoreRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 14,
+    gap: 10,
+  },
+  scoreRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+  scoreIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  scoreRowInfo: { flex: 1 },
+  scoreRowTitle: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 2,
+  },
+  scoreRowSub: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+  },
+  scoreRowRight: {
+    alignItems: "flex-end",
+    gap: 4,
+    flexShrink: 0,
+  },
+  weightBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  weightText: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+  },
+  scorePts: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
+  scoreNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    padding: 14,
+    paddingTop: 12,
+  },
+  scoreNoteText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+    flex: 1,
   },
 });

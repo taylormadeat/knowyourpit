@@ -7,6 +7,7 @@ export interface HomeInsights {
   scoreBreakdown: {
     avgRating: number | null;
     planAccuracy: number | null;
+    aiAssessmentScore: number | null;
     cookCount: number;
   };
   tips: string[];
