@@ -22,6 +22,8 @@ import { setBaseUrl, setAuthTokenGetter, patchAlert, listAlerts } from "@workspa
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useWatchBridge } from "@/hooks/useWatchBridge";
 import { CACHE_STORAGE_KEY } from "@/constants/cache";
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+import { PaywallProvider } from "@/contexts/PaywallContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -282,9 +284,13 @@ function ClerkGatedShell() {
   }
   return (
     <IsolatedQueryProvider key={userId ?? "anon"}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <RootLayoutNav />
-      </GestureHandlerRootView>
+      <SubscriptionProvider>
+        <PaywallProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <RootLayoutNav />
+          </GestureHandlerRootView>
+        </PaywallProvider>
+      </SubscriptionProvider>
     </IsolatedQueryProvider>
   );
 }

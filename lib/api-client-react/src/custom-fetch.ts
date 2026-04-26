@@ -17,6 +17,7 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _subscriptionActiveGetter: (() => boolean) | null = null;
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -42,6 +43,19 @@ export function setBaseUrl(url: string | null): void {
  */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
+}
+
+/**
+ * Register a synchronous getter that reports whether the current user has an
+ * active Pro subscription. When the getter returns true, every request gets
+ * an `X-Subscription-Active: true` header so the API server can skip free-tier
+ * gates for paying users. The mobile app derives this from RevenueCat's
+ * `customerInfo.entitlements.active.pro`.
+ *
+ * Pass `null` to clear the getter (treat all requests as free-tier).
+ */
+export function setSubscriptionActiveGetter(getter: (() => boolean) | null): void {
+  _subscriptionActiveGetter = getter;
 }
 
 function isRequest(input: RequestInfo | URL): input is Request {
@@ -355,6 +369,19 @@ export async function customFetch<T = unknown>(
     const token = await _authTokenGetter();
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
+    }
+  }
+
+  // Attach subscription status header so the API server can bypass free-tier
+  // gates for Pro users. Read synchronously so it's always in sync with the
+  // most recent RevenueCat customerInfo we cached on the client.
+  if (_subscriptionActiveGetter && !headers.has("x-subscription-active")) {
+    try {
+      if (_subscriptionActiveGetter()) {
+        headers.set("x-subscription-active", "true");
+      }
+    } catch {
+      // Defensive: never let a buggy getter break a request.
     }
   }
 

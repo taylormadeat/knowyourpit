@@ -13,6 +13,13 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { clearHomeInsightsCache } from "./ai";
+import {
+  FREE_COOK_LIMIT,
+  respondPaywall,
+  countCooksForUser,
+  startOfNextUtcDay,
+  userBypassesPaywall,
+} from "../lib/paywall";
 
 const router: IRouter = Router();
 
@@ -48,6 +55,22 @@ router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+
+  // Free-tier cap: lifetime total of FREE_COOK_LIMIT cooks. Pro subscribers and
+  // any request when PAYWALL_ENABLED=false bypass this check entirely.
+  if (!userBypassesPaywall(req)) {
+    const existingCount = await countCooksForUser(req.userId);
+    if (existingCount >= FREE_COOK_LIMIT) {
+      respondPaywall(res, {
+        code: "cook_limit_reached",
+        limit: FREE_COOK_LIMIT,
+        used: existingCount,
+        message: `Free plan is capped at ${FREE_COOK_LIMIT} cooks. Upgrade to Pro for unlimited.`,
+      });
+      return;
+    }
+  }
+
   const analysisResult = req.body.analysisResult ?? null;
   const [cook] = await db.insert(cooksTable).values({
     ...parsed.data,

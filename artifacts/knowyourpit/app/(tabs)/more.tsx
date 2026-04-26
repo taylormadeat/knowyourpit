@@ -15,6 +15,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
+import { useSubscription } from "@/contexts/SubscriptionContext";
+import { usePaywall } from "@/contexts/PaywallContext";
 
 const MENU_SECTIONS = [
   {
@@ -39,6 +41,8 @@ export default function MoreScreen() {
   const { user } = useUser();
   const { signOut } = useClerk();
   const qc = useQueryClient();
+  const { isPro, expirationDate } = useSubscription();
+  const { showPaywall } = usePaywall();
 
   const botPad = useBottomTabBarHeight();
 
@@ -70,6 +74,53 @@ export default function MoreScreen() {
         contentContainerStyle={{ paddingTop: 16, paddingBottom: botPad }}
         showsVerticalScrollIndicator={false}
       >
+        {/*
+          ── Subscription card ──
+          Always visible at the top of "More" so users can find their plan
+          status (or upgrade) at a glance. Pro users see expiration; free
+          users get a primary-color CTA that opens the paywall sheet.
+        */}
+        <Pressable
+          onPress={() => {
+            if (isPro) {
+              Alert.alert(
+                "knowyourpit Pro",
+                expirationDate
+                  ? `Your subscription renews on ${expirationDate.toLocaleDateString()}. Manage in your App Store / Play Store account.`
+                  : "Manage your subscription in your App Store / Play Store account.",
+              );
+            } else {
+              showPaywall();
+            }
+          }}
+          style={({ pressed }) => [
+            s.subscriptionCard,
+            {
+              backgroundColor: isPro ? colors.card : "#E84520",
+              borderColor: isPro ? colors.border : "#E84520",
+              borderRadius: colors.radius,
+            },
+            pressed && { opacity: 0.85 },
+          ]}
+        >
+          <View style={[s.subscriptionIcon, { backgroundColor: isPro ? "#E8452020" : "rgba(255,255,255,0.2)" }]}>
+            <Feather name={isPro ? "award" : "zap"} size={20} color={isPro ? "#E84520" : "#fff"} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.subscriptionTitle, { color: isPro ? colors.foreground : "#fff" }]}>
+              {isPro ? "knowyourpit Pro" : "Upgrade to Pro"}
+            </Text>
+            <Text style={[s.subscriptionSub, { color: isPro ? colors.mutedForeground : "rgba(255,255,255,0.85)" }]}>
+              {isPro
+                ? expirationDate
+                  ? `Renews ${expirationDate.toLocaleDateString()}`
+                  : "Active subscription"
+                : "Unlimited cooks, AI, multi-cook, devices"}
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={isPro ? colors.mutedForeground : "rgba(255,255,255,0.85)"} />
+        </Pressable>
+
         <Pressable
           style={[s.profileCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
           onPress={() => router.push("/profile" as any)}
@@ -139,6 +190,13 @@ const s = StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 14,
     marginHorizontal: 16, marginBottom: 20, padding: 16, borderWidth: 1,
   },
+  subscriptionCard: {
+    flexDirection: "row", alignItems: "center", gap: 14,
+    marginHorizontal: 16, marginBottom: 12, padding: 16, borderWidth: 1.5,
+  },
+  subscriptionIcon: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  subscriptionTitle: { fontSize: 16, fontFamily: "Inter_700Bold", marginBottom: 2 },
+  subscriptionSub: { fontSize: 13, fontFamily: "Inter_400Regular" },
   avatar: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
   avatarText: { fontSize: 20, fontFamily: "Inter_700Bold", color: "#fff" },
   profileInfo: { flex: 1 },

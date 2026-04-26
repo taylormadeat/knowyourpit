@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, thermoworksCredentialsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
+import { respondPaywall, userBypassesPaywall } from "../lib/paywall";
 
 const FIREBASE_API_KEY = "AIzaSyCf079iccUFc1k7VHdGXng22zXDy8Y3KEY";
 const IDENTITY_HOST = "https://identitytoolkit.googleapis.com";
@@ -303,6 +304,17 @@ function isChannelLive(c: ChannelReading): boolean {
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.post("/thermoworks/link", requireAuth, async (req: any, res): Promise<void> => {
+  // ThermoWorks linking is a Pro-only feature. Already-linked accounts keep
+  // working via status/readings until the user explicitly unlinks.
+  if (!userBypassesPaywall(req)) {
+    respondPaywall(res, {
+      code: "pro_required",
+      feature: "thermoworks_link",
+      message: "Connecting ThermoWorks Cloud is a Pro feature. Upgrade to link your account.",
+    });
+    return;
+  }
+
   const { email, password } = req.body ?? {};
   if (!email || !password) {
     res.status(400).json({ error: "Email and password are required" });

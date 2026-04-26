@@ -38,6 +38,7 @@ import {
 } from "@workspace/api-client-react";
 import { useMeaterReadings, type MeaterProbe } from "@/hooks/useMeaterReadings";
 import { MEAT_CATEGORIES, MEAT_CUTS, MEAT_CUTS_BY_CATEGORY, type MeatCut } from "@/constants/meatCuts";
+import { usePaywall } from "@/contexts/PaywallContext";
 
 const logoImg = require("@/assets/images/logo.png");
 
@@ -137,6 +138,7 @@ export default function LogCookScreen() {
 
   const analyzeMutation = useAnalyzeCook();
   const createCook = useCreateCook();
+  const { parseAndShowFromError } = usePaywall();
 
   const topPad = useTopInset();
   const botPad = useBottomInset();
@@ -367,12 +369,17 @@ export default function LogCookScreen() {
       qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
       qc.invalidateQueries({ queryKey: ["home", "insights"] });
+      qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
 
       const newId = (cook as any)?.id;
       if (newId) router.replace(`/cooks/${newId}` as any);
       else goBack();
-    } catch {
-      Alert.alert("Save failed", "Could not save the cook. Please try again.");
+    } catch (err) {
+      // 402 from server (free plan cook cap) → paywall modal. Anything else
+      // falls back to the generic alert.
+      if (!parseAndShowFromError(err)) {
+        Alert.alert("Save failed", "Could not save the cook. Please try again.");
+      }
     } finally {
       setSaving(false);
     }

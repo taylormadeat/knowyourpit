@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, meaterCredentialsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
+import { respondPaywall, userBypassesPaywall } from "../lib/paywall";
 
 const MEATER_API = "https://public-api.cloud.meater.com/v1";
 
@@ -44,6 +45,18 @@ async function fetchMeaterDevices(token: string): Promise<any[] | null> {
 }
 
 router.post("/meater/link", requireAuth, async (req: any, res): Promise<void> => {
+  // MEATER linking is a Pro-only feature. Already-linked users keep working
+  // (status/readings endpoints stay open) so they can read existing probes
+  // even if their subscription lapses, but they can't relink without Pro.
+  if (!userBypassesPaywall(req)) {
+    respondPaywall(res, {
+      code: "pro_required",
+      feature: "meater_link",
+      message: "Connecting MEATER probes is a Pro feature. Upgrade to link your MEATER account.",
+    });
+    return;
+  }
+
   const { email, password } = req.body ?? {};
   if (!email || !password) {
     res.status(400).json({ error: "Email and password are required" });

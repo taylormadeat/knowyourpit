@@ -30,6 +30,7 @@ import { useBottomInset } from "@/hooks/useBottomInset";
 import { LogoBackground } from "@/components/LogoBackground";
 import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
 import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
+import { usePaywall } from "@/contexts/PaywallContext";
 
 import {
   useGetCook,
@@ -250,6 +251,7 @@ export default function CookDetailScreen() {
   const deleteCook = useDeleteCook();
   const updateCook = useUpdateCook();
   const analyzeMutation = useAnalyzeCook();
+  const { parseAndShowFromError } = usePaywall();
 
   const [images, setImages] = useState<PickedImage[]>([]);
   const [cookNotes, setCookNotes] = useState("");
@@ -739,8 +741,11 @@ export default function CookDetailScreen() {
         } as any,
       });
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
+      // Free user hit the daily AI scan cap → upgrade modal.
+      if (parseAndShowFromError(e)) return;
       Alert.alert("Analysis failed", "Could not analyze the cook. Please check your connection and try again.");
     } finally {
       setAnalyzing(false);

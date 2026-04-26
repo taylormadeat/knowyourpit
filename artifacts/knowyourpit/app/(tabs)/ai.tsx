@@ -21,6 +21,8 @@ import { fetch as expoFetch } from "expo/fetch";
 import { useColors } from "@/hooks/useColors";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
+import { usePaywall } from "@/contexts/PaywallContext";
+import { usePaywallUsage } from "@/hooks/usePaywallUsage";
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -251,10 +253,26 @@ export default function AIScreen() {
     setShowHistory(true);
   }, [fetchConversations]);
 
+  const { showPaywall } = usePaywall();
+  const { data: paywallUsage, refetch: refetchPaywall } = usePaywallUsage();
+
   // ─── Send message ───────────────────────────────────────────────────────
   const sendMessage = async (text?: string) => {
     const msg = (text || input).trim();
     if (!msg || loading) return;
+
+    // Pre-emptive cap check — saves a server round-trip when the user is
+    // already out of free chats and avoids painting a "thinking…" bubble that
+    // immediately gets replaced by the paywall.
+    if (
+      paywallUsage &&
+      !paywallUsage.unlimited &&
+      paywallUsage.remaining.aiMessagesToday <= 0
+    ) {
+      showPaywall({ trigger: "ai_message_limit_reached" });
+      return;
+    }
+
     setInput("");
 
     const baseId = Date.now();
@@ -312,6 +330,23 @@ export default function AIScreen() {
 
       if (!res.ok) {
         if (res.status === 401) throw new Error("Please sign in again to use PitMaster.");
+        if (res.status === 402) {
+          // Free-tier daily AI chat cap — surface the paywall instead of an
+          // ambiguous error in the chat thread.
+          let payload: any = null;
+          try { payload = await res.json(); } catch { /* ignore */ }
+          showPaywall({
+            trigger: "ai_message_limit_reached",
+            subtitle: payload?.message ?? null,
+          });
+          // Remove the optimistic empty assistant bubble + the user bubble we
+          // just added so the input feels untouched after the modal opens.
+          setMessages((prev) => prev.filter((m) => m.id !== userMsg.id && m.id !== assistantId));
+          setInput(msg);
+          setLoading(false);
+          streamingIdRef.current = null;
+          return;
+        }
         if (res.status === 429) throw new Error("Too many questions in a row. Please wait a moment.");
         throw new Error(`Request failed (${res.status})`);
       }
@@ -402,6 +437,9 @@ export default function AIScreen() {
     } finally {
       streamingIdRef.current = null;
       setLoading(false);
+      // Refresh remaining-chats counter after every send (success or failure)
+      // so the badge updates without waiting for staleness.
+      refetchPaywall();
     }
   };
 

@@ -7,6 +7,16 @@ import { AiChatBody, AiPredictBody, AiMultiCookBody } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../middlewares/requireAuth";
 import { computeSmokerInsights, formatSmokerProfile } from "../lib/smokerCalibration";
+import {
+  FREE_AI_CHAT_DAILY_LIMIT,
+  FREE_AI_ANALYZE_DAILY_LIMIT,
+  respondPaywall,
+  countAiChatMessagesToday,
+  countAiAnalyzesToday,
+  recordAiAnalyzeEvent,
+  startOfNextUtcDay,
+  userBypassesPaywall,
+} from "../lib/paywall";
 
 interface AuthedRequest extends Request {
   userId: string;
@@ -244,6 +254,21 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
   }
   const { message, context, sessionId: requestedSessionId } = parsed.data;
 
+  // Free-tier daily AI chat cap.
+  if (!userBypassesPaywall(req)) {
+    const used = await countAiChatMessagesToday(req.userId);
+    if (used >= FREE_AI_CHAT_DAILY_LIMIT) {
+      respondPaywall(res, {
+        code: "ai_message_limit_reached",
+        limit: FREE_AI_CHAT_DAILY_LIMIT,
+        used,
+        resetsAt: startOfNextUtcDay().toISOString(),
+        message: `Free plan is capped at ${FREE_AI_CHAT_DAILY_LIMIT} AI chat messages per day. Upgrade to Pro for unlimited.`,
+      });
+      return;
+    }
+  }
+
   const { id: resolvedSessionId, isNew } = await ensureSession(req.userId, message, requestedSessionId);
   await db.insert(messages).values({
     conversationId: resolvedSessionId,
@@ -316,6 +341,22 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
     return;
   }
   const { message, context, sessionId: requestedSessionId } = parsed.data;
+
+  // Free-tier daily AI chat cap. Check BEFORE setting NDJSON headers so the
+  // mobile client can read a normal JSON 402 response.
+  if (!userBypassesPaywall(req)) {
+    const used = await countAiChatMessagesToday(req.userId);
+    if (used >= FREE_AI_CHAT_DAILY_LIMIT) {
+      respondPaywall(res, {
+        code: "ai_message_limit_reached",
+        limit: FREE_AI_CHAT_DAILY_LIMIT,
+        used,
+        resetsAt: startOfNextUtcDay().toISOString(),
+        message: `Free plan is capped at ${FREE_AI_CHAT_DAILY_LIMIT} AI chat messages per day. Upgrade to Pro for unlimited.`,
+      });
+      return;
+    }
+  }
 
   res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -566,6 +607,26 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+
+  // Free-tier daily AI analyze cap. We DO NOT increment the counter here —
+  // we only block when already at the cap. The counter is recorded after a
+  // successful prediction (see recordAiAnalyzeEvent below) so failed runs
+  // don't burn the user's quota.
+  const bypass = userBypassesPaywall(req);
+  if (!bypass) {
+    const used = await countAiAnalyzesToday(req.userId);
+    if (used >= FREE_AI_ANALYZE_DAILY_LIMIT) {
+      respondPaywall(res, {
+        code: "ai_analyze_limit_reached",
+        limit: FREE_AI_ANALYZE_DAILY_LIMIT,
+        used,
+        resetsAt: startOfNextUtcDay().toISOString(),
+        message: `Free plan is capped at ${FREE_AI_ANALYZE_DAILY_LIMIT} AI cook scans per day. Upgrade to Pro for unlimited.`,
+      });
+      return;
+    }
+  }
+
   const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF } = parsed.data;
 
   // ── Meat knowledge baseline ──────────────────────────────────────────
@@ -868,6 +929,16 @@ ${userHistorySection}`;
     ? "high"
     : (prediction.confidence || "medium");
 
+  // Record the successful analyze for daily quota tracking. Free users only —
+  // Pro/kill-switch don't accumulate usage so they can't accidentally hit a
+  // server cap if PAYWALL_ENABLED is later flipped on.
+  if (!bypass) {
+    await recordAiAnalyzeEvent(req.userId).catch(() => {
+      // Non-fatal: if usage tracking fails the user still gets their
+      // prediction. The next call will fall back to whatever count we have.
+    });
+  }
+
   res.json({
     estimatedDurationMinutes: prediction.estimatedDurationMinutes,
     preheatMinutes,
@@ -889,6 +960,16 @@ ${userHistorySection}`;
 });
 
 router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
+  // Multi-Cook Sequencer is a Pro-only feature.
+  if (!userBypassesPaywall(req)) {
+    respondPaywall(res, {
+      code: "pro_required",
+      feature: "multi_cook",
+      message: "Multi-Cook Sequencer is a Pro feature. Upgrade to plan multiple items together.",
+    });
+    return;
+  }
+
   const parsed = AiMultiCookBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -1056,6 +1137,17 @@ function getPitMasterLabel(score: number): string {
 }
 
 router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void> => {
+  // Home insights (PitMaster Score breakdown + AI tips) are Pro-only.
+  // Free users see a locked card on the home screen instead of real data.
+  if (!userBypassesPaywall(req)) {
+    respondPaywall(res, {
+      code: "pro_required",
+      feature: "home_insights",
+      message: "AI Home Insights are a Pro feature. Upgrade to see your PitMaster Score and personalized tips.",
+    });
+    return;
+  }
+
   try {
     const cached = homeInsightsCache.get(req.userId);
     if (cached && cached.expiresAt > Date.now()) {

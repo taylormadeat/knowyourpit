@@ -17,6 +17,8 @@ import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { useQueryClient } from "@tanstack/react-query";
+import { usePaywall } from "@/contexts/PaywallContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 import {
   useGetMeaterStatus,
   getGetMeaterStatusQueryKey,
@@ -35,6 +37,8 @@ export default function DevicesScreen() {
   const qc = useQueryClient();
   const scrollRef = useRef<ScrollView>(null);
   const botPad = useBottomInset();
+  const { isPro } = useSubscription();
+  const { showPaywall, parseAndShowFromError } = usePaywall();
 
   const { data: meaterStatus, isLoading: meaterLoading } = useGetMeaterStatus();
   const linkMeater = useLinkMeater();
@@ -71,6 +75,9 @@ export default function DevicesScreen() {
       setShowThermoworksLinkForm(false);
       invalidateThermoworksStatus();
     } catch (e: any) {
+      // 402 → paywall (Pro-only feature). Otherwise fall back to the credential
+      // / connectivity error handling we had before.
+      if (parseAndShowFromError(e)) return;
       const isNetworkError = !e?.status;
       const isSessionError = e?.status === 401 && e?.data?.error === "Unauthorized";
       const message = isNetworkError
@@ -115,6 +122,7 @@ export default function DevicesScreen() {
       setShowLinkForm(false);
       invalidateMeaterStatus();
     } catch (e: any) {
+      if (parseAndShowFromError(e)) return;
       const isNetworkError = !e?.status;
       const isSessionError = e?.status === 401 && e?.data?.error === "Unauthorized";
       const message = isNetworkError
@@ -247,13 +255,19 @@ export default function DevicesScreen() {
             {!meaterLoading && !meaterStatus?.linked && !showLinkForm && (
               <Pressable
                 onPress={() => {
+                  // MEATER linking is Pro-only — pop the paywall before
+                  // making the user fill out a form they can't submit.
+                  if (!isPro) {
+                    showPaywall({ trigger: "pro_required", featureName: "MEATER Connection" });
+                    return;
+                  }
                   setShowLinkForm(true);
                   setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
                 }}
                 style={[s.linkBtn, { backgroundColor: "#FF6B2B" }]}
               >
-                <Feather name="link" size={15} color="#fff" />
-                <Text style={s.linkBtnText}>Link MEATER Account</Text>
+                <Feather name={isPro ? "link" : "lock"} size={15} color="#fff" />
+                <Text style={s.linkBtnText}>{isPro ? "Link MEATER Account" : "Unlock with Pro"}</Text>
               </Pressable>
             )}
 
@@ -389,13 +403,17 @@ export default function DevicesScreen() {
             {!thermoworksLoading && !thermoworksStatus?.linked && !showThermoworksLinkForm && (
               <Pressable
                 onPress={() => {
+                  if (!isPro) {
+                    showPaywall({ trigger: "pro_required", featureName: "ThermoWorks Connection" });
+                    return;
+                  }
                   setShowThermoworksLinkForm(true);
                   setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
                 }}
                 style={[s.linkBtn, { backgroundColor: THERMOWORKS_COLOR }]}
               >
-                <Feather name="link" size={15} color="#fff" />
-                <Text style={s.linkBtnText}>Link ThermoWorks Account</Text>
+                <Feather name={isPro ? "link" : "lock"} size={15} color="#fff" />
+                <Text style={s.linkBtnText}>{isPro ? "Link ThermoWorks Account" : "Unlock with Pro"}</Text>
               </Pressable>
             )}
 

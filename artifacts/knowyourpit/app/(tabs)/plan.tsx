@@ -44,6 +44,8 @@ import {
 } from "@/constants/meatCuts";
 import { useMeaterReadings, type MeaterProbe } from "@/hooks/useMeaterReadings";
 import { useSmokerProfile } from "@/hooks/useSmokerProfile";
+import { usePaywall } from "@/contexts/PaywallContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 
 const UPCOMING_DAYS = 14;
 
@@ -595,6 +597,8 @@ export default function PlanScreen() {
   // ── Multi-cook state ──────────────────────────────────────────────────
   interface MultiItem { cut: MeatCut; weightLbs: string; grillId: number | null; }
   const aiMultiCook = useAiMultiCook();
+  const { showPaywall, parseAndShowFromError } = usePaywall();
+  const { isPro } = useSubscription();
   const [multiItems, setMultiItems] = useState<MultiItem[]>([]);
   const [multiResult, setMultiResult] = useState<{ schedule: MultiCookScheduleItem[]; serveAt: string; summary: string } | null>(null);
   const [multiResultOpen, setMultiResultOpen] = useState(false);
@@ -669,6 +673,13 @@ export default function PlanScreen() {
 
   // ── Multi-Cook Sequence ───────────────────────────────────────────────
   const handleMultiCook = async () => {
+    // Multi-Cook Sequencer is Pro-only — short-circuit with the paywall
+    // before we hit the server (which would also 402, but this is faster
+    // and gives a richer modal context).
+    if (!isPro) {
+      showPaywall({ trigger: "pro_required", featureName: "Multi-Cook Sequencer" });
+      return;
+    }
     if (multiItems.length < 2) {
       Alert.alert("Add More Items", "Add at least 2 items to sequence a multi-cook.");
       return;
@@ -696,6 +707,9 @@ export default function PlanScreen() {
       setMultiResult(result as any);
       setMultiResultOpen(true);
     } catch (e: any) {
+      // 402 (pro_required) shouldn't happen post-isPro check, but a stale
+      // entitlement state is possible. Fall through to the modal in that case.
+      if (parseAndShowFromError(e)) return;
       Alert.alert("PitMaster Error", e?.message || "Could not sequence cooks. Try again.");
     }
   };
@@ -729,6 +743,8 @@ export default function PlanScreen() {
       setMultiResultOpen(false);
       Alert.alert("Saved!", `${multiResult.schedule.length} cooks added to your plan.`);
     } catch (e: any) {
+      // Free user hit the cook cap mid-multi-save → paywall.
+      if (parseAndShowFromError(e)) return;
       Alert.alert("Error", e?.message || "Failed to save cooks.");
     }
   };
@@ -803,8 +819,11 @@ export default function PlanScreen() {
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
       qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
       router.push("/(tabs)/cooks" as any);
     } catch (e: any) {
+      // Free user hit the cook cap → upgrade modal instead of generic error.
+      if (parseAndShowFromError(e)) return;
       Alert.alert("Error", e?.message || "Failed to create cook");
     }
   };

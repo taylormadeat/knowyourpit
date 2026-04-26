@@ -14,6 +14,7 @@ import conversationsRouter from "./conversations";
 import meaterRouter from "./meater";
 import thermoworksRouter from "./thermoworks";
 import contactRouter from "./contact";
+import paywallRouter from "./paywall";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(conversationsRouter);
 router.use(meaterRouter);
 router.use(thermoworksRouter);
 router.use(contactRouter);
+router.use(paywallRouter);
 
 export default router;
