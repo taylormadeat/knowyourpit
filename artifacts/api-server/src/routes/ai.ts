@@ -9,11 +9,8 @@ import { requireAuth } from "../middlewares/requireAuth";
 import { computeSmokerInsights, formatSmokerProfile } from "../lib/smokerCalibration";
 import {
   FREE_AI_CHAT_DAILY_LIMIT,
-  FREE_AI_ANALYZE_DAILY_LIMIT,
   respondPaywall,
   countAiChatMessagesToday,
-  countAiAnalyzesToday,
-  recordAiAnalyzeEvent,
   startOfNextUtcDay,
   userBypassesPaywall,
 } from "../lib/paywall";
@@ -608,24 +605,11 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
     return;
   }
 
-  // Free-tier daily AI analyze cap. We DO NOT increment the counter here —
-  // we only block when already at the cap. The counter is recorded after a
-  // successful prediction (see recordAiAnalyzeEvent below) so failed runs
-  // don't burn the user's quota.
-  const bypass = userBypassesPaywall(req);
-  if (!bypass) {
-    const used = await countAiAnalyzesToday(req.userId);
-    if (used >= FREE_AI_ANALYZE_DAILY_LIMIT) {
-      respondPaywall(res, {
-        code: "ai_analyze_limit_reached",
-        limit: FREE_AI_ANALYZE_DAILY_LIMIT,
-        used,
-        resetsAt: startOfNextUtcDay().toISOString(),
-        message: `Free plan is capped at ${FREE_AI_ANALYZE_DAILY_LIMIT} AI cook scans per day. Upgrade to Pro for unlimited.`,
-      });
-      return;
-    }
-  }
+  // Cook-time prediction during planning is intentionally NOT counted
+  // against the free-tier daily AI analyze cap. The cap exists for the
+  // explicit "AI cook analyzer" feature (POST /temperature/analyze-cook)
+  // and shouldn't lock a user out of planning new cooks. Cost is bounded
+  // by aiRateLimit (20/min/user) above.
 
   const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF } = parsed.data;
 
@@ -929,15 +913,9 @@ ${userHistorySection}`;
     ? "high"
     : (prediction.confidence || "medium");
 
-  // Record the successful analyze for daily quota tracking. Free users only —
-  // Pro/kill-switch don't accumulate usage so they can't accidentally hit a
-  // server cap if PAYWALL_ENABLED is later flipped on.
-  if (!bypass) {
-    await recordAiAnalyzeEvent(req.userId).catch(() => {
-      // Non-fatal: if usage tracking fails the user still gets their
-      // prediction. The next call will fall back to whatever count we have.
-    });
-  }
+  // Note: /ai/predict (cook-time planning) is intentionally NOT recorded
+  // against the daily AI analyze cap — that counter is reserved for the
+  // explicit "AI cook analyzer" feature on POST /temperature/analyze-cook.
 
   res.json({
     estimatedDurationMinutes: prediction.estimatedDurationMinutes,

@@ -23,6 +23,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -255,6 +256,7 @@ export default function AIScreen() {
 
   const { showPaywall } = usePaywall();
   const { data: paywallUsage, refetch: refetchPaywall } = usePaywallUsage();
+  const { isPro } = useSubscription();
 
   // ─── Send message ───────────────────────────────────────────────────────
   const sendMessage = async (text?: string) => {
@@ -318,6 +320,10 @@ export default function AIScreen() {
         Accept: "application/x-ndjson",
       };
       if (token) headers["Authorization"] = `Bearer ${token}`;
+      // expoFetch is not routed through customFetch (the orval-generated
+      // client), so we have to attach the Pro-bypass header manually here.
+      // Without this, Pro users would still hit the 5/day chat cap.
+      if (isPro) headers["X-Subscription-Active"] = "true";
 
       const body: Record<string, unknown> = { message: msg };
       if (currentSessionId != null) body.sessionId = currentSessionId;
@@ -773,6 +779,24 @@ export default function AIScreen() {
             },
           ]}
         >
+          {/* Free-tier remaining-chats counter. Hidden for Pro / when paywall is disabled. */}
+          {paywallUsage && !paywallUsage.unlimited && (
+            <Text
+              style={{
+                fontSize: 11,
+                fontFamily: "Inter_500Medium",
+                color:
+                  paywallUsage.remaining.aiMessagesToday <= 1
+                    ? colors.primary
+                    : colors.mutedForeground,
+                paddingHorizontal: 4,
+                paddingBottom: 6,
+              }}
+            >
+              {paywallUsage.remaining.aiMessagesToday} of {paywallUsage.limits.aiChatPerDay} free
+              chats left today
+            </Text>
+          )}
           <View
             style={[
               s.inputWrap,

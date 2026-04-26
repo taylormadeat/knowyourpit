@@ -31,6 +31,7 @@ import { LogoBackground } from "@/components/LogoBackground";
 import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
 import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
 import { usePaywall } from "@/contexts/PaywallContext";
+import { usePaywallUsage } from "@/hooks/usePaywallUsage";
 
 import {
   useGetCook,
@@ -252,6 +253,7 @@ export default function CookDetailScreen() {
   const updateCook = useUpdateCook();
   const analyzeMutation = useAnalyzeCook();
   const { parseAndShowFromError } = usePaywall();
+  const { data: paywallUsage } = usePaywallUsage();
 
   const [images, setImages] = useState<PickedImage[]>([]);
   const [cookNotes, setCookNotes] = useState("");
@@ -1585,6 +1587,25 @@ export default function CookDetailScreen() {
               />
             </View>
 
+            {/* Free-tier remaining-analyzes counter. Hidden for Pro. */}
+            {paywallUsage && !paywallUsage.unlimited && (
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontFamily: "Inter_500Medium",
+                  color:
+                    paywallUsage.remaining.aiAnalyzesToday <= 1
+                      ? colors.primary
+                      : colors.mutedForeground,
+                  textAlign: "center",
+                  marginTop: 6,
+                  marginBottom: -2,
+                }}
+              >
+                {paywallUsage.remaining.aiAnalyzesToday} of {paywallUsage.limits.aiAnalyzePerDay} free
+                analyses left today
+              </Text>
+            )}
             {/* Analyze button */}
             <Pressable
               style={({ pressed }) => [s.analyzeBtn, { borderRadius: colors.radius }, (analyzing || pressed) && { opacity: 0.75 }]}
@@ -1897,6 +1918,25 @@ export default function CookDetailScreen() {
             />
           </View>
 
+          {/* Free-tier remaining-analyzes counter. Hidden for Pro. */}
+          {paywallUsage && !paywallUsage.unlimited && (
+            <Text
+              style={{
+                fontSize: 12,
+                fontFamily: "Inter_500Medium",
+                color:
+                  paywallUsage.remaining.aiAnalyzesToday <= 1
+                    ? colors.primary
+                    : colors.mutedForeground,
+                textAlign: "center",
+                marginTop: 6,
+                marginBottom: -2,
+              }}
+            >
+              {paywallUsage.remaining.aiAnalyzesToday} of {paywallUsage.limits.aiAnalyzePerDay} free
+              analyses left today
+            </Text>
+          )}
           {/* Analyze button */}
           <Pressable
             style={({ pressed }) => [

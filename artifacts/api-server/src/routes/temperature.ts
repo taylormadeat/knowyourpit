@@ -9,6 +9,14 @@ import {
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../middlewares/requireAuth";
 import { computeSmokerInsights, formatSmokerProfile } from "../lib/smokerCalibration";
+import {
+  FREE_AI_ANALYZE_DAILY_LIMIT,
+  countAiAnalyzesToday,
+  recordAiAnalyzeEvent,
+  respondPaywall,
+  startOfNextUtcDay,
+  userBypassesPaywall,
+} from "../lib/paywall";
 
 interface AuthedRequest extends Request {
   userId: string;
@@ -253,6 +261,27 @@ WRONG — one entry per data point (DO NOT DO THIS):
 });
 
 router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, res): Promise<void> => {
+  // Free-tier daily AI analyze cap. We DO NOT increment the counter here —
+  // we only block when already at the cap. The counter is recorded after a
+  // successful analysis (see recordAiAnalyzeEvent below) so failed runs
+  // don't burn the user's quota. This is the actual analyzer endpoint the
+  // mobile UI hits via useAnalyzeCook (cooks/log.tsx + cooks/[id].tsx).
+  const bypass = userBypassesPaywall(req);
+  if (!bypass) {
+    const userId = (req as AuthedRequest).userId;
+    const used = await countAiAnalyzesToday(userId);
+    if (used >= FREE_AI_ANALYZE_DAILY_LIMIT) {
+      respondPaywall(res, {
+        code: "ai_analyze_limit_reached",
+        limit: FREE_AI_ANALYZE_DAILY_LIMIT,
+        used,
+        resetsAt: startOfNextUtcDay().toISOString(),
+        message: `Free plan is capped at ${FREE_AI_ANALYZE_DAILY_LIMIT} AI cook analyses per day. Upgrade to Pro for unlimited.`,
+      });
+      return;
+    }
+  }
+
   const {
     images,
     cookNotes,
@@ -868,6 +897,14 @@ ${tempSmokerProfile ? `\n${tempSmokerProfile}` : ""}`;
             targetValue: safeNum(d.targetValue),
           }))
       : [];
+
+    // Record the analyze event AFTER a successful response so failed runs
+    // (model errors, validation, etc.) don't burn a free user's daily quota.
+    if (!bypass) {
+      await recordAiAnalyzeEvent((req as AuthedRequest).userId).catch((err) => {
+        console.error("recordAiAnalyzeEvent failed:", err);
+      });
+    }
 
     res.json({
       probes: safeProbes,

@@ -39,6 +39,7 @@ import {
 import { useMeaterReadings, type MeaterProbe } from "@/hooks/useMeaterReadings";
 import { MEAT_CATEGORIES, MEAT_CUTS, MEAT_CUTS_BY_CATEGORY, type MeatCut } from "@/constants/meatCuts";
 import { usePaywall } from "@/contexts/PaywallContext";
+import { usePaywallUsage } from "@/hooks/usePaywallUsage";
 
 const logoImg = require("@/assets/images/logo.png");
 
@@ -139,6 +140,7 @@ export default function LogCookScreen() {
   const analyzeMutation = useAnalyzeCook();
   const createCook = useCreateCook();
   const { parseAndShowFromError } = usePaywall();
+  const { data: paywallUsage } = usePaywallUsage();
 
   const topPad = useTopInset();
   const botPad = useBottomInset();
@@ -317,8 +319,17 @@ export default function LogCookScreen() {
       if (extras.length > 0 && !cookNotes.trim()) setCookNotes(extras.join("\n"));
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {
-      Alert.alert("Scan failed", "Could not analyze the images. Check your connection and try again.");
+    } catch (err) {
+      // If the server returned a 402 paywall response (e.g. free user hit the
+      // daily AI analyze cap), show the paywall modal instead of a generic
+      // alert. Falls through to the alert for any other error.
+      const handled = parseAndShowFromError(err);
+      if (!handled) {
+        Alert.alert(
+          "Scan failed",
+          "Could not analyze the images. Check your connection and try again.",
+        );
+      }
     } finally {
       setAnalyzing(false);
     }
@@ -475,6 +486,25 @@ export default function LogCookScreen() {
             />
           </View>
 
+          {/* Free-tier remaining-analyzes counter. Hidden for Pro. */}
+          {paywallUsage && !paywallUsage.unlimited && (
+            <Text
+              style={{
+                fontSize: 12,
+                fontFamily: "Inter_500Medium",
+                color:
+                  paywallUsage.remaining.aiAnalyzesToday <= 1
+                    ? colors.primary
+                    : colors.mutedForeground,
+                textAlign: "center",
+                marginTop: 6,
+                marginBottom: -2,
+              }}
+            >
+              {paywallUsage.remaining.aiAnalyzesToday} of {paywallUsage.limits.aiAnalyzePerDay} free
+              analyses left today
+            </Text>
+          )}
           <Pressable
             style={({ pressed }) => [s.scanBtn, { borderRadius: colors.radius }, (analyzing || pressed) && { opacity: 0.75 }]}
             onPress={analyze}
