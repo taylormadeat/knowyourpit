@@ -91,19 +91,12 @@ export default function Home() {
             </div>
 
             <div className="order-1 md:order-2 flex justify-center">
-              {/* Responsive phone frame containing the real Home/Dashboard screenshot.
-                  The top black band masks the iOS status bar and Expo dev pill from the
-                  source PNG so they never appear on the marketing site. */}
               <div className="relative w-[min(260px,80vw)] sm:w-[280px] md:w-[300px] aspect-[35/76] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(221,107,32,0.4)] overflow-hidden">
                 <img
-                  src={`${BASE}app-dashboard.png`}
+                  src={`${BASE}ss-dashboard.png`}
                   alt="knowyourpit home screen showing PitMaster Score, recent cooks, and grill stats"
                   className="absolute inset-0 w-full h-full object-cover object-top"
                 />
-                {/* Narrow band hides iOS status bar + Expo dev bar only (~6% = ~160px of source) */}
-                <div className="absolute top-0 inset-x-0 h-[6%] bg-black z-[5]" />
-                {/* Notch */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 md:w-32 h-5 md:h-6 bg-zinc-900 rounded-b-2xl z-10" />
               </div>
             </div>
           </div>
@@ -128,40 +121,40 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 max-w-5xl mx-auto">
             {[
               {
-                src: "app-image-scanner.png",
+                src: "ss-image-scanner.png",
                 title: "Snap any thermometer",
                 caption: "Point your camera at any analog gauge or thermal image. The AI reads the temperature, grades the cook stage, and adds it to your session — no smart probe required.",
                 alt: "PitMaster Image Scanner reading a temperature graph from photos",
               },
               {
-                src: "app-pitmaster-plan.png",
+                src: "ss-plan-cook.png",
                 title: "A plan built for your pit",
                 caption: "Tell PitMaster what you're cooking and when you want to serve. It builds an hour-by-hour schedule around your specific smoker, your cook history, and today's outdoor temperature — not a generic timeline.",
-                alt: "PitMaster Plan screen showing a suggested cook schedule for spare ribs",
+                alt: "Plan a Cook screen with Pulled Pork selected and a prep guide open",
               },
               {
-                src: "app-pitmaster-plan.png",
+                src: "ss-cook-log.png",
                 title: "Sequence a full multi-item cook",
                 caption: "Add your brisket, ribs, and chicken — pick one serve time — and PitMaster works out when each item needs to start. It tells you when to light every grill, when to put each cut on, and when to pull it, so everything is resting and ready at the same moment.",
-                alt: "Multi-Cook Sequencer showing a schedule with brisket, ribs, and chicken timed to the same serve time",
+                alt: "Cook Log showing a Multi-Cook Session with Spare Ribs, Prime Rib, and Chicken Thighs",
               },
               {
-                src: "app-decisions.png",
+                src: "ss-cook-detail.png",
                 title: "Decisions from your data",
                 caption: "The AI reads your live temperature curve and ranks your next moves — hold steady, wrap now, raise pit temp — with the reasoning behind each one. Not generic advice. Decisions from what's happening in your pit right now.",
-                alt: "Decisions screen showing Hold Steady, Wrap Now, and Raise Pit Temp options",
+                alt: "Cook detail screen showing PitMaster analysis and temperature graph",
               },
               {
-                src: "app-plan-cook.png",
-                title: "Built-in prep guides",
-                caption: "Every cut comes with a prep guide so you know exactly how to trim, season, and time it before the fire is even lit.",
-                alt: "Plan a Cook screen showing a prep guide for St. Louis spare ribs",
+                src: "ss-pitmaster.png",
+                title: "Ask anything about BBQ",
+                caption: "PitMaster answers your BBQ questions instantly — best wood for brisket, how long per pound for pork butt, how to manage the stall. Grounded in your cook history, not generic internet answers.",
+                alt: "PitMaster AI chat screen showing BBQ questions",
               },
               {
-                src: "app-cook-log.png",
+                src: "ss-cook-timeline.png",
                 title: "Your cook, debriefed",
-                caption: "After every session, the AI compares your result to your plan — what you hit, where you drifted, and what the data says about why. Rate tenderness, flavor, and bark. Multi-cook sessions appear grouped with a visual timeline showing every item side by side.",
-                alt: "Cook Log screen listing past cooks with star ratings and grouped sessions",
+                caption: "After every session, the AI compares your result to your plan — what you hit, where you drifted, and what the data says about why. Rate tenderness, flavor, and bark.",
+                alt: "Cook debrief screen showing timeline, what went well, and next time tips",
               },
             ].map((shot, i) => (
               <motion.figure
@@ -179,10 +172,6 @@ export default function Home() {
                     loading="lazy"
                     className="absolute inset-0 w-full h-full object-cover object-top"
                   />
-                  {/* Narrow band hides iOS status bar + Expo dev bar only (~6% = ~160px of source) */}
-                  <div className="absolute top-0 inset-x-0 h-[6%] bg-black z-[5]" />
-                  {/* Notch */}
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-4 bg-zinc-900 rounded-b-2xl z-10" />
                 </div>
                 <figcaption className="px-1">
                   <h3 className="text-base md:text-lg font-bold text-foreground mb-1">{shot.title}</h3>
