@@ -1,4 +1,4 @@
-import { Flame, Clock, Brain, Activity, ChefHat, Camera, LineChart, Bell, BarChart2, Zap } from "lucide-react";
+import { Flame, Clock, Brain, Activity, ChefHat, Camera, LineChart, Bell } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
 
@@ -219,7 +219,7 @@ export default function Home() {
               },
               {
                 num: "03",
-                icon: BarChart2,
+                icon: Bell,
                 title: "Get the insight back",
                 desc: "The AI watches your stall, your weather, and your grill — and returns real decisions, not reminders. Championship pitmasters get a plan debrief. First-timers get the confidence to pull it off.",
               },
@@ -273,7 +273,7 @@ export default function Home() {
                 {[
                   { icon: Brain, title: "AI Data Analysis", desc: "Reads your temperature curves, detects stalls before they peak, and compares every cook against your plan. Returns real feedback grounded in what actually happened — not generic tips." },
                   { icon: Activity, title: "Hardware Agnostic", desc: "Connects to MEATER Cloud, ThermoWorks, or you can snap a photo of any analog gauge. Any probe, any pit, any setup." },
-                  { icon: Zap, title: "Insight for Every Level", desc: "For the championship pitmaster: a precise session debrief and plan comparison after every cook. For the first-time smoker: step-by-step decisions built on what your pit is actually doing right now." }
+                  { icon: Clock, title: "Insight for Every Level", desc: "For the championship pitmaster: a precise session debrief and plan comparison after every cook. For the first-time smoker: step-by-step decisions built on what your pit is actually doing right now." }
                 ].map((feature, i) => (
                   <motion.div
                     key={i}
@@ -318,7 +318,7 @@ export default function Home() {
             </div>
             <div className="p-6 md:p-8 rounded-2xl bg-background border border-white/10 flex flex-col items-center text-center gap-3 md:gap-4">
               <div className="text-4xl font-black text-primary">Full</div>
-              <h3 className="font-bold">Cook Debrief</h3>
+              <h3 className="font-bold">Plan vs. Reality</h3>
               <p className="text-sm text-muted-foreground">After every cook, see exactly how your session tracked against your plan — temperature curves, stall timing, and result scores side by side.</p>
             </div>
           </div>
