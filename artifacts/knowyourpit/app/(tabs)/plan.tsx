@@ -679,14 +679,15 @@ export default function PlanScreen() {
   const handleSaveMultiCooks = async () => {
     if (!multiResult) return;
     try {
+      const remainingItems = [...multiItems];
       for (const item of multiResult.schedule) {
         const matchedCut = MEAT_CUTS.find(c => c.name.toLowerCase() === item.foodType.toLowerCase());
+        const inputIdx = remainingItems.findIndex(m => m.cut.name.toLowerCase() === item.foodType.toLowerCase());
+        const inputItem = inputIdx >= 0 ? remainingItems.splice(inputIdx, 1)[0] : undefined;
         await createCook.mutateAsync({
           data: {
             foodType: item.foodType,
-            weightLbs: multiItems.find(m => m.cut.name.toLowerCase() === item.foodType.toLowerCase())
-              ? parseFloat(multiItems.find(m => m.cut.name.toLowerCase() === item.foodType.toLowerCase())!.weightLbs) || undefined
-              : undefined,
+            weightLbs: inputItem ? parseFloat(inputItem.weightLbs) || undefined : undefined,
             cookTempF: matchedCut?.cookTempF ?? undefined,
             targetTempF: matchedCut?.targetTempF ?? undefined,
             grillId: grillId ?? undefined,
@@ -1246,16 +1247,16 @@ export default function PlanScreen() {
         </View>
 
         {/* ── Outdoor Temperature Strip ── */}
-        {!weather.locationDenied && (
+        {!weather.locationDenied && ((weather.loading && weather.tempF == null) || weather.tempF != null) && (
           <View style={[s.weatherStrip, { borderColor: colors.border }]}>
             <Feather
               name={weatherIcon(weather.conditionCode) as any}
               size={13}
               color={colors.mutedForeground}
             />
-            {weather.loading ? (
+            {weather.loading && weather.tempF == null ? (
               <Text style={[s.weatherText, { color: colors.mutedForeground }]}>Fetching outdoor temp…</Text>
-            ) : weather.error || weather.tempF == null ? null : (
+            ) : weather.tempF != null ? (
               <>
                 <Text style={[s.weatherTempText, { color: colors.foreground }]}>{weather.tempF}°F outdoors</Text>
                 {weatherDescription(weather.conditionCode) && (
@@ -1265,7 +1266,7 @@ export default function PlanScreen() {
                 )}
                 <Text style={[s.weatherText, { color: colors.mutedForeground }]}>· factored into AI plan</Text>
               </>
-            )}
+            ) : null}
           </View>
         )}
 
