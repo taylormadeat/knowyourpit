@@ -499,6 +499,23 @@ export default function HomeScreen() {
                     </LinearGradient>
                   </Pressable>
 
+                  {/* Inline tips — only visible when expanded */}
+                  {tipsExpanded && insights.tips?.length > 0 && (
+                    <View style={[s.tipsCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                      {insights.tips.map((tip, i) => (
+                        <View
+                          key={i}
+                          style={[s.tipRow, i < insights.tips.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
+                        >
+                          <View style={[s.tipIconWrap, { backgroundColor: "#E8482015" }]}>
+                            <Feather name="zap" size={13} color="#E84820" />
+                          </View>
+                          <Text style={[s.tipText, { color: colors.foreground }]}>{tip}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
                   {/* How is this scored? toggle */}
                   <Pressable
                     onPress={() => {
@@ -606,22 +623,6 @@ export default function HomeScreen() {
                     );
                   })()}
 
-                  {/* Inline tips — only visible when expanded */}
-                  {tipsExpanded && insights.tips?.length > 0 && (
-                    <View style={[s.tipsCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-                      {insights.tips.map((tip, i) => (
-                        <View
-                          key={i}
-                          style={[s.tipRow, i < insights.tips.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
-                        >
-                          <View style={[s.tipIconWrap, { backgroundColor: "#E8482015" }]}>
-                            <Feather name="zap" size={13} color="#E84820" />
-                          </View>
-                          <Text style={[s.tipText, { color: colors.foreground }]}>{tip}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
                 </>
               );
             })()}
