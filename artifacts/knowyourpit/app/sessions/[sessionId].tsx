@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  LayoutChangeEvent,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,6 +27,105 @@ const STATUS_COLORS: Record<string, string> = {
   completed: "#22c55e",
   cancelled: "#ef4444",
 };
+
+function CookGanttChart({ cooks, colors }: { cooks: any[]; colors: any }) {
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const onLayout = useCallback((e: LayoutChangeEvent) => {
+    setContainerWidth(e.nativeEvent.layout.width);
+  }, []);
+
+  if (!cooks || cooks.length === 0) return null;
+
+  const starts = cooks
+    .map((c) => (c.plannedStartAt ? new Date(c.plannedStartAt).getTime() : null))
+    .filter((v): v is number => v !== null);
+  const ends = cooks
+    .map((c) => {
+      const t = c.plannedEndAt ?? c.plannedStartAt;
+      return t ? new Date(t).getTime() : null;
+    })
+    .filter((v): v is number => v !== null);
+
+  if (!starts.length || !ends.length) return null;
+
+  const minTime = Math.min(...starts);
+  const maxTime = Math.max(...ends);
+  const totalDuration = maxTime - minTime;
+
+  if (totalDuration <= 0) return null;
+
+  const ROW_H = 26;
+  const LABEL_PAD = 6;
+  const MIN_BAR_W = 28;
+
+  return (
+    <View
+      style={[
+        gantt.card,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          borderRadius: colors.radius,
+        },
+      ]}
+    >
+      <View style={gantt.barsContainer} onLayout={onLayout}>
+        {containerWidth > 0 &&
+          cooks.map((cook) => {
+            const start = cook.plannedStartAt
+              ? new Date(cook.plannedStartAt).getTime()
+              : null;
+            const end = (() => {
+              const t = cook.plannedEndAt ?? cook.plannedStartAt;
+              return t ? new Date(t).getTime() : null;
+            })();
+            if (start === null || end === null) return null;
+
+            const left = ((start - minTime) / totalDuration) * containerWidth;
+            const rawWidth = ((end - start) / totalDuration) * containerWidth;
+            const barWidth = Math.max(rawWidth, MIN_BAR_W);
+            const clampedLeft = Math.min(left, containerWidth - barWidth);
+            const color = STATUS_COLORS[cook.status] ?? colors.primary;
+            const label = cook.foodType || "Cook";
+
+            return (
+              <View key={cook.id} style={{ height: ROW_H + 4, position: "relative" }}>
+                <View
+                  style={[
+                    gantt.bar,
+                    {
+                      left: clampedLeft,
+                      width: barWidth,
+                      height: ROW_H,
+                      backgroundColor: color + "28",
+                      borderLeftColor: color,
+                    },
+                  ]}
+                >
+                  <Text
+                    numberOfLines={1}
+                    style={[gantt.barLabel, { color, maxWidth: barWidth - LABEL_PAD * 2 }]}
+                  >
+                    {label}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+      </View>
+
+      <View style={gantt.axis}>
+        <Text style={[gantt.axisLabel, { color: colors.mutedForeground }]}>
+          {new Date(minTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        </Text>
+        <Text style={[gantt.axisLabel, { color: colors.mutedForeground }]}>
+          {new Date(maxTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        </Text>
+      </View>
+    </View>
+  );
+}
 
 function fmtTime(d: Date): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -200,6 +300,12 @@ export default function SessionDetailScreen() {
           </View>
 
           <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>
+            SCHEDULE OVERVIEW
+          </Text>
+
+          <CookGanttChart cooks={cooks ?? []} colors={colors} />
+
+          <Text style={[s.sectionTitle, { color: colors.mutedForeground, marginTop: 8 }]}>
             TIMELINE
           </Text>
 
@@ -698,5 +804,43 @@ const s = StyleSheet.create({
     color: "#fff",
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
+  },
+});
+
+const gantt = StyleSheet.create({
+  card: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
+    overflow: "hidden",
+  },
+  barsContainer: {
+    width: "100%",
+  },
+  bar: {
+    position: "absolute",
+    borderLeftWidth: 3,
+    borderRadius: 5,
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    overflow: "hidden",
+  },
+  barLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  axis: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 4,
+    paddingTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#88888830",
+  },
+  axisLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
   },
 });
