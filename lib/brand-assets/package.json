@@ -1,0 +1,16 @@
+{
+  "name": "@workspace/brand-assets",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./app-icon.png": "./app-icon.png",
+    "./wordmark.png": "./wordmark.png"
+  },
+  "files": [
+    "src",
+    "app-icon.png",
+    "wordmark.png"
+  ]
+}

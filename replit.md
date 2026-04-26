@@ -35,6 +35,7 @@ The project uses a monorepo structure managed by pnpm workspaces. It is built wi
 - **Build System**: esbuild for CJS bundles.
 - **Database Schema**: Key tables include `grills`, `cooks`, `recipes`, `temperature_readings`, `forum_posts`, `forum_comments`, `cooking_tips`, `alerts`, and `conversations`/`messages`.
 - **Environment Variables**: Managed through `DATABASE_URL`, `AI_INTEGRATIONS_OPENAI_BASE_URL`, `AI_INTEGRATIONS_OPENAI_API_KEY`, and `SESSION_SECRET`.
+- **Shared Brand Assets (lib/brand-assets)**: Canonical package holding `app-icon.png` and `wordmark.png`. The marketing site (`public/icon.png`, `public/logo.png`, `public/wordmark.png`), promo-video (`public/brand/app-icon.png`, `app-logo.png`, `marketing-logo.png`, `wordmark.png`), and mobile app (`assets/images/icon.png`, `assets/images/logo.png`) all point to these files via relative symlinks — no more per-artifact copies.
 - **Marketing Website (artifacts/marketing)**: A React + Vite application serving the landing page, privacy policy, terms of service, and support pages. It includes a contact form backend integrated with the API server.
 - **Production Routing**: The deployed project hosts both the API server and the marketing static site. `/api/*` and `/health` are handled by the API server, while all other paths are served by the marketing site. Custom domain setup involves specific DNS records for `knowyourpit.com` and `www.knowyourpit.com`.
 
