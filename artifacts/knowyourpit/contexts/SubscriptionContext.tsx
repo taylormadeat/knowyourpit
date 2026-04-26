@@ -43,7 +43,7 @@ interface SubscriptionContextValue {
   /** Trigger an in-app purchase for a specific package. */
   purchasePackage: (pkg: PurchasePackageLike) => Promise<{ success: boolean; cancelled: boolean }>;
   /** Restore previous purchases (App Store / Play Store flow). */
-  restorePurchases: () => Promise<{ success: boolean }>;
+  restorePurchases: () => Promise<{ success: boolean; error?: string | null }>;
   /** Re-poll RevenueCat for fresh customerInfo (used after grant scripts run). */
   refresh: () => Promise<void>;
 }
@@ -264,8 +264,9 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const restorePurchases = useCallback(async () => {
     const purchases = purchasesRef.current;
     if (!purchases) {
-      setLastError("Subscriptions are not available in this build yet.");
-      return { success: false };
+      const msg = "Subscriptions are not available in this build yet.";
+      setLastError(msg);
+      return { success: false, error: msg };
     }
     setIsLoading(true);
     setLastError(null);
@@ -274,11 +275,16 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       const pro = entitlementsHavePro(info);
       setIsPro(pro);
       setExpirationDate(readExpiration(info));
-      if (pro) await refreshServerCache();
-      return { success: pro };
+      // Always sync the server cache after a restore attempt so the Postgres
+      // entitlement row stays accurate regardless of the outcome (clears stale
+      // Pro rows when a subscription has lapsed, or activates Pro for device
+      // switches with a missed webhook).
+      await refreshServerCache();
+      return { success: pro, error: null };
     } catch (err: any) {
-      setLastError(err?.message ?? "Restore failed. Please try again.");
-      return { success: false };
+      const msg: string = err?.message ?? "Restore failed. Please try again.";
+      setLastError(msg);
+      return { success: false, error: msg };
     } finally {
       setIsLoading(false);
     }

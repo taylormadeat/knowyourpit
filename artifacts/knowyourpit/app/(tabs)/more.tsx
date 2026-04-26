@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Pressable,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -41,10 +42,24 @@ export default function MoreScreen() {
   const { user } = useUser();
   const { signOut } = useClerk();
   const qc = useQueryClient();
-  const { isPro, expirationDate } = useSubscription();
+  const { isPro, expirationDate, restorePurchases, isLoading: subLoading } = useSubscription();
   const { showPaywall } = usePaywall();
 
   const botPad = useBottomTabBarHeight();
+
+  const handleRestorePurchases = async () => {
+    const { success, error } = await restorePurchases();
+    if (success) {
+      Alert.alert("Purchases restored", "Your Pro subscription is now active.");
+    } else if (error) {
+      Alert.alert("Restore failed", error);
+    } else {
+      Alert.alert(
+        "Nothing to restore",
+        "We couldn't find an active subscription linked to this account. If you believe this is an error, try signing in with the same Apple ID or Google account you used to subscribe.",
+      );
+    }
+  };
 
   const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -119,6 +134,23 @@ export default function MoreScreen() {
             </Text>
           </View>
           <Feather name="chevron-right" size={18} color={isPro ? colors.mutedForeground : "rgba(255,255,255,0.85)"} />
+        </Pressable>
+
+        <Pressable
+          onPress={handleRestorePurchases}
+          disabled={subLoading}
+          style={({ pressed }) => [
+            s.restoreBtn,
+            pressed && { opacity: 0.7 },
+          ]}
+        >
+          {subLoading ? (
+            <ActivityIndicator size="small" color={colors.mutedForeground} />
+          ) : (
+            <Text style={[s.restoreBtnText, { color: colors.mutedForeground }]}>
+              Restore purchases
+            </Text>
+          )}
         </Pressable>
 
         <Pressable
@@ -214,4 +246,10 @@ const s = StyleSheet.create({
     marginHorizontal: 16, marginBottom: 12, borderWidth: 1.5, padding: 14,
   },
   signOutText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  restoreBtn: {
+    alignItems: "center", justifyContent: "center",
+    marginHorizontal: 16, marginBottom: 16, paddingVertical: 10,
+    minHeight: 36,
+  },
+  restoreBtnText: { fontSize: 13, fontFamily: "Inter_400Regular", textDecorationLine: "underline" },
 });
