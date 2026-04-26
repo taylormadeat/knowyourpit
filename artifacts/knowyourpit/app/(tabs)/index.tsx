@@ -569,7 +569,7 @@ export default function HomeScreen() {
             <Text style={[s.emptyText, { color: colors.mutedForeground }]}>Fire it up with your first cook!</Text>
           </View>
         ) : (
-          allCooks.slice(0, 5).map((cook: any) => (
+          allCooks.slice(0, 3).map((cook: any) => (
             <Pressable
               key={cook.id}
               style={({ pressed }) => [
