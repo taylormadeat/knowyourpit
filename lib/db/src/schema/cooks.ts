@@ -26,6 +26,7 @@ export const cooksTable = pgTable("cooks", {
   ratingBark: integer("rating_bark"),
   ratingFlavor: integer("rating_flavor"),
   rating: integer("rating"),
+  sessionId: text("session_id"),
   recipeId: integer("recipe_id"),
   analysisResult: jsonb("analysis_result"),
   analysisHistory: jsonb("analysis_history"),

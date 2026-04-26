@@ -685,6 +685,7 @@ export default function PlanScreen() {
   const handleSaveMultiCooks = async () => {
     if (!multiResult) return;
     try {
+      const sessionId = crypto.randomUUID();
       const remainingItems = [...multiItems];
       for (const item of multiResult.schedule) {
         const matchedCut = MEAT_CUTS.find(c => c.name.toLowerCase() === item.foodType.toLowerCase());
@@ -699,6 +700,7 @@ export default function PlanScreen() {
             targetTempF: matchedCut?.targetTempF ?? undefined,
             grillId: resolvedGrillId ?? undefined,
             plannedStartAt: new Date(item.meatOnAt),
+            sessionId,
             notes: `Multi-cook session · Serve at ${new Date(multiResult.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${item.notes ? `\n${item.notes}` : ""}`,
           } as any,
         });

@@ -63,12 +63,36 @@ function fmtCountdown(targetMs: number): string {
   return `in ${mins}m`;
 }
 
+function fmtTime(d: Date): string {
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function fmtDate(d: Date): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const day = new Date(d);
+  day.setHours(0, 0, 0, 0);
+  if (day.getTime() === today.getTime()) return "Today";
+  if (day.getTime() === tomorrow.getTime()) return "Tomorrow";
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+interface SessionGroup {
+  sessionId: string;
+  cooks: any[];
+  earliestStart: Date | null;
+}
+
 export default function CooksScreen() {
   const colors = useColors();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("date-desc");
   const [ratedOnly, setRatedOnly] = useState(false);
+  const [showSessions, setShowSessions] = useState(false);
+  const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const { data: cooks, isLoading, refetch } = useListCooks();
 
   const botPad = useBottomTabBarHeight();
@@ -110,7 +134,40 @@ export default function CooksScreen() {
     return list;
   }, [cooks, sortKey, ratedOnly]);
 
-  const renderItem = ({ item }: { item: any }) => {
+  const sessionGroups = useMemo((): SessionGroup[] => {
+    const all: any[] = (cooks as any[]) || [];
+    const grouped: Record<string, any[]> = {};
+    for (const cook of all) {
+      if (cook.sessionId) {
+        if (!grouped[cook.sessionId]) grouped[cook.sessionId] = [];
+        grouped[cook.sessionId].push(cook);
+      }
+    }
+    const groups: SessionGroup[] = Object.entries(grouped).map(([sessionId, sessionCooks]) => {
+      const dates = sessionCooks
+        .map((c) => c.plannedStartAt ? new Date(c.plannedStartAt) : null)
+        .filter(Boolean) as Date[];
+      const earliestStart = dates.length > 0
+        ? dates.reduce((min, d) => d < min ? d : min, dates[0])
+        : null;
+      const sorted = [...sessionCooks].sort((a, b) => {
+        const aTime = a.plannedStartAt ? new Date(a.plannedStartAt).getTime() : 0;
+        const bTime = b.plannedStartAt ? new Date(b.plannedStartAt).getTime() : 0;
+        return aTime - bTime;
+      });
+      return { sessionId, cooks: sorted, earliestStart };
+    });
+    groups.sort((a, b) => {
+      if (!a.earliestStart && !b.earliestStart) return 0;
+      if (!a.earliestStart) return 1;
+      if (!b.earliestStart) return -1;
+      if (sortKey === "date-asc") return a.earliestStart.getTime() - b.earliestStart.getTime();
+      return b.earliestStart.getTime() - a.earliestStart.getTime();
+    });
+    return groups;
+  }, [cooks, sortKey]);
+
+  const renderCookItem = ({ item }: { item: any }) => {
     const isActive = item.status === "active";
     const isPlanned = item.status === "planned";
     const elapsedMs = isActive && item.actualStartAt
@@ -218,6 +275,124 @@ export default function CooksScreen() {
     );
   };
 
+  const renderSessionGroup = ({ item: group }: { item: SessionGroup }) => {
+    const isExpanded = expandedSession === group.sessionId;
+    const hasActive = group.cooks.some((c) => c.status === "active");
+    const allCompleted = group.cooks.every((c) => c.status === "completed");
+    const dateLabel = group.earliestStart
+      ? `${fmtDate(group.earliestStart)} · serve by ${fmtTime(
+          group.cooks.reduce((latest, c) => {
+            const t = c.plannedStartAt ? new Date(c.plannedStartAt).getTime() : 0;
+            return t > latest.getTime() ? new Date(c.plannedStartAt) : latest;
+          }, group.earliestStart)
+        )}`
+      : "Scheduled";
+
+    return (
+      <Pressable
+        style={[
+          s.sessionCard,
+          {
+            backgroundColor: colors.card,
+            borderColor: hasActive ? "#E8482045" : colors.border,
+            borderRadius: colors.radius,
+          },
+        ]}
+        onPress={() => setExpandedSession(isExpanded ? null : group.sessionId)}
+      >
+        <View style={s.sessionHeader}>
+          <LinearGradient
+            colors={hasActive ? ["#E84820", "#FF6B2B"] : allCompleted ? ["#16a34a", "#22c55e"] : ["#4f46e5", "#6C3BF5"]}
+            style={s.sessionIcon}
+          >
+            <Feather name="layers" size={18} color="#fff" />
+          </LinearGradient>
+          <View style={s.sessionInfo}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <Text style={[s.sessionTitle, { color: colors.foreground }]}>
+                Multi-Cook Session
+              </Text>
+              {hasActive && (
+                <View style={s.livePill}>
+                  <View style={s.liveDot} />
+                  <Text style={s.livePillText}>LIVE</Text>
+                </View>
+              )}
+            </View>
+            <Text style={[s.sessionMeta, { color: colors.mutedForeground }]}>
+              {group.cooks.length} items · {dateLabel}
+            </Text>
+            <View style={s.sessionTagsRow}>
+              {group.cooks.map((c) => (
+                <View
+                  key={c.id}
+                  style={[
+                    s.sessionTag,
+                    { backgroundColor: (STATUS_COLORS[c.status] || colors.primary) + "20" },
+                  ]}
+                >
+                  <Text style={[s.sessionTagText, { color: STATUS_COLORS[c.status] || colors.primary }]}>
+                    {c.foodType}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+          <Feather
+            name={isExpanded ? "chevron-up" : "chevron-down"}
+            size={16}
+            color={colors.mutedForeground}
+          />
+        </View>
+
+        {isExpanded && (
+          <View style={[s.sessionItems, { borderTopColor: colors.border }]}>
+            {group.cooks.map((cook, idx) => {
+              const startTime = cook.plannedStartAt ? new Date(cook.plannedStartAt) : null;
+              const isActive = cook.status === "active";
+              return (
+                <Pressable
+                  key={cook.id}
+                  style={[
+                    s.sessionItem,
+                    idx < group.cooks.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth },
+                  ]}
+                  onPress={() => router.push(`/cooks/${cook.id}` as any)}
+                >
+                  <View style={[s.sessionItemDot, { backgroundColor: STATUS_COLORS[cook.status] || colors.primary }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.sessionItemName, { color: colors.foreground }]}>
+                      {cook.foodType}
+                    </Text>
+                    <Text style={[s.sessionItemMeta, { color: colors.mutedForeground }]}>
+                      {startTime
+                        ? `Meat on at ${fmtTime(startTime)}`
+                        : "No start time set"}
+                      {cook.grillName ? ` · ${cook.grillName}` : ""}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: "flex-end", gap: 3 }}>
+                    <View style={[s.badge, { backgroundColor: (STATUS_COLORS[cook.status] || colors.primary) + "22" }]}>
+                      <Text style={[s.badgeText, { color: STATUS_COLORS[cook.status] || colors.primary }]}>
+                        {cook.status}
+                      </Text>
+                    </View>
+                    {isActive && cook.actualStartAt && (
+                      <Text style={[s.sessionItemElapsed, { color: "#E84820" }]}>
+                        {fmtElapsed(Date.now() - new Date(cook.actualStartAt).getTime())}
+                      </Text>
+                    )}
+                  </View>
+                  <Feather name="chevron-right" size={13} color={colors.mutedForeground} style={{ marginLeft: 4 }} />
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+      </Pressable>
+    );
+  };
+
   const addBtn = (
     <View style={s.headerBtns}>
       <Pressable
@@ -248,11 +423,11 @@ export default function CooksScreen() {
           contentContainerStyle={s.pillRow}
         >
           {SORT_OPTIONS.map((opt) => {
-            const active = sortKey === opt.key;
+            const active = !showSessions && sortKey === opt.key;
             return (
               <Pressable
                 key={opt.key}
-                onPress={() => setSortKey(opt.key)}
+                onPress={() => { setShowSessions(false); setSortKey(opt.key); }}
                 style={[
                   s.pill,
                   active
@@ -285,6 +460,25 @@ export default function CooksScreen() {
               ★ Rated only
             </Text>
           </Pressable>
+
+          {sessionGroups.length > 0 && (
+            <Pressable
+              onPress={() => setShowSessions((v) => !v)}
+              style={[
+                s.pill,
+                showSessions
+                  ? { backgroundColor: "#4f46e5" }
+                  : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
+              ]}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Feather name="layers" size={12} color={showSessions ? "#fff" : colors.mutedForeground} />
+                <Text style={[s.pillText, { color: showSessions ? "#fff" : colors.mutedForeground }]}>
+                  Sessions ({sessionGroups.length})
+                </Text>
+              </View>
+            </Pressable>
+          )}
         </ScrollView>
       </View>
 
@@ -292,11 +486,43 @@ export default function CooksScreen() {
         <View style={s.center}>
           <ActivityIndicator color={colors.primary} size="large" />
         </View>
+      ) : showSessions ? (
+        <FlatList
+          data={sessionGroups}
+          keyExtractor={(item) => item.sessionId}
+          renderItem={renderSessionGroup}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 12,
+            paddingBottom: botPad,
+            gap: 10,
+          }}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+            />
+          }
+          ListEmptyComponent={
+            <View style={[s.empty, { borderColor: colors.border, borderRadius: colors.radius }]}>
+              <Feather name="layers" size={36} color={colors.mutedForeground} />
+              <Text style={[s.emptyTitle, { color: colors.foreground }]}>
+                No multi-cook sessions yet
+              </Text>
+              <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
+                Use the Multi-Cook Sequencer on the Plan tab and save your items together to create a session.
+              </Text>
+            </View>
+          }
+        />
       ) : (
         <FlatList
           data={processedCooks}
           keyExtractor={(item) => String(item.id)}
-          renderItem={renderItem}
+          renderItem={renderCookItem}
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingTop: 12,
@@ -420,4 +646,43 @@ const s = StyleSheet.create({
   },
   emptyTitle: { fontSize: 17, fontFamily: "Inter_600SemiBold" },
   emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center" },
+
+  sessionCard: {
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  sessionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+  },
+  sessionIcon: {
+    width: 40, height: 40, borderRadius: 10,
+    alignItems: "center", justifyContent: "center",
+  },
+  sessionInfo: { flex: 1 },
+  sessionTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
+  sessionMeta: { fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 4 },
+  sessionTagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
+  sessionTag: {
+    paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5,
+  },
+  sessionTagText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  sessionItems: {
+    borderTopWidth: 1,
+  },
+  sessionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  sessionItemDot: {
+    width: 8, height: 8, borderRadius: 4,
+  },
+  sessionItemName: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginBottom: 1 },
+  sessionItemMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  sessionItemElapsed: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
 });

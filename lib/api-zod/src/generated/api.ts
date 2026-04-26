@@ -305,6 +305,12 @@ export const ListCooksResponseItem = zod.object({
     .number()
     .nullable()
     .describe("Overall score (1-5), computed as average of sub-ratings"),
+  sessionId: zod
+    .string()
+    .nullable()
+    .describe(
+      "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
+    ),
   recipeId: zod.number().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -360,6 +366,12 @@ export const CreateCookBody = zod.object({
     .number()
     .nullish()
     .describe("Recommended rest time after pulling from grill"),
+  sessionId: zod
+    .string()
+    .nullish()
+    .describe(
+      "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
+    ),
   recipeId: zod.number().nullish(),
 });
 
@@ -431,6 +443,12 @@ export const GetCookResponse = zod.object({
     .number()
     .nullable()
     .describe("Overall score (1-5), computed as average of sub-ratings"),
+  sessionId: zod
+    .string()
+    .nullable()
+    .describe(
+      "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
+    ),
   recipeId: zod.number().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -549,6 +567,12 @@ export const UpdateCookResponse = zod.object({
     .number()
     .nullable()
     .describe("Overall score (1-5), computed as average of sub-ratings"),
+  sessionId: zod
+    .string()
+    .nullable()
+    .describe(
+      "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
+    ),
   recipeId: zod.number().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -1319,6 +1343,12 @@ export const GetRecentCooksResponseItem = zod.object({
     .number()
     .nullable()
     .describe("Overall score (1-5), computed as average of sub-ratings"),
+  sessionId: zod
+    .string()
+    .nullable()
+    .describe(
+      "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
+    ),
   recipeId: zod.number().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),

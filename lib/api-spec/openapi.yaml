@@ -1216,6 +1216,9 @@ components:
         rating:
           type: ["integer", "null"]
           description: Overall score (1-5), computed as average of sub-ratings
+        sessionId:
+          type: ["string", "null"]
+          description: UUID grouping cooks that were saved together from the Multi-Cook Sequencer
         recipeId:
           type: ["integer", "null"]
         createdAt:
@@ -1248,6 +1251,7 @@ components:
         - ratingBark
         - ratingFlavor
         - rating
+        - sessionId
         - recipeId
         - createdAt
         - updatedAt
@@ -1300,6 +1304,9 @@ components:
         restMinutes:
           type: ["integer", "null"]
           description: Recommended rest time after pulling from grill
+        sessionId:
+          type: ["string", "null"]
+          description: UUID grouping cooks that were saved together from the Multi-Cook Sequencer
         recipeId:
           type: ["integer", "null"]
       required:

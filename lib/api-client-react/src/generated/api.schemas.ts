@@ -271,6 +271,11 @@ export interface Cook {
    * @nullable
    */
   rating: number | null;
+  /**
+   * UUID grouping cooks that were saved together from the Multi-Cook Sequencer
+   * @nullable
+   */
+  sessionId: string | null;
   /** @nullable */
   recipeId: number | null;
   createdAt: string;
@@ -348,6 +353,11 @@ export interface CreateCookBody {
    * @nullable
    */
   restMinutes?: number | null;
+  /**
+   * UUID grouping cooks that were saved together from the Multi-Cook Sequencer
+   * @nullable
+   */
+  sessionId?: string | null;
   /** @nullable */
   recipeId?: number | null;
 }

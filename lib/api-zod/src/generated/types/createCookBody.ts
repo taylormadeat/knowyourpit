@@ -56,6 +56,11 @@ export interface CreateCookBody {
    * @nullable
    */
   restMinutes?: number | null;
+  /**
+   * UUID grouping cooks that were saved together from the Multi-Cook Sequencer
+   * @nullable
+   */
+  sessionId?: string | null;
   /** @nullable */
   recipeId?: number | null;
 }
