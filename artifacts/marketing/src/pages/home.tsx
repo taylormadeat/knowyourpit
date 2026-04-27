@@ -143,13 +143,13 @@ export default function Home() {
             className="text-center max-w-2xl mb-10 md:mb-14"
           >
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4">
-              See it in action
+              Meet PitMaster
             </span>
             <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-              Watch the AI work a real cook.
+              PitMaster doesn't give generic advice. It reads your cook.
             </h2>
             <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
-              From logging a cook to getting live decisions — here's what it actually looks like inside the app.
+              Here's what that looks like — from logging a session to getting live, data-driven decisions from an AI that knows your specific rig and history.
             </p>
           </motion.div>
 
