@@ -186,36 +186,22 @@ export default function Home() {
 
       {/* ─── App preview ───────────────────────────────────────────────── */}
       <section className="py-16 md:py-24 bg-background border-b border-white/5">
-        <div className="container px-4">
-          <div className="grid md:grid-cols-2 gap-12 md:gap-16 items-center">
-            <div className="flex flex-col items-center md:items-start order-2 md:order-1">
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4">
-                The App
-              </span>
-              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-center md:text-left">
-                Same cook data. Completely different insight.
-              </h2>
-              <p className="text-muted-foreground text-base md:text-lg text-center md:text-left mb-6 leading-relaxed">
-                knowyourpit doesn't give everyone the same answer. It reads your temperatures, your history, and your plan — and returns something that actually makes sense for your level. Serious competitors get hard numbers on what happened and why. Everyone else gets the confidence to finish what they started.
-              </p>
-              <div className="w-full max-w-sm rounded-2xl overflow-hidden border border-white/10 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)]">
-                <img
-                  src={`${BASE}ss-live-cook.jpg`}
-                  alt="Live Cook screen showing MEATER linked, outdoor temperature, and pit readings"
-                  className="w-full h-auto block"
-                />
-              </div>
-            </div>
-
-            <div className="order-1 md:order-2 flex justify-center">
-              <div className="relative w-[min(260px,80vw)] sm:w-[280px] md:w-[300px] aspect-[35/76] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(221,107,32,0.4)] overflow-hidden">
-                <img
-                  src={`${BASE}ss-dashboard.png`}
-                  alt="knowyourpit home screen showing PitMaster Score, recent cooks, and grill stats"
-                  className="absolute inset-0 w-full h-full object-cover object-top"
-                />
-              </div>
-            </div>
+        <div className="container px-4 flex flex-col items-center text-center">
+          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4">
+            The App
+          </span>
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4 max-w-2xl">
+            Same cook data. Completely different insight.
+          </h2>
+          <p className="text-muted-foreground text-base md:text-lg mb-10 leading-relaxed max-w-2xl">
+            knowyourpit doesn't give everyone the same answer. It reads your temperatures, your history, and your plan — and returns something that actually makes sense for your level. Serious competitors get hard numbers on what happened and why. Everyone else gets the confidence to finish what they started.
+          </p>
+          <div className="relative w-[min(260px,80vw)] sm:w-[280px] md:w-[300px] aspect-[35/76] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(221,107,32,0.4)] overflow-hidden">
+            <img
+              src={`${BASE}ss-dashboard.png`}
+              alt="knowyourpit home screen showing PitMaster Score, recent cooks, and grill stats"
+              className="absolute inset-0 w-full h-full object-cover object-top"
+            />
           </div>
         </div>
       </section>
