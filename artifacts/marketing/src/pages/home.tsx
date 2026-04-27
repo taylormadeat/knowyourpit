@@ -174,8 +174,8 @@ export default function Home() {
             {[
               {
                 src: "ss-image-scanner.png",
-                title: "Snap any thermometer",
-                caption: "Point your camera at any analog gauge or thermal image. The AI reads the temperature, grades the cook stage, and adds it to your session — no smart probe required.",
+                title: "Any thermometer. Any app. Any data source.",
+                caption: "Already using MEATER, ThermoWorks, or another thermometer app? Upload a screenshot of the graph. Got an analog gauge on your pit? Take a photo. Prefer to log readings by hand? That works too. knowyourpit pulls the numbers from wherever they live and runs the analysis — no specific hardware required.",
                 alt: "PitMaster Image Scanner reading a temperature graph from photos",
               },
               {
