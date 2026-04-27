@@ -311,12 +311,21 @@ export async function countActiveCooksForUser(userId: string, excludeCookId?: nu
   return row?.c ?? 0;
 }
 
-/** Cooks with status = "planned" for this user. */
-export async function countPlannedCooksForUser(userId: string): Promise<number> {
+/**
+ * Cooks with status = "planned" for this user.
+ * Pass `excludeCookId` to exclude a specific cook — used in PATCH so that
+ * re-saving an already-planned cook as planned does not trigger the cap.
+ */
+export async function countPlannedCooksForUser(userId: string, excludeCookId?: number): Promise<number> {
+  const conditions = [
+    eq(cooksTable.userId, userId),
+    eq(cooksTable.status, "planned"),
+    ...(excludeCookId != null ? [ne(cooksTable.id, excludeCookId)] : []),
+  ];
   const [row] = await db
     .select({ c: sql<number>`count(*)::int` })
     .from(cooksTable)
-    .where(and(eq(cooksTable.userId, userId), eq(cooksTable.status, "planned")));
+    .where(and(...conditions));
   return row?.c ?? 0;
 }
 

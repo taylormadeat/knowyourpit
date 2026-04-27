@@ -161,6 +161,17 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
   }
   // Free-tier caps on status transitions and graded-cook saves.
   if (!(await userBypassesPaywall(req))) {
+    if (parsed.data.status === "planned") {
+      // Exclude the current cook so re-saving an already-planned cook is never blocked.
+      const plannedCount = await countPlannedCooksForUser(req.userId, params.data.id);
+      if (plannedCount >= 1) {
+        respondPaywall(res, {
+          code: "planned_cook_limit_reached",
+          message: "Free plan only allows one planned cook at a time. Upgrade to Pro for unlimited.",
+        });
+        return;
+      }
+    }
     if (parsed.data.status === "active") {
       // Exclude the current cook so re-saving an already-active cook is never blocked.
       const activeCount = await countActiveCooksForUser(req.userId, params.data.id);
