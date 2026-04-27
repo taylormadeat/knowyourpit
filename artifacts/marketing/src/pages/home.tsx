@@ -1,4 +1,4 @@
-import { Flame, Clock, Brain, Activity, ChefHat, Camera, LineChart, Bell, Volume2, VolumeX } from "lucide-react";
+import { ChefHat, Camera, Bell, Volume2, VolumeX } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { useState } from "react";
@@ -298,56 +298,6 @@ export default function Home() {
                 </div>
               </motion.div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Your pit talks ────────────────────────────────────────────── */}
-      <section className="py-16 md:py-24 bg-background">
-        <div className="container px-4">
-          <div className="grid md:grid-cols-2 gap-12 md:gap-16 items-center">
-            <div className="relative aspect-square rounded-2xl overflow-hidden border border-white/10 shadow-2xl max-w-md w-full mx-auto md:max-w-none">
-              <img
-                src={`${BASE}brisket-smoke.png`}
-                alt="Smoking brisket on cutting board"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-tr from-black/60 to-transparent" />
-            </div>
-
-            <div className="flex flex-col gap-6 md:gap-8">
-              <div>
-                <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">Your pit talks. knowyourpit listens.</h2>
-                <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
-                  Every cook generates data — temperatures, timing, decisions, results. The AI reads all of it and gives it back as something useful: a debrief, a recommendation, a warning, or a plan. For the pitmaster who's been doing this for 20 years, and the one firing up for the first time.
-                </p>
-              </div>
-
-              <div className="grid gap-4 md:gap-6">
-                {[
-                  { icon: Brain, title: "AI Data Analysis", desc: "Reads your temperature curves, detects stalls before they peak, and compares every cook against your plan. Returns real feedback grounded in what actually happened — not generic tips." },
-                  { icon: Activity, title: "Hardware Agnostic", desc: "Connects to MEATER Cloud, ThermoWorks, or you can snap a photo of any analog gauge. Any probe, any pit, any setup." },
-                  { icon: Clock, title: "Insight for Every Level", desc: "For the championship pitmaster: a precise session debrief and plan comparison after every cook. For the first-time smoker: step-by-step decisions built on what your pit is actually doing right now." }
-                ].map((feature, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: i * 0.1 }}
-                    className="flex gap-4 p-4 rounded-xl bg-card/50 border border-white/5"
-                  >
-                    <div className="w-11 h-11 md:w-12 md:h-12 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                      <feature.icon className="w-5 h-5 md:w-6 md:h-6" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-foreground mb-1">{feature.title}</h3>
-                      <p className="text-muted-foreground text-sm leading-relaxed">{feature.desc}</p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       </section>
