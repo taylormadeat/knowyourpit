@@ -1,15 +1,80 @@
-import { ChefHat, Volume2, VolumeX } from "lucide-react";
-import { motion } from "framer-motion";
+import { ChefHat, Volume2, VolumeX, ChevronLeft, ChevronRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
 import { useState } from "react";
 
 const BASE = import.meta.env.BASE_URL;
 
+const SHOTS = [
+  {
+    src: "ss-image-scanner.png",
+    title: "Any thermometer. Any app. Any data source.",
+    caption: "Already using MEATER, ThermoWorks, or another thermometer app? Upload a screenshot of the graph. Got an analog gauge on your pit? Take a photo. Prefer to log readings by hand? That works too. knowyourpit pulls the numbers from wherever they live and runs the analysis — no specific hardware required.",
+    alt: "PitMaster Image Scanner reading a temperature graph from photos",
+  },
+  {
+    src: "ss-plan-cook.png",
+    title: "A plan built for your pit",
+    caption: "Tell PitMaster what you're cooking and when you want to serve. It builds an hour-by-hour schedule around your specific smoker, your cook history, and today's outdoor temperature — not a generic timeline.",
+    alt: "Plan a Cook screen with Pulled Pork selected and a prep guide open",
+  },
+  {
+    src: "ss-cook-log.png",
+    title: "Sequence a full multi-item cook",
+    caption: "Add your brisket, ribs, and chicken — pick one serve time — and PitMaster works out when each item needs to start. It tells you when to light every grill, when to put each cut on, and when to pull it, so everything is resting and ready at the same moment.",
+    alt: "Cook Log showing a Multi-Cook Session with Spare Ribs, Prime Rib, and Chicken Thighs",
+  },
+  {
+    src: "ss-cook-detail.png",
+    title: "Decisions from your data",
+    caption: "PitMaster reads your live temperature curve and ranks your next moves — hold steady, wrap now, raise pit temp — with the reasoning behind each one. Not generic advice. Decisions from what's happening in your pit right now.",
+    alt: "Cook detail screen showing PitMaster analysis and temperature graph",
+  },
+  {
+    src: "ss-pitmaster.png",
+    title: "Ask anything. PitMaster already knows your cooks.",
+    caption: "Every question you ask is answered with your full cook history in context — your grills, your results, your past sessions. Ask about the stall on your last brisket or how your offset runs in cold weather. The answers come from your data, not the internet.",
+    alt: "PitMaster AI chat screen showing BBQ questions",
+  },
+  {
+    src: "ss-cook-timeline.png",
+    title: "Every cook reviewed. Every result explained.",
+    caption: "When the session ends, PitMaster runs through your temperature data and tells you exactly what happened — where you hit your plan, where you fell off, and what likely caused it. Rate the result and it feeds back into your history for next time.",
+    alt: "Cook debrief screen showing timeline, what went well, and next time tips",
+  },
+];
+
+const SLIDE_VARIANTS = {
+  enter: (dir: number) => ({ x: dir > 0 ? 60 : -60, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (dir: number) => ({ x: dir > 0 ? -60 : 60, opacity: 0 }),
+};
+
 export default function Home() {
   const [muted, setMuted] = useState(true);
+  const [slide, setSlide] = useState(0);
+  const [dir, setDir] = useState(1);
 
   function toggleMute() {
     setMuted((prev) => !prev);
+  }
+
+  function goTo(next: number) {
+    setDir(next > slide ? 1 : -1);
+    setSlide(next);
+  }
+
+  function prev() {
+    goTo((slide - 1 + SHOTS.length) % SHOTS.length);
+  }
+
+  function next() {
+    goTo((slide + 1) % SHOTS.length);
+  }
+
+  function handleDragEnd(_: unknown, info: { offset: { x: number } }) {
+    if (info.offset.x < -40) next();
+    else if (info.offset.x > 40) prev();
   }
 
   return (
@@ -155,7 +220,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── Inside the app (real screenshots) ─────────────────────────── */}
+      {/* ─── Inside the app (carousel) ──────────────────────────────────── */}
       <section className="py-16 md:py-24 bg-background border-b border-white/5">
         <div className="container px-4">
           <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
@@ -170,67 +235,80 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 max-w-5xl mx-auto">
-            {[
-              {
-                src: "ss-image-scanner.png",
-                title: "Any thermometer. Any app. Any data source.",
-                caption: "Already using MEATER, ThermoWorks, or another thermometer app? Upload a screenshot of the graph. Got an analog gauge on your pit? Take a photo. Prefer to log readings by hand? That works too. knowyourpit pulls the numbers from wherever they live and runs the analysis — no specific hardware required.",
-                alt: "PitMaster Image Scanner reading a temperature graph from photos",
-              },
-              {
-                src: "ss-plan-cook.png",
-                title: "A plan built for your pit",
-                caption: "Tell PitMaster what you're cooking and when you want to serve. It builds an hour-by-hour schedule around your specific smoker, your cook history, and today's outdoor temperature — not a generic timeline.",
-                alt: "Plan a Cook screen with Pulled Pork selected and a prep guide open",
-              },
-              {
-                src: "ss-cook-log.png",
-                title: "Sequence a full multi-item cook",
-                caption: "Add your brisket, ribs, and chicken — pick one serve time — and PitMaster works out when each item needs to start. It tells you when to light every grill, when to put each cut on, and when to pull it, so everything is resting and ready at the same moment.",
-                alt: "Cook Log showing a Multi-Cook Session with Spare Ribs, Prime Rib, and Chicken Thighs",
-              },
-              {
-                src: "ss-cook-detail.png",
-                title: "Decisions from your data",
-                caption: "PitMaster reads your live temperature curve and ranks your next moves — hold steady, wrap now, raise pit temp — with the reasoning behind each one. Not generic advice. Decisions from what's happening in your pit right now.",
-                alt: "Cook detail screen showing PitMaster analysis and temperature graph",
-              },
-              {
-                src: "ss-pitmaster.png",
-                title: "Ask anything. PitMaster already knows your cooks.",
-                caption: "Every question you ask is answered with your full cook history in context — your grills, your results, your past sessions. Ask about the stall on your last brisket or how your offset runs in cold weather. The answers come from your data, not the internet.",
-                alt: "PitMaster AI chat screen showing BBQ questions",
-              },
-              {
-                src: "ss-cook-timeline.png",
-                title: "Every cook reviewed. Every result explained.",
-                caption: "When the session ends, PitMaster runs through your temperature data and tells you exactly what happened — where you hit your plan, where you fell off, and what likely caused it. Rate the result and it feeds back into your history for next time.",
-                alt: "Cook debrief screen showing timeline, what went well, and next time tips",
-              },
-            ].map((shot, i) => (
-              <motion.figure
-                key={`${shot.src}-${i}`}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ delay: (i % 3) * 0.1 }}
-                className="flex flex-col gap-4"
+          <div className="flex flex-col items-center gap-8 max-w-sm mx-auto">
+            {/* Phone frame + swipe area */}
+            <div className="relative w-full flex items-center justify-center gap-3">
+              <button
+                onClick={prev}
+                aria-label="Previous screenshot"
+                className="flex-shrink-0 w-10 h-10 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center text-white hover:bg-zinc-800 active:scale-95 transition-all"
               >
-                <div className="relative w-full aspect-[35/76] rounded-[2rem] border-[8px] border-zinc-800 bg-black shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] overflow-hidden">
-                  <img
-                    src={`${BASE}${shot.src}`}
-                    alt={shot.alt}
-                    loading="lazy"
-                    className="absolute inset-0 w-full h-full object-cover object-top"
-                  />
-                </div>
-                <figcaption className="px-1">
-                  <h3 className="text-base md:text-lg font-bold text-foreground mb-1">{shot.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{shot.caption}</p>
-                </figcaption>
-              </motion.figure>
-            ))}
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+
+              <div className="relative overflow-hidden w-[min(220px,70vw)]">
+                <AnimatePresence initial={false} custom={dir} mode="popLayout">
+                  <motion.figure
+                    key={slide}
+                    custom={dir}
+                    variants={SLIDE_VARIANTS}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    drag="x"
+                    dragConstraints={{ left: 0, right: 0 }}
+                    dragElastic={0.15}
+                    onDragEnd={handleDragEnd}
+                    className="flex flex-col gap-0 cursor-grab active:cursor-grabbing select-none"
+                  >
+                    <div className="relative w-full aspect-[35/76] rounded-[2rem] border-[8px] border-zinc-800 bg-black shadow-[0_20px_60px_-20px_rgba(221,107,32,0.35)] overflow-hidden">
+                      <img
+                        src={`${BASE}${SHOTS[slide].src}`}
+                        alt={SHOTS[slide].alt}
+                        draggable={false}
+                        className="absolute inset-0 w-full h-full object-cover object-top"
+                      />
+                    </div>
+                  </motion.figure>
+                </AnimatePresence>
+              </div>
+
+              <button
+                onClick={next}
+                aria-label="Next screenshot"
+                className="flex-shrink-0 w-10 h-10 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center text-white hover:bg-zinc-800 active:scale-95 transition-all"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Dot indicators */}
+            <div className="flex items-center gap-2">
+              {SHOTS.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => goTo(i)}
+                  aria-label={`Go to screenshot ${i + 1}`}
+                  className={`rounded-full transition-all ${i === slide ? "w-5 h-2 bg-primary" : "w-2 h-2 bg-white/20 hover:bg-white/40"}`}
+                />
+              ))}
+            </div>
+
+            {/* Caption */}
+            <AnimatePresence mode="wait">
+              <motion.figcaption
+                key={slide}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.25 }}
+                className="text-center px-2"
+              >
+                <h3 className="text-base md:text-lg font-bold text-foreground mb-2">{SHOTS[slide].title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{SHOTS[slide].caption}</p>
+              </motion.figcaption>
+            </AnimatePresence>
           </div>
         </div>
       </section>
