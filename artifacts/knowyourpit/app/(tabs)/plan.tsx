@@ -1376,6 +1376,24 @@ export default function PlanScreen() {
           />
         </View>
 
+        {/* Free-tier planned-cook slot counter. Hidden for Pro and until first planned cook. */}
+        {paywallUsage && !paywallUsage.unlimited && paywallUsage.usage.plannedCooks > 0 && (
+          <Text
+            style={{
+              fontSize: 12,
+              fontFamily: "Inter_500Medium",
+              color:
+                paywallUsage.remaining.plannedCooks <= 1
+                  ? colors.primary
+                  : colors.mutedForeground,
+              textAlign: "center",
+              marginTop: 6,
+              marginBottom: -2,
+            }}
+          >
+            {paywallUsage.remaining.plannedCooks} planned cook slot{paywallUsage.remaining.plannedCooks !== 1 ? "s" : ""} remaining
+          </Text>
+        )}
         {/* ── Submit ── */}
         <Pressable
           style={({ pressed }) => [

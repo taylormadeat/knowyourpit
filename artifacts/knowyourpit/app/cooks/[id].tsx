@@ -1623,6 +1623,21 @@ export default function CookDetailScreen() {
                 analyses left today
               </Text>
             )}
+            {/* Free-tier graded-cook slot badge. Hidden for Pro. */}
+            {paywallUsage && !paywallUsage.unlimited && paywallUsage.usage.gradedCooks === 0 && (
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontFamily: "Inter_500Medium",
+                  color: colors.primary,
+                  textAlign: "center",
+                  marginTop: 4,
+                  marginBottom: -2,
+                }}
+              >
+                1 AI grade remaining
+              </Text>
+            )}
             {/* Analyze button */}
             <Pressable
               style={({ pressed }) => [s.analyzeBtn, { borderRadius: colors.radius }, (analyzing || pressed) && { opacity: 0.75 }]}
@@ -1952,6 +1967,21 @@ export default function CookDetailScreen() {
             >
               {paywallUsage.remaining.aiAnalyzesToday} of {paywallUsage.limits.aiAnalyzePerDay} free
               analyses left today
+            </Text>
+          )}
+          {/* Free-tier graded-cook slot badge. Hidden for Pro. */}
+          {paywallUsage && !paywallUsage.unlimited && paywallUsage.usage.gradedCooks === 0 && (
+            <Text
+              style={{
+                fontSize: 12,
+                fontFamily: "Inter_500Medium",
+                color: colors.primary,
+                textAlign: "center",
+                marginTop: 4,
+                marginBottom: -2,
+              }}
+            >
+              1 AI grade remaining
             </Text>
           )}
           {/* Analyze button */}
