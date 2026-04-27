@@ -193,7 +193,7 @@ export default function Home() {
               {
                 src: "ss-cook-detail.png",
                 title: "Decisions from your data",
-                caption: "The AI reads your live temperature curve and ranks your next moves — hold steady, wrap now, raise pit temp — with the reasoning behind each one. Not generic advice. Decisions from what's happening in your pit right now.",
+                caption: "PitMaster reads your live temperature curve and ranks your next moves — hold steady, wrap now, raise pit temp — with the reasoning behind each one. Not generic advice. Decisions from what's happening in your pit right now.",
                 alt: "Cook detail screen showing PitMaster analysis and temperature graph",
               },
               {
@@ -243,7 +243,7 @@ export default function Home() {
               How it works
             </span>
             <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-              Light the fire. The AI does the reading.
+              Light the fire. PitMaster does the reading.
             </h2>
             <p className="text-muted-foreground text-base md:text-lg">
               No setup docs. No learning curve. Just cook.
@@ -262,13 +262,13 @@ export default function Home() {
                 num: "02",
                 icon: Camera,
                 title: "Start the cook",
-                desc: "Pick a cut or just describe what you're making. Snap a photo of any analog gauge if you don't have a smart probe. The AI begins reading your data from the first temperature.",
+                desc: "Pick a cut or just describe what you're making. Snap a photo of any analog gauge if you don't have a smart probe. PitMaster begins reading your data from the first temperature.",
               },
               {
                 num: "03",
                 icon: Bell,
                 title: "Get the insight back",
-                desc: "The AI watches your stall, outdoor temperature, and your grill's behavior — and returns real decisions, not reminders. Championship pitmasters get a precise plan debrief. First-timers get the confidence to pull it off.",
+                desc: "PitMaster watches your stall, outdoor temperature, and your grill's behavior — and returns real decisions, not reminders. Championship pitmasters get a precise plan debrief. First-timers get the confidence to pull it off.",
               },
             ].map((step, i) => (
               <motion.div
@@ -306,12 +306,12 @@ export default function Home() {
             <div className="p-6 md:p-8 rounded-2xl bg-background border border-white/10 flex flex-col items-center text-center gap-3 md:gap-4">
               <div className="text-4xl font-black text-primary">Live</div>
               <h3 className="font-bold">Instant Analysis</h3>
-              <p className="text-sm text-muted-foreground">The AI reads your temperature data mid-cook and returns feedback in seconds — while there's still time to act on it.</p>
+              <p className="text-sm text-muted-foreground">PitMaster reads your temperature data mid-cook and returns feedback in seconds — while there's still time to act on it.</p>
             </div>
             <div className="p-6 md:p-8 rounded-2xl bg-background border border-white/10 flex flex-col items-center text-center gap-3 md:gap-4">
               <div className="text-4xl font-black text-primary">100+</div>
               <h3 className="font-bold">Grill Profiles</h3>
-              <p className="text-sm text-muted-foreground">From Kamado Joes to custom 500-gallon offsets. The AI knows how they run.</p>
+              <p className="text-sm text-muted-foreground">From Kamado Joes to custom 500-gallon offsets. PitMaster knows how they run.</p>
             </div>
             <div className="p-6 md:p-8 rounded-2xl bg-background border border-white/10 flex flex-col items-center text-center gap-3 md:gap-4">
               <div className="text-4xl font-black text-primary">Multi</div>
@@ -327,7 +327,7 @@ export default function Home() {
         <ChefHat className="w-14 h-14 md:w-16 md:h-16 text-primary mb-5 md:mb-6" />
         <h2 className="text-4xl md:text-6xl font-black tracking-tight mb-5 md:mb-6">Your pit. Your data. Your edge.</h2>
         <p className="text-base md:text-xl text-muted-foreground max-w-2xl mb-8 md:mb-10 leading-relaxed">
-          The AI that makes your cook data mean something — whether you're chasing a ribbon or your first pulled pork.
+          PitMaster makes your cook data mean something — whether you're chasing a ribbon or your first pulled pork.
         </p>
         <a
           href="https://apps.apple.com/app/id6763445064"
