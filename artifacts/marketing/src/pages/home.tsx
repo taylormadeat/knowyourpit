@@ -198,8 +198,8 @@ export default function Home() {
               },
               {
                 src: "ss-pitmaster.png",
-                title: "Ask anything about BBQ",
-                caption: "PitMaster answers your BBQ questions instantly — best wood for brisket, how long per pound for pork butt, how to manage the stall. Grounded in your cook history, not generic internet answers.",
+                title: "Ask anything. PitMaster already knows your cooks.",
+                caption: "Every question you ask is answered with your full cook history in context — your grills, your results, your past sessions. Ask about the stall on your last brisket or how your offset runs in cold weather. The answers come from your data, not the internet.",
                 alt: "PitMaster AI chat screen showing BBQ questions",
               },
               {
