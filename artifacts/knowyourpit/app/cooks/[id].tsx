@@ -1828,20 +1828,20 @@ export default function CookDetailScreen() {
           </View>
         )}
 
-        {/* ── Log This Cook section (past/completed cooks only) ── */}
-        {c.status !== "active" && <View
-          style={[s.logSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
+        {/* ── PitMaster Cook Review (completed cooks only) ── */}
+        {c.status === "completed" && <View
+          style={[s.logSection, { backgroundColor: colors.card, borderColor: "#D97706" + "40", borderRadius: colors.radius }]}
           onLayout={onCardLayout}
         >
           {/* Header */}
           <View style={s.logHeader}>
-            <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.logIconWrap}>
-              <Feather name="thermometer" size={15} color="#fff" />
+            <LinearGradient colors={["#D97706", "#F59E0B"]} style={s.logIconWrap}>
+              <Feather name="award" size={15} color="#fff" />
             </LinearGradient>
             <View style={{ flex: 1 }}>
-              <Text style={[s.logTitle, { color: colors.foreground }]}>Log This Cook</Text>
+              <Text style={[s.logTitle, { color: colors.foreground }]}>PitMaster Cook Review</Text>
               <Text style={[s.logSub, { color: colors.mutedForeground }]}>
-                Upload thermometer photos · PitMaster reads temps, assesses the cook, and gives personalized tips
+                Upload thermometer photos from your finished cook · PitMaster grades the result and gives personalised tips
               </Text>
             </View>
           </View>
@@ -1917,7 +1917,7 @@ export default function CookDetailScreen() {
           <View style={{ flexDirection: "row", gap: 10 }}>
             <View style={{ flex: 1 }}>
               <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
-                Temperature reading <Text style={{ fontWeight: "400" }}>(°F)</Text>
+                Final temperature reached <Text style={{ fontWeight: "400" }}>(°F)</Text>
               </Text>
               <TextInput
                 style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, height: 44, paddingTop: 0, paddingBottom: 0 }]}
@@ -1936,7 +1936,7 @@ export default function CookDetailScreen() {
           {/* Notes input */}
           <View>
             <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
-              Cook notes <Text style={{ fontWeight: "400" }}>(optional — tell PitMaster what happened)</Text>
+              How did it go? <Text style={{ fontWeight: "400" }}>(optional — any details help PitMaster grade accurately)</Text>
             </Text>
             <TextInput
               style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
@@ -1984,7 +1984,7 @@ export default function CookDetailScreen() {
               1 AI grade remaining
             </Text>
           )}
-          {/* Analyze button */}
+          {/* Grade button */}
           <Pressable
             style={({ pressed }) => [
               s.analyzeBtn,
@@ -1994,19 +1994,19 @@ export default function CookDetailScreen() {
             onPress={analyze}
             disabled={analyzing}
           >
-            <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.analyzeBtnGradient}>
+            <LinearGradient colors={["#D97706", "#F59E0B"]} style={s.analyzeBtnGradient}>
               {analyzing ? (
                 <>
                   <ActivityIndicator color="#fff" size="small" />
-                  <Text style={s.analyzeBtnText}>PitMaster is analyzing your cook…</Text>
+                  <Text style={s.analyzeBtnText}>PitMaster is reviewing your cook…</Text>
                 </>
               ) : (
                 <>
-                  <Feather name="zap" size={16} color="#fff" />
+                  <Feather name="award" size={16} color="#fff" />
                   <Text style={s.analyzeBtnText}>
                     {images.length > 0
-                      ? `Analyze ${images.length} image${images.length > 1 ? "s" : ""} with PitMaster`
-                      : "Analyze Cook with PitMaster"}
+                      ? `Grade ${images.length} image${images.length > 1 ? "s" : ""} with PitMaster`
+                      : "Grade This Cook with PitMaster"}
                   </Text>
                 </>
               )}
