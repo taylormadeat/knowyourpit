@@ -225,11 +225,15 @@ export default function RootLayout() {
     }
   }, []);
 
+  // Only dismiss the splash once BOTH fonts and Clerk are ready.
+  // Previously we dismissed as soon as fonts loaded, which left a white
+  // frame visible while Clerk initialised — causing the App Store rejection.
+  const [clerkReady, setClerkReady] = useState(false);
   useEffect(() => {
-    if (fontsLoaded || fontError) {
+    if ((fontsLoaded || fontError) && clerkReady) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError]);
+  }, [fontsLoaded, fontError, clerkReady]);
 
   if (!fontsLoaded && !fontError && !webReady) return null;
 
@@ -241,7 +245,7 @@ export default function RootLayout() {
     >
       <SafeAreaProvider>
         <ErrorBoundary>
-          <ClerkGatedShell />
+          <ClerkGatedShell onReady={() => setClerkReady(true)} />
         </ErrorBoundary>
       </SafeAreaProvider>
     </ClerkProvider>
@@ -267,7 +271,7 @@ export default function RootLayout() {
 // to use the currently-signed-in user's token. If we set this in a child of
 // QueryClientProvider, there would be a brief render window where queries
 // could fire with the previous user's token.
-function ClerkGatedShell() {
+function ClerkGatedShell({ onReady }: { onReady: () => void }) {
   const { isLoaded, userId, getToken } = useAuth();
 
   // Synchronous-during-render update of the module-level token getter.
@@ -279,8 +283,20 @@ function ClerkGatedShell() {
   // safe for our purposes (single source of truth, no React state involved).
   _currentGetToken = isLoaded && userId ? getToken : null;
 
+  // Notify RootLayout so it can dismiss the splash screen only after Clerk
+  // has finished loading. This closes the timing window that caused the white-
+  // screen App Store rejection (splash dismissed → fonts loaded but Clerk not
+  // yet ready → blank white frame visible to the reviewer).
+  useEffect(() => {
+    if (isLoaded) {
+      onReady();
+    }
+  }, [isLoaded, onReady]);
+
   if (!isLoaded) {
-    return <View style={{ flex: 1 }} />;
+    // Match the splash screen background so no white flash is visible even
+    // if the splash dismissal races with Clerk on a very slow device.
+    return <View style={{ flex: 1, backgroundColor: "#0e0e10" }} />;
   }
   return (
     <IsolatedQueryProvider key={userId ?? "anon"}>
