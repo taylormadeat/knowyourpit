@@ -111,7 +111,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           >
-            A great cook isn't guesswork — it's data. knowyourpit reads yours in real time, catching plan drift, flagging the stall before it peaks, and returning a clear next move while there's still time to make it count. For the competitive pitmaster, that's a session debrief tied to real numbers. For the first-timer, that's a guide they can actually trust.
+            Every grill runs differently. Every cook tracks differently. knowyourpit reads yours — temperatures, history, your specific rig — and returns decisions built from that data alone. Not advice pulled from a generic playbook. Insight that fits how you cook, from your first fire to your next competition.
           </motion.p>
 
           <motion.div
