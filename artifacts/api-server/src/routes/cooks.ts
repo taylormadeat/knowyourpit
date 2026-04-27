@@ -84,6 +84,17 @@ router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
         return;
       }
     }
+    // 2b. Active cook cap (if POST is called with status="active" directly)
+    if (incomingStatus === "active") {
+      const activeCount = await countActiveCooksForUser(req.userId);
+      if (activeCount >= 1) {
+        respondPaywall(res, {
+          code: "active_cook_limit_reached",
+          message: "Free plan only allows one active cook at a time. Upgrade to Pro for unlimited.",
+        });
+        return;
+      }
+    }
     // 3. Graded cook cap (POST with an analysisResult that has a verdict)
     const incomingVerdict = (req.body.analysisResult as any)?.assessment?.verdict;
     if (incomingVerdict != null) {

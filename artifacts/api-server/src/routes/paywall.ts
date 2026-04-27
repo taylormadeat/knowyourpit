@@ -51,6 +51,9 @@ router.get("/paywall/usage", requireAuth, async (req: any, res): Promise<void> =
     },
     remaining: {
       cooks: Math.max(0, FREE_COOK_LIMIT - cooks),
+      activeCooks: Math.max(0, 1 - activeCooks),
+      plannedCooks: Math.max(0, 1 - plannedCooks),
+      gradedCooks: Math.max(0, 1 - gradedCooks),
       aiMessagesToday: Math.max(0, FREE_AI_CHAT_DAILY_LIMIT - aiMessagesToday),
       aiAnalyzesToday: Math.max(0, FREE_AI_ANALYZE_DAILY_LIMIT - aiAnalyzesToday),
     },

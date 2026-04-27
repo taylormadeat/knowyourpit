@@ -25,6 +25,9 @@ export interface PaywallUsage {
   };
   remaining: {
     cooks: number;
+    activeCooks: number;
+    plannedCooks: number;
+    gradedCooks: number;
     aiMessagesToday: number;
     aiAnalyzesToday: number;
   };
