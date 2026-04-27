@@ -132,76 +132,102 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── See it in action (demo video) ────────────────────────────── */}
+      {/* ─── Meet PitMaster (demo video) ───────────────────────────────── */}
       <section className="py-16 md:py-24 bg-background border-b border-white/5">
-        <div className="container px-4 flex flex-col items-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7, ease: "easeOut" }}
-            className="text-center max-w-2xl mb-10 md:mb-14"
-          >
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4">
-              Meet PitMaster
-            </span>
-            <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-              PitMaster doesn't give generic advice. It reads your cook.
-            </h2>
-            <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
-              Here's what that looks like — from logging a session to getting live, data-driven decisions from an AI that knows your specific rig and history.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
-            className="relative w-[min(280px,85vw)] sm:w-[300px] md:w-[320px]"
-          >
-            <div className="relative aspect-[888/1920] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_40px_100px_-20px_rgba(221,107,32,0.35)] overflow-hidden">
-              <video
-                src={`${BASE}app-demo.mp4`}
-                poster={`${BASE}app-demo-poster.jpg`}
-                autoPlay
-                muted={muted}
-                loop
-                playsInline
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-            </div>
-
-            <button
-              onClick={toggleMute}
-              aria-label={muted ? "Unmute video" : "Mute video"}
-              aria-pressed={!muted}
-              className="absolute bottom-4 right-[-12px] md:right-[-16px] w-10 h-10 rounded-full bg-zinc-900/90 border border-white/10 flex items-center justify-center text-white shadow-lg backdrop-blur-sm transition-all hover:bg-zinc-800 active:scale-95"
+        <div className="container px-4">
+          <div className="flex flex-col md:flex-row md:items-center md:gap-16 lg:gap-24 max-w-5xl mx-auto">
+            {/* Text */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
+              className="flex flex-col items-center md:items-start text-center md:text-left mb-10 md:mb-0 md:flex-1"
             >
-              {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </button>
-          </motion.div>
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4">
+                Meet PitMaster
+              </span>
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
+                PitMaster doesn't give generic advice. It reads your cook.
+              </h2>
+              <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
+                Here's what that looks like — from logging a session to getting live, data-driven decisions from an AI that knows your specific rig and history.
+              </p>
+            </motion.div>
+
+            {/* Video phone */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
+              className="flex justify-center md:flex-shrink-0"
+            >
+              <div className="relative w-[min(280px,85vw)] sm:w-[300px] md:w-[320px]">
+                <div className="relative aspect-[888/1920] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_40px_100px_-20px_rgba(221,107,32,0.35)] overflow-hidden">
+                  <video
+                    src={`${BASE}app-demo.mp4`}
+                    poster={`${BASE}app-demo-poster.jpg`}
+                    autoPlay
+                    muted={muted}
+                    loop
+                    playsInline
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                </div>
+                <button
+                  onClick={toggleMute}
+                  aria-label={muted ? "Unmute video" : "Mute video"}
+                  aria-pressed={!muted}
+                  className="absolute bottom-4 right-[-12px] md:right-[-16px] w-10 h-10 rounded-full bg-zinc-900/90 border border-white/10 flex items-center justify-center text-white shadow-lg backdrop-blur-sm transition-all hover:bg-zinc-800 active:scale-95"
+                >
+                  {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                </button>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </section>
 
       {/* ─── App preview ───────────────────────────────────────────────── */}
       <section className="py-16 md:py-24 bg-background border-b border-white/5">
-        <div className="container px-4 flex flex-col items-center text-center">
-          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4">
-            The App
-          </span>
-          <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4 max-w-2xl">
-            Same cook data. Completely different insight.
-          </h2>
-          <p className="text-muted-foreground text-base md:text-lg mb-10 leading-relaxed max-w-2xl">
-            knowyourpit doesn't give everyone the same answer. It reads your temperatures, your history, and your plan — and returns something that actually makes sense for your level. Serious competitors get hard numbers on what happened and why. Everyone else gets the confidence to finish what they started.
-          </p>
-          <div className="relative w-[min(260px,80vw)] sm:w-[280px] md:w-[300px] aspect-[35/76] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(221,107,32,0.4)] overflow-hidden">
-            <img
-              src={`${BASE}ss-dashboard.png`}
-              alt="knowyourpit home screen showing PitMaster Score, recent cooks, and grill stats"
-              className="absolute inset-0 w-full h-full object-cover object-top"
-            />
+        <div className="container px-4">
+          <div className="flex flex-col md:flex-row md:items-center md:gap-16 lg:gap-24 max-w-5xl mx-auto">
+            {/* Phone — left on desktop, top on mobile */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
+              className="flex justify-center md:flex-shrink-0 mb-10 md:mb-0"
+            >
+              <div className="relative w-[min(260px,80vw)] sm:w-[280px] md:w-[320px] lg:w-[360px] aspect-[35/76] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(221,107,32,0.4)] overflow-hidden">
+                <img
+                  src={`${BASE}ss-dashboard.png`}
+                  alt="knowyourpit home screen showing PitMaster Score, recent cooks, and grill stats"
+                  className="absolute inset-0 w-full h-full object-cover object-top"
+                />
+              </div>
+            </motion.div>
+
+            {/* Text — right on desktop, below on mobile */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
+              className="flex flex-col items-center md:items-start text-center md:text-left md:flex-1"
+            >
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4">
+                The App
+              </span>
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
+                Same cook data. Completely different insight.
+              </h2>
+              <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
+                knowyourpit doesn't give everyone the same answer. It reads your temperatures, your history, and your plan — and returns something that actually makes sense for your level. Serious competitors get hard numbers on what happened and why. Everyone else gets the confidence to finish what they started.
+              </p>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -221,9 +247,10 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="flex flex-col items-center gap-8 max-w-sm mx-auto">
-            {/* Phone frame + swipe area */}
-            <div className="relative w-full flex items-center justify-center gap-3">
+          {/* Mobile: vertical stack. Desktop: phone left, caption right */}
+          <div className="flex flex-col md:flex-row md:items-center md:gap-16 lg:gap-24 max-w-5xl mx-auto">
+            {/* Phone + arrows */}
+            <div className="flex items-center justify-center gap-3 md:flex-shrink-0 mb-8 md:mb-0">
               <button
                 onClick={prev}
                 aria-label="Previous screenshot"
@@ -232,7 +259,7 @@ export default function Home() {
                 <ChevronLeft className="w-5 h-5" />
               </button>
 
-              <div className="relative overflow-hidden w-[min(220px,70vw)]">
+              <div className="relative overflow-hidden w-[min(220px,70vw)] md:w-[280px] lg:w-[320px]">
                 <AnimatePresence initial={false} custom={dir} mode="popLayout">
                   <motion.figure
                     key={slide}
@@ -246,7 +273,7 @@ export default function Home() {
                     dragConstraints={{ left: 0, right: 0 }}
                     dragElastic={0.15}
                     onDragEnd={handleDragEnd}
-                    className="flex flex-col gap-0 cursor-grab active:cursor-grabbing select-none"
+                    className="cursor-grab active:cursor-grabbing select-none"
                   >
                     <div className="relative w-full aspect-[35/76] rounded-[2rem] border-[8px] border-zinc-800 bg-black shadow-[0_20px_60px_-20px_rgba(221,107,32,0.35)] overflow-hidden">
                       <img
@@ -269,32 +296,34 @@ export default function Home() {
               </button>
             </div>
 
-            {/* Dot indicators */}
-            <div className="flex items-center gap-2">
-              {SHOTS.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => goTo(i)}
-                  aria-label={`Go to screenshot ${i + 1}`}
-                  className={`rounded-full transition-all ${i === slide ? "w-5 h-2 bg-primary" : "w-2 h-2 bg-white/20 hover:bg-white/40"}`}
-                />
-              ))}
-            </div>
+            {/* Caption + dots — below on mobile, right column on desktop */}
+            <div className="flex flex-col items-center md:items-start md:flex-1">
+              {/* Dot indicators */}
+              <div className="flex items-center gap-2 mb-6">
+                {SHOTS.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => goTo(i)}
+                    aria-label={`Go to screenshot ${i + 1}`}
+                    className={`rounded-full transition-all ${i === slide ? "w-5 h-2 bg-primary" : "w-2 h-2 bg-white/20 hover:bg-white/40"}`}
+                  />
+                ))}
+              </div>
 
-            {/* Caption */}
-            <AnimatePresence mode="wait">
-              <motion.figcaption
-                key={slide}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25 }}
-                className="text-center px-2"
-              >
-                <h3 className="text-base md:text-lg font-bold text-foreground mb-2">{SHOTS[slide].title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{SHOTS[slide].caption}</p>
-              </motion.figcaption>
-            </AnimatePresence>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={slide}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.25 }}
+                  className="text-center md:text-left"
+                >
+                  <h3 className="text-lg md:text-2xl font-bold text-foreground mb-3">{SHOTS[slide].title}</h3>
+                  <p className="text-sm md:text-base text-muted-foreground leading-relaxed">{SHOTS[slide].caption}</p>
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </section>
