@@ -1,4 +1,4 @@
-import { ChefHat, Camera, Bell, Volume2, VolumeX } from "lucide-react";
+import { ChefHat, Volume2, VolumeX } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { useState } from "react";
@@ -230,66 +230,6 @@ export default function Home() {
                   <p className="text-sm text-muted-foreground leading-relaxed">{shot.caption}</p>
                 </figcaption>
               </motion.figure>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Three steps ───────────────────────────────────────────────── */}
-      <section className="py-16 md:py-24 bg-card/40 border-b border-white/5">
-        <div className="container px-4">
-          <div className="text-center max-w-2xl mx-auto mb-12 md:mb-16">
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4">
-              How it works
-            </span>
-            <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-              Light the fire. PitMaster does the reading.
-            </h2>
-            <p className="text-muted-foreground text-base md:text-lg">
-              No setup docs. No learning curve. Just cook.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-5 md:gap-6">
-            {[
-              {
-                num: "01",
-                icon: ChefHat,
-                title: "Tell it about your pit",
-                desc: "Kamado, offset, pellet, kettle — choose your smoker. Pair your MEATER or ThermoWorks if you have one. Takes about 60 seconds and the AI starts learning how your rig runs.",
-              },
-              {
-                num: "02",
-                icon: Camera,
-                title: "Start the cook",
-                desc: "Pick a cut or just describe what you're making. Snap a photo of any analog gauge if you don't have a smart probe. PitMaster begins reading your data from the first temperature.",
-              },
-              {
-                num: "03",
-                icon: Bell,
-                title: "Get the insight back",
-                desc: "PitMaster watches your stall, outdoor temperature, and your grill's behavior — and returns real decisions, not reminders. Championship pitmasters get a precise plan debrief. First-timers get the confidence to pull it off.",
-              },
-            ].map((step, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="relative rounded-2xl bg-background border border-white/10 p-6 md:p-8 flex flex-col"
-              >
-                <div className="absolute -top-3 md:-top-4 left-6 md:left-8 text-6xl md:text-7xl font-black text-primary/10 leading-none select-none">
-                  {step.num}
-                </div>
-                <div className="relative z-10">
-                  <div className="w-11 h-11 md:w-12 md:h-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-4">
-                    <step.icon className="w-5 h-5 md:w-6 md:h-6" />
-                  </div>
-                  <h3 className="text-lg md:text-xl font-bold mb-2">{step.title}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">{step.desc}</p>
-                </div>
-              </motion.div>
             ))}
           </div>
         </div>
