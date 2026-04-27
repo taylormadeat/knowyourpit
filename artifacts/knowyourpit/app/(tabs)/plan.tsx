@@ -45,6 +45,7 @@ import {
 import { useMeaterReadings, type MeaterProbe } from "@/hooks/useMeaterReadings";
 import { useSmokerProfile } from "@/hooks/useSmokerProfile";
 import { usePaywall } from "@/contexts/PaywallContext";
+import { usePaywallUsage } from "@/hooks/usePaywallUsage";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 
@@ -599,6 +600,7 @@ export default function PlanScreen() {
   interface MultiItem { cut: MeatCut; weightLbs: string; grillId: number | null; }
   const aiMultiCook = useAiMultiCook();
   const { showPaywall, parseAndShowFromError } = usePaywall();
+  const { data: paywallUsage } = usePaywallUsage();
   const { isPro } = useSubscription();
   const effectivePro = useEffectivePro();
   const [multiItems, setMultiItems] = useState<MultiItem[]>([]);
@@ -766,6 +768,17 @@ export default function PlanScreen() {
     if (!weightLbs || parsedWeight <= 0) {
       Alert.alert("Required", "Please enter the weight in lbs");
       return;
+    }
+    // Free-tier pre-checks — fire paywall before any API work.
+    if (paywallUsage && !paywallUsage.unlimited) {
+      if (paywallUsage.remaining.cooks <= 0) {
+        showPaywall({ trigger: "cook_limit_reached" });
+        return;
+      }
+      if (paywallUsage.usage.plannedCooks >= 1) {
+        showPaywall({ trigger: "planned_cook_limit_reached" });
+        return;
+      }
     }
     const preheatMins = preheatMinsForGrill(selectedGrill);
     const wrap = aiResult?.wrap ?? null;

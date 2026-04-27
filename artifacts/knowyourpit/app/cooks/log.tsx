@@ -139,7 +139,7 @@ export default function LogCookScreen() {
 
   const analyzeMutation = useAnalyzeCook();
   const createCook = useCreateCook();
-  const { parseAndShowFromError } = usePaywall();
+  const { showPaywall, parseAndShowFromError } = usePaywall();
   const { data: paywallUsage } = usePaywallUsage();
 
   const topPad = useTopInset();
@@ -257,9 +257,21 @@ export default function LogCookScreen() {
 
   const removeImage = (idx: number) => { setImages((p) => p.filter((_, i) => i !== idx)); setResult(null); };
 
+  // Free-tier mount check: if the user has hit the total cook cap, show the paywall immediately.
+  useEffect(() => {
+    if (paywallUsage && !paywallUsage.unlimited && paywallUsage.remaining.cooks <= 0) {
+      showPaywall({ trigger: "cook_limit_reached" });
+    }
+  }, [paywallUsage]);
+
   const analyze = async () => {
     if (images.length === 0 && !scanNotes.trim()) {
       Alert.alert("Add something", "Pick at least one thermometer photo, or describe the cook in the notes.");
+      return;
+    }
+    // Free-tier pre-check: only one graded cook allowed.
+    if (paywallUsage && !paywallUsage.unlimited && paywallUsage.usage.gradedCooks >= 1) {
+      showPaywall({ trigger: "graded_cook_limit_reached" });
       return;
     }
     setAnalyzing(true);

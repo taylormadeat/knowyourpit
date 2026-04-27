@@ -5,6 +5,9 @@ import {
   FREE_AI_CHAT_DAILY_LIMIT,
   FREE_AI_ANALYZE_DAILY_LIMIT,
   countCooksForUser,
+  countActiveCooksForUser,
+  countPlannedCooksForUser,
+  countGradedCooksForUser,
   countAiChatMessagesToday,
   countAiAnalyzesToday,
   isPaywallEnabled,
@@ -16,12 +19,12 @@ import {
 const router: IRouter = Router();
 
 // GET /api/paywall/usage — returns free-tier counters + kill-switch state.
-// Documented deviation from spec's GET /ai/analyze-usage: broadened to
-// three counters (cooks lifetime, AI chats/day, AI analyzes/day) so the
-// client makes one round-trip per screen render instead of three.
 router.get("/paywall/usage", requireAuth, async (req: any, res): Promise<void> => {
-  const [cooks, aiMessagesToday, aiAnalyzesToday] = await Promise.all([
+  const [cooks, activeCooks, plannedCooks, gradedCooks, aiMessagesToday, aiAnalyzesToday] = await Promise.all([
     countCooksForUser(req.userId),
+    countActiveCooksForUser(req.userId),
+    countPlannedCooksForUser(req.userId),
+    countGradedCooksForUser(req.userId),
     countAiChatMessagesToday(req.userId),
     countAiAnalyzesToday(req.userId),
   ]);
@@ -40,6 +43,9 @@ router.get("/paywall/usage", requireAuth, async (req: any, res): Promise<void> =
     },
     usage: {
       cooks,
+      activeCooks,
+      plannedCooks,
+      gradedCooks,
       aiMessagesToday,
       aiAnalyzesToday,
     },

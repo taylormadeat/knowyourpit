@@ -17,6 +17,9 @@ const PaywallContext = createContext<PaywallContextValue | null>(null);
 
 const ERROR_CODE_TO_TRIGGER: Record<string, PaywallTrigger> = {
   cook_limit_reached: "cook_limit_reached",
+  active_cook_limit_reached: "active_cook_limit_reached",
+  planned_cook_limit_reached: "planned_cook_limit_reached",
+  graded_cook_limit_reached: "graded_cook_limit_reached",
   ai_message_limit_reached: "ai_message_limit_reached",
   ai_analyze_limit_reached: "ai_analyze_limit_reached",
   pro_required: "pro_required",

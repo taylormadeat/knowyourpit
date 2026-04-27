@@ -252,7 +252,7 @@ export default function CookDetailScreen() {
   const deleteCook = useDeleteCook();
   const updateCook = useUpdateCook();
   const analyzeMutation = useAnalyzeCook();
-  const { parseAndShowFromError } = usePaywall();
+  const { showPaywall, parseAndShowFromError } = usePaywall();
   const { data: paywallUsage } = usePaywallUsage();
 
   const [images, setImages] = useState<PickedImage[]>([]);
@@ -559,6 +559,13 @@ export default function CookDetailScreen() {
   };
 
   const handleStatusUpdate = async (status: string) => {
+    // Free-tier pre-check: only one active cook allowed.
+    if (status === "active" && paywallUsage && !paywallUsage.unlimited) {
+      if (paywallUsage.usage.activeCooks >= 1) {
+        showPaywall({ trigger: "active_cook_limit_reached" });
+        return;
+      }
+    }
     const updatePayload: any = { status };
     if (status === "active" && !(cook as any)?.actualStartAt) {
       updatePayload.actualStartAt = new Date();
@@ -686,6 +693,13 @@ export default function CookDetailScreen() {
         Alert.alert("Add something", "Upload a thermometer image, enter your temperature reading, or add cook notes before analyzing.");
       }
       return;
+    }
+    // Free-tier pre-check: only one graded cook allowed (applies to completed/grade context).
+    if (cookStatus !== "active" && paywallUsage && !paywallUsage.unlimited) {
+      if (paywallUsage.usage.gradedCooks >= 1) {
+        showPaywall({ trigger: "graded_cook_limit_reached" });
+        return;
+      }
     }
     setAnalyzing(true);
     setResult(null);

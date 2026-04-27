@@ -14,12 +14,15 @@ import { asListItems, getRevenueCatClient } from "./revenuecat";
 // Free-tier counters + server-side Pro entitlement check via RevenueCat.
 // Kill-switch: PAYWALL_ENABLED=false bypasses every gate.
 
-export const FREE_COOK_LIMIT = 5;
+export const FREE_COOK_LIMIT = 3;
 export const FREE_AI_CHAT_DAILY_LIMIT = 5;
 export const FREE_AI_ANALYZE_DAILY_LIMIT = 3;
 
 export type PaywallReason =
   | "cook_limit_reached"
+  | "active_cook_limit_reached"
+  | "planned_cook_limit_reached"
+  | "graded_cook_limit_reached"
   | "ai_message_limit_reached"
   | "ai_analyze_limit_reached"
   | "pro_required";
@@ -287,6 +290,38 @@ export async function countCooksForUser(userId: string): Promise<number> {
     .select({ c: sql<number>`count(*)::int` })
     .from(cooksTable)
     .where(eq(cooksTable.userId, userId));
+  return row?.c ?? 0;
+}
+
+/** Cooks with status = "active" for this user. */
+export async function countActiveCooksForUser(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(cooksTable)
+    .where(and(eq(cooksTable.userId, userId), eq(cooksTable.status, "active")));
+  return row?.c ?? 0;
+}
+
+/** Cooks with status = "planned" for this user. */
+export async function countPlannedCooksForUser(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(cooksTable)
+    .where(and(eq(cooksTable.userId, userId), eq(cooksTable.status, "planned")));
+  return row?.c ?? 0;
+}
+
+/** Cooks with a saved AI analysis verdict (graded cooks) for this user. */
+export async function countGradedCooksForUser(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(cooksTable)
+    .where(
+      and(
+        eq(cooksTable.userId, userId),
+        sql`${cooksTable.analysisResult}->'assessment'->>'verdict' IS NOT NULL`,
+      ),
+    );
   return row?.c ?? 0;
 }
 

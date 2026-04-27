@@ -17,6 +17,9 @@ import {
   FREE_COOK_LIMIT,
   respondPaywall,
   countCooksForUser,
+  countActiveCooksForUser,
+  countPlannedCooksForUser,
+  countGradedCooksForUser,
   startOfNextUtcDay,
   userBypassesPaywall,
 } from "../lib/paywall";
@@ -56,9 +59,9 @@ router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
     return;
   }
 
-  // Free-tier cap: lifetime total of FREE_COOK_LIMIT cooks. Pro subscribers and
-  // any request when PAYWALL_ENABLED=false bypass this check entirely.
+  // Free-tier caps. Pro subscribers and PAYWALL_ENABLED=false bypass all gates.
   if (!(await userBypassesPaywall(req))) {
+    // 1. Total cook cap
     const existingCount = await countCooksForUser(req.userId);
     if (existingCount >= FREE_COOK_LIMIT) {
       respondPaywall(res, {
@@ -68,6 +71,30 @@ router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
         message: `Free plan is capped at ${FREE_COOK_LIMIT} cooks. Upgrade to Pro for unlimited.`,
       });
       return;
+    }
+    // 2. Planned cook cap (default status is "planned")
+    const incomingStatus = parsed.data.status ?? "planned";
+    if (incomingStatus === "planned") {
+      const plannedCount = await countPlannedCooksForUser(req.userId);
+      if (plannedCount >= 1) {
+        respondPaywall(res, {
+          code: "planned_cook_limit_reached",
+          message: "Free plan only allows one planned cook at a time. Upgrade to Pro for unlimited.",
+        });
+        return;
+      }
+    }
+    // 3. Graded cook cap (POST with an analysisResult that has a verdict)
+    const incomingVerdict = (req.body.analysisResult as any)?.assessment?.verdict;
+    if (incomingVerdict != null) {
+      const gradedCount = await countGradedCooksForUser(req.userId);
+      if (gradedCount >= 1) {
+        respondPaywall(res, {
+          code: "graded_cook_limit_reached",
+          message: "Free plan includes one AI-graded cook. Upgrade for unlimited.",
+        });
+        return;
+      }
     }
   }
 
@@ -121,6 +148,31 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  // Free-tier caps on status transitions and graded-cook saves.
+  if (!(await userBypassesPaywall(req))) {
+    if (parsed.data.status === "active") {
+      const activeCount = await countActiveCooksForUser(req.userId);
+      if (activeCount >= 1) {
+        respondPaywall(res, {
+          code: "active_cook_limit_reached",
+          message: "Free plan only allows one active cook at a time. Upgrade to Pro for unlimited.",
+        });
+        return;
+      }
+    }
+    const patchVerdict = (req.body.analysisResult as any)?.assessment?.verdict;
+    if (patchVerdict != null) {
+      const gradedCount = await countGradedCooksForUser(req.userId);
+      if (gradedCount >= 1) {
+        respondPaywall(res, {
+          code: "graded_cook_limit_reached",
+          message: "Free plan includes one AI-graded cook. Upgrade for unlimited.",
+        });
+        return;
+      }
+    }
+  }
+
   const updateData: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(parsed.data)) {
     if (v !== undefined) updateData[k] = v;
