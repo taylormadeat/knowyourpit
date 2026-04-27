@@ -204,8 +204,8 @@ export default function Home() {
               },
               {
                 src: "ss-cook-timeline.png",
-                title: "Your cook, debriefed",
-                caption: "After every session, the AI compares your result to your plan — what you hit, where you drifted, and what the data says about why. Rate tenderness, flavor, and bark.",
+                title: "Every cook reviewed. Every result explained.",
+                caption: "When the session ends, PitMaster runs through your temperature data and tells you exactly what happened — where you hit your plan, where you fell off, and what likely caused it. Rate the result and it feeds back into your history for next time.",
                 alt: "Cook debrief screen showing timeline, what went well, and next time tips",
               },
             ].map((shot, i) => (
