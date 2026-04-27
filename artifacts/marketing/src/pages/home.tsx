@@ -128,24 +128,17 @@ export default function Home() {
                 The App
               </span>
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-center md:text-left">
-                Same data. Same AI. Different insight for every pitmaster.
+                Same cook data. Completely different insight.
               </h2>
               <p className="text-muted-foreground text-base md:text-lg text-center md:text-left mb-6 leading-relaxed">
-                The AI watches every probe, reads every curve, and gives you back something useful — whether that's a debrief on how your competition brisket tracked against your plan, or step-by-step guidance through your first pork shoulder. What it tells you depends on who you are.
+                knowyourpit doesn't give everyone the same answer. It reads your temperatures, your history, and your plan — and returns something that actually makes sense for your level. Serious competitors get hard numbers on what happened and why. Everyone else gets the confidence to finish what they started.
               </p>
-              <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
-                <div className="rounded-lg border border-white/10 bg-card/40 p-3 text-sm">
-                  <div className="text-primary font-bold">203°F</div>
-                  <div className="text-muted-foreground text-xs">Probe 1 — Brisket</div>
-                </div>
-                <div className="rounded-lg border border-white/10 bg-card/40 p-3 text-sm">
-                  <div className="text-primary font-bold">274°F</div>
-                  <div className="text-muted-foreground text-xs">Pit temp</div>
-                </div>
-                <div className="col-span-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
-                  <div className="text-foreground font-medium">8°F below plan at hour 4</div>
-                  <div className="text-muted-foreground text-xs">Stall running long. Wrap now to recover.</div>
-                </div>
+              <div className="w-full max-w-sm rounded-2xl overflow-hidden border border-white/10 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)]">
+                <img
+                  src={`${BASE}ss-live-cook.jpg`}
+                  alt="Live Cook screen showing MEATER linked, outdoor temperature, and pit readings"
+                  className="w-full h-auto block"
+                />
               </div>
             </div>
 
