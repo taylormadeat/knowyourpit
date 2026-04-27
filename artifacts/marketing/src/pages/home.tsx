@@ -1,20 +1,15 @@
 import { Flame, Clock, Brain, Activity, ChefHat, Camera, LineChart, Bell, Volume2, VolumeX } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
-import { useState, useRef } from "react";
+import { useState } from "react";
 
 const BASE = import.meta.env.BASE_URL;
 
 export default function Home() {
   const [muted, setMuted] = useState(true);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   function toggleMute() {
-    setMuted((prev) => {
-      const next = !prev;
-      if (videoRef.current) videoRef.current.muted = next;
-      return next;
-    });
+    setMuted((prev) => !prev);
   }
 
   return (
@@ -102,10 +97,9 @@ export default function Home() {
           >
             <div className="relative aspect-[888/1920] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_40px_100px_-20px_rgba(221,107,32,0.35)] overflow-hidden">
               <video
-                ref={videoRef}
                 src={`${BASE}app-demo.mp4`}
                 autoPlay
-                muted
+                muted={muted}
                 loop
                 playsInline
                 className="absolute inset-0 w-full h-full object-cover"
