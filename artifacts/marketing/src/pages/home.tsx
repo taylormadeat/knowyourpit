@@ -235,33 +235,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── Stats ─────────────────────────────────────────────────────── */}
-      <section className="py-16 md:py-24 bg-card border-y border-white/5 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <img src={`${BASE}glowing-coals.png`} className="w-full h-full object-cover" alt="" />
-        </div>
-        <div className="container relative z-10 px-4 text-center">
-          <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-10 md:mb-12">The data doesn't lie.</h2>
-          <div className="grid md:grid-cols-3 gap-5 md:gap-8">
-            <div className="p-6 md:p-8 rounded-2xl bg-background border border-white/10 flex flex-col items-center text-center gap-3 md:gap-4">
-              <div className="text-4xl font-black text-primary">Live</div>
-              <h3 className="font-bold">Instant Analysis</h3>
-              <p className="text-sm text-muted-foreground">PitMaster reads your temperature data mid-cook and returns feedback in seconds — while there's still time to act on it.</p>
-            </div>
-            <div className="p-6 md:p-8 rounded-2xl bg-background border border-white/10 flex flex-col items-center text-center gap-3 md:gap-4">
-              <div className="text-4xl font-black text-primary">100+</div>
-              <h3 className="font-bold">Grill Profiles</h3>
-              <p className="text-sm text-muted-foreground">From Kamado Joes to custom 500-gallon offsets. PitMaster knows how they run.</p>
-            </div>
-            <div className="p-6 md:p-8 rounded-2xl bg-background border border-white/10 flex flex-col items-center text-center gap-3 md:gap-4">
-              <div className="text-4xl font-black text-primary">Multi</div>
-              <h3 className="font-bold">Cook Sequencer</h3>
-              <p className="text-sm text-muted-foreground">Plan up to 5 items to finish at the same time. PitMaster calculates the start time for each one — brisket, ribs, chicken, and more — all timed to your table.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ─── Final CTA ─────────────────────────────────────────────────── */}
       <section className="py-20 md:py-32 flex flex-col items-center justify-center text-center px-4 bg-background">
         <ChefHat className="w-14 h-14 md:w-16 md:h-16 text-primary mb-5 md:mb-6" />
