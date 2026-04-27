@@ -1,10 +1,22 @@
-import { Flame, Clock, Brain, Activity, ChefHat, Camera, LineChart, Bell } from "lucide-react";
+import { Flame, Clock, Brain, Activity, ChefHat, Camera, LineChart, Bell, Volume2, VolumeX } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
+import { useState, useRef } from "react";
 
 const BASE = import.meta.env.BASE_URL;
 
 export default function Home() {
+  const [muted, setMuted] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  function toggleMute() {
+    setMuted((prev) => {
+      const next = !prev;
+      if (videoRef.current) videoRef.current.muted = next;
+      return next;
+    });
+  }
+
   return (
     <div className="w-full flex flex-col">
       {/* ─── Hero ──────────────────────────────────────────────────────── */}
@@ -56,6 +68,57 @@ export default function Home() {
             >
               Available on iOS
             </a>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ─── See it in action (demo video) ────────────────────────────── */}
+      <section className="py-16 md:py-24 bg-background border-b border-white/5">
+        <div className="container px-4 flex flex-col items-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+            className="text-center max-w-2xl mb-10 md:mb-14"
+          >
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4">
+              See it in action
+            </span>
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
+              Watch the AI work a real cook.
+            </h2>
+            <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
+              From logging a cook to getting live decisions — here's what it actually looks like inside the app.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
+            className="relative w-[min(280px,85vw)] sm:w-[300px] md:w-[320px]"
+          >
+            <div className="relative aspect-[888/1920] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_40px_100px_-20px_rgba(221,107,32,0.35)] overflow-hidden">
+              <video
+                ref={videoRef}
+                src={`${BASE}app-demo.mp4`}
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            </div>
+
+            <button
+              onClick={toggleMute}
+              aria-label={muted ? "Unmute video" : "Mute video"}
+              className="absolute bottom-4 right-[-12px] md:right-[-16px] w-10 h-10 rounded-full bg-zinc-900/90 border border-white/10 flex items-center justify-center text-white shadow-lg backdrop-blur-sm transition-all hover:bg-zinc-800 active:scale-95"
+            >
+              {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </button>
           </motion.div>
         </div>
       </section>
