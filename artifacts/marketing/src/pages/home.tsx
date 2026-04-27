@@ -109,6 +109,7 @@ export default function Home() {
             <button
               onClick={toggleMute}
               aria-label={muted ? "Unmute video" : "Mute video"}
+              aria-pressed={!muted}
               className="absolute bottom-4 right-[-12px] md:right-[-16px] w-10 h-10 rounded-full bg-zinc-900/90 border border-white/10 flex items-center justify-center text-white shadow-lg backdrop-blur-sm transition-all hover:bg-zinc-800 active:scale-95"
             >
               {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
