@@ -52,8 +52,8 @@ async function purgeLegacyQueryCaches() {
 purgeLegacyQueryCaches();
 
 // EXPO_PUBLIC_API_URL: set to the deployed API server URL for production builds.
-// Current production URL: https://pitking.replit.app (see eas.json and app.json)
-// If a custom domain is connected (e.g. knowyourpit.com), update eas.json and app.json and rebuild.
+// Current production URL: https://api.knowyourpit.com (see eas.json)
+// DNS: CNAME api.knowyourpit.com → the Replit deployment CNAME shown in Publishing settings.
 // In development (Replit), EXPO_PUBLIC_DOMAIN is used as a fallback.
 const apiBaseUrl =
   process.env.EXPO_PUBLIC_API_URL ??
