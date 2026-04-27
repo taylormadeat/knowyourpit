@@ -293,12 +293,21 @@ export async function countCooksForUser(userId: string): Promise<number> {
   return row?.c ?? 0;
 }
 
-/** Cooks with status = "active" for this user. */
-export async function countActiveCooksForUser(userId: string): Promise<number> {
+/**
+ * Cooks with status = "active" for this user.
+ * Pass `excludeCookId` to exclude a specific cook — used in PATCH so that
+ * re-saving an already-active cook as active does not trigger the cap.
+ */
+export async function countActiveCooksForUser(userId: string, excludeCookId?: number): Promise<number> {
+  const conditions = [
+    eq(cooksTable.userId, userId),
+    eq(cooksTable.status, "active"),
+    ...(excludeCookId != null ? [ne(cooksTable.id, excludeCookId)] : []),
+  ];
   const [row] = await db
     .select({ c: sql<number>`count(*)::int` })
     .from(cooksTable)
-    .where(and(eq(cooksTable.userId, userId), eq(cooksTable.status, "active")));
+    .where(and(...conditions));
   return row?.c ?? 0;
 }
 

@@ -694,8 +694,11 @@ export default function CookDetailScreen() {
       }
       return;
     }
-    // Free-tier pre-check: only one graded cook allowed (applies to completed/grade context).
-    if (cookStatus !== "active" && paywallUsage && !paywallUsage.unlimited) {
+    // Free-tier pre-check: only one graded cook allowed.
+    // Skip only if this exact cook already has a stored verdict — re-grading the
+    // same cook is allowed (mirrors the server's excludeCookId exclusion logic).
+    const currentCookHasVerdict = !!(cook as any)?.analysisResult?.assessment?.verdict;
+    if (!currentCookHasVerdict && paywallUsage && !paywallUsage.unlimited) {
       if (paywallUsage.usage.gradedCooks >= 1) {
         showPaywall({ trigger: "graded_cook_limit_reached" });
         return;

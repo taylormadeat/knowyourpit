@@ -96,7 +96,7 @@ router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
       }
     }
     // 3. Graded cook cap (POST with an analysisResult that has a verdict)
-    const incomingVerdict = (req.body.analysisResult as any)?.assessment?.verdict;
+    const incomingVerdict = req.body?.analysisResult?.assessment?.verdict;
     if (incomingVerdict != null) {
       const gradedCount = await countGradedCooksForUser(req.userId);
       if (gradedCount >= 1) {
@@ -162,7 +162,8 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
   // Free-tier caps on status transitions and graded-cook saves.
   if (!(await userBypassesPaywall(req))) {
     if (parsed.data.status === "active") {
-      const activeCount = await countActiveCooksForUser(req.userId);
+      // Exclude the current cook so re-saving an already-active cook is never blocked.
+      const activeCount = await countActiveCooksForUser(req.userId, params.data.id);
       if (activeCount >= 1) {
         respondPaywall(res, {
           code: "active_cook_limit_reached",
@@ -171,7 +172,7 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
         return;
       }
     }
-    const patchVerdict = (req.body.analysisResult as any)?.assessment?.verdict;
+    const patchVerdict = req.body?.analysisResult?.assessment?.verdict;
     if (patchVerdict != null) {
       // Exclude the current cook so re-grading the same cook is always allowed.
       const gradedCount = await countGradedCooksForUser(req.userId, params.data.id);
