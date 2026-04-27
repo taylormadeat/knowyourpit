@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { RootLayout } from "@/components/layout/RootLayout";
 import Home from "@/pages/home";
+import Features from "@/pages/features";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
 import Support from "@/pages/support";
@@ -16,6 +17,7 @@ function Router() {
     <RootLayout>
       <Switch>
         <Route path="/" component={Home} />
+        <Route path="/features" component={Features} />
         <Route path="/privacy" component={Privacy} />
         <Route path="/terms" component={Terms} />
         <Route path="/support" component={Support} />

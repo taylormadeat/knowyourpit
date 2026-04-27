@@ -5,7 +5,7 @@ import { Menu, X } from "lucide-react";
 const BASE = import.meta.env.BASE_URL;
 
 const NAV_LINKS = [
-  { href: "/", label: "Features" },
+  { href: "/features", label: "Features" },
   { href: "/support", label: "Support" },
   { href: "/privacy", label: "Privacy" },
   { href: "/terms", label: "Terms" },
