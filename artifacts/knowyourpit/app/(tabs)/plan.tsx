@@ -603,6 +603,14 @@ export default function PlanScreen() {
   const { data: paywallUsage } = usePaywallUsage();
   const { isPro } = useSubscription();
   const effectivePro = useEffectivePro();
+
+  // Mount-time gate: if the user has hit the total cook cap, fire the paywall
+  // immediately so the form is never usable when it can't succeed.
+  useEffect(() => {
+    if (paywallUsage && !paywallUsage.unlimited && paywallUsage.remaining.cooks <= 0) {
+      showPaywall({ trigger: "cook_limit_reached" });
+    }
+  }, [paywallUsage]);
   const [multiItems, setMultiItems] = useState<MultiItem[]>([]);
   const [multiResult, setMultiResult] = useState<{ schedule: MultiCookScheduleItem[]; serveAt: string; summary: string } | null>(null);
   const [multiResultOpen, setMultiResultOpen] = useState(false);
