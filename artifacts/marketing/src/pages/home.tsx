@@ -98,6 +98,7 @@ export default function Home() {
             <div className="relative aspect-[888/1920] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_40px_100px_-20px_rgba(221,107,32,0.35)] overflow-hidden">
               <video
                 src={`${BASE}app-demo.mp4`}
+                poster={`${BASE}app-demo-poster.jpg`}
                 autoPlay
                 muted={muted}
                 loop

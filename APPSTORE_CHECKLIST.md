@@ -203,6 +203,25 @@ Use the Simulator or a physical device to capture screenshots of:
 - Grill inventory
 - PitMaster AI chat
 
+### Step 10b: Upload the App Preview video and set the poster frame
+
+Apple allows one App Preview video per device size on the App Store listing.
+The source video is: `attached_assets/1777252641952_1777253037665.mov` (the same content lives at `artifacts/marketing/public/app-demo.mp4`).
+
+**Upload steps in App Store Connect:**
+1. Go to **App Store Connect → your app → App Store → iPhone 6.9"** (or the relevant device size).
+2. Under **App Previews and Screenshots**, click **+** and choose **Choose File** to upload the `.mov`.
+3. After processing completes, click **Choose Poster Frame**.
+4. Drag the scrubber to approximately **0:05** (5 seconds into the video).
+   - This frame shows the **Cook Analysis screen** for an Oxtail cook:
+     210 °F target hit · 225 °F pit temp · 84% plan accuracy · PitMaster AI insight card · temperature graph.
+   - This is the most data-rich, compelling frame — it communicates the app's core value in a single glance.
+5. Click **Set Poster Frame** to confirm.
+
+> The still frame extracted at this timestamp is saved at  
+> `artifacts/marketing/public/app-demo-poster.jpg`  
+> for reference. It is also used as the `poster` attribute on the demo `<video>` element in the marketing website (`artifacts/marketing/src/pages/home.tsx`), so the website and the App Store listing show the same thumbnail.
+
 ### Step 11: Fill in App Store metadata in App Store Connect
 
 - **Description** (up to 4,000 characters)
