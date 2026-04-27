@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Linking,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -370,6 +371,15 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName 
               <Pressable onPress={handleRestore} disabled={isLoading} hitSlop={8}>
                 <Text style={[styles.linkText, { color: colors.mutedForeground }]}>Restore purchases</Text>
               </Pressable>
+              <View style={styles.policyRow}>
+                <Pressable onPress={() => Linking.openURL("https://knowyourpit.com/privacy")} hitSlop={8}>
+                  <Text style={[styles.policyLink, { color: colors.mutedForeground }]}>Privacy Policy</Text>
+                </Pressable>
+                <Text style={[styles.policySep, { color: colors.mutedForeground }]}>·</Text>
+                <Pressable onPress={() => Linking.openURL("https://knowyourpit.com/terms")} hitSlop={8}>
+                  <Text style={[styles.policyLink, { color: colors.mutedForeground }]}>Terms of Service</Text>
+                </Pressable>
+              </View>
               <Text style={[styles.legal, { color: colors.mutedForeground }]}>
                 {annualTrial
                   ? `After the ${annualTrial.label} free trial, your subscription auto-renews until canceled. `
@@ -456,6 +466,9 @@ const styles = StyleSheet.create({
   statusSub: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center" },
   footer: { paddingHorizontal: 20, paddingTop: 18, alignItems: "center", gap: 10 },
   linkText: { fontSize: 13, fontFamily: "Inter_500Medium", textDecorationLine: "underline" },
+  policyRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  policyLink: { fontSize: 11, fontFamily: "Inter_400Regular", textDecorationLine: "underline" },
+  policySep: { fontSize: 11, fontFamily: "Inter_400Regular" },
   legal: { fontSize: 11, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 16, paddingHorizontal: 8 },
 });
 
