@@ -160,10 +160,10 @@ export default function Home() {
         <div className="container px-4">
           <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4">
-              The AI in action
+              PitMaster at work
             </span>
             <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-              What the AI gives back.
+              Decisions from your data.
             </h2>
             <p className="text-muted-foreground text-base md:text-lg">
               Every screen shows what knowyourpit does with your cook data — analysis, feedback, and decisions returned to you in plain language.
