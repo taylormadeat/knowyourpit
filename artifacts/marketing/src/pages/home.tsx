@@ -46,7 +46,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           >
-            Analyze your cook in real-time. knowyourpit reads it — analyzing temperatures, catching stalls early, and delivering real decisions the moment they matter. For the championship pitmaster, that's a precise debrief on how close you hit your plan. For the backyard cook, that's the confidence to nail a cook you've never done before.
+            A great cook isn't guesswork — it's data. knowyourpit reads yours in real time, catching plan drift, flagging the stall before it peaks, and returning a clear next move while there's still time to make it count. For the competitive pitmaster, that's a session debrief tied to real numbers. For the first-timer, that's a guide they can actually trust.
           </motion.p>
 
           <motion.div
