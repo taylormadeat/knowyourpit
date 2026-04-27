@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte, ne, sql } from "drizzle-orm";
 import {
   db,
   cooksTable,
@@ -311,17 +311,22 @@ export async function countPlannedCooksForUser(userId: string): Promise<number> 
   return row?.c ?? 0;
 }
 
-/** Cooks with a saved AI analysis verdict (graded cooks) for this user. */
-export async function countGradedCooksForUser(userId: string): Promise<number> {
+/**
+ * Cooks with a saved AI analysis verdict (graded cooks) for this user.
+ * Pass `excludeCookId` to exclude a specific cook from the count — used when
+ * checking whether a PATCH to an already-graded cook should be allowed
+ * (re-grading the same cook is fine; adding a second graded cook is not).
+ */
+export async function countGradedCooksForUser(userId: string, excludeCookId?: number): Promise<number> {
+  const conditions = [
+    eq(cooksTable.userId, userId),
+    sql`${cooksTable.analysisResult}->'assessment'->>'verdict' IS NOT NULL`,
+    ...(excludeCookId != null ? [ne(cooksTable.id, excludeCookId)] : []),
+  ];
   const [row] = await db
     .select({ c: sql<number>`count(*)::int` })
     .from(cooksTable)
-    .where(
-      and(
-        eq(cooksTable.userId, userId),
-        sql`${cooksTable.analysisResult}->'assessment'->>'verdict' IS NOT NULL`,
-      ),
-    );
+    .where(and(...conditions));
   return row?.c ?? 0;
 }
 

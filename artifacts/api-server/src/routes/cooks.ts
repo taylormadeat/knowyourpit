@@ -162,7 +162,8 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
     }
     const patchVerdict = (req.body.analysisResult as any)?.assessment?.verdict;
     if (patchVerdict != null) {
-      const gradedCount = await countGradedCooksForUser(req.userId);
+      // Exclude the current cook so re-grading the same cook is always allowed.
+      const gradedCount = await countGradedCooksForUser(req.userId, params.data.id);
       if (gradedCount >= 1) {
         respondPaywall(res, {
           code: "graded_cook_limit_reached",
