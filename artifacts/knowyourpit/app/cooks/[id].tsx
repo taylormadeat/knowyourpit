@@ -294,6 +294,7 @@ export default function CookDetailScreen() {
   const [alertMinutesBefore, setAlertMinutesBefore] = useState("30");
   const [alertSaving, setAlertSaving] = useState(false);
   const [showCookDetails, setShowCookDetails] = useState(false);
+  const [seqScheduleExpanded, setSeqScheduleExpanded] = useState(false);
   const [expandedStoredSections, setExpandedStoredSections] = useState<Set<string>>(new Set());
   const [expandedResultSections, setExpandedResultSections] = useState<Set<string>>(new Set());
 
@@ -1331,6 +1332,153 @@ export default function CookDetailScreen() {
                 </Text>
                 <Feather name={showCookDetails ? "chevron-up" : "chevron-down"} size={14} color={colors.primary} />
               </Pressable>
+            </View>
+          );
+        })()}
+
+        {/* ── Session Schedule ──────────────────────────────── */}
+        {(() => {
+          const seqData = (c.sequenceData as { schedule: any[]; serveAt: string; summary?: string | null } | null | undefined);
+          if (!seqData?.schedule?.length) return null;
+          const cookFoodType = (c.foodType ?? "").toLowerCase().trim();
+          const cookMeatOnMs = c.plannedStartAt ? new Date(c.plannedStartAt).getTime() : null;
+          let currentIdx = -1;
+          if (cookMeatOnMs !== null) {
+            let bestDelta = Infinity;
+            seqData.schedule.forEach((item: any, idx: number) => {
+              if ((item.foodType ?? "").toLowerCase().trim() !== cookFoodType) return;
+              const itemMs = item.meatOnAt ? new Date(item.meatOnAt).getTime() : null;
+              if (itemMs === null) return;
+              const delta = Math.abs(itemMs - cookMeatOnMs);
+              if (delta < bestDelta) { bestDelta = delta; currentIdx = idx; }
+            });
+          }
+          if (currentIdx === -1) {
+            currentIdx = seqData.schedule.findIndex(
+              (item: any) => (item.foodType ?? "").toLowerCase().trim() === cookFoodType
+            );
+          }
+          return (
+            <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, overflow: "hidden" }]}>
+              <Pressable
+                onPress={() => setSeqScheduleExpanded((v) => !v)}
+                style={[s.seqScheduleHeader, { borderBottomWidth: seqScheduleExpanded ? 1 : 0, borderBottomColor: colors.border }]}
+              >
+                <LinearGradient colors={["#4f46e5", "#6C3BF5"]} style={s.seqScheduleIcon}>
+                  <Feather name="list" size={14} color="#fff" />
+                </LinearGradient>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.seqScheduleTitle, { color: colors.foreground }]}>Session Schedule</Text>
+                  {seqData.serveAt ? (
+                    <Text style={[s.seqScheduleSub, { color: colors.mutedForeground }]}>
+                      Serve by {new Date(seqData.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {" · "}{seqData.schedule.length} item{seqData.schedule.length !== 1 ? "s" : ""}
+                    </Text>
+                  ) : null}
+                </View>
+                <Feather name={seqScheduleExpanded ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
+              </Pressable>
+
+              {seqScheduleExpanded && (
+                <View style={{ padding: 12, gap: 10 }}>
+                  {seqData.schedule.map((item: any, idx: number) => {
+                    const isCurrent = idx === currentIdx;
+                    return (
+                      <View
+                        key={idx}
+                        style={[
+                          s.seqScheduleItem,
+                          {
+                            borderColor: isCurrent ? "#6C3BF555" : colors.border,
+                            backgroundColor: isCurrent ? "#6C3BF508" : colors.background,
+                          },
+                        ]}
+                      >
+                        <View style={s.seqScheduleItemHeader}>
+                          <LinearGradient
+                            colors={isCurrent ? ["#4f46e5", "#6C3BF5"] : ["#3A3A3E", "#52525B"]}
+                            style={s.seqScheduleItemIcon}
+                          >
+                            <Feather name="layers" size={12} color="#fff" />
+                          </LinearGradient>
+                          <Text style={[s.seqScheduleItemTitle, { color: colors.foreground }]}>{item.foodType}</Text>
+                          {isCurrent && (
+                            <View style={s.seqScheduleCurrentBadge}>
+                              <Text style={s.seqScheduleCurrentText}>YOU ARE HERE</Text>
+                            </View>
+                          )}
+                        </View>
+                        <View style={{ paddingLeft: 4 }}>
+                          <View style={s.seqTlRow}>
+                            <View style={[s.seqTlDot, { backgroundColor: "#f59e0b" }]} />
+                            <View style={s.seqTlConnector} />
+                            <View style={{ flex: 1 }}>
+                              <Text style={[s.seqTlLabel, { color: colors.mutedForeground }]}>Light grill</Text>
+                              <Text style={[s.seqTlTime, { color: colors.foreground }]}>
+                                {new Date(item.grillLightAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
+                                  {" "}· {item.preheatMinutes}min preheat
+                                </Text>
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={s.seqTlRow}>
+                            <View style={[s.seqTlDot, { backgroundColor: "#EB6C2B" }]} />
+                            <View style={s.seqTlConnector} />
+                            <View style={{ flex: 1 }}>
+                              <Text style={[s.seqTlLabel, { color: colors.mutedForeground }]}>Meat on</Text>
+                              <Text style={[s.seqTlTime, { color: colors.foreground }]}>
+                                {new Date(item.meatOnAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
+                                  {" "}·{" "}
+                                  {item.estimatedDurationMinutes >= 60
+                                    ? `${Math.floor(item.estimatedDurationMinutes / 60)}h${item.estimatedDurationMinutes % 60 > 0 ? ` ${item.estimatedDurationMinutes % 60}m` : ""}`
+                                    : `${item.estimatedDurationMinutes}m`}{" "}cook
+                                </Text>
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={[s.seqTlRow, { marginBottom: item.restMinutes > 0 ? 8 : 0 }]}>
+                            <View style={[s.seqTlDot, { backgroundColor: "#22c55e" }]} />
+                            {item.restMinutes > 0
+                              ? <View style={s.seqTlConnector} />
+                              : <View style={[s.seqTlConnector, { borderColor: "transparent" }]} />}
+                            <View style={{ flex: 1 }}>
+                              <Text style={[s.seqTlLabel, { color: colors.mutedForeground }]}>Pull off</Text>
+                              <Text style={[s.seqTlTime, { color: colors.foreground }]}>
+                                {new Date(item.estimatedFinishAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                {item.restMinutes > 0 && (
+                                  <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
+                                    {" "}· {item.restMinutes}min rest
+                                  </Text>
+                                )}
+                              </Text>
+                            </View>
+                          </View>
+                          {item.restMinutes > 0 && (
+                            <View style={[s.seqTlRow, { marginBottom: 0 }]}>
+                              <View style={[s.seqTlDot, { backgroundColor: "#6366f1" }]} />
+                              <View style={[s.seqTlConnector, { borderColor: "transparent" }]} />
+                              <View style={{ flex: 1 }}>
+                                <Text style={[s.seqTlLabel, { color: colors.mutedForeground }]}>Ready to serve</Text>
+                                <Text style={[s.seqTlTime, { color: colors.foreground }]}>
+                                  {new Date(new Date(item.estimatedFinishAt).getTime() + item.restMinutes * 60000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                </Text>
+                              </View>
+                            </View>
+                          )}
+                        </View>
+                        {item.notes ? (
+                          <View style={[s.seqTlNoteBox, { backgroundColor: colors.border + "44" }]}>
+                            <Feather name="info" size={12} color={colors.mutedForeground} />
+                            <Text style={[s.seqTlNoteText, { color: colors.mutedForeground }]}>{item.notes}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
             </View>
           );
         })()}
@@ -3107,6 +3255,57 @@ const s = StyleSheet.create({
   rateRowLabel: { fontSize: 14, fontFamily: "Inter_500Medium" },
   starsRow: { flexDirection: "row", gap: 6 },
   star: { fontSize: 28, lineHeight: 32 },
+
+  seqScheduleHeader: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    paddingHorizontal: 14, paddingVertical: 13,
+  },
+  seqScheduleIcon: {
+    width: 30, height: 30, borderRadius: 8,
+    alignItems: "center", justifyContent: "center",
+  },
+  seqScheduleTitle: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  seqScheduleSub: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 1 },
+  seqScheduleItem: {
+    borderWidth: 1, borderRadius: 10, padding: 10,
+  },
+  seqScheduleItemHeader: {
+    flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10,
+  },
+  seqScheduleItemIcon: {
+    width: 24, height: 24, borderRadius: 6,
+    alignItems: "center", justifyContent: "center",
+  },
+  seqScheduleItemTitle: { fontSize: 13, fontFamily: "Inter_700Bold", flex: 1 },
+  seqScheduleCurrentBadge: {
+    backgroundColor: "#6C3BF520", borderRadius: 5,
+    paddingHorizontal: 6, paddingVertical: 2,
+  },
+  seqScheduleCurrentText: {
+    fontSize: 9, fontFamily: "Inter_700Bold", color: "#6C3BF5", letterSpacing: 0.5,
+  },
+  seqTlRow: {
+    flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 8,
+  },
+  seqTlDot: {
+    width: 10, height: 10, borderRadius: 5, marginTop: 4, flexShrink: 0,
+  },
+  seqTlConnector: {
+    width: 1, backgroundColor: "transparent",
+    borderLeftWidth: 1, borderColor: "#3f3f46", borderStyle: "dashed",
+    position: "absolute", left: 8, top: 14, bottom: -8,
+  },
+  seqTlLabel: {
+    fontSize: 10, fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 1,
+  },
+  seqTlTime: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  seqTlMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  seqTlNoteBox: {
+    flexDirection: "row", alignItems: "flex-start", gap: 6,
+    borderRadius: 7, padding: 8, marginTop: 8,
+  },
+  seqTlNoteText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 17 },
 
 });
 
