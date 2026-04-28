@@ -519,12 +519,17 @@ export default function CookDetailScreen() {
     if (!nextStepKey) return;
     setSeqScheduleExpanded(true);
     const timer = setTimeout(() => {
-      if (!nextStepRowRef.current || !scheduleScrollViewRef.current) return;
-      const nodeHandle = findNodeHandle(scheduleScrollViewRef.current);
-      if (nodeHandle === null) return;
+      const rowNode = nextStepRowRef.current;
+      const scrollNode = scheduleScrollViewRef.current;
+      if (!rowNode || !scrollNode) return;
+      // Both refs must resolve to real native nodes; otherwise measureLayout
+      // logs a "ref must be called with a ref to a native component" warning.
+      const scrollHandle = findNodeHandle(scrollNode);
+      const rowHandle = findNodeHandle(rowNode);
+      if (scrollHandle === null || rowHandle === null) return;
       try {
-        nextStepRowRef.current.measureLayout(
-          nodeHandle,
+        rowNode.measureLayout(
+          scrollHandle,
           (_x, y) => {
             scheduleScrollViewRef.current?.scrollTo({ y: Math.max(0, y - 80), animated: true });
           },
