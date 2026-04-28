@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.knowyourpit.app",
-      "buildNumber": "18",
+      "buildNumber": "20",
       "appleTeamId": "W8AY23XJTF",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "knowyourpit uses your location to show the current outdoor temperature during live cook sessions.",
