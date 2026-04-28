@@ -142,6 +142,7 @@ export default function ProfileScreen() {
 
   const initials = (
     displayName?.[0] ||
+    user?.username?.[0] ||
     user?.emailAddresses?.[0]?.emailAddress?.[0] ||
     "P"
   ).toUpperCase();
@@ -572,7 +573,7 @@ export default function ProfileScreen() {
         >
           {[
             { label: "Name", value: displayName || "—" },
-            { label: "Email", value: user?.emailAddresses?.[0]?.emailAddress || "—" },
+            { label: "Email address", value: user?.emailAddresses?.[0]?.emailAddress || "—" },
           ].map((row, i, arr) => (
             <View
               key={row.label}

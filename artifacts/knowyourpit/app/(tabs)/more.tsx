@@ -164,7 +164,7 @@ export default function MoreScreen() {
           </View>
           <View style={s.profileInfo}>
             <Text style={[s.profileName, { color: colors.foreground }]}>
-              {(user?.unsafeMetadata?.displayName as string | undefined) || user?.fullName || user?.firstName || "Pitmaster"}
+              {(user?.unsafeMetadata?.displayName as string | undefined) || user?.fullName || user?.firstName || user?.username || "Pitmaster"}
             </Text>
             {user?.username ? (
               <Text style={[s.profileEmail, { color: colors.mutedForeground }]}>
