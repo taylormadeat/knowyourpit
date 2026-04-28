@@ -12,10 +12,11 @@ import {
   Image,
 } from "react-native";
 
-import { useSignUp } from "@clerk/expo/legacy";
+import { useSignUp, useSignIn } from "@clerk/expo/legacy";
 import { useSSO } from "@clerk/expo";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { Link, useRouter } from "expo-router";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
@@ -42,6 +43,7 @@ export default function SignUpScreen() {
   const bottomInset = useBottomInset();
   const router = useRouter();
   const { signUp, setActive, isLoaded } = useSignUp();
+  const { signIn, setActive: signInSetActive } = useSignIn();
   const { startSSOFlow } = useSSO();
 
   const [email, setEmail] = React.useState("");
@@ -112,27 +114,78 @@ export default function SignUpScreen() {
   }, [startSSOFlow]);
 
   const handleApple = useCallback(async () => {
-    try {
-      setAppleLoading(true);
-      const { createdSessionId, setActive: ssoSetActive } = await startSSOFlow({
-        strategy: "oauth_apple",
-        redirectUrl: Linking.createURL("/"),
-      });
-      if (createdSessionId && ssoSetActive) {
-        await ssoSetActive({ session: createdSessionId });
-        router.replace("/(tabs)");
+    if (Platform.OS === "ios") {
+      if (!signUp || !setActive || !signIn || !signInSetActive) return;
+      try {
+        setAppleLoading(true);
+        const credential = await AppleAuthentication.signInAsync({
+          requestedScopes: [
+            AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+            AppleAuthentication.AppleAuthenticationScope.EMAIL,
+          ],
+        });
+        if (!credential.identityToken) throw new Error("No identity token from Apple.");
+        try {
+          const attempt = await signUp.create({
+            strategy: "oauth_token_apple",
+            token: credential.identityToken,
+          });
+          if (attempt.status === "complete") {
+            await setActive({ session: attempt.createdSessionId });
+            router.replace("/(tabs)");
+          }
+        } catch (signUpErr: any) {
+          const code = signUpErr?.errors?.[0]?.code;
+          if (
+            code === "form_identifier_exists" ||
+            code === "external_account_exists"
+          ) {
+            const attempt = await signIn.create({
+              strategy: "oauth_token_apple",
+              token: credential.identityToken,
+            });
+            if (attempt.status === "complete") {
+              await signInSetActive({ session: attempt.createdSessionId });
+              router.replace("/(tabs)");
+            }
+          } else {
+            throw signUpErr;
+          }
+        }
+      } catch (e: any) {
+        if ((e as any).code === "ERR_REQUEST_CANCELED") return;
+        const msg =
+          e?.errors?.[0]?.longMessage ??
+          e?.errors?.[0]?.message ??
+          e?.message ??
+          "Apple sign-in failed. Please try again or use email instead.";
+        setErrorMsg(msg);
+      } finally {
+        setAppleLoading(false);
       }
-    } catch (e: any) {
-      const msg =
-        e?.errors?.[0]?.longMessage ??
-        e?.errors?.[0]?.message ??
-        e?.message ??
-        "Apple sign-in failed. Please try again or use email instead.";
-      setErrorMsg(msg);
-    } finally {
-      setAppleLoading(false);
+    } else {
+      try {
+        setAppleLoading(true);
+        const { createdSessionId, setActive: ssoSetActive } = await startSSOFlow({
+          strategy: "oauth_apple",
+          redirectUrl: Linking.createURL("/"),
+        });
+        if (createdSessionId && ssoSetActive) {
+          await ssoSetActive({ session: createdSessionId });
+          router.replace("/(tabs)");
+        }
+      } catch (e: any) {
+        const msg =
+          e?.errors?.[0]?.longMessage ??
+          e?.errors?.[0]?.message ??
+          e?.message ??
+          "Apple sign-in failed. Please try again or use email instead.";
+        setErrorMsg(msg);
+      } finally {
+        setAppleLoading(false);
+      }
     }
-  }, [startSSOFlow]);
+  }, [signUp, setActive, signIn, signInSetActive, startSSOFlow]);
 
   const styles = StyleSheet.create({
     outer: { flex: 1, backgroundColor: colors.background },

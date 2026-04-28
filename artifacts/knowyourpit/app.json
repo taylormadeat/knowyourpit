@@ -19,6 +19,7 @@
       "bundleIdentifier": "com.knowyourpit.app",
       "buildNumber": "23",
       "appleTeamId": "W8AY23XJTF",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "knowyourpit uses your location to show the current outdoor temperature during live cook sessions.",
         "NSPhotoLibraryUsageDescription": "knowyourpit accesses your photo library so you can scan cook progress images for AI temperature analysis.",
@@ -50,6 +51,7 @@
     },
     "plugins": [
       "./plugins/with-pod-bundle-signing",
+      "expo-apple-authentication",
       "expo-router",
       "expo-font",
       "expo-web-browser",

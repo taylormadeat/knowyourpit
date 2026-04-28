@@ -69,6 +69,7 @@
   "dependencies": {
     "@tanstack/query-async-storage-persister": "^5.99.2",
     "@tanstack/react-query-persist-client": "^5.99.2",
+    "expo-apple-authentication": "~7.2.4",
     "react-native-purchases": "9.7.2",
     "watch-connectivity": "file:./modules/watch-connectivity"
   }
