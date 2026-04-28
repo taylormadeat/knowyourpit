@@ -15,6 +15,7 @@ import {
   FlatList,
   TouchableOpacity,
   KeyboardAvoidingView,
+  findNodeHandle,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -248,6 +249,62 @@ function getOutdoorTempEffect(tempF: number | null): string | null {
   return "Very hot — your pit needs less fuel. Watch for temperature spikes.";
 }
 
+interface ScheduleItem {
+  foodType?: string;
+  grillLightAt?: string | null;
+  meatOnAt?: string | null;
+  estimatedFinishAt?: string | null;
+  estimatedDurationMinutes?: number;
+  restMinutes?: number;
+  preheatMinutes?: number;
+  grillId?: number | null;
+}
+
+interface SequenceData {
+  schedule: ScheduleItem[];
+  serveAt?: string;
+  summary?: string | null;
+}
+
+type NextStepKey = "grillLight" | "meatOn" | "pullOff" | "serve";
+
+interface NextStep {
+  itemIdx: number;
+  step: NextStepKey;
+}
+
+function computeNextStep(
+  seqData: SequenceData | null | undefined,
+  cookStatus: string | undefined,
+  nowMs: number,
+): NextStep | null {
+  if (cookStatus !== "active" || !seqData?.schedule?.length) return null;
+  let bestDiff = Infinity;
+  let result: NextStep | null = null;
+  seqData.schedule.forEach((item, idx) => {
+    const candidates: Array<{ step: NextStepKey; ms: number | null }> = [
+      { step: "grillLight", ms: item.grillLightAt ? new Date(item.grillLightAt).getTime() : null },
+      { step: "meatOn", ms: item.meatOnAt ? new Date(item.meatOnAt).getTime() : null },
+      { step: "pullOff", ms: item.estimatedFinishAt ? new Date(item.estimatedFinishAt).getTime() : null },
+    ];
+    if ((item.restMinutes ?? 0) > 0 && item.estimatedFinishAt) {
+      candidates.push({
+        step: "serve",
+        ms: new Date(item.estimatedFinishAt).getTime() + (item.restMinutes ?? 0) * 60000,
+      });
+    }
+    candidates.forEach(({ step, ms }) => {
+      if (ms === null) return;
+      const diff = ms - nowMs;
+      if (diff > 0 && diff < bestDiff) {
+        bestDiff = diff;
+        result = { itemIdx: idx, step };
+      }
+    });
+  });
+  return result;
+}
+
 export default function CookDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -346,6 +403,9 @@ export default function CookDetailScreen() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [liveReadings, setLiveReadings] = useState<Array<{ timeMinutes: number; tempF: number }>>([]);
 
+  const scheduleScrollViewRef = useRef<ScrollView>(null);
+  const nextStepRowRef = useRef<View>(null);
+
   useEffect(() => {
     setLiveReadings([]);
     setNowMs(Date.now());
@@ -376,6 +436,40 @@ export default function CookDetailScreen() {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [cookStatus]);
+
+  // Access sequenceData typed — the API-generated Cook type doesn't include this
+  // JSON field, so we narrow the cast to only what we actually use here.
+  const cookSeqData = (cook as { sequenceData?: SequenceData | null } | null | undefined)?.sequenceData ?? null;
+
+  // Compute the current "next step" using the shared helper. Runs before early
+  // returns so it respects React's rules of hooks.
+  const nextStep = useMemo(
+    () => computeNextStep(cookSeqData, cookStatus, nowMs),
+    [cookSeqData, cookStatus, nowMs],
+  );
+  // Stable string key — React compares primitives so the effect below only fires
+  // when the step actually transitions (not every second when nowMs ticks).
+  const nextStepKey = nextStep ? `${nextStep.itemIdx}:${nextStep.step}` : null;
+
+  // Auto-expand the schedule and smooth-scroll the highlighted row into view
+  // whenever the next step changes.
+  useEffect(() => {
+    if (!nextStepKey) return;
+    setSeqScheduleExpanded(true);
+    const timer = setTimeout(() => {
+      if (!nextStepRowRef.current || !scheduleScrollViewRef.current) return;
+      const nodeHandle = findNodeHandle(scheduleScrollViewRef.current);
+      if (nodeHandle === null) return;
+      nextStepRowRef.current.measureLayout(
+        nodeHandle,
+        (_x, y) => {
+          scheduleScrollViewRef.current?.scrollTo({ y: Math.max(0, y - 80), animated: true });
+        },
+        () => {},
+      );
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [nextStepKey]);
 
   // Edit modal state
   const [editVisible, setEditVisible] = useState(false);
@@ -906,6 +1000,7 @@ export default function CookDetailScreen() {
       <View style={s.fireBar} />
 
       <ScrollView
+        ref={scheduleScrollViewRef}
         contentContainerStyle={{ padding: 20, paddingBottom: botPad + 40, gap: 16 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -1366,29 +1461,7 @@ export default function CookDetailScreen() {
             );
           }
 
-          type NextStepKey = "grillLight" | "meatOn" | "pullOff" | "serve";
-          let nextStep: { itemIdx: number; step: NextStepKey } | null = null;
-          if (cookStatus === "active") {
-            let bestDiff = Infinity;
-            seqData.schedule.forEach((item: any, idx: number) => {
-              const candidates: Array<{ step: NextStepKey; ms: number | null }> = [
-                { step: "grillLight", ms: item.grillLightAt ? new Date(item.grillLightAt).getTime() : null },
-                { step: "meatOn", ms: item.meatOnAt ? new Date(item.meatOnAt).getTime() : null },
-                { step: "pullOff", ms: item.estimatedFinishAt ? new Date(item.estimatedFinishAt).getTime() : null },
-              ];
-              if (item.restMinutes > 0 && item.estimatedFinishAt) {
-                candidates.push({ step: "serve", ms: new Date(item.estimatedFinishAt).getTime() + item.restMinutes * 60000 });
-              }
-              candidates.forEach(({ step, ms }) => {
-                if (ms === null) return;
-                const diff = ms - nowMs;
-                if (diff > 0 && diff < bestDiff) {
-                  bestDiff = diff;
-                  nextStep = { itemIdx: idx, step };
-                }
-              });
-            });
-          }
+          // nextStep is computed once at the component level (see useMemo above)
 
           return (
             <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, overflow: "hidden" }]}>
@@ -1453,7 +1526,7 @@ export default function CookDetailScreen() {
                             const isDoneServe = cookStatus === "active" && serveMs < nowMs;
                             return (
                               <>
-                                <View style={[s.seqTlRow, isNextGrillLight && s.seqTlNextRow, isDoneGrillLight && s.seqTlDoneRow]}>
+                                <View ref={isNextGrillLight ? nextStepRowRef : undefined} style={[s.seqTlRow, isNextGrillLight && s.seqTlNextRow, isDoneGrillLight && s.seqTlDoneRow]}>
                                   <View style={[s.seqTlDot, { backgroundColor: isDoneGrillLight ? colors.mutedForeground : "#f59e0b", opacity: isDoneGrillLight ? 0.45 : 1 }]} />
                                   <View style={s.seqTlConnector} />
                                   <View style={{ flex: 1 }}>
@@ -1478,7 +1551,7 @@ export default function CookDetailScreen() {
                                     </Text>
                                   </View>
                                 </View>
-                                <View style={[s.seqTlRow, isNextMeatOn && s.seqTlNextRow, isDoneMeatOn && s.seqTlDoneRow]}>
+                                <View ref={isNextMeatOn ? nextStepRowRef : undefined} style={[s.seqTlRow, isNextMeatOn && s.seqTlNextRow, isDoneMeatOn && s.seqTlDoneRow]}>
                                   <View style={[s.seqTlDot, { backgroundColor: isDoneMeatOn ? colors.mutedForeground : "#EB6C2B", opacity: isDoneMeatOn ? 0.45 : 1 }]} />
                                   <View style={s.seqTlConnector} />
                                   <View style={{ flex: 1 }}>
@@ -1506,7 +1579,7 @@ export default function CookDetailScreen() {
                                     </Text>
                                   </View>
                                 </View>
-                                <View style={[s.seqTlRow, { marginBottom: item.restMinutes > 0 ? 8 : 0 }, isNextPullOff && s.seqTlNextRow, isDonePullOff && s.seqTlDoneRow]}>
+                                <View ref={isNextPullOff ? nextStepRowRef : undefined} style={[s.seqTlRow, { marginBottom: item.restMinutes > 0 ? 8 : 0 }, isNextPullOff && s.seqTlNextRow, isDonePullOff && s.seqTlDoneRow]}>
                                   <View style={[s.seqTlDot, { backgroundColor: isDonePullOff ? colors.mutedForeground : "#22c55e", opacity: isDonePullOff ? 0.45 : 1 }]} />
                                   {item.restMinutes > 0
                                     ? <View style={s.seqTlConnector} />
@@ -1536,7 +1609,7 @@ export default function CookDetailScreen() {
                                   </View>
                                 </View>
                                 {item.restMinutes > 0 && (
-                                  <View style={[s.seqTlRow, { marginBottom: 0 }, isNextServe && s.seqTlNextRow, isDoneServe && s.seqTlDoneRow]}>
+                                  <View ref={isNextServe ? nextStepRowRef : undefined} style={[s.seqTlRow, { marginBottom: 0 }, isNextServe && s.seqTlNextRow, isDoneServe && s.seqTlDoneRow]}>
                                     <View style={[s.seqTlDot, { backgroundColor: isDoneServe ? colors.mutedForeground : "#6366f1", opacity: isDoneServe ? 0.45 : 1 }]} />
                                     <View style={[s.seqTlConnector, { borderColor: "transparent" }]} />
                                     <View style={{ flex: 1 }}>
