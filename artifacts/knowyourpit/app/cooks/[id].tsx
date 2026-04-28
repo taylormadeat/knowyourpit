@@ -327,6 +327,7 @@ export default function CookDetailScreen() {
 
   const [userTempInput, setUserTempInput] = useState("");
   const [userTempEdited, setUserTempEdited] = useState(false);
+  const [pitTempInput, setPitTempInput] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [cardWidth, setCardWidth] = useState(300);
@@ -444,6 +445,7 @@ export default function CookDetailScreen() {
     setCookNotes("");
     setUserTempInput("");
     setUserTempEdited(false);
+    setPitTempInput("");
   }, [id]);
 
   // Initialize ratings from saved cook data; also re-syncs when server refetches after a save
@@ -963,7 +965,7 @@ export default function CookDetailScreen() {
             // Live probe data for phase detection (active cooks only)
             liveReadings: liveReadings.length >= 2 ? liveReadings : null,
             elapsedMinutes: c?.actualStartAt ? Math.round((Date.now() - new Date(c.actualStartAt).getTime()) / 60000) : null,
-            currentPitTempF: meaterProbes[0]?.ambientTempF ?? null,
+            currentPitTempF: (pitTempInput.trim() && !isNaN(parseFloat(pitTempInput))) ? parseFloat(pitTempInput) : (meaterProbes[0]?.ambientTempF ?? null),
             outdoorTempF: weather.tempF ?? null,
             cookStatus: c?.status ?? null,
           },
@@ -2108,8 +2110,8 @@ export default function CookDetailScreen() {
                 <Text style={[s.logTitle, { color: colors.foreground }]}>What Should I Do Next?</Text>
                 <Text style={[s.logSub, { color: colors.mutedForeground }]}>
                   {meaterLinked === true && meaterProbes.length > 0
-                    ? "Temperature auto-filled from your probe · add any notes and get your next step"
-                    : "Enter your current probe temperature and get your next action"}
+                    ? "Temperature auto-filled from your probe · add pit temp or notes and get your next step"
+                    : "Enter your probe and pit temperatures to get your next action"}
                 </Text>
               </View>
             </View>
@@ -2124,11 +2126,11 @@ export default function CookDetailScreen() {
               </View>
             )}
 
-            {/* Current temperature input */}
+            {/* Temperature inputs */}
             <View style={{ flexDirection: "row", gap: 10 }}>
               <View style={{ flex: 1 }}>
                 <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
-                  Current temperature <Text style={{ fontWeight: "400" }}>(°F)</Text>
+                  Probe temp <Text style={{ fontWeight: "400" }}>(°F)</Text>
                 </Text>
                 <TextInput
                   style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, height: 38, minHeight: 38, paddingTop: 0, paddingBottom: 0, paddingHorizontal: 10, fontSize: 13 }]}
@@ -2136,6 +2138,19 @@ export default function CookDetailScreen() {
                   placeholderTextColor={colors.mutedForeground}
                   value={userTempInput}
                   onChangeText={(v) => { setUserTempInput(v); setUserTempEdited(v.trim().length > 0); }}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
+                  Pit temp <Text style={{ fontWeight: "400" }}>(°F)</Text>
+                </Text>
+                <TextInput
+                  style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, height: 38, minHeight: 38, paddingTop: 0, paddingBottom: 0, paddingHorizontal: 10, fontSize: 13 }]}
+                  placeholder="e.g. 225"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={pitTempInput}
+                  onChangeText={setPitTempInput}
                   keyboardType="decimal-pad"
                 />
               </View>
