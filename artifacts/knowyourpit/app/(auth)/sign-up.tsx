@@ -46,6 +46,7 @@ export default function SignUpScreen() {
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [username, setUsername] = React.useState("");
   const [code, setCode] = React.useState("");
   const [showPass, setShowPass] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
@@ -53,12 +54,15 @@ export default function SignUpScreen() {
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [pendingVerification, setPendingVerification] = React.useState(false);
 
+  const sanitizedUsername = username.toLowerCase().replace(/[^a-z0-9_]/g, "");
+  const usernameValid = sanitizedUsername.length >= 3 && sanitizedUsername.length <= 20;
+
   const handleSignUp = async () => {
     if (!signUp) return;
     try {
       setIsLoading(true);
       setErrorMsg(null);
-      await signUp.create({ emailAddress: email, password });
+      await signUp.create({ emailAddress: email, password, username: sanitizedUsername });
       await signUp.prepareVerification({ strategy: "email_code" });
       setPendingVerification(true);
     } catch (e: any) {
@@ -191,7 +195,7 @@ export default function SignUpScreen() {
     );
   }
 
-  const canSubmit = !!email && !!password && !isLoading;
+  const canSubmit = !!email && !!password && usernameValid && !isLoading;
 
   return (
     <KeyboardAvoidingView style={styles.outer} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -200,6 +204,20 @@ export default function SignUpScreen() {
         <Image source={logoImg} style={styles.logo} resizeMode="contain" />
         <Text style={styles.title}>Create account</Text>
         <Text style={styles.subtitle}>Join knowyourpit</Text>
+
+        <Text style={styles.label}>Username</Text>
+        <View style={styles.inputRow}>
+          <Text style={{ fontSize: 15, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginRight: 2 }}>@</Text>
+          <TextInput
+            style={styles.input}
+            value={sanitizedUsername}
+            onChangeText={(v) => setUsername(v.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+            placeholder="pitmaster42"
+            placeholderTextColor={colors.mutedForeground}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
 
         <Text style={styles.label}>Email</Text>
         <View style={styles.inputRow}>

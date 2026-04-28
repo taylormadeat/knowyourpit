@@ -5,7 +5,7 @@ import {
   Inter_700Bold,
   useFonts,
 } from "@expo-google-fonts/inter";
-import { ClerkProvider, useAuth } from "@clerk/expo";
+import { ClerkProvider, useAuth, useUser } from "@clerk/expo";
 import { tokenCache as nativeTokenCache } from "@clerk/expo/token-cache";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -123,21 +123,34 @@ async function requestNotificationPermissions() {
 
 function RootLayoutNav() {
   const { isSignedIn, isLoaded } = useAuth();
+  const { user, isLoaded: userLoaded } = useUser();
   const segments = useSegments();
   const router = useRouter();
   // Bridges the phone app to the Apple Watch companion app (iOS only, no-op elsewhere)
   useWatchBridge();
 
   // Global auth gate: keep signed-in users out of /(auth) and signed-out users out of /(tabs).
+  // Also enforces the username gate: signed-in users without a username are redirected to
+  // /(auth)/set-username regardless of where they are in the app.
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || !userLoaded) return;
     const inAuthGroup = segments[0] === "(auth)";
-    if (isSignedIn && inAuthGroup) {
-      router.replace("/(tabs)");
-    } else if (!isSignedIn && !inAuthGroup) {
+    const onSetUsername = segments[1] === "set-username";
+
+    if (!isSignedIn && (onSetUsername || !inAuthGroup)) {
       router.replace("/(auth)/sign-in");
+    } else if (isSignedIn && inAuthGroup && !onSetUsername) {
+      if (user?.username) {
+        router.replace("/(tabs)");
+      } else {
+        router.replace("/(auth)/set-username");
+      }
+    } else if (isSignedIn && onSetUsername && user?.username) {
+      router.replace("/(tabs)");
+    } else if (isSignedIn && !inAuthGroup && !user?.username) {
+      router.replace("/(auth)/set-username");
     }
-  }, [isSignedIn, isLoaded, segments, router]);
+  }, [isSignedIn, isLoaded, userLoaded, user?.username, segments, router]);
 
   useEffect(() => {
     requestNotificationPermissions();
