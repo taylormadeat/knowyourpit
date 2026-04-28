@@ -13,11 +13,12 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
 import React, { useEffect, useState } from "react";
-import { Platform, View } from "react-native";
+import { AppState, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { setBaseUrl, setAuthTokenGetter, patchAlert, listAlerts } from "@workspace/api-client-react";
+import { isCookDetailVisible } from "@/hooks/cookDetailVisibility";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useWatchBridge } from "@/hooks/useWatchBridge";
@@ -92,14 +93,23 @@ const clerkPubKey =
   "";
 const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL ?? "";
 
+let _appIsActive = true;
 if (Platform.OS !== "web") {
+  AppState.addEventListener("change", (nextState) => {
+    _appIsActive = nextState === "active";
+  });
+
   Notifications.setNotificationHandler({
-    handleNotification: async (): Promise<Notifications.NotificationBehavior> => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
+    handleNotification: async (notification): Promise<Notifications.NotificationBehavior> => {
+      const isScheduleStep = notification.request.content.data?.scheduleStep === true;
+      const suppressForeground = isScheduleStep && _appIsActive && isCookDetailVisible();
+      return {
+        shouldShowBanner: !suppressForeground,
+        shouldShowList: true,
+        shouldPlaySound: !suppressForeground,
+        shouldSetBadge: false,
+      };
+    },
   });
 }
 

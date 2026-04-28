@@ -29,6 +29,8 @@ import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
 import { useTopInset } from "@/hooks/useTopInset";
 import { useBottomInset } from "@/hooks/useBottomInset";
+import { useScheduleStepNotifications } from "@/hooks/useScheduleStepNotifications";
+import { setCookDetailVisible } from "@/hooks/cookDetailVisibility";
 import { LogoBackground } from "@/components/LogoBackground";
 import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
 import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
@@ -469,6 +471,14 @@ export default function CookDetailScreen() {
   // JSON field, so we narrow the cast to only what we actually use here.
   const cookSeqData = (cook as { sequenceData?: SequenceData | null } | null | undefined)?.sequenceData ?? null;
 
+  // Schedule local notifications for each upcoming schedule step so the
+  // pitmaster is alerted even when the app is backgrounded or the phone is
+  // locked.  The in-app haptic/banner still fires when foregrounded (see
+  // the step-change toast effect below); the notification handler in
+  // _layout.tsx suppresses the system banner while the app is active to
+  // avoid duplication.
+  useScheduleStepNotifications(Number(id), cookStatus, cookSeqData);
+
   // Compute the current "next step" using the shared helper. Runs before early
   // returns so it respects React's rules of hooks.
   const nextStep = useMemo(
@@ -485,6 +495,13 @@ export default function CookDetailScreen() {
   const stepToastAnimRef = useRef<Animated.CompositeAnimation | null>(null);
   const stepToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevNextStepKeyRef = useRef<string | null | undefined>(undefined);
+
+  // Track when this screen is mounted so the global notification handler can
+  // suppress schedule-step system banners in favour of the in-app toast.
+  useEffect(() => {
+    setCookDetailVisible(true);
+    return () => setCookDetailVisible(false);
+  }, []);
 
   // Clean up timer on unmount to avoid post-unmount state updates.
   useEffect(() => {
