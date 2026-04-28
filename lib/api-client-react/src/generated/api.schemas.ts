@@ -819,6 +819,20 @@ export interface MultiCookBody {
   outdoorTempF?: number | null;
 }
 
+/**
+ * How to wrap this item during the cook ("foil", "butcher_paper", or "none")
+ * @nullable
+ */
+export type MultiCookScheduleItemWrapMethod =
+  | (typeof MultiCookScheduleItemWrapMethod)[keyof typeof MultiCookScheduleItemWrapMethod]
+  | null;
+
+export const MultiCookScheduleItemWrapMethod = {
+  foil: "foil",
+  butcher_paper: "butcher_paper",
+  none: "none",
+} as const;
+
 export interface MultiCookScheduleItem {
   foodType: string;
   /** Active cook time only (meat on grill to off grill), excluding preheat and rest */
@@ -832,6 +846,26 @@ export interface MultiCookScheduleItem {
   meatOnAt: string;
   /** When meat comes off the grill (before rest) */
   estimatedFinishAt: string;
+  /**
+   * How to wrap this item during the cook ("foil", "butcher_paper", or "none")
+   * @nullable
+   */
+  wrapMethod?: MultiCookScheduleItemWrapMethod;
+  /**
+   * Minutes from meatOnAt when to wrap (null or 0 if wrapMethod is "none")
+   * @nullable
+   */
+  wrapAtMinutes?: number | null;
+  /**
+   * Internal meat temperature in °F at which to trigger the wrap (null if not applicable)
+   * @nullable
+   */
+  wrapTempF?: number | null;
+  /**
+   * One sentence explaining the wrap strategy for this item
+   * @nullable
+   */
+  wrapReason?: string | null;
   /** One sentence of specific advice for this item */
   notes?: string;
 }

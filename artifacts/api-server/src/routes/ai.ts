@@ -1064,10 +1064,35 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
       return;
     }
 
-    // Sort schedule by grillLightAt ascending
-    const schedule = (result.schedule ?? []).sort(
-      (a: any, b: any) => new Date(a.grillLightAt).getTime() - new Date(b.grillLightAt).getTime()
-    );
+    // Normalize wrap fields and sort schedule by grillLightAt ascending
+    const normalizeWrapMethod = (m: any): "foil" | "butcher_paper" | "none" | null => {
+      if (m === "foil" || m === "butcher_paper" || m === "none") return m;
+      return null;
+    };
+    const schedule = (result.schedule ?? [])
+      .map((item: any) => {
+        const wrapMethod = normalizeWrapMethod(item.wrapMethod);
+        const isNoWrap = wrapMethod == null || wrapMethod === "none";
+        const wrapAtMinutes = isNoWrap
+          ? null
+          : (typeof item.wrapAtMinutes === "number" ? Math.round(item.wrapAtMinutes) : null);
+        const wrapTempF = isNoWrap
+          ? null
+          : (typeof item.wrapTempF === "number" ? Math.round(item.wrapTempF) : null);
+        const wrapReason = isNoWrap
+          ? null
+          : (typeof item.wrapReason === "string" && item.wrapReason.trim().length > 0 ? item.wrapReason : null);
+        return {
+          ...item,
+          wrapMethod,
+          wrapAtMinutes,
+          wrapTempF,
+          wrapReason,
+        };
+      })
+      .sort(
+        (a: any, b: any) => new Date(a.grillLightAt).getTime() - new Date(b.grillLightAt).getTime()
+      );
 
     // Build a deterministic summary describing sequence order only.
     // Times are intentionally omitted here — the server runs in UTC so any

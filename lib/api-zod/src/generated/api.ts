@@ -1146,6 +1146,33 @@ export const AiMultiCookResponse = zod.object({
         estimatedFinishAt: zod.coerce
           .date()
           .describe("When meat comes off the grill (before rest)"),
+        wrapMethod: zod
+          .union([
+            zod.literal("foil"),
+            zod.literal("butcher_paper"),
+            zod.literal("none"),
+            zod.literal(null),
+          ])
+          .nullish()
+          .describe(
+            'How to wrap this item during the cook (\"foil\", \"butcher_paper\", or \"none\")',
+          ),
+        wrapAtMinutes: zod
+          .number()
+          .nullish()
+          .describe(
+            'Minutes from meatOnAt when to wrap (null or 0 if wrapMethod is \"none\")',
+          ),
+        wrapTempF: zod
+          .number()
+          .nullish()
+          .describe(
+            "Internal meat temperature in °F at which to trigger the wrap (null if not applicable)",
+          ),
+        wrapReason: zod
+          .string()
+          .nullish()
+          .describe("One sentence explaining the wrap strategy for this item"),
         notes: zod
           .string()
           .optional()

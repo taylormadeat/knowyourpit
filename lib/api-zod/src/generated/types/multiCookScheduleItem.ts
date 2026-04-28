@@ -5,6 +5,7 @@
  * PitMaster AI - BBQ Planning & Monitoring API
  * OpenAPI spec version: 0.1.0
  */
+import type { MultiCookScheduleItemWrapMethod } from "./multiCookScheduleItemWrapMethod";
 
 export interface MultiCookScheduleItem {
   foodType: string;
@@ -19,6 +20,26 @@ export interface MultiCookScheduleItem {
   meatOnAt: Date;
   /** When meat comes off the grill (before rest) */
   estimatedFinishAt: Date;
+  /**
+   * How to wrap this item during the cook ("foil", "butcher_paper", or "none")
+   * @nullable
+   */
+  wrapMethod?: MultiCookScheduleItemWrapMethod;
+  /**
+   * Minutes from meatOnAt when to wrap (null or 0 if wrapMethod is "none")
+   * @nullable
+   */
+  wrapAtMinutes?: number | null;
+  /**
+   * Internal meat temperature in °F at which to trigger the wrap (null if not applicable)
+   * @nullable
+   */
+  wrapTempF?: number | null;
+  /**
+   * One sentence explaining the wrap strategy for this item
+   * @nullable
+   */
+  wrapReason?: string | null;
   /** One sentence of specific advice for this item */
   notes?: string;
 }

@@ -2028,6 +2028,19 @@ components:
           type: string
           format: date-time
           description: When meat comes off the grill (before rest)
+        wrapMethod:
+          type: ["string", "null"]
+          enum: ["foil", "butcher_paper", "none", null]
+          description: How to wrap this item during the cook ("foil", "butcher_paper", or "none")
+        wrapAtMinutes:
+          type: ["integer", "null"]
+          description: Minutes from meatOnAt when to wrap (null or 0 if wrapMethod is "none")
+        wrapTempF:
+          type: ["integer", "null"]
+          description: Internal meat temperature in °F at which to trigger the wrap (null if not applicable)
+        wrapReason:
+          type: ["string", "null"]
+          description: One sentence explaining the wrap strategy for this item
         notes:
           type: string
           description: One sentence of specific advice for this item

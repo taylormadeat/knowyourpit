@@ -60,6 +60,7 @@ export * from "./multiCookBody";
 export * from "./multiCookItem";
 export * from "./multiCookResponse";
 export * from "./multiCookScheduleItem";
+export * from "./multiCookScheduleItemWrapMethod";
 export * from "./patchAlertBody";
 export * from "./probeTimePoint";
 export * from "./recipe";
