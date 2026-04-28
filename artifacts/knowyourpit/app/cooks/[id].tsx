@@ -495,6 +495,9 @@ export default function CookDetailScreen() {
   // Stable string key — React compares primitives so the effect below only fires
   // when the step actually transitions (not every second when nowMs ticks).
   const nextStepKey = nextStep ? `${nextStep.itemIdx}:${nextStep.step}` : null;
+  // Primitive mirror of nextStep.itemIdx so the auto-scroll effect can depend on
+  // it without taking a fresh `nextStep` object reference every nowMs tick.
+  const nextStepItemIdx = nextStep ? nextStep.itemIdx : null;
 
   // ── Step-change toast state ───────────────────────────────────────────────
   const [stepToast, setStepToast] = useState<string | null>(null);
@@ -521,13 +524,18 @@ export default function CookDetailScreen() {
   // Auto-expand the schedule and smooth-scroll the highlighted row into view
   // whenever the next step changes. We use cached onLayout offsets instead of
   // measureLayout so we never call into a possibly-detached native node.
+  //
+  // IMPORTANT: depend ONLY on primitives (`nextStepKey`, `nextStepItemIdx`).
+  // The `nextStep` object is recreated by useMemo every nowMs tick (1s) for
+  // active cooks, so taking it as a dep would re-fire the effect every second
+  // and yank the user back to the highlighted row mid-scroll.
   useEffect(() => {
-    if (!nextStepKey || !nextStep) return;
+    if (!nextStepKey || nextStepItemIdx === null) return;
     setSeqScheduleExpanded(true);
     const timer = setTimeout(() => {
       const rowY = rowYRef.current[nextStepKey];
       if (rowY === undefined) return;
-      const idx = nextStep.itemIdx;
+      const idx = nextStepItemIdx;
       const targetY =
         scheduleListYRef.current +
         (itemYRef.current[idx] ?? 0) +
@@ -537,7 +545,7 @@ export default function CookDetailScreen() {
       scheduleScrollViewRef.current?.scrollTo({ y: Math.max(0, targetY), animated: true });
     }, 350);
     return () => clearTimeout(timer);
-  }, [nextStepKey, nextStep]);
+  }, [nextStepKey, nextStepItemIdx]);
 
   // Haptic + toast on next-step transition (active cooks only).
   // prevNextStepKeyRef starts as undefined so the initial mount is skipped.
