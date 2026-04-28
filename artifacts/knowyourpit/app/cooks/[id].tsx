@@ -92,6 +92,13 @@ function formatDT(d: Date | string | null | undefined): string {
   return `${m}/${day}/${dt.getFullYear()} ${h}:${min} ${ampm}`;
 }
 
+function relCountdown(targetMs: number, nowMs: number): string {
+  const diffMin = Math.round((targetMs - nowMs) / 60000);
+  if (Math.abs(diffMin) < 1) return "now";
+  if (diffMin > 0) return `in ${diffMin}m`;
+  return `${Math.abs(diffMin)}m ago`;
+}
+
 function getEditDates(): Date[] {
   const dates: Date[] = [];
   const now = new Date();
@@ -1416,6 +1423,11 @@ export default function CookDetailScreen() {
                               <Text style={[s.seqTlLabel, { color: colors.mutedForeground }]}>Light grill</Text>
                               <Text style={[s.seqTlTime, { color: colors.foreground }]}>
                                 {new Date(item.grillLightAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                {cookStatus === "active" && (
+                                  <Text style={[s.seqTlMeta, { color: "#f59e0b" }]}>
+                                    {" "}· {relCountdown(new Date(item.grillLightAt).getTime(), nowMs)}
+                                  </Text>
+                                )}
                                 <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
                                   {" "}· {item.preheatMinutes}min preheat
                                 </Text>
@@ -1429,6 +1441,11 @@ export default function CookDetailScreen() {
                               <Text style={[s.seqTlLabel, { color: colors.mutedForeground }]}>Meat on</Text>
                               <Text style={[s.seqTlTime, { color: colors.foreground }]}>
                                 {new Date(item.meatOnAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                {cookStatus === "active" && (
+                                  <Text style={[s.seqTlMeta, { color: "#EB6C2B" }]}>
+                                    {" "}· {relCountdown(new Date(item.meatOnAt).getTime(), nowMs)}
+                                  </Text>
+                                )}
                                 <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
                                   {" "}·{" "}
                                   {item.estimatedDurationMinutes >= 60
@@ -1447,6 +1464,11 @@ export default function CookDetailScreen() {
                               <Text style={[s.seqTlLabel, { color: colors.mutedForeground }]}>Pull off</Text>
                               <Text style={[s.seqTlTime, { color: colors.foreground }]}>
                                 {new Date(item.estimatedFinishAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                {cookStatus === "active" && (
+                                  <Text style={[s.seqTlMeta, { color: "#22c55e" }]}>
+                                    {" "}· {relCountdown(new Date(item.estimatedFinishAt).getTime(), nowMs)}
+                                  </Text>
+                                )}
                                 {item.restMinutes > 0 && (
                                   <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
                                     {" "}· {item.restMinutes}min rest
@@ -1463,6 +1485,11 @@ export default function CookDetailScreen() {
                                 <Text style={[s.seqTlLabel, { color: colors.mutedForeground }]}>Ready to serve</Text>
                                 <Text style={[s.seqTlTime, { color: colors.foreground }]}>
                                   {new Date(new Date(item.estimatedFinishAt).getTime() + item.restMinutes * 60000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                  {cookStatus === "active" && (
+                                    <Text style={[s.seqTlMeta, { color: "#6366f1" }]}>
+                                      {" "}· {relCountdown(new Date(item.estimatedFinishAt).getTime() + item.restMinutes * 60000, nowMs)}
+                                    </Text>
+                                  )}
                                 </Text>
                               </View>
                             </View>
