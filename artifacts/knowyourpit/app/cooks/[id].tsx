@@ -1089,9 +1089,15 @@ export default function CookDetailScreen() {
     (cook as any)?.analysisHistory?.length,
   ]);
 
-  // If user upgrades to Pro mid-session, lift the auto-grade pause.
+  // Sync auto-grade pause with subscription state:
+  // - Pro (unlimited) → lift any existing pause.
+  // - Free → proactively pause so the 30-min timer never fires for non-Pro users.
   useEffect(() => {
-    if (paywallUsage?.unlimited) setAutoGradePaused(false);
+    if (paywallUsage?.unlimited) {
+      setAutoGradePaused(false);
+    } else if (paywallUsage && !paywallUsage.unlimited) {
+      setAutoGradePaused(true);
+    }
   }, [paywallUsage?.unlimited]);
 
   // Foreground/background tracking for the timer.
@@ -2438,7 +2444,7 @@ export default function CookDetailScreen() {
                     fontFamily: "Inter_600SemiBold",
                   }}
                 >
-                  Auto-grading paused — upgrade for unlimited
+                  Auto-grading is a Pro feature — upgrade to unlock
                 </Text>
                 <Feather name="chevron-right" size={16} color="#E84820" />
               </Pressable>
