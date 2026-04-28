@@ -3,9 +3,27 @@ import { customFetch } from "./custom-fetch";
 import { getListCooksQueryKey } from "./generated/api";
 import type { Cook } from "./generated/api.schemas";
 
+export interface SequenceItem {
+  foodType: string;
+  estimatedDurationMinutes: number;
+  preheatMinutes: number;
+  restMinutes: number;
+  grillLightAt: string;
+  meatOnAt: string;
+  estimatedFinishAt: string;
+  notes?: string | null;
+}
+
+export interface SequenceData {
+  serveAt: string;
+  summary?: string | null;
+  schedule: SequenceItem[];
+}
+
 export interface UpdateSessionBody {
   sessionLabel?: string | null;
   sessionNotes?: string | null;
+  sequenceData?: SequenceData;
 }
 
 export interface UpdateSessionResult {

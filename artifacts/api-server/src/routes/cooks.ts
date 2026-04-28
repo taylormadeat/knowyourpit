@@ -289,6 +289,7 @@ router.patch("/sessions/:sessionId", requireAuth, async (req: any, res): Promise
   const updateData: Record<string, unknown> = {};
   if (parsed.data.sessionLabel !== undefined) updateData.sessionLabel = parsed.data.sessionLabel;
   if (parsed.data.sessionNotes !== undefined) updateData.sessionNotes = parsed.data.sessionNotes;
+  if (parsed.data.sequenceData !== undefined) updateData.sequenceData = parsed.data.sequenceData;
   await db.update(cooksTable).set(updateData)
     .where(and(eq(cooksTable.sessionId, params.data.sessionId), eq(cooksTable.userId, req.userId)));
   res.json({ sessionId: params.data.sessionId, ...parsed.data });

@@ -80,6 +80,19 @@ function fmtTime(d: Date): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function shiftSequenceData(data: SequenceData, offsetMs: number): SequenceData {
+  return {
+    ...data,
+    serveAt: new Date(new Date(data.serveAt).getTime() + offsetMs).toISOString(),
+    schedule: data.schedule.map((item) => ({
+      ...item,
+      grillLightAt: new Date(new Date(item.grillLightAt).getTime() + offsetMs).toISOString(),
+      meatOnAt: new Date(new Date(item.meatOnAt).getTime() + offsetMs).toISOString(),
+      estimatedFinishAt: new Date(new Date(item.estimatedFinishAt).getTime() + offsetMs).toISOString(),
+    })),
+  };
+}
+
 function fmtDate(d: Date): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -129,6 +142,9 @@ export default function CooksScreen() {
   const [editLabel, setEditLabel] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [viewingSequence, setViewingSequence] = useState<{ group: SessionGroup; data: SequenceData } | null>(null);
+  const [seqEditMode, setSeqEditMode] = useState(false);
+  const [seqOffsetMinutes, setSeqOffsetMinutes] = useState(0);
+  const [seqSaveError, setSeqSaveError] = useState<string | null>(null);
   const { data: cooks, isLoading, refetch } = useListCooks();
   const updateSession = useUpdateSession();
 
@@ -461,7 +477,7 @@ export default function CooksScreen() {
             )}
             {group.sequenceData && (
               <Pressable
-                onPress={(e) => { e.stopPropagation(); setViewingSequence({ group, data: group.sequenceData! }); }}
+                onPress={(e) => { e.stopPropagation(); setSeqEditMode(false); setSeqOffsetMinutes(0); setViewingSequence({ group, data: group.sequenceData! }); }}
                 style={[s.seqPlanBtn, { backgroundColor: "#4f46e515", borderColor: "#6C3BF540" }]}
               >
                 <Feather name="list" size={12} color="#6C3BF5" />
@@ -581,13 +597,13 @@ export default function CooksScreen() {
         visible={viewingSequence !== null}
         transparent
         animationType="slide"
-        onRequestClose={() => setViewingSequence(null)}
+        onRequestClose={() => { setViewingSequence(null); setSeqEditMode(false); setSeqOffsetMinutes(0); setSeqSaveError(null); }}
       >
         <View style={s.modalOverlay}>
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
             activeOpacity={1}
-            onPress={() => setViewingSequence(null)}
+            onPress={() => { setViewingSequence(null); setSeqEditMode(false); setSeqOffsetMinutes(0); setSeqSaveError(null); }}
           />
           <View style={[s.seqSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={s.seqSheetHandle} />
@@ -595,99 +611,193 @@ export default function CooksScreen() {
               <Text style={[s.modalTitle, { color: colors.foreground }]}>
                 {viewingSequence?.group.sessionLabel || "Sequence Plan"}
               </Text>
-              <Pressable hitSlop={8} onPress={() => setViewingSequence(null)}>
-                <Feather name="x" size={20} color={colors.mutedForeground} />
-              </Pressable>
-            </View>
-            {viewingSequence?.data.serveAt ? (
-              <Text style={[s.seqServeAt, { color: colors.primary }]}>
-                Serve at {fmtTime(new Date(viewingSequence.data.serveAt))} · {fmtDate(new Date(viewingSequence.data.serveAt))}
-              </Text>
-            ) : null}
-            {viewingSequence?.data.summary ? (
-              <Text style={[s.seqSummary, { color: colors.mutedForeground }]}>
-                {viewingSequence.data.summary}
-              </Text>
-            ) : null}
-            <ScrollView style={{ marginTop: 12 }} showsVerticalScrollIndicator={false}>
-              {viewingSequence?.data.schedule.map((item, idx) => (
-                <View
-                  key={idx}
-                  style={[s.seqItem, { borderColor: colors.border, backgroundColor: colors.background }]}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => { setSeqEditMode((v) => !v); setSeqOffsetMinutes(0); setSeqSaveError(null); }}
+                  style={[
+                    s.seqEditTimesBtn,
+                    { backgroundColor: seqEditMode ? "#6C3BF520" : colors.border },
+                  ]}
                 >
-                  <View style={s.seqItemHeader}>
-                    <LinearGradient colors={["#4f46e5", "#6C3BF5"]} style={s.seqItemIcon}>
-                      <Feather name="layers" size={14} color="#fff" />
-                    </LinearGradient>
-                    <Text style={[s.seqItemTitle, { color: colors.foreground }]}>{item.foodType}</Text>
-                  </View>
-                  <View style={s.seqTimeline}>
-                    <View style={s.seqTimelineRow}>
-                      <View style={[s.seqDot, { backgroundColor: "#f59e0b" }]} />
-                      <View style={s.seqConnector} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[s.seqEventLabel, { color: colors.mutedForeground }]}>Light grill</Text>
-                        <Text style={[s.seqEventTime, { color: colors.foreground }]}>
-                          {fmtTime(new Date(item.grillLightAt))}
-                          <Text style={[s.seqEventMeta, { color: colors.mutedForeground }]}>
-                            {" "}· {item.preheatMinutes}min preheat
-                          </Text>
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={s.seqTimelineRow}>
-                      <View style={[s.seqDot, { backgroundColor: "#EB6C2B" }]} />
-                      <View style={s.seqConnector} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[s.seqEventLabel, { color: colors.mutedForeground }]}>Meat on</Text>
-                        <Text style={[s.seqEventTime, { color: colors.foreground }]}>
-                          {fmtTime(new Date(item.meatOnAt))}
-                          <Text style={[s.seqEventMeta, { color: colors.mutedForeground }]}>
-                            {" "}· {item.estimatedDurationMinutes >= 60
-                              ? `${Math.floor(item.estimatedDurationMinutes / 60)}h ${item.estimatedDurationMinutes % 60 > 0 ? `${item.estimatedDurationMinutes % 60}m` : ""}`.trim()
-                              : `${item.estimatedDurationMinutes}m`} cook
-                          </Text>
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={s.seqTimelineRow}>
-                      <View style={[s.seqDot, { backgroundColor: "#22c55e" }]} />
-                      {item.restMinutes > 0 ? <View style={s.seqConnector} /> : <View style={[s.seqConnector, { borderColor: "transparent" }]} />}
-                      <View style={{ flex: 1 }}>
-                        <Text style={[s.seqEventLabel, { color: colors.mutedForeground }]}>Pull off</Text>
-                        <Text style={[s.seqEventTime, { color: colors.foreground }]}>
-                          {fmtTime(new Date(item.estimatedFinishAt))}
-                          {item.restMinutes > 0 && (
-                            <Text style={[s.seqEventMeta, { color: colors.mutedForeground }]}>
-                              {" "}· {item.restMinutes}min rest
-                            </Text>
-                          )}
-                        </Text>
-                      </View>
-                    </View>
-                    {item.restMinutes > 0 && (
-                      <View style={[s.seqTimelineRow, { marginBottom: 0 }]}>
-                        <View style={[s.seqDot, { backgroundColor: "#6366f1" }]} />
-                        <View style={[s.seqConnector, { borderColor: "transparent" }]} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={[s.seqEventLabel, { color: colors.mutedForeground }]}>Ready to serve</Text>
-                          <Text style={[s.seqEventTime, { color: colors.foreground }]}>
-                            {fmtTime(new Date(new Date(item.estimatedFinishAt).getTime() + item.restMinutes * 60000))}
-                          </Text>
-                        </View>
-                      </View>
-                    )}
-                  </View>
-                  {item.notes ? (
-                    <View style={[s.seqNoteBox, { backgroundColor: colors.border + "44" }]}>
-                      <Feather name="info" size={12} color={colors.mutedForeground} />
-                      <Text style={[s.seqNoteText, { color: colors.mutedForeground }]}>{item.notes}</Text>
-                    </View>
-                  ) : null}
+                  <Feather name="clock" size={13} color={seqEditMode ? "#6C3BF5" : colors.mutedForeground} />
+                  <Text style={[s.seqEditTimesBtnText, { color: seqEditMode ? "#6C3BF5" : colors.mutedForeground }]}>
+                    {seqEditMode ? "Cancel" : "Edit times"}
+                  </Text>
+                </Pressable>
+                <Pressable hitSlop={8} onPress={() => { setViewingSequence(null); setSeqEditMode(false); setSeqOffsetMinutes(0); setSeqSaveError(null); }}>
+                  <Feather name="x" size={20} color={colors.mutedForeground} />
+                </Pressable>
+              </View>
+            </View>
+
+            {seqEditMode && (
+              <View style={[s.seqOffsetRow, { backgroundColor: "#6C3BF510", borderColor: "#6C3BF530" }]}>
+                <Text style={[s.seqOffsetLabel, { color: colors.mutedForeground }]}>Shift all times</Text>
+                <View style={s.seqOffsetControls}>
+                  {([-60, -15, 15, 60] as const).map((delta) => (
+                    <Pressable
+                      key={delta}
+                      style={[s.seqOffsetBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => setSeqOffsetMinutes((v) => v + delta)}
+                    >
+                      <Text style={[s.seqOffsetBtnText, { color: colors.foreground }]}>
+                        {delta > 0 ? `+${delta}m` : `${delta}m`}
+                      </Text>
+                    </Pressable>
+                  ))}
                 </View>
-              ))}
-              <View style={{ height: 24 }} />
-            </ScrollView>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <Text style={[s.seqOffsetValue, { color: seqOffsetMinutes === 0 ? colors.mutedForeground : "#6C3BF5" }]}>
+                    {seqOffsetMinutes === 0
+                      ? "No change"
+                      : seqOffsetMinutes > 0
+                        ? `+${seqOffsetMinutes} min later`
+                        : `${seqOffsetMinutes} min earlier`}
+                  </Text>
+                  {seqOffsetMinutes !== 0 && (
+                    <Pressable
+                      onPress={() => setSeqOffsetMinutes(0)}
+                      hitSlop={8}
+                    >
+                      <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground }}>Reset</Text>
+                    </Pressable>
+                  )}
+                </View>
+                {seqSaveError ? (
+                  <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: "#ef4444", textAlign: "center" }}>
+                    {seqSaveError}
+                  </Text>
+                ) : null}
+                <Pressable
+                  style={[
+                    s.seqSaveBtn,
+                    { backgroundColor: seqOffsetMinutes === 0 ? colors.border : "#6C3BF5", opacity: updateSession.isPending ? 0.6 : 1 },
+                  ]}
+                  disabled={seqOffsetMinutes === 0 || updateSession.isPending}
+                  onPress={async () => {
+                    if (!viewingSequence || seqOffsetMinutes === 0) return;
+                    setSeqSaveError(null);
+                    try {
+                      const shifted = shiftSequenceData(viewingSequence.data, seqOffsetMinutes * 60000);
+                      await updateSession.mutateAsync({
+                        sessionId: viewingSequence.group.sessionId,
+                        sequenceData: shifted,
+                      });
+                      setViewingSequence({ ...viewingSequence, data: shifted });
+                      setSeqEditMode(false);
+                      setSeqOffsetMinutes(0);
+                    } catch {
+                      setSeqSaveError("Failed to save. Please try again.");
+                    }
+                  }}
+                >
+                  {updateSession.isPending
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Text style={[s.seqSaveBtnText, { color: seqOffsetMinutes === 0 ? colors.mutedForeground : "#fff" }]}>Save updated times</Text>
+                  }
+                </Pressable>
+              </View>
+            )}
+
+            {(() => {
+              const displayData = viewingSequence
+                ? (seqOffsetMinutes !== 0 ? shiftSequenceData(viewingSequence.data, seqOffsetMinutes * 60000) : viewingSequence.data)
+                : null;
+              return (
+                <>
+                  {displayData?.serveAt ? (
+                    <Text style={[s.seqServeAt, { color: colors.primary }]}>
+                      Serve at {fmtTime(new Date(displayData.serveAt))} · {fmtDate(new Date(displayData.serveAt))}
+                    </Text>
+                  ) : null}
+                  {displayData?.summary ? (
+                    <Text style={[s.seqSummary, { color: colors.mutedForeground }]}>
+                      {displayData.summary}
+                    </Text>
+                  ) : null}
+                  <ScrollView style={{ marginTop: 12 }} showsVerticalScrollIndicator={false}>
+                    {displayData?.schedule.map((item, idx) => (
+                      <View
+                        key={idx}
+                        style={[s.seqItem, { borderColor: colors.border, backgroundColor: colors.background }]}
+                      >
+                        <View style={s.seqItemHeader}>
+                          <LinearGradient colors={["#4f46e5", "#6C3BF5"]} style={s.seqItemIcon}>
+                            <Feather name="layers" size={14} color="#fff" />
+                          </LinearGradient>
+                          <Text style={[s.seqItemTitle, { color: colors.foreground }]}>{item.foodType}</Text>
+                        </View>
+                        <View style={s.seqTimeline}>
+                          <View style={s.seqTimelineRow}>
+                            <View style={[s.seqDot, { backgroundColor: "#f59e0b" }]} />
+                            <View style={s.seqConnector} />
+                            <View style={{ flex: 1 }}>
+                              <Text style={[s.seqEventLabel, { color: colors.mutedForeground }]}>Light grill</Text>
+                              <Text style={[s.seqEventTime, { color: colors.foreground }]}>
+                                {fmtTime(new Date(item.grillLightAt))}
+                                <Text style={[s.seqEventMeta, { color: colors.mutedForeground }]}>
+                                  {" "}· {item.preheatMinutes}min preheat
+                                </Text>
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={s.seqTimelineRow}>
+                            <View style={[s.seqDot, { backgroundColor: "#EB6C2B" }]} />
+                            <View style={s.seqConnector} />
+                            <View style={{ flex: 1 }}>
+                              <Text style={[s.seqEventLabel, { color: colors.mutedForeground }]}>Meat on</Text>
+                              <Text style={[s.seqEventTime, { color: colors.foreground }]}>
+                                {fmtTime(new Date(item.meatOnAt))}
+                                <Text style={[s.seqEventMeta, { color: colors.mutedForeground }]}>
+                                  {" "}· {item.estimatedDurationMinutes >= 60
+                                    ? `${Math.floor(item.estimatedDurationMinutes / 60)}h ${item.estimatedDurationMinutes % 60 > 0 ? `${item.estimatedDurationMinutes % 60}m` : ""}`.trim()
+                                    : `${item.estimatedDurationMinutes}m`} cook
+                                </Text>
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={s.seqTimelineRow}>
+                            <View style={[s.seqDot, { backgroundColor: "#22c55e" }]} />
+                            {item.restMinutes > 0 ? <View style={s.seqConnector} /> : <View style={[s.seqConnector, { borderColor: "transparent" }]} />}
+                            <View style={{ flex: 1 }}>
+                              <Text style={[s.seqEventLabel, { color: colors.mutedForeground }]}>Pull off</Text>
+                              <Text style={[s.seqEventTime, { color: colors.foreground }]}>
+                                {fmtTime(new Date(item.estimatedFinishAt))}
+                                {item.restMinutes > 0 && (
+                                  <Text style={[s.seqEventMeta, { color: colors.mutedForeground }]}>
+                                    {" "}· {item.restMinutes}min rest
+                                  </Text>
+                                )}
+                              </Text>
+                            </View>
+                          </View>
+                          {item.restMinutes > 0 && (
+                            <View style={[s.seqTimelineRow, { marginBottom: 0 }]}>
+                              <View style={[s.seqDot, { backgroundColor: "#6366f1" }]} />
+                              <View style={[s.seqConnector, { borderColor: "transparent" }]} />
+                              <View style={{ flex: 1 }}>
+                                <Text style={[s.seqEventLabel, { color: colors.mutedForeground }]}>Ready to serve</Text>
+                                <Text style={[s.seqEventTime, { color: colors.foreground }]}>
+                                  {fmtTime(new Date(new Date(item.estimatedFinishAt).getTime() + item.restMinutes * 60000))}
+                                </Text>
+                              </View>
+                            </View>
+                          )}
+                        </View>
+                        {item.notes ? (
+                          <View style={[s.seqNoteBox, { backgroundColor: colors.border + "44" }]}>
+                            <Feather name="info" size={12} color={colors.mutedForeground} />
+                            <Text style={[s.seqNoteText, { color: colors.mutedForeground }]}>{item.notes}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    ))}
+                    <View style={{ height: 24 }} />
+                  </ScrollView>
+                </>
+              );
+            })()}
           </View>
         </View>
       </Modal>
@@ -1080,5 +1190,61 @@ const s = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     flex: 1,
     lineHeight: 17,
+  },
+
+  seqEditTimesBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  seqEditTimesBtnText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
+  seqOffsetRow: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 10,
+    marginBottom: 8,
+  },
+  seqOffsetLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  seqOffsetControls: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  seqOffsetBtn: {
+    flex: 1,
+    height: 36,
+    borderWidth: 1,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  seqOffsetBtnText: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+  },
+  seqOffsetValue: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  seqSaveBtn: {
+    height: 42,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  seqSaveBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
   },
 });
