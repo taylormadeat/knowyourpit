@@ -152,6 +152,48 @@ function fmtElapsed(ms: number): string {
   return `${mins}m`;
 }
 
+function fmtCookDuration(mins: number | null | undefined): string {
+  if (!mins || mins <= 0) return "";
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+// Pull this cook's specific plan steps from its sequenceData.
+// Each cook in a multi-cook session stores the full multi-cook schedule;
+// we match by foodType, breaking ties with the closest meatOnAt timestamp.
+function getItemPlan(cook: any): {
+  grillLightAt?: string;
+  meatOnAt?: string;
+  estimatedFinishAt?: string;
+  estimatedDurationMinutes?: number;
+  preheatMinutes?: number;
+  restMinutes?: number;
+} | null {
+  const seqData = cook?.sequenceData as { schedule?: any[] } | null | undefined;
+  if (!seqData?.schedule?.length) return null;
+  const cookFoodType = (cook.foodType ?? "").toLowerCase().trim();
+  const cookMeatOnMs = cook.plannedStartAt ? new Date(cook.plannedStartAt).getTime() : null;
+
+  let best: any = null;
+  let bestDelta = Infinity;
+  for (const item of seqData.schedule) {
+    if ((item.foodType ?? "").toLowerCase().trim() !== cookFoodType) continue;
+    if (cookMeatOnMs === null) { best = item; break; }
+    const itemMs = item.meatOnAt ? new Date(item.meatOnAt).getTime() : null;
+    if (itemMs === null) continue;
+    const delta = Math.abs(itemMs - cookMeatOnMs);
+    if (delta < bestDelta) { bestDelta = delta; best = item; }
+  }
+  if (!best) {
+    best = seqData.schedule.find(
+      (item: any) => (item.foodType ?? "").toLowerCase().trim() === cookFoodType,
+    ) ?? null;
+  }
+  return best;
+}
+
 export default function SessionDetailScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -174,6 +216,16 @@ export default function SessionDetailScreen() {
   const [editVisible, setEditVisible] = useState(false);
   const [draftLabel, setDraftLabel] = useState("");
   const [draftNotes, setDraftNotes] = useState("");
+  const [expandedCookIds, setExpandedCookIds] = useState<Set<number>>(new Set());
+
+  const toggleExpanded = useCallback((cookId: number) => {
+    setExpandedCookIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(cookId)) next.delete(cookId);
+      else next.add(cookId);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (editVisible) {
@@ -363,7 +415,7 @@ export default function SessionDetailScreen() {
 
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8, marginBottom: 0 }}>
             <Text style={[s.sectionTitle, { color: colors.mutedForeground, marginTop: 0 }]}>
-              TIMELINE
+              TIMELINE · TAP AN ITEM FOR ITS PLAN
             </Text>
             <Text style={{ fontSize: 11, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginBottom: 2 }}>
               Long-press to remove
@@ -379,6 +431,8 @@ export default function SessionDetailScreen() {
                 ? Date.now() - new Date(cook.actualStartAt).getTime()
                 : null;
               const isLast = idx === (cooks ?? []).length - 1;
+              const isExpanded = expandedCookIds.has(cook.id);
+              const itemPlan = getItemPlan(cook);
 
               return (
                 <Pressable
@@ -388,7 +442,7 @@ export default function SessionDetailScreen() {
                     !isLast && { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth },
                     pressed && { opacity: 0.75 },
                   ]}
-                  onPress={() => router.push(`/cooks/${cook.id}` as any)}
+                  onPress={() => toggleExpanded(cook.id)}
                   onLongPress={() => handleRemoveCook(cook)}
                   delayLongPress={400}
                 >
@@ -488,9 +542,89 @@ export default function SessionDetailScreen() {
                             {cook.status}
                           </Text>
                         </View>
-                        <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
+                        <Feather
+                          name={isExpanded ? "chevron-up" : "chevron-down"}
+                          size={16}
+                          color={colors.mutedForeground}
+                        />
                       </View>
                     </View>
+
+                    {isExpanded && (
+                      <View style={[s.itemPlan, { borderTopColor: colors.border }]}>
+                        {itemPlan ? (
+                          <>
+                            <Text style={[s.itemPlanTitle, { color: colors.mutedForeground }]}>
+                              PLAN FOR THIS ITEM
+                            </Text>
+                            {itemPlan.grillLightAt && (
+                              <View style={s.planStep}>
+                                <View style={[s.planDot, { backgroundColor: "#f59e0b" }]} />
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[s.planLabel, { color: colors.foreground }]}>Light grill</Text>
+                                  <Text style={[s.planTime, { color: colors.mutedForeground }]}>
+                                    {fmtTime(new Date(itemPlan.grillLightAt))}
+                                    {itemPlan.preheatMinutes ? ` · ${itemPlan.preheatMinutes}min preheat` : ""}
+                                  </Text>
+                                </View>
+                              </View>
+                            )}
+                            {itemPlan.meatOnAt && (
+                              <View style={s.planStep}>
+                                <View style={[s.planDot, { backgroundColor: "#EB6C2B" }]} />
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[s.planLabel, { color: colors.foreground }]}>Meat on</Text>
+                                  <Text style={[s.planTime, { color: colors.mutedForeground }]}>
+                                    {fmtTime(new Date(itemPlan.meatOnAt))}
+                                    {itemPlan.estimatedDurationMinutes ? ` · ${fmtCookDuration(itemPlan.estimatedDurationMinutes)} cook` : ""}
+                                  </Text>
+                                </View>
+                              </View>
+                            )}
+                            {itemPlan.estimatedFinishAt && (
+                              <View style={s.planStep}>
+                                <View style={[s.planDot, { backgroundColor: "#22c55e" }]} />
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[s.planLabel, { color: colors.foreground }]}>Pull off</Text>
+                                  <Text style={[s.planTime, { color: colors.mutedForeground }]}>
+                                    {fmtTime(new Date(itemPlan.estimatedFinishAt))}
+                                    {itemPlan.restMinutes ? ` · ${itemPlan.restMinutes}min rest` : ""}
+                                  </Text>
+                                </View>
+                              </View>
+                            )}
+                            {itemPlan.estimatedFinishAt && itemPlan.restMinutes && itemPlan.restMinutes > 0 && (
+                              <View style={s.planStep}>
+                                <View style={[s.planDot, { backgroundColor: "#6366f1" }]} />
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[s.planLabel, { color: colors.foreground }]}>Ready to serve</Text>
+                                  <Text style={[s.planTime, { color: colors.mutedForeground }]}>
+                                    {fmtTime(new Date(new Date(itemPlan.estimatedFinishAt).getTime() + itemPlan.restMinutes * 60000))}
+                                  </Text>
+                                </View>
+                              </View>
+                            )}
+                          </>
+                        ) : (
+                          <Text style={[s.itemPlanEmpty, { color: colors.mutedForeground }]}>
+                            No detailed plan saved for this item.
+                          </Text>
+                        )}
+
+                        <Pressable
+                          onPress={() => router.push(`/cooks/${cook.id}` as any)}
+                          style={({ pressed }) => [
+                            s.openDetailBtn,
+                            { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                          ]}
+                        >
+                          <Feather name="external-link" size={13} color={colors.foreground} />
+                          <Text style={[s.openDetailText, { color: colors.foreground }]}>
+                            Open full cook details
+                          </Text>
+                        </Pressable>
+                      </View>
+                    )}
                   </View>
                 </Pressable>
               );
@@ -778,6 +912,58 @@ const s = StyleSheet.create({
   ratingStars: {
     fontSize: 10,
     color: "#eab308",
+  },
+  itemPlan: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+  },
+  itemPlanTitle: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  itemPlanEmpty: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    fontStyle: "italic",
+  },
+  planStep: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    paddingVertical: 2,
+  },
+  planDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 5,
+  },
+  planLabel: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  planTime: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 1,
+  },
+  openDetailBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    paddingVertical: 9,
+    marginTop: 6,
+  },
+  openDetailText: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
   },
   badge: {
     paddingHorizontal: 7,
