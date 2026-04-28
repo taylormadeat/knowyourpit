@@ -22,7 +22,6 @@ export type PaywallReason =
   | "cook_limit_reached"
   | "active_cook_limit_reached"
   | "planned_cook_limit_reached"
-  | "graded_cook_limit_reached"
   | "ai_message_limit_reached"
   | "ai_analyze_limit_reached"
   | "pro_required";
@@ -320,25 +319,6 @@ export async function countPlannedCooksForUser(userId: string, excludeCookId?: n
   const conditions = [
     eq(cooksTable.userId, userId),
     eq(cooksTable.status, "planned"),
-    ...(excludeCookId != null ? [ne(cooksTable.id, excludeCookId)] : []),
-  ];
-  const [row] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(cooksTable)
-    .where(and(...conditions));
-  return row?.c ?? 0;
-}
-
-/**
- * Cooks with a saved AI analysis verdict (graded cooks) for this user.
- * Pass `excludeCookId` to exclude a specific cook from the count — used when
- * checking whether a PATCH to an already-graded cook should be allowed
- * (re-grading the same cook is fine; adding a second graded cook is not).
- */
-export async function countGradedCooksForUser(userId: string, excludeCookId?: number): Promise<number> {
-  const conditions = [
-    eq(cooksTable.userId, userId),
-    sql`${cooksTable.analysisResult}->'assessment'->>'verdict' IS NOT NULL`,
     ...(excludeCookId != null ? [ne(cooksTable.id, excludeCookId)] : []),
   ];
   const [row] = await db

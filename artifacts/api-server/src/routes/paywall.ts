@@ -7,7 +7,6 @@ import {
   countCooksForUser,
   countActiveCooksForUser,
   countPlannedCooksForUser,
-  countGradedCooksForUser,
   countAiChatMessagesToday,
   countAiAnalyzesToday,
   isPaywallEnabled,
@@ -20,11 +19,10 @@ const router: IRouter = Router();
 
 // GET /api/paywall/usage — returns free-tier counters + kill-switch state.
 router.get("/paywall/usage", requireAuth, async (req: any, res): Promise<void> => {
-  const [cooks, activeCooks, plannedCooks, gradedCooks, aiMessagesToday, aiAnalyzesToday] = await Promise.all([
+  const [cooks, activeCooks, plannedCooks, aiMessagesToday, aiAnalyzesToday] = await Promise.all([
     countCooksForUser(req.userId),
     countActiveCooksForUser(req.userId),
     countPlannedCooksForUser(req.userId),
-    countGradedCooksForUser(req.userId),
     countAiChatMessagesToday(req.userId),
     countAiAnalyzesToday(req.userId),
   ]);
@@ -45,7 +43,6 @@ router.get("/paywall/usage", requireAuth, async (req: any, res): Promise<void> =
       cooks,
       activeCooks,
       plannedCooks,
-      gradedCooks,
       aiMessagesToday,
       aiAnalyzesToday,
     },
@@ -53,7 +50,6 @@ router.get("/paywall/usage", requireAuth, async (req: any, res): Promise<void> =
       cooks: Math.max(0, FREE_COOK_LIMIT - cooks),
       activeCooks: Math.max(0, 1 - activeCooks),
       plannedCooks: Math.max(0, 1 - plannedCooks),
-      gradedCooks: Math.max(0, 1 - gradedCooks),
       aiMessagesToday: Math.max(0, FREE_AI_CHAT_DAILY_LIMIT - aiMessagesToday),
       aiAnalyzesToday: Math.max(0, FREE_AI_ANALYZE_DAILY_LIMIT - aiAnalyzesToday),
     },

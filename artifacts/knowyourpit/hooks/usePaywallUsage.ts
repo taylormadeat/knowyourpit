@@ -19,7 +19,6 @@ export interface PaywallUsage {
     cooks: number;
     activeCooks: number;
     plannedCooks: number;
-    gradedCooks: number;
     aiMessagesToday: number;
     aiAnalyzesToday: number;
   };
@@ -27,7 +26,6 @@ export interface PaywallUsage {
     cooks: number;
     activeCooks: number;
     plannedCooks: number;
-    gradedCooks: number;
     aiMessagesToday: number;
     aiAnalyzesToday: number;
   };

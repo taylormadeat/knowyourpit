@@ -82,7 +82,6 @@ export type PaywallTrigger =
   | "cook_limit_reached"
   | "active_cook_limit_reached"
   | "planned_cook_limit_reached"
-  | "graded_cook_limit_reached"
   | "ai_message_limit_reached"
   | "ai_analyze_limit_reached"
   | "pro_required";
@@ -115,8 +114,6 @@ function triggerHeadline(trigger: PaywallTrigger | null | undefined, featureName
       return "You already have an active cook";
     case "planned_cook_limit_reached":
       return "You already have a planned cook";
-    case "graded_cook_limit_reached":
-      return "You've used your free PitMaster cook grade";
     case "ai_message_limit_reached":
       return "You've used your free AI chats today";
     case "ai_analyze_limit_reached":
@@ -136,8 +133,6 @@ function defaultSubtitle(trigger: PaywallTrigger | null | undefined): string {
       return "Free plan only allows one active cook at a time.";
     case "planned_cook_limit_reached":
       return "Free plan only allows one planned cook at a time.";
-    case "graded_cook_limit_reached":
-      return "Free plan includes one PitMaster-graded cook. Upgrade for unlimited.";
     case "ai_message_limit_reached":
       return "Free plan includes 5 AI chats per day. Upgrade for unlimited.";
     case "ai_analyze_limit_reached":
