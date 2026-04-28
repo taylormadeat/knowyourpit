@@ -110,11 +110,13 @@ router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
   }
 
   const analysisResult = req.body.analysisResult ?? null;
+  const sequenceData = req.body.sequenceData ?? null;
   const [cook] = await db.insert(cooksTable).values({
     ...parsed.data,
     userId: req.userId,
     status: parsed.data.status ?? "planned",
     ...(analysisResult !== null ? { analysisResult } : {}),
+    ...(sequenceData !== null ? { sequenceData } : {}),
   }).returning();
   if (cook.grillId) {
     await db.update(grillsTable).set({ totalCooks: (await db.select({ tc: grillsTable.totalCooks }).from(grillsTable).where(eq(grillsTable.id, cook.grillId)))[0]?.tc + 1 || 1 }).where(eq(grillsTable.id, cook.grillId));

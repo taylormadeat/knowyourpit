@@ -92,12 +92,30 @@ function fmtDate(d: Date): string {
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
+interface SequenceItem {
+  foodType: string;
+  estimatedDurationMinutes: number;
+  preheatMinutes: number;
+  restMinutes: number;
+  grillLightAt: string;
+  meatOnAt: string;
+  estimatedFinishAt: string;
+  notes?: string | null;
+}
+
+interface SequenceData {
+  schedule: SequenceItem[];
+  serveAt: string;
+  summary?: string | null;
+}
+
 interface SessionGroup {
   sessionId: string;
   cooks: any[];
   earliestStart: Date | null;
   sessionLabel: string | null;
   sessionNotes: string | null;
+  sequenceData: SequenceData | null;
 }
 
 export default function CooksScreen() {
@@ -110,6 +128,7 @@ export default function CooksScreen() {
   const [editingSession, setEditingSession] = useState<SessionGroup | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  const [viewingSequence, setViewingSequence] = useState<{ group: SessionGroup; data: SequenceData } | null>(null);
   const { data: cooks, isLoading, refetch } = useListCooks();
   const updateSession = useUpdateSession();
 
@@ -176,7 +195,9 @@ export default function CooksScreen() {
       const first = sorted[0] || sessionCooks[0];
       const sessionLabel = first?.sessionLabel ?? null;
       const sessionNotes = first?.sessionNotes ?? null;
-      return { sessionId, cooks: sorted, earliestStart, sessionLabel, sessionNotes };
+      const sequenceData: SequenceData | null =
+        sessionCooks.find((c) => c.sequenceData != null)?.sequenceData ?? null;
+      return { sessionId, cooks: sorted, earliestStart, sessionLabel, sessionNotes, sequenceData };
     });
     groups.sort((a, b) => {
       if (!a.earliestStart && !b.earliestStart) return 0;
@@ -438,6 +459,15 @@ export default function CooksScreen() {
                 ))}
               </View>
             )}
+            {group.sequenceData && (
+              <Pressable
+                onPress={(e) => { e.stopPropagation(); setViewingSequence({ group, data: group.sequenceData! }); }}
+                style={[s.seqPlanBtn, { backgroundColor: "#4f46e515", borderColor: "#6C3BF540" }]}
+              >
+                <Feather name="list" size={12} color="#6C3BF5" />
+                <Text style={[s.seqPlanBtnText, { color: "#6C3BF5" }]}>View Sequence Plan</Text>
+              </Pressable>
+            )}
           </View>
           <View style={{ alignItems: "center", gap: 8 }}>
             <Pressable
@@ -545,6 +575,121 @@ export default function CooksScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={viewingSequence !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setViewingSequence(null)}
+      >
+        <View style={s.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setViewingSequence(null)}
+          />
+          <View style={[s.seqSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={s.seqSheetHandle} />
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <Text style={[s.modalTitle, { color: colors.foreground }]}>
+                {viewingSequence?.group.sessionLabel || "Sequence Plan"}
+              </Text>
+              <Pressable hitSlop={8} onPress={() => setViewingSequence(null)}>
+                <Feather name="x" size={20} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+            {viewingSequence?.data.serveAt ? (
+              <Text style={[s.seqServeAt, { color: colors.primary }]}>
+                Serve at {fmtTime(new Date(viewingSequence.data.serveAt))} · {fmtDate(new Date(viewingSequence.data.serveAt))}
+              </Text>
+            ) : null}
+            {viewingSequence?.data.summary ? (
+              <Text style={[s.seqSummary, { color: colors.mutedForeground }]}>
+                {viewingSequence.data.summary}
+              </Text>
+            ) : null}
+            <ScrollView style={{ marginTop: 12 }} showsVerticalScrollIndicator={false}>
+              {viewingSequence?.data.schedule.map((item, idx) => (
+                <View
+                  key={idx}
+                  style={[s.seqItem, { borderColor: colors.border, backgroundColor: colors.background }]}
+                >
+                  <View style={s.seqItemHeader}>
+                    <LinearGradient colors={["#4f46e5", "#6C3BF5"]} style={s.seqItemIcon}>
+                      <Feather name="layers" size={14} color="#fff" />
+                    </LinearGradient>
+                    <Text style={[s.seqItemTitle, { color: colors.foreground }]}>{item.foodType}</Text>
+                  </View>
+                  <View style={s.seqTimeline}>
+                    <View style={s.seqTimelineRow}>
+                      <View style={[s.seqDot, { backgroundColor: "#f59e0b" }]} />
+                      <View style={s.seqConnector} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[s.seqEventLabel, { color: colors.mutedForeground }]}>Light grill</Text>
+                        <Text style={[s.seqEventTime, { color: colors.foreground }]}>
+                          {fmtTime(new Date(item.grillLightAt))}
+                          <Text style={[s.seqEventMeta, { color: colors.mutedForeground }]}>
+                            {" "}· {item.preheatMinutes}min preheat
+                          </Text>
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={s.seqTimelineRow}>
+                      <View style={[s.seqDot, { backgroundColor: "#EB6C2B" }]} />
+                      <View style={s.seqConnector} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[s.seqEventLabel, { color: colors.mutedForeground }]}>Meat on</Text>
+                        <Text style={[s.seqEventTime, { color: colors.foreground }]}>
+                          {fmtTime(new Date(item.meatOnAt))}
+                          <Text style={[s.seqEventMeta, { color: colors.mutedForeground }]}>
+                            {" "}· {item.estimatedDurationMinutes >= 60
+                              ? `${Math.floor(item.estimatedDurationMinutes / 60)}h ${item.estimatedDurationMinutes % 60 > 0 ? `${item.estimatedDurationMinutes % 60}m` : ""}`.trim()
+                              : `${item.estimatedDurationMinutes}m`} cook
+                          </Text>
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={s.seqTimelineRow}>
+                      <View style={[s.seqDot, { backgroundColor: "#22c55e" }]} />
+                      {item.restMinutes > 0 ? <View style={s.seqConnector} /> : <View style={[s.seqConnector, { borderColor: "transparent" }]} />}
+                      <View style={{ flex: 1 }}>
+                        <Text style={[s.seqEventLabel, { color: colors.mutedForeground }]}>Pull off</Text>
+                        <Text style={[s.seqEventTime, { color: colors.foreground }]}>
+                          {fmtTime(new Date(item.estimatedFinishAt))}
+                          {item.restMinutes > 0 && (
+                            <Text style={[s.seqEventMeta, { color: colors.mutedForeground }]}>
+                              {" "}· {item.restMinutes}min rest
+                            </Text>
+                          )}
+                        </Text>
+                      </View>
+                    </View>
+                    {item.restMinutes > 0 && (
+                      <View style={[s.seqTimelineRow, { marginBottom: 0 }]}>
+                        <View style={[s.seqDot, { backgroundColor: "#6366f1" }]} />
+                        <View style={[s.seqConnector, { borderColor: "transparent" }]} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={[s.seqEventLabel, { color: colors.mutedForeground }]}>Ready to serve</Text>
+                          <Text style={[s.seqEventTime, { color: colors.foreground }]}>
+                            {fmtTime(new Date(new Date(item.estimatedFinishAt).getTime() + item.restMinutes * 60000))}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                  {item.notes ? (
+                    <View style={[s.seqNoteBox, { backgroundColor: colors.border + "44" }]}>
+                      <Feather name="info" size={12} color={colors.mutedForeground} />
+                      <Text style={[s.seqNoteText, { color: colors.mutedForeground }]}>{item.notes}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ))}
+              <View style={{ height: 24 }} />
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
 
       <View style={[s.controls, { borderBottomColor: colors.border }]}>
@@ -818,4 +963,122 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   modalBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+
+  seqPlanBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderRadius: 7,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    marginTop: 6,
+  },
+  seqPlanBtnText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+
+  seqSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 36,
+    maxHeight: "88%",
+  },
+  seqSheetHandle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: "#52525B",
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  seqServeAt: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    marginBottom: 2,
+  },
+  seqSummary: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 17,
+    marginBottom: 4,
+  },
+  seqItem: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+  },
+  seqItemHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
+  seqItemIcon: {
+    width: 28, height: 28, borderRadius: 7,
+    alignItems: "center", justifyContent: "center",
+  },
+  seqItemTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+  },
+  seqTimeline: {
+    paddingLeft: 4,
+    gap: 0,
+  },
+  seqTimelineRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    marginBottom: 8,
+  },
+  seqDot: {
+    width: 10, height: 10, borderRadius: 5,
+    marginTop: 4,
+    flexShrink: 0,
+  },
+  seqConnector: {
+    width: 1,
+    backgroundColor: "transparent",
+    borderLeftWidth: 1,
+    borderColor: "#3f3f46",
+    borderStyle: "dashed",
+    position: "absolute",
+    left: 8,
+    top: 14,
+    bottom: -8,
+  },
+  seqEventLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 1,
+  },
+  seqEventTime: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+  },
+  seqEventMeta: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+  },
+  seqNoteBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 8,
+  },
+  seqNoteText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    flex: 1,
+    lineHeight: 17,
+  },
 });

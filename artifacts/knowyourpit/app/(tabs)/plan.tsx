@@ -745,6 +745,11 @@ export default function PlanScreen() {
             plannedStartAt: new Date(item.meatOnAt),
             sessionId,
             notes: `Multi-cook session · Serve at ${new Date(multiResult.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${item.notes ? `\n${item.notes}` : ""}`,
+            sequenceData: {
+              schedule: multiResult.schedule,
+              serveAt: multiResult.serveAt,
+              summary: (multiResult as any).summary ?? null,
+            },
           } as any,
         });
       }
