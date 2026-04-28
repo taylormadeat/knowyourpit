@@ -8,7 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "image": "macos-sequoia-15.6-xcode-16.4",
+        "image": "macos-sequoia-15.6-xcode-26.2",
         "simulator": true,
         "resourceClass": "m-medium"
       },
@@ -21,7 +21,7 @@
       "distribution": "internal",
       "credentialsSource": "remote",
       "ios": {
-        "image": "macos-sequoia-15.6-xcode-16.4",
+        "image": "macos-sequoia-15.6-xcode-26.2",
         "simulator": false,
         "resourceClass": "m-medium"
       },
@@ -33,7 +33,7 @@
       "distribution": "internal",
       "credentialsSource": "remote",
       "ios": {
-        "image": "macos-sequoia-15.6-xcode-16.4",
+        "image": "macos-sequoia-15.6-xcode-26.2",
         "simulator": false,
         "resourceClass": "m-medium"
       },
