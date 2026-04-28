@@ -408,11 +408,10 @@ export default function LogCookScreen() {
       Alert.alert("Add something", "Pick at least one thermometer photo, or describe the cook in the notes.");
       return;
     }
-    // Free-tier pre-check: only one graded cook allowed.
-    if (paywallUsage && !paywallUsage.unlimited && paywallUsage.usage.gradedCooks >= 1) {
-      showPaywall({ trigger: "graded_cook_limit_reached" });
-      return;
-    }
+    // No client-side lifetime gradedCooks gate. Manual analyze is bounded only
+    // by the server-enforced daily AI scan cap (3/day for free users); on 402
+    // responses, parseAndShowFromError surfaces the ai_analyze_limit_reached
+    // paywall modal in the catch block below.
     setAnalyzing(true);
     setResult(null);
     try {
@@ -508,38 +507,33 @@ export default function LogCookScreen() {
         targetTempF.trim().length > 0 ||
         cookTempF.trim().length > 0;
       if (!result && hasGradeableData) {
-        // Free-tier pre-check: if the user has already used their grade slot,
-        // skip the network round-trip but STILL surface the existing paywall
-        // modal so the user knows why this cook saved ungraded. The save
-        // itself is never blocked — the modal is informational.
-        const overFreeCap =
-          paywallUsage && !paywallUsage.unlimited && paywallUsage.usage.gradedCooks >= 1;
-        if (overFreeCap) {
-          showPaywall({ trigger: "graded_cook_limit_reached" });
-        } else {
-          setAutoGrading(true);
-          try {
-            const contextPayload: any = {};
-            if (foodType.trim()) contextPayload.foodType = foodType.trim();
-            if (targetTempF.trim()) contextPayload.targetTempF = parseFloat(targetTempF);
-            if (cookTempF.trim()) contextPayload.cookTempF = parseFloat(cookTempF);
-            if (weightLbs.trim()) contextPayload.weightLbs = parseFloat(weightLbs);
-            const aiNotes = scanNotes.trim() || cookNotes.trim() || null;
-            autoResult = await analyzeMutation.mutateAsync({
-              data: {
-                images: images.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),
-                cookNotes: aiNotes,
-                cookContext: Object.keys(contextPayload).length > 0 ? contextPayload : undefined,
-              } as any,
-            });
-          } catch (err) {
-            // 402 → existing paywall modal. Anything else (network, AI error,
-            // missing data) is swallowed silently so the save proceeds.
-            parseAndShowFromError(err);
-            autoResult = null;
-          } finally {
-            setAutoGrading(false);
-          }
+        // No client-side lifetime gradedCooks gate. Run the analyze pass
+        // unconditionally; the server enforces the daily 3/day AI scan cap
+        // and returns 402 if exceeded, which parseAndShowFromError surfaces
+        // as the ai_analyze_limit_reached paywall. Other errors (network,
+        // missing data) are swallowed so the save proceeds ungraded.
+        setAutoGrading(true);
+        try {
+          const contextPayload: any = {};
+          if (foodType.trim()) contextPayload.foodType = foodType.trim();
+          if (targetTempF.trim()) contextPayload.targetTempF = parseFloat(targetTempF);
+          if (cookTempF.trim()) contextPayload.cookTempF = parseFloat(cookTempF);
+          if (weightLbs.trim()) contextPayload.weightLbs = parseFloat(weightLbs);
+          const aiNotes = scanNotes.trim() || cookNotes.trim() || null;
+          autoResult = await analyzeMutation.mutateAsync({
+            data: {
+              images: images.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),
+              cookNotes: aiNotes,
+              cookContext: Object.keys(contextPayload).length > 0 ? contextPayload : undefined,
+            } as any,
+          });
+        } catch (err) {
+          // 402 → existing paywall modal. Anything else (network, AI error,
+          // missing data) is swallowed silently so the save proceeds.
+          parseAndShowFromError(err);
+          autoResult = null;
+        } finally {
+          setAutoGrading(false);
         }
       }
 

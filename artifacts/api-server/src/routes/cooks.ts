@@ -19,7 +19,6 @@ import {
   countCooksForUser,
   countActiveCooksForUser,
   countPlannedCooksForUser,
-  countGradedCooksForUser,
   startOfNextUtcDay,
   userBypassesPaywall,
 } from "../lib/paywall";
@@ -95,18 +94,9 @@ router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
         return;
       }
     }
-    // 3. Graded cook cap (POST with an analysisResult that has a verdict)
-    const incomingVerdict = req.body?.analysisResult?.assessment?.verdict;
-    if (incomingVerdict != null) {
-      const gradedCount = await countGradedCooksForUser(req.userId);
-      if (gradedCount >= 1) {
-        respondPaywall(res, {
-          code: "graded_cook_limit_reached",
-          message: "Free plan includes one AI-graded cook. Upgrade for unlimited.",
-        });
-        return;
-      }
-    }
+    // No lifetime gradedCooks gate. Manual analyze is bounded only by the
+    // daily AI scan cap enforced on the /analyze endpoint (3/day for free).
+    // Live auto-grading every 30 minutes is a Pro feature gated client-side.
   }
 
   const analysisResult = req.body.analysisResult ?? null;
@@ -185,18 +175,9 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
         return;
       }
     }
-    const patchVerdict = req.body?.analysisResult?.assessment?.verdict;
-    if (patchVerdict != null) {
-      // Exclude the current cook so re-grading the same cook is always allowed.
-      const gradedCount = await countGradedCooksForUser(req.userId, params.data.id);
-      if (gradedCount >= 1) {
-        respondPaywall(res, {
-          code: "graded_cook_limit_reached",
-          message: "Free plan includes one AI-graded cook. Upgrade for unlimited.",
-        });
-        return;
-      }
-    }
+    // No lifetime gradedCooks gate on PATCH either. The /analyze endpoint
+    // enforces the 3/day AI scan cap; once analyze succeeds, persisting the
+    // resulting verdict on the cook record is always allowed.
   }
 
   const updateData: Record<string, unknown> = {};

@@ -101,9 +101,9 @@ const FEATURES = [
   { icon: "zap", title: "Unlimited cooks", desc: "Log every brisket, butt, and rib without hitting a cap." },
   { icon: "message-circle", title: "Unlimited AI Pitmaster", desc: "Chat as much as you want — no daily message limits." },
   { icon: "image", title: "Unlimited cook scans", desc: "Analyze every thermometer photo with no daily quota." },
+  { icon: "activity", title: "Live auto-grading with MEATER & ThermoWorks", desc: "PitMaster checks in every 30 minutes using live probe temps from your wireless thermometer." },
   { icon: "layers", title: "Multi-Cook Sequencer", desc: "Plan brisket + ribs + sides on one timeline." },
-  { icon: "bluetooth", title: "MEATER & ThermoWorks", desc: "Live probe data linked to every cook." },
-  { icon: "trending-up", title: "PitMaster Score & Insights", desc: "AI-powered home insights on what to improve." },
+  { icon: "calendar", title: "Multiple active & planned cooks", desc: "Run more than one cook at a time and queue up future cooks." },
   { icon: "bar-chart-2", title: "Cook Quality Analytics", desc: "See your tenderness, bark, and flavor trends over time." },
 ];
 

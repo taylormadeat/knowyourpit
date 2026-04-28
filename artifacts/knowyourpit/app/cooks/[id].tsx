@@ -962,22 +962,13 @@ export default function CookDetailScreen() {
       }
       return;
     }
-    // Free-tier pre-check: only one graded cook allowed.
-    // Skip only if this exact cook already has a stored verdict — re-grading the
-    // same cook is allowed (mirrors the server's excludeCookId exclusion logic).
-    const currentCookHasVerdict = !!(cook as any)?.analysisResult?.assessment?.verdict;
-    if (!currentCookHasVerdict && paywallUsage && !paywallUsage.unlimited) {
-      if (paywallUsage.usage.gradedCooks >= 1) {
-        if (auto) {
-          // Quietly pause auto-grading. The on-screen banner explains the
-          // state and offers an upgrade path; we never show the modal here.
-          setAutoGradePaused(true);
-          return;
-        }
-        showPaywall({ trigger: "graded_cook_limit_reached" });
-        return;
-      }
-    }
+    // No client-side lifetime gradedCooks gate. Manual analyze is bounded only
+    // by the server-enforced daily AI scan cap (3/day for free users). On 402
+    // responses, the existing parseAndShowFromError path surfaces the
+    // ai_analyze_limit_reached paywall modal.
+    // Auto-grade ticks are gated upstream: the 30-min timer cannot fire for
+    // free users because autoGradePaused starts true and the paywallUsage
+    // sync effect only opens it for Pro accounts.
     if (!auto) {
       setAnalyzing(true);
       setResult(null);
@@ -1190,9 +1181,13 @@ export default function CookDetailScreen() {
     };
   }, [cookStatus, autoGradePaused, appActive, isFocused, lastAnalyzedAtMs, AUTO_GRADE_INTERVAL_MS]);
 
-  // Open paywall from the auto-grade banner upgrade tap.
+  // Open paywall from the auto-grade banner upgrade tap. Use the
+  // pro_required trigger with a feature name so the modal headline reads
+  // "Live auto-grading is a Pro feature" — accurate framing, since this
+  // banner is about the every-30-minute live grade being Pro-only, not
+  // about hitting a lifetime cap.
   const onUpgradeAutoGradePress = useCallback(() => {
-    showPaywall({ trigger: "graded_cook_limit_reached" });
+    showPaywall({ trigger: "pro_required", featureName: "Live auto-grading" });
   }, [showPaywall]);
 
   if (isLoading) {
@@ -2402,21 +2397,6 @@ export default function CookDetailScreen() {
               >
                 {paywallUsage.remaining.aiAnalyzesToday} of {paywallUsage.limits.aiAnalyzePerDay} free
                 analyses left today
-              </Text>
-            )}
-            {/* Free-tier graded-cook slot badge. Hidden for Pro. */}
-            {paywallUsage && !paywallUsage.unlimited && paywallUsage.usage.gradedCooks === 0 && (
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontFamily: "Inter_500Medium",
-                  color: colors.primary,
-                  textAlign: "center",
-                  marginTop: 4,
-                  marginBottom: -2,
-                }}
-              >
-                1 AI grade remaining
               </Text>
             )}
             {/* Auto-grade paused banner — shown for all free (non-Pro) users
