@@ -424,6 +424,7 @@ export default function HomeScreen() {
             ) : (() => {
               const grade = letterGrade(insights.pitMasterScore);
               const color = scoreColor(insights.pitMasterScore);
+              const hasCooks = (insights.scoreBreakdown?.cookCount ?? 0) > 0;
               return (
                 <>
                   <Pressable
@@ -440,12 +441,14 @@ export default function HomeScreen() {
                       style={[s.gradeCard, { borderColor: color + "55", borderRadius: colors.radius }]}
                     >
                       <View style={s.gradeCardRow}>
-                        {/* Grade circle */}
-                        <View style={s.gradeLeft}>
-                          <View style={[s.gradeBubble, { borderColor: color, backgroundColor: color + "18" }]}>
-                            <Text style={[s.gradeLetter, { color }]}>{grade}</Text>
+                        {/* Grade circle — only shown once the user has completed at least one cook */}
+                        {hasCooks && (
+                          <View style={s.gradeLeft}>
+                            <View style={[s.gradeBubble, { borderColor: color, backgroundColor: color + "18" }]}>
+                              <Text style={[s.gradeLetter, { color }]}>{grade}</Text>
+                            </View>
                           </View>
-                        </View>
+                        )}
 
                         {/* Right column */}
                         <View style={s.gradeRight}>
