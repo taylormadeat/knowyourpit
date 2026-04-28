@@ -1785,7 +1785,7 @@ export default function CookDetailScreen() {
                                   const wrapLabel = item.wrapMethod === "foil" ? "Wrap in foil" : "Wrap in butcher paper";
                                   const wrapColor = "#A855F7";
                                   return (
-                                    <View style={[s.seqTlRow, isNextWrap && s.seqTlNextRow, isDoneWrap && !confirmedSteps[`${idx}_wrap`] && s.seqTlDoneRow]}>
+                                    <View onLayout={(e) => { rowYRef.current[`${idx}:wrap`] = e.nativeEvent.layout.y; }} style={[s.seqTlRow, isNextWrap && s.seqTlNextRow, isDoneWrap && !confirmedSteps[`${idx}_wrap`] && s.seqTlDoneRow]}>
                                       {isDoneWrap ? (
                                         <Pressable onPress={() => toggleConfirmedStep(`${idx}_wrap`)} hitSlop={8} style={s.seqTlDotBtn}>
                                           {confirmedSteps[`${idx}_wrap`]
