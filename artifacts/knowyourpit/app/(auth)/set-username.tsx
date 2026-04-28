@@ -164,7 +164,7 @@ export default function SetUsernameScreen() {
         <Image source={logoImg} style={styles.logo} resizeMode="contain" />
         <Text style={styles.title}>Choose your username</Text>
         <Text style={styles.subtitle}>
-          This is how PitMaster will know you. You can always change it later in your profile.
+          This is how PitMaster will know you. Pick something you'll want to keep — usernames must be unique.
         </Text>
 
         <Text style={styles.label}>Username</Text>

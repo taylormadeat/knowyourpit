@@ -206,7 +206,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(auth)/sign-in" />
         <Stack.Screen name="(auth)/sign-up" />
-        <Stack.Screen name="(auth)/set-username" />
+        <Stack.Screen name="(auth)/set-username" options={{ gestureEnabled: false }} />
         <Stack.Screen name="grills" />
         <Stack.Screen name="recipes" />
         <Stack.Screen name="tips" />
