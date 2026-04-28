@@ -1749,6 +1749,56 @@ export default function CookDetailScreen() {
                                     </Text>
                                   </View>
                                 </View>
+                                {(() => {
+                                  const wm = item.wrapMethod ?? null;
+                                  const wam = item.wrapAtMinutes ?? null;
+                                  if (!wm || wm === "none" || !wam || wam <= 0) return null;
+                                  const wrapMs = new Date(item.meatOnAt).getTime() + wam * 60000;
+                                  const isDoneWrap = cookStatus === "active" && wrapMs < nowMs;
+                                  const isNextWrap = nextStep?.itemIdx === idx && nextStep?.step === ("wrap" as any);
+                                  const wrapLabel = wm === "foil" ? "Wrap in foil" : "Wrap in butcher paper";
+                                  const wrapColor = "#A855F7";
+                                  return (
+                                    <View style={[s.seqTlRow, isNextWrap && s.seqTlNextRow, isDoneWrap && !confirmedSteps[`${idx}_wrap`] && s.seqTlDoneRow]}>
+                                      {isDoneWrap ? (
+                                        <Pressable onPress={() => toggleConfirmedStep(`${idx}_wrap`)} hitSlop={8} style={s.seqTlDotBtn}>
+                                          {confirmedSteps[`${idx}_wrap`]
+                                            ? <Feather name="check-circle" size={14} color={wrapColor} />
+                                            : <View style={[s.seqTlDot, { backgroundColor: colors.mutedForeground, opacity: 0.45 }]} />}
+                                        </Pressable>
+                                      ) : (
+                                        <View style={[s.seqTlDot, { backgroundColor: wrapColor }]} />
+                                      )}
+                                      <View style={s.seqTlConnector} />
+                                      <View style={{ flex: 1 }}>
+                                        <View style={s.seqTlLabelRow}>
+                                          <Text style={[s.seqTlLabel, { color: isNextWrap ? wrapColor : colors.mutedForeground }, isDoneWrap && s.seqTlDoneLabel]}>{wrapLabel}</Text>
+                                          {isNextWrap && (
+                                            <View style={[s.seqTlNextBadge, { backgroundColor: wrapColor + "25" }]}>
+                                              <Text style={[s.seqTlNextText, { color: wrapColor }]}>NEXT</Text>
+                                            </View>
+                                          )}
+                                        </View>
+                                        <Text style={[s.seqTlTime, { color: isDoneWrap ? colors.mutedForeground : colors.foreground, opacity: isDoneWrap ? 0.55 : 1 }]}>
+                                          {new Date(wrapMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                          {cookStatus === "active" && !isDoneWrap && (
+                                            <Text style={[s.seqTlMeta, { color: wrapColor }]}>
+                                              {" "}· {relCountdown(wrapMs, nowMs)}
+                                            </Text>
+                                          )}
+                                          {item.wrapTempF ? (
+                                            <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
+                                              {" "}· at {item.wrapTempF}°F internal
+                                            </Text>
+                                          ) : null}
+                                        </Text>
+                                        {item.wrapReason ? (
+                                          <Text style={[s.seqTlMeta, { color: colors.mutedForeground, marginTop: 2, lineHeight: 16 }]}>{item.wrapReason}</Text>
+                                        ) : null}
+                                      </View>
+                                    </View>
+                                  );
+                                })()}
                                 <View ref={isNextPullOff ? nextStepRowRef : undefined} style={[s.seqTlRow, { marginBottom: item.restMinutes > 0 ? 8 : 0 }, isNextPullOff && s.seqTlNextRow, isDonePullOff && !confirmedSteps[`${idx}_pullOff`] && s.seqTlDoneRow]}>
                                   {isDonePullOff ? (
                                     <Pressable onPress={() => toggleConfirmedStep(`${idx}_pullOff`)} hitSlop={8} style={s.seqTlDotBtn}>

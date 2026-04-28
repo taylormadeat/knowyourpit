@@ -170,6 +170,10 @@ function getItemPlan(cook: any): {
   estimatedDurationMinutes?: number;
   preheatMinutes?: number;
   restMinutes?: number;
+  wrapMethod?: string | null;
+  wrapAtMinutes?: number | null;
+  wrapTempF?: number | null;
+  wrapReason?: string | null;
 } | null {
   const seqData = cook?.sequenceData as { schedule?: any[] } | null | undefined;
   if (!seqData?.schedule?.length) return null;
@@ -578,6 +582,23 @@ export default function SessionDetailScreen() {
                                     {fmtTime(new Date(itemPlan.meatOnAt))}
                                     {itemPlan.estimatedDurationMinutes ? ` · ${fmtCookDuration(itemPlan.estimatedDurationMinutes)} cook` : ""}
                                   </Text>
+                                </View>
+                              </View>
+                            )}
+                            {itemPlan.wrapMethod && itemPlan.wrapMethod !== "none" && itemPlan.wrapAtMinutes && itemPlan.wrapAtMinutes > 0 && itemPlan.meatOnAt && (
+                              <View style={s.planStep}>
+                                <View style={[s.planDot, { backgroundColor: "#A855F7" }]} />
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[s.planLabel, { color: colors.foreground }]}>
+                                    {itemPlan.wrapMethod === "foil" ? "Wrap in foil" : "Wrap in butcher paper"}
+                                  </Text>
+                                  <Text style={[s.planTime, { color: colors.mutedForeground }]}>
+                                    {fmtTime(new Date(new Date(itemPlan.meatOnAt).getTime() + itemPlan.wrapAtMinutes * 60000))}
+                                    {itemPlan.wrapTempF ? ` · at ${itemPlan.wrapTempF}°F internal` : ""}
+                                  </Text>
+                                  {itemPlan.wrapReason ? (
+                                    <Text style={[s.planTime, { color: colors.mutedForeground, marginTop: 1 }]}>{itemPlan.wrapReason}</Text>
+                                  ) : null}
                                 </View>
                               </View>
                             )}

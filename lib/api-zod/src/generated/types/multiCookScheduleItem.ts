@@ -19,6 +19,14 @@ export interface MultiCookScheduleItem {
   meatOnAt: Date;
   /** When meat comes off the grill (before rest) */
   estimatedFinishAt: Date;
+  /** Wrap method for this item */
+  wrapMethod?: "foil" | "butcher_paper" | "none" | null;
+  /** Minutes from meatOnAt when to wrap (null if no wrap) */
+  wrapAtMinutes?: number | null;
+  /** Internal temperature in °F to trigger wrap (null if not applicable) */
+  wrapTempF?: number | null;
+  /** One sentence explaining the wrap strategy */
+  wrapReason?: string | null;
   /** One sentence of specific advice for this item */
   notes?: string;
 }

@@ -998,6 +998,22 @@ For each item, calculate working BACKWARDS from the serveAt time:
 
 All times must be ISO 8601 strings. All items finish resting at or just before serveAt.
 
+For each item, also determine wrap guidance:
+- wrapMethod: "foil" (Texas Crutch — faster, steams), "butcher_paper" (breathable, retains bark), or "none"
+- wrapAtMinutes: minutes from meatOnAt when to wrap (null if wrapMethod is "none")
+- wrapTempF: internal meat temperature to trigger wrap in °F (null if not applicable)
+- wrapReason: one sentence explaining the wrap strategy for this item
+
+Wrap guidance by cut:
+- Brisket (whole packer, flat): butcher_paper around the stall (~160-170°F internal, ~50-60% into cook)
+- Pork shoulder / butt: foil around the stall (~160-165°F internal, ~50-60% into cook)
+- Spare ribs / St. Louis: foil (3-2-1 method: 3h smoke, 2h foil, 1h unwrapped) or butcher_paper, wrap at 2-3h in
+- Baby back ribs: foil (2-2-1 method: 2h smoke, 2h foil, 1h unwrapped), wrap at 2h in
+- Chicken / turkey: none (wrapping steams poultry, ruins skin)
+- Salmon / fish: none
+- Sausage / hot dogs: none
+- Other lean cuts (tri-tip, flat iron): none or butcher_paper briefly if stalling
+
 Return ONLY valid JSON, no markdown:
 {
   "schedule": [
@@ -1009,7 +1025,11 @@ Return ONLY valid JSON, no markdown:
       "grillLightAt": "ISO string",
       "meatOnAt": "ISO string",
       "estimatedFinishAt": "ISO string",
-      "notes": "one specific tip for this item"
+      "wrapMethod": "foil|butcher_paper|none",
+      "wrapAtMinutes": number_or_null,
+      "wrapTempF": number_or_null,
+      "wrapReason": "string",
+      "notes": "one additional specific tip for this item beyond wrap"
     }
   ],
   "serveAt": "ISO string",

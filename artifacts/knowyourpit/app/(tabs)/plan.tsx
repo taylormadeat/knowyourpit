@@ -735,6 +735,16 @@ export default function PlanScreen() {
         const inputIdx = remainingItems.findIndex(m => m.cut.name.toLowerCase() === item.foodType.toLowerCase());
         const inputItem = inputIdx >= 0 ? remainingItems.splice(inputIdx, 1)[0] : undefined;
         const resolvedGrillId = inputItem?.grillId ?? grillId ?? undefined;
+        const wrapMethodDb =
+          item.wrapMethod === "foil" ? "foil"
+          : item.wrapMethod === "butcher_paper" ? "butcher_paper"
+          : item.wrapMethod === "none" ? "none"
+          : undefined;
+        const noteParts: string[] = [
+          `Multi-cook session · Serve at ${new Date(multiResult.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+        ];
+        if (item.notes) noteParts.push(item.notes);
+        if (item.wrapReason && wrapMethodDb && wrapMethodDb !== "none") noteParts.push(`Wrap: ${item.wrapReason}`);
         await createCook.mutateAsync({
           data: {
             foodType: item.foodType,
@@ -744,7 +754,11 @@ export default function PlanScreen() {
             grillId: resolvedGrillId ?? undefined,
             plannedStartAt: new Date(item.meatOnAt),
             sessionId,
-            notes: `Multi-cook session · Serve at ${new Date(multiResult.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${item.notes ? `\n${item.notes}` : ""}`,
+            notes: noteParts.join("\n"),
+            ...(wrapMethodDb !== undefined && { wrapMethod: wrapMethodDb }),
+            ...(item.wrapAtMinutes && item.wrapAtMinutes > 0 && { wrapAtMinutes: Math.round(item.wrapAtMinutes) }),
+            ...(item.wrapTempF && { wrapTempF: Math.round(item.wrapTempF) }),
+            ...(item.wrapReason && { wrapReason: item.wrapReason }),
             sequenceData: {
               schedule: multiResult.schedule,
               serveAt: multiResult.serveAt,
@@ -2046,6 +2060,18 @@ export default function PlanScreen() {
                             {new Date(item.meatOnAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </Text>
                         </View>
+                        {item.wrapMethod && item.wrapMethod !== "none" && item.wrapAtMinutes && item.wrapAtMinutes > 0 && (
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                            <Feather name="package" size={13} color="#A855F7" />
+                            <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>
+                              {item.wrapMethod === "foil" ? "Wrap in foil" : "Wrap in butcher paper"}
+                              {item.wrapTempF ? ` · ${item.wrapTempF}°F` : ""}
+                            </Text>
+                            <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#A855F7" }}>
+                              {new Date(new Date(item.meatOnAt).getTime() + item.wrapAtMinutes * 60000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </Text>
+                          </View>
+                        )}
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                           <Feather name="pause" size={13} color={colors.mutedForeground} />
                           <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>Pull off · rest {item.restMinutes}m</Text>
@@ -2053,6 +2079,11 @@ export default function PlanScreen() {
                             {new Date(item.estimatedFinishAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </Text>
                         </View>
+                        {item.wrapReason && item.wrapMethod && item.wrapMethod !== "none" ? (
+                          <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: "#A855F7", fontStyle: "italic", marginTop: 2 }}>
+                            {item.wrapReason}
+                          </Text>
+                        ) : null}
                         {item.notes ? (
                           <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontStyle: "italic", marginTop: 2 }}>
                             {item.notes}
