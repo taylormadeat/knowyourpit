@@ -101,3 +101,9 @@ id = "4VVTUvaFl9Gn4hMc92H23"
 uri = "file://screenshots/app-store-6.7in/IMG_1756.png"
 type = "image"
 title = "10 – Cook Assessment"
+
+[[outputs]]
+id = "NsTxnberNdwr56-4t_lfp"
+uri = "file://attached_assets/knowyourpit_apppreview_886x1920.mp4"
+type = "video"
+title = "App Preview — 886×1920 (App Store ready)"
