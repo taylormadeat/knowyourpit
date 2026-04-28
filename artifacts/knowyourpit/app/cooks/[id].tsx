@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   findNodeHandle,
+  Animated,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -478,6 +479,21 @@ export default function CookDetailScreen() {
   // when the step actually transitions (not every second when nowMs ticks).
   const nextStepKey = nextStep ? `${nextStep.itemIdx}:${nextStep.step}` : null;
 
+  // ── Step-change toast state ───────────────────────────────────────────────
+  const [stepToast, setStepToast] = useState<string | null>(null);
+  const stepToastAnim = useRef(new Animated.Value(0)).current;
+  const stepToastAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+  const stepToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevNextStepKeyRef = useRef<string | null | undefined>(undefined);
+
+  // Clean up timer on unmount to avoid post-unmount state updates.
+  useEffect(() => {
+    return () => {
+      if (stepToastTimerRef.current) clearTimeout(stepToastTimerRef.current);
+      stepToastAnimRef.current?.stop();
+    };
+  }, []);
+
   // Auto-expand the schedule and smooth-scroll the highlighted row into view
   // whenever the next step changes.
   useEffect(() => {
@@ -496,6 +512,58 @@ export default function CookDetailScreen() {
       );
     }, 350);
     return () => clearTimeout(timer);
+  }, [nextStepKey]);
+
+  // Haptic + toast on next-step transition (active cooks only).
+  // prevNextStepKeyRef starts as undefined so the initial mount is skipped.
+  useEffect(() => {
+    if (prevNextStepKeyRef.current === undefined) {
+      prevNextStepKeyRef.current = nextStepKey;
+      return;
+    }
+    const prev = prevNextStepKeyRef.current;
+    prevNextStepKeyRef.current = nextStepKey;
+    if (nextStepKey === prev || !nextStepKey || cookStatus !== "active") return;
+
+    const STEP_LABELS: Record<NextStepKey, string> = {
+      grillLight: "Light the Grill",
+      meatOn: "Meat On",
+      pullOff: "Pull Off",
+      serve: "Serve",
+    };
+
+    const stepLabel = STEP_LABELS[nextStep!.step] ?? nextStep!.step;
+    const item = cookSeqData?.schedule?.[nextStep!.itemIdx];
+    let timeStr = "";
+    if (item) {
+      const fmt = (iso: string) =>
+        new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      if (nextStep!.step === "grillLight" && item.grillLightAt) timeStr = fmt(item.grillLightAt);
+      else if (nextStep!.step === "meatOn" && item.meatOnAt) timeStr = fmt(item.meatOnAt);
+      else if (nextStep!.step === "pullOff" && item.estimatedFinishAt) timeStr = fmt(item.estimatedFinishAt);
+      else if (nextStep!.step === "serve" && item.estimatedFinishAt) {
+        const serveMs = new Date(item.estimatedFinishAt).getTime() + (item.restMinutes ?? 0) * 60000;
+        timeStr = new Date(serveMs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      }
+    }
+    const message = timeStr ? `${stepLabel} · ${timeStr}` : stepLabel;
+
+    if (Platform.OS !== "web") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    }
+
+    if (stepToastTimerRef.current) clearTimeout(stepToastTimerRef.current);
+    stepToastAnimRef.current?.stop();
+    stepToastAnim.setValue(0);
+    setStepToast(message);
+    const anim = Animated.sequence([
+      Animated.timing(stepToastAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+      Animated.delay(3600),
+      Animated.timing(stepToastAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]);
+    stepToastAnimRef.current = anim;
+    anim.start();
+    stepToastTimerRef.current = setTimeout(() => setStepToast(null), 4200);
   }, [nextStepKey]);
 
   // Edit modal state
@@ -1025,6 +1093,32 @@ export default function CookDetailScreen() {
         </View>
       </LinearGradient>
       <View style={s.fireBar} />
+
+      {/* ── Step-change toast banner ─────────────────────────────────────── */}
+      {stepToast !== null && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            s.stepToast,
+            {
+              backgroundColor: colors.primary,
+              opacity: stepToastAnim,
+              transform: [
+                {
+                  translateY: stepToastAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-12, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <Feather name="clock" size={14} color="#fff" />
+          <Text style={s.stepToastLabel}>Next Up</Text>
+          <Text style={s.stepToastText} numberOfLines={1}>{stepToast}</Text>
+        </Animated.View>
+      )}
 
       <ScrollView
         ref={scheduleScrollViewRef}
@@ -3557,6 +3651,38 @@ const s = StyleSheet.create({
     borderRadius: 7, padding: 8, marginTop: 8,
   },
   seqTlNoteText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 17 },
+
+  stepToast: {
+    position: "absolute",
+    top: 0,
+    left: 12,
+    right: 12,
+    zIndex: 99,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.28,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  stepToastLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    color: "rgba(255,255,255,0.7)",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  stepToastText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
+  },
 
 });
 
