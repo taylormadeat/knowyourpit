@@ -99,7 +99,7 @@ interface PaywallModalProps {
 
 const FEATURES = [
   { icon: "zap", title: "Unlimited cooks", desc: "Log every brisket, butt, and rib without hitting a cap." },
-  { icon: "message-circle", title: "Unlimited AI Pitmaster", desc: "Chat as much as you want — no daily message limits." },
+  { icon: "message-circle", title: "Unlimited PitMaster chat", desc: "Chat with PitMaster as much as you want — no daily message limits." },
   { icon: "image", title: "Unlimited cook scans", desc: "Analyze every thermometer photo with no daily quota." },
   { icon: "activity", title: "Live auto-grading with MEATER & ThermoWorks", desc: "PitMaster checks in every 30 minutes using live probe temps from your wireless thermometer." },
   { icon: "layers", title: "Multi-Cook Sequencer", desc: "Plan brisket + ribs + sides on one timeline." },
