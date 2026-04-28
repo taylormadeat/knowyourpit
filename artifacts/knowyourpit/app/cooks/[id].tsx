@@ -932,9 +932,11 @@ export default function CookDetailScreen() {
 
   const removeImage = (idx: number) => { setImages((p) => p.filter((_, i) => i !== idx)); setResult(null); };
 
-  // Auto-grade pause flag: set when a silent (auto) analyze hits the
-  // graded-cook paywall. Stops the 30-min timer until the user upgrades.
-  const [autoGradePaused, setAutoGradePaused] = useState(false);
+  // Auto-grade pause flag. Starts as true (closed) so the timer cannot
+  // fire before paywallUsage resolves. The paywallUsage sync effect below
+  // opens it only for Pro users (unlimited === true). Free users stay
+  // paused indefinitely; Pro users are unpaused as soon as usage loads.
+  const [autoGradePaused, setAutoGradePaused] = useState(true);
 
   // Local "last analyzed at" timestamp used to schedule the next auto-grade.
   // Seeded from cook.analysisResult.analyzedAt / analysisHistory and bumped
@@ -2417,8 +2419,8 @@ export default function CookDetailScreen() {
                 1 AI grade remaining
               </Text>
             )}
-            {/* Auto-grade paused banner — only when a silent auto-grade
-                attempt hit the free-tier graded-cook cap. Tap to upgrade. */}
+            {/* Auto-grade paused banner — shown for all free (non-Pro) users
+                since live auto-grading is a Pro-only feature. Tap to upgrade. */}
             {autoGradePaused && paywallUsage && !paywallUsage.unlimited && (
               <Pressable
                 onPress={onUpgradeAutoGradePress}
