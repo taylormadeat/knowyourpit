@@ -15,8 +15,8 @@ import {
   FlatList,
   TouchableOpacity,
   KeyboardAvoidingView,
-  findNodeHandle,
   Animated,
+  LogBox,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -58,6 +58,12 @@ import {
 } from "@workspace/api-client-react";
 import * as Notifications from "expo-notifications";
 
+// Silence a dev-only LogBox warning that can fire from RN's measureLayout when
+// the underlying native node briefly detaches between layout passes. Our
+// auto-scroll uses cached onLayout offsets and never calls measureLayout, but
+// other libraries occasionally trigger the same warning.
+LogBox.ignoreLogs(["ref.measureLayout must be called with a ref"]);
+
 /** Replace any ISO-8601 timestamps in a string with human-readable local time */
 function fmtISOInText(text: string): string {
   return text.replace(
@@ -98,9 +104,15 @@ function formatDT(d: Date | string | null | undefined): string {
 
 function relCountdown(targetMs: number, nowMs: number): string {
   const diffMin = Math.round((targetMs - nowMs) / 60000);
-  if (Math.abs(diffMin) < 1) return "now";
-  if (diffMin > 0) return `in ${diffMin}m`;
-  return `${Math.abs(diffMin)}m ago`;
+  const absMin = Math.abs(diffMin);
+  if (absMin < 1) return "now";
+  const hrs = Math.floor(absMin / 60);
+  const mins = absMin % 60;
+  let body: string;
+  if (hrs === 0) body = `${mins}m`;
+  else if (mins === 0) body = `${hrs}h`;
+  else body = `${hrs}h ${mins}m`;
+  return diffMin > 0 ? `in ${body}` : `${body} ago`;
 }
 
 function getEditDates(): Date[] {
@@ -435,7 +447,13 @@ export default function CookDetailScreen() {
   const [liveReadings, setLiveReadings] = useState<Array<{ timeMinutes: number; tempF: number }>>([]);
 
   const scheduleScrollViewRef = useRef<ScrollView>(null);
-  const nextStepRowRef = useRef<View>(null);
+  // Cached y-offsets used to scroll the highlighted "next step" row into view
+  // without invoking measureLayout (which can warn when the row's underlying
+  // native node is detached/remounted between layout passes).
+  const scheduleListYRef = useRef<number>(0);
+  const itemYRef = useRef<Record<number, number>>({});
+  const timelineYRef = useRef<Record<number, number>>({});
+  const rowYRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     setLiveReadings([]);
@@ -514,33 +532,25 @@ export default function CookDetailScreen() {
   }, []);
 
   // Auto-expand the schedule and smooth-scroll the highlighted row into view
-  // whenever the next step changes.
+  // whenever the next step changes. We use cached onLayout offsets instead of
+  // measureLayout so we never call into a possibly-detached native node.
   useEffect(() => {
-    if (!nextStepKey) return;
+    if (!nextStepKey || !nextStep) return;
     setSeqScheduleExpanded(true);
     const timer = setTimeout(() => {
-      const rowNode = nextStepRowRef.current;
-      const scrollNode = scheduleScrollViewRef.current;
-      if (!rowNode || !scrollNode) return;
-      // Both refs must resolve to real native nodes; otherwise measureLayout
-      // logs a "ref must be called with a ref to a native component" warning.
-      const scrollHandle = findNodeHandle(scrollNode);
-      const rowHandle = findNodeHandle(rowNode);
-      if (scrollHandle === null || rowHandle === null) return;
-      try {
-        rowNode.measureLayout(
-          scrollHandle,
-          (_x, y) => {
-            scheduleScrollViewRef.current?.scrollTo({ y: Math.max(0, y - 80), animated: true });
-          },
-          () => {},
-        );
-      } catch (_) {
-        // Ref may be stale if the schedule re-rendered between scheduling and firing
-      }
+      const rowY = rowYRef.current[nextStepKey];
+      if (rowY === undefined) return;
+      const idx = nextStep.itemIdx;
+      const targetY =
+        scheduleListYRef.current +
+        (itemYRef.current[idx] ?? 0) +
+        (timelineYRef.current[idx] ?? 0) +
+        rowY -
+        80;
+      scheduleScrollViewRef.current?.scrollTo({ y: Math.max(0, targetY), animated: true });
     }, 350);
     return () => clearTimeout(timer);
-  }, [nextStepKey]);
+  }, [nextStepKey, nextStep]);
 
   // Haptic + toast on next-step transition (active cooks only).
   // prevNextStepKeyRef starts as undefined so the initial mount is skipped.
@@ -1650,12 +1660,16 @@ export default function CookDetailScreen() {
               </Pressable>
 
               {seqScheduleExpanded && (
-                <View style={{ padding: 12, gap: 10 }}>
+                <View
+                  style={{ padding: 12, gap: 10 }}
+                  onLayout={(e) => { scheduleListYRef.current = e.nativeEvent.layout.y; }}
+                >
                   {seqData.schedule.map((item: any, idx: number) => {
                     const isCurrent = idx === currentIdx;
                     return (
                       <View
                         key={idx}
+                        onLayout={(e) => { itemYRef.current[idx] = e.nativeEvent.layout.y; }}
                         style={[
                           s.seqScheduleItem,
                           {
@@ -1678,7 +1692,10 @@ export default function CookDetailScreen() {
                             </View>
                           )}
                         </View>
-                        <View style={{ paddingLeft: 4 }}>
+                        <View
+                          style={{ paddingLeft: 4 }}
+                          onLayout={(e) => { timelineYRef.current[idx] = e.nativeEvent.layout.y; }}
+                        >
                           {(() => {
                             const isNextGrillLight = nextStep?.itemIdx === idx && nextStep?.step === "grillLight";
                             const isNextMeatOn = nextStep?.itemIdx === idx && nextStep?.step === "meatOn";
@@ -1691,7 +1708,7 @@ export default function CookDetailScreen() {
                             const isDoneServe = cookStatus === "active" && serveMs < nowMs;
                             return (
                               <>
-                                <View ref={isNextGrillLight ? nextStepRowRef : undefined} style={[s.seqTlRow, isNextGrillLight && s.seqTlNextRow, isDoneGrillLight && !confirmedSteps[`${idx}_grillLight`] && s.seqTlDoneRow]}>
+                                <View onLayout={(e) => { rowYRef.current[`${idx}:grillLight`] = e.nativeEvent.layout.y; }} style={[s.seqTlRow, isNextGrillLight && s.seqTlNextRow, isDoneGrillLight && !confirmedSteps[`${idx}_grillLight`] && s.seqTlDoneRow]}>
                                   {isDoneGrillLight ? (
                                     <Pressable onPress={() => toggleConfirmedStep(`${idx}_grillLight`)} hitSlop={8} style={s.seqTlDotBtn}>
                                       {confirmedSteps[`${idx}_grillLight`]
@@ -1724,7 +1741,7 @@ export default function CookDetailScreen() {
                                     </Text>
                                   </View>
                                 </View>
-                                <View ref={isNextMeatOn ? nextStepRowRef : undefined} style={[s.seqTlRow, isNextMeatOn && s.seqTlNextRow, isDoneMeatOn && !confirmedSteps[`${idx}_meatOn`] && s.seqTlDoneRow]}>
+                                <View onLayout={(e) => { rowYRef.current[`${idx}:meatOn`] = e.nativeEvent.layout.y; }} style={[s.seqTlRow, isNextMeatOn && s.seqTlNextRow, isDoneMeatOn && !confirmedSteps[`${idx}_meatOn`] && s.seqTlDoneRow]}>
                                   {isDoneMeatOn ? (
                                     <Pressable onPress={() => toggleConfirmedStep(`${idx}_meatOn`)} hitSlop={8} style={s.seqTlDotBtn}>
                                       {confirmedSteps[`${idx}_meatOn`]
@@ -1808,7 +1825,7 @@ export default function CookDetailScreen() {
                                     </View>
                                   );
                                 })() : null}
-                                <View ref={isNextPullOff ? nextStepRowRef : undefined} style={[s.seqTlRow, { marginBottom: item.restMinutes > 0 ? 8 : 0 }, isNextPullOff && s.seqTlNextRow, isDonePullOff && !confirmedSteps[`${idx}_pullOff`] && s.seqTlDoneRow]}>
+                                <View onLayout={(e) => { rowYRef.current[`${idx}:pullOff`] = e.nativeEvent.layout.y; }} style={[s.seqTlRow, { marginBottom: item.restMinutes > 0 ? 8 : 0 }, isNextPullOff && s.seqTlNextRow, isDonePullOff && !confirmedSteps[`${idx}_pullOff`] && s.seqTlDoneRow]}>
                                   {isDonePullOff ? (
                                     <Pressable onPress={() => toggleConfirmedStep(`${idx}_pullOff`)} hitSlop={8} style={s.seqTlDotBtn}>
                                       {confirmedSteps[`${idx}_pullOff`]
@@ -1846,7 +1863,7 @@ export default function CookDetailScreen() {
                                   </View>
                                 </View>
                                 {item.restMinutes > 0 && (
-                                  <View ref={isNextServe ? nextStepRowRef : undefined} style={[s.seqTlRow, { marginBottom: 0 }, isNextServe && s.seqTlNextRow, isDoneServe && !confirmedSteps[`${idx}_serve`] && s.seqTlDoneRow]}>
+                                  <View onLayout={(e) => { rowYRef.current[`${idx}:serve`] = e.nativeEvent.layout.y; }} style={[s.seqTlRow, { marginBottom: 0 }, isNextServe && s.seqTlNextRow, isDoneServe && !confirmedSteps[`${idx}_serve`] && s.seqTlDoneRow]}>
                                     {isDoneServe ? (
                                       <Pressable onPress={() => toggleConfirmedStep(`${idx}_serve`)} hitSlop={8} style={s.seqTlDotBtn}>
                                         {confirmedSteps[`${idx}_serve`]
