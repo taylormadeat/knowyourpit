@@ -143,8 +143,8 @@ export default function HomeScreen() {
 
   const firstName =
     (user?.unsafeMetadata?.displayName as string | undefined) ||
-    user?.firstName ||
     user?.username ||
+    user?.firstName ||
     user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] ||
     "Pitmaster";
 
