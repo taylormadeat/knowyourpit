@@ -316,6 +316,20 @@ export default function SignInScreen() {
       fontFamily: "Inter_600SemiBold",
       color: colors.primary,
     },
+    legalNotice: {
+      fontSize: 12,
+      fontFamily: "Inter_400Regular",
+      color: colors.mutedForeground,
+      textAlign: "center",
+      lineHeight: 18,
+      marginTop: 18,
+      paddingHorizontal: 8,
+    },
+    legalNoticeLink: {
+      fontFamily: "Inter_600SemiBold",
+      color: colors.mutedForeground,
+      textDecorationLine: "underline",
+    },
   });
 
   return (
@@ -415,6 +429,24 @@ export default function SignInScreen() {
             </>
           )}
         </Pressable>
+
+        <Text style={styles.legalNotice}>
+          By continuing, you agree to our{" "}
+          <Text
+            style={styles.legalNoticeLink}
+            onPress={() => Linking.openURL("https://knowyourpit.com/terms")}
+          >
+            Terms of Service
+          </Text>
+          {" "}and{" "}
+          <Text
+            style={styles.legalNoticeLink}
+            onPress={() => Linking.openURL("https://knowyourpit.com/privacy")}
+          >
+            Privacy Policy
+          </Text>
+          .
+        </Text>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>No account?</Text>

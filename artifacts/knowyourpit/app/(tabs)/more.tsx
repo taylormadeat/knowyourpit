@@ -7,17 +7,23 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
+  Linking,
 } from "react-native";
+import { fetch as expoFetch } from "expo/fetch";
 import { useRouter } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
-import { useUser, useClerk } from "@clerk/expo";
+import { useUser, useClerk, useAuth } from "@clerk/expo";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { usePaywall } from "@/contexts/PaywallContext";
+
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
 
 const MENU_SECTIONS = [
   {
@@ -44,6 +50,8 @@ export default function MoreScreen() {
   const qc = useQueryClient();
   const { isPro, expirationDate, restorePurchases, isLoading: subLoading } = useSubscription();
   const { showPaywall } = usePaywall();
+  const { getToken } = useAuth();
+  const [deleting, setDeleting] = React.useState(false);
 
   const botPad = useBottomTabBarHeight();
 
@@ -78,6 +86,100 @@ export default function MoreScreen() {
         },
       },
     ]);
+  };
+
+  const performAccountDeletion = async () => {
+    if (!API_BASE_URL) {
+      Alert.alert(
+        "Cannot delete account",
+        "The app is not configured to reach the server. Please contact support@knowyourpit.com.",
+      );
+      return;
+    }
+    setDeleting(true);
+    let signOutAndClear: (() => Promise<void>) | null = null;
+    try {
+      const token = await getToken();
+      const res = await expoFetch(`${API_BASE_URL}/api/profile/me`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      let body: { error?: string; message?: string; accountDeleted?: boolean } = {};
+      try {
+        body = (await res.json()) as typeof body;
+      } catch {}
+
+      if (!res.ok) {
+        Alert.alert(
+          "Delete failed",
+          body?.error ?? "We couldn't delete your account. Please try again or contact support@knowyourpit.com.",
+        );
+        return;
+      }
+
+      // Server-side deletion succeeded (fully or partially — data is gone either way).
+      // Sign the user out and clear cache regardless of Clerk-account-delete status,
+      // because their data no longer exists and they should not stay signed in.
+      signOutAndClear = async () => {
+        qc.clear();
+        try {
+          await signOut();
+        } catch {
+          // Best effort. The session is invalid server-side; ScopedQueryProvider will remount.
+        }
+      };
+
+      if (body?.accountDeleted === false) {
+        Alert.alert(
+          "Almost done",
+          body?.message ??
+            "Your data was deleted, but your sign-in account could not be removed automatically. Please email support@knowyourpit.com to finish closing it.",
+          [{ text: "OK", onPress: () => void signOutAndClear?.() }],
+        );
+        // Keep deleting=true; component unmounts when auth state flips.
+        return;
+      }
+
+      // Full success — sign out immediately. Component will unmount on auth flip.
+      await signOutAndClear();
+    } catch (err) {
+      Alert.alert(
+        "Delete failed",
+        "We couldn't reach the server. Please check your connection and try again.",
+      );
+    } finally {
+      // Only re-enable the button if we did NOT trigger a sign-out (which unmounts us).
+      if (!signOutAndClear) setDeleting(false);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete account?",
+      "This will permanently delete your account and all your data — cooks, sessions, AI chats, alerts, grills, and connected devices. This cannot be undone.\n\nIf you have an active subscription, cancel it first in your App Store or Play Store account — deleting your account here does not cancel billing.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Continue",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Are you absolutely sure?",
+              "Type-tap to confirm: your account and all data will be erased and you will be signed out.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Delete Forever",
+                  style: "destructive",
+                  onPress: performAccountDeletion,
+                },
+              ],
+            );
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -204,6 +306,33 @@ export default function MoreScreen() {
           </View>
         ))}
 
+        <View style={s.section}>
+          <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>Legal</Text>
+          <View style={[s.sectionCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            <Pressable
+              style={({ pressed }) => [s.menuItem, pressed && { opacity: 0.7 }]}
+              onPress={() => Linking.openURL("https://knowyourpit.com/privacy")}
+            >
+              <View style={[s.menuIcon, { backgroundColor: colors.primary + "20" }]}>
+                <Feather name="shield" size={16} color={colors.primary} />
+              </View>
+              <Text style={[s.menuLabel, { color: colors.foreground }]}>Privacy Policy</Text>
+              <Feather name="external-link" size={16} color={colors.mutedForeground} />
+            </Pressable>
+            <View style={[s.divider, { backgroundColor: colors.border }]} />
+            <Pressable
+              style={({ pressed }) => [s.menuItem, pressed && { opacity: 0.7 }]}
+              onPress={() => Linking.openURL("https://knowyourpit.com/terms")}
+            >
+              <View style={[s.menuIcon, { backgroundColor: colors.primary + "20" }]}>
+                <Feather name="file-text" size={16} color={colors.primary} />
+              </View>
+              <Text style={[s.menuLabel, { color: colors.foreground }]}>Terms of Service</Text>
+              <Feather name="external-link" size={16} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+        </View>
+
         <Pressable
           style={({ pressed }) => [
             s.signOutBtn,
@@ -214,6 +343,24 @@ export default function MoreScreen() {
         >
           <Feather name="log-out" size={16} color={colors.destructive} />
           <Text style={[s.signOutText, { color: colors.destructive }]}>Sign Out</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            s.deleteAccountBtn,
+            { borderRadius: colors.radius },
+            (pressed || deleting) && { opacity: 0.6 },
+          ]}
+          onPress={handleDeleteAccount}
+          disabled={deleting}
+        >
+          {deleting ? (
+            <ActivityIndicator size="small" color={colors.destructive} />
+          ) : (
+            <Text style={[s.deleteAccountText, { color: colors.destructive }]}>
+              Delete Account
+            </Text>
+          )}
         </Pressable>
       </ScrollView>
     </View>
@@ -252,6 +399,14 @@ const s = StyleSheet.create({
     marginHorizontal: 16, marginBottom: 12, borderWidth: 1.5, padding: 14,
   },
   signOutText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  deleteAccountBtn: {
+    alignItems: "center", justifyContent: "center",
+    marginHorizontal: 16, marginTop: 4, marginBottom: 24, paddingVertical: 12,
+    minHeight: 40,
+  },
+  deleteAccountText: {
+    fontSize: 13, fontFamily: "Inter_500Medium", textDecorationLine: "underline",
+  },
   restoreBtn: {
     alignItems: "center", justifyContent: "center",
     marginHorizontal: 16, marginBottom: 16, paddingVertical: 10,

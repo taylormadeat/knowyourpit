@@ -392,7 +392,19 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName 
                 {annualTrial
                   ? `After the ${annualTrial.label} free trial, your subscription auto-renews until canceled. `
                   : "Subscriptions auto-renew until canceled. "}
-                Manage in your {Platform.OS === "ios" ? "App Store" : "Play Store"} account.
+                <Text
+                  style={[styles.legalLink, { color: colors.mutedForeground }]}
+                  onPress={() =>
+                    Linking.openURL(
+                      Platform.OS === "ios"
+                        ? "itms-apps://apps.apple.com/account/subscriptions"
+                        : "https://play.google.com/store/account/subscriptions",
+                    )
+                  }
+                >
+                  Manage subscription in {Platform.OS === "ios" ? "App Store" : "Play Store"}
+                </Text>
+                .
               </Text>
             </View>
           </ScrollView>
@@ -476,6 +488,7 @@ const styles = StyleSheet.create({
   linkText: { fontSize: 13, fontFamily: "Inter_500Medium", textDecorationLine: "underline" },
   policyRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   policyLink: { fontSize: 11, fontFamily: "Inter_400Regular", textDecorationLine: "underline" },
+  legalLink: { fontSize: 11, fontFamily: "Inter_400Regular", textDecorationLine: "underline" },
   policySep: { fontSize: 11, fontFamily: "Inter_400Regular" },
   legal: { fontSize: 11, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 16, paddingHorizontal: 8 },
 });

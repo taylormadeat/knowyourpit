@@ -234,6 +234,20 @@ export default function SignUpScreen() {
     footer: { flexDirection: "row", justifyContent: "center", marginTop: 28, gap: 4 },
     footerText: { fontSize: 14, fontFamily: "Inter_400Regular", color: colors.mutedForeground },
     footerLink: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.primary },
+    legalNotice: {
+      fontSize: 12,
+      fontFamily: "Inter_400Regular",
+      color: colors.mutedForeground,
+      textAlign: "center",
+      lineHeight: 18,
+      marginTop: 18,
+      paddingHorizontal: 8,
+    },
+    legalNoticeLink: {
+      fontFamily: "Inter_600SemiBold",
+      color: colors.mutedForeground,
+      textDecorationLine: "underline",
+    },
     verifyHint: { fontSize: 14, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginBottom: 24, lineHeight: 20 },
     resendBtn: { alignItems: "center", marginTop: 16 },
     resendText: { fontSize: 14, fontFamily: "Inter_500Medium", color: colors.primary },
@@ -367,6 +381,24 @@ export default function SignUpScreen() {
         </Pressable>
 
         <View nativeID="clerk-captcha" />
+
+        <Text style={styles.legalNotice}>
+          By creating an account, you agree to our{" "}
+          <Text
+            style={styles.legalNoticeLink}
+            onPress={() => Linking.openURL("https://knowyourpit.com/terms")}
+          >
+            Terms of Service
+          </Text>
+          {" "}and{" "}
+          <Text
+            style={styles.legalNoticeLink}
+            onPress={() => Linking.openURL("https://knowyourpit.com/privacy")}
+          >
+            Privacy Policy
+          </Text>
+          .
+        </Text>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Have an account?</Text>
