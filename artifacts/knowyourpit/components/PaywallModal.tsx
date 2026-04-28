@@ -267,12 +267,25 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName 
             ) : !isRevenueCatAvailable ? (
               <View style={styles.statusBlock}>
                 <Feather name="alert-circle" size={28} color="#F59E0B" />
-                <Text style={[styles.statusText, { color: colors.foreground }]}>
-                  Subscriptions aren't available yet
-                </Text>
-                <Text style={[styles.statusSub, { color: colors.mutedForeground }]}>
-                  Pro purchases will be enabled in the next app update. Pull to refresh after updating.
-                </Text>
+                {__DEV__ ? (
+                  <>
+                    <Text style={[styles.statusText, { color: colors.foreground }]}>
+                      Dev build: RevenueCat not configured
+                    </Text>
+                    <Text style={[styles.statusSub, { color: colors.mutedForeground }]}>
+                      {`EXPO_PUBLIC_REVENUECAT_${Platform.OS === "ios" ? "IOS" : "ANDROID"}_KEY is empty in this bundle, or react-native-purchases isn't loaded (Expo Go can't load native modules). Test purchases on a custom dev client (eas build --profile development) with the key set in the matching EAS environment.`}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={[styles.statusText, { color: colors.foreground }]}>
+                      Subscriptions aren't available yet
+                    </Text>
+                    <Text style={[styles.statusSub, { color: colors.mutedForeground }]}>
+                      Pro purchases will be enabled in the next app update. Pull to refresh after updating.
+                    </Text>
+                  </>
+                )}
               </View>
             ) : !annual && !monthly ? (
               <View style={styles.statusBlock}>

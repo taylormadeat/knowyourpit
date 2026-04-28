@@ -87,6 +87,7 @@ Or download the IPA from the EAS dashboard and install with **Apple Configurator
 **Failure signals:**
 - Both cards show spinner indefinitely → RevenueCat API key not set (`EXPO_PUBLIC_REVENUECAT_IOS_KEY`).
 - Prices show but are $0.00 → Products not approved in ASC yet.
+- Banner reads "Dev build: RevenueCat not configured" → You're either running in Expo Go (which can't load native modules) or `EXPO_PUBLIC_REVENUECAT_IOS_KEY` wasn't bundled into this build. Use a custom dev client per the **Why this requires a real device** note at the top of this guide, and confirm the variable shows up via `eas env:list --environment development`.
 
 ---
 
