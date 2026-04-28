@@ -127,7 +127,8 @@ function RootLayoutNav() {
     const inAuthGroup = segments[0] === "(auth)";
     const onSetUsername = segments[1] === "set-username";
 
-    if (!isSignedIn && !inAuthGroup) {
+    if (!isSignedIn && (onSetUsername || !inAuthGroup)) {
+      // Signed-out users must go to sign-in — including if they somehow land on set-username
       router.replace("/(auth)/sign-in");
     } else if (isSignedIn && inAuthGroup && !onSetUsername) {
       // Signed in and sitting on a regular auth screen (sign-in/sign-up) — move them forward.

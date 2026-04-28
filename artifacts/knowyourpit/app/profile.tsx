@@ -183,9 +183,19 @@ export default function ProfileScreen() {
           </View>
 
           {user?.username ? (
-            <Text style={[s.profileEmail, { color: colors.mutedForeground }]}>
-              @{user.username}
-            </Text>
+            <View style={{
+              flexDirection: "row", alignSelf: "flex-start",
+              backgroundColor: colors.primary + "22",
+              borderColor: colors.primary + "44",
+              borderWidth: 1,
+              borderRadius: 999,
+              paddingHorizontal: 10, paddingVertical: 3,
+              marginBottom: 4,
+            }}>
+              <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.primary }}>
+                @{user.username}
+              </Text>
+            </View>
           ) : null}
           <Text style={[s.profileEmail, { color: colors.mutedForeground }]}>
             {user?.emailAddresses?.[0]?.emailAddress || ""}
