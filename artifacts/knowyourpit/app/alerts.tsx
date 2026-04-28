@@ -17,6 +17,7 @@ import { useColors } from "@/hooks/useColors";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { useListAlerts, useDeleteAlert, getListAlertsQueryKey, useListCooks } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { fmtMinutes } from "@/utils/duration";
 
 function fmtTimeAgo(dateStr: string | null | undefined): string {
   if (!dateStr) return "";
@@ -29,7 +30,7 @@ function fmtTimeAgo(dateStr: string | null | undefined): string {
 
 function alertTypeLabel(alertType: string, thresholdTempF: number): string {
   if (alertType === "target_reached") return `Probe hits ${thresholdTempF}°F`;
-  if (alertType === "time_before_serve") return `${thresholdTempF} min before serve`;
+  if (alertType === "time_before_serve") return `${fmtMinutes(thresholdTempF)} before serve`;
   if (alertType === "min_temp") return `Min temp: ${thresholdTempF}°F`;
   if (alertType === "max_temp") return `Max temp: ${thresholdTempF}°F`;
   return alertType.replace(/_/g, " ");

@@ -729,7 +729,7 @@ export default function CookDetailScreen() {
           return;
         }
         const foodType = c?.foodType ?? "cook";
-        const label = alertLabel.trim() || `${minutesBefore} min before ${foodType} serve time`;
+        const label = alertLabel.trim() || `${fmtMinutes(minutesBefore)} before ${foodType} serve time`;
 
         // Create DB record first to get the alert ID, then schedule with it embedded in data
         const savedAlert = await createAlert.mutateAsync({
