@@ -13,6 +13,7 @@ import {
   LayoutChangeEvent,
   Alert,
 } from "react-native";
+import { fmtMinutes } from "@/utils/duration";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -145,19 +146,12 @@ function fmtDate(d: Date): string {
 }
 
 function fmtElapsed(ms: number): string {
-  const totalMins = Math.floor(ms / 60000);
-  const hrs = Math.floor(totalMins / 60);
-  const mins = totalMins % 60;
-  if (hrs > 0) return `${hrs}h ${mins}m`;
-  return `${mins}m`;
+  return fmtMinutes(Math.floor(ms / 60000));
 }
 
 function fmtCookDuration(mins: number | null | undefined): string {
   if (!mins || mins <= 0) return "";
-  if (mins < 60) return `${mins}m`;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  return fmtMinutes(mins);
 }
 
 // Pull this cook's specific plan steps from its sequenceData.
@@ -568,7 +562,7 @@ export default function SessionDetailScreen() {
                                   <Text style={[s.planLabel, { color: colors.foreground }]}>Light grill</Text>
                                   <Text style={[s.planTime, { color: colors.mutedForeground }]}>
                                     {fmtTime(new Date(itemPlan.grillLightAt))}
-                                    {itemPlan.preheatMinutes ? ` · ${itemPlan.preheatMinutes}min preheat` : ""}
+                                    {itemPlan.preheatMinutes ? ` · ${fmtMinutes(itemPlan.preheatMinutes)} preheat` : ""}
                                   </Text>
                                 </View>
                               </View>
@@ -609,7 +603,7 @@ export default function SessionDetailScreen() {
                                   <Text style={[s.planLabel, { color: colors.foreground }]}>Pull off</Text>
                                   <Text style={[s.planTime, { color: colors.mutedForeground }]}>
                                     {fmtTime(new Date(itemPlan.estimatedFinishAt))}
-                                    {itemPlan.restMinutes ? ` · ${itemPlan.restMinutes}min rest` : ""}
+                                    {itemPlan.restMinutes ? ` · ${fmtMinutes(itemPlan.restMinutes)} rest` : ""}
                                   </Text>
                                 </View>
                               </View>

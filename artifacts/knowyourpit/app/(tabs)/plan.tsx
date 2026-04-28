@@ -11,6 +11,7 @@ import {
   FlatList,
   ScrollView,
 } from "react-native";
+import { fmtMinutes } from "@/utils/duration";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useRouter } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -119,19 +120,12 @@ function calcSchedule(
 }
 
 function fmtDuration(mins: number): string {
-  if (mins < 60) return `${mins}m`;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  return fmtMinutes(mins);
 }
 
 function fmtElapsedPlan(ms: number): string {
   if (ms <= 0) return "0m";
-  const totalMins = Math.floor(ms / 60000);
-  const h = Math.floor(totalMins / 60);
-  const m = totalMins % 60;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  return fmtMinutes(Math.floor(ms / 60000));
 }
 
 // ─── Meat prep guide data ────────────────────────────────────────────────
@@ -1125,7 +1119,7 @@ export default function PlanScreen() {
               )}
               <StatCell
                 label="Preheat Est."
-                value={`~${preheatMinsForGrill(selectedGrill)} min`}
+                value={`~${fmtMinutes(preheatMinsForGrill(selectedGrill))}`}
                 colors={colors}
                 highlight
               />
@@ -1848,7 +1842,7 @@ export default function PlanScreen() {
                 <Text style={s.aiModalTitle}>PitMaster Plan</Text>
                 {aiResult && (
                   <Text style={s.aiModalSub}>
-                    {aiResult.confidence?.toUpperCase()} confidence · {aiResult.estimatedDurationMinutes} min active cook
+                    {aiResult.confidence?.toUpperCase()} confidence · {fmtMinutes(aiResult.estimatedDurationMinutes)} active cook
                   </Text>
                 )}
               </View>
@@ -2039,7 +2033,7 @@ export default function PlanScreen() {
                           )}
                         </View>
                         <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
-                          {Math.round(item.estimatedDurationMinutes / 60)}h {item.estimatedDurationMinutes % 60 > 0 ? `${item.estimatedDurationMinutes % 60}m` : ""} cook
+                          {fmtMinutes(item.estimatedDurationMinutes)} cook
                         </Text>
                       </View>
                       {/* Timeline rows */}

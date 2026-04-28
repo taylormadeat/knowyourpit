@@ -14,6 +14,7 @@ import {
   Platform,
   TouchableOpacity,
 } from "react-native";
+import { fmtMinutes } from "@/utils/duration";
 import { useRouter } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
@@ -59,21 +60,13 @@ function avgRating(item: any): number {
 }
 
 function fmtElapsed(ms: number): string {
-  const totalMins = Math.floor(ms / 60000);
-  const hrs = Math.floor(totalMins / 60);
-  const mins = totalMins % 60;
-  if (hrs > 0) return `${hrs}h ${mins}m`;
-  return `${mins}m`;
+  return fmtMinutes(Math.floor(ms / 60000));
 }
 
 function fmtCountdown(targetMs: number): string {
   const diff = targetMs - Date.now();
   if (diff <= 0) return "starting now";
-  const totalMins = Math.floor(diff / 60000);
-  const hrs = Math.floor(totalMins / 60);
-  const mins = totalMins % 60;
-  if (hrs > 0) return `in ${hrs}h ${mins}m`;
-  return `in ${mins}m`;
+  return `in ${fmtMinutes(Math.floor(diff / 60000))}`;
 }
 
 function fmtTime(d: Date): string {
@@ -770,7 +763,7 @@ export default function CooksScreen() {
                               <Text style={[s.seqEventTime, { color: colors.foreground }]}>
                                 {fmtTime(new Date(item.grillLightAt))}
                                 <Text style={[s.seqEventMeta, { color: colors.mutedForeground }]}>
-                                  {" "}· {item.preheatMinutes}min preheat
+                                  {" "}· {fmtMinutes(item.preheatMinutes)} preheat
                                 </Text>
                               </Text>
                             </View>
@@ -783,9 +776,7 @@ export default function CooksScreen() {
                               <Text style={[s.seqEventTime, { color: colors.foreground }]}>
                                 {fmtTime(new Date(item.meatOnAt))}
                                 <Text style={[s.seqEventMeta, { color: colors.mutedForeground }]}>
-                                  {" "}· {item.estimatedDurationMinutes >= 60
-                                    ? `${Math.floor(item.estimatedDurationMinutes / 60)}h ${item.estimatedDurationMinutes % 60 > 0 ? `${item.estimatedDurationMinutes % 60}m` : ""}`.trim()
-                                    : `${item.estimatedDurationMinutes}m`} cook
+                                  {" "}· {fmtMinutes(item.estimatedDurationMinutes)} cook
                                 </Text>
                               </Text>
                             </View>
@@ -799,7 +790,7 @@ export default function CooksScreen() {
                                 {fmtTime(new Date(item.estimatedFinishAt))}
                                 {item.restMinutes > 0 && (
                                   <Text style={[s.seqEventMeta, { color: colors.mutedForeground }]}>
-                                    {" "}· {item.restMinutes}min rest
+                                    {" "}· {fmtMinutes(item.restMinutes)} rest
                                   </Text>
                                 )}
                               </Text>

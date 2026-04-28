@@ -18,6 +18,7 @@ import {
   Animated,
   LogBox,
 } from "react-native";
+import { fmtMinutes, fmtDurationMs, fmtRelMinutes } from "@/utils/duration";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -103,16 +104,7 @@ function formatDT(d: Date | string | null | undefined): string {
 }
 
 function relCountdown(targetMs: number, nowMs: number): string {
-  const diffMin = Math.round((targetMs - nowMs) / 60000);
-  const absMin = Math.abs(diffMin);
-  if (absMin < 1) return "now";
-  const hrs = Math.floor(absMin / 60);
-  const mins = absMin % 60;
-  let body: string;
-  if (hrs === 0) body = `${mins}m`;
-  else if (mins === 0) body = `${hrs}h`;
-  else body = `${hrs}h ${mins}m`;
-  return diffMin > 0 ? `in ${body}` : `${body} ago`;
+  return fmtRelMinutes(targetMs, nowMs);
 }
 
 function getEditDates(): Date[] {
@@ -156,12 +148,7 @@ const EDIT_TIME_SLOTS: Array<{ h: number; m: number }> = (() => {
 const logoImg = require("@/assets/images/logo.png");
 
 function fmtDuration(ms: number): string {
-  const totalMins = Math.round(Math.abs(ms) / 60000);
-  const h = Math.floor(totalMins / 60);
-  const m = totalMins % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
+  return fmtDurationMs(ms);
 }
 
 type PlanGrade = { grade: string; color: string; accuracy: number; deviation: string; note: string };
@@ -1504,10 +1491,10 @@ export default function CookDetailScreen() {
             { label: "Planned Start", value: c.plannedStartAt ? new Date(c.plannedStartAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null },
             { label: "Serve By", value: c.plannedEndAt ? new Date(c.plannedEndAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null },
             { label: "Planned Duration", value: plannedDurMs ? fmtDuration(plannedDurMs) : null },
-            { label: "Preheat", value: c.preheatMinutes ? `${c.preheatMinutes} min` : null },
+            { label: "Preheat", value: c.preheatMinutes ? fmtMinutes(c.preheatMinutes) : null },
             { label: "Wrap", value: wrapStr },
             { label: "Wrap Notes", value: c.wrapReason ?? null },
-            { label: "Rest", value: c.restMinutes ? `${c.restMinutes} min` : null },
+            { label: "Rest", value: c.restMinutes ? fmtMinutes(c.restMinutes) : null },
           ].filter((r) => r.value);
 
           // Full detail rows — actual section
@@ -1736,7 +1723,7 @@ export default function CookDetailScreen() {
                                         </Text>
                                       )}
                                       <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
-                                        {" "}· {item.preheatMinutes}min preheat
+                                        {" "}· {fmtMinutes(item.preheatMinutes)} preheat
                                       </Text>
                                     </Text>
                                   </View>
@@ -1770,9 +1757,7 @@ export default function CookDetailScreen() {
                                       )}
                                       <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
                                         {" "}·{" "}
-                                        {item.estimatedDurationMinutes >= 60
-                                          ? `${Math.floor(item.estimatedDurationMinutes / 60)}h${item.estimatedDurationMinutes % 60 > 0 ? ` ${item.estimatedDurationMinutes % 60}m` : ""}`
-                                          : `${item.estimatedDurationMinutes}m`}{" "}cook
+                                        {fmtMinutes(item.estimatedDurationMinutes)}{" "}cook
                                       </Text>
                                     </Text>
                                   </View>
@@ -1856,7 +1841,7 @@ export default function CookDetailScreen() {
                                       )}
                                       {item.restMinutes > 0 && (
                                         <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
-                                          {" "}· {item.restMinutes}min rest
+                                          {" "}· {fmtMinutes(item.restMinutes)} rest
                                         </Text>
                                       )}
                                     </Text>
