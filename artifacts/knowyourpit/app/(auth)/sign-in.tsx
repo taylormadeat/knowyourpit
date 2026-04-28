@@ -233,16 +233,16 @@ export default function SignInScreen() {
         <Text style={styles.title}>Welcome back</Text>
         <Text style={styles.subtitle}>Sign in to knowyourpit</Text>
 
-        <Text style={styles.label}>Email</Text>
+        <Text style={styles.label}>Email or username</Text>
         <View style={styles.inputRow}>
           <TextInput
             style={styles.input}
             value={email}
             onChangeText={setEmail}
-            placeholder="you@example.com"
+            placeholder="you@example.com or @pitmaster42"
             placeholderTextColor={colors.mutedForeground}
             autoCapitalize="none"
-            keyboardType="email-address"
+            keyboardType="default"
             autoComplete="email"
           />
         </View>
