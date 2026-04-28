@@ -613,6 +613,38 @@ export default function PlanScreen() {
   const [multiAddWeightInput, setMultiAddWeightInput] = useState("");
   const [multiPickedCut, setMultiPickedCut] = useState<MeatCut | null>(null);
 
+  // ── Form reset helpers ───────────────────────────────────────────────
+  // Called after a successful save so the next visit feels like a fresh
+  // planning session. `grillId` and `planMode` are intentionally preserved.
+  const resetForm = () => {
+    setCookName("");
+    setSelectedCut(null);
+    setWeightLbs("");
+    setNotes("");
+    setTargetTempF("");
+    setCookTempF("");
+    const fresh = new Date();
+    fresh.setDate(fresh.getDate() + 1);
+    fresh.setHours(18, 0, 0, 0);
+    setServeAt(fresh);
+    setAiResult(null);
+    setAiResultOpen(false);
+    setSelectedProbeId(null);
+    setPrepGuideOpen(false);
+    setMeatPickerOpen(false);
+    setMeatCategory(MEAT_CATEGORIES[0]);
+  };
+
+  const resetMultiForm = () => {
+    setMultiItems([]);
+    setMultiResult(null);
+    setMultiResultOpen(false);
+    setMultiAddOpen(false);
+    setMultiAddCat(MEAT_CATEGORIES[0]);
+    setMultiAddWeightInput("");
+    setMultiPickedCut(null);
+  };
+
   // ── Derived values ───────────────────────────────────────────────────
   const selectedGrill = useMemo(
     () => (grills as any[] | undefined)?.find((g: any) => g.id === grillId) ?? null,
@@ -764,7 +796,8 @@ export default function PlanScreen() {
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
       qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
-      setMultiResultOpen(false);
+      resetMultiForm();
+      resetForm();
       router.push("/(tabs)/cooks");
     } catch (e: any) {
       // Free user hit the cook cap mid-multi-save → paywall.
@@ -855,6 +888,7 @@ export default function PlanScreen() {
       qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
       qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
+      resetForm();
       router.push("/(tabs)/cooks" as any);
     } catch (e: any) {
       // Free user hit the cook cap → upgrade modal instead of generic error.
