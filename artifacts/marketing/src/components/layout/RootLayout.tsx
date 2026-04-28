@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useEffect, useRef, useState } from "react";
 import { Menu, X } from "lucide-react";
+import { useCanonicalUrl } from "@/hooks/use-canonical-url";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -16,6 +17,8 @@ export function RootLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const firstLinkRef = useRef<HTMLAnchorElement>(null);
+
+  useCanonicalUrl();
 
   // Close the mobile menu whenever the route changes.
   useEffect(() => {
