@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -17,9 +17,11 @@ import {
   KeyboardAvoidingView,
   Animated,
   LogBox,
+  AppState,
+  type AppStateStatus,
 } from "react-native";
 import { fmtMinutes, fmtDurationMs, fmtRelMinutes } from "@/utils/duration";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
@@ -930,9 +932,27 @@ export default function CookDetailScreen() {
 
   const removeImage = (idx: number) => { setImages((p) => p.filter((_, i) => i !== idx)); setResult(null); };
 
-  const analyze = async () => {
+  // Auto-grade pause flag: set when a silent (auto) analyze hits the
+  // graded-cook paywall. Stops the 30-min timer until the user upgrades.
+  const [autoGradePaused, setAutoGradePaused] = useState(false);
+
+  // Local "last analyzed at" timestamp used to schedule the next auto-grade.
+  // Seeded from cook.analysisResult.analyzedAt / analysisHistory and bumped
+  // whenever an analyze (manual OR auto) finishes successfully.
+  const [lastAnalyzedAtMs, setLastAnalyzedAtMs] = useState<number | null>(null);
+
+  const analyze = async (opts: { auto?: boolean } = {}) => {
+    const auto = opts.auto === true;
     const hasTemp = userTempInput.trim().length > 0 && !isNaN(parseFloat(userTempInput));
-    if (images.length === 0 && !cookNotes.trim() && !hasTemp) {
+    // For auto-grade ticks, a live MEATER probe temperature counts as
+    // gradeable input on its own (the analyze API also forwards live
+    // probe data via cookContext), even if the user has cleared the
+    // userTempInput field.
+    const hasMeaterTemp =
+      meaterProbes.length > 0 && meaterProbes[0]?.internalTempF != null;
+    const hasAnyInput = images.length > 0 || cookNotes.trim().length > 0 || hasTemp;
+    if (!hasAnyInput && !(auto && hasMeaterTemp)) {
+      if (auto) return; // silent skip — nothing useful to grade right now
       if (cookStatus === "active") {
         Alert.alert("Nothing to check in with", "Enter your current probe temperature or add a note about what's happening on the cook.");
       } else {
@@ -946,12 +966,20 @@ export default function CookDetailScreen() {
     const currentCookHasVerdict = !!(cook as any)?.analysisResult?.assessment?.verdict;
     if (!currentCookHasVerdict && paywallUsage && !paywallUsage.unlimited) {
       if (paywallUsage.usage.gradedCooks >= 1) {
+        if (auto) {
+          // Quietly pause auto-grading. The on-screen banner explains the
+          // state and offers an upgrade path; we never show the modal here.
+          setAutoGradePaused(true);
+          return;
+        }
         showPaywall({ trigger: "graded_cook_limit_reached" });
         return;
       }
     }
-    setAnalyzing(true);
-    setResult(null);
+    if (!auto) {
+      setAnalyzing(true);
+      setResult(null);
+    }
     try {
       const c = cook as any;
       const data: any = await analyzeMutation.mutateAsync({
@@ -1007,15 +1035,156 @@ export default function CookDetailScreen() {
       });
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
       qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Bump local clock — this both surfaces "Updated X min ago" UI and
+      // resets the 30-min auto-grade timer regardless of which path ran.
+      setLastAnalyzedAtMs(Date.now());
+      // Successful grade → if we'd previously paused due to paywall, the
+      // server allowed this one through, so resume auto-grading.
+      setAutoGradePaused(false);
+      if (!auto) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
+      if (auto) {
+        // Silent path: detect 402 paywall to pause auto-grading; swallow
+        // every other error (network, AI failure, etc.) so the user is
+        // never alerted by a background grade attempt.
+        const status =
+          (e as any)?.status ?? (e as any)?.statusCode ?? (e as any)?.response?.status ?? null;
+        if (status === 402) setAutoGradePaused(true);
+        return;
+      }
       // Free user hit the daily AI scan cap → upgrade modal.
       if (parseAndShowFromError(e)) return;
       Alert.alert("Analysis failed", "Could not analyze the cook. Please check your connection and try again.");
     } finally {
-      setAnalyzing(false);
+      if (!auto) setAnalyzing(false);
     }
   };
+
+  // ── Auto-grade scheduling ────────────────────────────────────────────
+  // Live cooks (status === "active") get a fresh PitMaster grade every
+  // 30 minutes while the screen is mounted and the app is foregrounded.
+  // Pause conditions: cook isn't active, autoGradePaused (paywall hit),
+  // or app is backgrounded. Manual analyze still works at any time and
+  // resets the timer when it succeeds.
+  const AUTO_GRADE_INTERVAL_MS = 30 * 60 * 1000;
+
+  // Seed lastAnalyzedAtMs from whatever the server has stored. Keep the
+  // larger of (server timestamp, current local timestamp) so that a fresh
+  // local analyze isn't clobbered by a delayed refetch.
+  useEffect(() => {
+    const c2 = cook as any;
+    const stored = c2?.analysisResult?.analyzedAt as string | null | undefined;
+    const hist = Array.isArray(c2?.analysisHistory) ? c2.analysisHistory : [];
+    const histLast = hist.length > 0
+      ? (hist[hist.length - 1]?.savedAt ?? hist[hist.length - 1]?.analyzedAt ?? null)
+      : null;
+    const raw = stored ?? histLast ?? null;
+    if (!raw) return;
+    const ms = new Date(raw).getTime();
+    if (!Number.isFinite(ms)) return;
+    setLastAnalyzedAtMs((prev) => (prev != null && prev > ms ? prev : ms));
+  }, [
+    (cook as any)?.id,
+    (cook as any)?.analysisResult?.analyzedAt,
+    (cook as any)?.analysisHistory?.length,
+  ]);
+
+  // If user upgrades to Pro mid-session, lift the auto-grade pause.
+  useEffect(() => {
+    if (paywallUsage?.unlimited) setAutoGradePaused(false);
+  }, [paywallUsage?.unlimited]);
+
+  // Foreground/background tracking for the timer.
+  const [appActive, setAppActive] = useState<boolean>(
+    AppState.currentState === "active",
+  );
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state: AppStateStatus) => {
+      setAppActive(state === "active");
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Screen focus tracking — auto-grading must pause when the user
+  // navigates away from the cook detail screen, even if the screen
+  // is still mounted (Expo Router can keep route components mounted
+  // while another screen is on top).
+  const [isFocused, setIsFocused] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      return () => setIsFocused(false);
+    }, []),
+  );
+
+  // Stable ref to analyze + the data the auto tick reads, so the timer
+  // effect can have a small, stable dependency list.
+  const autoTickRef = useRef<{
+    analyze: typeof analyze;
+    cookNotes: string;
+    userTempInput: string;
+    meaterProbes: typeof meaterProbes;
+    analyzing: boolean;
+  }>({ analyze, cookNotes, userTempInput, meaterProbes, analyzing });
+  useEffect(() => {
+    autoTickRef.current = { analyze, cookNotes, userTempInput, meaterProbes, analyzing };
+  });
+
+  useEffect(() => {
+    if (cookStatus !== "active") return;
+    if (autoGradePaused) return;
+    if (!appActive) return;
+    if (!isFocused) return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const tick = async () => {
+      if (cancelled) return;
+      const cur = autoTickRef.current;
+      // If a manual analyze is in flight, defer one full interval so we
+      // don't double-fire — the manual call will bump lastAnalyzedAtMs
+      // and re-schedule us via the deps below anyway.
+      if (cur.analyzing) {
+        timer = setTimeout(tick, AUTO_GRADE_INTERVAL_MS);
+        return;
+      }
+      // Skip silently when nothing is gradeable. Do not consume an analyze
+      // call against the user's free-tier cap on empty data.
+      const hasUserTemp =
+        cur.userTempInput.trim().length > 0 && !isNaN(parseFloat(cur.userTempInput));
+      const hasMeaterTemp =
+        cur.meaterProbes.length > 0 && cur.meaterProbes[0]?.internalTempF != null;
+      const hasNotes = cur.cookNotes.trim().length > 0;
+      if (!hasUserTemp && !hasMeaterTemp && !hasNotes) {
+        timer = setTimeout(tick, AUTO_GRADE_INTERVAL_MS);
+        return;
+      }
+      try {
+        await cur.analyze({ auto: true });
+      } catch {
+        // analyze handles its own auto-mode errors; never bubble.
+      }
+      if (cancelled) return;
+      timer = setTimeout(tick, AUTO_GRADE_INTERVAL_MS);
+    };
+
+    const elapsed =
+      lastAnalyzedAtMs != null ? Date.now() - lastAnalyzedAtMs : Infinity;
+    const wait =
+      elapsed >= AUTO_GRADE_INTERVAL_MS ? 0 : AUTO_GRADE_INTERVAL_MS - elapsed;
+    timer = setTimeout(tick, wait);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [cookStatus, autoGradePaused, appActive, isFocused, lastAnalyzedAtMs, AUTO_GRADE_INTERVAL_MS]);
+
+  // Open paywall from the auto-grade banner upgrade tap.
+  const onUpgradeAutoGradePress = useCallback(() => {
+    showPaywall({ trigger: "graded_cook_limit_reached" });
+  }, [showPaywall]);
 
   if (isLoading) {
     return (
@@ -2241,10 +2410,44 @@ export default function CookDetailScreen() {
                 1 AI grade remaining
               </Text>
             )}
+            {/* Auto-grade paused banner — only when a silent auto-grade
+                attempt hit the free-tier graded-cook cap. Tap to upgrade. */}
+            {autoGradePaused && paywallUsage && !paywallUsage.unlimited && (
+              <Pressable
+                onPress={onUpgradeAutoGradePress}
+                style={({ pressed }) => [
+                  {
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: 10,
+                    borderRadius: colors.radius,
+                    backgroundColor: "#E84820" + "12",
+                    borderWidth: 1,
+                    borderColor: "#E84820" + "35",
+                    opacity: pressed ? 0.85 : 1,
+                  },
+                ]}
+              >
+                <Feather name="pause-circle" size={16} color="#E84820" />
+                <Text
+                  style={{
+                    flex: 1,
+                    color: colors.foreground,
+                    fontSize: 13,
+                    fontFamily: "Inter_600SemiBold",
+                  }}
+                >
+                  Auto-grading paused — upgrade for unlimited
+                </Text>
+                <Feather name="chevron-right" size={16} color="#E84820" />
+              </Pressable>
+            )}
+
             {/* Analyze button */}
             <Pressable
               style={({ pressed }) => [s.analyzeBtn, { borderRadius: colors.radius }, (analyzing || pressed) && { opacity: 0.75 }]}
-              onPress={analyze}
+              onPress={() => analyze()}
               disabled={analyzing}
             >
               <LinearGradient colors={["#6C3BF5", "#A855F7"]} style={s.analyzeBtnGradient}>
@@ -2261,6 +2464,37 @@ export default function CookDetailScreen() {
                 )}
               </LinearGradient>
             </Pressable>
+
+            {/* Last-graded indicator. Mirrors the "Last check-in" line on the
+                stored-results card so the user can see at a glance how fresh
+                this card's grade is. Hidden until the first analyze runs. */}
+            {lastAnalyzedAtMs != null && (() => {
+              const ageSec = Math.max(0, Math.round((nowMs - lastAnalyzedAtMs) / 1000));
+              const ageLabel =
+                ageSec < 60
+                  ? "just now"
+                  : ageSec < 3600
+                    ? `${Math.round(ageSec / 60)} min ago`
+                    : `${Math.floor(ageSec / 3600)}h ${Math.round((ageSec % 3600) / 60)}m ago`;
+              const hh = new Date(lastAnalyzedAtMs).getHours();
+              const mm = new Date(lastAnalyzedAtMs).getMinutes();
+              const ampm = hh >= 12 ? "PM" : "AM";
+              const hour12 = hh % 12 === 0 ? 12 : hh % 12;
+              const clock = `${hour12}:${String(mm).padStart(2, "0")} ${ampm}`;
+              return (
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: "Inter_500Medium",
+                    color: colors.mutedForeground,
+                    textAlign: "center",
+                    marginTop: -2,
+                  }}
+                >
+                  Auto-graded {clock} · Updated {ageLabel}
+                </Text>
+              );
+            })()}
 
             {/* Results */}
             {result && (
@@ -2431,369 +2665,6 @@ export default function CookDetailScreen() {
           </View>
         )}
 
-        {/* ── PitMaster Cook Review (completed cooks only) ── */}
-        {c.status === "completed" && <View
-          style={[s.logSection, { backgroundColor: colors.card, borderColor: "#D97706" + "40", borderRadius: colors.radius }]}
-          onLayout={onCardLayout}
-        >
-          {/* Header */}
-          <View style={s.logHeader}>
-            <LinearGradient colors={["#D97706", "#F59E0B"]} style={s.logIconWrap}>
-              <Feather name="award" size={15} color="#fff" />
-            </LinearGradient>
-            <View style={{ flex: 1 }}>
-              <Text style={[s.logTitle, { color: colors.foreground }]}>PitMaster Cook Review</Text>
-              <Text style={[s.logSub, { color: colors.mutedForeground }]}>
-                Upload thermometer photos from your finished cook · PitMaster grades the result and gives personalised tips
-              </Text>
-            </View>
-          </View>
-
-          {/* Photo buttons */}
-          <View style={s.photoBtns}>
-            <Pressable style={[s.photoBtn, { borderColor: colors.border, borderRadius: colors.radius }]} onPress={pickImages}>
-              <Feather name="image" size={15} color={colors.primary} />
-              <Text style={[s.photoBtnText, { color: colors.foreground }]}>Gallery</Text>
-            </Pressable>
-            {Platform.OS !== "web" && (
-              <Pressable style={[s.photoBtn, { borderColor: colors.border, borderRadius: colors.radius }]} onPress={takePhoto}>
-                <Feather name="camera" size={15} color={colors.primary} />
-                <Text style={[s.photoBtnText, { color: colors.foreground }]}>Camera</Text>
-              </Pressable>
-            )}
-          </View>
-
-          {/* Thumbnails */}
-          {images.length > 0 && (
-            <View style={s.thumbRow}>
-              {images.map((img, i) => (
-                <View key={i} style={s.thumb}>
-                  <Image source={{ uri: img.uri }} style={s.thumbImg} />
-                  <Pressable style={[s.thumbDel, { backgroundColor: colors.destructive }]} onPress={() => removeImage(i)}>
-                    <Feather name="x" size={11} color="#fff" />
-                  </Pressable>
-                </View>
-              ))}
-              <Pressable style={[s.addMoreThumb, { borderColor: colors.border, borderRadius: 8 }]} onPress={pickImages}>
-                <Feather name="plus" size={18} color={colors.mutedForeground} />
-              </Pressable>
-            </View>
-          )}
-
-          {/* Timing context strip — shows the start/serve times the AI will use */}
-          {(() => {
-            const c2 = cook as any;
-            const startTime = c2?.actualStartAt
-              ? { label: "Your start", value: formatDT(c2.actualStartAt), highlight: true }
-              : c2?.plannedStartAt
-              ? { label: "Planned start", value: formatDT(c2.plannedStartAt), highlight: false }
-              : null;
-            const serveTime = c2?.plannedEndAt
-              ? { label: "Serve by", value: formatDT(c2.plannedEndAt) }
-              : null;
-            if (!startTime && !serveTime) return null;
-            return (
-              <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-                {startTime && (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: startTime.highlight ? colors.primary + "15" : colors.muted, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, flex: 1, minWidth: 120 }}>
-                    <Feather name="clock" size={12} color={startTime.highlight ? colors.primary : colors.mutedForeground} />
-                    <View>
-                      <Text style={{ fontSize: 10, color: startTime.highlight ? colors.primary : colors.mutedForeground, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.4 }}>{startTime.label}</Text>
-                      <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "500" }}>{startTime.value}</Text>
-                    </View>
-                  </View>
-                )}
-                {serveTime && (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.muted, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, flex: 1, minWidth: 120 }}>
-                    <Feather name="flag" size={12} color={colors.mutedForeground} />
-                    <View>
-                      <Text style={{ fontSize: 10, color: colors.mutedForeground, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.4 }}>{serveTime.label}</Text>
-                      <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "500" }}>{serveTime.value}</Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-            );
-          })()}
-
-          {/* Temperature reading input */}
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
-                Final temperature reached <Text style={{ fontWeight: "400" }}>(°F)</Text>
-              </Text>
-              <TextInput
-                style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, height: 44, paddingTop: 0, paddingBottom: 0 }]}
-                placeholder="e.g. 195"
-                placeholderTextColor={colors.mutedForeground}
-                value={userTempInput}
-                onChangeText={(v) => {
-                  setUserTempInput(v);
-                  setUserTempEdited(v.trim().length > 0);
-                }}
-                keyboardType="decimal-pad"
-              />
-            </View>
-          </View>
-
-          {/* Notes input */}
-          <View>
-            <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
-              How did it go? <Text style={{ fontWeight: "400" }}>(optional — any details help PitMaster grade accurately)</Text>
-            </Text>
-            <TextInput
-              style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
-              placeholder="e.g. Wrapped at 4hrs, had a big stall around 160°F, grill ran hot in the last hour..."
-              placeholderTextColor={colors.mutedForeground}
-              value={cookNotes}
-              onChangeText={setCookNotes}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-          </View>
-
-          {/* Free-tier remaining-analyzes counter. Hidden for Pro. */}
-          {paywallUsage && !paywallUsage.unlimited && (
-            <Text
-              style={{
-                fontSize: 12,
-                fontFamily: "Inter_500Medium",
-                color:
-                  paywallUsage.remaining.aiAnalyzesToday <= 1
-                    ? colors.primary
-                    : colors.mutedForeground,
-                textAlign: "center",
-                marginTop: 6,
-                marginBottom: -2,
-              }}
-            >
-              {paywallUsage.remaining.aiAnalyzesToday} of {paywallUsage.limits.aiAnalyzePerDay} free
-              analyses left today
-            </Text>
-          )}
-          {/* Free-tier graded-cook slot badge. Hidden for Pro. */}
-          {paywallUsage && !paywallUsage.unlimited && paywallUsage.usage.gradedCooks === 0 && (
-            <Text
-              style={{
-                fontSize: 12,
-                fontFamily: "Inter_500Medium",
-                color: colors.primary,
-                textAlign: "center",
-                marginTop: 4,
-                marginBottom: -2,
-              }}
-            >
-              1 AI grade remaining
-            </Text>
-          )}
-          {/* Grade button */}
-          <Pressable
-            style={({ pressed }) => [
-              s.analyzeBtn,
-              { borderRadius: colors.radius },
-              (analyzing || pressed) && { opacity: 0.75 },
-            ]}
-            onPress={analyze}
-            disabled={analyzing}
-          >
-            <LinearGradient colors={["#D97706", "#F59E0B"]} style={s.analyzeBtnGradient}>
-              {analyzing ? (
-                <>
-                  <ActivityIndicator color="#fff" size="small" />
-                  <Text style={s.analyzeBtnText}>PitMaster is reviewing your cook…</Text>
-                </>
-              ) : (
-                <>
-                  <Feather name="award" size={16} color="#fff" />
-                  <Text style={s.analyzeBtnText}>
-                    {images.length > 0
-                      ? `Grade ${images.length} image${images.length > 1 ? "s" : ""} with PitMaster`
-                      : "Grade This Cook with PitMaster"}
-                  </Text>
-                </>
-              )}
-            </LinearGradient>
-          </Pressable>
-
-          {/* ── Results ───────────────────────────────────────── */}
-          {result && (
-            <View style={[s.results, { borderTopColor: colors.border }]}>
-
-              {/* ── Decision engine ──────────────────────────────── */}
-              {renderDecisions(result.decisions ?? [])}
-
-              {/* Verdict banner */}
-              {verdictCfg && assessment && (
-                <View style={[s.verdictBanner, { backgroundColor: verdictCfg.color + "18", borderColor: verdictCfg.color + "40", borderRadius: colors.radius }]}>
-                  <Feather name={verdictCfg.icon as any} size={20} color={verdictCfg.color} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[s.verdictLabel, { color: verdictCfg.color }]}>{verdictCfg.label}</Text>
-                    {assessment.summary ? (
-                      <Text style={[s.verdictSummary, { color: colors.foreground }]}>{assessment.summary}</Text>
-                    ) : null}
-                  </View>
-                </View>
-              )}
-
-              {/* Temperature graph */}
-              {(result.probes as any[]).filter((p) => p.timeSeries?.length >= 2).length > 0 && (
-                <View style={[s.graphWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
-                  <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 8 }]}>Temperature Graph</Text>
-                  <TempGraph
-                    probes={(result.probes as any[]).filter((p) => p.timeSeries?.length >= 2)}
-                    events={result.events}
-                    targetTempF={c?.targetTempF ?? null}
-                    width={cardWidth}
-                    height={180}
-                  />
-                </View>
-              )}
-
-              {/* Probe readings */}
-              {result.probes.length > 0 && (
-                <View style={[s.subSection, { borderColor: colors.border }]}>
-                  <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Temperature Readings</Text>
-                  {result.probes.map((p, i) => (
-                    <View key={i} style={[s.probeRow, { borderTopColor: colors.border }]}>
-                      <View>
-                        <Text style={[s.probeName, { color: colors.foreground }]}>{p.probeName}</Text>
-                        {(p.minTempF != null || p.maxTempF != null) && (
-                          <Text style={[s.probeRange, { color: colors.mutedForeground }]}>
-                            {p.minTempF != null ? `${p.minTempF}°F` : "?"} → {p.maxTempF != null ? `${p.maxTempF}°F` : "?"}
-                          </Text>
-                        )}
-                      </View>
-                      <Text style={[s.probeFinish, { color: colors.primary }]}>{p.finishingTempF}°F</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {/* Events timeline */}
-              {result.events.length > 0 && (() => {
-                const isOpen = expandedResultSections.has("timeline");
-                return (
-                  <View style={[s.subSection, { borderColor: colors.border }]}>
-                    <Pressable style={s.collapsibleRow} onPress={() => toggleResultSection("timeline")}>
-                      <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>Cook Timeline</Text>
-                      <View style={[s.countPill, { backgroundColor: colors.muted }]}>
-                        <Text style={[s.countPillText, { color: colors.mutedForeground }]}>{result.events.length}</Text>
-                      </View>
-                      <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
-                    </Pressable>
-                    {!isOpen && (
-                      <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
-                        {fmtISOInText(result.events[0].description)}
-                      </Text>
-                    )}
-                    {isOpen && result.events.map((ev, i) => {
-                      const hrs = Math.floor(ev.timeMinutes / 60);
-                      const mins = ev.timeMinutes % 60;
-                      const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
-                      return (
-                        <View key={i} style={[s.eventRow, { borderTopColor: colors.border }]}>
-                          <View style={[s.eventIconWrap, { backgroundColor: colors.primary + "18" }]}>
-                            <Feather name={(EVENT_ICONS[ev.type] ?? "circle") as any} size={13} color={colors.primary} />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[s.eventDesc, { color: colors.foreground }]}>{fmtISOInText(ev.description)}</Text>
-                          </View>
-                          <Text style={[s.eventTime, { color: colors.mutedForeground }]}>{timeStr}</Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                );
-              })()}
-
-              {/* What went well */}
-              {(assessment?.whatWentWell?.length ?? 0) > 0 && (() => {
-                const isOpen = expandedResultSections.has("wentWell");
-                return (
-                  <View style={[s.subSection, { borderColor: colors.border }]}>
-                    <Pressable style={s.collapsibleRow} onPress={() => toggleResultSection("wentWell")}>
-                      <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>What Went Well</Text>
-                      <View style={[s.countPill, { backgroundColor: "#22c55e18" }]}>
-                        <Text style={[s.countPillText, { color: "#22c55e" }]}>{assessment!.whatWentWell!.length}</Text>
-                      </View>
-                      <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
-                    </Pressable>
-                    {!isOpen && (
-                      <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
-                        {assessment!.whatWentWell![0]}
-                      </Text>
-                    )}
-                    {isOpen && assessment!.whatWentWell!.map((item, i) => (
-                      <View key={i} style={s.bulletRow}>
-                        <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
-                        <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
-                      </View>
-                    ))}
-                  </View>
-                );
-              })()}
-
-              {/* Suggestions */}
-              {(assessment?.suggestions?.length ?? 0) > 0 && (() => {
-                const isOpen = expandedResultSections.has("nextTime");
-                return (
-                  <View style={[s.subSection, { borderColor: colors.border }]}>
-                    <Pressable style={s.collapsibleRow} onPress={() => toggleResultSection("nextTime")}>
-                      <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>Next Time, Try This</Text>
-                      <View style={[s.countPill, { backgroundColor: "#A855F718" }]}>
-                        <Text style={[s.countPillText, { color: "#A855F7" }]}>{assessment!.suggestions!.length}</Text>
-                      </View>
-                      <Feather name={isOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: 6 }} />
-                    </Pressable>
-                    {!isOpen && (
-                      <Text style={[s.sectionPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
-                        {assessment!.suggestions![0]}
-                      </Text>
-                    )}
-                    {isOpen && assessment!.suggestions!.map((tip, i) => (
-                      <View key={i} style={s.bulletRow}>
-                        <Text style={[s.bulletNum, { color: colors.primary }]}>{i + 1}</Text>
-                        <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
-                      </View>
-                    ))}
-                  </View>
-                );
-              })()}
-
-              {/* No data fallback */}
-              {result.noDataFound && result.probes.length === 0 && (
-                <View style={s.noDataRow}>
-                  <Feather name="info" size={15} color={colors.mutedForeground} />
-                  <Text style={[s.noDataText, { color: colors.mutedForeground }]}>
-                    No temperature data found in images — assessment based on your cook notes only.
-                    {result.rawExtraction ? `\n${result.rawExtraction}` : ""}
-                  </Text>
-                </View>
-              )}
-
-              {/* Detected meta */}
-              {(result.detectedFoodType || result.cookDurationMinutes != null) && (
-                <View style={[s.metaRow, { borderTopColor: colors.border }]}>
-                  {result.detectedFoodType && (
-                    <View style={s.metaPill}>
-                      <Feather name="tag" size={12} color={colors.mutedForeground} />
-                      <Text style={[s.metaText, { color: colors.mutedForeground }]}>{result.detectedFoodType}</Text>
-                    </View>
-                  )}
-                  {result.cookDurationMinutes != null && (
-                    <View style={s.metaPill}>
-                      <Feather name="clock" size={12} color={colors.mutedForeground} />
-                      <Text style={[s.metaText, { color: colors.mutedForeground }]}>
-                        {Math.floor(result.cookDurationMinutes / 60)}h {result.cookDurationMinutes % 60}m
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              )}
-            </View>
-          )}
-        </View>}
 
         {/* ── Check-in History ─────────────────────────────── */}
         {(() => {
@@ -2936,19 +2807,6 @@ export default function CookDetailScreen() {
               </>
             )}
           </Pressable>
-        )}
-
-        {/* Grade prompt — completed cook with no stored analysis */}
-        {c.status === "completed" && !storedAnalysis && !result && (
-          <View style={[s.gradePrompt, { backgroundColor: "#E84820" + "12", borderColor: "#E84820" + "35", borderRadius: colors.radius }]}>
-            <Feather name="award" size={18} color="#E84820" />
-            <View style={{ flex: 1 }}>
-              <Text style={[s.gradePromptTitle, { color: colors.foreground }]}>Get your cook graded</Text>
-              <Text style={[s.gradePromptSub, { color: colors.mutedForeground }]}>
-                Upload thermometer photos or add notes below — PitMaster will grade this cook{c.wrapMethod ? " against your original plan" : ""}.
-              </Text>
-            </View>
-          </View>
         )}
 
         <Pressable onPress={goHome} style={s.homeLink}>

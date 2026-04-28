@@ -175,6 +175,10 @@ export default function LogCookScreen() {
   });
 
   const [saving, setSaving] = useState(false);
+  // True while the auto-grade analyze call is running inside the Save handler.
+  // Used to surface a "Grading & saving…" label on the Save button so the
+  // user knows what is happening during the (potentially slow) AI call.
+  const [autoGrading, setAutoGrading] = useState(false);
   const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
   const [meatPickerVisible, setMeatPickerVisible] = useState(false);
   const [meatCatTab, setMeatCatTab] = useState<string>(MEAT_CATEGORIES[0]);
@@ -489,6 +493,58 @@ export default function LogCookScreen() {
     }
     setSaving(true);
     try {
+      // Auto-grade pass: if the user did not run "Analyze with PitMaster"
+      // manually but supplied at least one image, cook notes, or a final
+      // temperature, run the analyze mutation in-line so the saved cook ends
+      // up graded automatically. Failures (network, paywall, missing data)
+      // never block the save: paywall responses still surface the existing
+      // paywall modal via parseAndShowFromError; everything else is silently
+      // swallowed and the cook is saved ungraded.
+      let autoResult: any = null;
+      const hasGradeableData =
+        images.length > 0 ||
+        scanNotes.trim().length > 0 ||
+        cookNotes.trim().length > 0 ||
+        targetTempF.trim().length > 0 ||
+        cookTempF.trim().length > 0;
+      if (!result && hasGradeableData) {
+        // Free-tier pre-check: if the user has already used their grade slot,
+        // skip the network round-trip but STILL surface the existing paywall
+        // modal so the user knows why this cook saved ungraded. The save
+        // itself is never blocked — the modal is informational.
+        const overFreeCap =
+          paywallUsage && !paywallUsage.unlimited && paywallUsage.usage.gradedCooks >= 1;
+        if (overFreeCap) {
+          showPaywall({ trigger: "graded_cook_limit_reached" });
+        } else {
+          setAutoGrading(true);
+          try {
+            const contextPayload: any = {};
+            if (foodType.trim()) contextPayload.foodType = foodType.trim();
+            if (targetTempF.trim()) contextPayload.targetTempF = parseFloat(targetTempF);
+            if (cookTempF.trim()) contextPayload.cookTempF = parseFloat(cookTempF);
+            if (weightLbs.trim()) contextPayload.weightLbs = parseFloat(weightLbs);
+            const aiNotes = scanNotes.trim() || cookNotes.trim() || null;
+            autoResult = await analyzeMutation.mutateAsync({
+              data: {
+                images: images.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),
+                cookNotes: aiNotes,
+                cookContext: Object.keys(contextPayload).length > 0 ? contextPayload : undefined,
+              } as any,
+            });
+          } catch (err) {
+            // 402 → existing paywall modal. Anything else (network, AI error,
+            // missing data) is swallowed silently so the save proceeds.
+            parseAndShowFromError(err);
+            autoResult = null;
+          } finally {
+            setAutoGrading(false);
+          }
+        }
+      }
+
+      const effectiveResult = result ?? autoResult;
+
       const payload: any = {
         foodType: foodType.trim(),
         status: "completed",
@@ -501,23 +557,24 @@ export default function LogCookScreen() {
       // Prefer user-entered start time; fall back to AI-detected date
       if (actualStartDate) {
         payload.actualStartAt = actualStartDate.toISOString();
-      } else if (result?.detectedCookDate) {
-        const d = new Date(result.detectedCookDate);
+      } else if (effectiveResult?.detectedCookDate) {
+        const d = new Date(effectiveResult.detectedCookDate);
         if (!isNaN(d.getTime())) payload.actualStartAt = d.toISOString();
       }
-      if (result) {
+      if (effectiveResult) {
         payload.analysisResult = {
-          probes: result.probes,
-          events: result.events,
-          cookDurationMinutes: result.cookDurationMinutes,
-          detectedFoodType: result.detectedFoodType,
-          detectedWeightLbs: result.detectedWeightLbs,
-          detectedCookTempF: result.detectedCookTempF,
-          detectedTargetTempF: result.detectedTargetTempF,
-          detectedGrillBrand: result.detectedGrillBrand,
-          detectedWoodType: result.detectedWoodType,
-          detectedRub: result.detectedRub,
-          assessment: result.assessment,
+          probes: effectiveResult.probes,
+          events: effectiveResult.events,
+          cookDurationMinutes: effectiveResult.cookDurationMinutes,
+          detectedFoodType: effectiveResult.detectedFoodType,
+          detectedWeightLbs: effectiveResult.detectedWeightLbs,
+          detectedCookTempF: effectiveResult.detectedCookTempF,
+          detectedTargetTempF: effectiveResult.detectedTargetTempF,
+          detectedGrillBrand: effectiveResult.detectedGrillBrand,
+          detectedWoodType: effectiveResult.detectedWoodType,
+          detectedRub: effectiveResult.detectedRub,
+          assessment: effectiveResult.assessment,
+          analyzedAt: new Date().toISOString(),
         };
       }
 
@@ -1046,7 +1103,10 @@ export default function LogCookScreen() {
         >
           <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.saveBtnGradient}>
             {saving ? (
-              <ActivityIndicator color="#fff" />
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <ActivityIndicator color="#fff" />
+                <Text style={s.saveBtnText}>{autoGrading ? "Grading & saving…" : "Saving…"}</Text>
+              </View>
             ) : (
               <>
                 <Feather name="save" size={17} color="#fff" />
