@@ -583,6 +583,21 @@ export default function CookDetailScreen() {
     stepToastTimerRef.current = setTimeout(() => setStepToast(null), 4200);
   }, [nextStepKey]);
 
+  const dismissStepToast = React.useCallback(() => {
+    if (stepToastTimerRef.current) {
+      clearTimeout(stepToastTimerRef.current);
+      stepToastTimerRef.current = null;
+    }
+    stepToastAnimRef.current?.stop();
+    const fadeOut = Animated.timing(stepToastAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    });
+    stepToastAnimRef.current = fadeOut;
+    fadeOut.start(() => setStepToast(null));
+  }, [stepToastAnim]);
+
   // Edit modal state
   const [editVisible, setEditVisible] = useState(false);
   const [editGrillPickerVisible, setEditGrillPickerVisible] = useState(false);
@@ -1113,28 +1128,29 @@ export default function CookDetailScreen() {
 
       {/* ── Step-change toast banner ─────────────────────────────────────── */}
       {stepToast !== null && (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            s.stepToast,
-            {
-              backgroundColor: colors.primary,
-              opacity: stepToastAnim,
-              transform: [
-                {
-                  translateY: stepToastAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-12, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <Feather name="clock" size={14} color="#fff" />
-          <Text style={s.stepToastLabel}>Next Up</Text>
-          <Text style={s.stepToastText} numberOfLines={1}>{stepToast}</Text>
-        </Animated.View>
+        <Pressable onPress={dismissStepToast} style={s.stepToastHitArea}>
+          <Animated.View
+            style={[
+              s.stepToast,
+              {
+                backgroundColor: colors.primary,
+                opacity: stepToastAnim,
+                transform: [
+                  {
+                    translateY: stepToastAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-12, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <Feather name="clock" size={14} color="#fff" />
+            <Text style={s.stepToastLabel}>Next Up</Text>
+            <Text style={s.stepToastText} numberOfLines={1}>{stepToast}</Text>
+          </Animated.View>
+        </Pressable>
       )}
 
       <ScrollView
@@ -3669,12 +3685,14 @@ const s = StyleSheet.create({
   },
   seqTlNoteText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 17 },
 
-  stepToast: {
+  stepToastHitArea: {
     position: "absolute",
     top: 0,
     left: 12,
     right: 12,
     zIndex: 99,
+  },
+  stepToast: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
