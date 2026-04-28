@@ -93,6 +93,31 @@ function shiftSequenceData(data: SequenceData, offsetMs: number): SequenceData {
   };
 }
 
+function applyItemOffsets(
+  data: SequenceData,
+  globalOffsetMs: number,
+  itemOffsets: Record<number, number>
+): SequenceData {
+  const schedule = data.schedule.map((item, idx) => {
+    const totalOffsetMs = globalOffsetMs + (itemOffsets[idx] || 0) * 60000;
+    return {
+      ...item,
+      grillLightAt: new Date(new Date(item.grillLightAt).getTime() + totalOffsetMs).toISOString(),
+      meatOnAt: new Date(new Date(item.meatOnAt).getTime() + totalOffsetMs).toISOString(),
+      estimatedFinishAt: new Date(new Date(item.estimatedFinishAt).getTime() + totalOffsetMs).toISOString(),
+    };
+  });
+  const latestReadyMs = schedule.reduce((max, item) => {
+    const ready = new Date(item.estimatedFinishAt).getTime() + item.restMinutes * 60000;
+    return Math.max(max, ready);
+  }, 0);
+  return {
+    ...data,
+    schedule,
+    serveAt: latestReadyMs > 0 ? new Date(latestReadyMs).toISOString() : data.serveAt,
+  };
+}
+
 function fmtDate(d: Date): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -144,6 +169,7 @@ export default function CooksScreen() {
   const [viewingSequence, setViewingSequence] = useState<{ group: SessionGroup; data: SequenceData } | null>(null);
   const [seqEditMode, setSeqEditMode] = useState(false);
   const [seqOffsetMinutes, setSeqOffsetMinutes] = useState(0);
+  const [seqItemOffsets, setSeqItemOffsets] = useState<Record<number, number>>({});
   const [seqSaveError, setSeqSaveError] = useState<string | null>(null);
   const { data: cooks, isLoading, refetch } = useListCooks();
   const updateSession = useUpdateSession();
@@ -597,13 +623,13 @@ export default function CooksScreen() {
         visible={viewingSequence !== null}
         transparent
         animationType="slide"
-        onRequestClose={() => { setViewingSequence(null); setSeqEditMode(false); setSeqOffsetMinutes(0); setSeqSaveError(null); }}
+        onRequestClose={() => { setViewingSequence(null); setSeqEditMode(false); setSeqOffsetMinutes(0); setSeqItemOffsets({}); setSeqSaveError(null); }}
       >
         <View style={s.modalOverlay}>
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
             activeOpacity={1}
-            onPress={() => { setViewingSequence(null); setSeqEditMode(false); setSeqOffsetMinutes(0); setSeqSaveError(null); }}
+            onPress={() => { setViewingSequence(null); setSeqEditMode(false); setSeqOffsetMinutes(0); setSeqItemOffsets({}); setSeqSaveError(null); }}
           />
           <View style={[s.seqSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={s.seqSheetHandle} />
@@ -614,7 +640,7 @@ export default function CooksScreen() {
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                 <Pressable
                   hitSlop={8}
-                  onPress={() => { setSeqEditMode((v) => !v); setSeqOffsetMinutes(0); setSeqSaveError(null); }}
+                  onPress={() => { setSeqEditMode((v) => !v); setSeqOffsetMinutes(0); setSeqItemOffsets({}); setSeqSaveError(null); }}
                   style={[
                     s.seqEditTimesBtn,
                     { backgroundColor: seqEditMode ? "#6C3BF520" : colors.border },
@@ -625,7 +651,7 @@ export default function CooksScreen() {
                     {seqEditMode ? "Cancel" : "Edit times"}
                   </Text>
                 </Pressable>
-                <Pressable hitSlop={8} onPress={() => { setViewingSequence(null); setSeqEditMode(false); setSeqOffsetMinutes(0); setSeqSaveError(null); }}>
+                <Pressable hitSlop={8} onPress={() => { setViewingSequence(null); setSeqEditMode(false); setSeqOffsetMinutes(0); setSeqItemOffsets({}); setSeqSaveError(null); }}>
                   <Feather name="x" size={20} color={colors.mutedForeground} />
                 </Pressable>
               </View>
@@ -669,40 +695,47 @@ export default function CooksScreen() {
                     {seqSaveError}
                   </Text>
                 ) : null}
-                <Pressable
-                  style={[
-                    s.seqSaveBtn,
-                    { backgroundColor: seqOffsetMinutes === 0 ? colors.border : "#6C3BF5", opacity: updateSession.isPending ? 0.6 : 1 },
-                  ]}
-                  disabled={seqOffsetMinutes === 0 || updateSession.isPending}
-                  onPress={async () => {
-                    if (!viewingSequence || seqOffsetMinutes === 0) return;
-                    setSeqSaveError(null);
-                    try {
-                      const shifted = shiftSequenceData(viewingSequence.data, seqOffsetMinutes * 60000);
-                      await updateSession.mutateAsync({
-                        sessionId: viewingSequence.group.sessionId,
-                        sequenceData: shifted,
-                      });
-                      setViewingSequence({ ...viewingSequence, data: shifted });
-                      setSeqEditMode(false);
-                      setSeqOffsetMinutes(0);
-                    } catch {
-                      setSeqSaveError("Failed to save. Please try again.");
-                    }
-                  }}
-                >
-                  {updateSession.isPending
-                    ? <ActivityIndicator size="small" color="#fff" />
-                    : <Text style={[s.seqSaveBtnText, { color: seqOffsetMinutes === 0 ? colors.mutedForeground : "#fff" }]}>Save updated times</Text>
-                  }
-                </Pressable>
+                {(() => {
+                  const hasChanges = seqOffsetMinutes !== 0 || Object.values(seqItemOffsets).some((v) => v !== 0);
+                  return (
+                    <Pressable
+                      style={[
+                        s.seqSaveBtn,
+                        { backgroundColor: hasChanges ? "#6C3BF5" : colors.border, opacity: updateSession.isPending ? 0.6 : 1 },
+                      ]}
+                      disabled={!hasChanges || updateSession.isPending}
+                      onPress={async () => {
+                        if (!viewingSequence || !hasChanges) return;
+                        setSeqSaveError(null);
+                        try {
+                          const patched = applyItemOffsets(viewingSequence.data, seqOffsetMinutes * 60000, seqItemOffsets);
+                          await updateSession.mutateAsync({
+                            sessionId: viewingSequence.group.sessionId,
+                            sequenceData: patched,
+                          });
+                          setViewingSequence({ ...viewingSequence, data: patched });
+                          setSeqEditMode(false);
+                          setSeqOffsetMinutes(0);
+                          setSeqItemOffsets({});
+                        } catch {
+                          setSeqSaveError("Failed to save. Please try again.");
+                        }
+                      }}
+                    >
+                      {updateSession.isPending
+                        ? <ActivityIndicator size="small" color="#fff" />
+                        : <Text style={[s.seqSaveBtnText, { color: hasChanges ? "#fff" : colors.mutedForeground }]}>Save updated times</Text>
+                      }
+                    </Pressable>
+                  );
+                })()}
               </View>
             )}
 
             {(() => {
+              const hasAnyOffset = seqOffsetMinutes !== 0 || Object.values(seqItemOffsets).some((v) => v !== 0);
               const displayData = viewingSequence
-                ? (seqOffsetMinutes !== 0 ? shiftSequenceData(viewingSequence.data, seqOffsetMinutes * 60000) : viewingSequence.data)
+                ? (hasAnyOffset ? applyItemOffsets(viewingSequence.data, seqOffsetMinutes * 60000, seqItemOffsets) : viewingSequence.data)
                 : null;
               return (
                 <>
@@ -791,6 +824,52 @@ export default function CooksScreen() {
                             <Text style={[s.seqNoteText, { color: colors.mutedForeground }]}>{item.notes}</Text>
                           </View>
                         ) : null}
+                        {seqEditMode && (
+                          <View style={[s.seqItemOffsetRow, { borderTopColor: colors.border }]}>
+                            <Text style={[s.seqItemOffsetLabel, { color: colors.mutedForeground }]}>Shift this item</Text>
+                            <View style={s.seqItemOffsetControls}>
+                              {([-15, -5, 5, 15] as const).map((delta) => (
+                                <Pressable
+                                  key={delta}
+                                  style={[s.seqItemOffsetBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                                  onPress={() =>
+                                    setSeqItemOffsets((prev) => ({
+                                      ...prev,
+                                      [idx]: (prev[idx] || 0) + delta,
+                                    }))
+                                  }
+                                >
+                                  <Text style={[s.seqItemOffsetBtnText, { color: colors.foreground }]}>
+                                    {delta > 0 ? `+${delta}m` : `${delta}m`}
+                                  </Text>
+                                </Pressable>
+                              ))}
+                            </View>
+                            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                              <Text style={[s.seqItemOffsetValue, { color: (seqItemOffsets[idx] || 0) === 0 ? colors.mutedForeground : "#6C3BF5" }]}>
+                                {(seqItemOffsets[idx] || 0) === 0
+                                  ? "No change"
+                                  : (seqItemOffsets[idx] || 0) > 0
+                                    ? `+${seqItemOffsets[idx]}m later`
+                                    : `${seqItemOffsets[idx]}m earlier`}
+                              </Text>
+                              {(seqItemOffsets[idx] || 0) !== 0 && (
+                                <Pressable
+                                  hitSlop={8}
+                                  onPress={() =>
+                                    setSeqItemOffsets((prev) => {
+                                      const next = { ...prev };
+                                      delete next[idx];
+                                      return next;
+                                    })
+                                  }
+                                >
+                                  <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground }}>Reset</Text>
+                                </Pressable>
+                              )}
+                            </View>
+                          </View>
+                        )}
                       </View>
                     ))}
                     <View style={{ height: 24 }} />
@@ -1246,5 +1325,37 @@ const s = StyleSheet.create({
   seqSaveBtnText: {
     fontSize: 14,
     fontFamily: "Inter_700Bold",
+  },
+  seqItemOffsetRow: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+  },
+  seqItemOffsetLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  seqItemOffsetControls: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  seqItemOffsetBtn: {
+    flex: 1,
+    height: 32,
+    borderWidth: 1,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  seqItemOffsetBtnText: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+  },
+  seqItemOffsetValue: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
   },
 });
