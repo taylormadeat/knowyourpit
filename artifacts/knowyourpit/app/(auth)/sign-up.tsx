@@ -17,7 +17,7 @@ import { useSSO } from "@clerk/expo";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { Link, useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useTopInset } from "@/hooks/useTopInset";
 import { useBottomInset } from "@/hooks/useBottomInset";
@@ -50,6 +50,7 @@ export default function SignUpScreen() {
   const [showPass, setShowPass] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   const [googleLoading, setGoogleLoading] = React.useState(false);
+  const [appleLoading, setAppleLoading] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [pendingVerification, setPendingVerification] = React.useState(false);
 
@@ -109,6 +110,30 @@ export default function SignUpScreen() {
       setGoogleLoading(false);
     }
   }, [startSSOFlow]);
+
+  const handleApple = useCallback(async () => {
+    try {
+      setAppleLoading(true);
+      const { createdSessionId, setActive: ssoSetActive } = await startSSOFlow({
+        strategy: "oauth_apple",
+        redirectUrl: Linking.createURL("/"),
+      });
+      if (createdSessionId && ssoSetActive) {
+        await ssoSetActive({ session: createdSessionId });
+        router.replace("/(tabs)");
+      }
+    } catch (e: any) {
+      const msg =
+        e?.errors?.[0]?.longMessage ??
+        e?.errors?.[0]?.message ??
+        e?.message ??
+        "Apple sign-in failed. Please try again or use email instead.";
+      setErrorMsg(msg);
+    } finally {
+      setAppleLoading(false);
+    }
+  }, [startSSOFlow]);
+
   const styles = StyleSheet.create({
     outer: { flex: 1, backgroundColor: colors.background },
     scroll: {
@@ -147,6 +172,12 @@ export default function SignUpScreen() {
       height: 50, backgroundColor: colors.card,
     },
     googleBtnText: { fontSize: 15, fontFamily: "Inter_500Medium", color: colors.foreground },
+    appleBtn: {
+      flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
+      borderWidth: 1, borderColor: "#000", borderRadius: colors.radius,
+      height: 50, backgroundColor: "#000", marginTop: 12,
+    },
+    appleBtnText: { fontSize: 15, fontFamily: "Inter_500Medium", color: "#fff" },
     footer: { flexDirection: "row", justifyContent: "center", marginTop: 28, gap: 4 },
     footerText: { fontSize: 14, fontFamily: "Inter_400Regular", color: colors.mutedForeground },
     footerLink: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.primary },
@@ -255,7 +286,7 @@ export default function SignUpScreen() {
         <Pressable
           style={({ pressed }) => [styles.googleBtn, pressed && { opacity: 0.7 }]}
           onPress={handleGoogle}
-          disabled={googleLoading}
+          disabled={googleLoading || appleLoading}
         >
           {googleLoading ? (
             <ActivityIndicator color={colors.foreground} />
@@ -263,6 +294,21 @@ export default function SignUpScreen() {
             <>
               <Feather name="chrome" size={18} color={colors.foreground} />
               <Text style={styles.googleBtnText}>Continue with Google</Text>
+            </>
+          )}
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [styles.appleBtn, pressed && { opacity: 0.7 }]}
+          onPress={handleApple}
+          disabled={appleLoading || googleLoading}
+        >
+          {appleLoading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Ionicons name="logo-apple" size={20} color="#fff" />
+              <Text style={styles.appleBtnText}>Continue with Apple</Text>
             </>
           )}
         </Pressable>
