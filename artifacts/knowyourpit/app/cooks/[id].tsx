@@ -520,13 +520,17 @@ export default function CookDetailScreen() {
       if (!nextStepRowRef.current || !scheduleScrollViewRef.current) return;
       const nodeHandle = findNodeHandle(scheduleScrollViewRef.current);
       if (nodeHandle === null) return;
-      nextStepRowRef.current.measureLayout(
-        nodeHandle,
-        (_x, y) => {
-          scheduleScrollViewRef.current?.scrollTo({ y: Math.max(0, y - 80), animated: true });
-        },
-        () => {},
-      );
+      try {
+        nextStepRowRef.current.measureLayout(
+          nodeHandle,
+          (_x, y) => {
+            scheduleScrollViewRef.current?.scrollTo({ y: Math.max(0, y - 80), animated: true });
+          },
+          () => {},
+        );
+      } catch (_) {
+        // Ref may be stale if the schedule re-rendered between scheduling and firing
+      }
     }, 350);
     return () => clearTimeout(timer);
   }, [nextStepKey]);
@@ -1749,14 +1753,12 @@ export default function CookDetailScreen() {
                                     </Text>
                                   </View>
                                 </View>
-                                {(() => {
-                                  const wm = item.wrapMethod ?? null;
-                                  const wam = item.wrapAtMinutes ?? null;
-                                  if (!wm || wm === "none" || !wam || wam <= 0) return null;
-                                  const wrapMs = new Date(item.meatOnAt).getTime() + wam * 60000;
+                                {/* Wrap step — always kept in tree (display:none when n/a) to avoid stale refs */}
+                                {item.wrapMethod && item.wrapMethod !== "none" && (item.wrapAtMinutes ?? 0) > 0 ? (() => {
+                                  const wrapMs = new Date(item.meatOnAt).getTime() + (item.wrapAtMinutes ?? 0) * 60000;
                                   const isDoneWrap = cookStatus === "active" && wrapMs < nowMs;
                                   const isNextWrap = nextStep?.itemIdx === idx && nextStep?.step === ("wrap" as any);
-                                  const wrapLabel = wm === "foil" ? "Wrap in foil" : "Wrap in butcher paper";
+                                  const wrapLabel = item.wrapMethod === "foil" ? "Wrap in foil" : "Wrap in butcher paper";
                                   const wrapColor = "#A855F7";
                                   return (
                                     <View style={[s.seqTlRow, isNextWrap && s.seqTlNextRow, isDoneWrap && !confirmedSteps[`${idx}_wrap`] && s.seqTlDoneRow]}>
@@ -1798,7 +1800,7 @@ export default function CookDetailScreen() {
                                       </View>
                                     </View>
                                   );
-                                })()}
+                                })() : null}
                                 <View ref={isNextPullOff ? nextStepRowRef : undefined} style={[s.seqTlRow, { marginBottom: item.restMinutes > 0 ? 8 : 0 }, isNextPullOff && s.seqTlNextRow, isDonePullOff && !confirmedSteps[`${idx}_pullOff`] && s.seqTlDoneRow]}>
                                   {isDonePullOff ? (
                                     <Pressable onPress={() => toggleConfirmedStep(`${idx}_pullOff`)} hitSlop={8} style={s.seqTlDotBtn}>
