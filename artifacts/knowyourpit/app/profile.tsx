@@ -182,7 +182,7 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
 
-          {user?.username ? (
+          {((user?.unsafeMetadata as any)?.username || user?.username) ? (
             <View style={{
               flexDirection: "row", alignSelf: "flex-start",
               backgroundColor: colors.primary + "22",
@@ -193,7 +193,7 @@ export default function ProfileScreen() {
               marginBottom: 4,
             }}>
               <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.primary }}>
-                @{user.username}
+                @{(user?.unsafeMetadata as any)?.username || user?.username}
               </Text>
             </View>
           ) : null}

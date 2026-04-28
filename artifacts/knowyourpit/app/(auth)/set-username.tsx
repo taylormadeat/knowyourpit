@@ -49,7 +49,9 @@ export default function SetUsernameScreen() {
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      await user.update({ username: sanitized });
+      await user.update({
+        unsafeMetadata: { ...(user.unsafeMetadata as object ?? {}), username: sanitized },
+      });
       router.replace("/(tabs)");
     } catch (e: any) {
       const msg =

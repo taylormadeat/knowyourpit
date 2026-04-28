@@ -137,20 +137,22 @@ function RootLayoutNav() {
     const inAuthGroup = segments[0] === "(auth)";
     const onSetUsername = segments[1] === "set-username";
 
+    const hasUsername = !!((user?.unsafeMetadata as any)?.username || user?.username);
+
     if (!isSignedIn && (onSetUsername || !inAuthGroup)) {
       router.replace("/(auth)/sign-in");
     } else if (isSignedIn && inAuthGroup && !onSetUsername) {
-      if (user?.username) {
+      if (hasUsername) {
         router.replace("/(tabs)");
       } else {
         router.replace("/(auth)/set-username");
       }
-    } else if (isSignedIn && onSetUsername && user?.username) {
+    } else if (isSignedIn && onSetUsername && hasUsername) {
       router.replace("/(tabs)");
-    } else if (isSignedIn && !inAuthGroup && !user?.username) {
+    } else if (isSignedIn && !inAuthGroup && !hasUsername) {
       router.replace("/(auth)/set-username");
     }
-  }, [isSignedIn, isLoaded, userLoaded, user?.username, segments, router]);
+  }, [isSignedIn, isLoaded, userLoaded, user?.username, user?.unsafeMetadata, segments, router]);
 
   useEffect(() => {
     requestNotificationPermissions();
