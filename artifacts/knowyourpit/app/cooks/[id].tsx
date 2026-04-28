@@ -1038,9 +1038,10 @@ export default function CookDetailScreen() {
       // Bump local clock — this both surfaces "Updated X min ago" UI and
       // resets the 30-min auto-grade timer regardless of which path ran.
       setLastAnalyzedAtMs(Date.now());
-      // Successful grade → if we'd previously paused due to paywall, the
-      // server allowed this one through, so resume auto-grading.
-      setAutoGradePaused(false);
+      // Successful grade → only lift the auto-grade pause for Pro users.
+      // Free users must stay paused; a successful manual grade must not
+      // re-enable the 30-min timer for non-Pro accounts.
+      if (paywallUsage?.unlimited) setAutoGradePaused(false);
       if (!auto) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
       if (auto) {
