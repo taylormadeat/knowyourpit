@@ -1000,9 +1000,11 @@ All times must be ISO 8601 strings. All items finish resting at or just before s
 
 For each item, also determine wrap guidance:
 - wrapMethod: "foil" (Texas Crutch — faster, steams), "butcher_paper" (breathable, retains bark), or "none"
-- wrapAtMinutes: minutes from meatOnAt when to wrap (null if wrapMethod is "none")
+- wrapAtMinutes: minutes from meatOnAt when to wrap. REQUIRED whenever wrapMethod is "foil" or "butcher_paper" — never null in that case. Null only when wrapMethod is "none".
 - wrapTempF: internal meat temperature to trigger wrap in °F (null if not applicable)
 - wrapReason: one sentence explaining the wrap strategy for this item
+
+IMPORTANT: When wrapMethod is "foil" or "butcher_paper", wrap details MUST go in the wrap fields above (wrapAtMinutes, wrapTempF, wrapReason). DO NOT mention wrapping in the "notes" field — the UI renders the wrap step as its own row in the schedule using the wrap fields, and duplicating it in notes will confuse the user.
 
 Wrap guidance by cut:
 - Brisket (whole packer, flat): butcher_paper around the stall (~160-170°F internal, ~50-60% into cook)
@@ -1064,7 +1066,10 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
       return;
     }
 
-    // Normalize wrap fields and sort schedule by grillLightAt ascending
+    // Normalize wrap fields and sort schedule by grillLightAt ascending.
+    // When the model picks a wrap method but forgets the timing, infer
+    // wrapAtMinutes ≈ 55% of the active cook so the wrap row always has
+    // a usable time to render against in the schedule UI.
     const normalizeWrapMethod = (m: any): "foil" | "butcher_paper" | "none" | null => {
       if (m === "foil" || m === "butcher_paper" || m === "none") return m;
       return null;
@@ -1073,9 +1078,16 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
       .map((item: any) => {
         const wrapMethod = normalizeWrapMethod(item.wrapMethod);
         const isNoWrap = wrapMethod == null || wrapMethod === "none";
+        const cookMin = typeof item.estimatedDurationMinutes === "number"
+          ? item.estimatedDurationMinutes
+          : 0;
+        const explicitWrapAt = typeof item.wrapAtMinutes === "number" && item.wrapAtMinutes > 0
+          ? Math.round(item.wrapAtMinutes)
+          : null;
+        const inferredWrapAt = cookMin > 0 ? Math.max(30, Math.round(cookMin * 0.55)) : null;
         const wrapAtMinutes = isNoWrap
           ? null
-          : (typeof item.wrapAtMinutes === "number" ? Math.round(item.wrapAtMinutes) : null);
+          : (explicitWrapAt ?? inferredWrapAt);
         const wrapTempF = isNoWrap
           ? null
           : (typeof item.wrapTempF === "number" ? Math.round(item.wrapTempF) : null);

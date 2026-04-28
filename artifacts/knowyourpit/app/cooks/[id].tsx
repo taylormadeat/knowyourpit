@@ -1771,9 +1771,23 @@ export default function CookDetailScreen() {
                                     </Text>
                                   </View>
                                 </View>
-                                {/* Wrap step — always kept in tree (display:none when n/a) to avoid stale refs */}
-                                {item.wrapMethod && item.wrapMethod !== "none" && (item.wrapAtMinutes ?? 0) > 0 ? (() => {
-                                  const wrapMs = new Date(item.meatOnAt).getTime() + (item.wrapAtMinutes ?? 0) * 60000;
+                                {/* Wrap step — always kept in tree (display:none when n/a) to avoid stale refs.
+                                    Renders whenever a wrap method is set; if the AI omitted the exact
+                                    wrapAtMinutes, we infer it at ~55% of the active cook (mid-stall). */}
+                                {item.wrapMethod && item.wrapMethod !== "none" ? (() => {
+                                  const explicitWrapMin = (item.wrapAtMinutes ?? 0) > 0
+                                    ? Math.round(item.wrapAtMinutes)
+                                    : null;
+                                  const cookMin = typeof item.estimatedDurationMinutes === "number" && item.estimatedDurationMinutes > 0
+                                    ? item.estimatedDurationMinutes
+                                    : null;
+                                  const inferredWrapMin = cookMin != null
+                                    ? Math.max(30, Math.round(cookMin * 0.55))
+                                    : null;
+                                  const wrapAtMin = explicitWrapMin ?? inferredWrapMin;
+                                  if (wrapAtMin == null) return null;
+                                  const wrapInferred = explicitWrapMin === null;
+                                  const wrapMs = new Date(item.meatOnAt).getTime() + wrapAtMin * 60000;
                                   const isDoneWrap = cookStatus === "active" && wrapMs < nowMs;
                                   const isNextWrap = nextStep?.itemIdx === idx && nextStep?.step === ("wrap" as any);
                                   const wrapLabel = item.wrapMethod === "foil" ? "Wrap in foil" : "Wrap in butcher paper";
@@ -1800,7 +1814,7 @@ export default function CookDetailScreen() {
                                           )}
                                         </View>
                                         <Text style={[s.seqTlTime, { color: isDoneWrap ? colors.mutedForeground : colors.foreground, opacity: isDoneWrap ? 0.55 : 1 }]}>
-                                          {new Date(wrapMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                          {wrapInferred ? "≈ " : ""}{new Date(wrapMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                                           {cookStatus === "active" && !isDoneWrap && (
                                             <Text style={[s.seqTlMeta, { color: wrapColor }]}>
                                               {" "}· {relCountdown(wrapMs, nowMs)}
@@ -1809,6 +1823,10 @@ export default function CookDetailScreen() {
                                           {item.wrapTempF ? (
                                             <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
                                               {" "}· at {item.wrapTempF}°F internal
+                                            </Text>
+                                          ) : wrapInferred ? (
+                                            <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
+                                              {" "}· around the stall
                                             </Text>
                                           ) : null}
                                         </Text>
