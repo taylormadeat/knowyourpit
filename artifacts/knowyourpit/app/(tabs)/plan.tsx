@@ -752,7 +752,7 @@ export default function PlanScreen() {
       qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
       setMultiResultOpen(false);
-      Alert.alert("Saved!", `${multiResult.schedule.length} cooks added to your plan.`);
+      router.push("/(tabs)/cooks");
     } catch (e: any) {
       // Free user hit the cook cap mid-multi-save → paywall.
       if (parseAndShowFromError(e)) return;

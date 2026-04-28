@@ -1049,20 +1049,16 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
       (a: any, b: any) => new Date(a.grillLightAt).getTime() - new Date(b.grillLightAt).getTime()
     );
 
-    // Build a deterministic summary from actual schedule data so the serve
-    // time is always correct (the AI-generated summary sometimes hallucinates
-    // a different time).
-    const serveTimeStr = serveAtDate.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
+    // Build a deterministic summary describing sequence order only.
+    // Times are intentionally omitted here — the server runs in UTC so any
+    // time formatted here would reflect UTC, not the user's local timezone.
+    // The client already shows "Everything ready by X" in the modal header
+    // using the device's local timezone, so no need to repeat it.
     const firstItem = schedule[0];
     const lastItem = schedule[schedule.length - 1];
     const deterministicSummary = schedule.length >= 2
-      ? `Start ${firstItem.foodType} first (light grill ${new Date(firstItem.grillLightAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}), ` +
-        `then ${lastItem.foodType} last — everything is ready by ${serveTimeStr}.`
-      : `Everything is ready by ${serveTimeStr}.`;
+      ? `Start ${firstItem.foodType} first, then ${lastItem.foodType} last.`
+      : "";
 
     res.json({
       schedule,
