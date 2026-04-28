@@ -14,7 +14,7 @@ import {
 import { useSignIn } from "@clerk/expo/legacy";
 import { useSSO } from "@clerk/expo";
 import * as WebBrowser from "expo-web-browser";
-import * as AuthSession from "expo-auth-session";
+import * as Linking from "expo-linking";
 import { Link, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
@@ -75,18 +75,23 @@ export default function SignInScreen() {
       setGoogleLoading(true);
       const { createdSessionId, setActive: ssoSetActive } = await startSSOFlow({
         strategy: "oauth_google",
-        redirectUrl: AuthSession.makeRedirectUri(),
+        redirectUrl: Linking.createURL("/"),
       });
       if (createdSessionId && ssoSetActive) {
         await ssoSetActive({ session: createdSessionId });
         router.replace("/(tabs)");
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      const msg =
+        e?.errors?.[0]?.longMessage ??
+        e?.errors?.[0]?.message ??
+        e?.message ??
+        "Google sign-in failed. Please try again or use email instead.";
+      setErrorMsg(msg);
     } finally {
       setGoogleLoading(false);
     }
-  }, []);
+  }, [startSSOFlow]);
 
   const canSubmit = !!email && !!password && !isLoading;
 
