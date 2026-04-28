@@ -786,6 +786,7 @@ export default function CookDetailScreen() {
             qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
             qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
             qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+            qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
             goBack();
           } catch (e: any) {
             Alert.alert("Delete Failed", e?.message ?? "Could not delete this cook. Please try again.");
