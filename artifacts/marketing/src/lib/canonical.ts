@@ -3,9 +3,6 @@ export const CANONICAL_HOST = "www.knowyourpit.com";
 
 const DEV_HOST_SUFFIXES = [
   ".replit.dev",
-  ".replit.app",
-  ".firebaseapp.com",
-  ".web.app",
   ".janeway.replit.dev",
 ];
 
