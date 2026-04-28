@@ -89,11 +89,6 @@ export interface Cook {
   sessionId: string | null;
   /** @nullable */
   recipeId: number | null;
-  /**
-   * Map of step keys (e.g. "0_grillLight") to ISO timestamp strings for manually confirmed steps
-   * @nullable
-   */
-  confirmedSteps: Record<string, string> | null;
   createdAt: Date;
   updatedAt: Date;
 }

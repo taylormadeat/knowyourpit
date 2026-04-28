@@ -31,6 +31,8 @@ tags:
     description: MEATER thermometer integration
   - name: thermoworks
     description: ThermoWorks Cloud thermometer integration
+  - name: customMeatCuts
+    description: User-defined custom meat cuts
 
 paths:
   /healthz:
@@ -155,6 +157,78 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GrillStats"
+
+  /custom-meat-cuts:
+    get:
+      operationId: listCustomMeatCuts
+      tags: [customMeatCuts]
+      summary: List all custom meat cuts for the authenticated user
+      responses:
+        "200":
+          description: List of custom meat cuts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CustomMeatCut"
+    post:
+      operationId: createCustomMeatCut
+      tags: [customMeatCuts]
+      summary: Create a custom meat cut
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomMeatCutBody"
+      responses:
+        "201":
+          description: Created custom meat cut
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomMeatCut"
+
+  /custom-meat-cuts/{id}:
+    patch:
+      operationId: updateCustomMeatCut
+      tags: [customMeatCuts]
+      summary: Update a custom meat cut
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCustomMeatCutBody"
+      responses:
+        "200":
+          description: Updated custom meat cut
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomMeatCut"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteCustomMeatCut
+      tags: [customMeatCuts]
+      summary: Delete a custom meat cut
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
 
   /grills/{id}/temperature-history:
     get:
@@ -942,6 +1016,13 @@ components:
           type: ["boolean", "null"]
         hopperSizeLbs:
           type: ["number", "null"]
+        tempRange:
+          type: ["string", "null"]
+          description: "Human-readable temp range (e.g. '165°F – 500°F')"
+        features:
+          type: ["array", "null"]
+          items:
+            type: string
         notes:
           type: ["string", "null"]
         imageUrl:
@@ -968,6 +1049,8 @@ components:
         - heatZones
         - wifiEnabled
         - hopperSizeLbs
+        - tempRange
+        - features
         - notes
         - imageUrl
         - totalCooks
@@ -1003,6 +1086,12 @@ components:
           type: ["boolean", "null"]
         hopperSizeLbs:
           type: ["number", "null"]
+        tempRange:
+          type: ["string", "null"]
+        features:
+          type: ["array", "null"]
+          items:
+            type: string
         notes:
           type: ["string", "null"]
         imageUrl:
@@ -1040,6 +1129,12 @@ components:
           type: ["boolean", "null"]
         hopperSizeLbs:
           type: ["number", "null"]
+        tempRange:
+          type: ["string", "null"]
+        features:
+          type: ["array", "null"]
+          items:
+            type: string
         notes:
           type: ["string", "null"]
         imageUrl:
@@ -2385,3 +2480,90 @@ components:
       required:
         - linked
         - probes
+
+    CustomMeatCut:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+        targetTempF:
+          type: number
+        cookTempF:
+          type: number
+        minsPerLb:
+          type: number
+        restMins:
+          type: integer
+        cookMethod:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - category
+        - targetTempF
+        - cookTempF
+        - minsPerLb
+        - restMins
+        - cookMethod
+        - notes
+        - createdAt
+        - updatedAt
+
+    CreateCustomMeatCutBody:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+        targetTempF:
+          type: number
+        cookTempF:
+          type: number
+        minsPerLb:
+          type: number
+        restMins:
+          type: integer
+        cookMethod:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+      required:
+        - name
+        - category
+        - targetTempF
+        - cookTempF
+        - minsPerLb
+        - restMins
+
+    UpdateCustomMeatCutBody:
+      type: object
+      properties:
+        name:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        targetTempF:
+          type: ["number", "null"]
+        cookTempF:
+          type: ["number", "null"]
+        minsPerLb:
+          type: ["number", "null"]
+        restMins:
+          type: ["integer", "null"]
+        cookMethod:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]

@@ -34,6 +34,10 @@ export interface UpdateGrillBody {
   /** @nullable */
   hopperSizeLbs?: number | null;
   /** @nullable */
+  tempRange?: string | null;
+  /** @nullable */
+  features?: string[] | null;
+  /** @nullable */
   notes?: string | null;
   /** @nullable */
   imageUrl?: string | null;

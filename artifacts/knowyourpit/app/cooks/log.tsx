@@ -32,14 +32,23 @@ import {
   useAnalyzeCook,
   useCreateCook,
   useListGrills,
+  useListCustomMeatCuts,
+  useCreateCustomMeatCut,
+  useUpdateCustomMeatCut,
+  useDeleteCustomMeatCut,
   getListCooksQueryKey,
+  getListCustomMeatCutsQueryKey,
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
 } from "@workspace/api-client-react";
 import { useMeaterReadings, type MeaterProbe } from "@/hooks/useMeaterReadings";
 import { MEAT_CATEGORIES, MEAT_CUTS, MEAT_CUTS_BY_CATEGORY, type MeatCut } from "@/constants/meatCuts";
+
 import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
+
+type PickerCut = MeatCut & { isCustom?: boolean; customId?: number };
+const COOK_METHODS = ["Low & Slow", "Indirect", "Reverse Sear", "Direct Heat"];
 
 const logoImg = require("@/assets/images/logo.png");
 
@@ -171,6 +180,132 @@ export default function LogCookScreen() {
   const [meatCatTab, setMeatCatTab] = useState<string>(MEAT_CATEGORIES[0]);
   const [aiScanned, setAiScanned] = useState(false);
 
+  // Custom meat cut editor state
+  const [customCutEditorVisible, setCustomCutEditorVisible] = useState(false);
+  const [editingCustomCutId, setEditingCustomCutId] = useState<number | null>(null);
+  const [ccName, setCcName] = useState("");
+  const [ccCategory, setCcCategory] = useState<string>(MEAT_CATEGORIES[0]);
+  const [ccTargetTempF, setCcTargetTempF] = useState("");
+  const [ccCookTempF, setCcCookTempF] = useState("");
+  const [ccMinsPerLb, setCcMinsPerLb] = useState("");
+  const [ccRestMins, setCcRestMins] = useState("");
+  const [ccCookMethod, setCcCookMethod] = useState("");
+
+  const { data: customCutsData } = useListCustomMeatCuts();
+  const customCuts: any[] = Array.isArray(customCutsData) ? customCutsData : [];
+  const createCustomCut = useCreateCustomMeatCut();
+  const updateCustomCut = useUpdateCustomMeatCut();
+  const deleteCustomCut = useDeleteCustomMeatCut();
+
+  const allMeatCuts: PickerCut[] = useMemo(() => {
+    const builtin: PickerCut[] = MEAT_CUTS.map((c) => ({ ...c }));
+    const customs: PickerCut[] = customCuts.map((c) => ({
+      name: c.name,
+      category: c.category,
+      targetTempF: c.targetTempF,
+      cookTempF: c.cookTempF,
+      minsPerLb: c.minsPerLb,
+      restMins: c.restMins,
+      cookMethod: c.cookMethod ?? undefined,
+      notes: c.notes ?? undefined,
+      isCustom: true,
+      customId: c.id,
+    }));
+    return [...customs, ...builtin];
+  }, [customCuts]);
+
+  const meatCutsForCategory = useMemo(() => {
+    return allMeatCuts.filter((c) => c.category === meatCatTab);
+  }, [allMeatCuts, meatCatTab]);
+
+  function resetCustomCutForm() {
+    setEditingCustomCutId(null);
+    setCcName("");
+    setCcCategory(meatCatTab);
+    setCcTargetTempF("");
+    setCcCookTempF("");
+    setCcMinsPerLb("");
+    setCcRestMins("");
+    setCcCookMethod("");
+  }
+
+  function openCustomCutEditor(cut: PickerCut | null) {
+    if (cut && cut.isCustom && cut.customId) {
+      setEditingCustomCutId(cut.customId);
+      setCcName(cut.name);
+      setCcCategory(cut.category);
+      setCcTargetTempF(String(cut.targetTempF));
+      setCcCookTempF(String(cut.cookTempF));
+      setCcMinsPerLb(String(cut.minsPerLb));
+      setCcRestMins(String(cut.restMins));
+      setCcCookMethod(cut.cookMethod ?? "");
+    } else {
+      resetCustomCutForm();
+    }
+    setCustomCutEditorVisible(true);
+  }
+
+  async function saveCustomCut() {
+    const name = ccName.trim();
+    const targetT = parseFloat(ccTargetTempF);
+    const cookT = parseFloat(ccCookTempF);
+    const mpl = parseFloat(ccMinsPerLb);
+    const rm = parseInt(ccRestMins, 10);
+    if (!name) {
+      Alert.alert("Name required", "Give your cut a name.");
+      return;
+    }
+    if (isNaN(targetT) || isNaN(cookT) || isNaN(mpl) || isNaN(rm)) {
+      Alert.alert("Numbers required", "Target temp, cook temp, mins/lb, and rest mins must be numbers.");
+      return;
+    }
+    const body = {
+      name,
+      category: ccCategory,
+      targetTempF: targetT,
+      cookTempF: cookT,
+      minsPerLb: mpl,
+      restMins: rm,
+      cookMethod: ccCookMethod.trim() || null,
+    };
+    try {
+      if (editingCustomCutId != null) {
+        await updateCustomCut.mutateAsync({ id: editingCustomCutId, data: body });
+      } else {
+        await createCustomCut.mutateAsync({ data: body });
+      }
+      qc.invalidateQueries({ queryKey: getListCustomMeatCutsQueryKey() });
+      setCustomCutEditorVisible(false);
+      resetCustomCutForm();
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Alert.alert("Save failed", "Could not save the custom cut. Please try again.");
+    }
+  }
+
+  function handleDeleteCustomCut(cut: PickerCut) {
+    if (!cut.customId) return;
+    Alert.alert(
+      "Delete custom cut?",
+      `Remove "${cut.name}" from your custom cuts.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteCustomCut.mutateAsync({ id: cut.customId! });
+              qc.invalidateQueries({ queryKey: getListCustomMeatCutsQueryKey() });
+            } catch {
+              Alert.alert("Delete failed", "Could not delete the custom cut.");
+            }
+          },
+        },
+      ],
+    );
+  }
+
   const { data: meaterData } = useMeaterReadings();
   const activeProbes: MeaterProbe[] = meaterData?.linked ? (meaterData.probes ?? []) : [];
 
@@ -296,10 +431,10 @@ export default function LogCookScreen() {
 
       // Auto-populate form fields from detected data (only if field is still empty)
       if (data.detectedFoodType && !foodType.trim()) {
-        // Try to fuzzy-match against known meat cuts for a canonical name
+        // Try to fuzzy-match against known meat cuts (built-in + custom) for a canonical name
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
         const needle = norm(data.detectedFoodType);
-        const cutMatch = MEAT_CUTS.find((c) => {
+        const cutMatch = allMeatCuts.find((c) => {
           const hay = norm(c.name);
           return hay.includes(needle) || needle.includes(norm(c.name.split(" ")[0]));
         });
@@ -1083,11 +1218,18 @@ export default function LogCookScreen() {
           </ScrollView>
 
           <FlatList
-            data={MEAT_CUTS_BY_CATEGORY[meatCatTab] ?? []}
-            keyExtractor={(item: MeatCut) => item.name}
+            data={meatCutsForCategory}
+            keyExtractor={(item: PickerCut) => (item.isCustom ? `custom-${item.customId}` : `builtin-${item.name}`)}
             style={{ maxHeight: 340 }}
             ItemSeparatorComponent={() => <View style={[gp.sep, { backgroundColor: colors.border }]} />}
-            renderItem={({ item }: { item: MeatCut }) => {
+            ListEmptyComponent={
+              <View style={{ padding: 24, alignItems: "center" }}>
+                <Text style={[gp.emptyText, { color: colors.mutedForeground }]}>
+                  No cuts in this category yet. Add your own below.
+                </Text>
+              </View>
+            }
+            renderItem={({ item }: { item: PickerCut }) => {
               const isSelected = foodType === item.name;
               return (
                 <TouchableOpacity
@@ -1100,15 +1242,55 @@ export default function LogCookScreen() {
                   }}
                 >
                   <View style={gp.rowText}>
-                    <Text style={[gp.rowName, { color: colors.foreground }]} numberOfLines={1}>{item.name}</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <Text style={[gp.rowName, { color: colors.foreground }]} numberOfLines={1}>{item.name}</Text>
+                      {item.isCustom && (
+                        <View style={mp.customBadge}>
+                          <Text style={mp.customBadgeText}>Custom</Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={[gp.rowSub, { color: colors.mutedForeground }]}>
-                      {item.cookMethod} · Target {item.targetTempF}°F
+                      {item.cookMethod ? `${item.cookMethod} · ` : ""}Target {item.targetTempF}°F
                     </Text>
                   </View>
+                  {item.isCustom && (
+                    <View style={{ flexDirection: "row", gap: 4, marginRight: 6 }}>
+                      <TouchableOpacity
+                        hitSlop={8}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          openCustomCutEditor(item);
+                        }}
+                        style={mp.iconBtn}
+                      >
+                        <Feather name="edit-2" size={14} color={colors.mutedForeground} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        hitSlop={8}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleDeleteCustomCut(item);
+                        }}
+                        style={mp.iconBtn}
+                      >
+                        <Feather name="trash-2" size={14} color={colors.destructive} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
                   {isSelected && <Feather name="check" size={16} color="#E84820" />}
                 </TouchableOpacity>
               );
             }}
+            ListFooterComponent={
+              <TouchableOpacity
+                onPress={() => openCustomCutEditor(null)}
+                style={gp.footerBtn}
+              >
+                <Feather name="plus-circle" size={15} color="#E84820" />
+                <Text style={[gp.footerBtnText, { color: "#E84820" }]}>Add custom cut</Text>
+              </TouchableOpacity>
+            }
           />
 
           {foodType && (
@@ -1116,6 +1298,143 @@ export default function LogCookScreen() {
               <Text style={[gp.clearBtnText, { color: colors.mutedForeground }]}>Clear selection</Text>
             </TouchableOpacity>
           )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Custom meat cut editor */}
+      <Modal
+        visible={customCutEditorVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCustomCutEditorVisible(false)}
+      >
+        <View style={gp.modalWrap}>
+          <Pressable style={gp.backdrop} onPress={() => setCustomCutEditorVisible(false)} />
+          <View style={[gp.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16, maxHeight: "90%" }]}>
+            <View style={[gp.handle, { backgroundColor: colors.border }]} />
+            <Text style={[gp.title, { color: colors.foreground }]}>
+              {editingCustomCutId != null ? "Edit Custom Cut" : "New Custom Cut"}
+            </Text>
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <View style={{ gap: 12, paddingHorizontal: 4 }}>
+                <View>
+                  <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 6 }]}>Name</Text>
+                  <TextInput
+                    style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                    placeholder="e.g. Wagyu Tri-Tip"
+                    placeholderTextColor={colors.mutedForeground}
+                    value={ccName}
+                    onChangeText={setCcName}
+                  />
+                </View>
+                <View>
+                  <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 6 }]}>Category</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                    {MEAT_CATEGORIES.map((c) => {
+                      const active = ccCategory === c;
+                      return (
+                        <Pressable
+                          key={c}
+                          onPress={() => setCcCategory(c)}
+                          style={[
+                            mp.catTab,
+                            { borderColor: active ? "#E84820" : colors.border, backgroundColor: active ? "#E84820" : "transparent" },
+                          ]}
+                        >
+                          <Text style={[mp.catTabText, { color: active ? "#fff" : colors.foreground }]}>{c}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 6 }]}>Target temp °F</Text>
+                    <TextInput
+                      style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                      placeholder="203"
+                      placeholderTextColor={colors.mutedForeground}
+                      value={ccTargetTempF}
+                      onChangeText={setCcTargetTempF}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 6 }]}>Cook temp °F</Text>
+                    <TextInput
+                      style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                      placeholder="225"
+                      placeholderTextColor={colors.mutedForeground}
+                      value={ccCookTempF}
+                      onChangeText={setCcCookTempF}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </View>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 6 }]}>Mins / lb</Text>
+                    <TextInput
+                      style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                      placeholder="60"
+                      placeholderTextColor={colors.mutedForeground}
+                      value={ccMinsPerLb}
+                      onChangeText={setCcMinsPerLb}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 6 }]}>Rest mins</Text>
+                    <TextInput
+                      style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                      placeholder="30"
+                      placeholderTextColor={colors.mutedForeground}
+                      value={ccRestMins}
+                      onChangeText={setCcRestMins}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </View>
+                <View>
+                  <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 6 }]}>Cook method</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                    {COOK_METHODS.map((m) => {
+                      const active = ccCookMethod === m;
+                      return (
+                        <Pressable
+                          key={m}
+                          onPress={() => setCcCookMethod(active ? "" : m)}
+                          style={[
+                            mp.catTab,
+                            { borderColor: active ? "#E84820" : colors.border, backgroundColor: active ? "#E84820" : "transparent" },
+                          ]}
+                        >
+                          <Text style={[mp.catTabText, { color: active ? "#fff" : colors.foreground }]}>{m}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              </View>
+            </ScrollView>
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 14, paddingHorizontal: 4 }}>
+              <TouchableOpacity
+                style={[s.nowBtn, { borderColor: colors.border, borderRadius: colors.radius, flex: 1 }]}
+                onPress={() => setCustomCutEditorVisible(false)}
+              >
+                <Text style={[s.nowBtnText, { color: colors.foreground }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.nowBtn, { borderColor: "#E84820", backgroundColor: "#E84820", borderRadius: colors.radius, flex: 1 }]}
+                onPress={saveCustomCut}
+                disabled={createCustomCut.isPending || updateCustomCut.isPending}
+              >
+                <Text style={[s.nowBtnText, { color: "#fff" }]}>
+                  {createCustomCut.isPending || updateCustomCut.isPending ? "Saving…" : "Save"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1294,6 +1613,9 @@ const gp = StyleSheet.create({
 const mp = StyleSheet.create({
   catTab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
   catTabText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  customBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, backgroundColor: "#E8482022" },
+  customBadgeText: { fontSize: 10, fontFamily: "Inter_700Bold", color: "#E84820", letterSpacing: 0.3 },
+  iconBtn: { width: 28, height: 28, alignItems: "center", justifyContent: "center", borderRadius: 14 },
 });
 
 const dp2 = StyleSheet.create({

@@ -23,6 +23,7 @@ import { useBottomInset } from "@/hooks/useBottomInset";
 import {
   useListGrills,
   useCreateGrill,
+  useUpdateGrill,
   useDeleteGrill,
   getListGrillsQueryKey,
 } from "@workspace/api-client-react";
@@ -64,6 +65,7 @@ export default function GrillsScreen() {
 
   const { data: grills, isLoading } = useListGrills();
   const createGrill = useCreateGrill();
+  const updateGrill = useUpdateGrill();
   const deleteGrill = useDeleteGrill();
 
   // Add modal state
@@ -77,6 +79,11 @@ export default function GrillsScreen() {
   const [grillType, setGrillType] = useState("");
   const [fuelType, setFuelType] = useState("");
   const [customBrand, setCustomBrand] = useState("");
+  const [tempRange, setTempRange] = useState("");
+  const [featuresInput, setFeaturesInput] = useState("");
+
+  // Edit modal state
+  const [editingGrillId, setEditingGrillId] = useState<number | null>(null);
 
   const botPad = useBottomInset();
 
@@ -109,6 +116,8 @@ export default function GrillsScreen() {
           type: model.type,
           fuelType: model.fuelType,
           brand: brandName,
+          tempRange: model.tempRange || undefined,
+          features: Array.isArray(model.features) && model.features.length > 0 ? model.features : undefined,
         },
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -121,6 +130,13 @@ export default function GrillsScreen() {
     }
   };
 
+  const parseFeaturesInput = (raw: string): string[] => {
+    return raw
+      .split(/[,\n]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  };
+
   const handleAddCustom = async () => {
     if (!grillName.trim()) {
       Alert.alert("Required", "Enter a grill name");
@@ -130,23 +146,59 @@ export default function GrillsScreen() {
       Alert.alert("Required", "Select a grill type");
       return;
     }
+    const featuresArr = parseFeaturesInput(featuresInput);
     try {
-      await createGrill.mutateAsync({
-        data: {
-          name: grillName.trim(),
-          type: grillType || "",
-          fuelType: fuelType || undefined,
-          brand: customBrand || undefined,
-        },
-      });
+      if (editingGrillId != null) {
+        await updateGrill.mutateAsync({
+          id: editingGrillId,
+          data: {
+            name: grillName.trim(),
+            type: grillType || "",
+            fuelType: fuelType || null,
+            brand: customBrand.trim() || null,
+            tempRange: tempRange.trim() || null,
+            features: featuresArr.length > 0 ? featuresArr : null,
+          },
+        });
+      } else {
+        await createGrill.mutateAsync({
+          data: {
+            name: grillName.trim(),
+            type: grillType || "",
+            fuelType: fuelType || undefined,
+            brand: customBrand.trim() || undefined,
+            tempRange: tempRange.trim() || undefined,
+            features: featuresArr.length > 0 ? featuresArr : undefined,
+          },
+        });
+      }
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: getListGrillsQueryKey() });
       setShowAddModal(false);
       setShowCustomForm(false);
-      setGrillName(""); setGrillType(""); setFuelType(""); setCustomBrand("");
+      resetCustomForm();
     } catch (e: any) {
-      Alert.alert("Error", e?.message || "Failed to add grill");
+      Alert.alert("Error", e?.message || "Failed to save grill");
     }
+  };
+
+  const resetCustomForm = () => {
+    setGrillName(""); setGrillType(""); setFuelType(""); setCustomBrand("");
+    setTempRange(""); setFeaturesInput(""); setEditingGrillId(null);
+  };
+
+  const openEditModal = (g: any) => {
+    setEditingGrillId(g.id);
+    setGrillName(g.name ?? "");
+    setGrillType(g.type ?? "");
+    setFuelType(g.fuelType ?? "");
+    setCustomBrand(g.brand ?? "");
+    setTempRange(g.tempRange ?? "");
+    setFeaturesInput(Array.isArray(g.features) ? g.features.join(", ") : "");
+    setShowCustomForm(true);
+    setCatalogSearch("");
+    setExpandedCatalogBrands(new Set());
+    setShowAddModal(true);
   };
 
   const handleDelete = (id: number, name: string) => {
@@ -166,7 +218,7 @@ export default function GrillsScreen() {
     setShowCustomForm(false);
     setCatalogSearch("");
     setExpandedCatalogBrands(new Set());
-    setGrillName(""); setGrillType(""); setFuelType(""); setCustomBrand("");
+    resetCustomForm();
     setShowAddModal(true);
   };
 
@@ -232,7 +284,24 @@ export default function GrillsScreen() {
                       <Text style={[s.tagText, { color: colors.mutedForeground }]}>{item.fuelType}</Text>
                     </View>
                   )}
+                  {item.tempRange && (
+                    <View style={[s.tag, { backgroundColor: colors.muted }]}>
+                      <Text style={[s.tagText, { color: colors.mutedForeground }]}>{item.tempRange}</Text>
+                    </View>
+                  )}
                 </View>
+                {Array.isArray(item.features) && item.features.length > 0 && (
+                  <View style={[s.tagRow, { marginTop: 5 }]}>
+                    {item.features.slice(0, 3).map((f: string, i: number) => (
+                      <View key={i} style={[s.tag, { backgroundColor: colors.muted }]}>
+                        <Text style={[s.tagText, { color: colors.mutedForeground }]} numberOfLines={1}>{f}</Text>
+                      </View>
+                    ))}
+                    {item.features.length > 3 && (
+                      <Text style={[s.tagText, { color: colors.mutedForeground }]}>+{item.features.length - 3}</Text>
+                    )}
+                  </View>
+                )}
                 {/* ── Grill stats ── */}
                 <View style={s.grillStatRow}>
                   <View style={s.grillStatItem}>
@@ -256,12 +325,20 @@ export default function GrillsScreen() {
                   })()}
                 </View>
               </View>
-              <Pressable
-                style={[s.delBtn, { backgroundColor: colors.destructive + "15", borderRadius: 8 }]}
-                onPress={() => handleDelete(item.id, item.name)}
-              >
-                <Feather name="trash-2" size={15} color={colors.destructive} />
-              </Pressable>
+              <View style={{ flexDirection: "column", gap: 6 }}>
+                <Pressable
+                  style={[s.delBtn, { backgroundColor: colors.muted, borderRadius: 8 }]}
+                  onPress={() => openEditModal(item)}
+                >
+                  <Feather name="edit-2" size={15} color={colors.foreground} />
+                </Pressable>
+                <Pressable
+                  style={[s.delBtn, { backgroundColor: colors.destructive + "15", borderRadius: 8 }]}
+                  onPress={() => handleDelete(item.id, item.name)}
+                >
+                  <Feather name="trash-2" size={15} color={colors.destructive} />
+                </Pressable>
+              </View>
             </View>
           ))}
         </ScrollView>
@@ -281,8 +358,10 @@ export default function GrillsScreen() {
           <View style={[s.modal, { backgroundColor: colors.background }]}>
             {/* Modal header */}
             <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[s.modalTitle, { color: colors.foreground }]}>Add a Grill</Text>
-              <Pressable onPress={() => setShowAddModal(false)}>
+              <Text style={[s.modalTitle, { color: colors.foreground }]}>
+                {editingGrillId != null ? "Edit Grill" : "Add a Grill"}
+              </Text>
+              <Pressable onPress={() => { setShowAddModal(false); resetCustomForm(); }}>
                 <Feather name="x" size={22} color={colors.mutedForeground} />
               </Pressable>
             </View>
@@ -292,6 +371,8 @@ export default function GrillsScreen() {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: botPad + 40 }}
             >
+              {editingGrillId == null && (
+              <>
               {/* Search */}
               <View style={[s.searchWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
                 <Feather name="search" size={16} color={colors.mutedForeground} />
@@ -391,6 +472,8 @@ export default function GrillsScreen() {
                   </Text>
                 </Pressable>
               </View>
+              </>
+              )}
 
               {/* Custom form (collapsible) */}
               {showCustomForm && (
@@ -439,14 +522,38 @@ export default function GrillsScreen() {
                       </Pressable>
                     ))}
                   </View>
+                  <Text style={[s.label, { color: colors.foreground }]}>Temp Range (optional)</Text>
+                  <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                    <TextInput
+                      style={[s.input, { color: colors.foreground }]}
+                      placeholder="e.g. 180°F – 500°F"
+                      placeholderTextColor={colors.mutedForeground}
+                      value={tempRange}
+                      onChangeText={setTempRange}
+                    />
+                  </View>
+                  <Text style={[s.label, { color: colors.foreground }]}>Features (optional)</Text>
+                  <Text style={[s.helperText, { color: colors.mutedForeground }]}>
+                    Comma-separated, e.g. WiFi enabled, Pellet sensor, Side burner
+                  </Text>
+                  <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius, height: undefined, minHeight: 44, paddingVertical: 8 }]}>
+                    <TextInput
+                      style={[s.input, { color: colors.foreground, minHeight: 30 }]}
+                      placeholder="WiFi enabled, Side burner, Sear box"
+                      placeholderTextColor={colors.mutedForeground}
+                      value={featuresInput}
+                      onChangeText={setFeaturesInput}
+                      multiline
+                    />
+                  </View>
                   <Pressable
-                    style={({ pressed }) => [s.saveBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }, (createGrill.isPending || pressed) && { opacity: 0.7 }]}
+                    style={({ pressed }) => [s.saveBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }, (createGrill.isPending || updateGrill.isPending || pressed) && { opacity: 0.7 }]}
                     onPress={handleAddCustom}
-                    disabled={createGrill.isPending}
+                    disabled={createGrill.isPending || updateGrill.isPending}
                   >
-                    {createGrill.isPending
+                    {(createGrill.isPending || updateGrill.isPending)
                       ? <ActivityIndicator color="#fff" />
-                      : <Text style={s.saveBtnText}>Add Custom Grill</Text>}
+                      : <Text style={s.saveBtnText}>{editingGrillId != null ? "Save Changes" : "Add Custom Grill"}</Text>}
                   </Pressable>
                 </View>
               )}
@@ -555,4 +662,5 @@ const s = StyleSheet.create({
   chipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   saveBtn: { marginTop: 16, paddingVertical: 14, alignItems: "center" },
   saveBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#fff" },
+  helperText: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: -4, marginBottom: 4 },
 });

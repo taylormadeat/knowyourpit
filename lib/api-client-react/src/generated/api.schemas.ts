@@ -39,6 +39,13 @@ export interface Grill {
   wifiEnabled: boolean | null;
   /** @nullable */
   hopperSizeLbs: number | null;
+  /**
+   * Human-readable temp range (e.g. '165°F – 500°F')
+   * @nullable
+   */
+  tempRange: string | null;
+  /** @nullable */
+  features: string[] | null;
   /** @nullable */
   notes: string | null;
   /** @nullable */
@@ -74,6 +81,10 @@ export interface CreateGrillBody {
   /** @nullable */
   hopperSizeLbs?: number | null;
   /** @nullable */
+  tempRange?: string | null;
+  /** @nullable */
+  features?: string[] | null;
+  /** @nullable */
   notes?: string | null;
   /** @nullable */
   imageUrl?: string | null;
@@ -106,6 +117,10 @@ export interface UpdateGrillBody {
   wifiEnabled?: boolean | null;
   /** @nullable */
   hopperSizeLbs?: number | null;
+  /** @nullable */
+  tempRange?: string | null;
+  /** @nullable */
+  features?: string[] | null;
   /** @nullable */
   notes?: string | null;
   /** @nullable */
@@ -278,11 +293,6 @@ export interface Cook {
   sessionId: string | null;
   /** @nullable */
   recipeId: number | null;
-  /**
-   * Map of step keys (e.g. "0_grillLight") to ISO timestamp strings for manually confirmed steps
-   * @nullable
-   */
-  confirmedSteps: Record<string, string> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -442,11 +452,6 @@ export interface UpdateCookBody {
   rating?: number | null;
   /** @nullable */
   recipeId?: number | null;
-  /**
-   * Map of step keys (e.g. "0_grillLight") to ISO timestamp strings for manually confirmed steps
-   * @nullable
-   */
-  confirmedSteps?: Record<string, string> | null;
 }
 
 export interface Recipe {
@@ -827,14 +832,6 @@ export interface MultiCookScheduleItem {
   meatOnAt: string;
   /** When meat comes off the grill (before rest) */
   estimatedFinishAt: string;
-  /** Wrap method for this item */
-  wrapMethod?: "foil" | "butcher_paper" | "none" | null;
-  /** Minutes from meatOnAt when to wrap (null if no wrap) */
-  wrapAtMinutes?: number | null;
-  /** Internal temperature in °F to trigger wrap (null if not applicable) */
-  wrapTempF?: number | null;
-  /** One sentence explaining the wrap strategy */
-  wrapReason?: string | null;
   /** One sentence of specific advice for this item */
   notes?: string;
 }
@@ -1075,6 +1072,54 @@ export interface ThermoworksReadingsResponse {
   linked: boolean;
   probes: ThermoworksProbeReading[];
   error?: string;
+}
+
+export interface CustomMeatCut {
+  id: number;
+  name: string;
+  category: string;
+  targetTempF: number;
+  cookTempF: number;
+  minsPerLb: number;
+  restMins: number;
+  /** @nullable */
+  cookMethod: string | null;
+  /** @nullable */
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCustomMeatCutBody {
+  name: string;
+  category: string;
+  targetTempF: number;
+  cookTempF: number;
+  minsPerLb: number;
+  restMins: number;
+  /** @nullable */
+  cookMethod?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface UpdateCustomMeatCutBody {
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  targetTempF?: number | null;
+  /** @nullable */
+  cookTempF?: number | null;
+  /** @nullable */
+  minsPerLb?: number | null;
+  /** @nullable */
+  restMins?: number | null;
+  /** @nullable */
+  cookMethod?: string | null;
+  /** @nullable */
+  notes?: string | null;
 }
 
 export type ListCooksParams = {

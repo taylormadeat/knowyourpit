@@ -18,6 +18,8 @@ export const grillsTable = pgTable("grills", {
   heatZones: integer("heat_zones"),
   wifiEnabled: boolean("wifi_enabled").default(false),
   hopperSizeLbs: real("hopper_size_lbs"),
+  tempRange: text("temp_range"),
+  features: text("features").array(),
   notes: text("notes"),
   imageUrl: text("image_url"),
   totalCooks: integer("total_cooks").notNull().default(0),

@@ -36,6 +36,13 @@ export interface Grill {
   wifiEnabled: boolean | null;
   /** @nullable */
   hopperSizeLbs: number | null;
+  /**
+   * Human-readable temp range (e.g. '165°F – 500°F')
+   * @nullable
+   */
+  tempRange: string | null;
+  /** @nullable */
+  features: string[] | null;
   /** @nullable */
   notes: string | null;
   /** @nullable */

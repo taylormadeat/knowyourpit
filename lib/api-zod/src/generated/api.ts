@@ -39,6 +39,11 @@ export const ListGrillsResponseItem = zod.object({
   heatZones: zod.number().nullable(),
   wifiEnabled: zod.boolean().nullable(),
   hopperSizeLbs: zod.number().nullable(),
+  tempRange: zod
+    .string()
+    .nullable()
+    .describe("Human-readable temp range (e.g. '165°F – 500°F')"),
+  features: zod.array(zod.string()).nullable(),
   notes: zod.string().nullable(),
   imageUrl: zod.string().nullable(),
   totalCooks: zod.number(),
@@ -64,6 +69,8 @@ export const CreateGrillBody = zod.object({
   heatZones: zod.number().nullish(),
   wifiEnabled: zod.boolean().nullish(),
   hopperSizeLbs: zod.number().nullish(),
+  tempRange: zod.string().nullish(),
+  features: zod.array(zod.string()).nullish(),
   notes: zod.string().nullish(),
   imageUrl: zod.string().nullish(),
 });
@@ -97,6 +104,11 @@ export const GetGrillResponse = zod.object({
   heatZones: zod.number().nullable(),
   wifiEnabled: zod.boolean().nullable(),
   hopperSizeLbs: zod.number().nullable(),
+  tempRange: zod
+    .string()
+    .nullable()
+    .describe("Human-readable temp range (e.g. '165°F – 500°F')"),
+  features: zod.array(zod.string()).nullable(),
   notes: zod.string().nullable(),
   imageUrl: zod.string().nullable(),
   totalCooks: zod.number(),
@@ -125,6 +137,8 @@ export const UpdateGrillBody = zod.object({
   heatZones: zod.number().nullish(),
   wifiEnabled: zod.boolean().nullish(),
   hopperSizeLbs: zod.number().nullish(),
+  tempRange: zod.string().nullish(),
+  features: zod.array(zod.string()).nullish(),
   notes: zod.string().nullish(),
   imageUrl: zod.string().nullish(),
 });
@@ -151,6 +165,11 @@ export const UpdateGrillResponse = zod.object({
   heatZones: zod.number().nullable(),
   wifiEnabled: zod.boolean().nullable(),
   hopperSizeLbs: zod.number().nullable(),
+  tempRange: zod
+    .string()
+    .nullable()
+    .describe("Human-readable temp range (e.g. '165°F – 500°F')"),
+  features: zod.array(zod.string()).nullable(),
   notes: zod.string().nullable(),
   imageUrl: zod.string().nullable(),
   totalCooks: zod.number(),
@@ -194,6 +213,79 @@ export const GetGrillStatsResponse = zod.object({
   totalReadings: zod
     .number()
     .describe("Total temperature readings logged for this grill"),
+});
+
+/**
+ * @summary List all custom meat cuts for the authenticated user
+ */
+export const ListCustomMeatCutsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.string(),
+  targetTempF: zod.number(),
+  cookTempF: zod.number(),
+  minsPerLb: zod.number(),
+  restMins: zod.number(),
+  cookMethod: zod.string().nullable(),
+  notes: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListCustomMeatCutsResponse = zod.array(
+  ListCustomMeatCutsResponseItem,
+);
+
+/**
+ * @summary Create a custom meat cut
+ */
+export const CreateCustomMeatCutBody = zod.object({
+  name: zod.string(),
+  category: zod.string(),
+  targetTempF: zod.number(),
+  cookTempF: zod.number(),
+  minsPerLb: zod.number(),
+  restMins: zod.number(),
+  cookMethod: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Update a custom meat cut
+ */
+export const UpdateCustomMeatCutParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateCustomMeatCutBody = zod.object({
+  name: zod.string().nullish(),
+  category: zod.string().nullish(),
+  targetTempF: zod.number().nullish(),
+  cookTempF: zod.number().nullish(),
+  minsPerLb: zod.number().nullish(),
+  restMins: zod.number().nullish(),
+  cookMethod: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateCustomMeatCutResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.string(),
+  targetTempF: zod.number(),
+  cookTempF: zod.number(),
+  minsPerLb: zod.number(),
+  restMins: zod.number(),
+  cookMethod: zod.string().nullable(),
+  notes: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a custom meat cut
+ */
+export const DeleteCustomMeatCutParams = zod.object({
+  id: zod.coerce.number(),
 });
 
 /**
@@ -312,7 +404,6 @@ export const ListCooksResponseItem = zod.object({
       "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
     ),
   recipeId: zod.number().nullable(),
-  confirmedSteps: zod.record(zod.string(), zod.string()).nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -451,7 +542,6 @@ export const GetCookResponse = zod.object({
       "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
     ),
   recipeId: zod.number().nullable(),
-  confirmedSteps: zod.record(zod.string(), zod.string()).nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -506,7 +596,6 @@ export const UpdateCookBody = zod.object({
   ratingFlavor: zod.number().nullish(),
   rating: zod.number().nullish(),
   recipeId: zod.number().nullish(),
-  confirmedSteps: zod.record(zod.string(), zod.string()).nullish(),
 });
 
 export const UpdateCookResponse = zod.object({
@@ -577,7 +666,6 @@ export const UpdateCookResponse = zod.object({
       "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
     ),
   recipeId: zod.number().nullable(),
-  confirmedSteps: zod.record(zod.string(), zod.string()).nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1354,7 +1442,6 @@ export const GetRecentCooksResponseItem = zod.object({
       "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
     ),
   recipeId: zod.number().nullable(),
-  confirmedSteps: zod.record(zod.string(), zod.string()).nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

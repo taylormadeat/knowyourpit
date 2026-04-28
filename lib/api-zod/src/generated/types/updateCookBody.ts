@@ -56,9 +56,4 @@ export interface UpdateCookBody {
   rating?: number | null;
   /** @nullable */
   recipeId?: number | null;
-  /**
-   * Map of step keys (e.g. "0_grillLight") to ISO timestamp strings for manually confirmed steps
-   * @nullable
-   */
-  confirmedSteps?: Record<string, string> | null;
 }

@@ -28,10 +28,12 @@ import type {
   CookingTip,
   CreateAlertBody,
   CreateCookBody,
+  CreateCustomMeatCutBody,
   CreateForumCommentBody,
   CreateForumPostBody,
   CreateGrillBody,
   CreateRecipeBody,
+  CustomMeatCut,
   DashboardSummary,
   ForumComment,
   ForumPost,
@@ -64,6 +66,7 @@ import type {
   ThermoworksReadingsResponse,
   ThermoworksStatusResponse,
   UpdateCookBody,
+  UpdateCustomMeatCutBody,
   UpdateGrillBody,
   UpdateRecipeBody,
 } from "./api.schemas";
@@ -653,6 +656,338 @@ export function useGetGrillStats<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List all custom meat cuts for the authenticated user
+ */
+export const getListCustomMeatCutsUrl = () => {
+  return `/api/custom-meat-cuts`;
+};
+
+export const listCustomMeatCuts = async (
+  options?: RequestInit,
+): Promise<CustomMeatCut[]> => {
+  return customFetch<CustomMeatCut[]>(getListCustomMeatCutsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCustomMeatCutsQueryKey = () => {
+  return [`/api/custom-meat-cuts`] as const;
+};
+
+export const getListCustomMeatCutsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCustomMeatCuts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCustomMeatCuts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCustomMeatCutsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCustomMeatCuts>>
+  > = ({ signal }) => listCustomMeatCuts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCustomMeatCuts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCustomMeatCutsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCustomMeatCuts>>
+>;
+export type ListCustomMeatCutsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all custom meat cuts for the authenticated user
+ */
+
+export function useListCustomMeatCuts<
+  TData = Awaited<ReturnType<typeof listCustomMeatCuts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCustomMeatCuts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCustomMeatCutsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a custom meat cut
+ */
+export const getCreateCustomMeatCutUrl = () => {
+  return `/api/custom-meat-cuts`;
+};
+
+export const createCustomMeatCut = async (
+  createCustomMeatCutBody: CreateCustomMeatCutBody,
+  options?: RequestInit,
+): Promise<CustomMeatCut> => {
+  return customFetch<CustomMeatCut>(getCreateCustomMeatCutUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCustomMeatCutBody),
+  });
+};
+
+export const getCreateCustomMeatCutMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCustomMeatCut>>,
+    TError,
+    { data: BodyType<CreateCustomMeatCutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCustomMeatCut>>,
+  TError,
+  { data: BodyType<CreateCustomMeatCutBody> },
+  TContext
+> => {
+  const mutationKey = ["createCustomMeatCut"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCustomMeatCut>>,
+    { data: BodyType<CreateCustomMeatCutBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCustomMeatCut(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCustomMeatCutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCustomMeatCut>>
+>;
+export type CreateCustomMeatCutMutationBody = BodyType<CreateCustomMeatCutBody>;
+export type CreateCustomMeatCutMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a custom meat cut
+ */
+export const useCreateCustomMeatCut = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCustomMeatCut>>,
+    TError,
+    { data: BodyType<CreateCustomMeatCutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCustomMeatCut>>,
+  TError,
+  { data: BodyType<CreateCustomMeatCutBody> },
+  TContext
+> => {
+  return useMutation(getCreateCustomMeatCutMutationOptions(options));
+};
+
+/**
+ * @summary Update a custom meat cut
+ */
+export const getUpdateCustomMeatCutUrl = (id: number) => {
+  return `/api/custom-meat-cuts/${id}`;
+};
+
+export const updateCustomMeatCut = async (
+  id: number,
+  updateCustomMeatCutBody: UpdateCustomMeatCutBody,
+  options?: RequestInit,
+): Promise<CustomMeatCut> => {
+  return customFetch<CustomMeatCut>(getUpdateCustomMeatCutUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateCustomMeatCutBody),
+  });
+};
+
+export const getUpdateCustomMeatCutMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCustomMeatCut>>,
+    TError,
+    { id: number; data: BodyType<UpdateCustomMeatCutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCustomMeatCut>>,
+  TError,
+  { id: number; data: BodyType<UpdateCustomMeatCutBody> },
+  TContext
+> => {
+  const mutationKey = ["updateCustomMeatCut"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCustomMeatCut>>,
+    { id: number; data: BodyType<UpdateCustomMeatCutBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateCustomMeatCut(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCustomMeatCutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCustomMeatCut>>
+>;
+export type UpdateCustomMeatCutMutationBody = BodyType<UpdateCustomMeatCutBody>;
+export type UpdateCustomMeatCutMutationError = ErrorType<void>;
+
+/**
+ * @summary Update a custom meat cut
+ */
+export const useUpdateCustomMeatCut = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCustomMeatCut>>,
+    TError,
+    { id: number; data: BodyType<UpdateCustomMeatCutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCustomMeatCut>>,
+  TError,
+  { id: number; data: BodyType<UpdateCustomMeatCutBody> },
+  TContext
+> => {
+  return useMutation(getUpdateCustomMeatCutMutationOptions(options));
+};
+
+/**
+ * @summary Delete a custom meat cut
+ */
+export const getDeleteCustomMeatCutUrl = (id: number) => {
+  return `/api/custom-meat-cuts/${id}`;
+};
+
+export const deleteCustomMeatCut = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteCustomMeatCutUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCustomMeatCutMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCustomMeatCut>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCustomMeatCut>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteCustomMeatCut"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCustomMeatCut>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteCustomMeatCut(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCustomMeatCutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCustomMeatCut>>
+>;
+
+export type DeleteCustomMeatCutMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a custom meat cut
+ */
+export const useDeleteCustomMeatCut = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCustomMeatCut>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCustomMeatCut>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteCustomMeatCutMutationOptions(options));
+};
 
 /**
  * @summary Get recent temperature readings grouped by cook for a specific grill
