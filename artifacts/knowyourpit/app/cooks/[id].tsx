@@ -1446,23 +1446,28 @@ export default function CookDetailScreen() {
                             const isNextMeatOn = nextStep?.itemIdx === idx && nextStep?.step === "meatOn";
                             const isNextPullOff = nextStep?.itemIdx === idx && nextStep?.step === "pullOff";
                             const isNextServe = nextStep?.itemIdx === idx && nextStep?.step === "serve";
+                            const isDoneGrillLight = cookStatus === "active" && new Date(item.grillLightAt).getTime() < nowMs;
+                            const isDoneMeatOn = cookStatus === "active" && new Date(item.meatOnAt).getTime() < nowMs;
+                            const isDonePullOff = cookStatus === "active" && new Date(item.estimatedFinishAt).getTime() < nowMs;
+                            const serveMs = new Date(item.estimatedFinishAt).getTime() + item.restMinutes * 60000;
+                            const isDoneServe = cookStatus === "active" && serveMs < nowMs;
                             return (
                               <>
-                                <View style={[s.seqTlRow, isNextGrillLight && s.seqTlNextRow]}>
-                                  <View style={[s.seqTlDot, { backgroundColor: "#f59e0b" }]} />
+                                <View style={[s.seqTlRow, isNextGrillLight && s.seqTlNextRow, isDoneGrillLight && s.seqTlDoneRow]}>
+                                  <View style={[s.seqTlDot, { backgroundColor: isDoneGrillLight ? colors.mutedForeground : "#f59e0b", opacity: isDoneGrillLight ? 0.45 : 1 }]} />
                                   <View style={s.seqTlConnector} />
                                   <View style={{ flex: 1 }}>
                                     <View style={s.seqTlLabelRow}>
-                                      <Text style={[s.seqTlLabel, { color: isNextGrillLight ? "#f59e0b" : colors.mutedForeground }]}>Light grill</Text>
+                                      <Text style={[s.seqTlLabel, { color: isNextGrillLight ? "#f59e0b" : colors.mutedForeground }, isDoneGrillLight && s.seqTlDoneLabel]}>Light grill</Text>
                                       {isNextGrillLight && (
                                         <View style={[s.seqTlNextBadge, { backgroundColor: "#f59e0b25" }]}>
                                           <Text style={[s.seqTlNextText, { color: "#f59e0b" }]}>NEXT</Text>
                                         </View>
                                       )}
                                     </View>
-                                    <Text style={[s.seqTlTime, { color: colors.foreground }]}>
+                                    <Text style={[s.seqTlTime, { color: isDoneGrillLight ? colors.mutedForeground : colors.foreground, opacity: isDoneGrillLight ? 0.55 : 1 }]}>
                                       {new Date(item.grillLightAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                      {cookStatus === "active" && (
+                                      {cookStatus === "active" && !isDoneGrillLight && (
                                         <Text style={[s.seqTlMeta, { color: "#f59e0b" }]}>
                                           {" "}· {relCountdown(new Date(item.grillLightAt).getTime(), nowMs)}
                                         </Text>
@@ -1473,21 +1478,21 @@ export default function CookDetailScreen() {
                                     </Text>
                                   </View>
                                 </View>
-                                <View style={[s.seqTlRow, isNextMeatOn && s.seqTlNextRow]}>
-                                  <View style={[s.seqTlDot, { backgroundColor: "#EB6C2B" }]} />
+                                <View style={[s.seqTlRow, isNextMeatOn && s.seqTlNextRow, isDoneMeatOn && s.seqTlDoneRow]}>
+                                  <View style={[s.seqTlDot, { backgroundColor: isDoneMeatOn ? colors.mutedForeground : "#EB6C2B", opacity: isDoneMeatOn ? 0.45 : 1 }]} />
                                   <View style={s.seqTlConnector} />
                                   <View style={{ flex: 1 }}>
                                     <View style={s.seqTlLabelRow}>
-                                      <Text style={[s.seqTlLabel, { color: isNextMeatOn ? "#EB6C2B" : colors.mutedForeground }]}>Meat on</Text>
+                                      <Text style={[s.seqTlLabel, { color: isNextMeatOn ? "#EB6C2B" : colors.mutedForeground }, isDoneMeatOn && s.seqTlDoneLabel]}>Meat on</Text>
                                       {isNextMeatOn && (
                                         <View style={[s.seqTlNextBadge, { backgroundColor: "#EB6C2B25" }]}>
                                           <Text style={[s.seqTlNextText, { color: "#EB6C2B" }]}>NEXT</Text>
                                         </View>
                                       )}
                                     </View>
-                                    <Text style={[s.seqTlTime, { color: colors.foreground }]}>
+                                    <Text style={[s.seqTlTime, { color: isDoneMeatOn ? colors.mutedForeground : colors.foreground, opacity: isDoneMeatOn ? 0.55 : 1 }]}>
                                       {new Date(item.meatOnAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                      {cookStatus === "active" && (
+                                      {cookStatus === "active" && !isDoneMeatOn && (
                                         <Text style={[s.seqTlMeta, { color: "#EB6C2B" }]}>
                                           {" "}· {relCountdown(new Date(item.meatOnAt).getTime(), nowMs)}
                                         </Text>
@@ -1501,23 +1506,23 @@ export default function CookDetailScreen() {
                                     </Text>
                                   </View>
                                 </View>
-                                <View style={[s.seqTlRow, { marginBottom: item.restMinutes > 0 ? 8 : 0 }, isNextPullOff && s.seqTlNextRow]}>
-                                  <View style={[s.seqTlDot, { backgroundColor: "#22c55e" }]} />
+                                <View style={[s.seqTlRow, { marginBottom: item.restMinutes > 0 ? 8 : 0 }, isNextPullOff && s.seqTlNextRow, isDonePullOff && s.seqTlDoneRow]}>
+                                  <View style={[s.seqTlDot, { backgroundColor: isDonePullOff ? colors.mutedForeground : "#22c55e", opacity: isDonePullOff ? 0.45 : 1 }]} />
                                   {item.restMinutes > 0
                                     ? <View style={s.seqTlConnector} />
                                     : <View style={[s.seqTlConnector, { borderColor: "transparent" }]} />}
                                   <View style={{ flex: 1 }}>
                                     <View style={s.seqTlLabelRow}>
-                                      <Text style={[s.seqTlLabel, { color: isNextPullOff ? "#22c55e" : colors.mutedForeground }]}>Pull off</Text>
+                                      <Text style={[s.seqTlLabel, { color: isNextPullOff ? "#22c55e" : colors.mutedForeground }, isDonePullOff && s.seqTlDoneLabel]}>Pull off</Text>
                                       {isNextPullOff && (
                                         <View style={[s.seqTlNextBadge, { backgroundColor: "#22c55e25" }]}>
                                           <Text style={[s.seqTlNextText, { color: "#22c55e" }]}>NEXT</Text>
                                         </View>
                                       )}
                                     </View>
-                                    <Text style={[s.seqTlTime, { color: colors.foreground }]}>
+                                    <Text style={[s.seqTlTime, { color: isDonePullOff ? colors.mutedForeground : colors.foreground, opacity: isDonePullOff ? 0.55 : 1 }]}>
                                       {new Date(item.estimatedFinishAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                      {cookStatus === "active" && (
+                                      {cookStatus === "active" && !isDonePullOff && (
                                         <Text style={[s.seqTlMeta, { color: "#22c55e" }]}>
                                           {" "}· {relCountdown(new Date(item.estimatedFinishAt).getTime(), nowMs)}
                                         </Text>
@@ -1531,23 +1536,23 @@ export default function CookDetailScreen() {
                                   </View>
                                 </View>
                                 {item.restMinutes > 0 && (
-                                  <View style={[s.seqTlRow, { marginBottom: 0 }, isNextServe && s.seqTlNextRow]}>
-                                    <View style={[s.seqTlDot, { backgroundColor: "#6366f1" }]} />
+                                  <View style={[s.seqTlRow, { marginBottom: 0 }, isNextServe && s.seqTlNextRow, isDoneServe && s.seqTlDoneRow]}>
+                                    <View style={[s.seqTlDot, { backgroundColor: isDoneServe ? colors.mutedForeground : "#6366f1", opacity: isDoneServe ? 0.45 : 1 }]} />
                                     <View style={[s.seqTlConnector, { borderColor: "transparent" }]} />
                                     <View style={{ flex: 1 }}>
                                       <View style={s.seqTlLabelRow}>
-                                        <Text style={[s.seqTlLabel, { color: isNextServe ? "#6366f1" : colors.mutedForeground }]}>Ready to serve</Text>
+                                        <Text style={[s.seqTlLabel, { color: isNextServe ? "#6366f1" : colors.mutedForeground }, isDoneServe && s.seqTlDoneLabel]}>Ready to serve</Text>
                                         {isNextServe && (
                                           <View style={[s.seqTlNextBadge, { backgroundColor: "#6366f125" }]}>
                                             <Text style={[s.seqTlNextText, { color: "#6366f1" }]}>NEXT</Text>
                                           </View>
                                         )}
                                       </View>
-                                      <Text style={[s.seqTlTime, { color: colors.foreground }]}>
-                                        {new Date(new Date(item.estimatedFinishAt).getTime() + item.restMinutes * 60000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                        {cookStatus === "active" && (
+                                      <Text style={[s.seqTlTime, { color: isDoneServe ? colors.mutedForeground : colors.foreground, opacity: isDoneServe ? 0.55 : 1 }]}>
+                                        {new Date(serveMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                        {cookStatus === "active" && !isDoneServe && (
                                           <Text style={[s.seqTlMeta, { color: "#6366f1" }]}>
-                                            {" "}· {relCountdown(new Date(item.estimatedFinishAt).getTime() + item.restMinutes * 60000, nowMs)}
+                                            {" "}· {relCountdown(serveMs, nowMs)}
                                           </Text>
                                         )}
                                       </Text>
@@ -3403,6 +3408,12 @@ const s = StyleSheet.create({
   seqTlLabel: {
     fontSize: 10, fontFamily: "Inter_600SemiBold",
     textTransform: "uppercase", letterSpacing: 0.5,
+  },
+  seqTlDoneRow: {
+    opacity: 0.6,
+  },
+  seqTlDoneLabel: {
+    textDecorationLine: "line-through",
   },
   seqTlTime: { fontSize: 14, fontFamily: "Inter_700Bold" },
   seqTlMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
