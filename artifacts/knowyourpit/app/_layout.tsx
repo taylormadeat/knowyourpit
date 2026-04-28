@@ -137,6 +137,9 @@ function RootLayoutNav() {
       } else {
         router.replace("/(auth)/set-username");
       }
+    } else if (isSignedIn && onSetUsername && user?.username) {
+      // Signed in with an existing username who somehow navigated to set-username — send them to the app.
+      router.replace("/(tabs)");
     } else if (isSignedIn && !inAuthGroup && !user?.username) {
       // Signed in, inside the main app, but username not yet set — pull them back to the gate.
       router.replace("/(auth)/set-username");
