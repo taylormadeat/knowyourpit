@@ -378,6 +378,33 @@ export default function CookDetailScreen() {
   };
   const firedAlertIds = useRef<Set<number>>(new Set());
 
+  const [confirmedSteps, setConfirmedSteps] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const stored = cook?.confirmedSteps;
+    setConfirmedSteps(stored && typeof stored === "object" ? stored : {});
+  }, [id, cook?.confirmedSteps]);
+
+  const toggleConfirmedStep = async (key: string) => {
+    const prev = confirmedSteps;
+    const next = { ...prev };
+    if (next[key]) {
+      delete next[key];
+    } else {
+      next[key] = new Date().toISOString();
+    }
+    setConfirmedSteps(next);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await updateCook.mutateAsync({
+        id: Number(id),
+        data: { confirmedSteps: next },
+      });
+      qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+    } catch {
+      setConfirmedSteps(prev);
+    }
+  };
+
   const { data: meaterData, isLoading: meaterLoading } = useGetMeaterReadings({
     query: {
       queryKey: getGetMeaterReadingsQueryKey(),
@@ -1526,8 +1553,16 @@ export default function CookDetailScreen() {
                             const isDoneServe = cookStatus === "active" && serveMs < nowMs;
                             return (
                               <>
-                                <View ref={isNextGrillLight ? nextStepRowRef : undefined} style={[s.seqTlRow, isNextGrillLight && s.seqTlNextRow, isDoneGrillLight && s.seqTlDoneRow]}>
-                                  <View style={[s.seqTlDot, { backgroundColor: isDoneGrillLight ? colors.mutedForeground : "#f59e0b", opacity: isDoneGrillLight ? 0.45 : 1 }]} />
+                                <View ref={isNextGrillLight ? nextStepRowRef : undefined} style={[s.seqTlRow, isNextGrillLight && s.seqTlNextRow, isDoneGrillLight && !confirmedSteps[`${idx}_grillLight`] && s.seqTlDoneRow]}>
+                                  {isDoneGrillLight ? (
+                                    <Pressable onPress={() => toggleConfirmedStep(`${idx}_grillLight`)} hitSlop={8} style={s.seqTlDotBtn}>
+                                      {confirmedSteps[`${idx}_grillLight`]
+                                        ? <Feather name="check-circle" size={14} color="#f59e0b" />
+                                        : <View style={[s.seqTlDot, { backgroundColor: colors.mutedForeground, opacity: 0.45 }]} />}
+                                    </Pressable>
+                                  ) : (
+                                    <View style={[s.seqTlDot, { backgroundColor: "#f59e0b" }]} />
+                                  )}
                                   <View style={s.seqTlConnector} />
                                   <View style={{ flex: 1 }}>
                                     <View style={s.seqTlLabelRow}>
@@ -1551,8 +1586,16 @@ export default function CookDetailScreen() {
                                     </Text>
                                   </View>
                                 </View>
-                                <View ref={isNextMeatOn ? nextStepRowRef : undefined} style={[s.seqTlRow, isNextMeatOn && s.seqTlNextRow, isDoneMeatOn && s.seqTlDoneRow]}>
-                                  <View style={[s.seqTlDot, { backgroundColor: isDoneMeatOn ? colors.mutedForeground : "#EB6C2B", opacity: isDoneMeatOn ? 0.45 : 1 }]} />
+                                <View ref={isNextMeatOn ? nextStepRowRef : undefined} style={[s.seqTlRow, isNextMeatOn && s.seqTlNextRow, isDoneMeatOn && !confirmedSteps[`${idx}_meatOn`] && s.seqTlDoneRow]}>
+                                  {isDoneMeatOn ? (
+                                    <Pressable onPress={() => toggleConfirmedStep(`${idx}_meatOn`)} hitSlop={8} style={s.seqTlDotBtn}>
+                                      {confirmedSteps[`${idx}_meatOn`]
+                                        ? <Feather name="check-circle" size={14} color="#EB6C2B" />
+                                        : <View style={[s.seqTlDot, { backgroundColor: colors.mutedForeground, opacity: 0.45 }]} />}
+                                    </Pressable>
+                                  ) : (
+                                    <View style={[s.seqTlDot, { backgroundColor: "#EB6C2B" }]} />
+                                  )}
                                   <View style={s.seqTlConnector} />
                                   <View style={{ flex: 1 }}>
                                     <View style={s.seqTlLabelRow}>
@@ -1579,8 +1622,16 @@ export default function CookDetailScreen() {
                                     </Text>
                                   </View>
                                 </View>
-                                <View ref={isNextPullOff ? nextStepRowRef : undefined} style={[s.seqTlRow, { marginBottom: item.restMinutes > 0 ? 8 : 0 }, isNextPullOff && s.seqTlNextRow, isDonePullOff && s.seqTlDoneRow]}>
-                                  <View style={[s.seqTlDot, { backgroundColor: isDonePullOff ? colors.mutedForeground : "#22c55e", opacity: isDonePullOff ? 0.45 : 1 }]} />
+                                <View ref={isNextPullOff ? nextStepRowRef : undefined} style={[s.seqTlRow, { marginBottom: item.restMinutes > 0 ? 8 : 0 }, isNextPullOff && s.seqTlNextRow, isDonePullOff && !confirmedSteps[`${idx}_pullOff`] && s.seqTlDoneRow]}>
+                                  {isDonePullOff ? (
+                                    <Pressable onPress={() => toggleConfirmedStep(`${idx}_pullOff`)} hitSlop={8} style={s.seqTlDotBtn}>
+                                      {confirmedSteps[`${idx}_pullOff`]
+                                        ? <Feather name="check-circle" size={14} color="#22c55e" />
+                                        : <View style={[s.seqTlDot, { backgroundColor: colors.mutedForeground, opacity: 0.45 }]} />}
+                                    </Pressable>
+                                  ) : (
+                                    <View style={[s.seqTlDot, { backgroundColor: "#22c55e" }]} />
+                                  )}
                                   {item.restMinutes > 0
                                     ? <View style={s.seqTlConnector} />
                                     : <View style={[s.seqTlConnector, { borderColor: "transparent" }]} />}
@@ -1609,8 +1660,16 @@ export default function CookDetailScreen() {
                                   </View>
                                 </View>
                                 {item.restMinutes > 0 && (
-                                  <View ref={isNextServe ? nextStepRowRef : undefined} style={[s.seqTlRow, { marginBottom: 0 }, isNextServe && s.seqTlNextRow, isDoneServe && s.seqTlDoneRow]}>
-                                    <View style={[s.seqTlDot, { backgroundColor: isDoneServe ? colors.mutedForeground : "#6366f1", opacity: isDoneServe ? 0.45 : 1 }]} />
+                                  <View ref={isNextServe ? nextStepRowRef : undefined} style={[s.seqTlRow, { marginBottom: 0 }, isNextServe && s.seqTlNextRow, isDoneServe && !confirmedSteps[`${idx}_serve`] && s.seqTlDoneRow]}>
+                                    {isDoneServe ? (
+                                      <Pressable onPress={() => toggleConfirmedStep(`${idx}_serve`)} hitSlop={8} style={s.seqTlDotBtn}>
+                                        {confirmedSteps[`${idx}_serve`]
+                                          ? <Feather name="check-circle" size={14} color="#6366f1" />
+                                          : <View style={[s.seqTlDot, { backgroundColor: colors.mutedForeground, opacity: 0.45 }]} />}
+                                      </Pressable>
+                                    ) : (
+                                      <View style={[s.seqTlDot, { backgroundColor: "#6366f1" }]} />
+                                    )}
                                     <View style={[s.seqTlConnector, { borderColor: "transparent" }]} />
                                     <View style={{ flex: 1 }}>
                                       <View style={s.seqTlLabelRow}>
@@ -3472,6 +3531,9 @@ const s = StyleSheet.create({
   },
   seqTlDot: {
     width: 10, height: 10, borderRadius: 5, marginTop: 4, flexShrink: 0,
+  },
+  seqTlDotBtn: {
+    width: 14, height: 14, marginTop: 2, flexShrink: 0, alignItems: "center", justifyContent: "center",
   },
   seqTlConnector: {
     width: 1, backgroundColor: "transparent",

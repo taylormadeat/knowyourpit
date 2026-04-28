@@ -224,6 +224,14 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
     }
     updateData.sessionId = sid ?? null;
   }
+  if ("confirmedSteps" in req.body) {
+    const cs = req.body.confirmedSteps;
+    if (cs !== null && (typeof cs !== "object" || Array.isArray(cs))) {
+      res.status(400).json({ error: "confirmedSteps must be an object or null" });
+      return;
+    }
+    updateData.confirmedSteps = cs ?? null;
+  }
   const [cook] = await db.update(cooksTable).set(updateData)
     .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)))
     .returning();

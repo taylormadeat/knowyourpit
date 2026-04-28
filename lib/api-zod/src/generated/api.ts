@@ -312,6 +312,7 @@ export const ListCooksResponseItem = zod.object({
       "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
     ),
   recipeId: zod.number().nullable(),
+  confirmedSteps: zod.record(zod.string(), zod.string()).nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -450,6 +451,7 @@ export const GetCookResponse = zod.object({
       "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
     ),
   recipeId: zod.number().nullable(),
+  confirmedSteps: zod.record(zod.string(), zod.string()).nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -504,6 +506,7 @@ export const UpdateCookBody = zod.object({
   ratingFlavor: zod.number().nullish(),
   rating: zod.number().nullish(),
   recipeId: zod.number().nullish(),
+  confirmedSteps: zod.record(zod.string(), zod.string()).nullish(),
 });
 
 export const UpdateCookResponse = zod.object({
@@ -574,6 +577,7 @@ export const UpdateCookResponse = zod.object({
       "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
     ),
   recipeId: zod.number().nullable(),
+  confirmedSteps: zod.record(zod.string(), zod.string()).nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1350,6 +1354,7 @@ export const GetRecentCooksResponseItem = zod.object({
       "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
     ),
   recipeId: zod.number().nullable(),
+  confirmedSteps: zod.record(zod.string(), zod.string()).nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
