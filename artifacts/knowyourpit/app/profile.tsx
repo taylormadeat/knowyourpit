@@ -181,6 +181,11 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
 
+          {user?.username ? (
+            <Text style={[s.profileEmail, { color: colors.mutedForeground }]}>
+              @{user.username}
+            </Text>
+          ) : null}
           <Text style={[s.profileEmail, { color: colors.mutedForeground }]}>
             {user?.emailAddresses?.[0]?.emailAddress || ""}
           </Text>

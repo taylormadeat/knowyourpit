@@ -166,9 +166,15 @@ export default function MoreScreen() {
             <Text style={[s.profileName, { color: colors.foreground }]}>
               {(user?.unsafeMetadata?.displayName as string | undefined) || user?.fullName || user?.firstName || "Pitmaster"}
             </Text>
-            <Text style={[s.profileEmail, { color: colors.mutedForeground }]}>
-              {user?.emailAddresses?.[0]?.emailAddress || ""}
-            </Text>
+            {user?.username ? (
+              <Text style={[s.profileEmail, { color: colors.mutedForeground }]}>
+                @{user.username}
+              </Text>
+            ) : (
+              <Text style={[s.profileEmail, { color: colors.mutedForeground }]}>
+                {user?.emailAddresses?.[0]?.emailAddress || ""}
+              </Text>
+            )}
           </View>
           <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
         </Pressable>
