@@ -1,47 +1,189 @@
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import Constants from "expo-constants";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-/**
- * Visible boot screen shown while Clerk is still loading or has timed out.
- *
- * Replaces the previous silent black `<View>` placeholder, which was
- * indistinguishable from a hung/crashed app and caused multiple App Store
- * rejections. By making the boot state visible we get an actionable signal
- * from any future failure: an Apple reviewer (or user) seeing this screen
- * can read the on-screen state instead of staring at a black void.
- *
- * The component is intentionally self-contained — it does not import any
- * theme, font, or context, so it can render even if every provider above it
- * has failed.
- */
 export interface BootDiagnosticProps {
-  /** Display label for the auth state, e.g. "ready", "not ready". */
   clerkState: string;
-  /** Short prefix of the Clerk publishable key for at-a-glance verification. */
-  publishableKeyPrefix: string;
-  /** Build number / version label shown at the bottom for support. */
-  buildLabel: string;
-  /** Optional extra debug line, e.g. captured-error preview. */
+  /** Full publishable key — used to decode the FAPI host for the probe. */
+  publishableKey: string;
   extra?: string | null;
+  onContinue?: () => void;
 }
 
 const BG = "#0e0e10";
 const FG = "#ffffff";
 const MUTED = "#9ca3af";
 const DIM = "#6b7280";
+const ACCENT = "#f97316";
+
+type ProbeStatus = "pending" | "ok" | "fail" | "timeout";
+
+interface ProbeResult {
+  status: ProbeStatus;
+  detail: string;
+}
+
+function decodeFapiHostFromKey(pk: string): string | null {
+  try {
+    const parts = pk.split("_");
+    const encoded = parts[parts.length - 1];
+    if (!encoded) return null;
+    const padded = encoded + "=".repeat((4 - (encoded.length % 4)) % 4);
+    const decoded = globalThis.atob ? globalThis.atob(padded) : null;
+    if (!decoded) return null;
+    return decoded.replace(/\$+$/, "");
+  } catch {
+    return null;
+  }
+}
+
+function describeError(err: unknown): string {
+  if (!err) return "unknown error";
+  if (typeof err !== "object") return String(err);
+  const e = err as {
+    name?: string;
+    message?: string;
+    code?: string | number;
+    cause?: unknown;
+    toString?: () => string;
+  };
+  const parts: string[] = [];
+  if (e.name && e.name !== "Error") parts.push(e.name);
+  if (e.code !== undefined && e.code !== null) parts.push(`code=${e.code}`);
+  if (e.message) parts.push(e.message);
+  if (e.cause) {
+    const cause =
+      typeof e.cause === "object" && e.cause !== null
+        ? (e.cause as { message?: string }).message ?? String(e.cause)
+        : String(e.cause);
+    parts.push(`cause=${cause}`);
+  }
+  // Also try toString in case it surfaces NSURLErrorDomain / -1003 etc.
+  if (e.toString) {
+    const s = e.toString();
+    if (s && !parts.some((p) => p === s)) parts.push(s);
+  }
+  return parts.join(" | ").slice(0, 240) || "unknown error";
+}
+
+async function probeWithTimeout(
+  url: string,
+  timeoutMs: number,
+): Promise<ProbeResult> {
+  const startedAt = Date.now();
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(url, { method: "GET", signal: controller.signal });
+    clearTimeout(timer);
+    const ms = Date.now() - startedAt;
+    if (res.ok || res.status > 0) {
+      return { status: "ok", detail: `HTTP ${res.status} in ${ms}ms` };
+    }
+    return { status: "fail", detail: `HTTP ${res.status} in ${ms}ms` };
+  } catch (err) {
+    const ms = Date.now() - startedAt;
+    const desc = describeError(err);
+    if (desc.toLowerCase().includes("abort")) {
+      return { status: "timeout", detail: `timed out after ${ms}ms` };
+    }
+    return { status: "fail", detail: `${desc} (${ms}ms)` };
+  }
+}
+
+function formatProbe(label: string, p: ProbeResult): string {
+  const icon =
+    p.status === "ok"
+      ? "OK"
+      : p.status === "timeout"
+      ? "TIMEOUT"
+      : p.status === "fail"
+      ? "FAIL"
+      : "...";
+  return `${label}: ${icon} \u2014 ${p.detail}`;
+}
 
 export function BootDiagnostic({
   clerkState,
-  publishableKeyPrefix,
-  buildLabel,
+  publishableKey,
   extra,
+  onContinue,
 }: BootDiagnosticProps) {
+  const publishableKeyPrefix = publishableKey ? publishableKey.slice(0, 12) : "";
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [reachProbe, setReachProbe] = useState<ProbeResult>({
+    status: "pending",
+    detail: "starting\u2026",
+  });
+  const [clerkProbe, setClerkProbe] = useState<ProbeResult>({
+    status: "pending",
+    detail: "starting\u2026",
+  });
+  const [cdnProbe, setCdnProbe] = useState<ProbeResult>({
+    status: "pending",
+    detail: "starting\u2026",
+  });
+  const probesStartedRef = useRef(false);
 
   useEffect(() => {
     const interval = setInterval(() => setElapsedSec((s) => s + 1), 1000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (probesStartedRef.current) return;
+    probesStartedRef.current = true;
+
+    let cancelled = false;
+    (async () => {
+      // Probe 1: Apple captive-portal — generic IPv4 reachability check.
+      const generic = await probeWithTimeout(
+        "https://www.apple.com/library/test/success.html",
+        6000,
+      );
+      if (!cancelled) setReachProbe(generic);
+
+      // Probe 2: the configured Clerk FAPI host (custom domain). This is
+      // exactly the URL the Clerk SDK hits on init.
+      const fapiHost = decodeFapiHostFromKey(
+        publishableKey && publishableKey.startsWith("pk_") ? publishableKey : "",
+      );
+      const fapiUrl = fapiHost
+        ? `https://${fapiHost}/v1/environment?_clerk_js_version=5.0.0&__clerk_api_version=2025-04-10`
+        : "https://clerk.knowyourpit.com/v1/environment?_clerk_js_version=5.0.0&__clerk_api_version=2025-04-10";
+
+      // Probe 3: bypass the custom domain and hit Clerk's underlying CDN
+      // hostname directly. If probe 2 fails but probe 3 succeeds, the issue
+      // is specifically the custom-domain TLS / SNI on iOS — not Clerk
+      // network reachability in general. If both fail, it's iOS reaching
+      // Cloudflare at all (ATS, cellular carrier, etc.). Run in parallel.
+      const cdnUrl =
+        "https://frontend-api.clerk.services/v1/environment?_clerk_js_version=5.0.0&__clerk_api_version=2025-04-10";
+
+      const [clerk, cdn] = await Promise.all([
+        probeWithTimeout(fapiUrl, 8000),
+        probeWithTimeout(cdnUrl, 8000),
+      ]);
+      if (!cancelled) {
+        setClerkProbe(clerk);
+        setCdnProbe(cdn);
+      }
+    })().catch(() => {
+      /* probes never throw outwardly */
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [publishableKey]);
 
   let primaryMessage = "Connecting to PitMaster\u2026";
   if (elapsedSec >= 30) {
@@ -53,12 +195,34 @@ export function BootDiagnostic({
     primaryMessage = "Still loading\u2014 almost there\u2026";
   }
 
+  const version = Constants.expoConfig?.version ?? "?";
+  const buildNumber =
+    Constants.expoConfig?.ios?.buildNumber ??
+    (Constants as unknown as { nativeBuildVersion?: string }).nativeBuildVersion ??
+    "?";
+  const buildLabel = `knowyourpit ${version} build ${buildNumber}`;
+
+  const showContinue = onContinue !== undefined && elapsedSec >= 15;
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.brand}>knowyourpit</Text>
         <ActivityIndicator color={FG} size="large" style={styles.spinner} />
         <Text style={styles.primary}>{primaryMessage}</Text>
+        {showContinue ? (
+          <Pressable
+            onPress={onContinue}
+            style={({ pressed }) => [
+              styles.continueButton,
+              pressed && styles.continueButtonPressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Continue without sign-in"
+          >
+            <Text style={styles.continueButtonText}>Continue without sign-in</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.footer}>
@@ -73,6 +237,15 @@ export function BootDiagnostic({
         </Text>
         <Text style={styles.footerLine} numberOfLines={1}>
           Key: {publishableKeyPrefix || "(missing)"}
+        </Text>
+        <Text style={styles.footerLine} numberOfLines={2}>
+          {formatProbe("Net", reachProbe)}
+        </Text>
+        <Text style={styles.footerLine} numberOfLines={3}>
+          {formatProbe("Clerk-API", clerkProbe)}
+        </Text>
+        <Text style={styles.footerLine} numberOfLines={3}>
+          {formatProbe("Clerk-CDN", cdnProbe)}
         </Text>
         {extra ? (
           <ScrollView style={styles.extraScroll} contentContainerStyle={styles.extraContent}>
@@ -113,6 +286,23 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
     paddingHorizontal: 16,
+  },
+  continueButton: {
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: ACCENT,
+    backgroundColor: "transparent",
+  },
+  continueButtonPressed: {
+    backgroundColor: "rgba(249, 115, 22, 0.15)",
+  },
+  continueButtonText: {
+    color: ACCENT,
+    fontSize: 14,
+    fontWeight: "600",
   },
   footer: {
     alignItems: "center",

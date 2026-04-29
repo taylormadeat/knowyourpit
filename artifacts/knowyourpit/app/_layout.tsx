@@ -298,6 +298,30 @@ export default function RootLayout() {
     });
   }, []);
 
+  // Hard escape hatch: if Clerk's `isLoaded` never flips true (e.g. iOS-26
+  // network stack quirk, FAPI cert validation issue, SecureStore hang in the
+  // tokenCache), we still mount the app shell after this timeout so the user
+  // (and Apple reviewer) is never stuck on the diagnostic screen forever.
+  //
+  // We ALSO persist a "guest mode" flag in AsyncStorage when this flips. The
+  // root index route (app/index.tsx) reads that flag *before* it consults
+  // Clerk's `useAuth().isLoaded` — which means once the escape hatch trips,
+  // index.tsx redirects straight to /(tabs) instead of falling through to
+  // the still-spinning Clerk gate. Without that, "Continue without sign-in"
+  // would dump the user onto an ActivityIndicator that never resolves
+  // (because Clerk's underlying boot never resolves either).
+  const [proceedAnyway, setProceedAnyway] = useState(false);
+  const flipProceed = React.useCallback(() => {
+    setProceedAnyway(true);
+    AsyncStorage.setItem("knowyourpit:guestMode", "1").catch(() => {});
+  }, []);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      flipProceed();
+    }, 25000);
+    return () => clearTimeout(timer);
+  }, [flipProceed]);
+
   if (!fontsLoaded && !fontError && !webReady) return null;
 
   // ErrorBoundary now wraps every other provider — including
@@ -327,8 +351,10 @@ export default function RootLayout() {
           >
             <ClerkGatedShell
               onReady={() => setClerkReady(true)}
-              publishableKeyPrefix={clerkPubKey ? clerkPubKey.slice(0, 12) : ""}
+              publishableKey={clerkPubKey}
               bootErrorText={bootErrorText}
+              proceedAnyway={proceedAnyway}
+              onProceedAnyway={() => setProceedAnyway(true)}
             />
           </ClerkProvider>
         </KeyboardProviderOrFragment>
@@ -362,12 +388,16 @@ function KeyboardProviderOrFragment({ children }: { children: React.ReactNode })
 // could fire with the previous user's token.
 function ClerkGatedShell({
   onReady,
-  publishableKeyPrefix,
+  publishableKey,
   bootErrorText,
+  proceedAnyway,
+  onProceedAnyway,
 }: {
   onReady: () => void;
-  publishableKeyPrefix: string;
+  publishableKey: string;
   bootErrorText: string | null;
+  proceedAnyway: boolean;
+  onProceedAnyway: () => void;
 }) {
   const { isLoaded, userId, getToken } = useAuth();
 
@@ -390,18 +420,31 @@ function ClerkGatedShell({
     }
   }, [isLoaded, onReady]);
 
-  if (!isLoaded) {
+  // Once the user successfully signs in, clear the persisted "guest mode"
+  // flag set by the escape hatch. Otherwise a future cold launch where Clerk
+  // boots fast would still bypass the auth gate because the AsyncStorage
+  // flag would still say "1".
+  useEffect(() => {
+    if (isLoaded && userId) {
+      AsyncStorage.removeItem("knowyourpit:guestMode").catch(() => {});
+    }
+  }, [isLoaded, userId]);
+
+  if (!isLoaded && !proceedAnyway) {
     // Visible diagnostic boot screen — replaces the previous silent black
     // <View> placeholder, which was indistinguishable from a hung/crashed
     // app and caused multiple App Store review rejections. If Clerk takes
     // longer than expected (or never loads), the user (and the reviewer)
-    // can read on-screen state instead of staring at a black void.
+    // can read on-screen state instead of staring at a black void, and
+    // can press the "Continue without sign-in" button (revealed at 15s)
+    // to fall through to the app shell. A 25s hard timer in RootLayout
+    // also flips `proceedAnyway` automatically as a last-resort backstop.
     return (
       <BootDiagnostic
         clerkState="not ready"
-        publishableKeyPrefix={publishableKeyPrefix}
-        buildLabel="knowyourpit 1.0.2 build 35"
+        publishableKey={publishableKey}
         extra={bootErrorText}
+        onContinue={onProceedAnyway}
       />
     );
   }
