@@ -6,7 +6,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { ClerkProvider, useAuth, useUser } from "@clerk/expo";
-import { tokenCache as nativeTokenCache } from "@clerk/expo/token-cache";
+import { safeTokenCache } from "@/lib/tokenCache";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
@@ -318,7 +318,7 @@ export default function RootLayout() {
   useEffect(() => {
     const timer = setTimeout(() => {
       flipProceed();
-    }, 25000);
+    }, 12000);
     return () => clearTimeout(timer);
   }, [flipProceed]);
 
@@ -346,7 +346,7 @@ export default function RootLayout() {
         <KeyboardProviderOrFragment>
           <ClerkProvider
             publishableKey={clerkPubKey}
-            tokenCache={Platform.OS !== "web" ? nativeTokenCache : undefined}
+            tokenCache={Platform.OS !== "web" ? safeTokenCache : undefined}
             {...(clerkProxyUrl ? { proxyUrl: clerkProxyUrl } : {})}
           >
             <ClerkGatedShell

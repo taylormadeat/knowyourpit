@@ -141,13 +141,14 @@ export default function HomeScreen() {
   const effectivePro = useEffectivePro();
   const { showPaywall } = usePaywall();
 
+  const isGuest = !user;
   const firstName =
     (user?.unsafeMetadata?.displayName as string | undefined) ||
     (user?.unsafeMetadata as any)?.username ||
     user?.username ||
     user?.firstName ||
     user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] ||
-    "Pitmaster";
+    (isGuest ? "Guest" : "Pitmaster");
 
   const topPad = useTopInset();
   const botPad = useBottomTabBarHeight();

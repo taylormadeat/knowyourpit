@@ -188,9 +188,14 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   }, []);
 
   // Initial RC configure + first customerInfo + offerings fetch.
+  //
+  // We DO NOT gate this on `clerkLoaded`. RevenueCat can be configured
+  // anonymously (appUserID=null) and re-aliased to a Clerk userId later via
+  // `purchases.logIn(userId)` (see the second effect below). Gating on
+  // clerkLoaded means that when the user falls through to guest mode via
+  // the boot escape hatch — Clerk's isLoaded is still false at that point —
+  // the paywall would be stuck on "Loading subscription options…" forever.
   useEffect(() => {
-    if (!clerkLoaded) return;
-
     let cancelled = false;
     const purchases = loadPurchases();
 
@@ -293,7 +298,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         } catch {}
       }
     };
-  }, [clerkLoaded, userId]);
+  }, [userId]);
 
   useEffect(() => {
     const purchases = purchasesRef.current;
