@@ -261,6 +261,19 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError, clerkReady]);
 
+  // Fallback: if Clerk's SDK stalls (network issue, OS compatibility, etc.)
+  // and never sets isLoaded=true, the splash screen would freeze forever.
+  // After 8 seconds with fonts ready, force-dismiss regardless of Clerk state.
+  // ClerkGatedShell already renders #0e0e10 (matching the splash background)
+  // while isLoaded is false, so the transition is visually seamless.
+  useEffect(() => {
+    if (!fontsLoaded && !fontError) return;
+    const timer = setTimeout(() => {
+      setClerkReady(true);
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [fontsLoaded, fontError]);
+
   if (!fontsLoaded && !fontError && !webReady) return null;
 
   const content = (
