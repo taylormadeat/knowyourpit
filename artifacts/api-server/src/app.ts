@@ -7,7 +7,6 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 
 const clerkSecretKey = process.env.CLERK_SECRET_KEY_PROD ?? process.env.CLERK_SECRET_KEY;
-logger.info({ msg: "Clerk key loaded", keyPrefix: clerkSecretKey?.slice(0, 12) ?? "(none)" });
 
 const app: Express = express();
 
