@@ -151,13 +151,28 @@ export default function SignInScreen() {
   const handleGoogle = useCallback(async () => {
     try {
       setGoogleLoading(true);
-      const { createdSessionId, setActive: ssoSetActive } = await startSSOFlow({
+      const {
+        createdSessionId,
+        setActive: ssoSetActive,
+        signUp: ssoSignUp,
+      } = await startSSOFlow({
         strategy: "oauth_google",
         redirectUrl: Linking.createURL("/oauth-native-callback"),
       });
       if (createdSessionId && ssoSetActive) {
         await ssoSetActive({ session: createdSessionId });
         router.replace("/(tabs)");
+      } else if (ssoSignUp && ssoSetActive) {
+        if (ssoSignUp.createdSessionId) {
+          await ssoSetActive({ session: ssoSignUp.createdSessionId });
+          router.replace("/(tabs)");
+        } else if (ssoSignUp.status === "missing_requirements") {
+          setErrorMsg("Additional info required to finish sign-up. Please sign up with email instead.");
+        } else {
+          setErrorMsg("Google sign-up could not be completed. Please try again.");
+        }
+      } else {
+        setErrorMsg("Google sign-in could not complete. Please try again.");
       }
     } catch (e: any) {
       const msg =
@@ -229,13 +244,26 @@ export default function SignInScreen() {
     } else {
       try {
         setAppleLoading(true);
-        const { createdSessionId, setActive: ssoSetActive } = await startSSOFlow({
+        const {
+          createdSessionId,
+          setActive: ssoSetActive,
+          signUp: ssoSignUp,
+        } = await startSSOFlow({
           strategy: "oauth_apple",
           redirectUrl: Linking.createURL("/oauth-native-callback"),
         });
         if (createdSessionId && ssoSetActive) {
           await ssoSetActive({ session: createdSessionId });
           router.replace("/(tabs)");
+        } else if (ssoSignUp && ssoSetActive) {
+          if (ssoSignUp.createdSessionId) {
+            await ssoSetActive({ session: ssoSignUp.createdSessionId });
+            router.replace("/(tabs)");
+          } else {
+            setErrorMsg("Apple sign-up could not be completed. Please try again.");
+          }
+        } else {
+          setErrorMsg("Apple sign-in could not complete. Please try again.");
         }
       } catch (e: any) {
         const msg =
