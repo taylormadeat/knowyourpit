@@ -21,10 +21,24 @@ import { setBaseUrl, setAuthTokenGetter, patchAlert, listAlerts } from "@workspa
 import { isCookDetailVisible } from "@/hooks/cookDetailVisibility";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { BootDiagnostic } from "@/components/BootDiagnostic";
 import { useWatchBridge } from "@/hooks/useWatchBridge";
 import { CACHE_STORAGE_KEY } from "@/constants/cache";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { PaywallProvider } from "@/contexts/PaywallContext";
+import {
+  consumeLastBootError,
+  formatBootErrorForDisplay,
+  installBootErrorCapture,
+  persistBootError,
+} from "@/lib/bootDiagnostics";
+
+// Install the global JS error handler as early as possible — before any
+// providers, hooks, or other module side-effects run — so that an exception
+// thrown during the boot sequence is persisted to disk and can be displayed
+// on the next launch's diagnostic screen. Without this, a silent crash in
+// e.g. ClerkProvider initialisation would be invisible on TestFlight.
+installBootErrorCapture();
 
 SplashScreen.preventAutoHideAsync();
 
@@ -274,27 +288,63 @@ export default function RootLayout() {
     return () => clearTimeout(timer);
   }, [fontsLoaded, fontError]);
 
+  // Read (and clear) any error a previous launch persisted via the global
+  // error handler installed at module load. Surfaced on the BootDiagnostic
+  // screen so we can see what crashed last time without needing a debugger.
+  const [bootErrorText, setBootErrorText] = useState<string | null>(null);
+  useEffect(() => {
+    consumeLastBootError().then((err) => {
+      if (err) setBootErrorText(formatBootErrorForDisplay(err));
+    });
+  }, []);
+
   if (!fontsLoaded && !fontError && !webReady) return null;
 
-  const content = (
-    <ClerkProvider
-      publishableKey={clerkPubKey}
-      tokenCache={Platform.OS !== "web" ? nativeTokenCache : undefined}
-      {...(clerkProxyUrl ? { proxyUrl: clerkProxyUrl } : {})}
-    >
-      <SafeAreaProvider>
-        <ErrorBoundary>
-          <ClerkGatedShell onReady={() => setClerkReady(true)} />
-        </ErrorBoundary>
-      </SafeAreaProvider>
-    </ClerkProvider>
+  // ErrorBoundary now wraps every other provider — including
+  // KeyboardProvider and ClerkProvider — so an error thrown during *any*
+  // provider's own initialisation surfaces to a visible fallback instead
+  // of producing a silent black screen. The architect specifically called
+  // out KeyboardProvider (from `react-native-keyboard-controller`, which
+  // uses native modules) as a remaining black-screen risk on iPadOS 26 +
+  // new arch; placing it inside the boundary closes that gap.
+  // SafeAreaProvider must remain the outermost provider because
+  // ErrorFallback uses `useSafeAreaInsets()`, which would be unavailable
+  // if it were inside the boundary.
+  return (
+    <SafeAreaProvider>
+      <ErrorBoundary
+        onError={(error, componentStack) => {
+          // Persist React render errors so they survive a manual reload
+          // and are visible on the next launch's diagnostic screen.
+          persistBootError(error, componentStack);
+        }}
+      >
+        <KeyboardProviderOrFragment>
+          <ClerkProvider
+            publishableKey={clerkPubKey}
+            tokenCache={Platform.OS !== "web" ? nativeTokenCache : undefined}
+            {...(clerkProxyUrl ? { proxyUrl: clerkProxyUrl } : {})}
+          >
+            <ClerkGatedShell
+              onReady={() => setClerkReady(true)}
+              publishableKeyPrefix={clerkPubKey ? clerkPubKey.slice(0, 12) : ""}
+              bootErrorText={bootErrorText}
+            />
+          </ClerkProvider>
+        </KeyboardProviderOrFragment>
+      </ErrorBoundary>
+    </SafeAreaProvider>
   );
+}
 
+// On native, wraps children in KeyboardProvider; on web, returns children
+// as-is. Lifted out of RootLayout so KeyboardProvider can sit *inside* the
+// top-level ErrorBoundary without extra branching at the JSX call site.
+function KeyboardProviderOrFragment({ children }: { children: React.ReactNode }) {
   if (Platform.OS === "web") {
-    return content;
+    return <>{children}</>;
   }
-
-  return <KeyboardProvider>{content}</KeyboardProvider>;
+  return <KeyboardProvider>{children}</KeyboardProvider>;
 }
 
 // Waits for Clerk to finish loading, then mounts an IsolatedQueryProvider whose
@@ -310,7 +360,15 @@ export default function RootLayout() {
 // to use the currently-signed-in user's token. If we set this in a child of
 // QueryClientProvider, there would be a brief render window where queries
 // could fire with the previous user's token.
-function ClerkGatedShell({ onReady }: { onReady: () => void }) {
+function ClerkGatedShell({
+  onReady,
+  publishableKeyPrefix,
+  bootErrorText,
+}: {
+  onReady: () => void;
+  publishableKeyPrefix: string;
+  bootErrorText: string | null;
+}) {
   const { isLoaded, userId, getToken } = useAuth();
 
   // Synchronous-during-render update of the module-level token getter.
@@ -333,9 +391,19 @@ function ClerkGatedShell({ onReady }: { onReady: () => void }) {
   }, [isLoaded, onReady]);
 
   if (!isLoaded) {
-    // Match the splash screen background so no white flash is visible even
-    // if the splash dismissal races with Clerk on a very slow device.
-    return <View style={{ flex: 1, backgroundColor: "#0e0e10" }} />;
+    // Visible diagnostic boot screen — replaces the previous silent black
+    // <View> placeholder, which was indistinguishable from a hung/crashed
+    // app and caused multiple App Store review rejections. If Clerk takes
+    // longer than expected (or never loads), the user (and the reviewer)
+    // can read on-screen state instead of staring at a black void.
+    return (
+      <BootDiagnostic
+        clerkState="not ready"
+        publishableKeyPrefix={publishableKeyPrefix}
+        buildLabel="knowyourpit 1.0.2 build 35"
+        extra={bootErrorText}
+      />
+    );
   }
   return (
     <IsolatedQueryProvider key={userId ?? "anon"}>
