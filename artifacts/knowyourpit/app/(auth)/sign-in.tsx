@@ -27,6 +27,8 @@ const logoImg = require("@/assets/images/logo.png");
 
 WebBrowser.maybeCompleteAuthSession();
 
+type Step = "signin" | "forgot_request" | "forgot_verify";
+
 function useWarmUpBrowser() {
   useEffect(() => {
     if (Platform.OS !== "android") return;
@@ -47,6 +49,8 @@ export default function SignInScreen() {
   const { signUp, setActive: signUpSetActive } = useSignUp();
   const { startSSOFlow } = useSSO();
 
+  const [step, setStep] = React.useState<Step>("signin");
+
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [showPass, setShowPass] = React.useState(false);
@@ -54,6 +58,12 @@ export default function SignInScreen() {
   const [googleLoading, setGoogleLoading] = React.useState(false);
   const [appleLoading, setAppleLoading] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+
+  const [forgotEmail, setForgotEmail] = React.useState("");
+  const [resetCode, setResetCode] = React.useState("");
+  const [newPassword, setNewPassword] = React.useState("");
+  const [showNewPass, setShowNewPass] = React.useState(false);
+  const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
 
   const handleSignIn = async () => {
     if (!signIn) return;
@@ -73,6 +83,64 @@ export default function SignInScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleForgotRequest = async () => {
+    if (!signIn) return;
+    try {
+      setIsLoading(true);
+      setErrorMsg(null);
+      await signIn.create({
+        strategy: "reset_password_email_code",
+        identifier: forgotEmail.trim(),
+      });
+      setStep("forgot_verify");
+    } catch (e: any) {
+      const msg =
+        e?.errors?.[0]?.longMessage ??
+        e?.errors?.[0]?.message ??
+        "Could not send reset email. Check that the email is correct.";
+      setErrorMsg(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotVerify = async () => {
+    if (!signIn) return;
+    try {
+      setIsLoading(true);
+      setErrorMsg(null);
+      const attempt = await signIn.attemptFirstFactor({
+        strategy: "reset_password_email_code",
+        code: resetCode.trim(),
+        password: newPassword,
+      });
+      if (attempt.status === "complete") {
+        setSuccessMsg("Password reset! Signing you in…");
+        await setActive({ session: attempt.createdSessionId });
+        router.replace("/(tabs)");
+      } else {
+        setErrorMsg("Could not complete the reset. Please try again.");
+      }
+    } catch (e: any) {
+      const msg =
+        e?.errors?.[0]?.longMessage ??
+        e?.errors?.[0]?.message ??
+        "Reset failed. Check the code and try again.";
+      setErrorMsg(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const goBackToSignIn = () => {
+    setStep("signin");
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setForgotEmail("");
+    setResetCode("");
+    setNewPassword("");
   };
 
   const handleGoogle = useCallback(async () => {
@@ -178,6 +246,8 @@ export default function SignInScreen() {
   }, [signIn, setActive, signUp, signUpSetActive, startSSOFlow]);
 
   const canSubmit = !!email && !!password && !isLoading;
+  const canRequestReset = !!forgotEmail.trim() && !isLoading;
+  const canVerifyReset = !!resetCode.trim() && !!newPassword && !isLoading;
 
   const styles = StyleSheet.create({
     outer: {
@@ -241,6 +311,13 @@ export default function SignInScreen() {
       marginTop: -10,
       marginBottom: 12,
     },
+    successText: {
+      fontSize: 12,
+      fontFamily: "Inter_400Regular",
+      color: colors.primary,
+      marginTop: -10,
+      marginBottom: 12,
+    },
     primaryBtn: {
       backgroundColor: colors.primary,
       borderRadius: colors.radius,
@@ -256,6 +333,25 @@ export default function SignInScreen() {
       fontSize: 15,
       fontFamily: "Inter_600SemiBold",
       color: "#fff",
+    },
+    forgotLink: {
+      alignSelf: "flex-end",
+      marginTop: -8,
+      marginBottom: 16,
+    },
+    forgotLinkText: {
+      fontSize: 13,
+      fontFamily: "Inter_500Medium",
+      color: colors.primary,
+    },
+    backLink: {
+      alignSelf: "center",
+      marginTop: 16,
+    },
+    backLinkText: {
+      fontSize: 13,
+      fontFamily: "Inter_500Medium",
+      color: colors.mutedForeground,
     },
     dividerRow: {
       flexDirection: "row",
@@ -336,7 +432,144 @@ export default function SignInScreen() {
       color: colors.mutedForeground,
       textDecorationLine: "underline",
     },
+    hintText: {
+      fontSize: 13,
+      fontFamily: "Inter_400Regular",
+      color: colors.mutedForeground,
+      marginBottom: 20,
+      lineHeight: 20,
+    },
   });
+
+  if (step === "forgot_request") {
+    return (
+      <KeyboardAvoidingView
+        style={styles.outer}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <LogoBackground opacity={0.04} />
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Image source={logoImg} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.title}>Reset password</Text>
+          <Text style={styles.hintText}>
+            Enter the email address for your account and we'll send you a one-time code to reset your password.
+          </Text>
+
+          <Text style={styles.label}>Email</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              value={forgotEmail}
+              onChangeText={setForgotEmail}
+              placeholder="you@example.com"
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+              autoFocus
+            />
+          </View>
+          {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.primaryBtn,
+              (!canRequestReset || pressed) && styles.primaryBtnDisabled,
+            ]}
+            onPress={handleForgotRequest}
+            disabled={!canRequestReset}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.primaryBtnText}>Send Reset Code</Text>
+            )}
+          </Pressable>
+
+          <Pressable style={styles.backLink} onPress={goBackToSignIn}>
+            <Text style={styles.backLinkText}>Back to sign in</Text>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
+
+  if (step === "forgot_verify") {
+    return (
+      <KeyboardAvoidingView
+        style={styles.outer}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <LogoBackground opacity={0.04} />
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Image source={logoImg} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.title}>Set new password</Text>
+          <Text style={styles.hintText}>
+            Check your email for the reset code we sent to {forgotEmail}, then choose a new password.
+          </Text>
+
+          <Text style={styles.label}>Reset code</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              value={resetCode}
+              onChangeText={setResetCode}
+              placeholder="123456"
+              placeholderTextColor={colors.mutedForeground}
+              keyboardType="number-pad"
+              autoComplete="one-time-code"
+              autoFocus
+            />
+          </View>
+
+          <Text style={styles.label}>New password</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="••••••••"
+              placeholderTextColor={colors.mutedForeground}
+              secureTextEntry={!showNewPass}
+              autoComplete="new-password"
+            />
+            <Pressable style={styles.eyeBtn} onPress={() => setShowNewPass((v) => !v)}>
+              <Feather name={showNewPass ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+          {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
+          {successMsg && <Text style={styles.successText}>{successMsg}</Text>}
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.primaryBtn,
+              (!canVerifyReset || pressed) && styles.primaryBtnDisabled,
+            ]}
+            onPress={handleForgotVerify}
+            disabled={!canVerifyReset}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.primaryBtnText}>Reset Password</Text>
+            )}
+          </Pressable>
+
+          <Pressable style={styles.backLink} onPress={goBackToSignIn}>
+            <Text style={styles.backLinkText}>Back to sign in</Text>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -381,6 +614,18 @@ export default function SignInScreen() {
             <Feather name={showPass ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
           </Pressable>
         </View>
+
+        <Pressable
+          style={styles.forgotLink}
+          onPress={() => {
+            setForgotEmail(email);
+            setErrorMsg(null);
+            setStep("forgot_request");
+          }}
+        >
+          <Text style={styles.forgotLinkText}>Forgot password?</Text>
+        </Pressable>
+
         {errorMsg && (
           <Text style={styles.errorText}>{errorMsg}</Text>
         )}
