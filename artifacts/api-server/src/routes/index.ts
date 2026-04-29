@@ -17,6 +17,7 @@ import contactRouter from "./contact";
 import paywallRouter from "./paywall";
 import webhooksRouter from "./webhooks";
 import customMeatCutsRouter from "./customMeatCuts";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(contactRouter);
 router.use(paywallRouter);
 router.use(webhooksRouter);
 router.use(customMeatCutsRouter);
+router.use(adminRouter);
 
 export default router;
