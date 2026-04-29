@@ -53,7 +53,8 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.knowyourpit.com"
+        "EXPO_PUBLIC_API_URL": "https://api.knowyourpit.com",
+        "EXPO_PUBLIC_CLERK_PROXY_URL": "https://api.knowyourpit.com/api/__clerk"
       }
     }
   },
