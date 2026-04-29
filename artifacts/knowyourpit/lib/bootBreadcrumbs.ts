@@ -74,22 +74,20 @@ function isClerkRequest(url: string): boolean {
  * - `Origin: https://clerk.knowyourpit.com`      → HTTP 200
  * - no `Origin` header at all                    → HTTP 200
  *
- * So we deterministically set `Origin` to the request's own scheme+host,
- * which is always "equal to the requesting URL" and therefore always
- * passes Clerk's validator. We also drop `Referer` defensively — Clerk
- * never requires it and stripping it removes one more degree of freedom
- * for the server to reject on.
+ * So we strip `Origin` entirely (both casings to defend against
+ * non-spec-compliant Headers polyfills) so the request looks like a
+ * native client call rather than a cross-origin browser call. We also
+ * drop `Referer` defensively — Clerk never requires it and removing it
+ * eliminates one more degree of freedom for the server to reject on.
+ *
+ * The `url` arg is unused now but kept for future header rewrites that
+ * may need to know the target host (e.g. switching strategies per
+ * Clerk subdomain).
  */
-function fixClerkHeaders(url: string, headers: Headers): void {
-  let originValue: string | null = null;
+function fixClerkHeaders(_url: string, headers: Headers): void {
   try {
-    const u = new URL(url);
-    originValue = `${u.protocol}//${u.host}`;
-  } catch {
-    // URL parsing failed — leave Origin alone rather than guess wrong.
-  }
-  try {
-    if (originValue) headers.set("Origin", originValue);
+    headers.delete("Origin");
+    headers.delete("origin");
     headers.delete("Referer");
     headers.delete("referer");
   } catch {
@@ -150,6 +148,18 @@ export function installFetchTracker(opts: { all?: boolean } = {}): void {
           const newHeaders = new Headers(input.headers);
           fixClerkHeaders(url, newHeaders);
           finalInput = new Request(cloneSource, { headers: newHeaders });
+
+          // Per fetch spec, when both `Request` and `init` are passed,
+          // `init.headers` overrides the request's headers. So if a
+          // caller did `fetch(req, { headers: ... })` with a bad Origin
+          // in init, our Request rewrite would be undone. Sanitize
+          // `init.headers` too — strip Origin/Referer from any init
+          // override so nothing can re-introduce the rejected headers.
+          if (init?.headers) {
+            const cleanedInit = new Headers(init.headers as HeadersInit);
+            fixClerkHeaders(url, cleanedInit);
+            finalInit = { ...init, headers: cleanedInit };
+          }
         } else {
           // String/URL input: rewrite via init.headers. Build a Headers
           // instance so we get a uniform .set/.delete API regardless of
