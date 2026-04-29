@@ -88,7 +88,23 @@ export default function SignUpScreen() {
         await setActive({ session: result.createdSessionId });
         router.replace("/(tabs)");
       } else {
-        setErrorMsg("Verification could not be completed. Please request a new code and try again.");
+        const emailVerified = (result as any).verifications?.emailAddress?.status === "verified";
+        if (emailVerified && signIn && signInSetActive) {
+          try {
+            const attempt = await signIn.create({ identifier: email, password });
+            if (attempt.status === "complete") {
+              await signInSetActive({ session: attempt.createdSessionId });
+              router.replace("/(tabs)");
+              return;
+            }
+          } catch (signInErr: any) {
+            console.warn("[sign-up] auto-sign-in after non-complete verified failed:", signInErr?.errors?.[0]?.message ?? signInErr?.message);
+          }
+          setErrorMsg("Your email is already verified. Please sign in with your credentials.");
+          setShowSignInLink(true);
+        } else {
+          setErrorMsg("Verification could not be completed. Please request a new code and try again.");
+        }
       }
     } catch (e: any) {
       const clerkCode = e?.errors?.[0]?.code ?? "";
@@ -139,7 +155,25 @@ export default function SignUpScreen() {
         clerkCode === "sign_up_not_found" ||
         clerkMsg.toLowerCase().includes("expired") ||
         clerkMsg.toLowerCase().includes("not found");
-      if (isExpired) {
+      const isAlreadyFulfilled =
+        clerkMsg.toLowerCase().includes("already been fulfilled") ||
+        clerkMsg.toLowerCase().includes("already fulfilled") ||
+        clerkMsg.toLowerCase().includes("already been verified") ||
+        clerkMsg.toLowerCase().includes("already verified");
+      if (isAlreadyFulfilled && signIn && signInSetActive) {
+        try {
+          const attempt = await signIn.create({ identifier: email, password });
+          if (attempt.status === "complete") {
+            await signInSetActive({ session: attempt.createdSessionId });
+            router.replace("/(tabs)");
+            return;
+          }
+        } catch (signInErr: any) {
+          console.warn("[sign-up] auto-sign-in after fulfilled resend failed:", signInErr?.errors?.[0]?.message ?? signInErr?.message);
+        }
+        setResendError("Your email is already verified. Please sign in with your credentials.");
+        setShowSignInLink(true);
+      } else if (isExpired) {
         setResendSessionExpired(true);
         setResendError("Your sign-up session has expired. Please go back and sign up again.");
       } else {
