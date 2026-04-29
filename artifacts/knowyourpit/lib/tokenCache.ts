@@ -1,4 +1,5 @@
 import * as SecureStore from "expo-secure-store";
+import { mark } from "./bootBreadcrumbs";
 
 interface TokenCache {
   getToken: (key: string) => Promise<string | null>;
@@ -73,17 +74,22 @@ async function readWithCache(key: string): Promise<string | null> {
   const existing = inflightReads.get(key);
   if (existing) return existing;
 
+  const startedAt = Date.now();
+  mark("kc.read.start", key);
   const p = (async () => {
     try {
       const v = await withTimeout("getItemAsync", key, SecureStore.getItemAsync(key));
       const result = v ?? null;
       memCache.set(key, result);
+      mark("kc.read.end", `${key} → ${result ? "hit" : "miss"} (${Date.now() - startedAt}ms)`);
       return result;
-    } catch {
+    } catch (err) {
       // On timeout/error, cache null so we never re-attempt the stalled read
       // during this session — Clerk will treat the user as signed out and
       // bootstrap into the unauthenticated path immediately.
       memCache.set(key, null);
+      const msg = err instanceof Error ? err.message : String(err);
+      mark("kc.read.fail", `${key} → ${msg.slice(0, 60)} (${Date.now() - startedAt}ms)`);
       return null;
     } finally {
       inflightReads.delete(key);
@@ -103,12 +109,17 @@ export const safeTokenCache: TokenCache = {
     // subsequent requests) returns the fresh token without waiting on the
     // keychain.
     memCache.set(key, value);
+    const startedAt = Date.now();
+    mark("kc.write.start", key);
     try {
       await withTimeout("setItemAsync", key, SecureStore.setItemAsync(key, value));
-    } catch {
+      mark("kc.write.end", `${key} (${Date.now() - startedAt}ms)`);
+    } catch (err) {
       // Best-effort persistence: token lives in memory for this session and
       // will be re-issued by Clerk on the next launch if the keychain write
       // never completed.
+      const msg = err instanceof Error ? err.message : String(err);
+      mark("kc.write.fail", `${key} → ${msg.slice(0, 60)} (${Date.now() - startedAt}ms)`);
     }
   },
   async clearToken(key: string): Promise<void> {

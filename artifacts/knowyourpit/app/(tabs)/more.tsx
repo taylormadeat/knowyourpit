@@ -82,7 +82,31 @@ export default function MoreScreen() {
           // qc.clear() here as a belt-and-suspenders defense for the brief
           // moment before the remount fires.
           qc.clear();
-          await signOut();
+          // Race signOut() with a 5s timeout. If Clerk's SDK is hung
+          // (eg the iOS-26 boot stall) signOut() can hang forever — the
+          // user would press "Yes" and see nothing happen. The timeout
+          // ensures we always make progress: if Clerk doesn't respond,
+          // we still clear the locally-persisted "guest mode" flag and
+          // navigate to the sign-in screen ourselves.
+          try {
+            await Promise.race([
+              signOut(),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error("signOut timeout")), 5000),
+              ),
+            ]);
+          } catch {
+            // Best-effort cleanup if signOut hung or threw.
+          }
+          try {
+            const AsyncStorage = (
+              await import("@react-native-async-storage/async-storage")
+            ).default;
+            await AsyncStorage.removeItem("knowyourpit:guestMode");
+          } catch {
+            // Ignore — navigation below still happens.
+          }
+          router.replace("/(auth)/sign-in");
         },
       },
     ]);

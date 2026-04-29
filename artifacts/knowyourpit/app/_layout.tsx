@@ -32,6 +32,7 @@ import {
   installBootErrorCapture,
   persistBootError,
 } from "@/lib/bootDiagnostics";
+import { mark, installFetchTracker } from "@/lib/bootBreadcrumbs";
 
 // Install the global JS error handler as early as possible — before any
 // providers, hooks, or other module side-effects run — so that an exception
@@ -39,6 +40,13 @@ import {
 // on the next launch's diagnostic screen. Without this, a silent crash in
 // e.g. ClerkProvider initialisation would be invisible on TestFlight.
 installBootErrorCapture();
+
+// Wrap globalThis.fetch to record every Clerk-related HTTP call as a
+// timestamped breadcrumb. The BootDiagnostic screen renders these so we
+// can see — on a real device, in production — exactly which request is
+// blocking the boot. Must run before ClerkProvider mounts.
+installFetchTracker();
+mark("module.load");
 
 SplashScreen.preventAutoHideAsync();
 
@@ -257,6 +265,11 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
+  useEffect(() => {
+    if (fontsLoaded) mark("fonts.loaded");
+    if (fontError) mark("fonts.error", String(fontError));
+  }, [fontsLoaded, fontError]);
+
   const [webReady, setWebReady] = useState(Platform.OS !== "web");
   useEffect(() => {
     if (Platform.OS === "web") {
@@ -312,6 +325,7 @@ export default function RootLayout() {
   // (because Clerk's underlying boot never resolves either).
   const [proceedAnyway, setProceedAnyway] = useState(false);
   const flipProceed = React.useCallback(() => {
+    mark("escape.fired");
     setProceedAnyway(true);
     AsyncStorage.setItem("knowyourpit:guestMode", "1").catch(() => {});
   }, []);
@@ -416,6 +430,7 @@ function ClerkGatedShell({
   // yet ready → blank white frame visible to the reviewer).
   useEffect(() => {
     if (isLoaded) {
+      mark("clerk.isLoaded.true");
       onReady();
     }
   }, [isLoaded, onReady]);

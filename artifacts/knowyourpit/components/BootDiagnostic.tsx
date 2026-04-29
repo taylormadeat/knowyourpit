@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { getBreadcrumbs, formatBreadcrumbs } from "@/lib/bootBreadcrumbs";
 
 export interface BootDiagnosticProps {
   clerkState: string;
@@ -133,8 +134,16 @@ export function BootDiagnostic({
   });
   const probesStartedRef = useRef(false);
 
+  const [breadcrumbsText, setBreadcrumbsText] = useState<string>(() =>
+    formatBreadcrumbs(getBreadcrumbs()),
+  );
   useEffect(() => {
-    const interval = setInterval(() => setElapsedSec((s) => s + 1), 1000);
+    const interval = setInterval(() => {
+      setElapsedSec((s) => s + 1);
+      // Re-snapshot breadcrumbs on every tick so the on-device log stays
+      // current. Cheap: just an array slice + map → string.
+      setBreadcrumbsText(formatBreadcrumbs(getBreadcrumbs()));
+    }, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -250,6 +259,11 @@ export function BootDiagnostic({
         {extra ? (
           <ScrollView style={styles.extraScroll} contentContainerStyle={styles.extraContent}>
             <Text style={styles.extraText}>{extra}</Text>
+          </ScrollView>
+        ) : null}
+        {breadcrumbsText ? (
+          <ScrollView style={styles.extraScroll} contentContainerStyle={styles.extraContent}>
+            <Text style={styles.extraText}>{breadcrumbsText}</Text>
           </ScrollView>
         ) : null}
       </View>
