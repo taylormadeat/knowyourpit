@@ -212,6 +212,12 @@ export const CookWrapMethod = {
   none: "none",
 } as const;
 
+/**
+ * Map of step keys to ISO timestamps of when the user confirmed each step
+ * @nullable
+ */
+export type CookConfirmedSteps = { [key: string]: string } | null;
+
 export interface Cook {
   id: number;
   /** @nullable */
@@ -293,6 +299,11 @@ export interface Cook {
   sessionId: string | null;
   /** @nullable */
   recipeId: number | null;
+  /**
+   * Map of step keys to ISO timestamps of when the user confirmed each step
+   * @nullable
+   */
+  confirmedSteps: CookConfirmedSteps;
   createdAt: string;
   updatedAt: string;
 }
@@ -404,6 +415,12 @@ export const UpdateCookBodyWrapMethod = {
   none: "none",
 } as const;
 
+/**
+ * Map of step keys to ISO timestamps of when the user confirmed each step
+ * @nullable
+ */
+export type UpdateCookBodyConfirmedSteps = { [key: string]: string } | null;
+
 export interface UpdateCookBody {
   /** @nullable */
   grillId?: number | null;
@@ -452,6 +469,11 @@ export interface UpdateCookBody {
   rating?: number | null;
   /** @nullable */
   recipeId?: number | null;
+  /**
+   * Map of step keys to ISO timestamps of when the user confirmed each step
+   * @nullable
+   */
+  confirmedSteps?: UpdateCookBodyConfirmedSteps;
 }
 
 export interface Recipe {

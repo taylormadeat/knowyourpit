@@ -1316,6 +1316,11 @@ components:
           description: UUID grouping cooks that were saved together from the Multi-Cook Sequencer
         recipeId:
           type: ["integer", "null"]
+        confirmedSteps:
+          type: ["object", "null"]
+          additionalProperties:
+            type: string
+          description: Map of step keys to ISO timestamps of when the user confirmed each step
         createdAt:
           type: string
           format: date-time
@@ -1348,6 +1353,7 @@ components:
         - rating
         - sessionId
         - recipeId
+        - confirmedSteps
         - createdAt
         - updatedAt
 
@@ -1461,6 +1467,11 @@ components:
           type: ["integer", "null"]
         recipeId:
           type: ["integer", "null"]
+        confirmedSteps:
+          type: ["object", "null"]
+          additionalProperties:
+            type: string
+          description: Map of step keys to ISO timestamps of when the user confirmed each step
 
     Recipe:
       type: object

@@ -5,6 +5,7 @@
  * PitMaster AI - BBQ Planning & Monitoring API
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateCookBodyConfirmedSteps } from "./updateCookBodyConfirmedSteps";
 import type { UpdateCookBodyStatus } from "./updateCookBodyStatus";
 import type { UpdateCookBodyWrapMethod } from "./updateCookBodyWrapMethod";
 
@@ -56,4 +57,9 @@ export interface UpdateCookBody {
   rating?: number | null;
   /** @nullable */
   recipeId?: number | null;
+  /**
+   * Map of step keys to ISO timestamps of when the user confirmed each step
+   * @nullable
+   */
+  confirmedSteps?: UpdateCookBodyConfirmedSteps;
 }
