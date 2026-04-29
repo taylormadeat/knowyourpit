@@ -20,6 +20,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { usePaywall } from "@/contexts/PaywallContext";
+import { useEffectivePro } from "@/hooks/useEffectivePro";
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -50,6 +51,7 @@ export default function MoreScreen() {
   const qc = useQueryClient();
   const { isPro, expirationDate, restorePurchases, isLoading: subLoading } = useSubscription();
   const { showPaywall } = usePaywall();
+  const effectivePro = useEffectivePro();
   const { getToken } = useAuth();
   const [deleting, setDeleting] = React.useState(false);
 
@@ -233,12 +235,12 @@ export default function MoreScreen() {
         */}
         <Pressable
           onPress={() => {
-            if (isPro) {
+            if (effectivePro) {
               Alert.alert(
                 "knowyourpit Pro",
-                expirationDate
+                isPro && expirationDate
                   ? `Your subscription renews on ${expirationDate.toLocaleDateString()}. Manage in your App Store / Play Store account.`
-                  : "Manage your subscription in your App Store / Play Store account.",
+                  : "Your Pro access is active. Manage your subscription in your App Store / Play Store account.",
               );
             } else {
               showPaywall();
@@ -247,29 +249,29 @@ export default function MoreScreen() {
           style={({ pressed }) => [
             s.subscriptionCard,
             {
-              backgroundColor: isPro ? colors.card : "#E84520",
-              borderColor: isPro ? colors.border : "#E84520",
+              backgroundColor: effectivePro ? colors.card : "#E84520",
+              borderColor: effectivePro ? colors.border : "#E84520",
               borderRadius: colors.radius,
             },
             pressed && { opacity: 0.85 },
           ]}
         >
-          <View style={[s.subscriptionIcon, { backgroundColor: isPro ? "#E8452020" : "rgba(255,255,255,0.2)" }]}>
-            <Feather name={isPro ? "award" : "zap"} size={20} color={isPro ? "#E84520" : "#fff"} />
+          <View style={[s.subscriptionIcon, { backgroundColor: effectivePro ? "#E8452020" : "rgba(255,255,255,0.2)" }]}>
+            <Feather name={effectivePro ? "award" : "zap"} size={20} color={effectivePro ? "#E84520" : "#fff"} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[s.subscriptionTitle, { color: isPro ? colors.foreground : "#fff" }]}>
-              {isPro ? "knowyourpit Pro" : "Upgrade to Pro"}
+            <Text style={[s.subscriptionTitle, { color: effectivePro ? colors.foreground : "#fff" }]}>
+              {effectivePro ? "knowyourpit Pro" : "Upgrade to Pro"}
             </Text>
-            <Text style={[s.subscriptionSub, { color: isPro ? colors.mutedForeground : "rgba(255,255,255,0.85)" }]}>
-              {isPro
-                ? expirationDate
+            <Text style={[s.subscriptionSub, { color: effectivePro ? colors.mutedForeground : "rgba(255,255,255,0.85)" }]}>
+              {effectivePro
+                ? isPro && expirationDate
                   ? `Renews ${expirationDate.toLocaleDateString()}`
                   : "Active subscription"
                 : "Unlimited cooks, AI, multi-cook, devices"}
             </Text>
           </View>
-          <Feather name="chevron-right" size={18} color={isPro ? colors.mutedForeground : "rgba(255,255,255,0.85)"} />
+          <Feather name="chevron-right" size={18} color={effectivePro ? colors.mutedForeground : "rgba(255,255,255,0.85)"} />
         </Pressable>
 
         <Pressable
