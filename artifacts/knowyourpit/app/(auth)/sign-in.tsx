@@ -58,6 +58,7 @@ export default function SignInScreen() {
   const [googleLoading, setGoogleLoading] = React.useState(false);
   const [appleLoading, setAppleLoading] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const [showForgotSuggestion, setShowForgotSuggestion] = React.useState(false);
 
   const [forgotEmail, setForgotEmail] = React.useState("");
   const [resetCode, setResetCode] = React.useState("");
@@ -70,16 +71,19 @@ export default function SignInScreen() {
     try {
       setIsLoading(true);
       setErrorMsg(null);
+      setShowForgotSuggestion(false);
       const attempt = await signIn.create({ identifier: email, password });
       if (attempt.status === "complete") {
         await setActive({ session: attempt.createdSessionId });
         router.replace("/(tabs)");
       } else {
         setErrorMsg("Sign in could not be completed. Please try again or reset your password.");
+        setShowForgotSuggestion(true);
       }
     } catch (e: any) {
       const msg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Sign in failed. Check your credentials.";
       setErrorMsg(msg);
+      setShowForgotSuggestion(true);
     } finally {
       setIsLoading(false);
     }
@@ -138,6 +142,7 @@ export default function SignInScreen() {
     setStep("signin");
     setErrorMsg(null);
     setSuccessMsg(null);
+    setShowForgotSuggestion(false);
     setForgotEmail("");
     setResetCode("");
     setNewPassword("");
@@ -304,12 +309,20 @@ export default function SignInScreen() {
     eyeBtn: {
       padding: 4,
     },
+    errorBlock: {
+      marginTop: -10,
+      marginBottom: 12,
+    },
     errorText: {
       fontSize: 12,
       fontFamily: "Inter_400Regular",
       color: colors.destructive,
-      marginTop: -10,
-      marginBottom: 12,
+      marginBottom: 4,
+    },
+    errorForgotLink: {
+      fontSize: 12,
+      fontFamily: "Inter_600SemiBold",
+      color: colors.primary,
     },
     successText: {
       fontSize: 12,
@@ -627,7 +640,21 @@ export default function SignInScreen() {
         </Pressable>
 
         {errorMsg && (
-          <Text style={styles.errorText}>{errorMsg}</Text>
+          <View style={styles.errorBlock}>
+            <Text style={styles.errorText}>{errorMsg}</Text>
+            {showForgotSuggestion && (
+              <Pressable
+                onPress={() => {
+                  setForgotEmail(email);
+                  setErrorMsg(null);
+                  setShowForgotSuggestion(false);
+                  setStep("forgot_request");
+                }}
+              >
+                <Text style={styles.errorForgotLink}>Forgot your password? Reset it here.</Text>
+              </Pressable>
+            )}
+          </View>
         )}
 
         <Pressable
