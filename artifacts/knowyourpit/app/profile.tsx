@@ -67,6 +67,16 @@ export default function ProfileScreen() {
   const [editName, setEditName] = useState("");
   const [nameSaving, setNameSaving] = useState(false);
 
+  // ── Change password ───────────────────────────────────────────────────────
+  const [pwOpen, setPwOpen] = useState(false);
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwSuccess, setPwSuccess] = useState(false);
+  const pwSuccessTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const displayName = (user?.unsafeMetadata?.displayName as string | undefined)
     || user?.fullName || user?.firstName || "";
 
@@ -91,6 +101,56 @@ export default function ProfileScreen() {
       setNameSaving(false);
     }
   }, [user, editName]);
+
+  const closePwModal = useCallback(() => {
+    if (pwSuccessTimer.current) {
+      clearTimeout(pwSuccessTimer.current);
+      pwSuccessTimer.current = null;
+    }
+    setPwOpen(false);
+    setPwSuccess(false);
+  }, []);
+
+  const openChangePassword = useCallback(() => {
+    setCurrentPw("");
+    setNewPw("");
+    setConfirmPw("");
+    setPwError(null);
+    setPwSuccess(false);
+    setPwOpen(true);
+  }, []);
+
+  const saveChangePassword = useCallback(async () => {
+    setPwError(null);
+    if (!currentPw) {
+      setPwError("Please enter your current password.");
+      return;
+    }
+    if (!newPw || newPw.length < 8) {
+      setPwError("New password must be at least 8 characters.");
+      return;
+    }
+    if (newPw !== confirmPw) {
+      setPwError("New passwords don't match.");
+      return;
+    }
+    if (!user) return;
+    setPwSaving(true);
+    try {
+      await user.updatePassword({ currentPassword: currentPw, newPassword: newPw });
+      setPwSuccess(true);
+      pwSuccessTimer.current = setTimeout(() => {
+        setPwOpen(false);
+        setPwSuccess(false);
+        pwSuccessTimer.current = null;
+      }, 1500);
+    } catch (err: any) {
+      const msg = err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || err?.message || "Please try again.";
+      setPwError(msg);
+    } finally {
+      setPwSaving(false);
+    }
+  }, [user, currentPw, newPw, confirmPw]);
 
   // ── Cook quality calculations ─────────────────────────────────────────────
   const allRatedCooks = cooks?.filter(
@@ -584,12 +644,12 @@ export default function ProfileScreen() {
           {[
             { label: "Name", value: displayName || "—" },
             { label: "Email address", value: user?.emailAddresses?.[0]?.emailAddress || "—" },
-          ].map((row, i, arr) => (
+          ].map((row) => (
             <View
               key={row.label}
               style={[
                 s.infoRow,
-                i < arr.length - 1 && {
+                {
                   borderBottomWidth: 1,
                   borderBottomColor: colors.border,
                 },
@@ -606,6 +666,16 @@ export default function ProfileScreen() {
               </Text>
             </View>
           ))}
+          <Pressable
+            onPress={user?.passwordEnabled ? openChangePassword : () => Alert.alert("No password set", "Your account uses a social login (Google, Apple, etc.) and doesn't have a password to change.")}
+            style={({ pressed }) => [s.infoRow, { opacity: pressed ? 0.7 : 1 }]}
+          >
+            <Text style={[s.infoLabel, { color: colors.mutedForeground }]}>Password</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={[s.infoValue, { color: colors.primary }]}>Change</Text>
+              <Feather name="chevron-right" size={14} color={colors.primary} />
+            </View>
+          </Pressable>
         </View>
       </ScrollView>
 
@@ -645,6 +715,87 @@ export default function ProfileScreen() {
                 {nameSaving
                   ? <ActivityIndicator size="small" color="#fff" />
                   : <Text style={[s.modalBtnText, { color: "#fff" }]}>Save</Text>
+                }
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── Change Password Modal ────────────────────────────────────── */}
+      <Modal visible={pwOpen} transparent animationType="fade" onRequestClose={closePwModal}>
+        <Pressable style={s.modalBackdrop} onPress={closePwModal}>
+          <Pressable
+            style={[s.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => {}}
+          >
+            <Text style={[s.modalTitle, { color: colors.foreground }]}>Change Password</Text>
+
+            <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Current password</Text>
+            <TextInput
+              style={[s.nameInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={currentPw}
+              onChangeText={setCurrentPw}
+              placeholder="Current password"
+              placeholderTextColor={colors.mutedForeground}
+              secureTextEntry
+              autoFocus
+              returnKeyType="next"
+            />
+
+            <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>New password</Text>
+            <TextInput
+              style={[s.nameInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={newPw}
+              onChangeText={setNewPw}
+              placeholder="At least 8 characters"
+              placeholderTextColor={colors.mutedForeground}
+              secureTextEntry
+              returnKeyType="next"
+            />
+
+            <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Confirm new password</Text>
+            <TextInput
+              style={[s.nameInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={confirmPw}
+              onChangeText={setConfirmPw}
+              placeholder="Repeat new password"
+              placeholderTextColor={colors.mutedForeground}
+              secureTextEntry
+              returnKeyType="done"
+              onSubmitEditing={saveChangePassword}
+            />
+
+            {pwError ? (
+              <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: colors.destructive, marginTop: 8 }}>
+                {pwError}
+              </Text>
+            ) : null}
+
+            {pwSuccess ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 }}>
+                <Feather name="check-circle" size={14} color="#22c55e" />
+                <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#22c55e" }}>
+                  Password updated!
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={s.modalActions}>
+              <Pressable
+                onPress={closePwModal}
+                style={[s.modalBtn, s.modalBtnCancel, { borderColor: colors.border }]}
+              >
+                <Text style={[s.modalBtnText, { color: colors.mutedForeground }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={saveChangePassword}
+                disabled={pwSaving || pwSuccess}
+                style={[s.modalBtn, s.modalBtnSave, { backgroundColor: colors.primary, opacity: (pwSaving || pwSuccess) ? 0.7 : 1 }]}
+              >
+                {pwSaving
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={[s.modalBtnText, { color: "#fff" }]}>Update</Text>
                 }
               </Pressable>
             </View>
