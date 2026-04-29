@@ -81,6 +81,8 @@ export default function SignUpScreen() {
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
         router.replace("/(tabs)");
+      } else {
+        setErrorMsg("Verification could not be completed. Please request a new code and try again.");
       }
     } catch (e: any) {
       const msg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Verification failed.";
@@ -95,7 +97,7 @@ export default function SignUpScreen() {
       setGoogleLoading(true);
       const { createdSessionId, setActive: ssoSetActive } = await startSSOFlow({
         strategy: "oauth_google",
-        redirectUrl: Linking.createURL("/"),
+        redirectUrl: Linking.createURL("/oauth-native-callback"),
       });
       if (createdSessionId && ssoSetActive) {
         await ssoSetActive({ session: createdSessionId });
@@ -133,6 +135,8 @@ export default function SignUpScreen() {
           if (attempt.status === "complete") {
             await setActive({ session: attempt.createdSessionId });
             router.replace("/(tabs)");
+          } else {
+            setErrorMsg("Apple sign-in could not be completed. Please try again.");
           }
         } catch (signUpErr: any) {
           const code = signUpErr?.errors?.[0]?.code;
@@ -147,6 +151,8 @@ export default function SignUpScreen() {
             if (attempt.status === "complete") {
               await signInSetActive({ session: attempt.createdSessionId });
               router.replace("/(tabs)");
+            } else {
+              setErrorMsg("Apple sign-in could not be completed. Please try again.");
             }
           } else {
             throw signUpErr;
@@ -168,7 +174,7 @@ export default function SignUpScreen() {
         setAppleLoading(true);
         const { createdSessionId, setActive: ssoSetActive } = await startSSOFlow({
           strategy: "oauth_apple",
-          redirectUrl: Linking.createURL("/"),
+          redirectUrl: Linking.createURL("/oauth-native-callback"),
         });
         if (createdSessionId && ssoSetActive) {
           await ssoSetActive({ session: createdSessionId });

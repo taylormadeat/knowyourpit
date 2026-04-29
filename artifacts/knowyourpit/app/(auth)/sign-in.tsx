@@ -64,6 +64,8 @@ export default function SignInScreen() {
       if (attempt.status === "complete") {
         await setActive({ session: attempt.createdSessionId });
         router.replace("/(tabs)");
+      } else {
+        setErrorMsg("Sign in could not be completed. Please try again or reset your password.");
       }
     } catch (e: any) {
       const msg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Sign in failed. Check your credentials.";
@@ -78,7 +80,7 @@ export default function SignInScreen() {
       setGoogleLoading(true);
       const { createdSessionId, setActive: ssoSetActive } = await startSSOFlow({
         strategy: "oauth_google",
-        redirectUrl: Linking.createURL("/"),
+        redirectUrl: Linking.createURL("/oauth-native-callback"),
       });
       if (createdSessionId && ssoSetActive) {
         await ssoSetActive({ session: createdSessionId });
@@ -116,6 +118,8 @@ export default function SignInScreen() {
           if (attempt.status === "complete") {
             await setActive({ session: attempt.createdSessionId });
             router.replace("/(tabs)");
+          } else {
+            setErrorMsg("Apple sign-in could not be completed. Please try again.");
           }
         } catch (signInErr: any) {
           const code = signInErr?.errors?.[0]?.code;
@@ -131,6 +135,8 @@ export default function SignInScreen() {
             if (attempt.status === "complete") {
               await signUpSetActive({ session: attempt.createdSessionId });
               router.replace("/(tabs)");
+            } else {
+              setErrorMsg("Apple sign-in could not be completed. Please try again.");
             }
           } else {
             throw signInErr;
@@ -152,7 +158,7 @@ export default function SignInScreen() {
         setAppleLoading(true);
         const { createdSessionId, setActive: ssoSetActive } = await startSSOFlow({
           strategy: "oauth_apple",
-          redirectUrl: Linking.createURL("/"),
+          redirectUrl: Linking.createURL("/oauth-native-callback"),
         });
         if (createdSessionId && ssoSetActive) {
           await ssoSetActive({ session: createdSessionId });
