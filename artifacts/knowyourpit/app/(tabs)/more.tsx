@@ -300,17 +300,11 @@ export default function MoreScreen() {
           </View>
           <View style={s.profileInfo}>
             <Text style={[s.profileName, { color: colors.foreground }]}>
-              {(user?.unsafeMetadata?.displayName as string | undefined) || (user?.unsafeMetadata as any)?.username || user?.username || user?.fullName || user?.firstName || "Pitmaster"}
+              {(user?.unsafeMetadata?.displayName as string | undefined) || user?.fullName || user?.firstName || "Pitmaster"}
             </Text>
-            {((user?.unsafeMetadata as any)?.username || user?.username) ? (
-              <Text style={[s.profileEmail, { color: colors.mutedForeground }]}>
-                @{(user?.unsafeMetadata as any)?.username || user?.username}
-              </Text>
-            ) : (
-              <Text style={[s.profileEmail, { color: colors.mutedForeground }]}>
-                {user?.emailAddresses?.[0]?.emailAddress || ""}
-              </Text>
-            )}
+            <Text style={[s.profileEmail, { color: colors.mutedForeground }]}>
+              {user?.emailAddresses?.[0]?.emailAddress || ""}
+            </Text>
           </View>
           <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
         </Pressable>
