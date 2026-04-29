@@ -55,6 +55,11 @@ export default function SignUpScreen() {
   const [appleLoading, setAppleLoading] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [pendingVerification, setPendingVerification] = React.useState(false);
+  const [resendLoading, setResendLoading] = React.useState(false);
+  const [resendSuccess, setResendSuccess] = React.useState(false);
+  const [resendError, setResendError] = React.useState<string | null>(null);
+  const [resendSessionExpired, setResendSessionExpired] = React.useState(false);
+  const [showSignInLink, setShowSignInLink] = React.useState(false);
 
   const handleSignUp = async () => {
     if (!signUp) return;
@@ -77,6 +82,7 @@ export default function SignUpScreen() {
     try {
       setIsLoading(true);
       setErrorMsg(null);
+      setShowSignInLink(false);
       const result = await signUp.attemptVerification({ strategy: "email_code", code });
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
@@ -85,10 +91,62 @@ export default function SignUpScreen() {
         setErrorMsg("Verification could not be completed. Please request a new code and try again.");
       }
     } catch (e: any) {
-      const msg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Verification failed.";
-      setErrorMsg(msg);
+      const clerkCode = e?.errors?.[0]?.code ?? "";
+      const clerkMsg: string = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "";
+      const isAlreadyVerified =
+        clerkCode === "form_identifier_exists" ||
+        clerkCode === "verification_already_verified" ||
+        clerkMsg.toLowerCase().includes("already been verified") ||
+        clerkMsg.toLowerCase().includes("already verified");
+
+      if (isAlreadyVerified && signIn && signInSetActive) {
+        try {
+          const attempt = await signIn.create({ identifier: email, password });
+          if (attempt.status === "complete") {
+            await signInSetActive({ session: attempt.createdSessionId });
+            router.replace("/(tabs)");
+            return;
+          }
+        } catch (signInErr: any) {
+          const signInErrMsg = signInErr?.errors?.[0]?.longMessage ?? signInErr?.errors?.[0]?.message ?? signInErr?.message ?? "unknown";
+          console.warn("[sign-up] auto-sign-in after already-verified failed:", signInErrMsg);
+        }
+        setErrorMsg("Your email is already verified. Please sign in with your credentials.");
+        setShowSignInLink(true);
+      } else {
+        setErrorMsg(clerkMsg || "Verification failed.");
+      }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!signUp) return;
+    try {
+      setResendLoading(true);
+      setResendError(null);
+      setResendSuccess(false);
+      setResendSessionExpired(false);
+      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      setResendSuccess(true);
+      setTimeout(() => setResendSuccess(false), 4000);
+    } catch (e: any) {
+      const clerkCode = e?.errors?.[0]?.code ?? "";
+      const clerkMsg: string = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "";
+      const isExpired =
+        clerkCode === "session_exists" ||
+        clerkCode === "sign_up_not_found" ||
+        clerkMsg.toLowerCase().includes("expired") ||
+        clerkMsg.toLowerCase().includes("not found");
+      if (isExpired) {
+        setResendSessionExpired(true);
+        setResendError("Your sign-up session has expired. Please go back and sign up again.");
+      } else {
+        setResendError(clerkMsg || "Could not resend code. Please try again.");
+      }
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -306,6 +364,9 @@ export default function SignUpScreen() {
     verifyHint: { fontSize: 14, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginBottom: 24, lineHeight: 20 },
     resendBtn: { alignItems: "center", marginTop: 16 },
     resendText: { fontSize: 14, fontFamily: "Inter_500Medium", color: colors.primary },
+    resendSuccessText: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#22c55e", textAlign: "center", marginTop: 12 },
+    signInLinkBtn: { alignItems: "center", marginTop: 8, marginBottom: 4 },
+    signInLinkText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.primary, textDecorationLine: "underline" },
   });
 
   if (pendingVerification) {
@@ -334,6 +395,11 @@ export default function SignUpScreen() {
           {errorMsg && (
             <Text style={styles.errorText}>{errorMsg}</Text>
           )}
+          {showSignInLink && (
+            <Pressable onPress={() => router.replace("/(auth)/sign-in")} style={styles.signInLinkBtn}>
+              <Text style={styles.signInLinkText}>Go to sign in</Text>
+            </Pressable>
+          )}
           <Pressable
             style={({ pressed }) => [styles.primaryBtn, (isLoading || pressed) && styles.primaryBtnDisabled]}
             onPress={handleVerify}
@@ -341,9 +407,25 @@ export default function SignUpScreen() {
           >
             {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Verify</Text>}
           </Pressable>
-          <Pressable style={styles.resendBtn} onPress={() => signUp?.prepareEmailAddressVerification({ strategy: "email_code" })}>
-            <Text style={styles.resendText}>Resend code</Text>
-          </Pressable>
+          {resendSuccess && (
+            <Text style={styles.resendSuccessText}>A new code has been sent to your email.</Text>
+          )}
+          {resendError && (
+            <Text style={styles.errorText}>{resendError}</Text>
+          )}
+          {resendSessionExpired ? (
+            <Pressable onPress={() => setPendingVerification(false)} style={styles.resendBtn}>
+              <Text style={styles.resendText}>Back to sign up</Text>
+            </Pressable>
+          ) : (
+            <Pressable style={styles.resendBtn} onPress={handleResend} disabled={resendLoading}>
+              {resendLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Text style={styles.resendText}>Resend code</Text>
+              )}
+            </Pressable>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     );
