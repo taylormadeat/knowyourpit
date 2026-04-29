@@ -87,24 +87,49 @@ export default function SignUpScreen() {
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
         router.replace("/(tabs)");
-      } else {
-        const emailVerified = (result as any).verifications?.emailAddress?.status === "verified";
-        if (emailVerified && signIn && signInSetActive) {
+        return;
+      }
+
+      if (result.status === "missing_requirements") {
+        const missing = (result as any).missingFields ?? [];
+        if (missing.includes("username") && email) {
+          const base = email
+            .split("@")[0]
+            .replace(/[^a-z0-9]/gi, "")
+            .toLowerCase()
+            .slice(0, 15);
+          const suffix = Math.floor(Math.random() * 9000 + 1000);
           try {
-            const attempt = await signIn.create({ identifier: email, password });
-            if (attempt.status === "complete") {
-              await signInSetActive({ session: attempt.createdSessionId });
+            const updated = await signUp.update({ username: `${base}${suffix}` });
+            if (updated.status === "complete" && updated.createdSessionId) {
+              await setActive({ session: updated.createdSessionId });
               router.replace("/(tabs)");
               return;
             }
-          } catch (signInErr: any) {
-            console.warn("[sign-up] auto-sign-in after non-complete verified failed:", signInErr?.errors?.[0]?.message ?? signInErr?.message);
+          } catch (updateErr: any) {
+            console.warn("[sign-up] update with username failed:", updateErr?.errors?.[0]?.message ?? updateErr?.message);
           }
-          setErrorMsg("Your email is already verified. Please sign in with your credentials.");
-          setShowSignInLink(true);
-        } else {
-          setErrorMsg("Verification could not be completed. Please request a new code and try again.");
         }
+        setErrorMsg("Sign up could not be completed. Please try again.");
+        return;
+      }
+
+      const emailVerified = (result as any).verifications?.emailAddress?.status === "verified";
+      if (emailVerified && signIn && signInSetActive) {
+        try {
+          const attempt = await signIn.create({ identifier: email, password });
+          if (attempt.status === "complete") {
+            await signInSetActive({ session: attempt.createdSessionId });
+            router.replace("/(tabs)");
+            return;
+          }
+        } catch (signInErr: any) {
+          console.warn("[sign-up] auto-sign-in after non-complete verified failed:", signInErr?.errors?.[0]?.message ?? signInErr?.message);
+        }
+        setErrorMsg("Your email is already verified. Please sign in with your credentials.");
+        setShowSignInLink(true);
+      } else {
+        setErrorMsg("Verification could not be completed. Please request a new code and try again.");
       }
     } catch (e: any) {
       const clerkCode = e?.errors?.[0]?.code ?? "";
