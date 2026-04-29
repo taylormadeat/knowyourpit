@@ -253,7 +253,7 @@ export default function ProfileScreen() {
 
         {/* Plan status row */}
         <Pressable
-          onPress={isPro ? undefined : () => showPaywall({ trigger: "pro_required" })}
+          onPress={effectivePro ? undefined : () => showPaywall({ trigger: "pro_required" })}
           style={({ pressed }) => [
             {
               marginHorizontal: 16,
@@ -262,17 +262,17 @@ export default function ProfileScreen() {
               borderRadius: colors.radius,
               backgroundColor: colors.card,
               borderWidth: 1,
-              borderColor: isPro ? colors.primary : colors.border,
+              borderColor: effectivePro ? colors.primary : colors.border,
               flexDirection: "row",
               alignItems: "center",
-              opacity: pressed && !isPro ? 0.7 : 1,
+              opacity: pressed && !effectivePro ? 0.7 : 1,
             },
           ]}
         >
           <MaterialIcons
-            name={isPro ? "verified" : "lock-outline"}
+            name={effectivePro ? "verified" : "lock-outline"}
             size={22}
-            color={isPro ? colors.primary : colors.mutedForeground}
+            color={effectivePro ? colors.primary : colors.mutedForeground}
             style={{ marginRight: 12 }}
           />
           <View style={{ flex: 1 }}>
@@ -283,7 +283,7 @@ export default function ProfileScreen() {
                 color: colors.foreground,
               }}
             >
-              {isPro ? "knowyourpit Pro" : "Free plan"}
+              {effectivePro ? "knowyourpit Pro" : "Free plan"}
             </Text>
             <Text
               style={{
@@ -293,14 +293,14 @@ export default function ProfileScreen() {
                 marginTop: 2,
               }}
             >
-              {isPro
-                ? expirationDate
+              {effectivePro
+                ? isPro && expirationDate
                   ? `Renews ${new Date(expirationDate).toLocaleDateString()}`
                   : "Active"
                 : "Tap to unlock unlimited cooks, AI chat & analyses"}
             </Text>
           </View>
-          {!isPro && (
+          {!effectivePro && (
             <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
           )}
         </Pressable>

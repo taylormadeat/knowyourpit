@@ -47,7 +47,6 @@ import { useMeaterReadings, type MeaterProbe } from "@/hooks/useMeaterReadings";
 import { useSmokerProfile } from "@/hooks/useSmokerProfile";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
-import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 
 const UPCOMING_DAYS = 14;
@@ -595,7 +594,6 @@ export default function PlanScreen() {
   const aiMultiCook = useAiMultiCook();
   const { showPaywall, parseAndShowFromError } = usePaywall();
   const { data: paywallUsage } = usePaywallUsage();
-  const { isPro } = useSubscription();
   const effectivePro = useEffectivePro();
 
   // Mount-time gate: if the user has hit the total cook cap, fire the paywall
@@ -744,7 +742,7 @@ export default function PlanScreen() {
       setMultiResult(result as any);
       setMultiResultOpen(true);
     } catch (e: any) {
-      // 402 (pro_required) shouldn't happen post-isPro check, but a stale
+      // 402 (pro_required) shouldn't happen post-effectivePro check, but a stale
       // entitlement state is possible. Fall through to the modal in that case.
       if (parseAndShowFromError(e)) return;
       Alert.alert("PitMaster Error", e?.message || "Could not sequence cooks. Try again.");

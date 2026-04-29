@@ -15,6 +15,7 @@ import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useColors } from "@/hooks/useColors";
 import { useSubscription, type PurchasePackageLike } from "@/contexts/SubscriptionContext";
+import { useEffectivePro } from "@/hooks/useEffectivePro";
 
 interface TrialInfo {
   label: string;
@@ -157,7 +158,6 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName 
   const {
     isReady,
     isLoading,
-    isPro,
     currentOffering,
     isAnnualTrialEligible,
     isAnnualTrialCheckComplete,
@@ -166,6 +166,7 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName 
     restorePurchases,
     lastError,
   } = useSubscription();
+  const effectivePro = useEffectivePro();
 
   const annual = currentOffering?.annual ?? null;
   const monthly = currentOffering?.monthly ?? null;
@@ -249,7 +250,7 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName 
                 <ActivityIndicator color="#E84520" />
                 <Text style={[styles.statusText, { color: colors.mutedForeground }]}>Loading subscription options…</Text>
               </View>
-            ) : isPro ? (
+            ) : effectivePro ? (
               <View style={styles.statusBlock}>
                 <Feather name="check-circle" size={28} color="#22C55E" />
                 <Text style={[styles.statusText, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>

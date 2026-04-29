@@ -18,7 +18,6 @@ import { useColors } from "@/hooks/useColors";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePaywall } from "@/contexts/PaywallContext";
-import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import {
   useGetMeaterStatus,
@@ -38,7 +37,6 @@ export default function DevicesScreen() {
   const qc = useQueryClient();
   const scrollRef = useRef<ScrollView>(null);
   const botPad = useBottomInset();
-  const { isPro } = useSubscription();
   const effectivePro = useEffectivePro();
   const { showPaywall, parseAndShowFromError } = usePaywall();
 
