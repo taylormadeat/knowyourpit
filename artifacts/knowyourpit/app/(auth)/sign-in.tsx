@@ -167,7 +167,24 @@ export default function SignInScreen() {
           await ssoSetActive({ session: ssoSignUp.createdSessionId });
           router.replace("/(tabs)");
         } else if (ssoSignUp.status === "missing_requirements") {
-          setErrorMsg("Additional info required to finish sign-up. Please sign up with email instead.");
+          const missing = ssoSignUp.missingFields ?? [];
+          if (missing.includes("username") && ssoSignUp.emailAddress) {
+            const base = ssoSignUp.emailAddress
+              .split("@")[0]
+              .replace(/[^a-z0-9]/gi, "")
+              .toLowerCase()
+              .slice(0, 15);
+            const suffix = Math.floor(Math.random() * 9000 + 1000);
+            const updated = await ssoSignUp.update({ username: `${base}${suffix}` });
+            if (updated.status === "complete" && updated.createdSessionId) {
+              await ssoSetActive({ session: updated.createdSessionId });
+              router.replace("/(tabs)");
+            } else {
+              setErrorMsg("Google sign-up could not be completed. Please try again.");
+            }
+          } else {
+            setErrorMsg("Google sign-up could not be completed. Please try again.");
+          }
         } else {
           setErrorMsg("Google sign-up could not be completed. Please try again.");
         }
