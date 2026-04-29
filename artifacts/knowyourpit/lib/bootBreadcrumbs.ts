@@ -25,7 +25,7 @@ interface Breadcrumb {
   detail?: string;
 }
 
-const MAX_CRUMBS = 60;
+const MAX_CRUMBS = 80;
 const T0 = Date.now();
 const crumbs: Breadcrumb[] = [];
 
@@ -50,10 +50,64 @@ export function formatBreadcrumbs(list: Breadcrumb[] = crumbs): string {
 }
 
 /**
+ * True when this URL targets one of Clerk's hosts (custom-domain FAPI like
+ * `clerk.knowyourpit.com`, or Clerk's underlying CDN host
+ * `frontend-api.clerk.services`). Used to decide whether to rewrite headers.
+ */
+function isClerkRequest(url: string): boolean {
+  return /clerk/i.test(url);
+}
+
+/**
+ * Rewrite headers on outbound Clerk requests so the production Clerk
+ * instance accepts them.
+ *
+ * The bug this fixes: builds 40/42/44/48 hung at the splash for ~10s
+ * because Clerk's `/v1/client` and `/v1/environment` requests came back
+ * with HTTP 400 `origin_invalid` ("The Request HTTP Origin header must be
+ * equal to or a subdomain of the requesting URL"). The Clerk SDK has no
+ * retry path on this error, so it sat silent until the escape hatch fired.
+ *
+ * Reproducing the same request from this server:
+ * - `Origin: capacitor://localhost`              → HTTP 400
+ * - `Origin: com.knowyourpit.app://`             → HTTP 400
+ * - `Origin: https://clerk.knowyourpit.com`      → HTTP 200
+ * - no `Origin` header at all                    → HTTP 200
+ *
+ * So we deterministically set `Origin` to the request's own scheme+host,
+ * which is always "equal to the requesting URL" and therefore always
+ * passes Clerk's validator. We also drop `Referer` defensively — Clerk
+ * never requires it and stripping it removes one more degree of freedom
+ * for the server to reject on.
+ */
+function fixClerkHeaders(url: string, headers: Headers): void {
+  let originValue: string | null = null;
+  try {
+    const u = new URL(url);
+    originValue = `${u.protocol}//${u.host}`;
+  } catch {
+    // URL parsing failed — leave Origin alone rather than guess wrong.
+  }
+  try {
+    if (originValue) headers.set("Origin", originValue);
+    headers.delete("Referer");
+    headers.delete("referer");
+  } catch {
+    // Headers may be immutable in rare cases; tolerate and continue.
+  }
+}
+
+/**
  * Wrap globalThis.fetch so every HTTP call gets recorded as a pair of
  * crumbs (start + end with duration). Idempotent: a second call is a
  * no-op. Only marks Clerk-related URLs by default to keep the log focused
  * on the boot bottleneck — pass `{ all: true }` to record everything.
+ *
+ * Beyond breadcrumbs, this wrapper ALSO rewrites the Origin header on
+ * Clerk requests (see `fixClerkHeaders` for the reasoning) and captures
+ * the response body of any non-2xx Clerk response as an additional
+ * breadcrumb so future failures are diagnosable on-device without a
+ * round trip.
  */
 let fetchWrapped = false;
 export function installFetchTracker(opts: { all?: boolean } = {}): void {
@@ -76,8 +130,50 @@ export function installFetchTracker(opts: { all?: boolean } = {}): void {
         ? input.toString()
         : (input as Request).url ?? String(input);
 
+    // Apply the Clerk-Origin fix BEFORE either tracking or forwarding.
+    // This must work whether the caller passed (string, init) or a
+    // pre-built Request — the SDK uses both shapes in different paths.
+    let finalInput: RequestInfo | URL = input;
+    let finalInit: RequestInit | undefined = init;
+
+    if (isClerkRequest(url)) {
+      try {
+        if (input instanceof Request) {
+          // Clone the Request with rewritten headers. We can't mutate
+          // a Request's headers in place reliably across implementations,
+          // so build a fresh one from a clone of the original. Cloning
+          // first ensures the body is duplicated so the original is left
+          // un-disturbed in case anything else still holds a reference,
+          // and the new Request gets its own readable body stream.
+          const cloneSource =
+            typeof input.clone === "function" ? input.clone() : input;
+          const newHeaders = new Headers(input.headers);
+          fixClerkHeaders(url, newHeaders);
+          finalInput = new Request(cloneSource, { headers: newHeaders });
+        } else {
+          // String/URL input: rewrite via init.headers. Build a Headers
+          // instance so we get a uniform .set/.delete API regardless of
+          // what the caller passed (object literal, array, or Headers).
+          const newHeaders = new Headers(
+            (init?.headers as HeadersInit | undefined) ?? {},
+          );
+          fixClerkHeaders(url, newHeaders);
+          finalInit = { ...(init ?? {}), headers: newHeaders };
+        }
+      } catch (rewriteErr) {
+        // If the rewrite itself blew up, fall back to the original
+        // request unchanged. We'd rather see the original 400 in the
+        // breadcrumbs than crash the boot completely.
+        const msg =
+          rewriteErr instanceof Error
+            ? rewriteErr.message
+            : String(rewriteErr);
+        mark("fetch.rewrite.fail", msg.slice(0, 80));
+      }
+    }
+
     if (!shouldTrack(url)) {
-      return original(input as RequestInfo, init);
+      return original(finalInput as RequestInfo, finalInit);
     }
 
     // Trim long URLs for readability — we only need the host + path.
@@ -85,9 +181,28 @@ export function installFetchTracker(opts: { all?: boolean } = {}): void {
     const startedAt = Date.now();
     mark("fetch.start", short);
     try {
-      const res = await original(input as RequestInfo, init);
+      const res = await original(finalInput as RequestInfo, finalInit);
       const ms = Date.now() - startedAt;
       mark("fetch.end", `${short} → ${res.status} (${ms}ms)`);
+
+      // For non-2xx Clerk responses, also capture the response body so
+      // we can see WHY Clerk rejected the request without needing
+      // another build round-trip. Clone first so the SDK's downstream
+      // .json() / .text() still works.
+      if (res.status >= 400 && isClerkRequest(url)) {
+        try {
+          const cloned = res.clone();
+          const body = await cloned.text();
+          // First ~200 chars is enough for the first error message.
+          const trimmed = body.replace(/\s+/g, " ").trim().slice(0, 200);
+          mark(`fetch.body.${res.status}`, trimmed);
+        } catch (bodyErr) {
+          const msg =
+            bodyErr instanceof Error ? bodyErr.message : String(bodyErr);
+          mark(`fetch.body.${res.status}.fail`, msg.slice(0, 80));
+        }
+      }
+
       return res;
     } catch (err) {
       const ms = Date.now() - startedAt;

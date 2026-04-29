@@ -270,6 +270,14 @@ export default function RootLayout() {
     if (fontError) mark("fonts.error", String(fontError));
   }, [fontsLoaded, fontError]);
 
+  // Mark the moment RootLayout first renders, which is when ClerkProvider
+  // is about to mount. Combined with `module.load`, `fonts.loaded`, and
+  // the subsequent `fetch.start clerk...` crumbs, this gives an unambiguous
+  // timeline of who is delaying boot — fonts, React, or Clerk itself.
+  useEffect(() => {
+    mark("clerk.boot.start");
+  }, []);
+
   const [webReady, setWebReady] = useState(Platform.OS !== "web");
   useEffect(() => {
     if (Platform.OS === "web") {
