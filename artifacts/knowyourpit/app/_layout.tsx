@@ -327,7 +327,22 @@ export default function RootLayout() {
   const flipProceed = React.useCallback(() => {
     mark("escape.fired");
     setProceedAnyway(true);
-    AsyncStorage.setItem("knowyourpit:guestMode", "1").catch(() => {});
+    // Only auto-enter guest mode if the user has NOT explicitly signed out.
+    // Without this check, a user who signs out while Clerk is hung gets
+    // bounced right back into a guest session on the next cold launch
+    // because the escape hatch fires again and re-sets the flag — making
+    // sign-out feel completely broken.
+    AsyncStorage.getItem("knowyourpit:explicitSignOut")
+      .then((v) => {
+        if (v === "1") {
+          mark("escape.respect-signout");
+          return;
+        }
+        AsyncStorage.setItem("knowyourpit:guestMode", "1").catch(() => {});
+      })
+      .catch(() => {
+        AsyncStorage.setItem("knowyourpit:guestMode", "1").catch(() => {});
+      });
   }, []);
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -335,6 +350,20 @@ export default function RootLayout() {
     }, 12000);
     return () => clearTimeout(timer);
   }, [flipProceed]);
+
+  // Periodic "still waiting" ticks while Clerk hasn't loaded. This makes it
+  // unambiguous from the breadcrumb log whether anything is happening between
+  // the initial fetches and the eventual escape — i.e. is the JS thread alive
+  // or is everything frozen?
+  useEffect(() => {
+    let n = 0;
+    const interval = setInterval(() => {
+      n += 1;
+      mark(`waiting.tick.${n * 2}s`);
+      if (n >= 6) clearInterval(interval); // stops at 12s, after escape fires
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   if (!fontsLoaded && !fontError && !webReady) return null;
 

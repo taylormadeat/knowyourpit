@@ -102,6 +102,16 @@ export default function MoreScreen() {
             const AsyncStorage = (
               await import("@react-native-async-storage/async-storage")
             ).default;
+            // Clear the "guest mode" flag set by the boot escape hatch so we
+            // don't immediately re-enter guest mode on the next render. Also
+            // SET an "explicitSignOut" flag so the next cold launch's escape
+            // hatch knows to leave the user on the sign-in screen instead of
+            // re-creating a guest session — otherwise sign-out feels broken
+            // because the next launch silently puts them back into the app.
+            // Cleared again on successful sign-in (see _layout.tsx).
+            await AsyncStorage.multiSet([
+              ["knowyourpit:explicitSignOut", "1"],
+            ]);
             await AsyncStorage.removeItem("knowyourpit:guestMode");
           } catch {
             // Ignore — navigation below still happens.

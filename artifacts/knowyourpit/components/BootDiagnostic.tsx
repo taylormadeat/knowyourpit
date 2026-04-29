@@ -137,12 +137,25 @@ export function BootDiagnostic({
   const [breadcrumbsText, setBreadcrumbsText] = useState<string>(() =>
     formatBreadcrumbs(getBreadcrumbs()),
   );
+  const [crumbCount, setCrumbCount] = useState<number>(
+    () => getBreadcrumbs().length,
+  );
+  const breadcrumbsScrollRef = useRef<ScrollView | null>(null);
   useEffect(() => {
     const interval = setInterval(() => {
       setElapsedSec((s) => s + 1);
       // Re-snapshot breadcrumbs on every tick so the on-device log stays
       // current. Cheap: just an array slice + map → string.
-      setBreadcrumbsText(formatBreadcrumbs(getBreadcrumbs()));
+      const snap = getBreadcrumbs();
+      setBreadcrumbsText(formatBreadcrumbs(snap));
+      setCrumbCount(snap.length);
+      // Auto-scroll to the bottom so the LATEST events are always visible.
+      // Without this, the diagnostic shows the first ~7 lines and the user
+      // has to manually scroll — which loses us the data we actually need
+      // (what happened in the last few seconds).
+      requestAnimationFrame(() => {
+        breadcrumbsScrollRef.current?.scrollToEnd({ animated: false });
+      });
     }, 1000);
     return () => clearInterval(interval);
   }, []);
@@ -262,9 +275,18 @@ export function BootDiagnostic({
           </ScrollView>
         ) : null}
         {breadcrumbsText ? (
-          <ScrollView style={styles.extraScroll} contentContainerStyle={styles.extraContent}>
-            <Text style={styles.extraText}>{breadcrumbsText}</Text>
-          </ScrollView>
+          <>
+            <Text style={styles.footerLine}>
+              {`Boot log (${crumbCount} events) — newest at bottom:`}
+            </Text>
+            <ScrollView
+              ref={breadcrumbsScrollRef}
+              style={styles.breadcrumbScroll}
+              contentContainerStyle={styles.extraContent}
+            >
+              <Text style={styles.extraText}>{breadcrumbsText}</Text>
+            </ScrollView>
+          </>
         ) : null}
       </View>
     </View>
@@ -330,6 +352,11 @@ const styles = StyleSheet.create({
   extraScroll: {
     marginTop: 8,
     maxHeight: 120,
+    width: "100%",
+  },
+  breadcrumbScroll: {
+    marginTop: 4,
+    maxHeight: 240,
     width: "100%",
   },
   extraContent: {
