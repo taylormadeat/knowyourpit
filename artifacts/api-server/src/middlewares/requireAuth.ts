@@ -49,7 +49,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
     try {
       const verified = await verifyToken(bearerToken, {
-        secretKey: process.env.CLERK_SECRET_KEY,
+        secretKey: process.env.CLERK_SECRET_KEY_PROD ?? process.env.CLERK_SECRET_KEY,
       });
       if (verified?.sub) {
         (req as any).userId = verified.sub;

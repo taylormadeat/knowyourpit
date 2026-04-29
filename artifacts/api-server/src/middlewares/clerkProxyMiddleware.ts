@@ -31,7 +31,7 @@ export function clerkProxyMiddleware(): RequestHandler {
     return (_req, _res, next) => next();
   }
 
-  const secretKey = process.env.CLERK_SECRET_KEY;
+  const secretKey = process.env.CLERK_SECRET_KEY_PROD ?? process.env.CLERK_SECRET_KEY;
   if (!secretKey) {
     return (_req, _res, next) => next();
   }

@@ -5,6 +5,10 @@ import { clerkMiddleware } from "@clerk/express";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
 import { logger } from "./lib/logger";
+
+const clerkSecretKey = process.env.CLERK_SECRET_KEY_PROD ?? process.env.CLERK_SECRET_KEY;
+logger.info({ msg: "Clerk key loaded", keyPrefix: clerkSecretKey?.slice(0, 12) ?? "(none)" });
+
 const app: Express = express();
 
 app.set("trust proxy", 1);
@@ -37,7 +41,7 @@ app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
 app.use(cors({ credentials: true, origin: true }));
 
-app.use(clerkMiddleware());
+app.use(clerkMiddleware({ secretKey: clerkSecretKey }));
 
 app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: true, limit: "15mb" }));
