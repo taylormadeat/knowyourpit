@@ -42,7 +42,6 @@
       }
     },
     "production": {
-      "autoIncrement": true,
       "credentialsSource": "remote",
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.2",
