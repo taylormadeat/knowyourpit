@@ -13,7 +13,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
 import React, { useEffect, useState } from "react";
-import { AppState, Platform, View } from "react-native";
+import { Alert, AppState, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -22,10 +22,15 @@ import { isCookDetailVisible } from "@/hooks/cookDetailVisibility";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BootDiagnostic } from "@/components/BootDiagnostic";
+import { AppLockScreen } from "@/components/AppLockScreen";
 import { useWatchBridge } from "@/hooks/useWatchBridge";
 import { CACHE_STORAGE_KEY } from "@/constants/cache";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { PaywallProvider } from "@/contexts/PaywallContext";
+import {
+  BiometricLockProvider,
+  useBiometricLockContext,
+} from "@/contexts/BiometricLockContext";
 import {
   consumeLastBootError,
   formatBootErrorForDisplay,
@@ -148,8 +153,88 @@ function RootLayoutNav() {
   const { user, isLoaded: userLoaded } = useUser();
   const segments = useSegments();
   const router = useRouter();
+  const {
+    isEnabled: lockEnabled,
+    isLocked,
+    lock: lockNow,
+    unlock: unlockNow,
+    isReady: lockReady,
+    support: lockSupport,
+    hasPromptedFirstTime,
+    markFirstTimePromptShown,
+    setEnabled: setLockEnabled,
+  } = useBiometricLockContext();
   // Bridges the phone app to the Apple Watch companion app (iOS only, no-op elsewhere)
   useWatchBridge();
+
+  // Lock the app whenever it goes to the background, and trigger the
+  // biometric prompt automatically the moment it returns to the foreground.
+  // Native-only (iOS) — on web AppState transitions are not meaningful here.
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    if (!lockEnabled) return;
+    const sub = AppState.addEventListener("change", (next) => {
+      if (next === "background" || next === "inactive") {
+        lockNow();
+      } else if (next === "active") {
+        // Slight delay so the OS has finished its transition animation
+        // before we present the LocalAuthentication prompt.
+        setTimeout(() => {
+          unlockNow();
+        }, 150);
+      }
+    });
+    return () => sub.remove();
+  }, [lockEnabled, lockNow, unlockNow]);
+
+  // First-time opt-in prompt: shown once after the user's first successful
+  // sign-in, only if biometrics are actually available on the device. We
+  // persist a "prompted" flag so we never bug them again whether they accept
+  // or decline. Skipped if the lock is somehow already enabled.
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    if (!isLoaded || !isSignedIn || !lockReady) return;
+    if (hasPromptedFirstTime) return;
+    if (lockSupport.status !== "available") return;
+    if (lockEnabled) {
+      markFirstTimePromptShown();
+      return;
+    }
+    // Defer slightly to let any post-sign-in navigation settle before
+    // popping a system alert on top of it.
+    const t = setTimeout(() => {
+      Alert.alert(
+        "Lock the app with Face ID?",
+        "Add an extra layer of privacy so your cook data stays hidden if someone else picks up your phone. You can change this anytime in More \u2192 Security.",
+        [
+          {
+            text: "Not now",
+            style: "cancel",
+            onPress: () => {
+              markFirstTimePromptShown();
+            },
+          },
+          {
+            text: "Enable",
+            onPress: async () => {
+              await setLockEnabled(true);
+              markFirstTimePromptShown();
+            },
+          },
+        ],
+      );
+    }, 800);
+    return () => clearTimeout(t);
+  }, [
+    isLoaded,
+    isSignedIn,
+    lockReady,
+    hasPromptedFirstTime,
+    lockSupport.status,
+    lockEnabled,
+    markFirstTimePromptShown,
+    setLockEnabled,
+  ]);
 
   // Global auth gate: keep signed-in users out of /(auth) and signed-out users out of /(tabs).
   // Also enforces the username gate: signed-in users without a username are redirected to
@@ -233,6 +318,12 @@ function RootLayoutNav() {
     };
   }, []);
 
+  // The lock overlay only renders when the user has opted in AND the app
+  // is currently locked. We mount it absolutely above the navigator so the
+  // tab content underneath is preserved (no remount on unlock) but visually
+  // hidden behind the full-screen lock screen.
+  const showLock = lockEnabled && isLocked && isSignedIn;
+
   return (
     <View style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
@@ -253,6 +344,7 @@ function RootLayoutNav() {
         <Stack.Screen name="sessions/[sessionId]" />
         <Stack.Screen name="recipe/[id]" />
       </Stack>
+      {showLock && <AppLockScreen />}
     </View>
   );
 }
@@ -504,9 +596,11 @@ function ClerkGatedShell({
     <IsolatedQueryProvider key={userId ?? "anon"}>
       <SubscriptionProvider>
         <PaywallProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <RootLayoutNav />
-          </GestureHandlerRootView>
+          <BiometricLockProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <RootLayoutNav />
+            </GestureHandlerRootView>
+          </BiometricLockProvider>
         </PaywallProvider>
       </SubscriptionProvider>
     </IsolatedQueryProvider>
