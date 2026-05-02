@@ -288,7 +288,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "Saffire",
-        logoUrl: undefined,
         models: [
           { name: "Saffire 19\"", type: "Kamado / Charcoal", fuelType: "Charcoal", tempRange: "200°F – 750°F", cookingSurface: "284 sq in", features: ["Cast iron damper top", "Patented Air Hinge", "Split top design"] },
           { name: "Saffire 23\"", type: "Kamado / Charcoal", fuelType: "Charcoal", tempRange: "200°F – 750°F", cookingSurface: "414 sq in", features: ["Cast iron damper", "Heavy ceramics", "Split top"] },
@@ -296,7 +295,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "Grill Dome",
-        logoUrl: undefined,
         models: [
           { name: "Infinity Small", type: "Kamado / Charcoal", fuelType: "Charcoal", tempRange: "200°F – 750°F", cookingSurface: "176 sq in", features: ["Heavy ceramics", "Cast iron top vent", "Lifetime ceramic warranty"] },
           { name: "Infinity Large", type: "Kamado / Charcoal", fuelType: "Charcoal", tempRange: "200°F – 750°F", cookingSurface: "318 sq in", features: ["Heavy ceramics", "Cast iron top vent", "Two-tier rack"] },
@@ -364,7 +362,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "Old Country BBQ Pits",
-        logoUrl: undefined,
         models: [
           { name: "Pecos", type: "Offset Smoker", fuelType: "Wood/Charcoal", tempRange: "200°F – 350°F", cookingSurface: "751 sq in", features: ["1/4\" steel", "Competition grade", "Charcoal basket"] },
           { name: "Wrangler", type: "Offset Smoker", fuelType: "Wood/Charcoal", tempRange: "200°F – 350°F", cookingSurface: "1122 sq in", features: ["Heavy steel", "Reverse flow baffles", "Large firebox"] },
@@ -449,14 +446,12 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "Big Poppa Smokers",
-        logoUrl: undefined,
         models: [
           { name: "BPS Drum Smoker Kit", type: "Drum Smoker", fuelType: "Charcoal", tempRange: "200°F – 500°F", cookingSurface: "452 sq in", features: ["DIY drum conversion kit", "Charcoal basket", "Three intake valves"], notes: "Famous DIY UDS conversion kit" },
         ],
       },
       {
         brand: "Hunsaker Smokers",
-        logoUrl: undefined,
         models: [
           { name: "Vortex 55", type: "Drum Smoker", fuelType: "Charcoal", tempRange: "200°F – 500°F", cookingSurface: "452 sq in", features: ["Patented vortex plate", "Hinged lid + handle", "Two-tier grate option"], notes: "Vortex airflow plate gives even temps" },
           { name: "Vortex 30", type: "Drum Smoker", fuelType: "Charcoal", tempRange: "200°F – 500°F", cookingSurface: "314 sq in", features: ["Vortex plate", "Compact 30-gallon drum", "Hinged lid"] },
@@ -503,7 +498,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "PK Grills",
-        logoUrl: undefined,
         models: [
           { name: "PK300", type: "Charcoal Grill", fuelType: "Charcoal", tempRange: "200°F – 600°F", cookingSurface: "300 sq in", features: ["Aluminum construction", "Four-point ventilation", "Direct + indirect zones"] },
           { name: "PK360", type: "Charcoal Grill", fuelType: "Charcoal", tempRange: "200°F – 600°F", cookingSurface: "360 sq in", features: ["Aluminum construction", "GrillGrates included", "Hinged lid"] },
@@ -513,7 +507,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "SnS Grills",
-        logoUrl: undefined,
         models: [
           { name: "Slow 'N Sear Kettle 22\"", type: "Kettle", fuelType: "Charcoal", tempRange: "200°F – 700°F", cookingSurface: "363 sq in", features: ["Built-in two-zone water reservoir", "EasySpin hinged grate", "Lifetime grate warranty"], notes: "Engineered specifically for two-zone cooking" },
           { name: "Slow 'N Sear Deluxe Kettle", type: "Kettle", fuelType: "Charcoal", tempRange: "200°F – 700°F", cookingSurface: "363 sq in", features: ["Premium thermometer", "All accessories included", "Two-zone design"] },
@@ -576,7 +569,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "Dyna-Glo",
-        logoUrl: undefined,
         models: [
           { name: "Signature Series Vertical Charcoal", type: "Cabinet Smoker", fuelType: "Charcoal", tempRange: "200°F – 400°F", cookingSurface: "1382 sq in", features: ["Side door for fuel access", "5 chrome racks", "Steel construction"] },
           { name: "Wide Body LP Gas Smoker", type: "Cabinet Smoker", fuelType: "Gas", tempRange: "150°F – 450°F", cookingSurface: "1235 sq in", features: ["15,000 BTU burner", "4 cooking grates", "Porcelain-enameled steel"] },
@@ -585,7 +577,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "Smoke Hollow",
-        logoUrl: undefined,
         models: [
           { name: "44241G2 Propane", type: "Cabinet Smoker", fuelType: "Gas", tempRange: "150°F – 350°F", cookingSurface: "3.4 cu ft", features: ["Three doors", "20,000 BTU", "Push-button ignition"] },
           { name: "Pro Series 44\" Vertical", type: "Cabinet Smoker", fuelType: "Combination", tempRange: "150°F – 400°F", cookingSurface: "1265 sq in", features: ["Charcoal + propane", "4 cooking grates", "Heavy steel"] },
@@ -657,7 +648,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "Bull Outdoor Products",
-        logoUrl: undefined,
         models: [
           { name: "Steer 3-Burner", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 600°F", cookingSurface: "443 sq in", features: ["3 burners", "Stainless steel", "Built-in or freestanding"] },
           { name: "Angus 4-Burner", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 700°F", cookingSurface: "760 sq in", features: ["4 stainless burners", "Infrared back burner", "Heavy-duty grates"] },
@@ -667,7 +657,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "Lynx",
-        logoUrl: undefined,
         models: [
           { name: "Professional 30\"", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 700°F", cookingSurface: "840 sq in", features: ["ProSear burner", "Ceramic briquettes", "Hot surface ignition"], notes: "Premium American-made gas grill" },
           { name: "Professional 36\"", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 700°F", cookingSurface: "935 sq in", features: ["3 burners", "ProSear burner", "Halogen interior light"] },
@@ -676,7 +665,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "DCS",
-        logoUrl: undefined,
         models: [
           { name: "Series 9 36\"", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 700°F", cookingSurface: "871 sq in", features: ["3 burners", "Grease management system", "Stainless construction"], notes: "Premium built-in grill" },
           { name: "Series 9 48\"", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 700°F", cookingSurface: "1153 sq in", features: ["4 burners", "Rotisserie burner", "Smoker tray"] },
@@ -693,7 +681,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "Coyote",
-        logoUrl: undefined,
         models: [
           { name: "C-Series 28\"", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 600°F", cookingSurface: "529 sq in", features: ["2 burners", "Ceramic radiant tray", "Stainless steel"] },
           { name: "C-Series 36\"", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 600°F", cookingSurface: "751 sq in", features: ["3 burners", "Infinity burners", "Built-in compatible"] },
@@ -712,7 +699,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "Saber",
-        logoUrl: undefined,
         models: [
           { name: "R50CC0317 3-Burner", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 700°F", cookingSurface: "500 sq in", features: ["Infrared cooking system", "Stainless steel grates", "Patented zone separators"] },
           { name: "Cast Black 670", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 700°F", cookingSurface: "670 sq in", features: ["4 burners", "Patented infrared system", "Cast iron grates"] },
@@ -720,7 +706,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "Monument",
-        logoUrl: undefined,
         models: [
           { name: "Mesa 415BZ", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 600°F", cookingSurface: "545 sq in", features: ["4 burners", "Side burner", "Push-button ignition"] },
           { name: "Mesa 605BZS", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 600°F", cookingSurface: "748 sq in", features: ["6 stainless burners", "Sear burner", "Foldable side shelves"] },
@@ -754,7 +739,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "Lone Star Grillz",
-        logoUrl: undefined,
         models: [
           { name: "20\" x 42\"", type: "Reverse Flow", fuelType: "Wood", tempRange: "200°F – 350°F", cookingSurface: "840 sq in", features: ["1/4\" steel", "True reverse flow", "Custom-built to order"] },
           { name: "24\" x 48\"", type: "Reverse Flow", fuelType: "Wood", tempRange: "200°F – 350°F", cookingSurface: "1152 sq in", features: ["1/4\" steel", "True reverse flow", "Large capacity"] },
@@ -770,7 +754,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "Shirley Fabrication",
-        logoUrl: undefined,
         models: [
           { name: "24\" x 50\" Patio Smoker", type: "Reverse Flow", fuelType: "Wood", tempRange: "200°F – 350°F", cookingSurface: "1200 sq in", features: ["1/4\" American steel", "Custom Alabama-built", "Counterweight lid"], notes: "Highly regarded competition smoker" },
           { name: "32\" x 60\" Trailer Smoker", type: "Reverse Flow", fuelType: "Wood", tempRange: "200°F – 350°F", cookingSurface: "1900 sq in", features: ["Trailer mounted", "Heavy steel build", "Hand-built"] },
@@ -803,7 +786,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "Smokin Tex",
-        logoUrl: undefined,
         models: [
           { name: "Pro 1400", type: "Electric Smoker", fuelType: "Electric", tempRange: "100°F – 250°F", cookingSurface: "504 sq in", features: ["Stainless construction", "Fully insulated", "Restaurant quality"] },
           { name: "Pro 1500", type: "Electric Smoker", fuelType: "Electric", tempRange: "100°F – 250°F", cookingSurface: "700 sq in", features: ["Stainless", "Insulated", "Commercial-grade"] },
@@ -819,7 +801,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
       },
       {
         brand: "Old Smokey",
-        logoUrl: undefined,
         models: [
           { name: "Electric Smoker", type: "Electric Smoker", fuelType: "Electric", tempRange: "100°F – 250°F", cookingSurface: "270 sq in", features: ["Aluminized steel", "Flat-top design", "1250W element"], notes: "Classic Texas-style backyard electric smoker" },
         ],
