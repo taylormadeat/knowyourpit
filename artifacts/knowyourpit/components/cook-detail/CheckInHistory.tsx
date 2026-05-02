@@ -44,12 +44,15 @@ const fmtMins = (mins: number) => {
 export function CheckInHistory({ c, colors, effectivePro, isIdentityLinked, showPaywall }: Props) {
   const history: any[] = Array.isArray((c as any).analysisHistory) ? (c as any).analysisHistory : [];
   if (history.length === 0) return null;
-  // Free users (with confirmed RC identity) see only the most recent entry;
-  // the rest are blurred behind the Cook Coach paywall.
+  // Free users see only the most recent entry; the rest are blurred behind
+  // the Cook Coach paywall. While RC identity is still resolving we also
+  // limit visible entries (without rendering the blur CTA) so an unlinked
+  // free user can't briefly see the full history before isPro flips false.
   const reversed = [...history].reverse();
-  const isLocked = isIdentityLinked && !effectivePro && reversed.length > 1;
-  const visibleEntries = isLocked ? reversed.slice(0, 1) : reversed;
-  const hiddenCount = isLocked ? reversed.length - 1 : 0;
+  const limitToOne = !effectivePro && reversed.length > 1;
+  const isLocked = isIdentityLinked && limitToOne;
+  const visibleEntries = limitToOne ? reversed.slice(0, 1) : reversed;
+  const hiddenCount = limitToOne ? reversed.length - 1 : 0;
 
   return (
     <View style={[s.historySection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
