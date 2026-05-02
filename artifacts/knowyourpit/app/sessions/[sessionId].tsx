@@ -232,17 +232,28 @@ export default function SessionDetailScreen() {
   const turnInDates = competitionCooks
     .map((c: any) => (c.turnInAt ? new Date(c.turnInAt).getTime() : null))
     .filter((t): t is number => t !== null);
+  // Legacy fallback: competition cooks created BEFORE the per-item turnInAt
+  // field existed won't have turnInAt set. For those, treat the cook's
+  // plannedEndAt (rest-finish time) as the de-facto turn-in moment so the
+  // results CTA still surfaces and these cooks aren't stuck in limbo.
+  const turnInOrEndDates = competitionCooks
+    .map((c: any) => {
+      const t = c.turnInAt ?? c.plannedEndAt ?? c.plannedStartAt;
+      return t ? new Date(t).getTime() : null;
+    })
+    .filter((t): t is number => t !== null);
   const allResultsLogged =
     isCompetitionSession &&
     competitionCooks.length > 0 &&
     competitionCooks.every((c: any) => typeof c.competitionPlacement === "number");
   // Spec: "Log Your Results" prompt should only surface after all turn-in times
   // have passed. We still allow re-opening the modal once any results are
-  // logged so users can correct typos.
+  // logged so users can correct typos. Falls back to plannedEndAt for legacy
+  // competition cooks without turnInAt.
   const allTurnInsPassed =
     isCompetitionSession &&
-    turnInDates.length > 0 &&
-    turnInDates.every((t) => t < Date.now());
+    turnInOrEndDates.length > 0 &&
+    turnInOrEndDates.every((t) => t < Date.now());
   const showResultsCta = isCompetitionSession && (allTurnInsPassed || allResultsLogged);
 
   const displayLabel = sessionLabel || (isCompetitionSession ? competitionName ?? "Competition" : "Multi-Cook Session");
