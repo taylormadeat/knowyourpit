@@ -11,6 +11,7 @@ import {
   Modal,
   ScrollView,
   KeyboardAvoidingView,
+  Image,
 } from "react-native";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -30,6 +31,7 @@ import {
 } from "@workspace/api-client-react";
 import { GRILL_CATALOG, type GrillModel } from "@/constants/grillCatalog";
 import { GrillFingerprint } from "@/components/GrillFingerprint";
+import { GrillTypeIcon } from "@/components/GrillTypeIcon";
 
 const GRILL_TYPES = [
   "Kamado", "Offset Smoker", "Pellet Grill", "Kettle", "Gas Grill",
@@ -37,10 +39,63 @@ const GRILL_TYPES = [
 ];
 const FUEL_TYPES = ["Charcoal", "Wood", "Pellets", "Gas", "Electric", "Combination"];
 
+// ── Brand → Clearbit logo URL map ──
+// Brands without a recognized public domain fall back to a letter avatar.
+// Clearbit Logo API (logo.clearbit.com) is a free public endpoint for
+// company logos; we render an Image and swap to the gradient initial on
+// any load error so missing/blocked logos degrade gracefully.
+const BRAND_LOGO_DOMAINS: Record<string, string> = {
+  "Asmoke": "asmoke.com",
+  "Big Green Egg": "biggreenegg.com",
+  "Blaze": "blazegrills.com",
+  "Bradley Smoker": "bradleysmoker.com",
+  "Brisk-It": "brisk-it.com",
+  "Broil King": "broilkingbbq.com",
+  "Camp Chef": "campchef.com",
+  "Char-Broil": "charbroil.com",
+  "Char-Griller": "chargriller.com",
+  "Cookshack": "cookshack.com",
+  "Cuisinart": "cuisinart.com",
+  "Franklin Barbecue Pits": "franklinbbq.com",
+  "Gateway Drum Smokers": "gatewaydrumsmokers.com",
+  "Green Mountain Grills": "greenmountaingrills.com",
+  "Horizon Smokers": "horizonbbqsmokers.com",
+  "Kamado Joe": "kamadojoe.com",
+  "Komodo Kamado": "komodokamado.com",
+  "Lang BBQ Smokers": "langbbqsmokers.com",
+  "Louisiana Grills": "louisiana-grills.com",
+  "MAK Grills": "makgrills.com",
+  "Masterbuilt": "masterbuilt.com",
+  "Meadow Creek": "meadowcreekbbq.com",
+  "Memphis Grills": "memphisgrills.com",
+  "Mill Scale Metalworks": "millscale.co",
+  "Napoleon": "napoleon.com",
+  "Oklahoma Joe's": "oklahomajoes.com",
+  "Pit Barrel Cooker": "pitbarrelcooker.com",
+  "Pit Boss": "pitboss-grills.com",
+  "Pitts & Spitts": "pittsandspitts.com",
+  "Primo": "primogrill.com",
+  "Rec Tec (RecTeq)": "recteq.com",
+  "Smokin-It": "smokin-it.com",
+  "Spider Grills": "spidergrills.com",
+  "Traeger": "traegergrills.com",
+  "Vision Grills": "visiongrills.com",
+  "Weber": "weber.com",
+  "Workhorse Pits": "workhorsepits.com",
+  "Yoder Smokers": "yodersmokers.com",
+  "Z Grills": "zgrills.com",
+};
+
+function getBrandLogoUrl(brand: string): string | undefined {
+  const domain = BRAND_LOGO_DOMAINS[brand];
+  return domain ? `https://logo.clearbit.com/${domain}` : undefined;
+}
+
 interface BrandEntry {
   brand: string;
   categories: string[];
   models: GrillModel[];
+  logoUrl?: string;
 }
 
 function buildBrandList(): BrandEntry[] {
@@ -52,7 +107,12 @@ function buildBrandList(): BrandEntry[] {
         if (!existing.categories.includes(cat.category)) existing.categories.push(cat.category);
         existing.models.push(...b.models);
       } else {
-        map.set(b.brand, { brand: b.brand, categories: [cat.category], models: [...b.models] });
+        map.set(b.brand, {
+          brand: b.brand,
+          categories: [cat.category],
+          models: [...b.models],
+          logoUrl: getBrandLogoUrl(b.brand),
+        });
       }
     }
   }
@@ -75,6 +135,7 @@ export default function GrillsScreen() {
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [expandedCatalogBrands, setExpandedCatalogBrands] = useState<Set<string>>(new Set());
+  const [logoErrorBrands, setLogoErrorBrands] = useState<Set<string>>(new Set());
 
   // Custom form fields
   const [grillName, setGrillName] = useState("");
@@ -284,7 +345,7 @@ export default function GrillsScreen() {
             >
             <View style={s.grillCard}>
               <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.grillCardIcon}>
-                <Feather name="wind" size={20} color="#fff" />
+                <GrillTypeIcon type={item.type} size={22} color="#fff" />
               </LinearGradient>
               <View style={s.grillCardInfo}>
                 <Text style={[s.grillCardName, { color: colors.foreground }]}>{item.name}</Text>
@@ -423,15 +484,34 @@ export default function GrillsScreen() {
               <View style={{ paddingHorizontal: 12, gap: 8 }}>
                 {filteredBrands.map((entry) => {
                   const isOpen = expandedCatalogBrands.has(entry.brand);
+                  const showLogo = entry.logoUrl && !logoErrorBrands.has(entry.brand);
                   return (
                     <View
                       key={entry.brand}
                       style={[s.catBrandCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
                     >
                       <Pressable style={s.catBrandHeader} onPress={() => toggleCatalogBrand(entry.brand)}>
-                        <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.catBrandInitial}>
-                          <Text style={s.catBrandInitialText}>{entry.brand[0]}</Text>
-                        </LinearGradient>
+                        {showLogo ? (
+                          <View style={[s.catBrandLogo, { backgroundColor: "#fff", borderColor: colors.border }]}>
+                            <Image
+                              source={{ uri: entry.logoUrl }}
+                              style={s.catBrandLogoImg}
+                              resizeMode="contain"
+                              onError={() => {
+                                setLogoErrorBrands((prev) => {
+                                  if (prev.has(entry.brand)) return prev;
+                                  const next = new Set(prev);
+                                  next.add(entry.brand);
+                                  return next;
+                                });
+                              }}
+                            />
+                          </View>
+                        ) : (
+                          <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.catBrandInitial}>
+                            <Text style={s.catBrandInitialText}>{entry.brand[0]}</Text>
+                          </LinearGradient>
+                        )}
                         <View style={{ flex: 1 }}>
                           <Text style={[s.catBrandName, { color: colors.foreground }]}>{entry.brand}</Text>
                           <Text style={[s.catBrandSub, { color: colors.mutedForeground }]}>
@@ -660,6 +740,8 @@ const s = StyleSheet.create({
   catBrandHeader: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12 },
   catBrandInitial: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   catBrandInitialText: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#fff" },
+  catBrandLogo: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center", borderWidth: 1, padding: 3 },
+  catBrandLogoImg: { width: "100%", height: "100%" },
   catBrandName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   catBrandSub: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 1 },
 
