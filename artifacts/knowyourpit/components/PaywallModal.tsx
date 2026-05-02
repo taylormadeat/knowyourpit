@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import {
   Modal,
   View,
@@ -279,13 +279,41 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
   }, [annual, isAnnualTrialEligible, isAnnualTrialCheckComplete]);
 
   /**
+   * Trial info for the monthly product, when RevenueCat exposes one. The
+   * iOS eligibility helper today only checks the annual product (since
+   * that's where we currently configure trials), so for monthly we lean on
+   * RC's product metadata directly. Android already strips ineligible
+   * offer phases so the metadata is reliable there too.
+   */
+  const monthlyTrial = useMemo(() => getTrialInfo(monthly), [monthly]);
+
+  /**
    * True when the user is eligible for *any* free trial on the current
    * offering — drives the trial-aware headline / CTA copy across the modal.
-   * On iOS the eligibility check is gated to the annual product (which is the
-   * one we configure trials on); if a future monthly trial is added, extend
-   * the eligibility check above to include it.
+   * Either annual or monthly may carry the trial; whichever has it lights
+   * up the trial UI and headline.
    */
-  const isTrial = !!annualTrial;
+  const isTrial = !!annualTrial || !!monthlyTrial;
+
+  /**
+   * Format a numeric amount as locale currency. Falls back to a plain
+   * `${code} ${amount}` string if Intl.NumberFormat throws (older RN
+   * runtimes / unrecognized currency codes).
+   */
+  const formatMoney = useCallback((amount: number, currencyCode: string | undefined): string => {
+    if (!Number.isFinite(amount)) return "";
+    if (currencyCode) {
+      try {
+        return new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: currencyCode,
+        }).format(amount);
+      } catch {
+        // fall through
+      }
+    }
+    return `${currencyCode ? currencyCode + " " : ""}${amount.toFixed(2)}`;
+  }, []);
 
   const savings = useMemo(() => {
     if (!annual || !monthly) return null;
@@ -294,23 +322,23 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
     const dollars = yearOfMonthly - annual.product.price;
     const pct = Math.round((dollars / yearOfMonthly) * 100);
     if (pct <= 0) return null;
-    // Show whole-dollar savings (e.g. "$29") — feels more tangible than a
-    // percentage. Currency code surfaced in the badge for non-USD locales.
-    const dollarsRounded = Math.round(dollars);
+    const currencyCode = annual.product.currencyCode ?? monthly.product.currencyCode ?? undefined;
     return {
       pct,
-      dollars: dollarsRounded,
-      currencyCode: annual.product.currencyCode ?? monthly.product.currencyCode ?? "",
+      // Whole-amount savings feel more tangible than a percentage. We
+      // pre-format using the offering's currency so non-USD locales see
+      // their own symbol (e.g. "€29", "£25", "A$45").
+      formatted: formatMoney(Math.round(dollars), currencyCode),
     };
-  }, [annual, monthly]);
+  }, [annual, monthly, formatMoney]);
 
-  /** Formatted "$X.XX" per-month string for the annual breakdown line. */
-  const annualPerMonth = useMemo(() => {
+  /** Per-month breakdown shown below the annual price (locale-formatted). */
+  const annualPerMonthFormatted = useMemo(() => {
     if (!annual) return null;
     const perMo = annual.product.price / 12;
     if (!Number.isFinite(perMo) || perMo <= 0) return null;
-    return perMo.toFixed(2);
-  }, [annual]);
+    return formatMoney(perMo, annual.product.currencyCode);
+  }, [annual, formatMoney]);
 
   const handlePurchase = async (pkg: PurchasePackageLike) => {
     const result = await purchasePackage(pkg);
@@ -546,7 +574,7 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                     <View style={styles.bestBadge}>
                       <Text style={styles.bestBadgeText}>
                         {annualTrial
-                          ? `${annualTrial.label.toUpperCase()} FREE TRIAL`
+                          ? `${annualTrial.label.toUpperCase()} FREE, THEN ${annual.product.priceString}${periodLabel(annual.product.subscriptionPeriod).toUpperCase()}`
                           : "BEST VALUE"}
                       </Text>
                     </View>
@@ -557,14 +585,14 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                         <Text style={styles.planNote}>
                           {`${annualTrial.label} free, then ${annual.product.priceString}${periodLabel(annual.product.subscriptionPeriod)}`}
                         </Text>
-                        {annualPerMonth && (
+                        {annualPerMonthFormatted && (
                           <Text style={styles.planSubNote}>
-                            Just ${annualPerMonth}/mo billed annually
+                            Just {annualPerMonthFormatted}/mo billed annually
                           </Text>
                         )}
                         {savings != null && (
                           <Text style={styles.planSavings}>
-                            Save ${savings.dollars}/year ({savings.pct}% off)
+                            Save {savings.formatted}/year ({savings.pct}% off)
                           </Text>
                         )}
                         <View style={styles.trialCta}>
@@ -581,14 +609,14 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                           {annual.product.priceString}
                           <Text style={styles.planPeriod}>{periodLabel(annual.product.subscriptionPeriod)}</Text>
                         </Text>
-                        {annualPerMonth && (
+                        {annualPerMonthFormatted && (
                           <Text style={styles.planSubNote}>
-                            Just ${annualPerMonth}/mo billed annually
+                            Just {annualPerMonthFormatted}/mo billed annually
                           </Text>
                         )}
                         {savings != null && (
                           <Text style={styles.planSavings}>
-                            Save ${savings.dollars}/year ({savings.pct}% off)
+                            Save {savings.formatted}/year ({savings.pct}% off)
                           </Text>
                         )}
                         {isCookLimitWall && (
@@ -612,24 +640,51 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                     onPress={() => handlePurchase(monthly)}
                     disabled={isLoading}
                   >
+                    {/* Monthly trial badge — only renders when RC actually
+                        exposes a trial on the monthly product. Today this is
+                        rare (we configure trials on annual), but the UI must
+                        respect whichever package carries the trial. */}
+                    {monthlyTrial && (
+                      <View style={styles.bestBadge}>
+                        <Text style={styles.bestBadgeText}>
+                          {`${monthlyTrial.label.toUpperCase()} FREE, THEN ${monthly.product.priceString}${periodLabel(monthly.product.subscriptionPeriod).toUpperCase()}`}
+                        </Text>
+                      </View>
+                    )}
                     <Text style={[styles.planTitleMonthly, { color: colors.mutedForeground }]}>
                       Monthly · pay as you go
                     </Text>
-                    <Text style={[styles.planPriceMonthly, { color: colors.foreground }]}>
-                      {monthly.product.priceString}
-                      <Text style={[styles.planPeriod, { color: colors.mutedForeground }]}>
-                        {periodLabel(monthly.product.subscriptionPeriod)}
-                      </Text>
-                    </Text>
-                    <Text style={[styles.planNote, { color: colors.mutedForeground }]}>
-                      Cancel anytime
-                    </Text>
-                    {isCookLimitWall && (
-                      <View style={[styles.trialCta, styles.trialCtaMonthly]}>
-                        <Text style={[styles.trialCtaText, { color: colors.foreground }]}>
-                          Keep cooking →
+                    {monthlyTrial ? (
+                      <>
+                        <Text style={[styles.planPriceMonthly, { color: colors.foreground }]}>Free</Text>
+                        <Text style={[styles.planNote, { color: colors.mutedForeground }]}>
+                          {`${monthlyTrial.label} free, then ${monthly.product.priceString}${periodLabel(monthly.product.subscriptionPeriod)}`}
                         </Text>
-                      </View>
+                        <View style={[styles.trialCta, styles.trialCtaMonthly]}>
+                          <Text style={[styles.trialCtaText, { color: colors.foreground }]}>
+                            {isCookLimitWall ? "Keep cooking →" : "Start free trial →"}
+                          </Text>
+                        </View>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={[styles.planPriceMonthly, { color: colors.foreground }]}>
+                          {monthly.product.priceString}
+                          <Text style={[styles.planPeriod, { color: colors.mutedForeground }]}>
+                            {periodLabel(monthly.product.subscriptionPeriod)}
+                          </Text>
+                        </Text>
+                        <Text style={[styles.planNote, { color: colors.mutedForeground }]}>
+                          Cancel anytime
+                        </Text>
+                        {isCookLimitWall && (
+                          <View style={[styles.trialCta, styles.trialCtaMonthly]}>
+                            <Text style={[styles.trialCtaText, { color: colors.foreground }]}>
+                              Keep cooking →
+                            </Text>
+                          </View>
+                        )}
+                      </>
                     )}
                   </Pressable>
                 )}
