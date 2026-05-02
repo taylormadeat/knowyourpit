@@ -678,7 +678,9 @@ export default function SessionDetailScreen() {
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                           <Text style={[s.cookName, { color: colors.foreground }]}>
-                            {cook.foodType || "Unnamed Cook"}
+                            {cook.isCompetition && cook.competitionCategory
+                              ? `${KCBS_CATEGORY_LABEL[cook.competitionCategory as KcbsCategory].toUpperCase()}${cook.turnInAt ? ` · TURN-IN ${fmtTime(new Date(cook.turnInAt))}` : ""}`
+                              : (cook.foodType || "Unnamed Cook")}
                           </Text>
                           {cook.isCompetition && cook.competitionCategory && (
                             <View

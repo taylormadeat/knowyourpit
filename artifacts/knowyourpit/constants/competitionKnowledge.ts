@@ -1,6 +1,83 @@
 export const KCBS_CATEGORIES = ["chicken", "ribs", "pork", "brisket"] as const;
 export type KcbsCategory = (typeof KCBS_CATEGORIES)[number];
 
+// Spec-aligned structured category metadata. Each entry bundles the canonical
+// turn-in offset (minutes after 11:30 AM judges'-table opening), recommended
+// cook + target internal temps, typical raw weight range, the box-presentation
+// requirements, and the most common point-losing mistakes. Used by the AI
+// prompt builder, the setup modal defaults, and the session-view coaching
+// blocks.
+export interface KcbsCategoryDetail {
+  id: KcbsCategory;
+  label: string;
+  defaultTurnInOffsetMinutes: number;
+  cookTempF: { min: number; max: number };
+  targetTempF: { min: number; max: number };
+  weightRangeLbs: { min: number; max: number };
+  boxRequirements: string;
+  commonMistakes: string[];
+}
+
+export const KCBS_CATEGORIES_DETAIL: KcbsCategoryDetail[] = [
+  {
+    id: "chicken",
+    label: "Chicken",
+    defaultTurnInOffsetMinutes: 30,
+    cookTempF: { min: 275, max: 325 },
+    targetTempF: { min: 175, max: 180 },
+    weightRangeLbs: { min: 3, max: 6 },
+    boxRequirements: "6 identical pieces (thighs/drumsticks/wings) on garnish base, mahogany glaze, no sauce pools, hold ≥165°F.",
+    commonMistakes: [
+      "Rubbery/chewy skin from low-render fat",
+      "Harsh smoke flavor — chicken takes smoke fast",
+      "Inconsistent piece size or color",
+    ],
+  },
+  {
+    id: "ribs",
+    label: "Ribs",
+    defaultTurnInOffsetMinutes: 60,
+    cookTempF: { min: 250, max: 275 },
+    targetTempF: { min: 198, max: 203 },
+    weightRangeLbs: { min: 3, max: 5 },
+    boxRequirements: "6 clean-cut bones, meat-side up, all facing same direction, light glaze for sheen.",
+    commonMistakes: [
+      "Fall-off-the-bone is OVERCOOKED, not a winner",
+      "Heavy sauce hides smoke and bark",
+      "Pull-back too aggressive — judges see naked bone",
+    ],
+  },
+  {
+    id: "pork",
+    label: "Pork",
+    defaultTurnInOffsetMinutes: 90,
+    cookTempF: { min: 225, max: 275 },
+    targetTempF: { min: 200, max: 205 },
+    weightRangeLbs: { min: 7, max: 11 },
+    boxRequirements: "Three textures: money-muscle medallions fanned, 1.5\" chunks, and pulled with bark, all glistening.",
+    commonMistakes: [
+      "Pulled-only entry — judges score lower for variety",
+      "Money muscle dry or overcooked, falling apart",
+      "No visible bark in pulled portion",
+    ],
+  },
+  {
+    id: "brisket",
+    label: "Brisket",
+    defaultTurnInOffsetMinutes: 120,
+    cookTempF: { min: 225, max: 275 },
+    targetTempF: { min: 200, max: 205 },
+    weightRangeLbs: { min: 12, max: 18 },
+    boxRequirements: "9+ pencil-thick (¼\") flat slices shingled meat-side up + glazed burnt-end cubes (½–¾\").",
+    commonMistakes: [
+      "Slices break instead of bend — undercooked",
+      "Slices fall apart — overcooked",
+      "Chopped brisket in box (DQ)",
+      "Burnt ends from flat instead of point",
+    ],
+  },
+];
+
 export const KCBS_CATEGORY_LABEL: Record<KcbsCategory, string> = {
   chicken: "Chicken",
   ribs: "Ribs",
