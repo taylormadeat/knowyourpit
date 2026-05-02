@@ -7,6 +7,7 @@ const BASE = import.meta.env.BASE_URL;
 
 const NAV_LINKS = [
   { href: "/features", label: "Features" },
+  { href: "/marketing-kit", label: "Kit" },
   { href: "/support", label: "Support" },
   { href: "/privacy", label: "Privacy" },
   { href: "/terms", label: "Terms" },
