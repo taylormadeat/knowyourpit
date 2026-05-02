@@ -295,7 +295,7 @@ export default function SessionDetailScreen() {
       const placement = placementRaw === ""
         ? null
         : Math.max(0, Math.round(Number(placementRaw)));
-      // Judge score: KCBS valid range is 0–180. Reject NaN/out-of-range silently
+      // Judge score: KCBS valid range is 0–360 (10/25/25 weighting × 6 judges, see KCBS_SCORING). Reject NaN/out-of-range silently
       // (treat as null rather than blocking save with cryptic API error).
       const judgeScoreRaw = d.judgeScore.trim();
       const judgeScoreParsed = judgeScoreRaw === "" ? null : Number(judgeScoreRaw);
@@ -303,7 +303,7 @@ export default function SessionDetailScreen() {
         judgeScoreParsed != null &&
         !Number.isNaN(judgeScoreParsed) &&
         judgeScoreParsed >= 0 &&
-        judgeScoreParsed <= 180
+        judgeScoreParsed <= 360
           ? judgeScoreParsed
           : null;
       const judgeNotes = d.judgeNotes.trim() === "" ? null : d.judgeNotes.trim();
@@ -1088,7 +1088,7 @@ export default function SessionDetailScreen() {
                   Log Competition Results
                 </Text>
                 <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 }}>
-                  Placement (1 = first), KCBS judge score (0–180), notes per category
+                  Placement (1 = first), KCBS judge score (0–360), notes per category
                 </Text>
               </View>
               <Pressable onPress={() => setResultsOpen(false)} hitSlop={8}>
@@ -1187,7 +1187,7 @@ export default function SessionDetailScreen() {
                               color: colors.foreground,
                             },
                           ]}
-                          placeholder="0–180"
+                          placeholder="0–360"
                           placeholderTextColor={colors.mutedForeground}
                           value={draft.judgeScore}
                           onChangeText={(v) =>

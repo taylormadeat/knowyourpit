@@ -169,27 +169,21 @@ export const KCBS_BOX_RULES = KCBS_BOX_PACKING_REMINDERS;
 // KCBS scoring system constants — exposed as a single block so the AI prompt
 // and UI can reference the same source of truth for "how a comp box is judged".
 //
-// Official KCBS scoring (per Kansas City Barbeque Society rules, current as of
-// the 2024 Cookbook): each entry is judged by 6 KCBS-certified judges on a
-// 1–9 integer scale across three criteria (Appearance, Taste, Texture). The
-// LOWEST of the 6 judges' totals is dropped; the remaining 5 are summed using
-// the official weighting factors:
-//   Appearance × 0.5600
-//   Taste      × 2.2972
-//   Texture    × 1.1428
-// Per-category max with all 9s from 5 retained judges:
-//   5 × (9·0.5600 + 9·2.2972 + 9·1.1428) = 5 × 36 = 180.
+// Per the task spec (Task #327): KCBS judges score Appearance / Taste / Texture
+// with a 10 / 25 / 25 weight per judge across 6 judges, giving a 360 per-category
+// max (10 + 25 + 25 = 60 per judge × 6 judges = 360). This is the figure shown
+// in the UI and validated against in the results-entry input.
 //
-// NOTE: 180 is the official KCBS per-category max — NOT 360. The 360 figure
-// (10/25/25 × 6 judges, no drop) belongs to the Steak Cookoff Association
-// (SCA) and unrelated steak/burger contests. Do NOT change this to 360.
+// (For reference, the official KCBS rulebook uses a 1–9 scale with multipliers
+// of 0.5600 / 2.2972 / 1.1428 and drops the lowest judge's score, yielding a
+// 180 max. We follow the simpler 360-point model the product spec calls out
+// because it matches the consumer-facing "out of 360" framing.)
 export const KCBS_SCORING = {
   criteria: ["appearance", "taste", "texture"] as const,
-  scoreRange: { min: 1, max: 9 } as const,
+  perJudgeWeights: { appearance: 10, taste: 25, texture: 25 } as const,
   judgesPerEntry: 6,
-  lowestDropped: true,
-  weighting: { appearance: 0.5600, taste: 2.2972, texture: 1.1428 } as const,
-  maxScore: 180,
+  lowestDropped: false,
+  maxScore: 360,
 } as const;
 
 // Per-category turn-in box checklist — surfaced as the body of the
