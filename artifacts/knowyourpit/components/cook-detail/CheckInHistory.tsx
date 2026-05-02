@@ -154,6 +154,7 @@ export function CheckInHistory({ c, colors, effectivePro, isIdentityLinked, show
       {isLocked && (
         <BlurredProSection
           featureName="Cook Coach Report"
+          ctaTitle="Unlock your full coach report"
           teaser={`Upgrade to see ${hiddenCount} more ${hiddenCount === 1 ? "check-in" : "check-ins"} from this cook.`}
           onPress={() =>
             showPaywall({

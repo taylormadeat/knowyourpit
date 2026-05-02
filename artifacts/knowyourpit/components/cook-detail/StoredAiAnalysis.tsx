@@ -305,6 +305,7 @@ export function StoredAiAnalysis(p: Props) {
         return (
           <BlurredProSection
             featureName="Cook Coach Report"
+            ctaTitle="Unlock your full coach report"
             teaser="See every win, every fix, and every next-time tip the AI found in this cook."
             onPress={() =>
               showPaywall({

@@ -14,6 +14,8 @@ interface BlurredProSectionProps {
   style?: StyleProp<ViewStyle>;
   /** Optional minimum height to keep the blur surface visible even when children are short. */
   minHeight?: number;
+  /** Optional override for the CTA title; defaults to `Unlock {featureName}`. */
+  ctaTitle?: string;
 }
 
 /**
@@ -35,6 +37,7 @@ export function BlurredProSection({
   children,
   style,
   minHeight,
+  ctaTitle,
 }: BlurredProSectionProps) {
   const colors = useColors();
   return (
@@ -56,7 +59,7 @@ export function BlurredProSection({
         <View style={styles.lockCircle}>
           <Feather name="lock" size={18} color="#fff" />
         </View>
-        <Text style={styles.ctaTitle}>Unlock {featureName}</Text>
+        <Text style={styles.ctaTitle}>{ctaTitle ?? `Unlock ${featureName}`}</Text>
         {teaser ? <Text style={styles.ctaTeaser}>{teaser}</Text> : null}
         <View style={[styles.ctaButton, { backgroundColor: colors.primary }]}>
           <Text style={styles.ctaButtonText}>Upgrade to Pro →</Text>
