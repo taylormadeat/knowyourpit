@@ -291,9 +291,26 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
     if (!annual || !monthly) return null;
     const yearOfMonthly = monthly.product.price * 12;
     if (yearOfMonthly <= 0 || annual.product.price <= 0) return null;
-    const pct = Math.round(((yearOfMonthly - annual.product.price) / yearOfMonthly) * 100);
-    return pct > 0 ? pct : null;
+    const dollars = yearOfMonthly - annual.product.price;
+    const pct = Math.round((dollars / yearOfMonthly) * 100);
+    if (pct <= 0) return null;
+    // Show whole-dollar savings (e.g. "$29") — feels more tangible than a
+    // percentage. Currency code surfaced in the badge for non-USD locales.
+    const dollarsRounded = Math.round(dollars);
+    return {
+      pct,
+      dollars: dollarsRounded,
+      currencyCode: annual.product.currencyCode ?? monthly.product.currencyCode ?? "",
+    };
   }, [annual, monthly]);
+
+  /** Formatted "$X.XX" per-month string for the annual breakdown line. */
+  const annualPerMonth = useMemo(() => {
+    if (!annual) return null;
+    const perMo = annual.product.price / 12;
+    if (!Number.isFinite(perMo) || perMo <= 0) return null;
+    return perMo.toFixed(2);
+  }, [annual]);
 
   const handlePurchase = async (pkg: PurchasePackageLike) => {
     const result = await purchasePackage(pkg);
@@ -508,6 +525,9 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
               </View>
             ) : (
               <View style={styles.plansContainer}>
+                {/* Annual is rendered FIRST, regardless of RC ordering, and
+                    styled as the visually dominant choice. Monthly sits
+                    below as the smaller "pay as you go" option. */}
                 {annual && (
                   <Pressable
                     style={({ pressed }) => [
@@ -520,25 +540,33 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                     onPress={() => handlePurchase(annual)}
                     disabled={isLoading}
                   >
-                    {savings != null && !annualTrial && (
-                      <View style={styles.bestBadge}>
-                        <Text style={styles.bestBadgeText}>BEST VALUE — SAVE {savings}%</Text>
-                      </View>
-                    )}
-                    {annualTrial && (
-                      <View style={styles.bestBadge}>
-                        <Text style={styles.bestBadgeText}>
-                          {savings != null ? `${annualTrial.label.toUpperCase()} FREE · SAVE ${savings}%` : `${annualTrial.label.toUpperCase()} FREE TRIAL`}
-                        </Text>
-                      </View>
-                    )}
-                    <Text style={styles.planTitle}>Annual</Text>
+                    {/* "BEST VALUE" badge — always shown on annual when an
+                        offering with both plans is present, even when no
+                        savings can be computed (e.g. region without monthly). */}
+                    <View style={styles.bestBadge}>
+                      <Text style={styles.bestBadgeText}>
+                        {annualTrial
+                          ? `${annualTrial.label.toUpperCase()} FREE TRIAL`
+                          : "BEST VALUE"}
+                      </Text>
+                    </View>
+                    <Text style={styles.planTitle}>Annual · Best Value</Text>
                     {annualTrial ? (
                       <>
                         <Text style={styles.planPrice}>Free</Text>
                         <Text style={styles.planNote}>
                           {`${annualTrial.label} free, then ${annual.product.priceString}${periodLabel(annual.product.subscriptionPeriod)}`}
                         </Text>
+                        {annualPerMonth && (
+                          <Text style={styles.planSubNote}>
+                            Just ${annualPerMonth}/mo billed annually
+                          </Text>
+                        )}
+                        {savings != null && (
+                          <Text style={styles.planSavings}>
+                            Save ${savings.dollars}/year ({savings.pct}% off)
+                          </Text>
+                        )}
                         <View style={styles.trialCta}>
                           {/* Cook-limit trigger frames the CTA as continuation
                               ("Keep cooking →") instead of a generic upsell. */}
@@ -553,15 +581,16 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                           {annual.product.priceString}
                           <Text style={styles.planPeriod}>{periodLabel(annual.product.subscriptionPeriod)}</Text>
                         </Text>
-                        <Text style={styles.planNote}>
-                          {monthly
-                            ? `Just ${(annual.product.price / 12).toFixed(2)} ${annual.product.currencyCode ?? ""}/mo, billed yearly`
-                            : "Billed yearly"}
-                        </Text>
-                        {/* Cook-limit trigger: surface a visible "Keep
-                            cooking →" affordance even when no free trial
-                            is offered, so the continuation framing is
-                            consistent across both CTA variants. */}
+                        {annualPerMonth && (
+                          <Text style={styles.planSubNote}>
+                            Just ${annualPerMonth}/mo billed annually
+                          </Text>
+                        )}
+                        {savings != null && (
+                          <Text style={styles.planSavings}>
+                            Save ${savings.dollars}/year ({savings.pct}% off)
+                          </Text>
+                        )}
                         {isCookLimitWall && (
                           <View style={styles.trialCta}>
                             <Text style={styles.trialCtaText}>Keep cooking →</Text>
@@ -575,7 +604,7 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                 {monthly && (
                   <Pressable
                     style={({ pressed }) => [
-                      styles.planCard,
+                      styles.planCardMonthly,
                       { borderRadius: colors.radius, borderColor: colors.border, backgroundColor: colors.card },
                       pressed && { opacity: 0.85 },
                       isLoading && { opacity: 0.6 },
@@ -583,22 +612,23 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                     onPress={() => handlePurchase(monthly)}
                     disabled={isLoading}
                   >
-                    <Text style={[styles.planTitle, { color: colors.foreground }]}>Monthly</Text>
-                    <Text style={[styles.planPrice, { color: colors.foreground }]}>
+                    <Text style={[styles.planTitleMonthly, { color: colors.mutedForeground }]}>
+                      Monthly · pay as you go
+                    </Text>
+                    <Text style={[styles.planPriceMonthly, { color: colors.foreground }]}>
                       {monthly.product.priceString}
                       <Text style={[styles.planPeriod, { color: colors.mutedForeground }]}>
                         {periodLabel(monthly.product.subscriptionPeriod)}
                       </Text>
                     </Text>
                     <Text style={[styles.planNote, { color: colors.mutedForeground }]}>
-                      Billed monthly · Cancel anytime
+                      Cancel anytime
                     </Text>
-                    {/* Cook-limit framing on the monthly card too, so the
-                        "Keep cooking →" CTA is visible even on offerings
-                        without an annual plan. */}
                     {isCookLimitWall && (
-                      <View style={styles.trialCta}>
-                        <Text style={styles.trialCtaText}>Keep cooking →</Text>
+                      <View style={[styles.trialCta, styles.trialCtaMonthly]}>
+                        <Text style={[styles.trialCtaText, { color: colors.foreground }]}>
+                          Keep cooking →
+                        </Text>
                       </View>
                     )}
                   </Pressable>
@@ -609,6 +639,16 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                     <ActivityIndicator color="#E84520" />
                   </View>
                 )}
+
+                {/* Social proof — single muted line under the plan cards.
+                    Standard conversion trust signal; copy stays vague
+                    until real subscriber data is wired in. */}
+                <View style={styles.socialProofRow}>
+                  <Feather name="users" size={12} color={colors.mutedForeground} />
+                  <Text style={[styles.socialProofText, { color: colors.mutedForeground }]}>
+                    Join thousands of pitmasters already on Pro
+                  </Text>
+                </View>
 
                 {/* "No commitment" reassurance line — sits below the plan
                     cards so it reads as a guarantee on whichever plan the
@@ -709,24 +749,30 @@ const styles = StyleSheet.create({
   featureDesc: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18 },
   plansContainer: { paddingHorizontal: 20, paddingTop: 22, gap: 12 },
   planCard: {
-    paddingVertical: 16,
+    paddingVertical: 20,
     paddingHorizontal: 18,
-    borderWidth: 1.5,
+    borderWidth: 2,
   },
   planCardFeatured: {
     backgroundColor: "#E84520",
     borderColor: "#E84520",
+  },
+  // Smaller, muted card for the "pay as you go" monthly option.
+  planCardMonthly: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderWidth: 1,
   },
   bestBadge: {
     position: "absolute",
     top: -10,
     right: 14,
     backgroundColor: "#FACC15",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 6,
   },
-  bestBadgeText: { color: "#1C1C1F", fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.4 },
+  bestBadgeText: { color: "#1C1C1F", fontSize: 10.5, fontFamily: "Inter_700Bold", letterSpacing: 0.6, textTransform: "uppercase" },
   trialCta: {
     marginTop: 10,
     backgroundColor: "rgba(255,255,255,0.2)",
@@ -734,17 +780,47 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: "center",
   },
+  trialCtaMonthly: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
   trialCtaText: { color: "#fff", fontSize: 13, fontFamily: "Inter_700Bold", letterSpacing: 0.2 },
+  socialProofRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 16,
+  },
+  socialProofText: {
+    fontSize: 12.5,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+  },
   noCommitText: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",
     textAlign: "center",
-    marginTop: 14,
+    marginTop: 8,
   },
-  planTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff", marginBottom: 4, letterSpacing: 0.3, textTransform: "uppercase" },
+  planTitle: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#fff", marginBottom: 6, letterSpacing: 0.4, textTransform: "uppercase" },
+  planTitleMonthly: { fontSize: 12, fontFamily: "Inter_500Medium", marginBottom: 4, letterSpacing: 0.3 },
   planPrice: { fontSize: 28, fontFamily: "Inter_700Bold", color: "#fff" },
+  planPriceMonthly: { fontSize: 22, fontFamily: "Inter_600SemiBold" },
   planPeriod: { fontSize: 14, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.8)" },
   planNote: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.85)", marginTop: 4 },
+  planSubNote: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    color: "rgba(255,255,255,0.85)",
+    marginTop: 2,
+  },
+  planSavings: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: "#FACC15",
+    marginTop: 6,
+    letterSpacing: 0.2,
+  },
   statusBlock: {
     paddingVertical: 32,
     paddingHorizontal: 24,
