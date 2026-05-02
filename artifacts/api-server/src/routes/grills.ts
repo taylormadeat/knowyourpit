@@ -11,6 +11,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { computeSmokerInsights } from "../lib/smokerCalibration";
+import { respondPaywall, userBypassesPaywall } from "../lib/paywall";
 
 const router: IRouter = Router();
 
@@ -198,6 +199,17 @@ router.get("/grills/:id/fingerprint", requireAuth, async (req: any, res): Promis
   }
   if (grill.userId !== req.userId) {
     res.status(403).json({ error: "Not authorized to view this grill's fingerprint" });
+    return;
+  }
+
+  // Pro-only feature. Enforce server-side so the premium fingerprint payload
+  // can never be retrieved by free users, regardless of client UI gating.
+  if (!(await userBypassesPaywall(req))) {
+    respondPaywall(res, {
+      code: "pro_required",
+      feature: "Grill Fingerprint",
+      message: "Grill Fingerprint is a Pro feature.",
+    });
     return;
   }
 

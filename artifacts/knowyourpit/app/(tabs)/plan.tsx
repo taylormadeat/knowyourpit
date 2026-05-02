@@ -730,9 +730,39 @@ export default function PlanScreen() {
               }
               setPlanMode("multi");
             }}
+            accessibilityRole="button"
+            accessibilityLabel={effectivePro ? "Switch to Multi-Cook mode" : "Multi-Cook Sequencer, Pro feature, tap to learn more"}
           >
-            <Feather name="layers" size={14} color={planMode === "multi" ? "#fff" : colors.mutedForeground} />
+            <Feather
+              name={effectivePro ? "layers" : "lock"}
+              size={14}
+              color={planMode === "multi" ? "#fff" : colors.mutedForeground}
+            />
             <Text style={[s.modeToggleText, { color: planMode === "multi" ? "#fff" : colors.mutedForeground }]}>Multi-Cook</Text>
+            {!effectivePro && (
+              // Inline PRO chip so free users immediately see this is a
+              // locked feature, not just an inactive tab. Tap still opens
+              // the paywall (handled above).
+              <View
+                style={{
+                  paddingHorizontal: 5,
+                  paddingVertical: 1,
+                  borderRadius: 4,
+                  backgroundColor: colors.primary + "22",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 8.5,
+                    fontFamily: "Inter_700Bold",
+                    color: colors.primary,
+                    letterSpacing: 0.4,
+                  }}
+                >
+                  PRO
+                </Text>
+              </View>
+            )}
           </Pressable>
         </View>
 

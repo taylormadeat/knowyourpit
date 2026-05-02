@@ -1,8 +1,14 @@
 import React from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { useGetGrillFingerprint, type GrillFingerprintDurationPattern } from "@workspace/api-client-react";
+import {
+  useGetGrillFingerprint,
+  getGetGrillFingerprintQueryKey,
+  type GrillFingerprintDurationPattern,
+} from "@workspace/api-client-react";
+import { useEffectivePro } from "@/hooks/useEffectivePro";
+import { usePaywall } from "@/contexts/PaywallContext";
 
 interface Props {
   grillId: number;
@@ -18,7 +24,60 @@ const CONFIDENCE_LABELS: Record<string, { label: string; segments: number }> = {
 
 export function GrillFingerprint({ grillId, grillName }: Props) {
   const colors = useColors();
-  const { data, isLoading, error } = useGetGrillFingerprint(grillId);
+  const effectivePro = useEffectivePro();
+  const { showPaywall } = usePaywall();
+  // Pro-only feature. Free users see a ghost "fingerprint is building"
+  // teaser card so the value is visible (creating desire) without exposing
+  // any of the actual grill stats. Tapping the card opens the paywall.
+  // The query is disabled for free users so we never request the premium
+  // payload from the server (which also enforces a 402 paywall response).
+  const { data, isLoading, error } = useGetGrillFingerprint(grillId, {
+    query: {
+      enabled: effectivePro,
+      queryKey: getGetGrillFingerprintQueryKey(grillId),
+    },
+  });
+
+  if (!effectivePro) {
+    return (
+      <Pressable
+        onPress={() =>
+          showPaywall({ trigger: "pro_required", featureName: "Grill Fingerprint" })
+        }
+        style={({ pressed }) => [
+          s.card,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            borderRadius: colors.radius,
+            opacity: pressed ? 0.85 : 1,
+          },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="Grill Fingerprint, Pro feature, tap to learn more"
+      >
+        <View style={s.headerRow}>
+          <Feather name="cpu" size={16} color={colors.primary} />
+          <Text style={[s.title, { color: colors.foreground }]}>Grill Fingerprint</Text>
+          <View style={s.proPill}>
+            <Feather name="lock" size={9} color={colors.primary} />
+            <Text style={[s.proPillText, { color: colors.primary }]}>PRO</Text>
+          </View>
+        </View>
+        <View style={[s.emptyBox, { backgroundColor: colors.muted }]}>
+          <Feather name="info" size={14} color={colors.mutedForeground} />
+          <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
+            {grillName ? `Your ${grillName}'s` : "Your grill's"} fingerprint is building.
+            {" "}Upgrade to Pro to see how it compares to baselines.
+          </Text>
+        </View>
+        <View style={[s.unlockCta, { backgroundColor: colors.primary + "12" }]}>
+          <Feather name="arrow-up-right" size={12} color={colors.primary} />
+          <Text style={[s.unlockCtaText, { color: colors.primary }]}>Unlock with Pro</Text>
+        </View>
+      </Pressable>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -218,4 +277,25 @@ const s = StyleSheet.create({
   emptyBox: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, borderRadius: 8 },
   emptyText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1 },
   bodyMuted: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  proPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: "rgba(232,69,32,0.12)",
+  },
+  proPillText: { fontSize: 9.5, fontFamily: "Inter_700Bold", letterSpacing: 0.4 },
+  unlockCta: {
+    marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+  },
+  unlockCtaText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
 });
