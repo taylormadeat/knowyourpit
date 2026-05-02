@@ -2177,6 +2177,27 @@ export default function CookDetailScreen() {
                 gated AI content exists (suggestions, summary, or what-went-well).
                 Gated on isIdentityLinked so we don't flash the blur to Pro users
                 during the brief RevenueCat Phase-1→Phase-2 link window. */}
+            {/* Only render the placeholder when the cached state hasn't already
+                resolved as Pro — otherwise effectivePro=true would render the
+                real unlocked content below in the same frame, producing a
+                duplicate stack. */}
+            {!isIdentityLinked && !effectivePro && (
+              (storedAssessment?.suggestions?.length ?? 0) > 0 ||
+              (storedAssessment?.whatWentWell?.length ?? 0) > 0 ||
+              !!storedAssessment?.summary
+            ) && (
+              <View
+                style={{
+                  marginVertical: 8,
+                  height: 150,
+                  borderRadius: colors.radius,
+                  backgroundColor: colors.card,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  opacity: 0.4,
+                }}
+              />
+            )}
             {isIdentityLinked && !effectivePro && (
               (storedAssessment?.suggestions?.length ?? 0) > 0 ||
               (storedAssessment?.whatWentWell?.length ?? 0) > 0 ||

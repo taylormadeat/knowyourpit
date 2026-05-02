@@ -367,7 +367,7 @@ export default function ProfileScreen() {
               <Text style={[s.sectionTitle, { color: colors.foreground, flex: 1 }]}>
                 Your Cook Quality
               </Text>
-              {!effectivePro && (
+              {isIdentityLinked && !effectivePro && (
                 <View
                   style={{
                     flexDirection: "row",
@@ -399,7 +399,25 @@ export default function ProfileScreen() {
               />
             </Pressable>
 
-            {qualityExpanded && !effectivePro && (
+            {/* Skeleton placeholder while RC identity is being linked, so Pro
+                users never see the locked card flash before isIdentityLinked
+                resolves. */}
+            {qualityExpanded && !isIdentityLinked && (
+              <View
+                style={{
+                  marginHorizontal: 16,
+                  marginTop: 8,
+                  height: 92,
+                  borderRadius: colors.radius,
+                  backgroundColor: colors.card,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  opacity: 0.4,
+                }}
+              />
+            )}
+
+            {qualityExpanded && isIdentityLinked && !effectivePro && (
               <Pressable
                 onPress={() =>
                   showPaywall({
@@ -461,7 +479,7 @@ export default function ProfileScreen() {
               </Pressable>
             )}
 
-            {qualityExpanded && effectivePro && (
+            {qualityExpanded && isIdentityLinked && effectivePro && (
               <>
                 <View style={s.pillRow}>
                   {DATE_RANGE_OPTIONS.map((opt) => {
