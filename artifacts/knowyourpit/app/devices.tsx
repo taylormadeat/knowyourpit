@@ -174,7 +174,7 @@ export default function DevicesScreen() {
           <Pressable
             disabled={effectivePro || meaterStatus?.linked === true}
             onPress={() =>
-              showPaywall({ trigger: "pro_required", featureName: "MEATER Connection" })
+              showPaywall({ trigger: "pro_required", featureName: "Smart Probe Integration" })
             }
             accessibilityRole={!effectivePro && !meaterStatus?.linked ? "button" : undefined}
             accessibilityLabel={
@@ -200,6 +200,9 @@ export default function DevicesScreen() {
                   <Text style={[s.deviceName, { color: colors.foreground }]}>
                     MEATER Thermometer
                   </Text>
+                  {/* PRO badge in card header — Pattern B locked-state marker
+                      so free users see this is a Pro feature without needing
+                      to tap. Hidden once linked (Pro user with active link). */}
                   {!effectivePro && !meaterStatus?.linked && (
                     <View
                       style={{
@@ -293,7 +296,7 @@ export default function DevicesScreen() {
               <Pressable
                 onPress={() => {
                   if (!effectivePro) {
-                    showPaywall({ trigger: "pro_required", featureName: "MEATER Connection" });
+                    showPaywall({ trigger: "pro_required", featureName: "Smart Probe Integration" });
                     return;
                   }
                   setShowLinkForm(true);
@@ -357,7 +360,7 @@ export default function DevicesScreen() {
           <Pressable
             disabled={effectivePro || thermoworksStatus?.linked === true}
             onPress={() =>
-              showPaywall({ trigger: "pro_required", featureName: "ThermoWorks Connection" })
+              showPaywall({ trigger: "pro_required", featureName: "Smart Probe Integration" })
             }
             accessibilityRole={!effectivePro && !thermoworksStatus?.linked ? "button" : undefined}
             accessibilityLabel={
@@ -383,6 +386,8 @@ export default function DevicesScreen() {
                   <Text style={[s.deviceName, { color: colors.foreground }]}>
                     ThermoWorks Cloud
                   </Text>
+                  {/* PRO badge in card header — same Pattern B locked marker
+                      as the MEATER card above. */}
                   {!effectivePro && !thermoworksStatus?.linked && (
                     <View
                       style={{
@@ -476,7 +481,7 @@ export default function DevicesScreen() {
               <Pressable
                 onPress={() => {
                   if (!effectivePro) {
-                    showPaywall({ trigger: "pro_required", featureName: "ThermoWorks Connection" });
+                    showPaywall({ trigger: "pro_required", featureName: "Smart Probe Integration" });
                     return;
                   }
                   setShowThermoworksLinkForm(true);

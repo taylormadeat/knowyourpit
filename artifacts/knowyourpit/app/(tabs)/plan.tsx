@@ -767,7 +767,11 @@ export default function PlanScreen() {
           </Pressable>
         </View>
 
-        {/* ── Competition Mode entry card (Pro-gated) — visible in BOTH modes ── */}
+        {/* ── Competition Mode entry card (Pro-gated, Pattern B locked entry).
+            Always visible to free users with PRO badge + lock icon (rendered
+            below) and tap-to-paywall — a locked-but-visible entry point per
+            the spec, not a hidden gate. Pro users see the chevron and tap
+            opens the setup sheet. ── */}
         <Pressable
           onPress={() => {
             if (!effectivePro) {
@@ -821,11 +825,12 @@ export default function PlanScreen() {
           </LinearGradient>
         </Pressable>
 
-        {/* Visible-but-locked Multi-Cook teaser card for free users (Pattern B).
-            The toggle above also opens the paywall, but this card surfaces
-            the value proposition inline so free users see exactly what they
-            get with Pro instead of just an icon-and-chip on a toggle. */}
-        {!effectivePro && planMode === "single" && (
+        {/* Visible-but-locked Multi-Cook section for free users (Pattern B).
+            Always rendered when the user is not Pro (regardless of planMode)
+            so the multi-cook capability is *visible* — the section is shown
+            as a locked teaser card with PRO badge, lock icon, and Unlock CTA
+            instead of being hidden behind a toggle. Tap fires the paywall. */}
+        {!effectivePro && (
           <View style={{ marginBottom: 14 }}>
             <LockedFeatureCard
               featureName="Multi-Cook Sequencer"
