@@ -174,10 +174,11 @@ export const KCBS_BOX_RULES = KCBS_BOX_PACKING_REMINDERS;
 // max (10 + 25 + 25 = 60 per judge × 6 judges = 360). This is the figure shown
 // in the UI and validated against in the results-entry input.
 //
-// (For reference, the official KCBS rulebook uses a 1–9 scale with multipliers
-// of 0.5600 / 2.2972 / 1.1428 and drops the lowest judge's score, yielding a
-// 180 max. We follow the simpler 360-point model the product spec calls out
-// because it matches the consumer-facing "out of 360" framing.)
+// (Historical note: the official KCBS rulebook uses a different 1–9 weighted
+// system that yields a 180 max with the lowest judge's score dropped. We
+// intentionally follow the simpler 360-point model the product spec calls out
+// because it matches the consumer-facing "out of 360" framing. All in-app copy,
+// AI prompts, and validation reference the 360 model — do not mix the two.)
 export const KCBS_SCORING = {
   criteria: ["appearance", "taste", "texture"] as const,
   perJudgeWeights: { appearance: 10, taste: 25, texture: 25 } as const,
@@ -212,7 +213,7 @@ export function buildCompetitionContext(opts: CompetitionContextOptions): string
     lines.push(`Competition: ${opts.competitionName}`);
   }
   lines.push(
-    "This pitmaster is cooking a sanctioned KCBS BBQ competition. Each category has a strict turn-in time. Each entry is judged on Appearance (1–9), Taste (1–9), and Texture (1–9) by 6 judges; the lowest score is dropped. Coach for COMPETITION standards, not backyard.",
+    "This pitmaster is cooking a sanctioned KCBS BBQ competition. Each category has a strict turn-in time. Each entry is judged on Appearance (10 pts), Taste (25 pts), and Texture (25 pts) by 6 judges — 60 points per judge × 6 judges = 360 max per category (no dropped score). Coach for COMPETITION standards, not backyard.",
   );
   lines.push("");
   lines.push("Category-specific judging standards:");
