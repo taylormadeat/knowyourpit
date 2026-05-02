@@ -173,13 +173,13 @@ function defaultSubtitle(
     case "planned_cook_limit_reached":
       return "Free plan only allows one planned cook at a time.";
     case "ai_message_limit_reached":
-      return "Free plan includes 3 AI chats per day. Upgrade for unlimited.";
+      return "You've used your 3 free messages today. Upgrade to Pro for unlimited AI chat.";
     case "ai_analyze_limit_reached":
       return food
-        ? `Free plan includes 1 AI cook scan per day. Pro users get unlimited scans on every ${food} cook.`
-        : "Free plan includes 1 AI cook scan per day. Upgrade for unlimited.";
+        ? `You've used your 1 free analysis today. Upgrade to Pro for unlimited scans on every ${food} cook.`
+        : "You've used your 1 free analysis today. Upgrade to Pro for unlimited scans.";
     case "frozen_timeline_limit_reached":
-      return "Free plan includes one Frozen-to-Table cook plan. Upgrade to Pro for unlimited frozen-cook timelines.";
+      return "You've used your 1 free Frozen-to-Table timeline. Upgrade to Pro for unlimited frozen cook plans.";
     case "pro_required":
       return "Upgrade to Pro to unlock this and every other premium feature.";
     default:

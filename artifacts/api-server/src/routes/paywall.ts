@@ -107,7 +107,7 @@ router.post(
         code: "frozen_timeline_limit_reached",
         feature: "frozen_timeline",
         message:
-          "You've used your free Frozen-to-Table plan. Upgrade to Pro for unlimited frozen cook timelines.",
+          "You've used your 1 free Frozen-to-Table timeline. Upgrade to Pro for unlimited frozen cook plans.",
         limit: FREE_FROZEN_TIMELINE_LIFETIME_LIMIT,
         used: FREE_FROZEN_TIMELINE_LIFETIME_LIMIT,
       });

@@ -276,7 +276,7 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req, r
         limit: FREE_AI_ANALYZE_DAILY_LIMIT,
         used,
         resetsAt: startOfNextUtcDay().toISOString(),
-        message: `Free plan is capped at ${FREE_AI_ANALYZE_DAILY_LIMIT} AI cook analyses per day. Upgrade to Pro for unlimited.`,
+        message: `You've used your ${FREE_AI_ANALYZE_DAILY_LIMIT} free analysis today. Upgrade to Pro for unlimited cook analyses.`,
       });
       return;
     }

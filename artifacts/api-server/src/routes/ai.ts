@@ -305,7 +305,7 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
         limit: FREE_AI_CHAT_DAILY_LIMIT,
         used,
         resetsAt: startOfNextUtcDay().toISOString(),
-        message: `Free plan is capped at ${FREE_AI_CHAT_DAILY_LIMIT} AI chat messages per day. Upgrade to Pro for unlimited.`,
+        message: `You've used your ${FREE_AI_CHAT_DAILY_LIMIT} free messages today. Upgrade to Pro for unlimited AI chat.`,
       });
       return;
     }
@@ -394,7 +394,7 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
         limit: FREE_AI_CHAT_DAILY_LIMIT,
         used,
         resetsAt: startOfNextUtcDay().toISOString(),
-        message: `Free plan is capped at ${FREE_AI_CHAT_DAILY_LIMIT} AI chat messages per day. Upgrade to Pro for unlimited.`,
+        message: `You've used your ${FREE_AI_CHAT_DAILY_LIMIT} free messages today. Upgrade to Pro for unlimited AI chat.`,
       });
       return;
     }
