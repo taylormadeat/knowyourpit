@@ -168,15 +168,27 @@ export const KCBS_BOX_RULES = KCBS_BOX_PACKING_REMINDERS;
 
 // KCBS scoring system constants — exposed as a single block so the AI prompt
 // and UI can reference the same source of truth for "how a comp box is judged".
+//
+// Official KCBS scoring (per Kansas City Barbeque Society rules, current as of
+// the 2024 Cookbook): each entry is judged by 6 KCBS-certified judges on a
+// 1–9 integer scale across three criteria (Appearance, Taste, Texture). The
+// LOWEST of the 6 judges' totals is dropped; the remaining 5 are summed using
+// the official weighting factors:
+//   Appearance × 0.5600
+//   Taste      × 2.2972
+//   Texture    × 1.1428
+// Per-category max with all 9s from 5 retained judges:
+//   5 × (9·0.5600 + 9·2.2972 + 9·1.1428) = 5 × 36 = 180.
+//
+// NOTE: 180 is the official KCBS per-category max — NOT 360. The 360 figure
+// (10/25/25 × 6 judges, no drop) belongs to the Steak Cookoff Association
+// (SCA) and unrelated steak/burger contests. Do NOT change this to 360.
 export const KCBS_SCORING = {
   criteria: ["appearance", "taste", "texture"] as const,
   scoreRange: { min: 1, max: 9 } as const,
   judgesPerEntry: 6,
   lowestDropped: true,
-  // Maximum possible score per category if all 5 retained judges give a 9 on
-  // every criterion: 9 (apperance) * 0.5600 + 9 (taste) * 2.2972 + 9 (texture)
-  // * 1.1428 = 180. Stored as a constant so judge-score validation lives in
-  // one place.
+  weighting: { appearance: 0.5600, taste: 2.2972, texture: 1.1428 } as const,
   maxScore: 180,
 } as const;
 
