@@ -37,7 +37,7 @@ import { useCookLiveActivity } from "@/hooks/useCookLiveActivity";
 import { LogoBackground } from "@/components/LogoBackground";
 import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
 import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
-import { usePaywall } from "@/contexts/PaywallContext";
+import { usePaywall, type ShowOptions } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { useSubscription } from "@/contexts/SubscriptionContext";
@@ -1341,7 +1341,7 @@ function Cook2NudgeBanner({
   cookStatus: string | null | undefined;
   colors: any;
   effectivePro: boolean;
-  showPaywall: (opts: any) => void;
+  showPaywall: (opts: ShowOptions) => void;
   foodType: string | null;
 }) {
   const [dismissed, setDismissed] = useState<boolean | null>(null);

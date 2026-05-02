@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { PaywallModal, type PaywallTrigger } from "@/components/PaywallModal";
 
-interface ShowOptions {
+export interface ShowOptions {
   trigger?: PaywallTrigger;
   subtitle?: string | null;
   featureName?: string | null;

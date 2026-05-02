@@ -374,7 +374,7 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={{ gap: 10, paddingVertical: 4 }}
                   >
-                    {journeyCooks.map((cook: any, idx: number) => {
+                    {journeyCooks.map((cook: Cook, idx: number) => {
                       const cookFood = cook?.foodType ?? "Cook";
                       const dateStr = formatJourneyDate(
                         cook?.actualEndAt ?? cook?.actualStartAt ?? cook?.createdAt,
