@@ -3,12 +3,17 @@ import { View, Text } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { s } from "./styles";
+import { BlurredProSection } from "@/components/BlurredProSection";
+import type { ShowOptions } from "@/contexts/PaywallContext";
 
 type Colors = any;
 
 interface Props {
   c: any;
   colors: Colors;
+  effectivePro: boolean;
+  isIdentityLinked: boolean;
+  showPaywall: (opts?: ShowOptions) => void;
 }
 
 const URGENCY_COLORS: Record<string, string> = {
@@ -36,9 +41,15 @@ const fmtMins = (mins: number) => {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
-export function CheckInHistory({ c, colors }: Props) {
+export function CheckInHistory({ c, colors, effectivePro, isIdentityLinked, showPaywall }: Props) {
   const history: any[] = Array.isArray((c as any).analysisHistory) ? (c as any).analysisHistory : [];
   if (history.length === 0) return null;
+  // Free users (with confirmed RC identity) see only the most recent entry;
+  // the rest are blurred behind the Cook Coach paywall.
+  const reversed = [...history].reverse();
+  const isLocked = isIdentityLinked && !effectivePro && reversed.length > 1;
+  const visibleEntries = isLocked ? reversed.slice(0, 1) : reversed;
+  const hiddenCount = isLocked ? reversed.length - 1 : 0;
 
   return (
     <View style={[s.historySection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
@@ -55,7 +66,7 @@ export function CheckInHistory({ c, colors }: Props) {
           </Text>
         </View>
       </View>
-      {[...history].reverse().map((entry, i) => {
+      {visibleEntries.map((entry, i) => {
         const topDecision = (entry.decisions ?? [])[0];
         const urgencyColor = topDecision
           ? (topDecision.action === "maintain" ? "#22c55e" : (URGENCY_COLORS[topDecision.urgency] ?? "#6C3BF5"))
@@ -135,6 +146,33 @@ export function CheckInHistory({ c, colors }: Props) {
           </View>
         );
       })}
+      {isLocked && (
+        <BlurredProSection
+          featureName="Cook Coach Report"
+          teaser={`Upgrade to see ${hiddenCount} more ${hiddenCount === 1 ? "check-in" : "check-ins"} from this cook.`}
+          onPress={() =>
+            showPaywall({
+              trigger: "pro_required",
+              featureName: "Cook Coach Report",
+              foodType: c.foodType ?? null,
+            })
+          }
+          minHeight={140}
+          style={{ marginTop: 12 }}
+        >
+          <View style={{ padding: 14, gap: 8 }}>
+            <Text style={[s.historyTimestamp, { color: colors.foreground }]}>
+              Earlier check-in
+            </Text>
+            <Text style={[s.historySummary, { color: colors.mutedForeground }]} numberOfLines={2}>
+              The pit was running a touch hot and the bark was just starting to set…
+            </Text>
+            <Text style={[s.historySummary, { color: colors.mutedForeground }]} numberOfLines={2}>
+              A second check-in caught the stall and recommended a wrap…
+            </Text>
+          </View>
+        </BlurredProSection>
+      )}
     </View>
   );
 }

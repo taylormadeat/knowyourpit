@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet, type ViewStyle } from "react-native";
+import { View, Text, Pressable, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 import { BlurView } from "expo-blur";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
@@ -11,7 +11,7 @@ interface BlurredProSectionProps {
   intensity?: number;
   tint?: "light" | "dark" | "default";
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   /** Optional minimum height to keep the blur surface visible even when children are short. */
   minHeight?: number;
 }

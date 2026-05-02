@@ -1234,7 +1234,13 @@ export default function CookDetailScreen() {
 
 
         {/* ── Check-in History ─────────────────────────────── */}
-        <CheckInHistory c={c} colors={colors} />
+        <CheckInHistory
+          c={c}
+          colors={colors}
+          effectivePro={effectivePro}
+          isIdentityLinked={isIdentityLinked}
+          showPaywall={showPaywall}
+        />
 
         {/* Status action button */}
         {nextStatus && (

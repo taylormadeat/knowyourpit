@@ -7,9 +7,19 @@ import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
 import { BlurredProSection } from "@/components/BlurredProSection";
 import { EVENT_ICONS } from "./constants";
 import { fmtISOInText } from "./utils";
+import type { ShowOptions } from "@/contexts/PaywallContext";
+
+/** First N words of a string, with an ellipsis if truncated. Used to keep the
+ *  free-user summary teaser short enough to feel like a preview. */
+function firstWords(s: string | null | undefined, n: number): string {
+  if (!s) return "";
+  const words = s.trim().split(/\s+/);
+  if (words.length <= n) return s.trim();
+  return words.slice(0, n).join(" ") + "…";
+}
 
 type Colors = any;
-type ShowPaywall = (args?: any) => void;
+type ShowPaywall = (opts?: ShowOptions) => void;
 
 interface Props {
   c: any;
@@ -91,7 +101,9 @@ export function StoredAiAnalysis(p: Props) {
         )}
       </View>
 
-      {!isIdentityLinked && !effectivePro && (
+      {/* RC identity not yet linked: skeleton placeholder so Pro users don't
+          see a paywall flash on cold start. */}
+      {!isIdentityLinked && (
         (storedAssessment?.suggestions?.length ?? 0) > 0 ||
         (storedAssessment?.whatWentWell?.length ?? 0) > 0 ||
         !!storedAssessment?.summary
@@ -108,44 +120,10 @@ export function StoredAiAnalysis(p: Props) {
           }}
         />
       )}
-      {isIdentityLinked && !effectivePro && (
-        (storedAssessment?.suggestions?.length ?? 0) > 0 ||
-        (storedAssessment?.whatWentWell?.length ?? 0) > 0 ||
-        !!storedAssessment?.summary
-      ) && (
-        <BlurredProSection
-          featureName="Cook Coach"
-          teaser={`AI insights on your ${(c.foodType || "cook").toLowerCase()} — what worked, what to fix, and what to do next time.`}
-          onPress={() =>
-            showPaywall({
-              trigger: "pro_required",
-              featureName: "Cook Coach",
-              foodType: c.foodType ?? null,
-            })
-          }
-          minHeight={150}
-          style={{ marginVertical: 8 }}
-        >
-          {(storedAssessment?.suggestions?.length ?? 0) > 0 ? (
-            <View style={[s.keyTakeawayCard, { backgroundColor: "#A855F715", borderColor: "#A855F740" }]}>
-              <View style={s.keyTakeawayHeader}>
-                <Feather name="star" size={13} color="#A855F7" />
-                <Text style={[s.keyTakeawayLabel, { color: "#A855F7" }]}>
-                  {c.status === "active" ? "Do this now" : `For your next ${c.foodType || "cook"}`}
-                </Text>
-              </View>
-              <Text style={[s.keyTakeawayText, { color: colors.foreground }]}>
-                {storedAssessment!.suggestions![0]}
-              </Text>
-            </View>
-          ) : null}
-          {storedAssessment?.summary ? (
-            <Text style={[s.storedSummary, { color: colors.foreground }]}>{storedAssessment.summary}</Text>
-          ) : null}
-        </BlurredProSection>
-      )}
 
-      {effectivePro && (storedAssessment?.suggestions?.length ?? 0) > 0 && (
+      {/* Key Takeaway — VISIBLE to free users as the teaser. Pro users see the
+          full suggestions list further down. */}
+      {isIdentityLinked && (storedAssessment?.suggestions?.length ?? 0) > 0 && (
         <View style={[s.keyTakeawayCard, { backgroundColor: "#A855F715", borderColor: "#A855F740" }]}>
           <View style={s.keyTakeawayHeader}>
             <Feather name="star" size={13} color="#A855F7" />
@@ -159,8 +137,23 @@ export function StoredAiAnalysis(p: Props) {
         </View>
       )}
 
-      {effectivePro && storedAssessment?.summary ? (
-        <Text style={[s.storedSummary, { color: colors.foreground }]}>{storedAssessment.summary}</Text>
+      {/* Summary — Pro: full text. Free: first ~40 words with a bottom fade
+          gradient to suggest "there's more behind the paywall". */}
+      {isIdentityLinked && storedAssessment?.summary ? (
+        effectivePro ? (
+          <Text style={[s.storedSummary, { color: colors.foreground }]}>{storedAssessment.summary}</Text>
+        ) : (
+          <View style={{ position: "relative" }}>
+            <Text style={[s.storedSummary, { color: colors.foreground }]}>
+              {firstWords(storedAssessment.summary, 40)}
+            </Text>
+            <LinearGradient
+              colors={["transparent", colors.card]}
+              style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 24 }}
+              pointerEvents="none"
+            />
+          </View>
+        )
       ) : null}
 
       {storedGraphProbes.length > 0 && (
@@ -288,6 +281,59 @@ export function StoredAiAnalysis(p: Props) {
           </View>
         );
       })()}
+
+      {/* Free user: blurred placeholder for the full coach lists. We render
+          dummy bullets so the BlurView has shape; the real content is hidden
+          behind the lock. */}
+      {isIdentityLinked && !effectivePro && (
+        ((storedAssessment?.whatWentWell?.length ?? 0) > 0 ||
+          (storedAssessment?.suggestions?.length ?? 1) > 1)
+      ) && (
+        <BlurredProSection
+          featureName="Cook Coach Report"
+          teaser="See every win, every fix, and every next-time tip the AI found in this cook."
+          onPress={() =>
+            showPaywall({
+              trigger: "pro_required",
+              featureName: "Cook Coach Report",
+              foodType: c.foodType ?? null,
+            })
+          }
+          minHeight={180}
+          style={{ marginTop: 12 }}
+        >
+          <View style={{ padding: 14, gap: 10 }}>
+            <Text style={[s.subLabel, { color: colors.mutedForeground }]}>What Went Well</Text>
+            <View style={s.bulletRow}>
+              <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
+              <Text style={[s.bulletText, { color: colors.foreground }]}>
+                Pit temperature held steady through the stall…
+              </Text>
+            </View>
+            <View style={s.bulletRow}>
+              <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
+              <Text style={[s.bulletText, { color: colors.foreground }]}>
+                Bark formed evenly across the surface…
+              </Text>
+            </View>
+            <Text style={[s.subLabel, { color: colors.mutedForeground, marginTop: 6 }]}>
+              Next Time, Try This
+            </Text>
+            <View style={s.bulletRow}>
+              <Text style={[s.bulletNum, { color: "#A855F7" }]}>1</Text>
+              <Text style={[s.bulletText, { color: colors.foreground }]}>
+                Wrap a bit earlier when the bark sets…
+              </Text>
+            </View>
+            <View style={s.bulletRow}>
+              <Text style={[s.bulletNum, { color: "#A855F7" }]}>2</Text>
+              <Text style={[s.bulletText, { color: colors.foreground }]}>
+                Probe in two spots to confirm tenderness…
+              </Text>
+            </View>
+          </View>
+        </BlurredProSection>
+      )}
     </View>
   );
 }

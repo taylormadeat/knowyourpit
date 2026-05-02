@@ -9,7 +9,6 @@ import {
   Image,
   LayoutAnimation,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -26,6 +25,7 @@ import { useHomeInsights } from "@/hooks/useHomeInsights";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePaywall } from "@/contexts/PaywallContext";
+import { BlurredProSection } from "@/components/BlurredProSection";
 
 const logoImg = require("@/assets/images/logo.png");
 
@@ -458,14 +458,13 @@ export default function HomeScreen() {
               <View style={s.sectionAccent} />
               <Text style={[s.sectionTitle, { color: colors.foreground }]}>PitMaster Score</Text>
             </View>
-            <Pressable
+            <BlurredProSection
+              featureName="PitMaster Score"
+              teaser="See your real score, weekly insights, and AI tips from PitMaster."
               onPress={() =>
                 showPaywall({ trigger: "pro_required", featureName: "PitMaster Score" })
               }
-              style={({ pressed }) => [
-                s.blurScoreWrap,
-                { borderRadius: colors.radius, opacity: pressed ? 0.9 : 1 },
-              ]}
+              style={[s.blurScoreWrap, { borderRadius: colors.radius }]}
             >
               {/* Static card rendered underneath the blur — no API call */}
               <LinearGradient
@@ -502,25 +501,7 @@ export default function HomeScreen() {
                   </View>
                 </View>
               </LinearGradient>
-
-              {/* Blur + lock overlay */}
-              <BlurView
-                intensity={18}
-                tint="dark"
-                style={[StyleSheet.absoluteFill, { borderRadius: colors.radius, overflow: "hidden", alignItems: "center", justifyContent: "center" }]}
-              >
-                <View style={s.blurOverlay}>
-                  <View style={s.blurLockCircle}>
-                    <Feather name="lock" size={20} color="#fff" />
-                  </View>
-                  <Text style={s.blurUnlockTitle}>Unlock your PitMaster Score</Text>
-                  <Text style={s.blurUnlockSub}>Upgrade to Pro to see your real score, AI tips, and weekly insights</Text>
-                  <View style={s.blurCta}>
-                    <Text style={s.blurCtaText}>Upgrade to Pro →</Text>
-                  </View>
-                </View>
-              </BlurView>
-            </Pressable>
+            </BlurredProSection>
           </>
         ) : null}
 
