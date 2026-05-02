@@ -5,12 +5,25 @@ interface ShowOptions {
   trigger?: PaywallTrigger;
   subtitle?: string | null;
   featureName?: string | null;
+  /** Optional food type (e.g. "brisket", "ribs") for personalized headlines. */
+  foodType?: string | null;
+  /** Optional context label (e.g. "after first scan", "cook #4") for sub-copy nudges. */
+  featureContext?: string | null;
 }
+
+/** Optional overrides layered on top of error-derived paywall options. */
+type ParseExtras = Pick<ShowOptions, "foodType" | "featureContext">;
 
 interface PaywallContextValue {
   showPaywall: (opts?: ShowOptions) => void;
   hidePaywall: () => void;
-  parseAndShowFromError: (err: unknown) => boolean;
+  /**
+   * Parse a paywall payload out of an HTTP error and open the modal in a single
+   * call. Pass `extras` to layer foodType/featureContext personalization on top
+   * of the server-derived trigger/subtitle without losing the original message.
+   * Returns true when the error was recognized as a paywall payload.
+   */
+  parseAndShowFromError: (err: unknown, extras?: ParseExtras) => boolean;
 }
 
 const PaywallContext = createContext<PaywallContextValue | null>(null);
@@ -67,12 +80,18 @@ export function PaywallProvider({ children }: { children: React.ReactNode }) {
   const hidePaywall = useCallback(() => setVisible(false), []);
 
   const parseAndShowFromError = useCallback(
-    (err: unknown): boolean => {
+    (err: unknown, extras?: ParseExtras): boolean => {
       const payload = extractPaywallPayload(err);
       if (!payload) return false;
       const trigger = ERROR_CODE_TO_TRIGGER[payload.code] ?? "pro_required";
       const featureName = payload.feature ? FEATURE_LABELS[payload.feature] ?? null : null;
-      showPaywall({ trigger, subtitle: payload.message ?? null, featureName });
+      showPaywall({
+        trigger,
+        subtitle: payload.message ?? null,
+        featureName,
+        foodType: extras?.foodType ?? null,
+        featureContext: extras?.featureContext ?? null,
+      });
       return true;
     },
     [showPaywall],
@@ -92,6 +111,8 @@ export function PaywallProvider({ children }: { children: React.ReactNode }) {
         trigger={opts.trigger ?? null}
         subtitle={opts.subtitle ?? null}
         featureName={opts.featureName ?? null}
+        foodType={opts.foodType ?? null}
+        featureContext={opts.featureContext ?? null}
       />
     </PaywallContext.Provider>
   );

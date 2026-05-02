@@ -44,7 +44,6 @@ import {
   type MeatCut,
 } from "@/constants/meatCuts";
 import { useMeaterReadings, type MeaterProbe } from "@/hooks/useMeaterReadings";
-import { useSmokerProfile } from "@/hooks/useSmokerProfile";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
@@ -561,8 +560,6 @@ export default function PlanScreen() {
   const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
   const { data: meaterData } = useMeaterReadings();
   const activeProbes: MeaterProbe[] = meaterData?.linked ? (meaterData.probes ?? []) : [];
-
-  const { data: smokerProfile } = useSmokerProfile();
 
   const selectProbe = (probe: MeaterProbe) => {
     if (selectedProbeId === probe.deviceId) {
@@ -2504,34 +2501,6 @@ const s = StyleSheet.create({
     borderWidth: 1,
   },
   dismissBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
-
-  // Smoker profile card
-  smokerProfileCard: {
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 16,
-    gap: 10,
-  },
-  smokerProfileHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-  },
-  smokerProfileTitle: { fontSize: 13, fontFamily: "Inter_700Bold", flex: 1 },
-  smokerProfileSub: { fontSize: 11, fontFamily: "Inter_400Regular" },
-  smokerProfileChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  smokerChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  smokerChipLabel: { fontSize: 10, fontFamily: "Inter_500Medium", marginBottom: 1 },
-  smokerChipValue: { fontSize: 12, fontFamily: "Inter_700Bold" },
-  smokerProfileHint: { fontSize: 11, fontFamily: "Inter_400Regular", fontStyle: "italic" },
 
   // Modals
   modalOverlay: {

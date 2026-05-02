@@ -95,6 +95,10 @@ interface PaywallModalProps {
   subtitle?: string | null;
   /** Optional feature label for "pro_required" triggers (e.g. "Multi-Cook Sequencer"). */
   featureName?: string | null;
+  /** Optional food type (e.g. "brisket", "ribs") used to personalize the headline / sub-copy. */
+  foodType?: string | null;
+  /** Optional contextual hint (e.g. "after first scan", "cook #4") shown as a secondary nudge under the subtitle. */
+  featureContext?: string | null;
 }
 
 const FEATURES = [
@@ -105,28 +109,57 @@ const FEATURES = [
   { icon: "layers", title: "Multi-Cook Sequencer", desc: "Plan brisket + ribs + sides on one timeline." },
   { icon: "calendar", title: "Multiple active & planned cooks", desc: "Run more than one cook at a time and queue up future cooks." },
   { icon: "bar-chart-2", title: "Cook Quality Analytics", desc: "See your tenderness, bark, and flavor trends over time." },
+  { icon: "cpu", title: "Grill Fingerprint", desc: "AI learns your grill's unique heat quirks across every cook and calibrates your plans to match." },
+  { icon: "wind", title: "Frozen-to-Table Planner", desc: "Full timeline from freezer to table — every thaw, rest, and smoke step timed perfectly." },
+  { icon: "award", title: "Competition Mode", desc: "KCBS-ready plans with staggered turn-in times for Chicken, Ribs, Pork, and Brisket." },
+  { icon: "cloud", title: "Cook-Day Weather Forecast", desc: "See the forecast before you fire up so you can adjust smoke time for wind and cold." },
 ];
 
-function triggerHeadline(trigger: PaywallTrigger | null | undefined, featureName?: string | null): string {
+/** Lower-case the food noun for inline use ("brisket cook", not "Brisket cook"). */
+function normalizeFoodType(raw?: string | null): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  return trimmed.toLowerCase();
+}
+
+function triggerHeadline(
+  trigger: PaywallTrigger | null | undefined,
+  featureName?: string | null,
+  foodType?: string | null,
+): string {
+  const food = normalizeFoodType(foodType);
   switch (trigger) {
     case "cook_limit_reached":
-      return "You've hit your free cook limit";
+      return food
+        ? `Want to log this ${food} cook?`
+        : "You've hit your free cook limit";
     case "active_cook_limit_reached":
       return "You already have an active cook";
     case "planned_cook_limit_reached":
       return "You already have a planned cook";
     case "ai_message_limit_reached":
-      return "You've used your free AI chats today";
+      return food
+        ? `Out of free chats — and your ${food} is on the smoker`
+        : "You've used your free AI chats today";
     case "ai_analyze_limit_reached":
-      return "You've used your free AI scans today";
+      return food
+        ? `Want PitMaster's tips on your ${food}?`
+        : "You've used your free AI scans today";
     case "pro_required":
-      return featureName ? `${featureName} is a Pro feature` : "Unlock Pro";
+      if (featureName && food) return `${featureName} for your ${food} cook`;
+      if (featureName) return `${featureName} is a Pro feature`;
+      return "Unlock Pro";
     default:
       return "Unlock knowyourpit Pro";
   }
 }
 
-function defaultSubtitle(trigger: PaywallTrigger | null | undefined): string {
+function defaultSubtitle(
+  trigger: PaywallTrigger | null | undefined,
+  foodType?: string | null,
+): string {
+  const food = normalizeFoodType(foodType);
   switch (trigger) {
     case "cook_limit_reached":
       return "Free plan is capped at 3 cooks. Upgrade for unlimited logging.";
@@ -137,7 +170,9 @@ function defaultSubtitle(trigger: PaywallTrigger | null | undefined): string {
     case "ai_message_limit_reached":
       return "Free plan includes 3 AI chats per day. Upgrade for unlimited.";
     case "ai_analyze_limit_reached":
-      return "Free plan includes 1 AI cook scan per day. Upgrade for unlimited.";
+      return food
+        ? `Free plan includes 1 AI cook scan per day. Pro users get unlimited scans on every ${food} cook.`
+        : "Free plan includes 1 AI cook scan per day. Upgrade for unlimited.";
     case "pro_required":
       return "Upgrade to Pro to unlock this and every other premium feature.";
     default:
@@ -153,7 +188,7 @@ function periodLabel(p?: string | null): string {
   return `/ ${p.replace(/^P/, "").toLowerCase()}`;
 }
 
-export function PaywallModal({ visible, onClose, trigger, subtitle, featureName }: PaywallModalProps) {
+export function PaywallModal({ visible, onClose, trigger, subtitle, featureName, foodType, featureContext }: PaywallModalProps) {
   const colors = useColors();
   const {
     isReady,
@@ -224,8 +259,14 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName 
               <Feather name="award" size={12} color="#E84520" />
               <Text style={styles.proBadgeText}>knowyourpit PRO</Text>
             </View>
-            <Text style={styles.headline}>{triggerHeadline(trigger, featureName)}</Text>
-            <Text style={styles.subhead}>{subtitle ?? defaultSubtitle(trigger)}</Text>
+            <Text style={styles.headline}>{triggerHeadline(trigger, featureName, foodType)}</Text>
+            <Text style={styles.subhead}>{subtitle ?? defaultSubtitle(trigger, foodType)}</Text>
+            {featureContext ? (
+              <View style={styles.contextChip}>
+                <Feather name="info" size={11} color="#F59E0B" />
+                <Text style={styles.contextChipText}>{featureContext}</Text>
+              </View>
+            ) : null}
           </LinearGradient>
 
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
@@ -434,6 +475,22 @@ const styles = StyleSheet.create({
   proBadgeText: { color: "#E84520", fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 0.6 },
   headline: { color: "#F0E8D5", fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 6, marginRight: 30 },
   subhead: { color: "rgba(240,232,213,0.7)", fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  contextChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(245,158,11,0.15)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+    marginTop: 12,
+  },
+  contextChipText: {
+    color: "#F59E0B",
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
   featureList: { paddingHorizontal: 20, paddingTop: 18 },
   featureRow: {
     flexDirection: "row",

@@ -39,6 +39,8 @@ import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
 import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
+import { useEffectivePro } from "@/hooks/useEffectivePro";
+import { BlurredProSection } from "@/components/BlurredProSection";
 
 import {
   useGetCook,
@@ -322,6 +324,7 @@ export default function CookDetailScreen() {
   const analyzeMutation = useAnalyzeCook();
   const { showPaywall, parseAndShowFromError } = usePaywall();
   const { data: paywallUsage } = usePaywallUsage();
+  const effectivePro = useEffectivePro();
 
   const [images, setImages] = useState<PickedImage[]>([]);
   const [cookNotes, setCookNotes] = useState("");
@@ -1047,7 +1050,9 @@ export default function CookDetailScreen() {
         return;
       }
       // Free user hit the daily AI scan cap → upgrade modal.
-      if (parseAndShowFromError(e)) return;
+      // Pass foodType so the modal headline can personalize ("Want PitMaster's tips on your brisket?")
+      // while still preserving the server-derived trigger and subtitle from the 402 payload.
+      if (parseAndShowFromError(e, { foodType: c?.foodType ?? null })) return;
       Alert.alert("Analysis failed", "Could not analyze the cook. Please check your connection and try again.");
     } finally {
       if (!auto) setAnalyzing(false);
@@ -1187,8 +1192,12 @@ export default function CookDetailScreen() {
   // banner is about the every-30-minute live grade being Pro-only, not
   // about hitting a lifetime cap.
   const onUpgradeAutoGradePress = useCallback(() => {
-    showPaywall({ trigger: "pro_required", featureName: "Live auto-grading" });
-  }, [showPaywall]);
+    showPaywall({
+      trigger: "pro_required",
+      featureName: "Live auto-grading",
+      foodType: (cook as any)?.foodType ?? null,
+    });
+  }, [showPaywall, cook]);
 
   if (isLoading) {
     return (
@@ -2156,8 +2165,49 @@ export default function CookDetailScreen() {
               )}
             </View>
 
-            {/* Key Takeaway — top suggestion surfaced immediately */}
-            {(storedAssessment?.suggestions?.length ?? 0) > 0 && (
+            {/* Cook Coach teaser — free users see a blurred preview of the AI insights
+                they'd unlock with Pro. Factual data (graph, probes, timeline) below
+                stays visible so the cook log still feels useful. Shown whenever ANY
+                gated AI content exists (suggestions, summary, or what-went-well). */}
+            {!effectivePro && (
+              (storedAssessment?.suggestions?.length ?? 0) > 0 ||
+              (storedAssessment?.whatWentWell?.length ?? 0) > 0 ||
+              !!storedAssessment?.summary
+            ) && (
+              <BlurredProSection
+                featureName="Cook Coach"
+                teaser={`AI insights on your ${(c.foodType || "cook").toLowerCase()} — what worked, what to fix, and what to do next time.`}
+                onPress={() =>
+                  showPaywall({
+                    trigger: "pro_required",
+                    featureName: "Cook Coach",
+                    foodType: c.foodType ?? null,
+                  })
+                }
+                minHeight={150}
+                style={{ marginVertical: 8 }}
+              >
+                {(storedAssessment?.suggestions?.length ?? 0) > 0 ? (
+                  <View style={[s.keyTakeawayCard, { backgroundColor: "#A855F715", borderColor: "#A855F740" }]}>
+                    <View style={s.keyTakeawayHeader}>
+                      <Feather name="star" size={13} color="#A855F7" />
+                      <Text style={[s.keyTakeawayLabel, { color: "#A855F7" }]}>
+                        {c.status === "active" ? "Do this now" : `For your next ${c.foodType || "cook"}`}
+                      </Text>
+                    </View>
+                    <Text style={[s.keyTakeawayText, { color: colors.foreground }]}>
+                      {storedAssessment!.suggestions![0]}
+                    </Text>
+                  </View>
+                ) : null}
+                {storedAssessment?.summary ? (
+                  <Text style={[s.storedSummary, { color: colors.foreground }]}>{storedAssessment.summary}</Text>
+                ) : null}
+              </BlurredProSection>
+            )}
+
+            {/* Key Takeaway — top suggestion surfaced immediately (Pro-only) */}
+            {effectivePro && (storedAssessment?.suggestions?.length ?? 0) > 0 && (
               <View style={[s.keyTakeawayCard, { backgroundColor: "#A855F715", borderColor: "#A855F740" }]}>
                 <View style={s.keyTakeawayHeader}>
                   <Feather name="star" size={13} color="#A855F7" />
@@ -2171,7 +2221,7 @@ export default function CookDetailScreen() {
               </View>
             )}
 
-            {storedAssessment?.summary ? (
+            {effectivePro && storedAssessment?.summary ? (
               <Text style={[s.storedSummary, { color: colors.foreground }]}>{storedAssessment.summary}</Text>
             ) : null}
 
@@ -2243,7 +2293,7 @@ export default function CookDetailScreen() {
               );
             })()}
 
-            {(storedAssessment?.whatWentWell?.length ?? 0) > 0 && (() => {
+            {effectivePro && (storedAssessment?.whatWentWell?.length ?? 0) > 0 && (() => {
               const isOpen = expandedStoredSections.has("wentWell");
               const items: string[] = storedAssessment!.whatWentWell;
               return (
@@ -2272,7 +2322,7 @@ export default function CookDetailScreen() {
               );
             })()}
 
-            {(storedAssessment?.suggestions?.length ?? 0) > 0 && (() => {
+            {effectivePro && (storedAssessment?.suggestions?.length ?? 0) > 0 && (() => {
               const isOpen = expandedStoredSections.has("nextTime");
               const tips: string[] = storedAssessment!.suggestions;
               return (
