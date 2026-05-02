@@ -23,8 +23,10 @@ const C = {
 // after the print dialog closes via the `afterprint` event so subsequent
 // prints (with different page sizes) start from a clean slate. A 60s
 // fallback timer catches the rare browser case where afterprint never
-// fires.
-function printTemplate(printId: string, widthIn: number, heightIn: number) {
+// fires. Pixel dimensions are converted to inches at 96dpi for @page.
+function printTemplate(printId: string, widthPx: number, heightPx: number) {
+  const widthIn = widthPx / 96;
+  const heightIn = heightPx / 96;
   const STYLE_ID = "kit-print-style";
   document.getElementById(STYLE_ID)?.remove();
   const style = document.createElement("style");
@@ -128,8 +130,6 @@ function TemplateCard({
 }: TemplateCardProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
-  const widthIn = widthPx / 96;
-  const heightIn = heightPx / 96;
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:p-6">
@@ -159,7 +159,7 @@ function TemplateCard({
           )}
           <button
             type="button"
-            onClick={() => printTemplate(printId, widthIn, heightIn)}
+            onClick={() => printTemplate(printId, widthPx, heightPx)}
             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-white/10 border border-white/15 text-foreground text-sm font-semibold md:hover:bg-white/15 active:scale-95 transition-all"
           >
             <Printer className="w-4 h-4" />
