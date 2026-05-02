@@ -77,6 +77,7 @@ async function downloadPng(
   filename: string,
 ) {
   if (!el) return;
+  const printId = el.getAttribute("data-print-id");
   const canvas = await html2canvas(el, {
     backgroundColor: null,
     width: widthPx,
@@ -86,11 +87,18 @@ async function downloadPng(
     scale: 1,
     useCORS: true,
     logging: false,
-    onclone: (_doc, cloned) => {
+    onclone: (clonedDoc, clonedEl) => {
       // The live element is rendered scaled-down for the on-screen preview.
       // Reset that scale on the clone so the canvas captures the template at
-      // its full native pixel dimensions.
-      const target = cloned as HTMLElement;
+      // its full native pixel dimensions. The two-arg form of onclone is the
+      // documented signature in html2canvas 1.4.x, but we fall back to a
+      // querySelector lookup if the second arg is ever absent.
+      const target =
+        (clonedEl as HTMLElement | undefined) ??
+        (printId
+          ? clonedDoc.querySelector<HTMLElement>(`[data-print-id="${printId}"]`)
+          : null);
+      if (!target) return;
       target.style.transform = "none";
       target.style.width = `${widthPx}px`;
       target.style.height = `${heightPx}px`;
@@ -303,7 +311,8 @@ function IGSquare() {
             textAlign: "center",
           }}
         >
-          AI that reads <em style={{ color: C.orange, fontStyle: "normal" }}>your</em> cook data.
+          PitMaster AI reads <em style={{ color: C.orange, fontStyle: "normal" }}>your</em> cook
+          data.
         </p>
         <div
           style={{
@@ -427,7 +436,8 @@ function IGStory() {
               fontWeight: 500,
             }}
           >
-            Decisions from <em style={{ color: C.orange, fontStyle: "normal" }}>your</em> data.
+            PitMaster decisions from <em style={{ color: C.orange, fontStyle: "normal" }}>your</em>{" "}
+            data.
           </p>
         </div>
         <div
@@ -527,8 +537,8 @@ function TwitterCard() {
           {HEADLINE}
         </h2>
         <p style={{ marginTop: 20, fontSize: 24, color: C.cream, opacity: 0.85 }}>
-          AI that reads <em style={{ color: C.orange, fontStyle: "normal" }}>your</em> cook data —
-          temperatures, history, your specific rig.
+          PitMaster AI reads <em style={{ color: C.orange, fontStyle: "normal" }}>your</em> cook
+          data — temperatures, history, your specific rig.
         </p>
         <div style={{ marginTop: 36, display: "flex", alignItems: "center", gap: 20 }}>
           <div style={{ background: "#fff", padding: 10, borderRadius: 12 }}>
@@ -770,7 +780,7 @@ function QrHandoutCard() {
             letterSpacing: 0.8,
           }}
         >
-          Free on iOS · Scan to install
+          PitMaster AI · Free on iOS
         </p>
         <p style={{ margin: "1px 0 0 0", fontSize: 12, fontWeight: 800, color: C.orange }}>
           knowyourpit.com
