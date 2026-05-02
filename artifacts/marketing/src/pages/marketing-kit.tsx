@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Download, Printer, ArrowRight } from "lucide-react";
+import { Download, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import html2canvas from "html2canvas";
 
@@ -100,6 +100,50 @@ async function downloadPng(
   link.download = filename;
   link.href = canvas.toDataURL("image/png");
   link.click();
+}
+
+// Inline "Download on the App Store" badge — black pill with the Apple
+// glyph + two-line "Download on the / App Store" text. Sized via the
+// `height` prop so each template can use a consistent footprint.
+function AppStoreBadge({ height = 56 }: { height?: number }) {
+  const padX = height * 0.35;
+  const iconSize = height * 0.5;
+  const small = height * 0.22;
+  const big = height * 0.42;
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: height * 0.18,
+        height,
+        paddingLeft: padX,
+        paddingRight: padX,
+        background: "#000",
+        color: "#fff",
+        borderRadius: height * 0.18,
+        border: "1.5px solid #fff",
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif',
+        lineHeight: 1.05,
+      }}
+    >
+      <svg
+        width={iconSize}
+        height={iconSize}
+        viewBox="0 0 24 24"
+        fill="#fff"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+      </svg>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        <span style={{ fontSize: small, fontWeight: 400, opacity: 0.95 }}>Download on the</span>
+        <span style={{ fontSize: big, fontWeight: 600, letterSpacing: -0.2 }}>App Store</span>
+      </div>
+    </div>
+  );
 }
 
 // ─────────────────────────── TemplateCard ───────────────────────────
@@ -273,26 +317,14 @@ function IGSquare() {
           <div style={{ background: "#fff", padding: 16, borderRadius: 16 }}>
             <QRCodeSVG value={SITE_URL} size={160} bgColor="#fff" fgColor={C.dark} level="M" />
           </div>
-          <div style={{ textAlign: "right" }}>
-            <p style={{ fontSize: 26, color: C.cream, opacity: 0.7, margin: 0 }}>Available on</p>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 16 }}>
+            <AppStoreBadge height={88} />
             <p
               style={{
-                fontSize: 56,
-                fontWeight: 900,
-                color: "#fff",
-                margin: 0,
-                lineHeight: 1.1,
-              }}
-            >
-              iOS
-            </p>
-            <p
-              style={{
-                fontSize: 22,
+                fontSize: 26,
                 color: C.orange,
                 margin: 0,
-                marginTop: 6,
-                fontWeight: 600,
+                fontWeight: 700,
               }}
             >
               knowyourpit.com
@@ -410,21 +442,18 @@ function IGStory() {
           <div style={{ background: "#fff", padding: 24, borderRadius: 24 }}>
             <QRCodeSVG value={SITE_URL} size={220} bgColor="#fff" fgColor={C.dark} level="M" />
           </div>
-          <div
+          <AppStoreBadge height={110} />
+          <p
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              padding: "20px 36px",
-              borderRadius: 100,
-              background: C.orange,
-              color: "#fff",
+              margin: 0,
+              fontSize: 32,
+              color: C.orange,
               fontWeight: 800,
-              fontSize: 38,
+              letterSpacing: 1,
             }}
           >
-            Available on iOS <ArrowRight style={{ width: 36, height: 36 }} />
-          </div>
+            knowyourpit.com
+          </p>
         </div>
       </div>
     </>
@@ -501,13 +530,13 @@ function TwitterCard() {
           AI that reads <em style={{ color: C.orange, fontStyle: "normal" }}>your</em> cook data —
           temperatures, history, your specific rig.
         </p>
-        <div style={{ marginTop: 40, display: "flex", alignItems: "center", gap: 24 }}>
+        <div style={{ marginTop: 36, display: "flex", alignItems: "center", gap: 20 }}>
           <div style={{ background: "#fff", padding: 10, borderRadius: 12 }}>
             <QRCodeSVG value={SITE_URL} size={110} bgColor="#fff" fgColor={C.dark} level="M" />
           </div>
-          <div>
-            <p style={{ margin: 0, fontSize: 18, color: C.cream, opacity: 0.7 }}>Free on iOS</p>
-            <p style={{ margin: 0, fontSize: 28, fontWeight: 800, color: "#fff" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <AppStoreBadge height={62} />
+            <p style={{ margin: 0, fontSize: 22, fontWeight: 800, color: C.orange }}>
               knowyourpit.com
             </p>
           </div>
