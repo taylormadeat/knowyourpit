@@ -84,6 +84,25 @@ export const KCBS_BOX_PACKING_REMINDERS: string[] = [
   "Wipe sauce drips off the inside lip — judges deduct on appearance for sloppy presentation.",
 ];
 
+// Spec alias: the canonical name for the box-packing rules used by the AI prompt
+// + UI is `KCBS_BOX_PACKING_REMINDERS`. Re-exported under the spec's name
+// `KCBS_BOX_RULES` so docs / future consumers can use either identifier.
+export const KCBS_BOX_RULES = KCBS_BOX_PACKING_REMINDERS;
+
+// KCBS scoring system constants — exposed as a single block so the AI prompt
+// and UI can reference the same source of truth for "how a comp box is judged".
+export const KCBS_SCORING = {
+  criteria: ["appearance", "taste", "texture"] as const,
+  scoreRange: { min: 1, max: 9 } as const,
+  judgesPerEntry: 6,
+  lowestDropped: true,
+  // Maximum possible score per category if all 5 retained judges give a 9 on
+  // every criterion: 9 (apperance) * 0.5600 + 9 (taste) * 2.2972 + 9 (texture)
+  // * 1.1428 = 180. Stored as a constant so judge-score validation lives in
+  // one place.
+  maxScore: 180,
+} as const;
+
 // Per-category turn-in box checklist — surfaced as the body of the
 // "Pack the turn-in box" timeline step in the competition session view so
 // pitmasters get category-specific cues 15 minutes before turn-in.

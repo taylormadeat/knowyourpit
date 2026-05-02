@@ -1095,7 +1095,7 @@ export default function SessionDetailScreen() {
                               color: colors.foreground,
                             },
                           ]}
-                          placeholder="—"
+                          placeholder="1, 2, 3… or DNP"
                           placeholderTextColor={colors.mutedForeground}
                           value={draft.placement}
                           onChangeText={(v) =>
@@ -1106,6 +1106,40 @@ export default function SessionDetailScreen() {
                           }
                           keyboardType="number-pad"
                         />
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                          <Pressable
+                            onPress={() =>
+                              setResultsDraft((p) => ({
+                                ...p,
+                                [c.id]: { ...draft, placement: "0" },
+                              }))
+                            }
+                            style={({ pressed }) => [
+                              {
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                                borderRadius: 6,
+                                borderWidth: 1,
+                                borderColor: draft.placement === "0" ? "#6B7280" : colors.border,
+                                backgroundColor: draft.placement === "0" ? "#6B728022" : "transparent",
+                                opacity: pressed ? 0.7 : 1,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={{
+                                color: draft.placement === "0" ? "#6B7280" : colors.mutedForeground,
+                                fontFamily: "Inter_700Bold",
+                                fontSize: 11,
+                              }}
+                            >
+                              Mark as DNP
+                            </Text>
+                          </Pressable>
+                          <Text style={{ color: colors.mutedForeground, fontSize: 10, flex: 1 }}>
+                            Tap if this entry didn't place (Did Not Place).
+                          </Text>
+                        </View>
                       </View>
                       <View style={s.resultsModalField}>
                         <Text style={[s.resultsModalFieldLabel, { color: colors.mutedForeground }]}>
