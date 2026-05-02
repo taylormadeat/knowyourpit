@@ -728,6 +728,60 @@ export default function PlanScreen() {
           </Pressable>
         </View>
 
+        {/* ── Competition Mode entry card (Pro-gated) — visible in BOTH modes ── */}
+        <Pressable
+          onPress={() => {
+            if (!effectivePro) {
+              showPaywall({ trigger: "pro_required", featureName: "Competition Mode" });
+              return;
+            }
+            setCompetitionSetupOpen(true);
+          }}
+          style={{ marginBottom: 14 }}
+        >
+          <LinearGradient
+            colors={["#EAB308", "#F59E0B"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              borderRadius: colors.radius,
+              padding: 14,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <View
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: "rgba(255,255,255,0.22)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Feather name="award" size={18} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={{ fontFamily: "Inter_700Bold", color: "#fff", fontSize: 14 }}>
+                  KCBS Competition Mode
+                </Text>
+                {!effectivePro && (
+                  <View style={{ backgroundColor: "rgba(0,0,0,0.25)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 9 }}>PRO</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={{ fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.92)", fontSize: 11, marginTop: 2 }}>
+                Plan a sanctioned cook with per-category turn-in times + box-pack alarms.
+              </Text>
+            </View>
+            <Feather name={effectivePro ? "chevron-right" : "lock"} size={18} color="#fff" />
+          </LinearGradient>
+        </Pressable>
+
         {planMode === "single" && (<>
 
         {/* ── Cook Name ── */}
@@ -1452,60 +1506,6 @@ export default function PlanScreen() {
 
         {/* ════ MULTI-COOK SEQUENCER ════ */}
         {planMode === "multi" && (<>
-
-        {/* ── Competition Mode entry card (Pro-gated) ── */}
-        <Pressable
-          onPress={() => {
-            if (!effectivePro) {
-              showPaywall({ trigger: "pro_required", featureName: "Competition Mode" });
-              return;
-            }
-            setCompetitionSetupOpen(true);
-          }}
-          style={{ marginBottom: 14 }}
-        >
-          <LinearGradient
-            colors={["#EAB308", "#F59E0B"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              borderRadius: colors.radius,
-              padding: 14,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-            }}
-          >
-            <View
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                backgroundColor: "rgba(255,255,255,0.22)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Feather name="award" size={18} color="#fff" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Text style={{ fontFamily: "Inter_700Bold", color: "#fff", fontSize: 14 }}>
-                  KCBS Competition Mode
-                </Text>
-                {!effectivePro && (
-                  <View style={{ backgroundColor: "rgba(0,0,0,0.25)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                    <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 9 }}>PRO</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={{ fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.92)", fontSize: 11, marginTop: 2 }}>
-                Plan a sanctioned cook with per-category turn-in times + box-pack alarms.
-              </Text>
-            </View>
-            <Feather name={effectivePro ? "chevron-right" : "lock"} size={18} color="#fff" />
-          </LinearGradient>
-        </Pressable>
 
         {/* Serve By (shared with single via serveAt state) */}
         <Label colors={colors}>When do you want to serve?</Label>

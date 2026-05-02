@@ -1116,7 +1116,7 @@ export default function SessionDetailScreen() {
                               color: colors.foreground,
                             },
                           ]}
-                          placeholder="1, 2, 3… or DNP"
+                          placeholder="1, 2, 3… (or tap DNP below)"
                           placeholderTextColor={colors.mutedForeground}
                           value={draft.placement}
                           onChangeText={(v) =>
