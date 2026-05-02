@@ -161,8 +161,28 @@ export default function PlanScreen() {
   // ── Plan mode ─────────────────────────────────────────────────────────
   const [planMode, setPlanMode] = useState<"single" | "multi">("single");
 
+  // ── Pro / paywall plumbing (declared before weather so the forecast hook
+  //     can be gated on entitlement). ─────────────────────────────────────
+  const { showPaywall, parseAndShowFromError } = usePaywall();
+  const { data: paywallUsage } = usePaywallUsage();
+  const effectivePro = useEffectivePro();
+
   // ── Weather ───────────────────────────────────────────────────────────
-  const weather = useAmbientWeather();
+  // Pro users planning a future cook get the forecast for that day; everyone
+  // else (free users on a future date, or anyone on a same-day cook) sees
+  // current conditions. The hook itself just fetches — entitlement gating is
+  // here, and the AI submit handlers also block free users hitting the
+  // forecast path before any network call.
+  const isFutureCookDay = useMemo(() => {
+    const now = new Date();
+    return !(
+      serveAt.getFullYear() === now.getFullYear() &&
+      serveAt.getMonth() === now.getMonth() &&
+      serveAt.getDate() === now.getDate()
+    ) && serveAt.getTime() > now.getTime();
+  }, [serveAt]);
+  const weatherTargetDate = effectivePro && isFutureCookDay ? serveAt : null;
+  const weather = useAmbientWeather(weatherTargetDate);
 
   // ── AI predict state ──────────────────────────────────────────────────
   const aiPredict = useAiPredict();
@@ -172,9 +192,6 @@ export default function PlanScreen() {
   // ── Multi-cook state ──────────────────────────────────────────────────
   interface MultiItem { cut: MeatCut; weightLbs: string; grillId: number | null; }
   const aiMultiCook = useAiMultiCook();
-  const { showPaywall, parseAndShowFromError } = usePaywall();
-  const { data: paywallUsage } = usePaywallUsage();
-  const effectivePro = useEffectivePro();
 
   // Mount-time gate: if the user has hit the total cook cap, fire the paywall
   // immediately so the form is never usable when it can't succeed.
@@ -278,6 +295,17 @@ export default function PlanScreen() {
       Alert.alert("Select a Meat Cut First", "Choose a meat cut so PitMaster can tailor the plan.");
       return;
     }
+    // Pro gate for cook-day forecasts. Free users planning a future cook
+    // get the paywall instead of having today's weather silently misapplied
+    // to tomorrow's cook.
+    if (isFutureCookDay && !effectivePro) {
+      showPaywall({
+        trigger: "pro_required",
+        featureName: "Cook-Day Weather Forecast",
+        subtitle: "Pro plans use the forecast for your cook day so weather adjustments line up with the day you're actually cooking.",
+      });
+      return;
+    }
     try {
       const result = await aiPredict.mutateAsync({
         data: {
@@ -289,6 +317,7 @@ export default function PlanScreen() {
           desiredFinishAt: serveAt instanceof Date ? serveAt.toISOString() : serveAt,
           preheatMinutes: preheatMinsForGrill(selectedGrill),
           outdoorTempF: weather.tempF ?? undefined,
+          outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
         },
       });
       setAiResult(result);
@@ -328,6 +357,7 @@ export default function PlanScreen() {
           }),
           serveAt: serveAt.toISOString(),
           outdoorTempF: weather.tempF ?? undefined,
+          outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
         },
       });
       setMultiResult(result as any);
@@ -986,28 +1016,22 @@ export default function PlanScreen() {
         </View>
 
         {/* ── Outdoor Temperature Strip ── */}
-        {!weather.locationDenied && ((weather.loading && weather.tempF == null) || weather.tempF != null) && (
-          <View style={[s.weatherStrip, { borderColor: colors.border }]}>
-            <Feather
-              name={weatherIcon(weather.conditionCode) as any}
-              size={13}
-              color={colors.mutedForeground}
-            />
-            {weather.loading && weather.tempF == null ? (
-              <Text style={[s.weatherText, { color: colors.mutedForeground }]}>Fetching outdoor temp…</Text>
-            ) : weather.tempF != null ? (
-              <>
-                <Text style={[s.weatherTempText, { color: colors.foreground }]}>{weather.tempF}°F outdoors</Text>
-                {weatherDescription(weather.conditionCode) && (
-                  <Text style={[s.weatherText, { color: colors.mutedForeground }]}>
-                    · {weatherDescription(weather.conditionCode)}
-                  </Text>
-                )}
-                <Text style={[s.weatherText, { color: colors.mutedForeground }]}>· factored into AI plan</Text>
-              </>
-            ) : null}
-          </View>
-        )}
+        <WeatherStrip
+          weather={weather}
+          colors={colors}
+          isFutureCookDay={isFutureCookDay}
+          effectivePro={effectivePro}
+          serveAt={serveAt}
+          factoredLabel="factored into AI plan"
+          onLockedTap={() =>
+            showPaywall({
+              trigger: "pro_required",
+              featureName: "Cook-Day Weather Forecast",
+              subtitle: "Pro plans pull the forecast for your cook day so weather adjustments line up with the day you're actually cooking.",
+            })
+          }
+        />
+
 
         {/* ── AI Cook Planner ── */}
         <Pressable
@@ -1425,16 +1449,21 @@ export default function PlanScreen() {
         )}
 
         {/* Outdoor temp strip */}
-        {!weather.locationDenied && weather.tempF != null && (
-          <View style={[s.weatherStrip, { borderColor: colors.border }]}>
-            <Feather name={weatherIcon(weather.conditionCode) as any} size={13} color={colors.mutedForeground} />
-            <Text style={[s.weatherTempText, { color: colors.foreground }]}>{weather.tempF}°F outdoors</Text>
-            {weatherDescription(weather.conditionCode) && (
-              <Text style={[s.weatherText, { color: colors.mutedForeground }]}>· {weatherDescription(weather.conditionCode)}</Text>
-            )}
-            <Text style={[s.weatherText, { color: colors.mutedForeground }]}>· factored into sequence</Text>
-          </View>
-        )}
+        <WeatherStrip
+          weather={weather}
+          colors={colors}
+          isFutureCookDay={isFutureCookDay}
+          effectivePro={effectivePro}
+          serveAt={serveAt}
+          factoredLabel="factored into sequence"
+          onLockedTap={() =>
+            showPaywall({
+              trigger: "pro_required",
+              featureName: "Cook-Day Weather Forecast",
+              subtitle: "Pro plans pull the forecast for your cook day so weather adjustments line up with the day you're actually cooking.",
+            })
+          }
+        />
 
         {/* Sequence button */}
         <Pressable
@@ -1559,3 +1588,110 @@ export default function PlanScreen() {
   );
 }
 
+
+// ─── Weather strip ────────────────────────────────────────────────────────
+// Single source of truth for the outdoor-temp strip on both single and
+// multi-cook plan modes. Renders three states:
+//   1. Free user picked a future date → "Pro" lock badge, tap opens paywall.
+//   2. Pro user with future date → "Forecast for [Day]: X°F, [condition]".
+//   3. Same-day cook (or anyone before forecast loads) → "Current: X°F, …".
+function WeatherStrip({
+  weather,
+  colors,
+  isFutureCookDay,
+  effectivePro,
+  serveAt,
+  factoredLabel,
+  onLockedTap,
+}: {
+  weather: ReturnType<typeof useAmbientWeather>;
+  colors: any;
+  isFutureCookDay: boolean;
+  effectivePro: boolean;
+  serveAt: Date;
+  factoredLabel: string;
+  onLockedTap: () => void;
+}) {
+  // Free-tier upsell: future-day forecast is Pro-only. Show the strip with a
+  // lock badge so the value of upgrading is visible right where it matters.
+  if (isFutureCookDay && !effectivePro) {
+    return (
+      <Pressable
+        onPress={onLockedTap}
+        style={[s.weatherStrip, { borderColor: colors.border }]}
+      >
+        <Feather name="cloud" size={13} color={colors.mutedForeground} />
+        <Text style={[s.weatherText, { color: colors.mutedForeground }]}>
+          Forecast for {formatDate(serveAt)} —
+        </Text>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 4,
+            paddingHorizontal: 6,
+            paddingVertical: 2,
+            borderRadius: 6,
+            backgroundColor: "#6C3BF5" + "15",
+            borderWidth: 1,
+            borderColor: "#6C3BF5" + "40",
+          }}
+        >
+          <Feather name="lock" size={10} color="#6C3BF5" />
+          <Text
+            style={{
+              fontSize: 11,
+              fontFamily: "Inter_700Bold",
+              color: "#6C3BF5",
+            }}
+          >
+            Pro
+          </Text>
+        </View>
+      </Pressable>
+    );
+  }
+
+  if (weather.locationDenied) return null;
+
+  // Loading shimmer when we don't yet have a value to show.
+  if (weather.loading && weather.tempF == null) {
+    return (
+      <View style={[s.weatherStrip, { borderColor: colors.border }]}>
+        <Feather name="cloud" size={13} color={colors.mutedForeground} />
+        <Text style={[s.weatherText, { color: colors.mutedForeground }]}>
+          {weather.isForecast
+            ? `Loading forecast for ${formatDate(serveAt)}…`
+            : "Fetching outdoor temp…"}
+        </Text>
+      </View>
+    );
+  }
+
+  if (weather.tempF == null) return null;
+
+  const desc = weatherDescription(weather.conditionCode);
+  const prefix = weather.isForecast
+    ? `Forecast for ${formatDate(serveAt)}:`
+    : "Current:";
+
+  return (
+    <View style={[s.weatherStrip, { borderColor: colors.border }]}>
+      <Feather
+        name={weatherIcon(weather.conditionCode) as any}
+        size={13}
+        color={colors.mutedForeground}
+      />
+      <Text style={[s.weatherText, { color: colors.mutedForeground }]}>{prefix}</Text>
+      <Text style={[s.weatherTempText, { color: colors.foreground }]}>
+        {weather.tempF}°F
+      </Text>
+      {desc && (
+        <Text style={[s.weatherText, { color: colors.mutedForeground }]}>· {desc}</Text>
+      )}
+      <Text style={[s.weatherText, { color: colors.mutedForeground }]}>
+        · {factoredLabel}
+      </Text>
+    </View>
+  );
+}

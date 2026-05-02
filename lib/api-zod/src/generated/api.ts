@@ -1061,7 +1061,13 @@ export const AiPredictBody = zod.object({
     .number()
     .nullish()
     .describe(
-      "Current outdoor ambient temperature in Fahrenheit, used to adjust cook time estimates",
+      "Outdoor ambient temperature in Fahrenheit, used to adjust cook time estimates. May be either current conditions or a forecast for the cook day (see outdoorTempIsForecast).",
+    ),
+  outdoorTempIsForecast: zod
+    .boolean()
+    .nullish()
+    .describe(
+      "True when outdoorTempF is a forecasted value for the cook day (Pro). False or omitted when it is the current ambient temperature.",
     ),
 });
 
@@ -1144,7 +1150,15 @@ export const AiMultiCookBody = zod.object({
   outdoorTempF: zod
     .number()
     .nullish()
-    .describe("Current outdoor ambient temperature in Fahrenheit"),
+    .describe(
+      "Outdoor ambient temperature in Fahrenheit. May be current conditions or a forecast for the cook day (see outdoorTempIsForecast).",
+    ),
+  outdoorTempIsForecast: zod
+    .boolean()
+    .nullish()
+    .describe(
+      "True when outdoorTempF is a forecasted value for the cook day (Pro). False or omitted when it is the current ambient temperature.",
+    ),
 });
 
 export const AiMultiCookResponse = zod.object({

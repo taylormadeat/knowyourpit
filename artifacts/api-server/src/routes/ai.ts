@@ -611,7 +611,7 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
   // and shouldn't lock a user out of planning new cooks. Cost is bounded
   // by aiRateLimit (20/min/user) above.
 
-  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF } = parsed.data;
+  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast } = parsed.data;
 
   // ── Meat knowledge baseline ──────────────────────────────────────────
   const baseline = getMeatBaseline(foodType);
@@ -837,7 +837,7 @@ Weight: ${weightLbs ? `${weightLbs} lbs` : "unknown — use baseline minsPerLb w
 Cook temperature: ${cookTempF ? `${cookTempF}°F` : "unknown"}
 Target internal temp: ${targetTempF ? `${targetTempF}°F` : "unknown"}
 Preheat time (tracked separately, not in estimatedDurationMinutes): ${preheatMinutes} min
-${outdoorTempF != null ? `Outdoor ambient temperature: ${outdoorTempF}°F — factor this into your estimate. Cold weather (below 40°F) increases cook time and preheat duration; hot weather (above 90°F) may reduce time or cause temperature spikes.` : ""}
+${outdoorTempF != null ? `Outdoor ambient temperature: ${outdoorTempF}°F (${outdoorTempIsForecast ? "forecast for cook day" : "current"}) — factor this into your estimate. Cold weather (below 40°F) increases cook time and preheat duration; hot weather (above 90°F) may reduce time or cause temperature spikes.` : ""}
 ${desiredFinishAt ? `Desired serve time: ${new Date(desiredFinishAt).toLocaleString()}` : ""}
 ${predictSmokerProfile ? `\n${predictSmokerProfile}\n` : ""}
 ${grillContext}
@@ -953,7 +953,7 @@ router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): P
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { items, serveAt, outdoorTempF } = parsed.data;
+  const { items, serveAt, outdoorTempF, outdoorTempIsForecast } = parsed.data;
 
   if (items.length < 2 || items.length > 5) {
     res.status(400).json({ error: "Provide between 2 and 5 items." });
@@ -983,7 +983,7 @@ router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): P
   const smokerProfile = formatSmokerProfile(smokerInsights);
 
   const outdoorLine = outdoorTempF != null
-    ? `\nOutdoor ambient temperature: ${outdoorTempF}°F — factor this into all estimates. Cold weather increases cook times; hot weather may reduce them.\n`
+    ? `\nOutdoor ambient temperature: ${outdoorTempF}°F (${outdoorTempIsForecast ? "forecast for cook day" : "current"}) — factor this into all estimates. Cold weather increases cook times; hot weather may reduce them.\n`
     : "";
 
   const systemPrompt = `You are knowyourpit AI, a world-class BBQ pit master. You are sequencing a multi-cook session where everything must be ready to serve at the same time.

@@ -1897,7 +1897,10 @@ components:
           description: Minutes needed to start and bring the grill up to cook temperature
         outdoorTempF:
           type: ["number", "null"]
-          description: Current outdoor ambient temperature in Fahrenheit, used to adjust cook time estimates
+          description: Outdoor ambient temperature in Fahrenheit, used to adjust cook time estimates. May be either current conditions or a forecast for the cook day (see outdoorTempIsForecast).
+        outdoorTempIsForecast:
+          type: ["boolean", "null"]
+          description: True when outdoorTempF is a forecasted value for the cook day (Pro). False or omitted when it is the current ambient temperature.
       required:
         - foodType
 
@@ -2009,7 +2012,10 @@ components:
           description: Target time when all food should be ready to serve
         outdoorTempF:
           type: ["number", "null"]
-          description: Current outdoor ambient temperature in Fahrenheit
+          description: Outdoor ambient temperature in Fahrenheit. May be current conditions or a forecast for the cook day (see outdoorTempIsForecast).
+        outdoorTempIsForecast:
+          type: ["boolean", "null"]
+          description: True when outdoorTempF is a forecasted value for the cook day (Pro). False or omitted when it is the current ambient temperature.
       required:
         - items
         - serveAt

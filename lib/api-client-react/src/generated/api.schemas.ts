@@ -735,10 +735,15 @@ export interface AiPredictBody {
    */
   preheatMinutes?: number | null;
   /**
-   * Current outdoor ambient temperature in Fahrenheit, used to adjust cook time estimates
+   * Outdoor ambient temperature in Fahrenheit, used to adjust cook time estimates. May be either current conditions or a forecast for the cook day (see outdoorTempIsForecast).
    * @nullable
    */
   outdoorTempF?: number | null;
+  /**
+   * True when outdoorTempF is a forecasted value for the cook day (Pro). False or omitted when it is the current ambient temperature.
+   * @nullable
+   */
+  outdoorTempIsForecast?: boolean | null;
 }
 
 /**
@@ -835,10 +840,15 @@ export interface MultiCookBody {
   /** Target time when all food should be ready to serve */
   serveAt: string;
   /**
-   * Current outdoor ambient temperature in Fahrenheit
+   * Outdoor ambient temperature in Fahrenheit. May be current conditions or a forecast for the cook day (see outdoorTempIsForecast).
    * @nullable
    */
   outdoorTempF?: number | null;
+  /**
+   * True when outdoorTempF is a forecasted value for the cook day (Pro). False or omitted when it is the current ambient temperature.
+   * @nullable
+   */
+  outdoorTempIsForecast?: boolean | null;
 }
 
 /**
