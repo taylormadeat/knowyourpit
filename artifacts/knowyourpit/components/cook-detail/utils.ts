@@ -179,6 +179,24 @@ export function computeNextStep(
           : null,
       },
     ];
+    // Wrap is only a banner/next-step candidate when we have an explicit
+    // wrapAtMinutes offset — otherwise the wrap is temp-triggered and we have
+    // no clock time to count down to. The "≈ 3:15 PM around the stall"
+    // inference shown in the schedule timeline is intentionally NOT used here
+    // to avoid a fake countdown for an estimate.
+    if (
+      item.wrapMethod &&
+      item.wrapMethod !== "none" &&
+      (item.wrapAtMinutes ?? 0) > 0 &&
+      item.meatOnAt
+    ) {
+      candidates.push({
+        step: "wrap",
+        ms:
+          new Date(item.meatOnAt).getTime() +
+          (item.wrapAtMinutes ?? 0) * 60000,
+      });
+    }
     if ((item.restMinutes ?? 0) > 0 && item.estimatedFinishAt) {
       candidates.push({
         step: "serve",

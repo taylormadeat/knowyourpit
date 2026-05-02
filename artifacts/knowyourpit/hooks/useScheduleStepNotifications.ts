@@ -9,6 +9,8 @@ interface ScheduleItem {
   meatOnAt?: string | null;
   estimatedFinishAt?: string | null;
   restMinutes?: number;
+  wrapMethod?: string | null;
+  wrapAtMinutes?: number | null;
 }
 
 interface SequenceData {
@@ -20,6 +22,7 @@ const STORAGE_KEY_PREFIX = "schedule_step_notif_ids_cook_";
 const STEP_LABELS: Record<string, string> = {
   grillLight: "Light the Grill",
   meatOn: "Meat On",
+  wrap: "Wrap",
   pullOff: "Pull Off",
   serve: "Serve",
 };
@@ -55,11 +58,33 @@ async function scheduleStepNotifications(
     const item = schedule[idx];
     const itemLabel = item.foodType ?? `Item ${idx + 1}`;
 
-    const steps: Array<{ key: string; ms: number | null }> = [
+    const steps: Array<{ key: string; ms: number | null; label?: string }> = [
       { key: "grillLight", ms: item.grillLightAt ? new Date(item.grillLightAt).getTime() : null },
       { key: "meatOn", ms: item.meatOnAt ? new Date(item.meatOnAt).getTime() : null },
       { key: "pullOff", ms: item.estimatedFinishAt ? new Date(item.estimatedFinishAt).getTime() : null },
     ];
+
+    // Wrap is only schedulable when we have an explicit minute offset; the
+    // "around the stall" inference used in the timeline is too imprecise to
+    // fire a real-time push.
+    if (
+      item.wrapMethod &&
+      item.wrapMethod !== "none" &&
+      (item.wrapAtMinutes ?? 0) > 0 &&
+      item.meatOnAt
+    ) {
+      const wrapLabel =
+        item.wrapMethod === "foil"
+          ? "Wrap in foil"
+          : item.wrapMethod === "butcher_paper"
+            ? "Wrap in butcher paper"
+            : "Wrap";
+      steps.push({
+        key: "wrap",
+        ms: new Date(item.meatOnAt).getTime() + (item.wrapAtMinutes ?? 0) * 60_000,
+        label: wrapLabel,
+      });
+    }
 
     if ((item.restMinutes ?? 0) > 0 && item.estimatedFinishAt) {
       steps.push({
@@ -68,13 +93,14 @@ async function scheduleStepNotifications(
       });
     }
 
-    for (const { key, ms } of steps) {
+    for (const { key, ms, label } of steps) {
       if (ms === null || ms <= now) continue;
+      const title = label ?? STEP_LABELS[key] ?? key;
       try {
         const notifId = await Notifications.scheduleNotificationAsync({
           content: {
-            title: STEP_LABELS[key] ?? key,
-            body: `${itemLabel} — ${STEP_LABELS[key] ?? key}`,
+            title,
+            body: `${itemLabel} — ${title}`,
             sound: true,
             data: { scheduleStep: true, cookId },
           },

@@ -11,9 +11,27 @@ import type {
 const STEP_LABELS: Record<NextStepKey, string> = {
   grillLight: "Light the Grill",
   meatOn: "Meat On",
+  wrap: "Wrap",
   pullOff: "Pull Off",
   serve: "Serve",
 };
+
+/**
+ * Resolve the user-facing label for the banner. For wrap steps we prefer the
+ * specific wrap method ("Wrap in foil" / "Wrap in butcher paper") because
+ * "Wrap" alone is ambiguous when the pitmaster needs to grab supplies.
+ */
+export function getStepLabel(
+  step: NextStepKey,
+  item: SequenceData["schedule"][number] | undefined,
+): string {
+  if (step === "wrap") {
+    if (item?.wrapMethod === "foil") return "Wrap in foil";
+    if (item?.wrapMethod === "butcher_paper") return "Wrap in butcher paper";
+    return "Wrap";
+  }
+  return STEP_LABELS[step] ?? step;
+}
 
 export function getStepTargetMs(
   seqData: SequenceData | null | undefined,
@@ -27,6 +45,11 @@ export function getStepTargetMs(
       return item.grillLightAt ? new Date(item.grillLightAt).getTime() : null;
     case "meatOn":
       return item.meatOnAt ? new Date(item.meatOnAt).getTime() : null;
+    case "wrap":
+      return item.meatOnAt && (item.wrapAtMinutes ?? 0) > 0
+        ? new Date(item.meatOnAt).getTime() +
+            (item.wrapAtMinutes ?? 0) * 60000
+        : null;
     case "pullOff":
       return item.estimatedFinishAt
         ? new Date(item.estimatedFinishAt).getTime()
@@ -83,7 +106,8 @@ export function NextUpBanner({
 
   if (!nextStep || targetMs == null) return null;
 
-  const stepLabel = STEP_LABELS[nextStep.step] ?? nextStep.step;
+  const item = cookSeqData?.schedule?.[nextStep.itemIdx];
+  const stepLabel = getStepLabel(nextStep.step, item);
   const countdown = formatNextUpCountdown(targetMs - nowMs);
 
   const inner = (

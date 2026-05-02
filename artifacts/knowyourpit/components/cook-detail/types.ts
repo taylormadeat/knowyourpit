@@ -65,6 +65,16 @@ export interface ScheduleItem {
   restMinutes?: number;
   preheatMinutes?: number;
   grillId?: number | null;
+  /**
+   * Wrap step (foil / butcher paper / none). Driven by the AI sequencer; only
+   * "foil" and "butcher_paper" produce a wrap row in the timeline. The
+   * accompanying fields describe when to wrap (a minute offset from meatOn,
+   * a target internal temp, or both) and why.
+   */
+  wrapMethod?: string | null;
+  wrapAtMinutes?: number | null;
+  wrapTempF?: number | null;
+  wrapReason?: string | null;
 }
 
 export interface SequenceData {
@@ -73,7 +83,7 @@ export interface SequenceData {
   summary?: string | null;
 }
 
-export type NextStepKey = "grillLight" | "meatOn" | "pullOff" | "serve";
+export type NextStepKey = "grillLight" | "meatOn" | "wrap" | "pullOff" | "serve";
 
 export interface NextStep {
   itemIdx: number;

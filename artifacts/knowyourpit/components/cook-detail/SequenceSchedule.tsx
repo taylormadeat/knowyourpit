@@ -5,13 +5,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { s } from "./styles";
 import { fmtMinutes } from "@/utils/duration";
 import { relCountdown } from "./utils";
+import type { NextStep } from "./types";
 
 type Colors = any;
-
-interface NextStep {
-  itemIdx: number;
-  step: "grillLight" | "meatOn" | "wrap" | "pullOff" | "serve";
-}
 
 interface Props {
   c: any;
@@ -205,15 +201,38 @@ export function SequenceSchedule(p: Props) {
                           const inferredWrapMin = cookMin != null
                             ? Math.max(30, Math.round(cookMin * 0.55))
                             : null;
-                          const wrapAtMin = explicitWrapMin ?? inferredWrapMin;
-                          if (wrapAtMin == null) return null;
-                          const wrapInferred = explicitWrapMin === null;
-                          const wrapMs = new Date(item.meatOnAt).getTime() + wrapAtMin * 60000;
-                          const isDoneWrap = cookStatus === "active" && wrapMs < nowMs;
-                          const wrapLabel = item.wrapMethod === "foil" ? "Wrap in foil" : "Wrap in butcher paper";
+                          // Spec: when wrapAtMinutes is missing but wrapTempF is set,
+                          // the wrap is purely temp-triggered — render "when internal
+                          // reaches X°F" instead of an inferred clock time so the
+                          // pitmaster doesn't anchor on a fake countdown.
+                          const wrapMode: "clock" | "temp" =
+                            explicitWrapMin == null && item.wrapTempF != null
+                              ? "temp"
+                              : "clock";
+                          const wrapAtMin = wrapMode === "clock" ? (explicitWrapMin ?? inferredWrapMin) : null;
+                          if (wrapMode === "clock" && wrapAtMin == null) return null;
+                          const wrapInferred = wrapMode === "clock" && explicitWrapMin === null;
+                          const wrapMs = wrapAtMin != null && item.meatOnAt
+                            ? new Date(item.meatOnAt).getTime() + wrapAtMin * 60000
+                            : null;
+                          const isDoneWrap = wrapMs != null && cookStatus === "active" && wrapMs < nowMs;
+                          // Match NextUpBanner.getStepLabel and useScheduleStepNotifications:
+                          // unknown wrap methods fall back to plain "Wrap" rather than
+                          // mislabeling as butcher paper.
+                          const wrapLabel =
+                            item.wrapMethod === "foil"
+                              ? "Wrap in foil"
+                              : item.wrapMethod === "butcher_paper"
+                                ? "Wrap in butcher paper"
+                                : "Wrap";
                           const wrapColor = "#A855F7";
+                          // Only highlight as NEXT when we have an explicit clock time —
+                          // matches computeNextStep's eligibility, so the persistent
+                          // banner countdown and the timeline highlight stay in sync.
+                          const isNextWrap =
+                            nextStep?.itemIdx === idx && nextStep?.step === "wrap";
                           return (
-                            <View onLayout={(e) => { rowYRef.current[`${idx}:wrap`] = e.nativeEvent.layout.y; }} style={[s.seqTlRow, isDoneWrap && !confirmedSteps[`${idx}_wrap`] && s.seqTlDoneRow]}>
+                            <View onLayout={(e) => { rowYRef.current[`${idx}:wrap`] = e.nativeEvent.layout.y; }} style={[s.seqTlRow, isNextWrap && s.seqTlNextRow, isDoneWrap && !confirmedSteps[`${idx}_wrap`] && s.seqTlDoneRow]}>
                               {isDoneWrap ? (
                                 <Pressable onPress={() => toggleConfirmedStep(`${idx}_wrap`)} hitSlop={8} style={s.seqTlDotBtn}>
                                   {confirmedSteps[`${idx}_wrap`]
@@ -226,25 +245,36 @@ export function SequenceSchedule(p: Props) {
                               <View style={s.seqTlConnector} />
                               <View style={{ flex: 1 }}>
                                 <View style={s.seqTlLabelRow}>
-                                  <Text style={[s.seqTlLabel, { color: colors.mutedForeground }, isDoneWrap && s.seqTlDoneLabel]}>{wrapLabel}</Text>
-                                </View>
-                                <Text style={[s.seqTlTime, { color: isDoneWrap ? colors.mutedForeground : colors.foreground, opacity: isDoneWrap ? 0.55 : 1 }]}>
-                                  {wrapInferred ? "≈ " : ""}{new Date(wrapMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                  {cookStatus === "active" && !isDoneWrap && (
-                                    <Text style={[s.seqTlMeta, { color: wrapColor }]}>
-                                      {" "}· {relCountdown(wrapMs, nowMs)}
-                                    </Text>
+                                  <Text style={[s.seqTlLabel, { color: isNextWrap ? wrapColor : colors.mutedForeground }, isDoneWrap && s.seqTlDoneLabel]}>{wrapLabel}</Text>
+                                  {isNextWrap && (
+                                    <View style={[s.seqTlNextBadge, { backgroundColor: wrapColor + "25" }]}>
+                                      <Text style={[s.seqTlNextText, { color: wrapColor }]}>NEXT</Text>
+                                    </View>
                                   )}
-                                  {item.wrapTempF ? (
-                                    <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
-                                      {" "}· at {item.wrapTempF}°F internal
-                                    </Text>
-                                  ) : wrapInferred ? (
-                                    <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
-                                      {" "}· around the stall
-                                    </Text>
-                                  ) : null}
-                                </Text>
+                                </View>
+                                {wrapMode === "temp" ? (
+                                  <Text style={[s.seqTlTime, { color: colors.foreground }]}>
+                                    When internal reaches {item.wrapTempF}°F
+                                  </Text>
+                                ) : (
+                                  <Text style={[s.seqTlTime, { color: isDoneWrap ? colors.mutedForeground : colors.foreground, opacity: isDoneWrap ? 0.55 : 1 }]}>
+                                    {wrapInferred ? "≈ " : ""}{wrapMs != null ? new Date(wrapMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
+                                    {wrapMs != null && cookStatus === "active" && !isDoneWrap && (
+                                      <Text style={[s.seqTlMeta, { color: wrapColor }]}>
+                                        {" "}· {relCountdown(wrapMs, nowMs)}
+                                      </Text>
+                                    )}
+                                    {item.wrapTempF ? (
+                                      <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
+                                        {" "}· at {item.wrapTempF}°F internal
+                                      </Text>
+                                    ) : wrapInferred ? (
+                                      <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
+                                        {" "}· around the stall
+                                      </Text>
+                                    ) : null}
+                                  </Text>
+                                )}
                                 {item.wrapReason ? (
                                   <Text style={[s.seqTlMeta, { color: colors.mutedForeground, marginTop: 2, lineHeight: 16 }]}>{item.wrapReason}</Text>
                                 ) : null}
