@@ -198,6 +198,15 @@ export function SequenceSchedule(p: Props) {
                           const cookMin = typeof item.estimatedDurationMinutes === "number" && item.estimatedDurationMinutes > 0
                             ? item.estimatedDurationMinutes
                             : null;
+                          // Inferred wrap timing — used only as a last-resort display
+                          // when neither explicit `wrapAtMinutes` nor `wrapTempF` is
+                          // available. We intentionally keep this fallback so cooks
+                          // saved before the AI sequencer reliably emitted wrap fields
+                          // still surface a wrap row. The display marks it with "≈"
+                          // and "around the stall" so the pitmaster knows it's an
+                          // estimate, and `computeNextStep` deliberately ignores
+                          // inferred timing so the persistent banner never counts
+                          // down to a guess.
                           const inferredWrapMin = cookMin != null
                             ? Math.max(30, Math.round(cookMin * 0.55))
                             : null;
