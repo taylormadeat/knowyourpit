@@ -27,6 +27,7 @@ import {
   KCBS_CATEGORY_LABEL,
   KCBS_CATEGORY_COLOR,
   KCBS_BOX_PACK_CATEGORY_TEXT,
+  placementLabel,
   type KcbsCategory,
 } from "@/constants/competitionKnowledge";
 
@@ -681,9 +682,20 @@ export default function SessionDetailScreen() {
                             </View>
                           )}
                           {typeof cook.competitionPlacement === "number" && (
-                            <View style={s.placementBadge}>
-                              <Feather name="award" size={10} color="#fff" />
-                              <Text style={s.placementBadgeText}>#{cook.competitionPlacement}</Text>
+                            <View
+                              style={[
+                                s.placementBadge,
+                                cook.competitionPlacement === 0 && { backgroundColor: "#6B7280" },
+                              ]}
+                            >
+                              <Feather
+                                name={cook.competitionPlacement === 0 ? "minus-circle" : "award"}
+                                size={10}
+                                color="#fff"
+                              />
+                              <Text style={s.placementBadgeText}>
+                                {placementLabel(cook.competitionPlacement)}
+                              </Text>
                             </View>
                           )}
                           {isActive && (
