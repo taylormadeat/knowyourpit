@@ -67,6 +67,11 @@ import {
   getMeatPrep,
 } from "@/components/plan-screen/prepGuides";
 import { Label, StatCell, ScheduleRow } from "@/components/plan-screen/MiniRows";
+import { MeatPickerModal } from "@/components/plan-screen/MeatPickerModal";
+import { DatePickerModal, TimePickerModal } from "@/components/plan-screen/DateTimePickerModals";
+import { AiResultsModal } from "@/components/plan-screen/AiResultsModal";
+import { MultiCookResultModal } from "@/components/plan-screen/MultiCookResultModal";
+import { MultiCookAddItemModal } from "@/components/plan-screen/MultiCookAddItemModal";
 
 export default function PlanScreen() {
   const colors = useColors();
@@ -1487,574 +1492,68 @@ export default function PlanScreen() {
       </KeyboardAwareScrollView>
 
       {/* ════ MEAT PICKER MODAL ════ */}
-      <Modal
+      <MeatPickerModal
         visible={meatPickerOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setMeatPickerOpen(false)}
-      >
-        <View style={s.modalOverlay}>
-          <View style={[s.modalSheet, { backgroundColor: colors.card }]}>
-            <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
-            <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[s.modalTitle, { color: colors.foreground }]}>Select a Meat Cut</Text>
-              <Pressable onPress={() => setMeatPickerOpen(false)} hitSlop={10}>
-                <Feather name="x" size={22} color={colors.mutedForeground} />
-              </Pressable>
-            </View>
-
-            {/* Category tabs */}
-            <View style={s.catTabRow}>
-              {MEAT_CATEGORIES.map((cat) => (
-                <Pressable
-                  key={cat}
-                  onPress={() => setMeatCategory(cat)}
-                  style={[
-                    s.catTab,
-                    {
-                      backgroundColor: meatCategory === cat ? colors.primary : colors.muted,
-                      borderRadius: 20,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      s.catTabText,
-                      { color: meatCategory === cat ? "#fff" : colors.mutedForeground },
-                    ]}
-                  >
-                    {cat}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            {/* Cut list */}
-            <FlatList
-              data={MEAT_CUTS_BY_CATEGORY[meatCategory] ?? []}
-              keyExtractor={(item) => item.name}
-              contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 40 }}
-              ItemSeparatorComponent={() => <View style={[s.cutSep, { backgroundColor: colors.border }]} />}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => handlePickCut(item)}
-                  style={({ pressed }) => [
-                    s.cutRow,
-                    pressed && { opacity: 0.7 },
-                    selectedCut?.name === item.name && { backgroundColor: colors.primary + "12" },
-                  ]}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={[s.cutName, { color: colors.foreground }]}>{item.name}</Text>
-                    <Text style={[s.cutMeta, { color: colors.mutedForeground }]}>
-                      Target {item.targetTempF}°F · Cook at {item.cookTempF}°F · ~{item.minsPerLb} min/lb
-                    </Text>
-                    {item.notes && (
-                      <Text style={[s.cutNote, { color: colors.mutedForeground }]}>{item.notes}</Text>
-                    )}
-                  </View>
-                  {selectedCut?.name === item.name && (
-                    <Feather name="check-circle" size={18} color={colors.primary} />
-                  )}
-                </Pressable>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setMeatPickerOpen(false)}
+        colors={colors}
+        meatCategory={meatCategory}
+        setMeatCategory={setMeatCategory}
+        selectedCut={selectedCut}
+        handlePickCut={handlePickCut}
+      />
 
       {/* ════ DATE PICKER MODAL ════ */}
-      <Modal
+      <DatePickerModal
         visible={datePickerOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setDatePickerOpen(false)}
-      >
-        <View style={s.modalOverlay}>
-          <View style={[s.modalSheetSm, { backgroundColor: colors.card }]}>
-            <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
-            <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[s.modalTitle, { color: colors.foreground }]}>Pick a Date</Text>
-              <Pressable onPress={() => setDatePickerOpen(false)} hitSlop={10}>
-                <Feather name="x" size={22} color={colors.mutedForeground} />
-              </Pressable>
-            </View>
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 30 }}>
-              {upcomingDates.map((d) => {
-                const isSelected =
-                  d.getDate() === serveAt.getDate() &&
-                  d.getMonth() === serveAt.getMonth() &&
-                  d.getFullYear() === serveAt.getFullYear();
-                return (
-                  <Pressable
-                    key={d.toISOString()}
-                    onPress={() => {
-                      const next = new Date(serveAt);
-                      next.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
-                      setServeAt(next);
-                      setDatePickerOpen(false);
-                    }}
-                    style={[
-                      s.dateRow,
-                      isSelected && { backgroundColor: colors.primary + "18" },
-                      { borderRadius: colors.radius },
-                    ]}
-                  >
-                    <Text style={[s.dateText, { color: isSelected ? colors.primary : colors.foreground }]}>
-                      {formatDate(d)}
-                    </Text>
-                    <Text style={[s.dateSubText, { color: colors.mutedForeground }]}>
-                      {d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-                    </Text>
-                    {isSelected && <Feather name="check" size={16} color={colors.primary} />}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setDatePickerOpen(false)}
+        colors={colors}
+        serveAt={serveAt}
+        setServeAt={setServeAt}
+        upcomingDates={upcomingDates}
+      />
 
       {/* ════ TIME PICKER MODAL ════ */}
-      <Modal
+      <TimePickerModal
         visible={timePickerOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setTimePickerOpen(false)}
-      >
-        <View style={s.modalOverlay}>
-          <View style={[s.modalSheetSm, { backgroundColor: colors.card }]}>
-            <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
-            <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[s.modalTitle, { color: colors.foreground }]}>Pick a Time</Text>
-              <Pressable onPress={() => setTimePickerOpen(false)} hitSlop={10}>
-                <Feather name="x" size={22} color={colors.mutedForeground} />
-              </Pressable>
-            </View>
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 30 }}>
-              {TIME_SLOTS.map(({ h, m }) => {
-                const isSelected = serveAt.getHours() === h && serveAt.getMinutes() === m;
-                return (
-                  <Pressable
-                    key={`${h}:${m}`}
-                    onPress={() => {
-                      const next = new Date(serveAt);
-                      next.setHours(h, m, 0, 0);
-                      setServeAt(next);
-                      setTimePickerOpen(false);
-                    }}
-                    style={[
-                      s.dateRow,
-                      isSelected && { backgroundColor: colors.primary + "18" },
-                      { borderRadius: colors.radius },
-                    ]}
-                  >
-                    <Text style={[s.dateText, { color: isSelected ? colors.primary : colors.foreground }]}>
-                      {formatTime(h, m)}
-                    </Text>
-                    {isSelected && <Feather name="check" size={16} color={colors.primary} />}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setTimePickerOpen(false)}
+        colors={colors}
+        serveAt={serveAt}
+        setServeAt={setServeAt}
+      />
 
       {/* ════ AI RESULTS MODAL ════ */}
-      <Modal
+      <AiResultsModal
         visible={aiResultOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setAiResultOpen(false)}
-      >
-        <View style={s.modalOverlay}>
-          <View style={[s.modalSheet, { backgroundColor: colors.card }]}>
-            <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
-
-            {/* AI header */}
-            <LinearGradient
-              colors={["#6C3BF5", "#A855F7"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={s.aiModalHeader}
-            >
-              <Feather name="cpu" size={20} color="#fff" />
-              <View style={{ flex: 1 }}>
-                <Text style={s.aiModalTitle}>PitMaster Plan</Text>
-                {aiResult && (
-                  <Text style={s.aiModalSub}>
-                    {aiResult.confidence?.toUpperCase()} confidence · {fmtMinutes(aiResult.estimatedDurationMinutes)} active cook
-                  </Text>
-                )}
-              </View>
-              <Pressable onPress={() => setAiResultOpen(false)} hitSlop={12}>
-                <Feather name="x" size={22} color="rgba(255,255,255,0.8)" />
-              </Pressable>
-            </LinearGradient>
-
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 40 }}>
-              {aiResult && (
-                <>
-                  {/* Rationale */}
-                  <View style={[s.aiSection, { borderColor: colors.border }]}>
-                    <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>PitMaster Analysis</Text>
-                    <Text style={[s.aiBody, { color: colors.mutedForeground }]}>{aiResult.rationale}</Text>
-                  </View>
-
-                  {/* Schedule */}
-                  <View style={[s.aiSection, { borderColor: colors.border }]}>
-                    <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>Suggested Schedule</Text>
-                    {[
-                      { icon: "power", label: "Light grill", val: aiResult.grillLightAt },
-                      { icon: "zap", label: "Put food on", val: aiResult.suggestedStartAt },
-                      { icon: "pause", label: "Pull off grill", val: aiResult.estimatedFinishAt },
-                      { icon: "check-circle", label: "Ready to serve", val: aiResult.serveAt },
-                    ].filter(r => r.val).map((row) => (
-                      <View key={row.label} style={s.aiScheduleRow}>
-                        <Feather name={row.icon as any} size={14} color="#6C3BF5" style={{ marginTop: 2 }} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={[s.aiScheduleLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
-                          <Text style={[s.aiScheduleVal, { color: colors.foreground }]}>
-                            {formatDateTime(new Date(row.val as string))}
-                          </Text>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-
-                  {/* Wrap recommendation */}
-                  {aiResult.wrap && (
-                    <View style={[s.aiSection, { borderColor: colors.border }]}>
-                      <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>Wrapping Guidance</Text>
-                      <View style={[s.wrapBadgeRow]}>
-                        <View style={[s.wrapBadge, { backgroundColor: "#6C3BF5" + "18" }]}>
-                          <Text style={[s.wrapBadgeText, { color: "#6C3BF5" }]}>
-                            {aiResult.wrap.method === "none" ? "No wrap needed" : aiResult.wrap.method === "butcher_paper" ? "Butcher Paper" : "Foil (Texas Crutch)"}
-                          </Text>
-                        </View>
-                        {aiResult.wrap.wrapAtMinutes > 0 && (
-                          <View style={[s.wrapBadge, { backgroundColor: colors.muted }]}>
-                            <Text style={[s.wrapBadgeText, { color: colors.foreground }]}>
-                              At {fmtDuration(aiResult.wrap.wrapAtMinutes)} into cook
-                            </Text>
-                          </View>
-                        )}
-                        {aiResult.wrap.wrapTempF && (
-                          <View style={[s.wrapBadge, { backgroundColor: colors.muted }]}>
-                            <Text style={[s.wrapBadgeText, { color: colors.foreground }]}>
-                              {aiResult.wrap.wrapTempF}°F internal
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      {aiResult.wrap.reason && (
-                        <Text style={[s.aiBody, { color: colors.mutedForeground, marginTop: 8 }]}>{aiResult.wrap.reason}</Text>
-                      )}
-                      {aiResult.wrap.restMinutes > 0 && (
-                        <View style={[s.restRow, { backgroundColor: colors.muted, borderRadius: 8 }]}>
-                          <Feather name="coffee" size={14} color={colors.primary} />
-                          <Text style={[s.restText, { color: colors.foreground }]}>
-                            Rest for <Text style={{ fontFamily: "Inter_700Bold", color: colors.primary }}>{fmtDuration(aiResult.wrap.restMinutes)}</Text> after pulling
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  )}
-
-                  {/* Tips */}
-                  {aiResult.tips && aiResult.tips.length > 0 && (
-                    <View style={[s.aiSection, { borderColor: colors.border }]}>
-                      <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>Pit Master Tips</Text>
-                      {aiResult.tips.map((tip: string, i: number) => (
-                        <View key={i} style={s.tipRow}>
-                          <View style={[s.tipBullet, { backgroundColor: "#6C3BF5" }]} />
-                          <Text style={[s.tipText, { color: colors.mutedForeground }]}>{tip}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-
-                  {/* Apply button */}
-                  <Pressable
-                    onPress={applyAiPlan}
-                    style={({ pressed }) => [
-                      s.applyBtn,
-                      { borderRadius: colors.radius },
-                      pressed && { opacity: 0.75 },
-                    ]}
-                  >
-                    <LinearGradient
-                      colors={["#6C3BF5", "#A855F7"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={s.applyBtnGradient}
-                    >
-                      <Feather name="check" size={18} color="#fff" />
-                      <Text style={s.applyBtnText}>Apply PitMaster Plan</Text>
-                    </LinearGradient>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setAiResultOpen(false)}
-                    style={[s.dismissBtn, { borderRadius: colors.radius, borderColor: colors.border }]}
-                  >
-                    <Text style={[s.dismissBtnText, { color: colors.mutedForeground }]}>Keep manual plan</Text>
-                  </Pressable>
-                </>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setAiResultOpen(false)}
+        colors={colors}
+        aiResult={aiResult}
+        applyAiPlan={applyAiPlan}
+      />
 
       {/* ════ MULTI-COOK RESULT MODAL ════ */}
-      <Modal
+      <MultiCookResultModal
         visible={multiResultOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setMultiResultOpen(false)}
-      >
-        <View style={s.modalOverlay}>
-          <View style={[s.modalSheet, { backgroundColor: colors.card }]}>
-            <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
-            <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[s.modalTitle, { color: colors.foreground }]}>Cook Sequence</Text>
-              <Pressable onPress={() => setMultiResultOpen(false)} hitSlop={10}>
-                <Feather name="x" size={22} color={colors.mutedForeground} />
-              </Pressable>
-            </View>
-            <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
-              {multiResult && (
-                <>
-                  {/* Serve time header */}
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                    <Feather name="check-circle" size={16} color="#22c55e" />
-                    <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
-                      Everything ready by {new Date(multiResult.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </Text>
-                  </View>
-
-                  {/* Summary */}
-                  {multiResult.summary ? (
-                    <View style={{ backgroundColor: "#6C3BF510", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-                      <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: colors.foreground, lineHeight: 19 }}>
-                        {multiResult.summary}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {/* Timeline */}
-                  {multiResult.schedule.map((item: MultiCookScheduleItem, idx: number) => {
-                    const grillLabel = scheduleGrillLabels[idx] ?? null;
-                    return (
-                    <View
-                      key={idx}
-                      style={[{
-                        borderWidth: 1,
-                        borderRadius: 10,
-                        marginBottom: 10,
-                        overflow: "hidden",
-                        borderColor: colors.border,
-                        backgroundColor: colors.background,
-                      }]}
-                    >
-                      {/* Item header */}
-                      <View style={{ backgroundColor: "#6C3BF518", paddingHorizontal: 14, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#6C3BF5", alignItems: "center", justifyContent: "center" }}>
-                          <Text style={{ color: "#fff", fontSize: 11, fontFamily: "Inter_700Bold" }}>{idx + 1}</Text>
-                        </View>
-                        <View style={{ flex: 1, gap: 2 }}>
-                          <Text style={{ fontSize: 14, fontFamily: "Inter_700Bold", color: colors.foreground }}>{item.foodType}</Text>
-                          {grillLabel ? (
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                              <Feather name="sliders" size={10} color={colors.mutedForeground} />
-                              <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>{grillLabel}</Text>
-                            </View>
-                          ) : (
-                            <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontStyle: "italic" }}>No grill selected</Text>
-                          )}
-                        </View>
-                        <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
-                          {fmtMinutes(item.estimatedDurationMinutes)} cook
-                        </Text>
-                      </View>
-                      {/* Timeline rows */}
-                      <View style={{ paddingHorizontal: 14, paddingVertical: 10, gap: 7 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                          <Feather name="power" size={13} color={colors.mutedForeground} />
-                          <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>
-                            {grillLabel ? `Light ${grillLabel}` : "Light grill"}
-                          </Text>
-                          <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.foreground }}>
-                            {new Date(item.grillLightAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                          </Text>
-                        </View>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                          <Feather name="zap" size={13} color="#E84820" />
-                          <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>Meat on</Text>
-                          <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: "#E84820" }}>
-                            {new Date(item.meatOnAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                          </Text>
-                        </View>
-                        {item.wrapMethod && item.wrapMethod !== "none" && item.wrapAtMinutes && item.wrapAtMinutes > 0 && (
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                            <Feather name="package" size={13} color="#A855F7" />
-                            <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>
-                              {item.wrapMethod === "foil" ? "Wrap in foil" : "Wrap in butcher paper"}
-                              {item.wrapTempF ? ` · ${item.wrapTempF}°F` : ""}
-                            </Text>
-                            <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#A855F7" }}>
-                              {new Date(new Date(item.meatOnAt).getTime() + item.wrapAtMinutes * 60000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            </Text>
-                          </View>
-                        )}
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                          <Feather name="pause" size={13} color={colors.mutedForeground} />
-                          <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>Pull off · rest {item.restMinutes}m</Text>
-                          <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
-                            {new Date(item.estimatedFinishAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                          </Text>
-                        </View>
-                        {item.wrapReason && item.wrapMethod && item.wrapMethod !== "none" ? (
-                          <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: "#A855F7", fontStyle: "italic", marginTop: 2 }}>
-                            {item.wrapReason}
-                          </Text>
-                        ) : null}
-                        {item.notes ? (
-                          <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontStyle: "italic", marginTop: 2 }}>
-                            {item.notes}
-                          </Text>
-                        ) : null}
-                      </View>
-                    </View>
-                    );
-                  })}
-
-                  {/* Save All button */}
-                  <Pressable
-                    onPress={handleSaveMultiCooks}
-                    disabled={createCook.isPending}
-                    style={({ pressed }) => [{
-                      backgroundColor: "#6C3BF5",
-                      borderRadius: colors.radius,
-                      paddingVertical: 14,
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 8,
-                      marginTop: 4,
-                      opacity: (pressed || createCook.isPending) ? 0.7 : 1,
-                    }]}
-                  >
-                    {createCook.isPending ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                      <>
-                        <Feather name="save" size={16} color="#fff" />
-                        <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" }}>
-                          Save {multiResult.schedule.length} Cooks to My Plan
-                        </Text>
-                      </>
-                    )}
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => setMultiResultOpen(false)}
-                    style={[s.dismissBtn, { borderRadius: colors.radius, borderColor: colors.border, marginTop: 10 }]}
-                  >
-                    <Text style={[s.dismissBtnText, { color: colors.mutedForeground }]}>Close</Text>
-                  </Pressable>
-                </>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setMultiResultOpen(false)}
+        colors={colors}
+        multiResult={multiResult}
+        scheduleGrillLabels={scheduleGrillLabels}
+        handleSaveMultiCooks={handleSaveMultiCooks}
+        createCookPending={createCook.isPending}
+      />
 
       {/* ════ MULTI-COOK ADD ITEM MODAL ════ */}
-      <Modal
+      <MultiCookAddItemModal
         visible={multiAddOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setMultiAddOpen(false)}
-      >
-        <View style={s.modalOverlay}>
-          <View style={[s.modalSheet, { backgroundColor: colors.card }]}>
-            <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
-            <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[s.modalTitle, { color: colors.foreground }]}>Add Item</Text>
-              <Pressable onPress={() => setMultiAddOpen(false)} hitSlop={10}>
-                <Feather name="x" size={22} color={colors.mutedForeground} />
-              </Pressable>
-            </View>
-            {/* Category tabs */}
-            <View style={s.catTabRow}>
-              {MEAT_CATEGORIES.map(cat => (
-                <Pressable
-                  key={cat}
-                  onPress={() => setMultiAddCat(cat)}
-                  style={[s.catTab, { backgroundColor: multiAddCat === cat ? colors.primary : colors.muted, borderRadius: 20 }]}
-                >
-                  <Text style={[s.catTabText, { color: multiAddCat === cat ? "#fff" : colors.mutedForeground }]}>{cat}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <FlatList
-              data={MEAT_CUTS_BY_CATEGORY[multiAddCat] ?? []}
-              keyExtractor={item => item.name}
-              contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 20 }}
-              ItemSeparatorComponent={() => <View style={[s.cutSep, { backgroundColor: colors.border }]} />}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => setMultiPickedCut(item)}
-                  style={({ pressed }) => [
-                    s.cutRow,
-                    pressed && { opacity: 0.7 },
-                    multiPickedCut?.name === item.name && { backgroundColor: colors.primary + "12" },
-                  ]}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={[s.cutName, { color: colors.foreground }]}>{item.name}</Text>
-                    <Text style={[s.cutMeta, { color: colors.mutedForeground }]}>
-                      Target {item.targetTempF}°F · Cook at {item.cookTempF}°F · ~{item.minsPerLb} min/lb
-                    </Text>
-                  </View>
-                  {multiPickedCut?.name === item.name && (
-                    <Feather name="check-circle" size={18} color={colors.primary} />
-                  )}
-                </Pressable>
-              )}
-            />
-            {multiPickedCut && (
-              <View style={{ padding: 14, borderTopWidth: 1, borderTopColor: colors.border, gap: 12 }}>
-                <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
-                  <TextInput
-                    style={[s.input, { color: colors.foreground }]}
-                    placeholder={`Weight in lbs (optional)`}
-                    placeholderTextColor={colors.mutedForeground}
-                    keyboardType="decimal-pad"
-                    value={multiAddWeightInput}
-                    onChangeText={setMultiAddWeightInput}
-                  />
-                </View>
-                <Pressable
-                  onPress={() => {
-                    setMultiItems(prev => [...prev, { cut: multiPickedCut, weightLbs: multiAddWeightInput, grillId: null }]);
-                    setMultiAddOpen(false);
-                    setMultiPickedCut(null);
-                    setMultiAddWeightInput("");
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                  style={[s.submitBtn, { backgroundColor: "#6C3BF5", borderRadius: colors.radius }]}
-                >
-                  <Feather name="plus" size={16} color="#fff" />
-                  <Text style={s.submitText}>Add {multiPickedCut.name}</Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setMultiAddOpen(false)}
+        colors={colors}
+        multiAddCat={multiAddCat}
+        setMultiAddCat={setMultiAddCat}
+        multiPickedCut={multiPickedCut}
+        setMultiPickedCut={setMultiPickedCut}
+        multiAddWeightInput={multiAddWeightInput}
+        setMultiAddWeightInput={setMultiAddWeightInput}
+        setMultiItems={setMultiItems}
+      />
 
     </View>
   );
