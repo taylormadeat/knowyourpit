@@ -376,40 +376,6 @@ export const s = StyleSheet.create({
   },
   seqTlNoteText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 17 },
 
-  stepToastHitArea: {
-    position: "absolute",
-    top: 0,
-    left: 12,
-    right: 12,
-    zIndex: 99,
-  },
-  stepToast: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.28,
-    shadowRadius: 6,
-    elevation: 8,
-  },
-  stepToastLabel: {
-    fontSize: 11,
-    fontFamily: "Inter_700Bold",
-    color: "rgba(255,255,255,0.7)",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  stepToastText: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-    color: "#fff",
-  },
-
 });
 
 export const edt = StyleSheet.create({

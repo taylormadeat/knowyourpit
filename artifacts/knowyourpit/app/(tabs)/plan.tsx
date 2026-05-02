@@ -35,6 +35,9 @@ import {
   type Cook,
   type MultiCookScheduleItem,
 } from "@workspace/api-client-react";
+import { NextUpBanner, getStepTargetMs } from "@/components/NextUpBanner";
+import { computeNextStep } from "@/components/cook-detail/utils";
+import type { SequenceData } from "@/components/cook-detail/types";
 import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
 import {
   MEAT_CUTS,
@@ -87,10 +90,36 @@ export default function PlanScreen() {
   const [bannerNowMs, setBannerNowMs] = useState(Date.now());
   const bannerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // The Cook type from the API client doesn't include the `sequenceData` JSON
+  // field, so narrow with a cast for the bits we actually use here (matches
+  // the same pattern in the cook detail screen).
+  const activeSeqData =
+    (activeCook as { sequenceData?: SequenceData | null } | null | undefined)
+      ?.sequenceData ?? null;
+
+  const activeNextStep = useMemo(
+    () => computeNextStep(activeSeqData, activeCook?.status, bannerNowMs),
+    [activeSeqData, activeCook?.status, bannerNowMs],
+  );
+
+  // Adaptive tick rate: when the next step is more than 90s out, a 30s tick
+  // is plenty for the "in Xh Ym" / "in Xm" countdown plus the elapsed-minutes
+  // display. Inside the last 90 seconds we tick every second so the banner can
+  // switch to "in Xs" and count down smoothly without ever skipping.
+  const nextStepRemainingMs =
+    activeNextStep != null
+      ? (() => {
+          const target = getStepTargetMs(activeSeqData, activeNextStep);
+          return target == null ? null : target - bannerNowMs;
+        })()
+      : null;
+  const tickIntervalMs =
+    nextStepRemainingMs != null && nextStepRemainingMs < 90_000 ? 1000 : 30_000;
+
   useEffect(() => {
     if (activeCook) {
       setBannerNowMs(Date.now());
-      bannerTimerRef.current = setInterval(() => setBannerNowMs(Date.now()), 60000);
+      bannerTimerRef.current = setInterval(() => setBannerNowMs(Date.now()), tickIntervalMs);
     } else {
       if (bannerTimerRef.current) {
         clearInterval(bannerTimerRef.current);
@@ -103,7 +132,7 @@ export default function PlanScreen() {
         bannerTimerRef.current = null;
       }
     };
-  }, [activeCook?.id]);
+  }, [activeCook?.id, tickIntervalMs]);
 
   const activeElapsedMs = activeCook?.actualStartAt
     ? bannerNowMs - new Date(activeCook.actualStartAt).getTime()
@@ -525,21 +554,29 @@ export default function PlanScreen() {
 
       {/* ── Now Cooking banner ───────────────────────────────── */}
       {activeCook && (
-        <Pressable
-          onPress={() => router.push(`/cooks/${activeCook.id}` as any)}
-          style={[s.nowCookingBanner, { backgroundColor: "#FF6B2B" }]}
-        >
-          <View style={s.nowCookingLeft}>
-            <View style={[s.nowCookingDot, { backgroundColor: "#fff" }]} />
-            <Text style={s.nowCookingTitle} numberOfLines={1}>
-              🔥 Now cooking · {activeCook.foodType ?? "Cook in progress"}
+        <>
+          <Pressable
+            onPress={() => router.push(`/cooks/${activeCook.id}` as any)}
+            style={[s.nowCookingBanner, { backgroundColor: "#FF6B2B" }]}
+          >
+            <View style={s.nowCookingLeft}>
+              <View style={[s.nowCookingDot, { backgroundColor: "#fff" }]} />
+              <Text style={s.nowCookingTitle} numberOfLines={1}>
+                🔥 Now cooking · {activeCook.foodType ?? "Cook in progress"}
+              </Text>
+            </View>
+            <Text style={s.nowCookingElapsed}>
+              {activeElapsedMs > 0 ? fmtElapsedPlan(activeElapsedMs) : "Just started"}
             </Text>
-          </View>
-          <Text style={s.nowCookingElapsed}>
-            {activeElapsedMs > 0 ? fmtElapsedPlan(activeElapsedMs) : "Just started"}
-          </Text>
-          <Feather name="chevron-right" size={16} color="#fff" />
-        </Pressable>
+            <Feather name="chevron-right" size={16} color="#fff" />
+          </Pressable>
+          <NextUpBanner
+            nextStep={activeNextStep}
+            cookSeqData={activeSeqData}
+            nowMs={bannerNowMs}
+            onPress={() => router.push(`/cooks/${activeCook.id}` as any)}
+          />
+        </>
       )}
 
       <KeyboardAwareScrollView

@@ -14,7 +14,6 @@ import {
   FlatList,
   TouchableOpacity,
   KeyboardAvoidingView,
-  Animated,
   LogBox,
   AppState,
   type AppStateStatus,
@@ -80,7 +79,6 @@ import type {
   AnalysisResult,
   ScheduleItem,
   SequenceData,
-  NextStepKey,
   NextStep,
 } from "@/components/cook-detail/types";
 import { EditCookModal } from "@/components/cook-detail/EditCookModal";
@@ -93,6 +91,7 @@ import { SequenceSchedule } from "@/components/cook-detail/SequenceSchedule";
 import { StoredAiAnalysis } from "@/components/cook-detail/StoredAiAnalysis";
 import { AskPitMaster } from "@/components/cook-detail/AskPitMaster";
 import { RateThisCook } from "@/components/cook-detail/RateThisCook";
+import { NextUpBanner } from "@/components/NextUpBanner";
 
 // Silence a dev-only LogBox warning that can fire from RN's measureLayout when
 // the underlying native node briefly detaches between layout passes. Our
@@ -300,26 +299,17 @@ export default function CookDetailScreen() {
   // it without taking a fresh `nextStep` object reference every nowMs tick.
   const nextStepItemIdx = nextStep ? nextStep.itemIdx : null;
 
-  // ── Step-change toast state ───────────────────────────────────────────────
-  const [stepToast, setStepToast] = useState<string | null>(null);
-  const stepToastAnim = useRef(new Animated.Value(0)).current;
-  const stepToastAnimRef = useRef<Animated.CompositeAnimation | null>(null);
-  const stepToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ── Step-change tracking ──────────────────────────────────────────────────
+  // The persistent NextUpBanner replaces the old transient step-change toast.
+  // We still fire a haptic when the next step transitions; this ref lets that
+  // effect tell whether the step actually changed (vs. nowMs ticking).
   const prevNextStepKeyRef = useRef<string | null | undefined>(undefined);
 
   // Track when this screen is mounted so the global notification handler can
-  // suppress schedule-step system banners in favour of the in-app toast.
+  // suppress schedule-step system banners in favour of the in-app banner.
   useEffect(() => {
     setCookDetailVisible(true);
     return () => setCookDetailVisible(false);
-  }, []);
-
-  // Clean up timer on unmount to avoid post-unmount state updates.
-  useEffect(() => {
-    return () => {
-      if (stepToastTimerRef.current) clearTimeout(stepToastTimerRef.current);
-      stepToastAnimRef.current?.stop();
-    };
   }, []);
 
   // Auto-expand the schedule and smooth-scroll the highlighted row into view
@@ -348,7 +338,8 @@ export default function CookDetailScreen() {
     return () => clearTimeout(timer);
   }, [nextStepKey, nextStepItemIdx]);
 
-  // Haptic + toast on next-step transition (active cooks only).
+  // Haptic-only on next-step transition (active cooks only). The visual cue is
+  // now the persistent NextUpBanner mounted below the screen header.
   // prevNextStepKeyRef starts as undefined so the initial mount is skipped.
   useEffect(() => {
     if (prevNextStepKeyRef.current === undefined) {
@@ -359,61 +350,10 @@ export default function CookDetailScreen() {
     prevNextStepKeyRef.current = nextStepKey;
     if (nextStepKey === prev || !nextStepKey || cookStatus !== "active") return;
 
-    const STEP_LABELS: Record<NextStepKey, string> = {
-      grillLight: "Light the Grill",
-      meatOn: "Meat On",
-      pullOff: "Pull Off",
-      serve: "Serve",
-    };
-
-    const stepLabel = STEP_LABELS[nextStep!.step] ?? nextStep!.step;
-    const item = cookSeqData?.schedule?.[nextStep!.itemIdx];
-    let timeStr = "";
-    if (item) {
-      const fmt = (iso: string) =>
-        new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-      if (nextStep!.step === "grillLight" && item.grillLightAt) timeStr = fmt(item.grillLightAt);
-      else if (nextStep!.step === "meatOn" && item.meatOnAt) timeStr = fmt(item.meatOnAt);
-      else if (nextStep!.step === "pullOff" && item.estimatedFinishAt) timeStr = fmt(item.estimatedFinishAt);
-      else if (nextStep!.step === "serve" && item.estimatedFinishAt) {
-        const serveMs = new Date(item.estimatedFinishAt).getTime() + (item.restMinutes ?? 0) * 60000;
-        timeStr = new Date(serveMs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-      }
-    }
-    const message = timeStr ? `${stepLabel} · ${timeStr}` : stepLabel;
-
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     }
-
-    if (stepToastTimerRef.current) clearTimeout(stepToastTimerRef.current);
-    stepToastAnimRef.current?.stop();
-    stepToastAnim.setValue(0);
-    setStepToast(message);
-    const anim = Animated.sequence([
-      Animated.timing(stepToastAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
-      Animated.delay(3600),
-      Animated.timing(stepToastAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
-    ]);
-    stepToastAnimRef.current = anim;
-    anim.start();
-    stepToastTimerRef.current = setTimeout(() => setStepToast(null), 4200);
-  }, [nextStepKey]);
-
-  const dismissStepToast = React.useCallback(() => {
-    if (stepToastTimerRef.current) {
-      clearTimeout(stepToastTimerRef.current);
-      stepToastTimerRef.current = null;
-    }
-    stepToastAnimRef.current?.stop();
-    const fadeOut = Animated.timing(stepToastAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-    });
-    stepToastAnimRef.current = fadeOut;
-    fadeOut.start(() => setStepToast(null));
-  }, [stepToastAnim]);
+  }, [nextStepKey, cookStatus]);
 
   // Edit modal state
   const [editVisible, setEditVisible] = useState(false);
@@ -1121,32 +1061,12 @@ export default function CookDetailScreen() {
       </LinearGradient>
       <View style={s.fireBar} />
 
-      {/* ── Step-change toast banner ─────────────────────────────────────── */}
-      {stepToast !== null && (
-        <Pressable onPress={dismissStepToast} style={s.stepToastHitArea}>
-          <Animated.View
-            style={[
-              s.stepToast,
-              {
-                backgroundColor: colors.primary,
-                opacity: stepToastAnim,
-                transform: [
-                  {
-                    translateY: stepToastAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [-12, 0],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <Feather name="clock" size={14} color="#fff" />
-            <Text style={s.stepToastLabel}>Next Up</Text>
-            <Text style={s.stepToastText} numberOfLines={1}>{stepToast}</Text>
-          </Animated.View>
-        </Pressable>
-      )}
+      {/* ── Persistent "Next Up" banner (active cooks with a schedule) ─── */}
+      <NextUpBanner
+        nextStep={nextStep}
+        cookSeqData={cookSeqData}
+        nowMs={nowMs}
+      />
 
       <ScrollView
         ref={scheduleScrollViewRef}
