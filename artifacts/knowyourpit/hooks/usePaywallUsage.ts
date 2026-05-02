@@ -14,6 +14,7 @@ export interface PaywallUsage {
     cooks: number;
     aiChatPerDay: number;
     aiAnalyzePerDay: number;
+    frozenTimelineLifetime: number;
   };
   usage: {
     cooks: number;
@@ -21,6 +22,7 @@ export interface PaywallUsage {
     plannedCooks: number;
     aiMessagesToday: number;
     aiAnalyzesToday: number;
+    frozenTimelineLifetime: number;
   };
   remaining: {
     cooks: number;
@@ -28,6 +30,7 @@ export interface PaywallUsage {
     plannedCooks: number;
     aiMessagesToday: number;
     aiAnalyzesToday: number;
+    frozenTimelineLifetime: number;
   };
   resetsAt: string;
 }

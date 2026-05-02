@@ -21,6 +21,7 @@ import { LogoBackground } from "@/components/LogoBackground";
 import * as Haptics from "expo-haptics";
 import * as Crypto from "expo-crypto";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
 import { useLayout } from "@/hooks/useLayout";
 import {
@@ -157,6 +158,12 @@ export default function PlanScreen() {
   // ── Frozen-to-table planning ─────────────────────────────────────────
   const [frozenEnabled, setFrozenEnabled] = useState(false);
   const [thawMethod, setThawMethod] = useState<ThawMethod>("fridge");
+  // Tracks whether this user already burned their lifetime free trial of the
+  // Frozen-to-Table planner during the current cook draft. Once consumed, we
+  // allow toggling on/off freely without re-charging the lifetime counter.
+  const [frozenConsumedThisCook, setFrozenConsumedThisCook] = useState(false);
+  const [frozenConsumePending, setFrozenConsumePending] = useState(false);
+  const { getToken } = useAuth();
 
   // ── Serve-by picker state ────────────────────────────────────────────
   const upcomingDates = useMemo(() => getUpcomingDates(), []);
@@ -269,6 +276,7 @@ export default function PlanScreen() {
     setMeatPickerOpen(false);
     setMeatCategory(MEAT_CATEGORIES[0]);
     setFrozenEnabled(false);
+    setFrozenConsumedThisCook(false);
     setThawMethod("fridge");
   };
 
@@ -885,53 +893,135 @@ export default function PlanScreen() {
 
         {/* ── Frozen-to-Table Toggle ── */}
         <Pressable
-          onPress={() => {
-            if (!effectivePro) {
+          onPress={async () => {
+            // Pro users — toggle freely.
+            if (effectivePro) {
+              setFrozenEnabled((prev) => !prev);
+              Haptics.selectionAsync();
+              return;
+            }
+            // Free users turning OFF — always allowed; lifetime counter is
+            // not refunded but they can keep planning without it.
+            if (frozenEnabled) {
+              setFrozenEnabled(false);
+              Haptics.selectionAsync();
+              return;
+            }
+            // Free users turning ON — if we've already consumed for this cook
+            // draft, the toggle works freely. Otherwise check + record one
+            // lifetime use server-side.
+            if (frozenConsumedThisCook) {
+              setFrozenEnabled(true);
+              Haptics.selectionAsync();
+              return;
+            }
+            if (frozenConsumePending) return;
+            // Pre-flight: if the cached usage already shows 0 remaining,
+            // skip the network call and surface the paywall immediately.
+            if (
+              paywallUsage &&
+              !paywallUsage.unlimited &&
+              paywallUsage.remaining.frozenTimelineLifetime <= 0
+            ) {
               showPaywall({
-                trigger: "pro_required",
+                trigger: "frozen_timeline_limit_reached",
                 featureName: "Frozen-to-Table Timeline",
                 foodType: selectedCut?.name ?? null,
               });
               return;
             }
-            setFrozenEnabled((prev) => !prev);
-            Haptics.selectionAsync();
+            setFrozenConsumePending(true);
+            try {
+              const token = await getToken().catch(() => null);
+              const headers: Record<string, string> = {
+                "Content-Type": "application/json",
+              };
+              if (token) headers["Authorization"] = `Bearer ${token}`;
+              const apiBase =
+                process.env.EXPO_PUBLIC_API_URL ??
+                (process.env.EXPO_PUBLIC_DOMAIN
+                  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+                  : "");
+              const res = await fetch(
+                `${apiBase}/api/paywall/frozen-timeline/consume`,
+                { method: "POST", headers },
+              );
+              if (res.status === 402) {
+                // Already at lifetime cap — surface the upgrade paywall.
+                showPaywall({
+                  trigger: "frozen_timeline_limit_reached",
+                  featureName: "Frozen-to-Table Timeline",
+                  foodType: selectedCut?.name ?? null,
+                });
+                return;
+              }
+              if (!res.ok) {
+                Alert.alert(
+                  "Couldn't enable Frozen-to-Table",
+                  "Please try again in a moment.",
+                );
+                return;
+              }
+              setFrozenEnabled(true);
+              setFrozenConsumedThisCook(true);
+              Haptics.selectionAsync();
+              // Refresh the cached usage counters so other screens reflect
+              // the new lifetime usage immediately.
+              qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
+            } finally {
+              setFrozenConsumePending(false);
+            }
           }}
           style={[
             s.frozenCard,
             {
               backgroundColor: colors.card,
-              borderColor: frozenEnabled && effectivePro ? "#3B82F6" : colors.border,
+              borderColor: frozenEnabled ? "#3B82F6" : colors.border,
               borderRadius: colors.radius,
               marginTop: 16,
-              opacity: effectivePro ? 1 : 0.85,
+              opacity: 1,
             },
           ]}
         >
-          <View style={[s.frozenIconWrap, { backgroundColor: (effectivePro ? "#3B82F6" : colors.mutedForeground) + "22" }]}>
-            <Feather name="cloud-snow" size={16} color={effectivePro ? "#3B82F6" : colors.mutedForeground} />
+          <View style={[s.frozenIconWrap, { backgroundColor: "#3B82F622" }]}>
+            <Feather name="cloud-snow" size={16} color="#3B82F6" />
           </View>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <Text style={[s.frozenTitle, { color: colors.foreground }]}>
                 Starting from frozen?
               </Text>
-              {!effectivePro && (
-                <View style={s.proPill}>
-                  <Feather name="star" size={9} color="#fff" />
-                  <Text style={s.proPillText}>PRO</Text>
-                </View>
-              )}
+              {/* Free users get one lifetime trial — once consumed (or already
+                  at cap server-side), surface the PRO pill so they understand
+                  future toggles will require an upgrade. */}
+              {!effectivePro &&
+                (frozenConsumedThisCook ||
+                  (paywallUsage &&
+                    !paywallUsage.unlimited &&
+                    paywallUsage.remaining.frozenTimelineLifetime <= 0)) && (
+                  <View style={s.proPill}>
+                    <Feather name="star" size={9} color="#fff" />
+                    <Text style={s.proPillText}>PRO</Text>
+                  </View>
+                )}
             </View>
             <Text style={[s.frozenSub, { color: colors.mutedForeground }]} numberOfLines={2}>
-              {effectivePro
-                ? frozenEnabled
-                  ? "We'll add thaw + temper time to your full timeline."
-                  : "Plan your cook from freezer to table."
-                : "Pro: full timeline from freezer to table."}
+              {frozenEnabled
+                ? "We'll add thaw + temper time to your full timeline."
+                : effectivePro
+                  ? "Plan your cook from freezer to table."
+                  : frozenConsumedThisCook
+                    ? "Plan your cook from freezer to table."
+                    : paywallUsage &&
+                        !paywallUsage.unlimited &&
+                        paywallUsage.remaining.frozenTimelineLifetime > 0
+                      ? "Try it free once — full timeline from freezer to table."
+                      : "Plan your cook from freezer to table."}
             </Text>
           </View>
-          {effectivePro ? (
+          {frozenConsumePending ? (
+            <ActivityIndicator size="small" color="#3B82F6" />
+          ) : (
             <View
               style={[
                 s.toggleTrack,
@@ -951,13 +1041,11 @@ export default function PlanScreen() {
                 ]}
               />
             </View>
-          ) : (
-            <Feather name="lock" size={16} color={colors.mutedForeground} />
           )}
         </Pressable>
 
-        {/* Thaw method picker — only shown when Pro + toggle on */}
-        {effectivePro && frozenEnabled && (
+        {/* Thaw method picker — only shown when toggle on (Pro or free trial). */}
+        {frozenEnabled && (
           <View style={[s.thawMethodRow, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
             {([
               { key: "fridge" as const, label: "Refrigerator", icon: "box" as const, sub: "~24h per 4–5 lbs" },

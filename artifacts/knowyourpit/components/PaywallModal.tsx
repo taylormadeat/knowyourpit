@@ -85,6 +85,7 @@ export type PaywallTrigger =
   | "planned_cook_limit_reached"
   | "ai_message_limit_reached"
   | "ai_analyze_limit_reached"
+  | "frozen_timeline_limit_reached"
   | "pro_required";
 
 interface PaywallModalProps {
@@ -146,6 +147,10 @@ function triggerHeadline(
       return food
         ? `Want PitMaster's tips on your ${food}?`
         : "You've used your free AI scans today";
+    case "frozen_timeline_limit_reached":
+      return food
+        ? `Plan another frozen ${food} cook?`
+        : "You've used your free Frozen-to-Table plan";
     case "pro_required":
       if (featureName && food) return `${featureName} for your ${food} cook`;
       if (featureName) return `${featureName} is a Pro feature`;
@@ -173,6 +178,8 @@ function defaultSubtitle(
       return food
         ? `Free plan includes 1 AI cook scan per day. Pro users get unlimited scans on every ${food} cook.`
         : "Free plan includes 1 AI cook scan per day. Upgrade for unlimited.";
+    case "frozen_timeline_limit_reached":
+      return "Free plan includes one Frozen-to-Table cook plan. Upgrade to Pro for unlimited frozen-cook timelines.";
     case "pro_required":
       return "Upgrade to Pro to unlock this and every other premium feature.";
     default:

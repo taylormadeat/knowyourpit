@@ -6,6 +6,7 @@ import {
   conversations,
   messages,
   aiAnalyzeEvents,
+  frozenTimelineEvents,
   subscriptionEntitlements,
 } from "@workspace/db";
 import { listCustomerActiveEntitlements, listEntitlements } from "@replit/revenuecat-sdk";
@@ -22,6 +23,10 @@ export const FREE_AI_CHAT_DAILY_LIMIT = 3;
 // Wave 2 (#329): tightened from 3→1. Free users realistically don't photograph
 // three cook situations per day; the prior cap was mostly theoretical.
 export const FREE_AI_ANALYZE_DAILY_LIMIT = 1;
+// Wave 2 (#329): Frozen-to-Table is now a 1-lifetime free trial instead of a
+// pure Pro-gate. Free users get to plan one frozen cook end-to-end so they
+// can experience the value before being asked to upgrade.
+export const FREE_FROZEN_TIMELINE_LIFETIME_LIMIT = 1;
 
 export type PaywallReason =
   | "cook_limit_reached"
@@ -29,6 +34,7 @@ export type PaywallReason =
   | "planned_cook_limit_reached"
   | "ai_message_limit_reached"
   | "ai_analyze_limit_reached"
+  | "frozen_timeline_limit_reached"
   | "pro_required";
 
 export function isPaywallEnabled(): boolean {
@@ -367,6 +373,32 @@ export async function countAiAnalyzesToday(userId: string): Promise<number> {
 /** Records that the user invoked an AI analyze (call after the analysis succeeds). */
 export async function recordAiAnalyzeEvent(userId: string): Promise<void> {
   await db.insert(aiAnalyzeEvents).values({ userId });
+}
+
+/** Lifetime count of frozen-to-table planning sessions consumed by this user. */
+export async function countFrozenTimelineEventsLifetime(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(frozenTimelineEvents)
+    .where(eq(frozenTimelineEvents.userId, userId));
+  return row?.c ?? 0;
+}
+
+/**
+ * Atomically records that the user consumed their one lifetime free
+ * Frozen-to-Table planning session. Returns `true` if a row was newly
+ * inserted (the user just consumed their lifetime use), or `false` if a
+ * row already existed (they were already at the cap). The DB unique index
+ * on `user_id` guarantees that concurrent requests cannot both succeed —
+ * there is exactly one row per user, ever.
+ */
+export async function recordFrozenTimelineEvent(userId: string): Promise<boolean> {
+  const inserted = await db
+    .insert(frozenTimelineEvents)
+    .values({ userId })
+    .onConflictDoNothing({ target: frozenTimelineEvents.userId })
+    .returning({ id: frozenTimelineEvents.id });
+  return inserted.length > 0;
 }
 
 /**

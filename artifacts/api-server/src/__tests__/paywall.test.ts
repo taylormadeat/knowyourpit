@@ -68,6 +68,7 @@ vi.mock("@workspace/db", () => ({
   conversations: {},
   messages: {},
   aiAnalyzeEvents: {},
+  frozenTimelineEvents: {},
 }));
 
 vi.mock("../lib/revenuecat", () => ({

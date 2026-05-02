@@ -34,6 +34,7 @@ const ERROR_CODE_TO_TRIGGER: Record<string, PaywallTrigger> = {
   planned_cook_limit_reached: "planned_cook_limit_reached",
   ai_message_limit_reached: "ai_message_limit_reached",
   ai_analyze_limit_reached: "ai_analyze_limit_reached",
+  frozen_timeline_limit_reached: "frozen_timeline_limit_reached",
   pro_required: "pro_required",
 };
 
@@ -43,6 +44,7 @@ const FEATURE_LABELS: Record<string, string> = {
   meater_link: "MEATER Connection",
   thermoworks_link: "ThermoWorks Connection",
   cook_quality: "Cook Quality Analytics",
+  frozen_timeline: "Frozen-to-Table Timeline",
 };
 
 function extractPaywallPayload(err: any): { code: string; message?: string; feature?: string } | null {
