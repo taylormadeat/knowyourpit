@@ -25,9 +25,11 @@ import type {
   AnalyzeCookBody,
   AnalyzeCookResult,
   Cook,
+  CookTemplate,
   CookingTip,
   CreateAlertBody,
   CreateCookBody,
+  CreateCookTemplateBody,
   CreateCustomMeatCutBody,
   CreateForumCommentBody,
   CreateForumPostBody,
@@ -69,6 +71,7 @@ import type {
   ThermoworksReadingsResponse,
   ThermoworksStatusResponse,
   UpdateCookBody,
+  UpdateCookTemplateBody,
   UpdateCustomMeatCutBody,
   UpdateGrillBody,
   UpdateRecipeBody,
@@ -990,6 +993,338 @@ export const useDeleteCustomMeatCut = <
   TContext
 > => {
   return useMutation(getDeleteCustomMeatCutMutationOptions(options));
+};
+
+/**
+ * @summary List all saved cook templates for the authenticated user
+ */
+export const getListCookTemplatesUrl = () => {
+  return `/api/cook-templates`;
+};
+
+export const listCookTemplates = async (
+  options?: RequestInit,
+): Promise<CookTemplate[]> => {
+  return customFetch<CookTemplate[]>(getListCookTemplatesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCookTemplatesQueryKey = () => {
+  return [`/api/cook-templates`] as const;
+};
+
+export const getListCookTemplatesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCookTemplates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCookTemplates>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCookTemplatesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCookTemplates>>
+  > = ({ signal }) => listCookTemplates({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCookTemplates>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCookTemplatesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCookTemplates>>
+>;
+export type ListCookTemplatesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all saved cook templates for the authenticated user
+ */
+
+export function useListCookTemplates<
+  TData = Awaited<ReturnType<typeof listCookTemplates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCookTemplates>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCookTemplatesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save a new cook template
+ */
+export const getCreateCookTemplateUrl = () => {
+  return `/api/cook-templates`;
+};
+
+export const createCookTemplate = async (
+  createCookTemplateBody: CreateCookTemplateBody,
+  options?: RequestInit,
+): Promise<CookTemplate> => {
+  return customFetch<CookTemplate>(getCreateCookTemplateUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCookTemplateBody),
+  });
+};
+
+export const getCreateCookTemplateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCookTemplate>>,
+    TError,
+    { data: BodyType<CreateCookTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCookTemplate>>,
+  TError,
+  { data: BodyType<CreateCookTemplateBody> },
+  TContext
+> => {
+  const mutationKey = ["createCookTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCookTemplate>>,
+    { data: BodyType<CreateCookTemplateBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCookTemplate(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCookTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCookTemplate>>
+>;
+export type CreateCookTemplateMutationBody = BodyType<CreateCookTemplateBody>;
+export type CreateCookTemplateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Save a new cook template
+ */
+export const useCreateCookTemplate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCookTemplate>>,
+    TError,
+    { data: BodyType<CreateCookTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCookTemplate>>,
+  TError,
+  { data: BodyType<CreateCookTemplateBody> },
+  TContext
+> => {
+  return useMutation(getCreateCookTemplateMutationOptions(options));
+};
+
+/**
+ * @summary Rename a cook template
+ */
+export const getUpdateCookTemplateUrl = (id: number) => {
+  return `/api/cook-templates/${id}`;
+};
+
+export const updateCookTemplate = async (
+  id: number,
+  updateCookTemplateBody: UpdateCookTemplateBody,
+  options?: RequestInit,
+): Promise<CookTemplate> => {
+  return customFetch<CookTemplate>(getUpdateCookTemplateUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateCookTemplateBody),
+  });
+};
+
+export const getUpdateCookTemplateMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCookTemplate>>,
+    TError,
+    { id: number; data: BodyType<UpdateCookTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCookTemplate>>,
+  TError,
+  { id: number; data: BodyType<UpdateCookTemplateBody> },
+  TContext
+> => {
+  const mutationKey = ["updateCookTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCookTemplate>>,
+    { id: number; data: BodyType<UpdateCookTemplateBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateCookTemplate(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCookTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCookTemplate>>
+>;
+export type UpdateCookTemplateMutationBody = BodyType<UpdateCookTemplateBody>;
+export type UpdateCookTemplateMutationError = ErrorType<void>;
+
+/**
+ * @summary Rename a cook template
+ */
+export const useUpdateCookTemplate = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCookTemplate>>,
+    TError,
+    { id: number; data: BodyType<UpdateCookTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCookTemplate>>,
+  TError,
+  { id: number; data: BodyType<UpdateCookTemplateBody> },
+  TContext
+> => {
+  return useMutation(getUpdateCookTemplateMutationOptions(options));
+};
+
+/**
+ * @summary Delete a cook template
+ */
+export const getDeleteCookTemplateUrl = (id: number) => {
+  return `/api/cook-templates/${id}`;
+};
+
+export const deleteCookTemplate = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteCookTemplateUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCookTemplateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCookTemplate>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCookTemplate>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteCookTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCookTemplate>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteCookTemplate(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCookTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCookTemplate>>
+>;
+
+export type DeleteCookTemplateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a cook template
+ */
+export const useDeleteCookTemplate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCookTemplate>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCookTemplate>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteCookTemplateMutationOptions(options));
 };
 
 /**

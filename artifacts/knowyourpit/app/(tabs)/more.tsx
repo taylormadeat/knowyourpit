@@ -34,6 +34,7 @@ const MENU_SECTIONS = [
     title: "Manage",
     items: [
       { icon: "wind", label: "My Grills", route: "/grills" },
+      { icon: "bookmark", label: "Cook Templates", route: "/templates" },
     ],
   },
   {

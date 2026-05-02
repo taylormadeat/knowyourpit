@@ -31,13 +31,16 @@ import {
   useAiPredict,
   useAiMultiCook,
   useListCooks,
+  useListCookTemplates,
   getListCooksQueryKey,
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
   ListCooksStatus,
   type Cook,
+  type CookTemplate,
   type MultiCookScheduleItem,
 } from "@workspace/api-client-react";
+import { SaveCookTemplateSheet, type CookTemplateDraft } from "@/components/SaveCookTemplateSheet";
 import { NextUpBanner, getStepTargetMs } from "@/components/NextUpBanner";
 import { computeNextStep } from "@/components/cook-detail/utils";
 import type { SequenceData } from "@/components/cook-detail/types";
@@ -223,6 +226,27 @@ export default function PlanScreen() {
 
   // ── Plan mode ─────────────────────────────────────────────────────────
   const [planMode, setPlanMode] = useState<"single" | "multi">("single");
+
+  // ── Saved cook templates ──────────────────────────────────────────────
+  const { data: cookTemplates } = useListCookTemplates();
+  const [saveTplOpen, setSaveTplOpen] = useState(false);
+  const [saveTplDraft, setSaveTplDraft] = useState<CookTemplateDraft | null>(null);
+
+  const applyCookTemplate = (tpl: CookTemplate) => {
+    const matchedCut =
+      MEAT_CUTS.find((c) => c.name.toLowerCase() === tpl.foodType.toLowerCase()) ?? null;
+    if (matchedCut) {
+      setSelectedCut(matchedCut);
+      setMeatCategory(matchedCut.category);
+    }
+    if (tpl.weightLbs != null) setWeightLbs(String(tpl.weightLbs));
+    if (tpl.cookTempF != null) setCookTempF(String(tpl.cookTempF));
+    if (tpl.targetTempF != null) setTargetTempF(String(tpl.targetTempF));
+    if (tpl.grillId != null) setGrillId(tpl.grillId);
+    if (tpl.notes) setNotes(tpl.notes);
+    setCookName(tpl.name);
+    Haptics.selectionAsync();
+  };
 
   // ── Pro / paywall plumbing (declared before weather so the forecast hook
   //     can be gated on entitlement). ─────────────────────────────────────
@@ -686,6 +710,38 @@ export default function PlanScreen() {
       const usedCooksBefore = paywallUsage?.usage?.cooks ?? 0;
       const isFreeAccount = !!paywallUsage && !paywallUsage.unlimited;
       const plannedFood = selectedCut?.name ?? null;
+
+      // Offer to save this setup as a reusable template
+      const grillNameForTpl = selectedGrill?.name?.trim();
+      const baseName = cookName.trim() || selectedCut.name;
+      const defaultTplName = grillNameForTpl
+        ? `${baseName} on ${grillNameForTpl}`
+        : baseName;
+      const tplDraft: CookTemplateDraft = {
+        defaultName: defaultTplName,
+        foodType: selectedCut.name,
+        meatCategory: selectedCut.category ?? null,
+        weightLbs: parsedWeight,
+        grillId: grillId ?? null,
+        cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
+        targetTempF: targetTempF ? Number(targetTempF) : selectedCut.targetTempF,
+        notes: notes.trim() || null,
+      };
+      Alert.alert(
+        "Cook saved!",
+        "Save this setup as a template so you can re-plan it in one tap?",
+        [
+          { text: "Not now", style: "cancel" },
+          {
+            text: "Save Template",
+            onPress: () => {
+              setSaveTplDraft(tplDraft);
+              setSaveTplOpen(true);
+            },
+          },
+        ],
+      );
+
       resetForm();
       // ── Inline soft tip card (NOT a blocking alert) ──
       // Surfaces only on the next render of the Plan screen and only when
@@ -1144,6 +1200,59 @@ export default function PlanScreen() {
             onChangeText={setCookName}
           />
         </View>
+
+        {/* ── My Templates row ── */}
+        {cookTemplates && cookTemplates.length > 0 ? (
+          <>
+            <Label colors={colors}>My Templates</Label>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginBottom: 14 }}
+              contentContainerStyle={{ gap: 8, paddingRight: 8 }}
+            >
+              {cookTemplates.map((tpl) => (
+                <Pressable
+                  key={tpl.id}
+                  onPress={() => applyCookTemplate(tpl)}
+                  style={({ pressed }) => [
+                    {
+                      paddingVertical: 10,
+                      paddingHorizontal: 14,
+                      borderRadius: colors.radius,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      backgroundColor: colors.card,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                      maxWidth: 240,
+                    },
+                    pressed && { opacity: 0.7 },
+                  ]}
+                  accessibilityLabel={`Apply template ${tpl.name}`}
+                >
+                  <Feather name="bookmark" size={13} color={colors.primary} />
+                  <View style={{ flexShrink: 1 }}>
+                    <Text
+                      numberOfLines={1}
+                      style={{ color: colors.foreground, fontSize: 13, fontFamily: "Inter_700Bold" }}
+                    >
+                      {tpl.name}
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}
+                    >
+                      {tpl.foodType}
+                      {tpl.weightLbs != null ? ` · ${tpl.weightLbs} lbs` : ""}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </>
+        ) : null}
 
         {/* ── Meat Cut ── */}
         <Label colors={colors}>Meat Cut *</Label>
@@ -2153,6 +2262,12 @@ export default function PlanScreen() {
         </View>
 
       </KeyboardAwareScrollView>
+
+      <SaveCookTemplateSheet
+        visible={saveTplOpen}
+        onClose={() => setSaveTplOpen(false)}
+        draft={saveTplDraft}
+      />
 
       {/* ════ MEAT PICKER MODAL ════ */}
       <MeatPickerModal
