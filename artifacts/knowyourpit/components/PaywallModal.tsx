@@ -16,6 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useColors } from "@/hooks/useColors";
 import { useSubscription, type PurchasePackageLike } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
+import { useGetRecentCooks, getGetRecentCooksQueryKey } from "@workspace/api-client-react";
 
 interface TrialInfo {
   label: string;
@@ -167,23 +168,51 @@ function defaultSubtitle(
   const food = normalizeFoodType(foodType);
   switch (trigger) {
     case "cook_limit_reached":
-      return "Free plan is capped at 3 cooks. Upgrade for unlimited logging.";
+      return food
+        ? `Your 3-cook journey is just beginning. Add this ${food} and keep building your history with Pro.`
+        : "Your 3-cook journey is just beginning. Keep building your history with Pro.";
     case "active_cook_limit_reached":
       return "Free plan only allows one active cook at a time.";
     case "planned_cook_limit_reached":
       return "Free plan only allows one planned cook at a time.";
     case "ai_message_limit_reached":
-      return "You've used your 3 free messages today. Upgrade to Pro for unlimited AI chat.";
+      return food
+        ? `You've used your 3 free messages today — and your ${food} deserves more coaching. Upgrade for unlimited AI chat.`
+        : "You've used your 3 free messages today. Upgrade to Pro for unlimited AI chat.";
     case "ai_analyze_limit_reached":
       return food
         ? `You've used your 1 free analysis today. Upgrade to Pro for unlimited scans on every ${food} cook.`
         : "You've used your 1 free analysis today. Upgrade to Pro for unlimited scans.";
     case "frozen_timeline_limit_reached":
-      return "You've used your 1 free Frozen-to-Table timeline. Upgrade to Pro for unlimited frozen cook plans.";
+      return food
+        ? `You've used your 1 free Frozen-to-Table timeline. Upgrade for unlimited frozen ${food} plans.`
+        : "You've used your 1 free Frozen-to-Table timeline. Upgrade to Pro for unlimited frozen cook plans.";
     case "pro_required":
       return "Upgrade to Pro to unlock this and every other premium feature.";
     default:
       return "Get every feature, with no caps.";
+  }
+}
+
+/** Map a food type string to a small Feather icon for the journey cards. */
+function foodTypeIcon(foodType?: string | null): string {
+  const f = (foodType ?? "").toLowerCase();
+  if (f.includes("brisket") || f.includes("beef") || f.includes("steak")) return "award";
+  if (f.includes("rib")) return "git-branch";
+  if (f.includes("pork") || f.includes("butt") || f.includes("shoulder")) return "circle";
+  if (f.includes("chicken") || f.includes("turkey") || f.includes("poultry")) return "feather";
+  if (f.includes("fish") || f.includes("salmon")) return "anchor";
+  if (f.includes("sausage")) return "minus";
+  return "thermometer";
+}
+
+function formatJourneyDate(iso?: string | null): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  } catch {
+    return "";
   }
 }
 
@@ -209,6 +238,28 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
     lastError,
   } = useSubscription();
   const effectivePro = useEffectivePro();
+
+  // Cook #4 enhanced wall — fetch the user's recent cooks so we can render a
+  // "Your Journey" panel above the feature list. Only enabled for the
+  // cook_limit_reached trigger when the modal is visible to avoid wasted
+  // requests on every paywall open.
+  const isCookLimitWall = trigger === "cook_limit_reached";
+  const { data: recentCooksData } = useGetRecentCooks({
+    query: {
+      queryKey: getGetRecentCooksQueryKey(),
+      enabled: visible && isCookLimitWall && !effectivePro,
+    },
+  });
+  const journeyCooks = useMemo(() => {
+    if (!isCookLimitWall) return [] as any[];
+    const list = (recentCooksData as any[] | undefined) ?? [];
+    // Prefer completed cooks (they have ratings → richer cards), but fall
+    // back to any recent cooks so users at the cap with planned/active cooks
+    // still see their journey panel populated.
+    const completed = list.filter((c) => c?.status === "completed");
+    const others = list.filter((c) => c?.status !== "completed");
+    return [...completed, ...others].slice(0, 3);
+  }, [isCookLimitWall, recentCooksData]);
 
   const annual = currentOffering?.annual ?? null;
   const monthly = currentOffering?.monthly ?? null;
@@ -302,6 +353,92 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
           </LinearGradient>
 
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
+            {/* ── Cook #4 "Your Journey" enhanced wall ──
+                Only shown for the cook-limit trigger. Frames the upgrade as
+                a continuation of the user's existing 3-cook history rather
+                than a transactional upsell. */}
+            {isCookLimitWall && !effectivePro && (
+              <View style={[styles.journeyBlock, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.journeyHeader, { color: colors.foreground }]}>
+                  Your 3-cook journey so far
+                </Text>
+                {journeyCooks.length > 0 ? (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 10, paddingVertical: 4 }}
+                  >
+                    {journeyCooks.map((cook: any, idx: number) => {
+                      const cookFood = cook?.foodType ?? "Cook";
+                      const dateStr = formatJourneyDate(
+                        cook?.actualEndAt ?? cook?.actualStartAt ?? cook?.createdAt,
+                      );
+                      const rating = typeof cook?.rating === "number" ? cook.rating : 0;
+                      return (
+                        <View
+                          key={cook?.id ?? idx}
+                          style={[
+                            styles.journeyCard,
+                            {
+                              backgroundColor: colors.card,
+                              borderColor: colors.border,
+                              borderRadius: colors.radius,
+                            },
+                          ]}
+                        >
+                          <View
+                            style={[styles.journeyIcon, { backgroundColor: "#E8452020" }]}
+                          >
+                            <Feather
+                              name={foodTypeIcon(cookFood) as any}
+                              size={16}
+                              color="#E84520"
+                            />
+                          </View>
+                          <Text
+                            numberOfLines={1}
+                            style={[styles.journeyTitle, { color: colors.foreground }]}
+                          >
+                            {cookFood}
+                          </Text>
+                          {dateStr ? (
+                            <Text style={[styles.journeyDate, { color: colors.mutedForeground }]}>
+                              {dateStr}
+                            </Text>
+                          ) : null}
+                          {rating > 0 ? (
+                            <View style={styles.journeyStars}>
+                              {[1, 2, 3, 4, 5].map((n) => (
+                                <Feather
+                                  key={n}
+                                  name="star"
+                                  size={9}
+                                  color={n <= rating ? "#FACC15" : colors.border}
+                                />
+                              ))}
+                            </View>
+                          ) : null}
+                        </View>
+                      );
+                    })}
+                  </ScrollView>
+                ) : (
+                  <Text style={[styles.journeyEmpty, { color: colors.mutedForeground }]}>
+                    Your past cooks will appear here as you log them.
+                  </Text>
+                )}
+                <Text style={[styles.journeyCopy, { color: colors.mutedForeground }]}>
+                  Keep going — your history, your scores, and your grill's fingerprint grow with every cook.
+                </Text>
+                <View style={styles.journeyReassureRow}>
+                  <Feather name="shield" size={12} color="#22C55E" />
+                  <Text style={[styles.journeyReassure, { color: colors.mutedForeground }]}>
+                    Your cooks are never deleted. Everything you've built stays with you.
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {/* ── Feature list ── */}
             <View style={styles.featureList}>
               {FEATURES.map((f) => (
@@ -397,7 +534,11 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                           {`${annualTrial.label} free, then ${annual.product.priceString}${periodLabel(annual.product.subscriptionPeriod)}`}
                         </Text>
                         <View style={styles.trialCta}>
-                          <Text style={styles.trialCtaText}>Start free trial →</Text>
+                          {/* Cook-limit trigger frames the CTA as continuation
+                              ("Keep cooking →") instead of a generic upsell. */}
+                          <Text style={styles.trialCtaText}>
+                            {isCookLimitWall ? "Keep cooking →" : "Start free trial →"}
+                          </Text>
                         </View>
                       </>
                     ) : (
@@ -596,6 +737,39 @@ const styles = StyleSheet.create({
   legalLink: { fontSize: 11, fontFamily: "Inter_400Regular", textDecorationLine: "underline" },
   policySep: { fontSize: 11, fontFamily: "Inter_400Regular" },
   legal: { fontSize: 11, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 16, paddingHorizontal: 8 },
+  journeyBlock: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 10,
+  },
+  journeyHeader: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.2,
+  },
+  journeyCard: {
+    width: 120,
+    padding: 10,
+    borderWidth: 1,
+    gap: 4,
+  },
+  journeyIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  journeyTitle: { fontSize: 12.5, fontFamily: "Inter_600SemiBold", textTransform: "capitalize" },
+  journeyDate: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  journeyStars: { flexDirection: "row", gap: 1, marginTop: 2 },
+  journeyEmpty: { fontSize: 12.5, fontFamily: "Inter_400Regular", paddingVertical: 8 },
+  journeyCopy: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18, marginTop: 4 },
+  journeyReassureRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  journeyReassure: { fontSize: 11.5, fontFamily: "Inter_500Medium", flex: 1 },
 });
 
 export default PaywallModal;

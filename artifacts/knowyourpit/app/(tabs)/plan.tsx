@@ -20,6 +20,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import * as Haptics from "expo-haptics";
 import * as Crypto from "expo-crypto";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
@@ -590,14 +591,22 @@ export default function PlanScreen() {
       Alert.alert("Required", "Please enter the weight in lbs");
       return;
     }
-    // Free-tier pre-checks — fire paywall before any API work.
+    // Free-tier pre-checks — fire paywall before any API work. Pass the
+    // currently-selected food type so the paywall can personalize copy
+    // (e.g. "Want to log this brisket cook?").
     if (paywallUsage && !paywallUsage.unlimited) {
       if (paywallUsage.remaining.cooks <= 0) {
-        showPaywall({ trigger: "cook_limit_reached" });
+        showPaywall({
+          trigger: "cook_limit_reached",
+          foodType: selectedCut?.name ?? null,
+        });
         return;
       }
       if (paywallUsage.usage.plannedCooks >= 1) {
-        showPaywall({ trigger: "planned_cook_limit_reached" });
+        showPaywall({
+          trigger: "planned_cook_limit_reached",
+          foodType: selectedCut?.name ?? null,
+        });
         return;
       }
     }
@@ -655,8 +664,51 @@ export default function PlanScreen() {
       qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
       qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
+      const usedCooksBefore = paywallUsage?.usage?.cooks ?? 0;
+      const isFreeAccount = !!paywallUsage && !paywallUsage.unlimited;
       resetForm();
       router.push("/(tabs)/cooks" as any);
+      // ── Soft post-plan upgrade nudge ──
+      // After a free user successfully plans a cook AND they already had 1+
+      // cooks logged, surface a low-friction prompt about Pro. Suppressed
+      // permanently after the first dismissal so it never feels naggy.
+      if (isFreeAccount && usedCooksBefore >= 1) {
+        try {
+          const dismissed = await AsyncStorage.getItem("multi_cook_nudge_dismissed");
+          if (!dismissed) {
+            const remaining = Math.max(0, (paywallUsage?.remaining?.cooks ?? 3) - 1);
+            const food = selectedCut?.name ?? "this cook";
+            setTimeout(() => {
+              Alert.alert(
+                "Nice — your history is growing 🔥",
+                remaining > 0
+                  ? `You've planned ${food} — ${remaining} free cook${remaining === 1 ? "" : "s"} left. Pro unlocks unlimited cooks plus your full history forever.`
+                  : `You've planned ${food} and used all 3 free cooks. Upgrade to Pro to keep cooking without limits.`,
+                [
+                  {
+                    text: "Don't show again",
+                    style: "cancel",
+                    onPress: () => {
+                      AsyncStorage.setItem("multi_cook_nudge_dismissed", "1").catch(() => {});
+                    },
+                  },
+                  {
+                    text: "See Pro",
+                    onPress: () => {
+                      showPaywall({
+                        trigger: "pro_required",
+                        foodType: selectedCut?.name ?? null,
+                      });
+                    },
+                  },
+                ],
+              );
+            }, 250);
+          }
+        } catch {
+          // AsyncStorage failure — silently skip the nudge.
+        }
+      }
     } catch (e: any) {
       // Free user hit the cook cap → upgrade modal instead of generic error.
       if (parseAndShowFromError(e)) return;

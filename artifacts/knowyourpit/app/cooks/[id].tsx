@@ -54,6 +54,7 @@ import {
   useListAlerts,
   useCreateAlert,
   usePatchAlert,
+  useListCooks,
   getListCooksQueryKey,
   getGetCookQueryKey,
   getGetDashboardSummaryQueryKey,
@@ -62,6 +63,7 @@ import {
   getGetMeaterReadingsQueryKey,
   getGetThermoworksReadingsQueryKey,
 } from "@workspace/api-client-react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 
 import { s } from "@/components/cook-detail/styles";
@@ -1203,6 +1205,19 @@ export default function CookDetailScreen() {
           onCardLayout={onCardLayout}
         />
 
+        {/* ── Soft "you're 1 cook from the wall" nudge ──────────
+            Free users who just completed their second cook see a
+            one-time, dismissible banner reminding them they're one
+            cook away from the free-tier cap. Pro users and anyone
+            who has dismissed the nudge never see it. */}
+        <Cook2NudgeBanner
+          cookStatus={cookStatus}
+          colors={colors}
+          effectivePro={effectivePro}
+          showPaywall={showPaywall}
+          foodType={(cook as any)?.foodType ?? null}
+        />
+
         {/* ── Rate This Cook (completed cooks only) ──────────── */}
         <RateThisCook
           c={c}
@@ -1245,6 +1260,7 @@ export default function CookDetailScreen() {
       </ScrollView>
 
       {/* ── Edit Cook Modal ──────────────────────────────────── */}
+      {/* (Cook2NudgeBanner rendered above; see component below.) */}
       <EditCookModal
         visible={editVisible}
         onClose={() => setEditVisible(false)}
@@ -1284,6 +1300,7 @@ export default function CookDetailScreen() {
       />
 
       {/* ── Set Alert Sheet ─────────────────────────────────── */}
+      {/* (banner component is defined below the screen export) */}
       <AlertSheet
         visible={alertSheetVisible}
         onClose={() => setAlertSheetVisible(false)}
@@ -1304,3 +1321,132 @@ export default function CookDetailScreen() {
   );
 }
 
+/**
+ * Cook2NudgeBanner — soft, dismissible upgrade prompt shown on the cook
+ * detail screen when a free user has just hit their 2nd completed cook.
+ *
+ * Rules:
+ *  - Pro users never see it.
+ *  - Only renders when this cook is completed AND the total completed-cook
+ *    count is exactly 2 (i.e. one more cook will hit the wall).
+ *  - Dismissal is persisted in AsyncStorage so we never nag the user twice.
+ */
+function Cook2NudgeBanner({
+  cookStatus,
+  colors,
+  effectivePro,
+  showPaywall,
+  foodType,
+}: {
+  cookStatus: string | null | undefined;
+  colors: any;
+  effectivePro: boolean;
+  showPaywall: (opts: any) => void;
+  foodType: string | null;
+}) {
+  const [dismissed, setDismissed] = useState<boolean | null>(null);
+  const { data: allCooks } = useListCooks(undefined, {
+    query: {
+      queryKey: getListCooksQueryKey(),
+      enabled: !effectivePro && cookStatus === "completed",
+    },
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem("cook2_nudge_dismissed")
+      .then((v) => {
+        if (!cancelled) setDismissed(v === "1");
+      })
+      .catch(() => {
+        if (!cancelled) setDismissed(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (effectivePro || cookStatus !== "completed" || dismissed !== false) return null;
+
+  const completedCount = ((allCooks as any[] | undefined) ?? []).filter(
+    (c) => c?.status === "completed",
+  ).length;
+  // Only show on the 2nd completed cook — one more and they hit the wall.
+  if (completedCount !== 2) return null;
+
+  const handleDismiss = () => {
+    setDismissed(true);
+    AsyncStorage.setItem("cook2_nudge_dismissed", "1").catch(() => {});
+  };
+
+  return (
+    <View
+      style={{
+        marginHorizontal: 16,
+        marginTop: 12,
+        marginBottom: 4,
+        padding: 14,
+        borderRadius: colors.radius,
+        borderWidth: 1,
+        borderColor: "#E84520",
+        backgroundColor: "rgba(232,69,32,0.08)",
+        flexDirection: "row",
+        gap: 12,
+        alignItems: "flex-start",
+      }}
+    >
+      <Feather name="zap" size={18} color="#E84520" style={{ marginTop: 1 }} />
+      <View style={{ flex: 1 }}>
+        <Text
+          style={{
+            color: colors.foreground,
+            fontFamily: "Inter_700Bold",
+            fontSize: 14,
+            marginBottom: 4,
+          }}
+        >
+          One more cook and you'll hit your free limit
+        </Text>
+        <Text
+          style={{
+            color: colors.mutedForeground,
+            fontFamily: "Inter_400Regular",
+            fontSize: 12.5,
+            lineHeight: 18,
+          }}
+        >
+          {`Nice work on this ${foodType ?? "cook"}! You've used 2 of 3 free cooks. Pro keeps your full history and unlocks unlimited logging.`}
+        </Text>
+        <View style={{ flexDirection: "row", gap: 14, marginTop: 10 }}>
+          <Pressable
+            onPress={() =>
+              showPaywall({ trigger: "pro_required", foodType: foodType ?? null })
+            }
+            accessibilityRole="button"
+          >
+            <Text
+              style={{
+                color: "#E84520",
+                fontFamily: "Inter_700Bold",
+                fontSize: 13,
+              }}
+            >
+              See Pro →
+            </Text>
+          </Pressable>
+          <Pressable onPress={handleDismiss} accessibilityRole="button">
+            <Text
+              style={{
+                color: colors.mutedForeground,
+                fontFamily: "Inter_500Medium",
+                fontSize: 13,
+              }}
+            >
+              Dismiss
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}

@@ -399,7 +399,7 @@ export default function LogCookScreen() {
   // Free-tier mount check: if the user has hit the total cook cap, show the paywall immediately.
   useEffect(() => {
     if (paywallUsage && !paywallUsage.unlimited && paywallUsage.remaining.cooks <= 0) {
-      showPaywall({ trigger: "cook_limit_reached" });
+      showPaywall({ trigger: "cook_limit_reached", foodType: foodType?.trim() || null });
     }
   }, [paywallUsage]);
 
