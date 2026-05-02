@@ -169,13 +169,13 @@ export function CheckInHistory({ c, colors, effectivePro, isIdentityLinked, show
         >
           <View style={{ padding: 14, gap: 8 }}>
             <Text style={[s.historyTimestamp, { color: colors.foreground }]}>
-              Earlier check-in
+              and {hiddenCount} more {hiddenCount === 1 ? "check-in" : "check-ins"}
             </Text>
             <Text style={[s.historySummary, { color: colors.mutedForeground }]} numberOfLines={2}>
-              The pit was running a touch hot and the bark was just starting to set…
+              Every saved AI assessment, decision, and phase prediction from this cook…
             </Text>
             <Text style={[s.historySummary, { color: colors.mutedForeground }]} numberOfLines={2}>
-              A second check-in caught the stall and recommended a wrap…
+              Upgrade to see full session analysis.
             </Text>
           </View>
         </BlurredProSection>
