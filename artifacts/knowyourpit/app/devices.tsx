@@ -19,6 +19,7 @@ import { useBottomInset } from "@/hooks/useBottomInset";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
+import { LockedFeatureCard } from "@/components/LockedFeatureCard";
 import {
   useGetMeaterStatus,
   getGetMeaterStatusQueryKey,
@@ -169,19 +170,22 @@ export default function DevicesScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* MEATER — entire card is tappable for free users so the locked
-              state is fully discoverable (Pattern B), not just the CTA. */}
-          <Pressable
-            disabled={effectivePro || meaterStatus?.linked === true}
-            onPress={() =>
-              showPaywall({ trigger: "pro_required", featureName: "Smart Probe Integration" })
-            }
-            accessibilityRole={!effectivePro && !meaterStatus?.linked ? "button" : undefined}
-            accessibilityLabel={
-              !effectivePro && !meaterStatus?.linked
-                ? "MEATER Thermometer, Pro feature, tap to learn more"
-                : undefined
-            }
+          {/* MEATER — for free users without an active link we render the
+              shared LockedFeatureCard (Pattern B) so locked-state styling is
+              consistent across the app. Pro users (and anyone with an
+              already-linked account, e.g. legacy/grandfathered) see the
+              full bespoke card below. */}
+          {!effectivePro && !meaterStatus?.linked && !meaterLoading ? (
+            <LockedFeatureCard
+              featureName="MEATER Thermometer"
+              teaser="Pull live MEATER probe temps into PitMaster, auto-fill targets from your saved cook, and get alerts when your probe hits target."
+              icon="thermometer"
+              onPress={() =>
+                showPaywall({ trigger: "pro_required", featureName: "Smart Probe Integration" })
+              }
+            />
+          ) : (
+          <View
             style={[
               s.deviceCard,
               {
@@ -353,21 +357,21 @@ export default function DevicesScreen() {
                 </View>
               </View>
             )}
-          </Pressable>
+          </View>
+          )}
 
-          {/* ThermoWorks — entire card is tappable for free users so the
-              locked state is fully discoverable (Pattern B). */}
-          <Pressable
-            disabled={effectivePro || thermoworksStatus?.linked === true}
-            onPress={() =>
-              showPaywall({ trigger: "pro_required", featureName: "Smart Probe Integration" })
-            }
-            accessibilityRole={!effectivePro && !thermoworksStatus?.linked ? "button" : undefined}
-            accessibilityLabel={
-              !effectivePro && !thermoworksStatus?.linked
-                ? "ThermoWorks Cloud, Pro feature, tap to learn more"
-                : undefined
-            }
+          {/* ThermoWorks — same Pattern B treatment as MEATER above. */}
+          {!effectivePro && !thermoworksStatus?.linked && !thermoworksLoading ? (
+            <LockedFeatureCard
+              featureName="ThermoWorks Cloud"
+              teaser="Sync ThermoWorks Signals/Smoke/Billows readings into PitMaster for live cook tracking and probe-aware alerts."
+              icon="thermometer"
+              onPress={() =>
+                showPaywall({ trigger: "pro_required", featureName: "Smart Probe Integration" })
+              }
+            />
+          ) : (
+          <View
             style={[
               s.deviceCard,
               {
@@ -538,7 +542,8 @@ export default function DevicesScreen() {
                 </View>
               </View>
             )}
-          </Pressable>
+          </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

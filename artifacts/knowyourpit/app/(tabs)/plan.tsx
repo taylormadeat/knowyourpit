@@ -825,25 +825,183 @@ export default function PlanScreen() {
           </LinearGradient>
         </Pressable>
 
-        {/* Visible-but-locked Multi-Cook section for free users (Pattern B).
-            Always rendered when the user is not Pro (regardless of planMode)
-            so the multi-cook capability is *visible* — the section is shown
-            as a locked teaser card with PRO badge, lock icon, and Unlock CTA
-            instead of being hidden behind a toggle. Tap fires the paywall. */}
+        {/* Visible-but-locked Multi-Cook section for free users.
+            Renders a wireframe/skeleton preview of the real multi-cook
+            schedule UI under a centered lock overlay so users see exactly
+            what they'd unlock with Pro. Tapping anywhere fires the paywall
+            with featureName "Multi-Cook Sequencer". Always rendered when
+            not Pro (regardless of planMode). */}
         {!effectivePro && (
-          <View style={{ marginBottom: 14 }}>
-            <LockedFeatureCard
-              featureName="Multi-Cook Sequencer"
-              teaser="Plan 2–5 cooks with different meats and grills, and PitMaster sequences them so everything is ready at the same time."
-              icon="layers"
-              onPress={() =>
-                showPaywall({
-                  trigger: "pro_required",
-                  featureName: "Multi-Cook Sequencer",
-                })
-              }
-            />
-          </View>
+          <Pressable
+            onPress={() =>
+              showPaywall({
+                trigger: "pro_required",
+                featureName: "Multi-Cook Sequencer",
+              })
+            }
+            accessibilityRole="button"
+            accessibilityLabel="Multi-Cook Sequencer, Pro feature, tap to learn more"
+            style={({ pressed }) => ({
+              marginBottom: 14,
+              opacity: pressed ? 0.92 : 1,
+            })}
+          >
+            <View
+              style={{
+                position: "relative",
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: colors.radius,
+                backgroundColor: colors.card,
+                padding: 14,
+                gap: 10,
+                overflow: "hidden",
+              }}
+            >
+              {/* Header row with title + PRO badge */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Feather name="layers" size={16} color={colors.primary} />
+                <Text style={{ flex: 1, fontFamily: "Inter_700Bold", fontSize: 14, color: colors.foreground }}>
+                  Multi-Cook Sequencer
+                </Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 3,
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 999,
+                    backgroundColor: colors.primary + "22",
+                  }}
+                >
+                  <Feather name="lock" size={9} color={colors.primary} />
+                  <Text style={{ fontSize: 9.5, fontFamily: "Inter_700Bold", color: colors.primary, letterSpacing: 0.4 }}>
+                    PRO
+                  </Text>
+                </View>
+              </View>
+
+              {/* Skeleton schedule wireframe — three faux items mimicking
+                  the real multi-cook list so users get a feel for the
+                  feature before tapping. */}
+              <View style={{ gap: 8, opacity: 0.45 }}>
+                {[
+                  { label: "Brisket · 12 lbs · 225°F" },
+                  { label: "Pork Butt · 8 lbs · 250°F" },
+                  { label: "Ribs · 4 lbs · 275°F" },
+                ].map((row, idx) => (
+                  <View
+                    key={idx}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: 10,
+                      borderRadius: 8,
+                      backgroundColor: colors.muted,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: 999,
+                        backgroundColor: colors.primary + "33",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: colors.primary }}>
+                        {idx + 1}
+                      </Text>
+                    </View>
+                    <Text
+                      style={{
+                        flex: 1,
+                        fontSize: 12,
+                        fontFamily: "Inter_500Medium",
+                        color: colors.mutedForeground,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {row.label}
+                    </Text>
+                    <View
+                      style={{
+                        width: 56,
+                        height: 10,
+                        borderRadius: 4,
+                        backgroundColor: colors.border,
+                      }}
+                    />
+                  </View>
+                ))}
+              </View>
+
+              {/* Centered lock overlay over the skeleton list */}
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <View
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: 26,
+                    backgroundColor: colors.primary,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 6,
+                    elevation: 4,
+                  }}
+                >
+                  <Feather name="lock" size={22} color="#fff" />
+                </View>
+              </View>
+
+              {/* Teaser + Unlock CTA below the skeleton */}
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: "Inter_400Regular",
+                  color: colors.mutedForeground,
+                  lineHeight: 18,
+                  marginTop: 2,
+                }}
+              >
+                Plan 2–5 cooks with different meats and grills, and PitMaster sequences them so everything is ready at the same time.
+              </Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  paddingHorizontal: 10,
+                  paddingVertical: 7,
+                  borderRadius: 8,
+                  alignSelf: "flex-start",
+                  backgroundColor: colors.primary + "12",
+                }}
+              >
+                <Feather name="arrow-up-right" size={13} color={colors.primary} />
+                <Text style={{ fontSize: 12.5, fontFamily: "Inter_600SemiBold", color: colors.primary }}>
+                  Unlock with Pro
+                </Text>
+              </View>
+            </View>
+          </Pressable>
         )}
 
         {planMode === "single" && (<>
