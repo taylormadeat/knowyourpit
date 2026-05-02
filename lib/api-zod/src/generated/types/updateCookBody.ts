@@ -5,6 +5,7 @@
  * PitMaster AI - BBQ Planning & Monitoring API
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateCookBodyCompetitionCategory } from "./updateCookBodyCompetitionCategory";
 import type { UpdateCookBodyConfirmedSteps } from "./updateCookBodyConfirmedSteps";
 import type { UpdateCookBodyStatus } from "./updateCookBodyStatus";
 import type { UpdateCookBodyWrapMethod } from "./updateCookBodyWrapMethod";
@@ -62,4 +63,21 @@ export interface UpdateCookBody {
    * @nullable
    */
   confirmedSteps?: UpdateCookBodyConfirmedSteps;
+  /** @nullable */
+  isCompetition?: boolean | null;
+  /** @nullable */
+  competitionName?: string | null;
+  /** @nullable */
+  competitionCategory?: UpdateCookBodyCompetitionCategory;
+  /** @nullable */
+  turnInAt?: Date | null;
+  /**
+   * 1=first, 0=DNP, 6=top 10, 11=top 20, 21=below 20
+   * @nullable
+   */
+  competitionPlacement?: number | null;
+  /** @nullable */
+  judgeScore?: number | null;
+  /** @nullable */
+  judgeNotes?: string | null;
 }

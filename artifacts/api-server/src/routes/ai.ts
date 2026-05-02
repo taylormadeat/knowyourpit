@@ -1076,6 +1076,45 @@ ${userHistorySection}${fingerprintGuidance}`;
   });
 });
 
+// ── KCBS Competition coaching context ─────────────────────────────────────────
+const KCBS_COMPETITION_TIPS: Record<"chicken" | "ribs" | "pork" | "brisket", string> = {
+  chicken:
+    "CHICKEN — judges score appearance (bite-through skin, mahogany glossy color), taste (layered salt+sweet+heat from brine + glaze), texture (tender at 175–180°F internal in the thigh, never mushy). Pulled/shredded chicken is a DQ.",
+  ribs:
+    "RIBS — judges score appearance (uniform mahogany bark, light glaze, six clean bones same direction), taste (sweet-forward with brown sugar/honey/butter wrap), texture (clean bite-through, ~¼\" pull-back, NEVER fall-off-the-bone which scores as overcooked). Boneless ribs and pulled rib meat are DQs.",
+  pork:
+    "PORK — judges expect three presentations: money muscle medallions (¼\" sliced, fanned), 1.5\" chunks, and pulled. Inject (apple juice + phosphate or commercial), bark seasoning, light finishing glaze. Money muscle slices firm; chunks tender but hold shape; pulled has visible bark mixed in.",
+  brisket:
+    "BRISKET — judges expect pencil-thick (¼\") slices from the FLAT, perfect smoke ring, glossy bark; burnt ends as ½–¾\" cubes glazed/caramelized from the point. Beefy + salt + pepper foundation, butcher paper wrap, hot-hold rest 1–2 hours. The pull/bend test: bend without breaking, tear with gentle pull. Chopped brisket is a DQ.",
+};
+
+function buildCompetitionContextForPrompt(
+  competitionName: string | null,
+  items: ReadonlyArray<{ category?: string | null }>,
+): string {
+  const cats = new Set<string>();
+  for (const it of items) {
+    if (it.category && KCBS_COMPETITION_TIPS[it.category as keyof typeof KCBS_COMPETITION_TIPS]) {
+      cats.add(it.category);
+    }
+  }
+  const lines: string[] = ["", "=== KCBS COMPETITION COACHING ==="];
+  if (competitionName) lines.push(`Competition: ${competitionName}`);
+  lines.push(
+    "Judging: 6 judges score Appearance + Taste + Texture (1–9 each). Lowest score is dropped. Coach for COMPETITION standards, not backyard.",
+  );
+  for (const c of cats) {
+    lines.push(`- ${KCBS_COMPETITION_TIPS[c as keyof typeof KCBS_COMPETITION_TIPS]}`);
+  }
+  lines.push(
+    "Box packing reminders: garnish base only (parsley/curly parsley/leaf lettuce/cilantro — no kale, no orange/yellow lettuce — instant DQ). Never mark or initial the box. Pack at 165°F+ to hold heat through judging. Build a 30–60 min hot-hold buffer for brisket and pork; chicken and ribs are tighter.",
+  );
+  lines.push(
+    "Within EACH item's notes field, give one COMPETITION-specific tip (e.g., 'flip-and-render thigh skin at the wrap step for bite-through', 'cut a clean half-moon test rib at home before turn-in') — not generic backyard advice.",
+  );
+  return lines.join("\n");
+}
+
 router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
   // Multi-Cook Sequencer is a Pro-only feature.
   if (!(await userBypassesPaywall(req))) {
@@ -1092,10 +1131,16 @@ router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): P
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { items, serveAt, outdoorTempF, outdoorTempIsForecast } = parsed.data;
+  const { items, serveAt, outdoorTempF, outdoorTempIsForecast, competition } = parsed.data;
 
-  if (items.length < 2 || items.length > 5) {
-    res.status(400).json({ error: "Provide between 2 and 5 items." });
+  const isCompetitionMode = competition?.isCompetition === true;
+
+  if (items.length < 1 || items.length > 5) {
+    res.status(400).json({ error: "Provide between 1 and 5 items." });
+    return;
+  }
+  if (!isCompetitionMode && items.length < 2) {
+    res.status(400).json({ error: "Provide at least 2 items for the multi-cook sequencer." });
     return;
   }
 
@@ -1110,6 +1155,8 @@ router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): P
       item.cookTempF ? `cook at ${item.cookTempF}°F` : "cook temp unknown",
       item.targetTempF ? `target internal ${item.targetTempF}°F` : "",
       `preheat ${preheat} min`,
+      item.category ? `KCBS category: ${item.category}` : "",
+      item.turnInAt ? `turn-in: ${new Date(item.turnInAt).toLocaleString()}` : "",
     ].filter(Boolean);
     return parts.join(" · ");
   }).join("\n");
@@ -1125,17 +1172,21 @@ router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): P
     ? `\nOutdoor ambient temperature: ${outdoorTempF}°F (${outdoorTempIsForecast ? "forecast for cook day" : "current"}) — factor this into all estimates. Cold weather increases cook times; hot weather may reduce them.\n`
     : "";
 
-  const systemPrompt = `You are knowyourpit AI, a world-class BBQ pit master. You are sequencing a multi-cook session where everything must be ready to serve at the same time.
+  const competitionContext = isCompetitionMode
+    ? buildCompetitionContextForPrompt(competition?.name ?? null, items)
+    : "";
 
-For each item, calculate working BACKWARDS from the serveAt time:
+  const systemPrompt = `You are knowyourpit AI, a world-class BBQ pit master${isCompetitionMode ? " coaching a competitor in a sanctioned KCBS BBQ competition" : ""}. You are sequencing a multi-cook session${isCompetitionMode ? " where each item has its OWN competition turn-in time" : " where everything must be ready to serve at the same time"}.
+
+For each item, calculate working BACKWARDS from ${isCompetitionMode ? "that item's individual turnInAt (each category has its own turn-in time — backwards-plan each independently)" : "the serveAt time"}:
 - restMinutes: how long the meat should rest after leaving the grill
 - estimatedDurationMinutes: active cook time only (meat on grill to off grill), NOT including preheat or rest
 - preheatMinutes: use the value provided per item
-- estimatedFinishAt = serveAt - restMinutes
+- estimatedFinishAt = ${isCompetitionMode ? "turnInAt - boxPackLeadMinutes(15) - restMinutes" : "serveAt - restMinutes"}
 - meatOnAt = estimatedFinishAt - estimatedDurationMinutes
 - grillLightAt = meatOnAt - preheatMinutes
-
-All times must be ISO 8601 strings. All items finish resting at or just before serveAt.
+${isCompetitionMode ? "- boxPackAt = turnInAt - 15 minutes (when slicing/portioning + box presentation must begin)\n" : ""}
+All times must be ISO 8601 strings.${isCompetitionMode ? " Each item finishes its rest just before its boxPackAt." : " All items finish resting at or just before serveAt."}
 
 For each item, also determine wrap guidance:
 - wrapMethod: "foil" (Texas Crutch — faster, steams), "butcher_paper" (breathable, retains bark), or "none"
@@ -1170,14 +1221,14 @@ Return ONLY valid JSON, no markdown:
       "wrapAtMinutes": number_or_null,
       "wrapTempF": number_or_null,
       "wrapReason": "string",
-      "notes": "one additional specific tip for this item beyond wrap"
+      "notes": "one additional specific tip for this item beyond wrap${isCompetitionMode ? " — focus on KCBS judging criteria" : ""}"${isCompetitionMode ? ',\n      "category": "chicken|ribs|pork|brisket",\n      "turnInAt": "ISO string (echoed from input)",\n      "boxPackAt": "ISO string (turnInAt - 15 minutes)"' : ""}
     }
   ],
   "serveAt": "ISO string",
-  "summary": "One sentence summary of the full sequencing plan"
-}`;
+  "summary": "One sentence summary of the full sequencing plan${isCompetitionMode ? " (mention competition pacing)" : ""}"
+}${isCompetitionMode ? `\n\n${competitionContext}` : ""}`;
 
-  const userPrompt = `Multi-cook session. Everything must be ready to serve at: ${serveAtDate.toLocaleString()}
+  const userPrompt = `${isCompetitionMode ? `KCBS Competition session${competition?.name ? ` — ${competition.name}` : ""}. Each item has its own turn-in time below.` : `Multi-cook session. Everything must be ready to serve at: ${serveAtDate.toLocaleString()}`}
 ${outdoorLine}
 Items to cook:
 ${itemLines}
@@ -1213,6 +1264,17 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
       if (m === "foil" || m === "butcher_paper" || m === "none") return m;
       return null;
     };
+    const normalizeCategory = (c: any): "chicken" | "ribs" | "pork" | "brisket" | null => {
+      if (c === "chicken" || c === "ribs" || c === "pork" || c === "brisket") return c;
+      return null;
+    };
+    // Build a lookup of input items by foodType so we can backfill
+    // category / turnInAt that the model might forget to echo back.
+    const inputByFoodType = new Map<string, (typeof items)[number]>();
+    for (const it of items) {
+      if (!inputByFoodType.has(it.foodType)) inputByFoodType.set(it.foodType, it);
+    }
+    const BOX_PACK_LEAD_MS = 15 * 60_000;
     const schedule = (result.schedule ?? [])
       .map((item: any) => {
         const wrapMethod = normalizeWrapMethod(item.wrapMethod);
@@ -1233,12 +1295,36 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
         const wrapReason = isNoWrap
           ? null
           : (typeof item.wrapReason === "string" && item.wrapReason.trim().length > 0 ? item.wrapReason : null);
+
+        const inputMatch = inputByFoodType.get(item.foodType);
+        const category = normalizeCategory(item.category) ?? normalizeCategory(inputMatch?.category) ?? null;
+        const turnInAtSource = item.turnInAt ?? inputMatch?.turnInAt ?? null;
+        let turnInAt: string | null = null;
+        if (turnInAtSource) {
+          const parsed = new Date(turnInAtSource);
+          if (!Number.isNaN(parsed.getTime())) {
+            turnInAt = parsed.toISOString();
+          } else if (inputMatch?.turnInAt) {
+            // Fall back to the input turnInAt if the model returned garbage
+            const fallback = new Date(inputMatch.turnInAt);
+            if (!Number.isNaN(fallback.getTime())) {
+              turnInAt = fallback.toISOString();
+            }
+          }
+        }
+        const boxPackAt = isCompetitionMode && turnInAt
+          ? new Date(new Date(turnInAt).getTime() - BOX_PACK_LEAD_MS).toISOString()
+          : null;
+
         return {
           ...item,
           wrapMethod,
           wrapAtMinutes,
           wrapTempF,
           wrapReason,
+          category,
+          turnInAt,
+          boxPackAt,
         };
       })
       .sort(
@@ -1252,9 +1338,17 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
     // using the device's local timezone, so no need to repeat it.
     const firstItem = schedule[0];
     const lastItem = schedule[schedule.length - 1];
-    const deterministicSummary = schedule.length >= 2
-      ? `Start ${firstItem.foodType} first, then ${lastItem.foodType} last.`
-      : "";
+    let deterministicSummary = "";
+    if (isCompetitionMode) {
+      const cats = schedule
+        .map((it: any) => it.category)
+        .filter((c: any) => typeof c === "string");
+      deterministicSummary = cats.length > 0
+        ? `KCBS competition day — ${cats.join(", ")}. First fire: ${firstItem?.foodType ?? "—"}.`
+        : `KCBS competition day plan ready.`;
+    } else if (schedule.length >= 2) {
+      deterministicSummary = `Start ${firstItem.foodType} first, then ${lastItem.foodType} last.`;
+    }
 
     res.json({
       schedule,
@@ -1379,12 +1473,43 @@ router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void
         ? Math.round(verdictScores.reduce((s, v) => s + v, 0) / verdictScores.length)
         : null;
 
-    // Weighted composite score (ratings 40%, plan accuracy 40%, AI assessment 20%)
+    // Competition placement contribution — KCBS finishes are strong evidence
+    // of cook quality regardless of self-rating, so we weight them heavily.
+    const placementToScore = (placement: number): number => {
+      if (placement === 0) return 50; // DNP
+      if (placement === 1) return 100;
+      if (placement === 2) return 92;
+      if (placement === 3) return 85;
+      if (placement <= 5) return 78;
+      if (placement <= 10) return 70;
+      if (placement <= 20) return 60;
+      return 50;
+    };
+    const placementScores: number[] = [];
+    for (const c of cooks) {
+      if (c.isCompetition && c.competitionPlacement != null) {
+        placementScores.push(placementToScore(c.competitionPlacement));
+      }
+    }
+    const competitionScore =
+      placementScores.length > 0
+        ? Math.round(placementScores.reduce((s, v) => s + v, 0) / placementScores.length)
+        : null;
+
+    // Weighted composite score. When competition results exist, they replace
+    // the rating weight at 0.5 (highest weight) since they're objective judging.
     let weightedSum = 0;
     let totalWeight = 0;
-    if (avgRatingScore != null) { weightedSum += avgRatingScore * 0.4; totalWeight += 0.4; }
-    if (planAccuracy != null) { weightedSum += planAccuracy * 0.4; totalWeight += 0.4; }
-    if (aiAssessmentScore != null) { weightedSum += aiAssessmentScore * 0.2; totalWeight += 0.2; }
+    if (competitionScore != null) {
+      weightedSum += competitionScore * 0.5; totalWeight += 0.5;
+      if (avgRatingScore != null) { weightedSum += avgRatingScore * 0.15; totalWeight += 0.15; }
+      if (planAccuracy != null) { weightedSum += planAccuracy * 0.25; totalWeight += 0.25; }
+      if (aiAssessmentScore != null) { weightedSum += aiAssessmentScore * 0.1; totalWeight += 0.1; }
+    } else {
+      if (avgRatingScore != null) { weightedSum += avgRatingScore * 0.4; totalWeight += 0.4; }
+      if (planAccuracy != null) { weightedSum += planAccuracy * 0.4; totalWeight += 0.4; }
+      if (aiAssessmentScore != null) { weightedSum += aiAssessmentScore * 0.2; totalWeight += 0.2; }
+    }
     const pitMasterScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
 
     // Generate tips via AI if enough data, else use fallbacks

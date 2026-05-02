@@ -156,6 +156,7 @@ export default function CooksScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("date-desc");
   const [ratedOnly, setRatedOnly] = useState(false);
+  const [competitionsOnly, setCompetitionsOnly] = useState(false);
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
   const [editingSession, setEditingSession] = useState<SessionGroup | null>(null);
   const [editLabel, setEditLabel] = useState("");
@@ -182,6 +183,9 @@ export default function CooksScreen() {
     if (ratedOnly) {
       list = list.filter((item) => avgRating(item) > 0);
     }
+    if (competitionsOnly) {
+      list = list.filter((item) => item.isCompetition === true);
+    }
 
     const STATUS_PRIORITY: Record<string, number> = { active: 0, planned: 1 };
     const getStatusPriority = (item: any) => STATUS_PRIORITY[item.status] ?? 2;
@@ -206,7 +210,7 @@ export default function CooksScreen() {
     });
 
     return list;
-  }, [cooks, sortKey, ratedOnly]);
+  }, [cooks, sortKey, ratedOnly, competitionsOnly]);
 
   const sessionGroups = useMemo((): SessionGroup[] => {
     const all: any[] = (cooks as any[]) || [];
@@ -215,6 +219,13 @@ export default function CooksScreen() {
       if (cook.sessionId) {
         if (!grouped[cook.sessionId]) grouped[cook.sessionId] = [];
         grouped[cook.sessionId].push(cook);
+      }
+    }
+    if (competitionsOnly) {
+      for (const sid of Object.keys(grouped)) {
+        if (!grouped[sid].some((c: any) => c.isCompetition)) {
+          delete grouped[sid];
+        }
       }
     }
     const groups: SessionGroup[] = Object.entries(grouped).map(([sessionId, sessionCooks]) => {
@@ -244,7 +255,7 @@ export default function CooksScreen() {
       return b.earliestStart.getTime() - a.earliestStart.getTime();
     });
     return groups;
-  }, [cooks, sortKey]);
+  }, [cooks, sortKey, competitionsOnly]);
 
   type UnifiedItem =
     | { type: "cook"; data: any }
@@ -953,6 +964,22 @@ export default function CooksScreen() {
               ★ Rated only
             </Text>
           </Pressable>
+
+          <Pressable
+            onPress={() => setCompetitionsOnly((v) => !v)}
+            style={[
+              s.pill,
+              competitionsOnly
+                ? { backgroundColor: "#EAB308" }
+                : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
+              { flexDirection: "row", alignItems: "center", gap: 4 },
+            ]}
+          >
+            <Feather name="award" size={11} color={competitionsOnly ? "#fff" : colors.mutedForeground} />
+            <Text style={[s.pillText, { color: competitionsOnly ? "#fff" : colors.mutedForeground }]}>
+              Competitions
+            </Text>
+          </Pressable>
         </ScrollView>
       </View>
 
@@ -990,12 +1017,18 @@ export default function CooksScreen() {
             <View style={[s.empty, { borderColor: colors.border, borderRadius: colors.radius }]}>
               <Feather name="thermometer" size={36} color={colors.mutedForeground} />
               <Text style={[s.emptyTitle, { color: colors.foreground }]}>
-                {ratedOnly ? "No rated cooks found" : "No cooks logged yet"}
+                {competitionsOnly
+                  ? "No competition cooks yet"
+                  : ratedOnly
+                    ? "No rated cooks found"
+                    : "No cooks logged yet"}
               </Text>
               <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
-                {ratedOnly
-                  ? "Try removing the \"Rated only\" filter to see all cooks"
-                  : "Tap + in the top right to log a past cook"}
+                {competitionsOnly
+                  ? "Plan a KCBS competition from the Plan tab to see it here"
+                  : ratedOnly
+                    ? "Try removing the \"Rated only\" filter to see all cooks"
+                    : "Tap + in the top right to log a past cook"}
               </Text>
             </View>
           }

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, real, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, real, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -34,6 +34,13 @@ export const cooksTable = pgTable("cooks", {
   recipeId: integer("recipe_id"),
   analysisResult: jsonb("analysis_result"),
   analysisHistory: jsonb("analysis_history"),
+  isCompetition: boolean("is_competition").notNull().default(false),
+  competitionName: text("competition_name"),
+  competitionCategory: text("competition_category"),
+  turnInAt: timestamp("turn_in_at", { withTimezone: true }),
+  competitionPlacement: integer("competition_placement"),
+  judgeScore: real("judge_score"),
+  judgeNotes: text("judge_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

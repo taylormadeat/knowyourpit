@@ -95,6 +95,38 @@ export interface Cook {
    * @nullable
    */
   confirmedSteps: CookConfirmedSteps;
+  /** True when this cook is part of a sanctioned competition (KCBS Competition Mode) */
+  isCompetition: boolean;
+  /**
+   * Name of the competition this cook belongs to (e.g., "Smoketown Invitational 2026")
+   * @nullable
+   */
+  competitionName: string | null;
+  /**
+   * KCBS category — "chicken", "ribs", "pork", or "brisket"
+   * @nullable
+   */
+  competitionCategory: string | null;
+  /**
+   * Official competition turn-in time for this category. Used in Competition Mode instead of plannedEndAt.
+   * @nullable
+   */
+  turnInAt: Date | null;
+  /**
+   * Final placement in the category (1=first, 0=DNP). Higher numbers can represent ranges (6=top 10, 11=top 20, 21=below 20).
+   * @nullable
+   */
+  competitionPlacement: number | null;
+  /**
+   * Optional judges' score (0–180 typical for KCBS)
+   * @nullable
+   */
+  judgeScore: number | null;
+  /**
+   * Free-form notes about judge feedback
+   * @nullable
+   */
+  judgeNotes: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

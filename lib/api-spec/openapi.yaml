@@ -1395,6 +1395,28 @@ components:
           additionalProperties:
             type: string
           description: Map of step keys to ISO timestamps of when the user confirmed each step
+        isCompetition:
+          type: boolean
+          description: True when this cook is part of a sanctioned competition (KCBS Competition Mode)
+        competitionName:
+          type: ["string", "null"]
+          description: Name of the competition this cook belongs to (e.g., "Smoketown Invitational 2026")
+        competitionCategory:
+          type: ["string", "null"]
+          description: KCBS category — "chicken", "ribs", "pork", or "brisket"
+        turnInAt:
+          type: ["string", "null"]
+          format: date-time
+          description: Official competition turn-in time for this category. Used in Competition Mode instead of plannedEndAt.
+        competitionPlacement:
+          type: ["integer", "null"]
+          description: Final placement in the category (1=first, 0=DNP). Higher numbers can represent ranges (6=top 10, 11=top 20, 21=below 20).
+        judgeScore:
+          type: ["number", "null"]
+          description: Optional judges' score (0–180 typical for KCBS)
+        judgeNotes:
+          type: ["string", "null"]
+          description: Free-form notes about judge feedback
         createdAt:
           type: string
           format: date-time
@@ -1428,6 +1450,13 @@ components:
         - sessionId
         - recipeId
         - confirmedSteps
+        - isCompetition
+        - competitionName
+        - competitionCategory
+        - turnInAt
+        - competitionPlacement
+        - judgeScore
+        - judgeNotes
         - createdAt
         - updatedAt
 
@@ -1484,6 +1513,17 @@ components:
           description: UUID grouping cooks that were saved together from the Multi-Cook Sequencer
         recipeId:
           type: ["integer", "null"]
+        isCompetition:
+          type: ["boolean", "null"]
+          description: Mark this cook as part of a KCBS competition
+        competitionName:
+          type: ["string", "null"]
+        competitionCategory:
+          type: ["string", "null"]
+          enum: [chicken, ribs, pork, brisket, null]
+        turnInAt:
+          type: ["string", "null"]
+          format: date-time
       required:
         - foodType
 
@@ -1546,6 +1586,23 @@ components:
           additionalProperties:
             type: string
           description: Map of step keys to ISO timestamps of when the user confirmed each step
+        isCompetition:
+          type: ["boolean", "null"]
+        competitionName:
+          type: ["string", "null"]
+        competitionCategory:
+          type: ["string", "null"]
+          enum: [chicken, ribs, pork, brisket, null]
+        turnInAt:
+          type: ["string", "null"]
+          format: date-time
+        competitionPlacement:
+          type: ["integer", "null"]
+          description: 1=first, 0=DNP, 6=top 10, 11=top 20, 21=below 20
+        judgeScore:
+          type: ["number", "null"]
+        judgeNotes:
+          type: ["string", "null"]
 
     Recipe:
       type: object
@@ -2081,8 +2138,26 @@ components:
         preheatMinutes:
           type: ["integer", "null"]
           description: Minutes to preheat the grill before putting meat on
+        category:
+          type: ["string", "null"]
+          enum: [chicken, ribs, pork, brisket, null]
+          description: KCBS competition category. When provided alongside turnInAt, this item is backwards-planned independently to its own turnInAt.
+        turnInAt:
+          type: ["string", "null"]
+          format: date-time
+          description: Per-item competition turn-in time (Competition Mode). When provided, replaces the shared serveAt for backwards planning of THIS item only.
       required:
         - foodType
+
+    MultiCookCompetition:
+      type: object
+      properties:
+        isCompetition:
+          type: boolean
+        name:
+          type: ["string", "null"]
+      required:
+        - isCompetition
 
     MultiCookBody:
       type: object
@@ -2091,18 +2166,20 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MultiCookItem"
-          minItems: 2
+          minItems: 1
           maxItems: 5
         serveAt:
           type: string
           format: date-time
-          description: Target time when all food should be ready to serve
+          description: Target time when all food should be ready to serve. In Competition Mode each item's turnInAt overrides this for that item; pass the latest turnInAt for backwards compatibility.
         outdoorTempF:
           type: ["number", "null"]
           description: Outdoor ambient temperature in Fahrenheit. May be current conditions or a forecast for the cook day (see outdoorTempIsForecast).
         outdoorTempIsForecast:
           type: ["boolean", "null"]
           description: True when outdoorTempF is a forecasted value for the cook day (Pro). False or omitted when it is the current ambient temperature.
+        competition:
+          $ref: "#/components/schemas/MultiCookCompetition"
       required:
         - items
         - serveAt
@@ -2148,6 +2225,18 @@ components:
         notes:
           type: string
           description: One sentence of specific advice for this item
+        category:
+          type: ["string", "null"]
+          enum: [chicken, ribs, pork, brisket, null]
+          description: KCBS category, echoed from the request when in Competition Mode
+        turnInAt:
+          type: ["string", "null"]
+          format: date-time
+          description: Competition turn-in time for this item (Competition Mode)
+        boxPackAt:
+          type: ["string", "null"]
+          format: date-time
+          description: When to start packing the turn-in box (~15 min before turnInAt) — Competition Mode only
       required:
         - foodType
         - estimatedDurationMinutes

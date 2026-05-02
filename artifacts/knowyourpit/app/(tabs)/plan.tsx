@@ -75,6 +75,12 @@ import { MeatPickerModal } from "@/components/plan-screen/MeatPickerModal";
 import { DatePickerModal, TimePickerModal } from "@/components/plan-screen/DateTimePickerModals";
 import { AiResultsModal } from "@/components/plan-screen/AiResultsModal";
 import { MultiCookResultModal } from "@/components/plan-screen/MultiCookResultModal";
+import { CompetitionSetupModal, type CompetitionPayload } from "@/components/plan-screen/CompetitionSetupModal";
+import {
+  KCBS_CATEGORY_LABEL,
+  KCBS_CATEGORY_COLOR,
+  type KcbsCategory,
+} from "@/constants/competitionKnowledge";
 import { MultiCookAddItemModal } from "@/components/plan-screen/MultiCookAddItemModal";
 
 export default function PlanScreen() {
@@ -238,6 +244,10 @@ export default function PlanScreen() {
   const [multiAddWeightInput, setMultiAddWeightInput] = useState("");
   const [multiPickedCut, setMultiPickedCut] = useState<MeatCut | null>(null);
 
+  // ── Competition Mode state ────────────────────────────────────────────
+  const [competitionSetupOpen, setCompetitionSetupOpen] = useState(false);
+  const [competition, setCompetition] = useState<CompetitionPayload | null>(null);
+
   // ── Form reset helpers ───────────────────────────────────────────────
   // Called after a successful save so the next visit feels like a fresh
   // planning session. `grillId` and `planMode` are intentionally preserved.
@@ -270,6 +280,7 @@ export default function PlanScreen() {
     setMultiAddCat(MEAT_CATEGORIES[0]);
     setMultiAddWeightInput("");
     setMultiPickedCut(null);
+    setCompetition(null);
   };
 
   // ── Derived values ───────────────────────────────────────────────────
@@ -369,6 +380,9 @@ export default function PlanScreen() {
       Alert.alert("Add More Items", "Add at least 2 items to sequence a multi-cook.");
       return;
     }
+    // Clear any stale competition context from a prior session so a regular
+    // multi-cook save never inherits competition metadata.
+    setCompetition(null);
     try {
       const result = await aiMultiCook.mutateAsync({
         data: {
@@ -400,30 +414,110 @@ export default function PlanScreen() {
     }
   };
 
+  // Competition Mode entrypoint — gathers competition setup, then runs the
+  // same multi-cook AI route with per-item turn-in times and a competition
+  // context block injected server-side.
+  const handleCompetitionContinue = async (payload: CompetitionPayload) => {
+    if (!effectivePro) {
+      showPaywall({ trigger: "pro_required", featureName: "Competition Mode" });
+      return;
+    }
+    setCompetition(payload);
+    try {
+      const result = await aiMultiCook.mutateAsync({
+        data: {
+          items: payload.items.map((item) => {
+            const itemGrill = item.grillId != null
+              ? ((grills as any[] | undefined)?.find((g: any) => g.id === item.grillId) ?? null)
+              : selectedGrill;
+            return {
+              foodType: item.cut.name,
+              weightLbs: parseFloat(item.weightLbs) > 0 ? parseFloat(item.weightLbs) : undefined,
+              cookTempF: item.cut.cookTempF,
+              targetTempF: item.cut.targetTempF,
+              grillId: item.grillId ?? grillId ?? undefined,
+              preheatMinutes: preheatMinsForGrill(itemGrill),
+              category: item.category,
+              turnInAt: item.turnInAt.toISOString(),
+            };
+          }),
+          // Pass the latest turn-in as serveAt for backwards compatibility;
+          // the server uses each item's turnInAt for backwards planning.
+          serveAt: new Date(
+            Math.max(...payload.items.map((i) => i.turnInAt.getTime())),
+          ).toISOString(),
+          outdoorTempF: weather.tempF ?? undefined,
+          outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
+          competition: {
+            isCompetition: true,
+            name: payload.competitionName,
+          },
+        },
+      });
+      setCompetitionSetupOpen(false);
+      setMultiResult(result as any);
+      setMultiResultOpen(true);
+    } catch (e: any) {
+      if (parseAndShowFromError(e)) return;
+      // On error, drop the staged competition payload so a subsequent regular
+      // multi-cook save can't accidentally inherit it.
+      setCompetition(null);
+      Alert.alert("Competition Plan Error", e?.message || "Could not build competition plan. Try again.");
+    }
+  };
+
   const handleSaveMultiCooks = async () => {
     if (!multiResult) return;
+    const isComp = competition !== null;
     try {
       const sessionId = Crypto.randomUUID();
       const remainingItems = [...multiItems];
+      const remainingCompItems = competition ? [...competition.items] : [];
       for (const item of multiResult.schedule) {
         const matchedCut = MEAT_CUTS.find(c => c.name.toLowerCase() === item.foodType.toLowerCase());
-        const inputIdx = remainingItems.findIndex(m => m.cut.name.toLowerCase() === item.foodType.toLowerCase());
-        const inputItem = inputIdx >= 0 ? remainingItems.splice(inputIdx, 1)[0] : undefined;
-        const resolvedGrillId = inputItem?.grillId ?? grillId ?? undefined;
+
+        // Resolve input + weight differently for competition vs. regular multi-cook
+        let inputWeightLbs: number | undefined;
+        let resolvedGrillId: number | undefined;
+        let compItem: typeof remainingCompItems[number] | undefined;
+        if (isComp) {
+          const idx = remainingCompItems.findIndex(
+            (m) => m.cut.name.toLowerCase() === item.foodType.toLowerCase(),
+          );
+          compItem = idx >= 0 ? remainingCompItems.splice(idx, 1)[0] : undefined;
+          inputWeightLbs = compItem ? parseFloat(compItem.weightLbs) || undefined : undefined;
+          resolvedGrillId = compItem?.grillId ?? grillId ?? undefined;
+        } else {
+          const inputIdx = remainingItems.findIndex(m => m.cut.name.toLowerCase() === item.foodType.toLowerCase());
+          const inputItem = inputIdx >= 0 ? remainingItems.splice(inputIdx, 1)[0] : undefined;
+          inputWeightLbs = inputItem ? parseFloat(inputItem.weightLbs) || undefined : undefined;
+          resolvedGrillId = inputItem?.grillId ?? grillId ?? undefined;
+        }
+
         const wrapMethodDb =
           item.wrapMethod === "foil" ? "foil"
           : item.wrapMethod === "butcher_paper" ? "butcher_paper"
           : item.wrapMethod === "none" ? "none"
           : undefined;
-        const noteParts: string[] = [
-          `Multi-cook session · Serve at ${new Date(multiResult.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-        ];
+
+        const noteHeader = isComp
+          ? `${competition?.competitionName ?? "Competition"} · Turn-in ${
+              (item as any).turnInAt
+                ? new Date((item as any).turnInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                : "—"
+            }`
+          : `Multi-cook session · Serve at ${new Date(multiResult.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+        const noteParts: string[] = [noteHeader];
         if (item.notes) noteParts.push(item.notes);
         if (item.wrapReason && wrapMethodDb && wrapMethodDb !== "none") noteParts.push(`Wrap: ${item.wrapReason}`);
+
+        const itemTurnInIso = (item as any).turnInAt ?? compItem?.turnInAt?.toISOString() ?? null;
+        const itemCategory = (item as any).category ?? compItem?.category ?? null;
+
         await createCook.mutateAsync({
           data: {
             foodType: item.foodType,
-            weightLbs: inputItem ? parseFloat(inputItem.weightLbs) || undefined : undefined,
+            weightLbs: inputWeightLbs,
             cookTempF: matchedCut?.cookTempF ?? undefined,
             targetTempF: matchedCut?.targetTempF ?? undefined,
             grillId: resolvedGrillId ?? undefined,
@@ -434,10 +528,23 @@ export default function PlanScreen() {
             ...(item.wrapAtMinutes && item.wrapAtMinutes > 0 && { wrapAtMinutes: Math.round(item.wrapAtMinutes) }),
             ...(item.wrapTempF && { wrapTempF: Math.round(item.wrapTempF) }),
             ...(item.wrapReason && { wrapReason: item.wrapReason }),
+            ...(isComp && {
+              isCompetition: true,
+              competitionName: competition!.competitionName,
+              ...(itemCategory && { competitionCategory: itemCategory }),
+              ...(itemTurnInIso && { turnInAt: itemTurnInIso }),
+              sessionLabel: competition!.competitionName,
+            }),
             sequenceData: {
               schedule: multiResult.schedule,
               serveAt: multiResult.serveAt,
               summary: (multiResult as any).summary ?? null,
+              ...(isComp && {
+                competition: {
+                  name: competition!.competitionName,
+                  date: competition!.competitionDate.toISOString(),
+                },
+              }),
             },
           } as any,
         });
@@ -1343,6 +1450,60 @@ export default function PlanScreen() {
         {/* ════ MULTI-COOK SEQUENCER ════ */}
         {planMode === "multi" && (<>
 
+        {/* ── Competition Mode entry card (Pro-gated) ── */}
+        <Pressable
+          onPress={() => {
+            if (!effectivePro) {
+              showPaywall({ trigger: "pro_required", featureName: "Competition Mode" });
+              return;
+            }
+            setCompetitionSetupOpen(true);
+          }}
+          style={{ marginBottom: 14 }}
+        >
+          <LinearGradient
+            colors={["#EAB308", "#F59E0B"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              borderRadius: colors.radius,
+              padding: 14,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <View
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: "rgba(255,255,255,0.22)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Feather name="award" size={18} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={{ fontFamily: "Inter_700Bold", color: "#fff", fontSize: 14 }}>
+                  KCBS Competition Mode
+                </Text>
+                {!effectivePro && (
+                  <View style={{ backgroundColor: "rgba(0,0,0,0.25)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 9 }}>PRO</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={{ fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.92)", fontSize: 11, marginTop: 2 }}>
+                Plan a sanctioned cook with per-category turn-in times + box-pack alarms.
+              </Text>
+            </View>
+            <Feather name={effectivePro ? "chevron-right" : "lock"} size={18} color="#fff" />
+          </LinearGradient>
+        </Pressable>
+
         {/* Serve By (shared with single via serveAt state) */}
         <Label colors={colors}>When do you want to serve?</Label>
         <View style={[s.serveByCard, { backgroundColor: colors.card, borderColor: colors.primary + "40", borderRadius: colors.radius }]}>
@@ -1624,6 +1785,21 @@ export default function PlanScreen() {
         multiAddWeightInput={multiAddWeightInput}
         setMultiAddWeightInput={setMultiAddWeightInput}
         setMultiItems={setMultiItems}
+      />
+
+      {/* ════ COMPETITION SETUP MODAL ════ */}
+      <CompetitionSetupModal
+        visible={competitionSetupOpen}
+        onClose={() => {
+          setCompetitionSetupOpen(false);
+          // Drop staged competition payload on cancel so it can't leak into
+          // a later regular multi-cook save.
+          setCompetition(null);
+        }}
+        colors={colors}
+        defaultGrillId={grillId}
+        onContinue={handleCompetitionContinue}
+        pending={aiMultiCook.isPending}
       />
 
     </View>

@@ -20,9 +20,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useLayout } from "@/hooks/useLayout";
-import { useGetSessionCooks, useUpdateSession, useDeleteSession, useRemoveCookFromSession, getGetSessionCooksQueryKey } from "@workspace/api-client-react";
+import { useGetSessionCooks, useUpdateSession, useDeleteSession, useRemoveCookFromSession, useUpdateCook, getGetSessionCooksQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { LogoBackground } from "@/components/LogoBackground";
+import { KCBS_CATEGORY_LABEL, KCBS_CATEGORY_COLOR, type KcbsCategory } from "@/constants/competitionKnowledge";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
@@ -169,6 +170,9 @@ function getItemPlan(cook: any): {
   wrapAtMinutes?: number | null;
   wrapTempF?: number | null;
   wrapReason?: string | null;
+  category?: string | null;
+  turnInAt?: string | null;
+  boxPackAt?: string | null;
 } | null {
   const seqData = cook?.sequenceData as { schedule?: any[] } | null | undefined;
   if (!seqData?.schedule?.length) return null;
@@ -211,12 +215,119 @@ export default function SessionDetailScreen() {
 
   const sessionLabel = cooks?.[0]?.sessionLabel ?? null;
   const sessionNotes = cooks?.[0]?.sessionNotes ?? null;
-  const displayLabel = sessionLabel || "Multi-Cook Session";
+
+  // ── Competition Mode detection ───────────────────────────────────────
+  const isCompetitionSession = (cooks ?? []).some((c: any) => c.isCompetition);
+  const competitionName = (cooks ?? []).find((c: any) => c.competitionName)?.competitionName ?? null;
+  const competitionCooks = (cooks ?? []).filter((c: any) => c.isCompetition);
+  const competitionCategories: KcbsCategory[] = Array.from(
+    new Set(competitionCooks.map((c: any) => c.competitionCategory).filter(Boolean) as KcbsCategory[]),
+  );
+  const turnInDates = competitionCooks
+    .map((c: any) => (c.turnInAt ? new Date(c.turnInAt).getTime() : null))
+    .filter((t): t is number => t !== null);
+  const allResultsLogged =
+    isCompetitionSession &&
+    competitionCooks.length > 0 &&
+    competitionCooks.every((c: any) => typeof c.competitionPlacement === "number");
+
+  const displayLabel = sessionLabel || (isCompetitionSession ? competitionName ?? "Competition" : "Multi-Cook Session");
 
   const [editVisible, setEditVisible] = useState(false);
   const [draftLabel, setDraftLabel] = useState("");
   const [draftNotes, setDraftNotes] = useState("");
   const [expandedCookIds, setExpandedCookIds] = useState<Set<number>>(new Set());
+
+  // Competition results entry modal
+  const [resultsOpen, setResultsOpen] = useState(false);
+  const updateCook = useUpdateCook();
+  const [resultsDraft, setResultsDraft] = useState<
+    Record<number, { placement: string; judgeScore: string; judgeNotes: string }>
+  >({});
+
+  useEffect(() => {
+    if (resultsOpen) {
+      const draft: typeof resultsDraft = {};
+      for (const c of competitionCooks) {
+        draft[c.id] = {
+          placement: c.competitionPlacement != null ? String(c.competitionPlacement) : "",
+          judgeScore: c.judgeScore != null ? String(c.judgeScore) : "",
+          judgeNotes: c.judgeNotes ?? "",
+        };
+      }
+      setResultsDraft(draft);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resultsOpen]);
+
+  const handleSaveResults = async () => {
+    const tasks: Promise<unknown>[] = [];
+    for (const c of competitionCooks) {
+      const d = resultsDraft[c.id];
+      if (!d) continue;
+      // Placement: 0 = DNP (Did Not Place), 1+ = ranked finish. Coerce to integer ≥ 0.
+      const placementRaw = d.placement.trim();
+      const placement = placementRaw === ""
+        ? null
+        : Math.max(0, Math.round(Number(placementRaw)));
+      // Judge score: KCBS valid range is 0–180. Reject NaN/out-of-range silently
+      // (treat as null rather than blocking save with cryptic API error).
+      const judgeScoreRaw = d.judgeScore.trim();
+      const judgeScoreParsed = judgeScoreRaw === "" ? null : Number(judgeScoreRaw);
+      const judgeScore =
+        judgeScoreParsed != null &&
+        !Number.isNaN(judgeScoreParsed) &&
+        judgeScoreParsed >= 0 &&
+        judgeScoreParsed <= 180
+          ? judgeScoreParsed
+          : null;
+      const judgeNotes = d.judgeNotes.trim() === "" ? null : d.judgeNotes.trim();
+      if (
+        placement === c.competitionPlacement &&
+        judgeScore === c.judgeScore &&
+        judgeNotes === c.judgeNotes
+      ) continue;
+      tasks.push(
+        updateCook.mutateAsync({
+          id: c.id,
+          data: {
+            competitionPlacement: placement,
+            judgeScore: judgeScore,
+            judgeNotes: judgeNotes,
+          } as any,
+        }),
+      );
+    }
+    try {
+      await Promise.all(tasks);
+      if (sessionId) {
+        await queryClient.invalidateQueries({ queryKey: getGetSessionCooksQueryKey(sessionId) });
+      }
+      setResultsOpen(false);
+    } catch (e: any) {
+      Alert.alert("Save Failed", e?.message || "Could not save results. Try again.");
+    }
+  };
+
+  // Countdown tick for competition turn-ins
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isCompetitionSession) return;
+    const id = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, [isCompetitionSession]);
+  const nextTurnInMs = turnInDates.filter((t) => t > now).sort((a, b) => a - b)[0] ?? null;
+  const fmtCountdown = (ms: number): string => {
+    const diff = ms - now;
+    if (diff <= 0) return "now";
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `in ${mins}m`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h < 24) return `in ${h}h ${m}m`;
+    const d = Math.floor(h / 24);
+    return `in ${d}d`;
+  };
 
   const toggleExpanded = useCallback((cookId: number) => {
     setExpandedCookIds((prev) => {
@@ -340,9 +451,22 @@ export default function SessionDetailScreen() {
           <Feather name="arrow-left" size={22} color={colors.foreground} />
         </Pressable>
         <View style={s.headerCenter}>
-          <Text style={[s.headerTitle, { color: colors.foreground }]} numberOfLines={1}>
-            {displayLabel}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center" }}>
+            {isCompetitionSession && (
+              <LinearGradient
+                colors={["#EAB308", "#F59E0B"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={s.compHeaderBadge}
+              >
+                <Feather name="award" size={10} color="#fff" />
+                <Text style={s.compHeaderBadgeText}>COMP</Text>
+              </LinearGradient>
+            )}
+            <Text style={[s.headerTitle, { color: colors.foreground }]} numberOfLines={1}>
+              {displayLabel}
+            </Text>
+          </View>
           {earliestStart && (
             <Text style={[s.headerSub, { color: colors.mutedForeground }]}>
               {fmtDate(earliestStart)}
@@ -384,12 +508,37 @@ export default function SessionDetailScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={isTablet ? { width: "100%", maxWidth: detailMaxWidth, alignSelf: "center" } : null}>
+          {isCompetitionSession && (
+            <LinearGradient
+              colors={["#EAB308", "#F59E0B"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={s.compDayBanner}
+            >
+              <Feather name="award" size={16} color="#fff" />
+              <Text style={s.compDayBannerText}>COMPETITION DAY</Text>
+              {nextTurnInMs && !allResultsLogged && (
+                <Text style={s.compDayBannerSub}>
+                  · Next turn-in {fmtCountdown(nextTurnInMs)}
+                </Text>
+              )}
+              {allResultsLogged && (
+                <Text style={s.compDayBannerSub}>· Results logged</Text>
+              )}
+            </LinearGradient>
+          )}
+
           <View style={[s.summaryCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
             <LinearGradient
-              colors={hasActive ? ["#E84820", "#FF6B2B"] : allCompleted ? ["#16a34a", "#22c55e"] : ["#4f46e5", "#6C3BF5"]}
+              colors={
+                isCompetitionSession ? ["#EAB308", "#F59E0B"]
+                : hasActive ? ["#E84820", "#FF6B2B"]
+                : allCompleted ? ["#16a34a", "#22c55e"]
+                : ["#4f46e5", "#6C3BF5"]
+              }
               style={s.summaryIcon}
             >
-              <Feather name="layers" size={22} color="#fff" />
+              <Feather name={isCompetitionSession ? "award" : "layers"} size={22} color="#fff" />
             </LinearGradient>
             <View style={{ flex: 1 }}>
               <Text style={[s.summaryLabel, { color: colors.foreground }]}>
@@ -400,6 +549,23 @@ export default function SessionDetailScreen() {
                 {earliestStart ? ` · starts ${fmtTime(earliestStart)}` : ""}
                 {latestEnd ? ` · serves ${fmtTime(latestEnd)}` : ""}
               </Text>
+              {isCompetitionSession && competitionCategories.length > 0 && (
+                <View style={s.catChipsRow}>
+                  {competitionCategories.map((c) => (
+                    <View
+                      key={c}
+                      style={[
+                        s.catChip,
+                        { backgroundColor: KCBS_CATEGORY_COLOR[c] + "22", borderColor: KCBS_CATEGORY_COLOR[c] },
+                      ]}
+                    >
+                      <Text style={[s.catChipText, { color: KCBS_CATEGORY_COLOR[c] }]}>
+                        {KCBS_CATEGORY_LABEL[c]}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
               {sessionNotes ? (
                 <Text style={[s.summaryNotes, { color: colors.mutedForeground }]}>
                   {sessionNotes}
@@ -407,6 +573,26 @@ export default function SessionDetailScreen() {
               ) : null}
             </View>
           </View>
+
+          {isCompetitionSession && (
+            <Pressable
+              onPress={() => setResultsOpen(true)}
+              style={({ pressed }) => [
+                s.resultsCta,
+                {
+                  backgroundColor: allResultsLogged ? "#22c55e" : colors.card,
+                  borderColor: allResultsLogged ? "#22c55e" : "#EAB308",
+                  borderRadius: colors.radius,
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}
+            >
+              <Feather name={allResultsLogged ? "check-circle" : "edit-3"} size={16} color={allResultsLogged ? "#fff" : "#EAB308"} />
+              <Text style={[s.resultsCtaText, { color: allResultsLogged ? "#fff" : "#EAB308" }]}>
+                {allResultsLogged ? "Edit Competition Results" : "Log Competition Results"}
+              </Text>
+            </Pressable>
+          )}
 
           <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>
             SCHEDULE OVERVIEW
@@ -457,10 +643,36 @@ export default function SessionDetailScreen() {
                   <View style={s.timelineContent}>
                     <View style={s.timelineRow2}>
                       <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                           <Text style={[s.cookName, { color: colors.foreground }]}>
                             {cook.foodType || "Unnamed Cook"}
                           </Text>
+                          {cook.isCompetition && cook.competitionCategory && (
+                            <View
+                              style={[
+                                s.miniCatBadge,
+                                {
+                                  backgroundColor: KCBS_CATEGORY_COLOR[cook.competitionCategory as KcbsCategory] + "22",
+                                  borderColor: KCBS_CATEGORY_COLOR[cook.competitionCategory as KcbsCategory],
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  s.miniCatBadgeText,
+                                  { color: KCBS_CATEGORY_COLOR[cook.competitionCategory as KcbsCategory] },
+                                ]}
+                              >
+                                {KCBS_CATEGORY_LABEL[cook.competitionCategory as KcbsCategory]}
+                              </Text>
+                            </View>
+                          )}
+                          {typeof cook.competitionPlacement === "number" && (
+                            <View style={s.placementBadge}>
+                              <Feather name="award" size={10} color="#fff" />
+                              <Text style={s.placementBadgeText}>#{cook.competitionPlacement}</Text>
+                            </View>
+                          )}
                           {isActive && (
                             <View style={s.livePill}>
                               <View style={s.liveDot} />
@@ -480,6 +692,14 @@ export default function SessionDetailScreen() {
                               <Feather name="clock" size={11} color={colors.mutedForeground} />
                               <Text style={[s.timeChipText, { color: colors.mutedForeground }]}>
                                 On {fmtTime(meatOnTime)}
+                              </Text>
+                            </View>
+                          )}
+                          {cook.isCompetition && cook.turnInAt && (
+                            <View style={[s.timeChip, { backgroundColor: "#EAB308" + "22" }]}>
+                              <Feather name="award" size={11} color="#EAB308" />
+                              <Text style={[s.timeChipText, { color: "#EAB308", fontFamily: "Inter_600SemiBold" }]}>
+                                Turn-in {fmtTime(new Date(cook.turnInAt))}
                               </Text>
                             </View>
                           )}
@@ -607,6 +827,35 @@ export default function SessionDetailScreen() {
                                   <Text style={[s.planTime, { color: colors.mutedForeground }]}>
                                     {fmtTime(new Date(itemPlan.estimatedFinishAt))}
                                     {itemPlan.restMinutes ? ` · ${fmtMinutes(itemPlan.restMinutes)} rest` : ""}
+                                  </Text>
+                                </View>
+                              </View>
+                            )}
+                            {cook.isCompetition && (itemPlan.boxPackAt || cook.turnInAt) && (
+                              <View style={s.planStep}>
+                                <View style={[s.planDot, { backgroundColor: "#EAB308" }]} />
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[s.planLabel, { color: colors.foreground }]}>Pack the turn-in box</Text>
+                                  <Text style={[s.planTime, { color: colors.mutedForeground }]}>
+                                    {(() => {
+                                      const boxPackMs = itemPlan.boxPackAt
+                                        ? new Date(itemPlan.boxPackAt).getTime()
+                                        : new Date(cook.turnInAt).getTime() - 15 * 60_000;
+                                      return `${fmtTime(new Date(boxPackMs))} · 15 min before turn-in`;
+                                    })()}
+                                  </Text>
+                                </View>
+                              </View>
+                            )}
+                            {cook.isCompetition && cook.turnInAt && (
+                              <View style={s.planStep}>
+                                <View style={[s.planDot, { backgroundColor: "#EAB308" }]} />
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[s.planLabel, { color: "#EAB308", fontFamily: "Inter_700Bold" }]}>
+                                    TURN-IN
+                                  </Text>
+                                  <Text style={[s.planTime, { color: colors.mutedForeground }]}>
+                                    {fmtTime(new Date(cook.turnInAt))} · {KCBS_CATEGORY_LABEL[cook.competitionCategory as KcbsCategory] ?? "Competition"}
                                   </Text>
                                 </View>
                               </View>
@@ -747,11 +996,229 @@ export default function SessionDetailScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* ════ COMPETITION RESULTS MODAL ════ */}
+      <Modal
+        visible={resultsOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setResultsOpen(false)}
+      >
+        <KeyboardAvoidingView
+          style={s.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setResultsOpen(false)} />
+          <View style={[s.modalSheet, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+            <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
+            <View style={s.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.modalTitle, { color: colors.foreground }]}>
+                  Log Competition Results
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 }}>
+                  Placement (1 = first), KCBS judge score (0–180), notes per category
+                </Text>
+              </View>
+              <Pressable onPress={() => setResultsOpen(false)} hitSlop={8}>
+                <Feather name="x" size={22} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+            <ScrollView style={{ maxHeight: 460 }} keyboardShouldPersistTaps="handled">
+              {competitionCooks.map((c: any) => {
+                const draft = resultsDraft[c.id] ?? { placement: "", judgeScore: "", judgeNotes: "" };
+                const cat = c.competitionCategory as KcbsCategory | null;
+                const color = cat ? KCBS_CATEGORY_COLOR[cat] : colors.primary;
+                return (
+                  <View key={c.id} style={[s.resultsModalRow, { borderBottomColor: colors.border }]}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      {cat && (
+                        <View style={[s.miniCatBadge, { backgroundColor: color + "22", borderColor: color }]}>
+                          <Text style={[s.miniCatBadgeText, { color }]}>{KCBS_CATEGORY_LABEL[cat]}</Text>
+                        </View>
+                      )}
+                      <Text style={[s.resultsModalCookName, { color: colors.foreground, marginBottom: 0 }]}>
+                        {c.foodType ?? "Cook"}
+                      </Text>
+                    </View>
+                    <View style={s.resultsModalFieldRow}>
+                      <View style={s.resultsModalField}>
+                        <Text style={[s.resultsModalFieldLabel, { color: colors.mutedForeground }]}>
+                          Placement
+                        </Text>
+                        <TextInput
+                          style={[
+                            s.resultsModalInput,
+                            {
+                              backgroundColor: colors.background,
+                              borderColor: colors.border,
+                              borderRadius: colors.radius - 2,
+                              color: colors.foreground,
+                            },
+                          ]}
+                          placeholder="—"
+                          placeholderTextColor={colors.mutedForeground}
+                          value={draft.placement}
+                          onChangeText={(v) =>
+                            setResultsDraft((p) => ({
+                              ...p,
+                              [c.id]: { ...draft, placement: v.replace(/[^0-9]/g, "") },
+                            }))
+                          }
+                          keyboardType="number-pad"
+                        />
+                      </View>
+                      <View style={s.resultsModalField}>
+                        <Text style={[s.resultsModalFieldLabel, { color: colors.mutedForeground }]}>
+                          Judge Score
+                        </Text>
+                        <TextInput
+                          style={[
+                            s.resultsModalInput,
+                            {
+                              backgroundColor: colors.background,
+                              borderColor: colors.border,
+                              borderRadius: colors.radius - 2,
+                              color: colors.foreground,
+                            },
+                          ]}
+                          placeholder="0–180"
+                          placeholderTextColor={colors.mutedForeground}
+                          value={draft.judgeScore}
+                          onChangeText={(v) =>
+                            setResultsDraft((p) => ({
+                              ...p,
+                              [c.id]: { ...draft, judgeScore: v.replace(/[^0-9.]/g, "") },
+                            }))
+                          }
+                          keyboardType="decimal-pad"
+                        />
+                      </View>
+                    </View>
+                    <View style={{ marginTop: 6 }}>
+                      <Text style={[s.resultsModalFieldLabel, { color: colors.mutedForeground }]}>
+                        Judge Notes
+                      </Text>
+                      <TextInput
+                        style={[
+                          s.resultsModalInput,
+                          {
+                            backgroundColor: colors.background,
+                            borderColor: colors.border,
+                            borderRadius: colors.radius - 2,
+                            color: colors.foreground,
+                            minHeight: 56,
+                            textAlignVertical: "top",
+                          },
+                        ]}
+                        placeholder="Comments from judges (e.g. tenderness, smoke ring)"
+                        placeholderTextColor={colors.mutedForeground}
+                        value={draft.judgeNotes}
+                        onChangeText={(v) =>
+                          setResultsDraft((p) => ({
+                            ...p,
+                            [c.id]: { ...draft, judgeNotes: v },
+                          }))
+                        }
+                        multiline
+                      />
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+            <Pressable
+              onPress={handleSaveResults}
+              disabled={updateCook.isPending}
+              style={({ pressed }) => [
+                s.resultsCta,
+                {
+                  backgroundColor: "#EAB308",
+                  borderColor: "#EAB308",
+                  borderRadius: colors.radius,
+                  opacity: pressed || updateCook.isPending ? 0.85 : 1,
+                  marginTop: 10,
+                  marginBottom: 0,
+                },
+              ]}
+            >
+              {updateCook.isPending ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Feather name="check" size={16} color="#fff" />
+              )}
+              <Text style={[s.resultsCtaText, { color: "#fff" }]}>
+                {updateCook.isPending ? "Saving…" : "Save Results"}
+              </Text>
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
 
 const s = StyleSheet.create({
+  compHeaderBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  compHeaderBadgeText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 0.5 },
+  compDayBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  compDayBannerText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 13, letterSpacing: 0.6 },
+  compDayBannerSub: { color: "rgba(255,255,255,0.92)", fontFamily: "Inter_500Medium", fontSize: 12 },
+  catChipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 },
+  catChip: { paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderRadius: 6 },
+  catChipText: { fontFamily: "Inter_600SemiBold", fontSize: 10 },
+  resultsCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  resultsCtaText: { fontFamily: "Inter_700Bold", fontSize: 13 },
+  miniCatBadge: { paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderRadius: 4 },
+  miniCatBadgeText: { fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 0.3 },
+  placementBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: "#EAB308",
+  },
+  placementBadgeText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 10 },
+  resultsModalRow: {
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  resultsModalCookName: { fontFamily: "Inter_600SemiBold", fontSize: 14, marginBottom: 6 },
+  resultsModalFieldRow: { flexDirection: "row", gap: 8, marginTop: 4 },
+  resultsModalField: { flex: 1 },
+  resultsModalFieldLabel: { fontFamily: "Inter_500Medium", fontSize: 11, marginBottom: 4 },
+  resultsModalInput: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+  },
   container: { flex: 1 },
   header: {
     flexDirection: "row",

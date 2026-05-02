@@ -5,6 +5,7 @@
  * PitMaster AI - BBQ Planning & Monitoring API
  * OpenAPI spec version: 0.1.0
  */
+import type { MultiCookItemCategory } from "./multiCookItemCategory";
 
 export interface MultiCookItem {
   foodType: string;
@@ -21,4 +22,14 @@ export interface MultiCookItem {
    * @nullable
    */
   preheatMinutes?: number | null;
+  /**
+   * KCBS competition category. When provided alongside turnInAt, this item is backwards-planned independently to its own turnInAt.
+   * @nullable
+   */
+  category?: MultiCookItemCategory;
+  /**
+   * Per-item competition turn-in time (Competition Mode). When provided, replaces the shared serveAt for backwards planning of THIS item only.
+   * @nullable
+   */
+  turnInAt?: Date | null;
 }

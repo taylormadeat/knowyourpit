@@ -352,6 +352,38 @@ export interface Cook {
    * @nullable
    */
   confirmedSteps: CookConfirmedSteps;
+  /** True when this cook is part of a sanctioned competition (KCBS Competition Mode) */
+  isCompetition: boolean;
+  /**
+   * Name of the competition this cook belongs to (e.g., "Smoketown Invitational 2026")
+   * @nullable
+   */
+  competitionName: string | null;
+  /**
+   * KCBS category — "chicken", "ribs", "pork", or "brisket"
+   * @nullable
+   */
+  competitionCategory: string | null;
+  /**
+   * Official competition turn-in time for this category. Used in Competition Mode instead of plannedEndAt.
+   * @nullable
+   */
+  turnInAt: string | null;
+  /**
+   * Final placement in the category (1=first, 0=DNP). Higher numbers can represent ranges (6=top 10, 11=top 20, 21=below 20).
+   * @nullable
+   */
+  competitionPlacement: number | null;
+  /**
+   * Optional judges' score (0–180 typical for KCBS)
+   * @nullable
+   */
+  judgeScore: number | null;
+  /**
+   * Free-form notes about judge feedback
+   * @nullable
+   */
+  judgeNotes: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -377,6 +409,20 @@ export const CreateCookBodyWrapMethod = {
   foil: "foil",
   butcher_paper: "butcher_paper",
   none: "none",
+} as const;
+
+/**
+ * @nullable
+ */
+export type CreateCookBodyCompetitionCategory =
+  | (typeof CreateCookBodyCompetitionCategory)[keyof typeof CreateCookBodyCompetitionCategory]
+  | null;
+
+export const CreateCookBodyCompetitionCategory = {
+  chicken: "chicken",
+  ribs: "ribs",
+  pork: "pork",
+  brisket: "brisket",
 } as const;
 
 export interface CreateCookBody {
@@ -434,6 +480,17 @@ export interface CreateCookBody {
   sessionId?: string | null;
   /** @nullable */
   recipeId?: number | null;
+  /**
+   * Mark this cook as part of a KCBS competition
+   * @nullable
+   */
+  isCompetition?: boolean | null;
+  /** @nullable */
+  competitionName?: string | null;
+  /** @nullable */
+  competitionCategory?: CreateCookBodyCompetitionCategory;
+  /** @nullable */
+  turnInAt?: string | null;
 }
 
 /**
@@ -468,6 +525,20 @@ export const UpdateCookBodyWrapMethod = {
  * @nullable
  */
 export type UpdateCookBodyConfirmedSteps = { [key: string]: string } | null;
+
+/**
+ * @nullable
+ */
+export type UpdateCookBodyCompetitionCategory =
+  | (typeof UpdateCookBodyCompetitionCategory)[keyof typeof UpdateCookBodyCompetitionCategory]
+  | null;
+
+export const UpdateCookBodyCompetitionCategory = {
+  chicken: "chicken",
+  ribs: "ribs",
+  pork: "pork",
+  brisket: "brisket",
+} as const;
 
 export interface UpdateCookBody {
   /** @nullable */
@@ -522,6 +593,23 @@ export interface UpdateCookBody {
    * @nullable
    */
   confirmedSteps?: UpdateCookBodyConfirmedSteps;
+  /** @nullable */
+  isCompetition?: boolean | null;
+  /** @nullable */
+  competitionName?: string | null;
+  /** @nullable */
+  competitionCategory?: UpdateCookBodyCompetitionCategory;
+  /** @nullable */
+  turnInAt?: string | null;
+  /**
+   * 1=first, 0=DNP, 6=top 10, 11=top 20, 21=below 20
+   * @nullable
+   */
+  competitionPlacement?: number | null;
+  /** @nullable */
+  judgeScore?: number | null;
+  /** @nullable */
+  judgeNotes?: string | null;
 }
 
 export interface Recipe {
@@ -888,6 +976,21 @@ export interface AiPredictResponse {
   fingerprintSource: AiPredictResponseFingerprintSource;
 }
 
+/**
+ * KCBS competition category. When provided alongside turnInAt, this item is backwards-planned independently to its own turnInAt.
+ * @nullable
+ */
+export type MultiCookItemCategory =
+  | (typeof MultiCookItemCategory)[keyof typeof MultiCookItemCategory]
+  | null;
+
+export const MultiCookItemCategory = {
+  chicken: "chicken",
+  ribs: "ribs",
+  pork: "pork",
+  brisket: "brisket",
+} as const;
+
 export interface MultiCookItem {
   foodType: string;
   /** @nullable */
@@ -903,15 +1006,31 @@ export interface MultiCookItem {
    * @nullable
    */
   preheatMinutes?: number | null;
+  /**
+   * KCBS competition category. When provided alongside turnInAt, this item is backwards-planned independently to its own turnInAt.
+   * @nullable
+   */
+  category?: MultiCookItemCategory;
+  /**
+   * Per-item competition turn-in time (Competition Mode). When provided, replaces the shared serveAt for backwards planning of THIS item only.
+   * @nullable
+   */
+  turnInAt?: string | null;
+}
+
+export interface MultiCookCompetition {
+  isCompetition: boolean;
+  /** @nullable */
+  name?: string | null;
 }
 
 export interface MultiCookBody {
   /**
-   * @minItems 2
+   * @minItems 1
    * @maxItems 5
    */
   items: MultiCookItem[];
-  /** Target time when all food should be ready to serve */
+  /** Target time when all food should be ready to serve. In Competition Mode each item's turnInAt overrides this for that item; pass the latest turnInAt for backwards compatibility. */
   serveAt: string;
   /**
    * Outdoor ambient temperature in Fahrenheit. May be current conditions or a forecast for the cook day (see outdoorTempIsForecast).
@@ -923,6 +1042,7 @@ export interface MultiCookBody {
    * @nullable
    */
   outdoorTempIsForecast?: boolean | null;
+  competition?: MultiCookCompetition;
 }
 
 /**
@@ -937,6 +1057,21 @@ export const MultiCookScheduleItemWrapMethod = {
   foil: "foil",
   butcher_paper: "butcher_paper",
   none: "none",
+} as const;
+
+/**
+ * KCBS category, echoed from the request when in Competition Mode
+ * @nullable
+ */
+export type MultiCookScheduleItemCategory =
+  | (typeof MultiCookScheduleItemCategory)[keyof typeof MultiCookScheduleItemCategory]
+  | null;
+
+export const MultiCookScheduleItemCategory = {
+  chicken: "chicken",
+  ribs: "ribs",
+  pork: "pork",
+  brisket: "brisket",
 } as const;
 
 export interface MultiCookScheduleItem {
@@ -974,6 +1109,21 @@ export interface MultiCookScheduleItem {
   wrapReason?: string | null;
   /** One sentence of specific advice for this item */
   notes?: string;
+  /**
+   * KCBS category, echoed from the request when in Competition Mode
+   * @nullable
+   */
+  category?: MultiCookScheduleItemCategory;
+  /**
+   * Competition turn-in time for this item (Competition Mode)
+   * @nullable
+   */
+  turnInAt?: string | null;
+  /**
+   * When to start packing the turn-in box (~15 min before turnInAt) — Competition Mode only
+   * @nullable
+   */
+  boxPackAt?: string | null;
 }
 
 export interface MultiCookResponse {
