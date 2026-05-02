@@ -375,7 +375,7 @@ export interface Cook {
    */
   competitionPlacement: number | null;
   /**
-   * Optional judges' score (0–180 typical for KCBS)
+   * Optional judges' score (0–360 per KCBS_SCORING — 10/25/25 weighting × 6 judges)
    * @nullable
    */
   judgeScore: number | null;

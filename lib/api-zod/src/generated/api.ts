@@ -483,7 +483,9 @@ export const ListCooksResponseItem = zod.object({
   judgeScore: zod
     .number()
     .nullable()
-    .describe("Optional judges' score (0–180 typical for KCBS)"),
+    .describe(
+      "Optional judges' score (0–360 per KCBS_SCORING — 10\/25\/25 weighting × 6 judges)",
+    ),
   judgeNotes: zod
     .string()
     .nullable()
@@ -679,7 +681,9 @@ export const GetCookResponse = zod.object({
   judgeScore: zod
     .number()
     .nullable()
-    .describe("Optional judges' score (0–180 typical for KCBS)"),
+    .describe(
+      "Optional judges' score (0–360 per KCBS_SCORING — 10\/25\/25 weighting × 6 judges)",
+    ),
   judgeNotes: zod
     .string()
     .nullable()
@@ -870,7 +874,9 @@ export const UpdateCookResponse = zod.object({
   judgeScore: zod
     .number()
     .nullable()
-    .describe("Optional judges' score (0–180 typical for KCBS)"),
+    .describe(
+      "Optional judges' score (0–360 per KCBS_SCORING — 10\/25\/25 weighting × 6 judges)",
+    ),
   judgeNotes: zod
     .string()
     .nullable()
@@ -1807,7 +1813,9 @@ export const GetRecentCooksResponseItem = zod.object({
   judgeScore: zod
     .number()
     .nullable()
-    .describe("Optional judges' score (0–180 typical for KCBS)"),
+    .describe(
+      "Optional judges' score (0–360 per KCBS_SCORING — 10\/25\/25 weighting × 6 judges)",
+    ),
   judgeNotes: zod
     .string()
     .nullable()

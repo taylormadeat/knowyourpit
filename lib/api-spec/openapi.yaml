@@ -1413,7 +1413,7 @@ components:
           description: Final placement in the category (1=first, 0=DNP). Higher numbers can represent ranges (6=top 10, 11=top 20, 21=below 20).
         judgeScore:
           type: ["number", "null"]
-          description: Optional judges' score (0–180 typical for KCBS)
+          description: Optional judges' score (0–360 per KCBS_SCORING — 10/25/25 weighting × 6 judges)
         judgeNotes:
           type: ["string", "null"]
           description: Free-form notes about judge feedback

@@ -1112,7 +1112,7 @@ function buildCompetitionContextForPrompt(
   const lines: string[] = ["", "=== KCBS COMPETITION COACHING ==="];
   if (competitionName) lines.push(`Competition: ${competitionName}`);
   lines.push(
-    "Judging: 6 judges score Appearance + Taste + Texture (1–9 each). Lowest score is dropped. Coach for COMPETITION standards, not backyard.",
+    "Judging: 6 KCBS-certified judges score each entry on Appearance (10 pts), Taste (25 pts), and Texture (25 pts) — 60 points per judge × 6 judges = 360 max per category. Coach for COMPETITION standards, not backyard.",
   );
   for (const c of cats) {
     lines.push(`- ${KCBS_COMPETITION_TIPS[c as keyof typeof KCBS_COMPETITION_TIPS]}`);
