@@ -16,7 +16,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useColors } from "@/hooks/useColors";
 import { useSubscription, type PurchasePackageLike } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
-import { useGetRecentCooks, getGetRecentCooksQueryKey } from "@workspace/api-client-react";
+import { useGetRecentCooks, getGetRecentCooksQueryKey, type Cook } from "@workspace/api-client-react";
+import type { Feather as FeatherType } from "@expo/vector-icons";
+
+type FeatherIconName = React.ComponentProps<typeof FeatherType>["name"];
 
 interface TrialInfo {
   label: string;
@@ -103,7 +106,7 @@ interface PaywallModalProps {
   featureContext?: string | null;
 }
 
-const FEATURES = [
+const FEATURES: ReadonlyArray<{ icon: FeatherIconName; title: string; desc: string }> = [
   { icon: "zap", title: "Unlimited cooks", desc: "Log every brisket, butt, and rib without hitting a cap." },
   { icon: "message-circle", title: "Unlimited PitMaster chat", desc: "Chat with PitMaster as much as you want — no daily message limits." },
   { icon: "image", title: "Unlimited cook scans", desc: "Analyze every thermometer photo with no daily quota." },
@@ -199,7 +202,7 @@ function defaultSubtitle(
 }
 
 /** Map a food type string to a small Feather icon for the journey cards. */
-function foodTypeIcon(foodType?: string | null): string {
+function foodTypeIcon(foodType?: string | null): FeatherIconName {
   const f = (foodType ?? "").toLowerCase();
   if (f.includes("brisket") || f.includes("beef") || f.includes("steak")) return "award";
   if (f.includes("rib")) return "git-branch";
@@ -254,14 +257,14 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
       enabled: visible && isCookLimitWall && !effectivePro,
     },
   });
-  const journeyCooks = useMemo(() => {
-    if (!isCookLimitWall) return [] as any[];
-    const list = (recentCooksData as any[] | undefined) ?? [];
+  const journeyCooks = useMemo<Cook[]>(() => {
+    if (!isCookLimitWall) return [];
+    const list: Cook[] = recentCooksData ?? [];
     // Spec: "Your 3-cook journey so far" surfaces ONLY completed cooks so
     // ratings render correctly and the panel reflects finished work. If the
     // user has fewer than 3 completed cooks the panel simply renders fewer
     // cards (or hides if zero).
-    return list.filter((c) => c?.status === "completed").slice(0, 3);
+    return list.filter((c) => c.status === "completed").slice(0, 3);
   }, [isCookLimitWall, recentCooksData]);
 
   const annual = currentOffering?.annual ?? null;
@@ -393,7 +396,7 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                             style={[styles.journeyIcon, { backgroundColor: "#E8452020" }]}
                           >
                             <Feather
-                              name={foodTypeIcon(cookFood) as any}
+                              name={foodTypeIcon(cookFood)}
                               size={16}
                               color="#E84520"
                             />
@@ -447,7 +450,7 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
               {FEATURES.map((f) => (
                 <View key={f.title} style={[styles.featureRow, { borderBottomColor: colors.border }]}>
                   <View style={[styles.featureIcon, { backgroundColor: "#E8452020" }]}>
-                    <Feather name={f.icon as any} size={16} color="#E84520" />
+                    <Feather name={f.icon} size={16} color="#E84520" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.featureTitle, { color: colors.foreground }]}>{f.title}</Text>

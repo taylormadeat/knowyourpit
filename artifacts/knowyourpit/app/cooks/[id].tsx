@@ -1215,7 +1215,7 @@ export default function CookDetailScreen() {
           colors={colors}
           effectivePro={effectivePro}
           showPaywall={showPaywall}
-          foodType={(cook as any)?.foodType ?? null}
+          foodType={cook?.foodType ?? null}
         />
 
         {/* ── Rate This Cook (completed cooks only) ──────────── */}
@@ -1366,7 +1366,7 @@ function Cook2NudgeBanner({
     };
   }, []);
 
-  const completedCount = ((allCooks as any[] | undefined) ?? []).filter(
+  const completedCount = (allCooks ?? []).filter(
     (c) => c?.status === "completed",
   ).length;
   const eligible =
