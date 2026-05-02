@@ -1018,10 +1018,22 @@ export interface MultiCookItem {
   turnInAt?: string | null;
 }
 
+export type MultiCookCompetitionCategoriesItem =
+  (typeof MultiCookCompetitionCategoriesItem)[keyof typeof MultiCookCompetitionCategoriesItem];
+
+export const MultiCookCompetitionCategoriesItem = {
+  chicken: "chicken",
+  ribs: "ribs",
+  pork: "pork",
+  brisket: "brisket",
+} as const;
+
 export interface MultiCookCompetition {
   isCompetition: boolean;
   /** @nullable */
   name?: string | null;
+  /** KCBS categories entered in this competition. Each item also carries its own category, but this top-level list is the canonical record of "what categories did the pitmaster sign up for" so the AI can frame coaching around the full slate. */
+  categories?: MultiCookCompetitionCategoriesItem[];
 }
 
 export interface MultiCookBody {

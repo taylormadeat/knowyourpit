@@ -451,6 +451,9 @@ export default function PlanScreen() {
           competition: {
             isCompetition: true,
             name: payload.competitionName,
+            categories: Array.from(
+              new Set(payload.items.map((i) => i.category)),
+            ),
           },
         },
       });

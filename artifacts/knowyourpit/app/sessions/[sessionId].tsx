@@ -561,7 +561,11 @@ export default function SessionDetailScreen() {
               <Text style={[s.summaryMeta, { color: colors.mutedForeground }]}>
                 {(cooks ?? []).length} items
                 {earliestStart ? ` · starts ${fmtTime(earliestStart)}` : ""}
-                {latestEnd ? ` · serves ${fmtTime(latestEnd)}` : ""}
+                {latestEnd
+                  ? isCompetitionSession
+                    ? ` · last turn-in ${fmtTime(latestEnd)}`
+                    : ` · serves ${fmtTime(latestEnd)}`
+                  : ""}
               </Text>
               {isCompetitionSession && competitionCategories.length > 0 && (
                 <View style={s.catChipsRow}>

@@ -65,6 +65,7 @@ export * from "./meaterReadingsResponse";
 export * from "./meaterStatusResponse";
 export * from "./multiCookBody";
 export * from "./multiCookCompetition";
+export * from "./multiCookCompetitionCategoriesItem";
 export * from "./multiCookItem";
 export * from "./multiCookItemCategory";
 export * from "./multiCookResponse";

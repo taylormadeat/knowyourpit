@@ -5,9 +5,12 @@
  * PitMaster AI - BBQ Planning & Monitoring API
  * OpenAPI spec version: 0.1.0
  */
+import type { MultiCookCompetitionCategoriesItem } from "./multiCookCompetitionCategoriesItem";
 
 export interface MultiCookCompetition {
   isCompetition: boolean;
   /** @nullable */
   name?: string | null;
+  /** KCBS categories entered in this competition. Each item also carries its own category, but this top-level list is the canonical record of "what categories did the pitmaster sign up for" so the AI can frame coaching around the full slate. */
+  categories?: MultiCookCompetitionCategoriesItem[];
 }

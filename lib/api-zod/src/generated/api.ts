@@ -1389,6 +1389,12 @@ export const AiMultiCookBody = zod.object({
     .object({
       isCompetition: zod.boolean(),
       name: zod.string().nullish(),
+      categories: zod
+        .array(zod.enum(["chicken", "ribs", "pork", "brisket"]))
+        .optional()
+        .describe(
+          'KCBS categories entered in this competition. Each item also carries its own category, but this top-level list is the canonical record of \"what categories did the pitmaster sign up for\" so the AI can frame coaching around the full slate.',
+        ),
     })
     .optional(),
 });

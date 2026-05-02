@@ -2156,6 +2156,12 @@ components:
           type: boolean
         name:
           type: ["string", "null"]
+        categories:
+          type: array
+          description: KCBS categories entered in this competition. Each item also carries its own category, but this top-level list is the canonical record of "what categories did the pitmaster sign up for" so the AI can frame coaching around the full slate.
+          items:
+            type: string
+            enum: [chicken, ribs, pork, brisket]
       required:
         - isCompetition
 
