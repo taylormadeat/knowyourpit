@@ -15,8 +15,12 @@ import { asListItems, getRevenueCatClient } from "./revenuecat";
 // Kill-switch: PAYWALL_ENABLED=false bypasses every gate.
 
 export const FREE_COOK_LIMIT = 3;
-export const FREE_AI_CHAT_DAILY_LIMIT = 5;
-export const FREE_AI_ANALYZE_DAILY_LIMIT = 3;
+// Wave 2 (#329): tightened from 5→3 to cut the largest variable AI cost ~40%
+// while still leaving enough headroom for a meaningful conversation per day.
+export const FREE_AI_CHAT_DAILY_LIMIT = 3;
+// Wave 2 (#329): tightened from 3→1. Free users realistically don't photograph
+// three cook situations per day; the prior cap was mostly theoretical.
+export const FREE_AI_ANALYZE_DAILY_LIMIT = 1;
 
 export type PaywallReason =
   | "cook_limit_reached"

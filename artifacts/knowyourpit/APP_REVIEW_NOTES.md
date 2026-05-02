@@ -112,7 +112,7 @@ readings, and PitMaster AI feedback for that session.
 
 **PitMaster tab** (flame icon)
 Opens the AI chat. Type any BBQ question and PitMaster responds with coaching advice.
-Free accounts get 5 messages/day; Pro is unlimited.
+Free accounts get 3 messages/day; Pro is unlimited.
 
 **More tab**
 - Subscription card at top (shows plan status / opens paywall for free users)
@@ -130,7 +130,7 @@ granted so no purchase is needed during review. If you wish to test the purchase
 
 - Use the Sandbox Apple ID environment.
 - Tap the "Upgrade to Pro" card in the More tab or let the app hit a free-tier limit
-  (3 total cooks, 5 AI messages/day) to trigger the paywall.
+  (3 total cooks, 3 AI messages/day, or 1 AI cook scan/day) to trigger the paywall.
 - The paywall offers an Annual plan (with a free trial if eligible) and a Monthly plan.
 - Tap either plan card to initiate a Sandbox purchase.
 - "Restore purchases" is also available at the bottom of the paywall sheet.

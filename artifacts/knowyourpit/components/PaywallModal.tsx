@@ -135,9 +135,9 @@ function defaultSubtitle(trigger: PaywallTrigger | null | undefined): string {
     case "planned_cook_limit_reached":
       return "Free plan only allows one planned cook at a time.";
     case "ai_message_limit_reached":
-      return "Free plan includes 5 AI chats per day. Upgrade for unlimited.";
+      return "Free plan includes 3 AI chats per day. Upgrade for unlimited.";
     case "ai_analyze_limit_reached":
-      return "Free plan includes 3 AI cook scans per day. Upgrade for unlimited.";
+      return "Free plan includes 1 AI cook scan per day. Upgrade for unlimited.";
     case "pro_required":
       return "Upgrade to Pro to unlock this and every other premium feature.";
     default:
