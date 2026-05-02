@@ -39,6 +39,19 @@ export function getStepTargetMs(
   }
 }
 
+/**
+ * Human-readable countdown string for the "Next Up" banner.
+ *
+ * Format ladder:
+ *   past due  → "now"
+ *   < 60s     → "in Xs"          e.g. "in 45s"
+ *   < 60m     → "in Xm"          e.g. "in 27m"
+ *   >= 1h     → "in Xh Ym"       e.g. "in 13h 33m"
+ *
+ * The task spec example is "in 13h 33m" for a multi-hour countdown. Sub-hour
+ * countdowns are deliberately compacted to "in Xm" rather than "in 0h Xm" —
+ * "0h" reads as noise and isn't useful information for the pitmaster.
+ */
 export function formatNextUpCountdown(remainingMs: number): string {
   if (remainingMs <= 0) return "now";
   const totalSec = Math.floor(remainingMs / 1000);
