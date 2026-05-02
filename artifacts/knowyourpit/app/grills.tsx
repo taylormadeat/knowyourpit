@@ -39,58 +39,6 @@ const GRILL_TYPES = [
 ];
 const FUEL_TYPES = ["Charcoal", "Wood", "Pellets", "Gas", "Electric", "Combination"];
 
-// ── Brand → Clearbit logo URL map ──
-// Brands without a recognized public domain fall back to a letter avatar.
-// Clearbit Logo API (logo.clearbit.com) is a free public endpoint for
-// company logos; we render an Image and swap to the gradient initial on
-// any load error so missing/blocked logos degrade gracefully.
-const BRAND_LOGO_DOMAINS: Record<string, string> = {
-  "Asmoke": "asmoke.com",
-  "Big Green Egg": "biggreenegg.com",
-  "Blaze": "blazegrills.com",
-  "Bradley Smoker": "bradleysmoker.com",
-  "Brisk-It": "brisk-it.com",
-  "Broil King": "broilkingbbq.com",
-  "Camp Chef": "campchef.com",
-  "Char-Broil": "charbroil.com",
-  "Char-Griller": "chargriller.com",
-  "Cookshack": "cookshack.com",
-  "Cuisinart": "cuisinart.com",
-  "Franklin Barbecue Pits": "franklinbbq.com",
-  "Gateway Drum Smokers": "gatewaydrumsmokers.com",
-  "Green Mountain Grills": "greenmountaingrills.com",
-  "Horizon Smokers": "horizonbbqsmokers.com",
-  "Kamado Joe": "kamadojoe.com",
-  "Komodo Kamado": "komodokamado.com",
-  "Lang BBQ Smokers": "langbbqsmokers.com",
-  "Louisiana Grills": "louisiana-grills.com",
-  "MAK Grills": "makgrills.com",
-  "Masterbuilt": "masterbuilt.com",
-  "Meadow Creek": "meadowcreekbbq.com",
-  "Memphis Grills": "memphisgrills.com",
-  "Mill Scale Metalworks": "millscale.co",
-  "Napoleon": "napoleon.com",
-  "Oklahoma Joe's": "oklahomajoes.com",
-  "Pit Barrel Cooker": "pitbarrelcooker.com",
-  "Pit Boss": "pitboss-grills.com",
-  "Pitts & Spitts": "pittsandspitts.com",
-  "Primo": "primogrill.com",
-  "Rec Tec (RecTeq)": "recteq.com",
-  "Smokin-It": "smokin-it.com",
-  "Spider Grills": "spidergrills.com",
-  "Traeger": "traegergrills.com",
-  "Vision Grills": "visiongrills.com",
-  "Weber": "weber.com",
-  "Workhorse Pits": "workhorsepits.com",
-  "Yoder Smokers": "yodersmokers.com",
-  "Z Grills": "zgrills.com",
-};
-
-function getBrandLogoUrl(brand: string): string | undefined {
-  const domain = BRAND_LOGO_DOMAINS[brand];
-  return domain ? `https://logo.clearbit.com/${domain}` : undefined;
-}
-
 interface BrandEntry {
   brand: string;
   categories: string[];
@@ -98,6 +46,9 @@ interface BrandEntry {
   logoUrl?: string;
 }
 
+// `logoUrl` is sourced from the catalog (`GrillBrand.logoUrl`). The merge
+// keeps the first non-empty `logoUrl` we encounter for a given brand so
+// it doesn't matter which category lists the brand first.
 function buildBrandList(): BrandEntry[] {
   const map = new Map<string, BrandEntry>();
   for (const cat of GRILL_CATALOG) {
@@ -106,12 +57,13 @@ function buildBrandList(): BrandEntry[] {
       if (existing) {
         if (!existing.categories.includes(cat.category)) existing.categories.push(cat.category);
         existing.models.push(...b.models);
+        if (!existing.logoUrl && b.logoUrl) existing.logoUrl = b.logoUrl;
       } else {
         map.set(b.brand, {
           brand: b.brand,
           categories: [cat.category],
           models: [...b.models],
-          logoUrl: getBrandLogoUrl(b.brand),
+          logoUrl: b.logoUrl,
         });
       }
     }

@@ -1,5 +1,5 @@
 import React from "react";
-import Svg, { Path, Circle, Rect, Line, G } from "react-native-svg";
+import Svg, { Path, Rect, G } from "react-native-svg";
 import { Feather } from "@expo/vector-icons";
 
 export type GrillIconKind =
@@ -40,118 +40,133 @@ export function GrillTypeIcon({ type, size = 20, color = "#fff" }: Props) {
     return <Feather name="wind" size={size} color={color} />;
   }
 
-  const stroke = color;
-  const sw = 1.5;
-  const common = {
-    stroke,
-    strokeWidth: sw,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    fill: "none",
-  };
-
+  // Filled silhouettes; accent details use fillOpacity for visual depth on
+  // the orange gradient backgrounds where the icon is rendered.
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24">
       {kind === "pellet" && (
-        <G {...common}>
+        <G fill={color}>
+          {/* hopper (back) */}
+          <Path d="M15 7 L20 7 L21 16 L15 16 Z" />
           {/* main barrel */}
-          <Rect x="3" y="9" width="13" height="8" rx="1.5" />
-          {/* hopper on the right */}
-          <Path d="M16 11 L16 16 L20 16 L20 13 Z" />
+          <Rect x="2.5" y="10" width="14" height="7.5" rx="1.5" />
           {/* legs */}
-          <Path d="M5 17 L5 19 M14 17 L14 19" />
-          {/* smokestack */}
-          <Path d="M17 6 L16 9" />
+          <Rect x="4" y="17.5" width="1.5" height="3" />
+          <Rect x="13" y="17.5" width="1.5" height="3" />
+          {/* smokestack on lid */}
+          <Rect x="6" y="6.5" width="1.5" height="4" />
+          <Rect x="5.3" y="5.7" width="2.9" height="1" />
         </G>
       )}
 
       {kind === "kamado" && (
-        <G {...common}>
+        <G fill={color}>
           {/* egg body */}
-          <Path d="M12 3 C16 3 18 7 18 12 C18 17 15.5 19 12 19 C8.5 19 6 17 6 12 C6 7 8 3 12 3 Z" />
-          {/* hinge band */}
-          <Line x1="6.5" y1="13" x2="17.5" y2="13" />
-          {/* stand legs */}
-          <Path d="M9 19 L9 22 M15 19 L15 22" />
+          <Path d="M12 3 C16.5 3 18.5 7.5 18.5 12 C18.5 17 15.5 19.5 12 19.5 C8.5 19.5 5.5 17 5.5 12 C5.5 7.5 7.5 3 12 3 Z" />
+          {/* hinge band cutout (darker stripe via opacity) */}
+          <Rect x="5.5" y="11.5" width="13" height="1" fillOpacity={0.35} />
           {/* top vent */}
-          <Path d="M11 3 L11 1.5 L13 1.5 L13 3" />
+          <Rect x="10.5" y="1" width="3" height="2.3" />
+          {/* stand legs */}
+          <Rect x="8" y="19.5" width="1.6" height="3" />
+          <Rect x="14.4" y="19.5" width="1.6" height="3" />
         </G>
       )}
 
       {kind === "offset" && (
-        <G {...common}>
+        <G fill={color}>
           {/* main cook chamber */}
-          <Rect x="6" y="9" width="13" height="8" rx="2" />
-          {/* side firebox (smaller) */}
-          <Rect x="2" y="11" width="5" height="5" rx="0.5" />
+          <Rect x="6" y="9.5" width="13" height="8" rx="2" />
+          {/* side firebox */}
+          <Rect x="1.5" y="11.5" width="5" height="5" rx="0.5" />
           {/* smokestack */}
-          <Path d="M18 6 L17 9" />
+          <Rect x="17.5" y="4.5" width="1.7" height="5" />
+          <Rect x="16.7" y="3.7" width="3.3" height="1.1" />
           {/* legs */}
-          <Path d="M9 17 L9 19 M16 17 L16 19" />
+          <Rect x="8" y="17.5" width="1.5" height="3" />
+          <Rect x="15.5" y="17.5" width="1.5" height="3" />
+          {/* firebox door (accent) */}
+          <Rect x="2.7" y="13" width="2.6" height="2.5" fillOpacity={0.35} />
         </G>
       )}
 
       {kind === "drum" && (
-        <G {...common}>
+        <G fill={color}>
           {/* vertical cylinder */}
-          <Rect x="6" y="3" width="12" height="18" rx="1.5" />
-          {/* lid band */}
-          <Line x1="6" y1="7" x2="18" y2="7" />
-          {/* mid band */}
-          <Line x1="6" y1="15" x2="18" y2="15" />
+          <Rect x="5.5" y="2.5" width="13" height="18.5" rx="1.5" />
+          {/* lid band accent */}
+          <Rect x="5.5" y="6.5" width="13" height="0.8" fillOpacity={0.35} />
+          {/* mid band accent */}
+          <Rect x="5.5" y="14" width="13" height="0.8" fillOpacity={0.35} />
           {/* feet */}
-          <Path d="M9 21 L9 22.5 M15 21 L15 22.5" />
+          <Rect x="7.5" y="21" width="1.5" height="1.5" />
+          <Rect x="15" y="21" width="1.5" height="1.5" />
         </G>
       )}
 
       {kind === "kettle" && (
-        <G {...common}>
+        <G fill={color}>
+          {/* lid dome */}
+          <Path d="M3 12 C3 7.5 7 5 12 5 C17 5 21 7.5 21 12 Z" />
           {/* bowl bottom */}
-          <Path d="M3 11 C3 15 7 18 12 18 C17 18 21 15 21 11" />
-          {/* lid line */}
-          <Path d="M3 11 C3 9.5 5 8 12 8 C19 8 21 9.5 21 11" />
+          <Path d="M3 12 C3 16 7 18.5 12 18.5 C17 18.5 21 16 21 12 Z" />
+          {/* lid handle on top */}
+          <Rect x="11.25" y="3.5" width="1.5" height="2" />
+          {/* lid/bowl seam (accent) */}
+          <Rect x="3" y="11.6" width="18" height="0.8" fillOpacity={0.35} />
           {/* 3 legs */}
-          <Line x1="6" y1="17" x2="5" y2="22" />
-          <Line x1="12" y1="18" x2="12" y2="22" />
-          <Line x1="18" y1="17" x2="19" y2="22" />
+          <Path d="M6 18 L4.5 22.5 L6 22.5 L7.3 18.6 Z" />
+          <Rect x="11.25" y="18.5" width="1.5" height="4" />
+          <Path d="M18 18 L19.5 22.5 L18 22.5 L16.7 18.6 Z" />
         </G>
       )}
 
       {kind === "gas" && (
-        <G {...common}>
-          {/* cookbox */}
-          <Rect x="3" y="9" width="18" height="7" rx="1.5" />
-          {/* legs */}
-          <Path d="M5 16 L5 20 M19 16 L19 20" />
+        <G fill={color}>
+          {/* cookbox lid */}
+          <Path d="M3 6.5 C3 5.5 4 4.5 5 4.5 H19 C20 4.5 21 5.5 21 6.5 V10 H3 Z" />
+          {/* main body */}
+          <Rect x="3" y="10" width="18" height="6" />
+          {/* control panel band (accent) */}
+          <Rect x="3" y="13.2" width="18" height="2.8" fillOpacity={0.35} />
           {/* knobs */}
-          <Circle cx="8" cy="13" r="0.8" fill={stroke} />
-          <Circle cx="12" cy="13" r="0.8" fill={stroke} />
-          <Circle cx="16" cy="13" r="0.8" fill={stroke} />
+          <Rect x="6.5" y="14" width="1.5" height="1.2" rx="0.4" />
+          <Rect x="11.25" y="14" width="1.5" height="1.2" rx="0.4" />
+          <Rect x="16" y="14" width="1.5" height="1.2" rx="0.4" />
+          {/* legs */}
+          <Rect x="4.5" y="16" width="1.5" height="5" />
+          <Rect x="18" y="16" width="1.5" height="5" />
         </G>
       )}
 
       {kind === "griddle" && (
-        <G {...common}>
+        <G fill={color}>
           {/* flat top surface */}
-          <Rect x="3" y="11" width="18" height="3.5" rx="0.5" />
-          {/* legs */}
-          <Path d="M5 14.5 L5 19 M19 14.5 L19 19" />
+          <Rect x="2.5" y="10.5" width="19" height="4" rx="0.5" />
+          {/* grease channel accent */}
+          <Rect x="2.5" y="13" width="19" height="1" fillOpacity={0.35} />
           {/* heat waves */}
-          <Path d="M7 9 C7.5 8 8.5 8 9 9 M11 9 C11.5 8 12.5 8 13 9 M15 9 C15.5 8 16.5 8 17 9" />
+          <Path d="M6 8.5 C6.5 7 7.5 7 8 8.5 Z" />
+          <Path d="M11 8.5 C11.5 7 12.5 7 13 8.5 Z" />
+          <Path d="M16 8.5 C16.5 7 17.5 7 18 8.5 Z" />
+          {/* legs */}
+          <Rect x="4.5" y="14.5" width="1.5" height="5" />
+          <Rect x="18" y="14.5" width="1.5" height="5" />
         </G>
       )}
 
       {kind === "cabinet" && (
-        <G {...common}>
+        <G fill={color}>
           {/* tall box */}
-          <Rect x="5" y="3" width="14" height="18" rx="1.5" />
-          {/* shelf lines */}
-          <Line x1="5" y1="9" x2="19" y2="9" />
-          <Line x1="5" y1="15" x2="19" y2="15" />
+          <Rect x="4.5" y="2.5" width="15" height="18.5" rx="1.5" />
+          {/* shelf lines as accents */}
+          <Rect x="4.5" y="8" width="15" height="0.8" fillOpacity={0.35} />
+          <Rect x="4.5" y="14" width="15" height="0.8" fillOpacity={0.35} />
           {/* door handle */}
-          <Circle cx="16.5" cy="6" r="0.6" fill={stroke} />
-          <Circle cx="16.5" cy="12" r="0.6" fill={stroke} />
-          <Circle cx="16.5" cy="18" r="0.6" fill={stroke} />
+          <Rect x="16" y="11" width="1.2" height="3" rx="0.3" fillOpacity={0.55} />
+          {/* feet */}
+          <Rect x="5" y="21" width="2" height="1.5" />
+          <Rect x="17" y="21" width="2" height="1.5" />
         </G>
       )}
     </Svg>
