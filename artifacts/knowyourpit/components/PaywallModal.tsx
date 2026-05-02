@@ -257,12 +257,11 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
   const journeyCooks = useMemo(() => {
     if (!isCookLimitWall) return [] as any[];
     const list = (recentCooksData as any[] | undefined) ?? [];
-    // Prefer completed cooks (they have ratings → richer cards), but fall
-    // back to any recent cooks so users at the cap with planned/active cooks
-    // still see their journey panel populated.
-    const completed = list.filter((c) => c?.status === "completed");
-    const others = list.filter((c) => c?.status !== "completed");
-    return [...completed, ...others].slice(0, 3);
+    // Spec: "Your 3-cook journey so far" surfaces ONLY completed cooks so
+    // ratings render correctly and the panel reflects finished work. If the
+    // user has fewer than 3 completed cooks the panel simply renders fewer
+    // cards (or hides if zero).
+    return list.filter((c) => c?.status === "completed").slice(0, 3);
   }, [isCookLimitWall, recentCooksData]);
 
   const annual = currentOffering?.annual ?? null;
