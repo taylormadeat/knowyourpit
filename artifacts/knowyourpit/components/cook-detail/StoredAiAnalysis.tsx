@@ -144,7 +144,10 @@ export function StoredAiAnalysis(p: Props) {
           <Text style={[s.storedSummary, { color: colors.foreground }]}>{storedAssessment.summary}</Text>
         ) : (
           <View style={{ position: "relative" }}>
-            <Text style={[s.storedSummary, { color: colors.foreground }]}>
+            <Text
+              style={[s.storedSummary, { color: colors.foreground }]}
+              numberOfLines={2}
+            >
               {firstWords(storedAssessment.summary, 40)}
             </Text>
             <LinearGradient
@@ -282,58 +285,71 @@ export function StoredAiAnalysis(p: Props) {
         );
       })()}
 
-      {/* Free user: blurred placeholder for the full coach lists. We render
-          dummy bullets so the BlurView has shape; the real content is hidden
-          behind the lock. */}
+      {/* Free user: blurred view of the actual coach lists. The real items
+          are rendered beneath the BlurView so the conversion moment shows
+          authentic content shape, not placeholder copy. */}
       {isIdentityLinked && !effectivePro && (
         ((storedAssessment?.whatWentWell?.length ?? 0) > 0 ||
           (storedAssessment?.suggestions?.length ?? 1) > 1)
-      ) && (
-        <BlurredProSection
-          featureName="Cook Coach Report"
-          teaser="See every win, every fix, and every next-time tip the AI found in this cook."
-          onPress={() =>
-            showPaywall({
-              trigger: "pro_required",
-              featureName: "Cook Coach Report",
-              foodType: c.foodType ?? null,
-            })
-          }
-          minHeight={180}
-          style={{ marginTop: 12 }}
-        >
-          <View style={{ padding: 14, gap: 10 }}>
-            <Text style={[s.subLabel, { color: colors.mutedForeground }]}>What Went Well</Text>
-            <View style={s.bulletRow}>
-              <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
-              <Text style={[s.bulletText, { color: colors.foreground }]}>
-                Pit temperature held steady through the stall…
-              </Text>
+      ) && (() => {
+        const wins: string[] = Array.isArray(storedAssessment?.whatWentWell)
+          ? storedAssessment.whatWentWell
+          : [];
+        const tipsAll: string[] = Array.isArray(storedAssessment?.suggestions)
+          ? storedAssessment.suggestions
+          : [];
+        // suggestions[0] is already shown un-blurred as the key takeaway,
+        // so the blurred list shows the rest.
+        const tips = tipsAll.slice(1);
+        return (
+          <BlurredProSection
+            featureName="Cook Coach Report"
+            teaser="See every win, every fix, and every next-time tip the AI found in this cook."
+            onPress={() =>
+              showPaywall({
+                trigger: "pro_required",
+                featureName: "Cook Coach Report",
+                foodType: c.foodType ?? null,
+              })
+            }
+            minHeight={180}
+            style={{ marginTop: 12 }}
+          >
+            <View style={{ padding: 14, gap: 10 }}>
+              {wins.length > 0 && (
+                <>
+                  <Text style={[s.subLabel, { color: colors.mutedForeground }]}>
+                    {c.status === "active" ? "What's Working" : "What Went Well"}
+                  </Text>
+                  {wins.slice(0, 3).map((item, i) => (
+                    <View key={`w-${i}`} style={s.bulletRow}>
+                      <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
+                      <Text style={[s.bulletText, { color: colors.foreground }]} numberOfLines={2}>
+                        {item}
+                      </Text>
+                    </View>
+                  ))}
+                </>
+              )}
+              {tips.length > 0 && (
+                <>
+                  <Text style={[s.subLabel, { color: colors.mutedForeground, marginTop: 6 }]}>
+                    {c.status === "active" ? "What to Adjust" : "Next Time, Try This"}
+                  </Text>
+                  {tips.slice(0, 3).map((tip, i) => (
+                    <View key={`t-${i}`} style={s.bulletRow}>
+                      <Text style={[s.bulletNum, { color: "#A855F7" }]}>{i + 1}</Text>
+                      <Text style={[s.bulletText, { color: colors.foreground }]} numberOfLines={2}>
+                        {tip}
+                      </Text>
+                    </View>
+                  ))}
+                </>
+              )}
             </View>
-            <View style={s.bulletRow}>
-              <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
-              <Text style={[s.bulletText, { color: colors.foreground }]}>
-                Bark formed evenly across the surface…
-              </Text>
-            </View>
-            <Text style={[s.subLabel, { color: colors.mutedForeground, marginTop: 6 }]}>
-              Next Time, Try This
-            </Text>
-            <View style={s.bulletRow}>
-              <Text style={[s.bulletNum, { color: "#A855F7" }]}>1</Text>
-              <Text style={[s.bulletText, { color: colors.foreground }]}>
-                Wrap a bit earlier when the bark sets…
-              </Text>
-            </View>
-            <View style={s.bulletRow}>
-              <Text style={[s.bulletNum, { color: "#A855F7" }]}>2</Text>
-              <Text style={[s.bulletText, { color: colors.foreground }]}>
-                Probe in two spots to confirm tenderness…
-              </Text>
-            </View>
-          </View>
-        </BlurredProSection>
-      )}
+          </BlurredProSection>
+        );
+      })()}
     </View>
   );
 }
