@@ -15,7 +15,7 @@
       "backgroundColor": "#0e0e10"
     },
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "bundleIdentifier": "com.knowyourpit.app",
       "buildNumber": "67",
       "appleTeamId": "W8AY23XJTF",

@@ -19,6 +19,7 @@ import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
 import { fetch as expoFetch } from "expo/fetch";
 import { useColors } from "@/hooks/useColors";
+import { useLayout } from "@/hooks/useLayout";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { usePaywall } from "@/contexts/PaywallContext";
@@ -106,6 +107,7 @@ function groupConversations(convs: Conversation[]): ConversationGroup[] {
 export default function AIScreen() {
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
+  const { isTablet, contentMaxWidth } = useLayout();
   const { getToken, isSignedIn } = useAuth();
   const listRef = useRef<FlatList>(null);
 
@@ -716,7 +718,7 @@ export default function AIScreen() {
       {renameModal}
 
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={[{ flex: 1 }, isTablet && { width: "100%", maxWidth: contentMaxWidth, alignSelf: "center" }]}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={0}
       >

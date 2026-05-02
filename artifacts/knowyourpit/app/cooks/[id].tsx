@@ -30,6 +30,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
 import { useTopInset } from "@/hooks/useTopInset";
 import { useBottomInset } from "@/hooks/useBottomInset";
+import { useLayout } from "@/hooks/useLayout";
 import { useScheduleStepNotifications } from "@/hooks/useScheduleStepNotifications";
 import { setCookDetailVisible } from "@/hooks/cookDetailVisibility";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -444,6 +445,7 @@ export default function CookDetailScreen() {
 
   const topPad = useTopInset();
   const botPad = useBottomInset();
+  const { isTablet, detailMaxWidth } = useLayout();
 
   const saveAlert = async () => {
     setAlertSaving(true);
@@ -1074,6 +1076,7 @@ export default function CookDetailScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        <View style={isTablet ? { width: "100%", maxWidth: detailMaxWidth, alignSelf: "center", gap: 16 } : null}>
         {/* Status */}
         <View style={[s.statusBar, { backgroundColor: statusColor + "18", borderRadius: colors.radius }]}>
           <View style={[s.statusDot, { backgroundColor: statusColor }]} />
@@ -1222,6 +1225,7 @@ export default function CookDetailScreen() {
           <Feather name="home" size={14} color={colors.mutedForeground} />
           <Text style={[s.homeLinkText, { color: colors.mutedForeground }]}>Back to Home</Text>
         </Pressable>
+        </View>
       </ScrollView>
 
       {/* ── Edit Cook Modal ──────────────────────────────────── */}

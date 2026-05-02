@@ -16,6 +16,7 @@ import { Feather } from "@expo/vector-icons";
 import { useUser, useClerk, useAuth } from "@clerk/expo";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
+import { useLayout } from "@/hooks/useLayout";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { useSubscription } from "@/contexts/SubscriptionContext";
@@ -56,6 +57,7 @@ export default function MoreScreen() {
   const [deleting, setDeleting] = React.useState(false);
 
   const botPad = useBottomTabBarHeight();
+  const { isTablet, contentMaxWidth } = useLayout();
 
   const handleRestorePurchases = async () => {
     const { success, error } = await restorePurchases();
@@ -227,6 +229,7 @@ export default function MoreScreen() {
         contentContainerStyle={{ paddingTop: 16, paddingBottom: botPad }}
         showsVerticalScrollIndicator={false}
       >
+        <View style={isTablet ? { width: "100%", maxWidth: contentMaxWidth, alignSelf: "center" } : null}>
         {/*
           ── Subscription card ──
           Always visible at the top of "More" so users can find their plan
@@ -408,6 +411,7 @@ export default function MoreScreen() {
             </Text>
           )}
         </Pressable>
+        </View>
       </ScrollView>
     </View>
   );

@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { useLayout } from "@/hooks/useLayout";
 import { useGetSessionCooks, useUpdateSession, useDeleteSession, useRemoveCookFromSession, getGetSessionCooksQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -194,6 +195,7 @@ function getItemPlan(cook: any): {
 
 export default function SessionDetailScreen() {
   const colors = useColors();
+  const { isTablet, detailMaxWidth } = useLayout();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
@@ -381,6 +383,7 @@ export default function SessionDetailScreen() {
           contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 32 }]}
           showsVerticalScrollIndicator={false}
         >
+          <View style={isTablet ? { width: "100%", maxWidth: detailMaxWidth, alignSelf: "center" } : null}>
           <View style={[s.summaryCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
             <LinearGradient
               colors={hasActive ? ["#E84820", "#FF6B2B"] : allCompleted ? ["#16a34a", "#22c55e"] : ["#4f46e5", "#6C3BF5"]}
@@ -644,6 +647,7 @@ export default function SessionDetailScreen() {
                 </Pressable>
               );
             })}
+          </View>
           </View>
         </ScrollView>
       )}

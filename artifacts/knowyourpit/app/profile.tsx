@@ -17,6 +17,7 @@ import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
 import { useBottomInset } from "@/hooks/useBottomInset";
+import { useLayout } from "@/hooks/useLayout";
 import {
   useListGrills,
   useListCooks,
@@ -52,6 +53,7 @@ const DATE_RANGE_OPTIONS: { label: string; value: DateRange }[] = [
 
 export default function ProfileScreen() {
   const colors = useColors();
+  const { isTablet, contentMaxWidth } = useLayout();
   const { user } = useUser();
   const { data: grills } = useListGrills();
   const { data: cooks } = useListCooks();
@@ -222,6 +224,7 @@ export default function ProfileScreen() {
         contentContainerStyle={{ paddingBottom: botPad + 40 }}
         showsVerticalScrollIndicator={false}
       >
+        <View style={isTablet ? { width: "100%", maxWidth: contentMaxWidth, alignSelf: "center" } : null}>
         {/* Avatar + name */}
         <View style={[s.profileSection, { borderBottomColor: colors.border }]}>
           <View style={[s.avatar, { backgroundColor: colors.primary }]}>
@@ -701,6 +704,7 @@ export default function ProfileScreen() {
               <Feather name="chevron-right" size={14} color={colors.primary} />
             </View>
           </Pressable>
+        </View>
         </View>
       </ScrollView>
 

@@ -20,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import { useBottomInset } from "@/hooks/useBottomInset";
+import { useLayout } from "@/hooks/useLayout";
 import {
   useListGrills,
   useCreateGrill,
@@ -87,6 +88,7 @@ export default function GrillsScreen() {
   const [editingGrillId, setEditingGrillId] = useState<number | null>(null);
 
   const botPad = useBottomInset();
+  const { isTablet, contentMaxWidth } = useLayout();
 
   // ── Filter catalog brands ──
   const filteredBrands = useMemo(() => {
@@ -258,12 +260,26 @@ export default function GrillsScreen() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={{ padding: 14, paddingBottom: botPad + 40, gap: 10 }}
+          contentContainerStyle={{
+            padding: 14,
+            paddingBottom: botPad + 40,
+            ...(isTablet ? { maxWidth: contentMaxWidth, alignSelf: "center", width: "100%" } : null),
+          }}
           showsVerticalScrollIndicator={false}
         >
+          <View
+            style={
+              isTablet
+                ? { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -5 }
+                : { gap: 10 }
+            }
+          >
           {allGrills.map((item: any) => (
             <View
               key={item.id}
+              style={isTablet ? { width: "50%", paddingHorizontal: 5, marginBottom: 10 } : null}
+            >
+            <View
               style={[s.grillCardWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
             >
             <View style={s.grillCard}>
@@ -344,7 +360,9 @@ export default function GrillsScreen() {
             </View>
             <GrillFingerprint grillId={item.id} grillName={item.name} />
             </View>
+            </View>
           ))}
+          </View>
         </ScrollView>
       )}
 

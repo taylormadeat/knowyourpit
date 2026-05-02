@@ -22,6 +22,7 @@ import * as Haptics from "expo-haptics";
 import * as Crypto from "expo-crypto";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
+import { useLayout } from "@/hooks/useLayout";
 import {
   useListGrills,
   useCreateCook,
@@ -546,6 +547,7 @@ export default function PlanScreen() {
   };
 
   const botPad = useBottomTabBarHeight();
+  const { isTablet, contentMaxWidth } = useLayout();
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
@@ -584,6 +586,7 @@ export default function PlanScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        <View style={isTablet ? { width: "100%", maxWidth: contentMaxWidth, alignSelf: "center" } : null}>
         {/* ── Plan Mode Toggle ── */}
         <View style={[s.modeToggleRow, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           <Pressable
@@ -1554,6 +1557,7 @@ export default function PlanScreen() {
         )}
 
         </>)}{/* end planMode === "multi" */}
+        </View>
 
       </KeyboardAwareScrollView>
 

@@ -22,6 +22,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useTopInset } from "@/hooks/useTopInset";
 import { useBottomInset } from "@/hooks/useBottomInset";
+import { useLayout } from "@/hooks/useLayout";
 import { LogoBackground } from "@/components/LogoBackground";
 
 const logoImg = require("@/assets/images/logo.png");
@@ -41,6 +42,7 @@ export default function SignUpScreen() {
   const colors = useColors();
   const topInset = useTopInset();
   const bottomInset = useBottomInset();
+  const { isTablet, authMaxWidth } = useLayout();
   const router = useRouter();
   const { signUp, setActive, isLoaded } = useSignUp();
   const { signIn, setActive: signInSetActive } = useSignIn();
@@ -367,6 +369,9 @@ export default function SignUpScreen() {
       paddingHorizontal: 24,
       paddingTop: topInset + 40,
       paddingBottom: bottomInset + 32,
+      ...(isTablet
+        ? { maxWidth: authMaxWidth, alignSelf: "center", width: "100%" }
+        : null),
     },
     logo: {
       width: 96, height: 96, marginBottom: 20,

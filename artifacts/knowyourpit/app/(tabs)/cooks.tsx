@@ -20,6 +20,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useColors } from "@/hooks/useColors";
+import { useLayout } from "@/hooks/useLayout";
 import { useListCooks, useUpdateSession } from "@workspace/api-client-react";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -168,6 +169,7 @@ export default function CooksScreen() {
   const updateSession = useUpdateSession();
 
   const botPad = useBottomTabBarHeight();
+  const { isTablet, contentMaxWidth } = useLayout();
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -519,13 +521,48 @@ export default function CooksScreen() {
     );
   };
 
-  const renderUnifiedItem = ({ item }: { item: UnifiedItem }) => {
+  type DisplayItem = UnifiedItem | { type: "cookPair"; left: any; right: any | null };
+
+  const displayList = useMemo((): DisplayItem[] => {
+    if (!isTablet) return unifiedList;
+    const out: DisplayItem[] = [];
+    let i = 0;
+    while (i < unifiedList.length) {
+      const item = unifiedList[i];
+      if (item.type === "cook") {
+        const next = unifiedList[i + 1];
+        if (next && next.type === "cook") {
+          out.push({ type: "cookPair", left: item.data, right: next.data });
+          i += 2;
+          continue;
+        }
+        out.push({ type: "cookPair", left: item.data, right: null });
+        i += 1;
+        continue;
+      }
+      out.push(item);
+      i += 1;
+    }
+    return out;
+  }, [unifiedList, isTablet]);
+
+  const renderUnifiedItem = ({ item }: { item: DisplayItem }) => {
     if (item.type === "cook") return renderCookItem({ item: item.data });
     if (item.type === "sessionHeader") return renderSessionHeader(item.group);
     if (item.type === "sessionCook") {
       return (
         <View style={{ paddingLeft: 12 }}>
           {renderCookItem({ item: item.data })}
+        </View>
+      );
+    }
+    if (item.type === "cookPair") {
+      return (
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <View style={{ flex: 1 }}>{renderCookItem({ item: item.left })}</View>
+          <View style={{ flex: 1 }}>
+            {item.right ? renderCookItem({ item: item.right }) : null}
+          </View>
         </View>
       );
     }
@@ -925,10 +962,11 @@ export default function CooksScreen() {
         </View>
       ) : (
         <FlatList
-          data={unifiedList}
+          data={displayList}
           keyExtractor={(item) => {
             if (item.type === "cook") return `cook-${item.data.id}`;
             if (item.type === "sessionHeader") return `session-${item.group.sessionId}`;
+            if (item.type === "cookPair") return `pair-${item.left.id}-${item.right?.id ?? "x"}`;
             return `sessioncook-${item.data.id}`;
           }}
           renderItem={renderUnifiedItem}
@@ -937,6 +975,7 @@ export default function CooksScreen() {
             paddingTop: 12,
             paddingBottom: botPad + 16,
             gap: 10,
+            ...(isTablet ? { maxWidth: contentMaxWidth, alignSelf: "center", width: "100%" } : null),
           }}
           showsVerticalScrollIndicator={false}
           scrollEnabled

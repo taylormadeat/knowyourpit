@@ -18,6 +18,7 @@ import { Feather } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
 import { useTopInset } from "@/hooks/useTopInset";
+import { useLayout } from "@/hooks/useLayout";
 import { LogoBackground } from "@/components/LogoBackground";
 import { useGetDashboardSummary, useGetRecentCooks } from "@workspace/api-client-react";
 import { useHomeInsights } from "@/hooks/useHomeInsights";
@@ -150,6 +151,7 @@ export default function HomeScreen() {
 
   const topPad = useTopInset();
   const botPad = useBottomTabBarHeight();
+  const { isTablet, contentMaxWidth } = useLayout();
 
   const allCooks = (recentCooks as any[]) || [];
   const activeCook = allCooks.find((c: any) => c.status === "active") ?? null;
@@ -208,6 +210,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: botPad }}
       >
+        <View style={isTablet ? { width: "100%", maxWidth: contentMaxWidth, alignSelf: "center" } : null}>
         {/* ── Hero banner ── */}
         <LinearGradient
           colors={["#1C1C1F", "#2D1A0E"]}
@@ -708,6 +711,7 @@ export default function HomeScreen() {
             </Pressable>
           ))
         )}
+        </View>
       </ScrollView>
     </View>
   );
