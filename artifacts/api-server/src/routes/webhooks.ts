@@ -50,9 +50,8 @@ const CANCELLATION_EVENT_TYPES = new Set([
 function verifyWebhookSecret(req: Request): boolean {
   const expectedSecret = process.env.REVENUECAT_WEBHOOK_SECRET;
   if (!expectedSecret) {
-    console.error(
-      "REVENUECAT_WEBHOOK_SECRET is not set — rejecting webhook request. " +
-        "Set this env var to enable RevenueCat webhooks.",
+    req.log.error(
+      "REVENUECAT_WEBHOOK_SECRET is not set — rejecting webhook request. Set this env var to enable RevenueCat webhooks.",
     );
     return false;
   }
@@ -122,7 +121,7 @@ router.post("/webhooks/revenuecat", async (req: Request, res: Response): Promise
 
   if (!userId) {
     // RC occasionally fires system events with no user — acknowledge and skip.
-    console.warn("RevenueCat webhook: event has no app_user_id, ignoring.", { eventType });
+    req.log.warn({ eventType }, "RevenueCat webhook: event has no app_user_id, ignoring");
     res.json({ ok: true, skipped: true });
     return;
   }
@@ -131,42 +130,46 @@ router.post("/webhooks/revenuecat", async (req: Request, res: Response): Promise
 
   if (ACTIVATING_EVENT_TYPES.has(eventType)) {
     if (!affectsProEntitlement) {
-      console.log(
-        `RevenueCat webhook: ${eventType} for user ${userId} does not include Pro entitlement — skipping`,
+      req.log.info(
+        { eventType, userId },
+        "RevenueCat webhook: event does not include Pro entitlement — skipping",
       );
     } else {
       await upsertEntitlementCache(userId, true, eventType, expiresAt, eventAtMs);
       invalidateProCache(userId);
-      console.log(`RevenueCat webhook: ${eventType} → user ${userId} is now Pro`);
+      req.log.info({ eventType, userId }, "RevenueCat webhook: user is now Pro");
     }
   } else if (IMMEDIATE_REVOKE_EVENT_TYPES.has(eventType)) {
     if (!affectsProEntitlement) {
-      console.log(
-        `RevenueCat webhook: ${eventType} for user ${userId} does not include Pro entitlement — skipping`,
+      req.log.info(
+        { eventType, userId },
+        "RevenueCat webhook: event does not include Pro entitlement — skipping",
       );
     } else {
       await upsertEntitlementCache(userId, false, eventType, null, eventAtMs);
       invalidateProCache(userId);
-      console.log(`RevenueCat webhook: ${eventType} → user ${userId} is no longer Pro`);
+      req.log.info({ eventType, userId }, "RevenueCat webhook: user is no longer Pro");
     }
   } else if (CANCELLATION_EVENT_TYPES.has(eventType)) {
     // Cancellation means the subscription won't renew, but access continues
     // until the expiry date. Keep isPro=true and store expiresAt so the paywall
     // check handles revocation when that time arrives.
     if (!affectsProEntitlement) {
-      console.log(
-        `RevenueCat webhook: ${eventType} for user ${userId} does not include Pro entitlement — skipping`,
+      req.log.info(
+        { eventType, userId },
+        "RevenueCat webhook: event does not include Pro entitlement — skipping",
       );
     } else {
       await upsertEntitlementCache(userId, true, eventType, expiresAt, eventAtMs);
       invalidateProCache(userId);
-      console.log(
-        `RevenueCat webhook: ${eventType} → user ${userId} cancelled; access until ${expiresAt?.toISOString() ?? "unknown"}`,
+      req.log.info(
+        { eventType, userId, accessUntil: expiresAt?.toISOString() ?? "unknown" },
+        "RevenueCat webhook: user cancelled; access continues until expiry",
       );
     }
   } else {
     // Unknown/uninteresting event type — log and acknowledge.
-    console.log(`RevenueCat webhook: unhandled event type "${eventType}" for user ${userId}`);
+    req.log.info({ eventType, userId }, "RevenueCat webhook: unhandled event type");
   }
 
   // Always return 200 so RevenueCat doesn't retry.

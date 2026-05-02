@@ -10,6 +10,7 @@ import {
 } from "@workspace/db";
 import { listCustomerActiveEntitlements, listEntitlements } from "@replit/revenuecat-sdk";
 import { asListItems, getRevenueCatClient } from "./revenuecat";
+import { logger } from "./logger";
 
 // Free-tier counters + server-side Pro entitlement check via RevenueCat.
 // Kill-switch: PAYWALL_ENABLED=false bypasses every gate.
@@ -57,15 +58,16 @@ async function resolveProEntitlementId(projectId: string): Promise<string | null
   const client = await getRevenueCatClient();
   const list = await listEntitlements({ client, path: { project_id: projectId } });
   if (list.error) {
-    console.error("RevenueCat listEntitlements failed:", list.error);
+    logger.error({ err: list.error }, "RevenueCat listEntitlements failed");
     return null;
   }
   const match = asListItems<{ id: string; lookup_key: string }>(list.data).find(
     (e) => e.lookup_key === PRO_ENTITLEMENT_LOOKUP_KEY,
   );
   if (!match) {
-    console.error(
-      `RevenueCat entitlement "${PRO_ENTITLEMENT_LOOKUP_KEY}" not found in project ${projectId}`,
+    logger.error(
+      { lookupKey: PRO_ENTITLEMENT_LOOKUP_KEY, projectId },
+      "RevenueCat Pro entitlement not found in project",
     );
     return null;
   }
@@ -91,7 +93,7 @@ async function fetchUserHasProFromRevenueCat(userId: string): Promise<boolean> {
   if (result.error) {
     const status = (result.response as { status?: number } | undefined)?.status;
     if (status === 404) return false;
-    console.error("RevenueCat listCustomerActiveEntitlements failed:", result.error);
+    logger.error({ err: result.error, userId }, "RevenueCat listCustomerActiveEntitlements failed");
     return false;
   }
   const items = asListItems<ActiveEntitlement>(result.data);
@@ -241,7 +243,7 @@ export async function getUserHasProEntitlement(userId: string): Promise<boolean>
       await upsertEntitlementCache(userId, isPro, "rc_api_poll");
     }
   } catch (err) {
-    console.error("getUserHasProEntitlement: lookup threw:", err);
+    logger.error({ err, userId }, "getUserHasProEntitlement: lookup threw");
     isPro = false;
   }
 

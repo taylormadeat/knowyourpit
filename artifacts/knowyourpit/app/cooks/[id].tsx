@@ -40,6 +40,7 @@ import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useA
 import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 import { BlurredProSection } from "@/components/BlurredProSection";
 
 import {
@@ -325,6 +326,11 @@ export default function CookDetailScreen() {
   const { showPaywall, parseAndShowFromError } = usePaywall();
   const { data: paywallUsage } = usePaywallUsage();
   const effectivePro = useEffectivePro();
+  // Used to suppress the Cook Coach blur during the brief Phase-1→Phase-2 RC
+  // window on first install (no SecureStore cache yet). Without this, a Pro
+  // user reopening the app for the first time after install would see the
+  // paywall blur flash for ~1s before isPro flips to true.
+  const { isIdentityLinked } = useSubscription();
 
   const [images, setImages] = useState<PickedImage[]>([]);
   const [cookNotes, setCookNotes] = useState("");
@@ -2168,8 +2174,10 @@ export default function CookDetailScreen() {
             {/* Cook Coach teaser — free users see a blurred preview of the AI insights
                 they'd unlock with Pro. Factual data (graph, probes, timeline) below
                 stays visible so the cook log still feels useful. Shown whenever ANY
-                gated AI content exists (suggestions, summary, or what-went-well). */}
-            {!effectivePro && (
+                gated AI content exists (suggestions, summary, or what-went-well).
+                Gated on isIdentityLinked so we don't flash the blur to Pro users
+                during the brief RevenueCat Phase-1→Phase-2 link window. */}
+            {isIdentityLinked && !effectivePro && (
               (storedAssessment?.suggestions?.length ?? 0) > 0 ||
               (storedAssessment?.whatWentWell?.length ?? 0) > 0 ||
               !!storedAssessment?.summary

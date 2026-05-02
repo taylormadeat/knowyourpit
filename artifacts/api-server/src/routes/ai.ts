@@ -1123,7 +1123,7 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
       summary: deterministicSummary,
     });
   } catch (err: any) {
-    console.error("multi-cook error:", err);
+    req.log.error({ err }, "multi-cook error");
     res.status(500).json({ error: "AI request failed. Please try again." });
   }
 });

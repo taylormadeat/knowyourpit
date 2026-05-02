@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import express from "express";
+import pinoHttp from "pino-http";
 import request from "supertest";
 
 const { mockUpsertEntitlementCache, mockInvalidateProCache } = vi.hoisted(() => {
@@ -20,6 +21,9 @@ const WEBHOOK_SECRET = "test-secret-abc";
 
 function buildApp() {
   const app = express();
+  // Mirror the real app's request-logger middleware so route handlers can
+  // safely call `req.log.{info,warn,error}`. Silenced for test output.
+  app.use(pinoHttp({ level: "silent" }));
   app.use(express.json());
   app.use("/api", webhookRouter);
   return app;

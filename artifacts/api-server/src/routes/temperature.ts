@@ -255,7 +255,7 @@ WRONG — one entry per data point (DO NOT DO THIS):
       detectedCookDate: result.detectedCookDate ?? null,
     });
   } catch (err) {
-    console.error("scan-image error:", err);
+    req.log.error({ err }, "scan-image error");
     res.status(500).json({ error: "Failed to scan image" });
   }
 });
@@ -928,7 +928,7 @@ ${tempSmokerProfile ? `\n${tempSmokerProfile}` : ""}`;
       decisions: safeDecisions,
     });
   } catch (err) {
-    console.error("analyze-cook error:", err);
+    req.log.error({ err }, "analyze-cook error");
     res.status(500).json({ error: "Failed to analyze cook" });
   }
 });
