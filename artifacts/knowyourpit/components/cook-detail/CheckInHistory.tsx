@@ -46,17 +46,15 @@ export function CheckInHistory({ c, colors, effectivePro, isIdentityLinked, show
   if (history.length === 0) return null;
   // Per spec, the Cook Coach blur applies to completed cooks only — during
   // an active cook every check-in stays visible so free users can keep
-  // following the live coaching session. Free users see only the most
-  // recent entry on a completed cook; the rest are blurred behind the
-  // paywall. While RC identity is still resolving we also limit visible
-  // entries (without rendering the blur CTA) so an unlinked free user
-  // can't briefly see the full history before isPro flips false.
+  // following the live coaching session. We only restrict the history once
+  // RC identity has resolved, so Pro users don't briefly lose entries on
+  // cold start while their entitlements are still loading.
   const reversed = [...history].reverse();
   const completed = c.status === "completed";
-  const limitToOne = completed && !effectivePro && reversed.length > 1;
-  const isLocked = isIdentityLinked && limitToOne;
-  const visibleEntries = limitToOne ? reversed.slice(0, 1) : reversed;
-  const hiddenCount = limitToOne ? reversed.length - 1 : 0;
+  const isLocked =
+    completed && isIdentityLinked && !effectivePro && reversed.length > 1;
+  const visibleEntries = isLocked ? reversed.slice(0, 1) : reversed;
+  const hiddenCount = isLocked ? reversed.length - 1 : 0;
 
   return (
     <View style={[s.historySection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>

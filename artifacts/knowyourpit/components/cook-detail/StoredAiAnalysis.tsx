@@ -137,10 +137,11 @@ export function StoredAiAnalysis(p: Props) {
         </View>
       )}
 
-      {/* Summary — Pro: full text. Free: first ~40 words with a bottom fade
-          gradient to suggest "there's more behind the paywall". */}
+      {/* Summary — Pro: full text. Free on a COMPLETED cook: first ~40 words
+          with a bottom fade gradient (Cook Coach teaser). Free on an active
+          cook: full text so live coaching stays visible. */}
       {isIdentityLinked && storedAssessment?.summary ? (
-        effectivePro ? (
+        effectivePro || c.status !== "completed" ? (
           <Text style={[s.storedSummary, { color: colors.foreground }]}>{storedAssessment.summary}</Text>
         ) : (
           <View style={{ position: "relative" }}>
