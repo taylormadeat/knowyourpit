@@ -7,6 +7,11 @@
  * Usage:
  *   pnpm --filter @workspace/scripts run db:backup
  *
+ * Requires: `pg_dump` must be available on PATH. The Replit workspace
+ * already provides it via the postgresql Nix package; on other machines
+ * install the postgresql client tools (e.g. `apt install postgresql-client`
+ * or `brew install libpq`).
+ *
  * Output:
  *   backups/knowyourpit-YYYY-MM-DD.sql at the project root.
  */
