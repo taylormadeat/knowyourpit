@@ -97,6 +97,21 @@ export default function PlanScreen() {
   const activeCook: Cook | null = activeCooks?.[0] ?? null;
 
   const [bannerNowMs, setBannerNowMs] = useState(Date.now());
+  // ── Soft post-plan tip card ──
+  // After a free user plans a cook AND already had 1+ cooks logged, surface
+  // an inline (non-blocking) tip card promoting Multi-Cook Sequencer instead
+  // of an alert. `multi_cook_nudge_dismissed` in AsyncStorage suppresses it
+  // permanently after dismissal.
+  const [showMultiCookTip, setShowMultiCookTip] = useState(false);
+  const [multiCookTipFood, setMultiCookTipFood] = useState<string | null>(null);
+  const [multiCookTipDismissed, setMultiCookTipDismissed] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem("multi_cook_nudge_dismissed")
+      .then((v) => { if (!cancelled) setMultiCookTipDismissed(v === "1"); })
+      .catch(() => { if (!cancelled) setMultiCookTipDismissed(false); });
+    return () => { cancelled = true; };
+  }, []);
   const bannerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // The Cook type from the API client doesn't include the `sequenceData` JSON
@@ -666,49 +681,17 @@ export default function PlanScreen() {
       qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
       const usedCooksBefore = paywallUsage?.usage?.cooks ?? 0;
       const isFreeAccount = !!paywallUsage && !paywallUsage.unlimited;
+      const plannedFood = selectedCut?.name ?? null;
       resetForm();
-      router.push("/(tabs)/cooks" as any);
-      // ── Soft post-plan upgrade nudge ──
-      // After a free user successfully plans a cook AND they already had 1+
-      // cooks logged, surface a low-friction prompt about Pro. Suppressed
-      // permanently after the first dismissal so it never feels naggy.
-      if (isFreeAccount && usedCooksBefore >= 1) {
-        try {
-          const dismissed = await AsyncStorage.getItem("multi_cook_nudge_dismissed");
-          if (!dismissed) {
-            const remaining = Math.max(0, (paywallUsage?.remaining?.cooks ?? 3) - 1);
-            const food = selectedCut?.name ?? "this cook";
-            setTimeout(() => {
-              Alert.alert(
-                "Nice — your history is growing 🔥",
-                remaining > 0
-                  ? `You've planned ${food} — ${remaining} free cook${remaining === 1 ? "" : "s"} left. Pro unlocks unlimited cooks plus your full history forever.`
-                  : `You've planned ${food} and used all 3 free cooks. Upgrade to Pro to keep cooking without limits.`,
-                [
-                  {
-                    text: "Don't show again",
-                    style: "cancel",
-                    onPress: () => {
-                      AsyncStorage.setItem("multi_cook_nudge_dismissed", "1").catch(() => {});
-                    },
-                  },
-                  {
-                    text: "See Pro",
-                    onPress: () => {
-                      showPaywall({
-                        trigger: "pro_required",
-                        foodType: selectedCut?.name ?? null,
-                      });
-                    },
-                  },
-                ],
-              );
-            }, 250);
-          }
-        } catch {
-          // AsyncStorage failure — silently skip the nudge.
-        }
+      // ── Inline soft tip card (NOT a blocking alert) ──
+      // Surfaces only on the next render of the Plan screen and only when
+      // the user is free, has 1+ cooks logged already, and hasn't dismissed
+      // it permanently. The card promotes Multi-Cook Sequencer.
+      if (isFreeAccount && usedCooksBefore >= 1 && multiCookTipDismissed === false) {
+        setMultiCookTipFood(plannedFood);
+        setShowMultiCookTip(true);
       }
+      router.push("/(tabs)/cooks" as any);
     } catch (e: any) {
       // Free user hit the cook cap → upgrade modal instead of generic error.
       if (parseAndShowFromError(e)) return;
@@ -757,6 +740,82 @@ export default function PlanScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={isTablet ? { width: "100%", maxWidth: contentMaxWidth, alignSelf: "center" } : null}>
+        {/* ── Multi-Cook Sequencer soft tip card ──
+            Inline, dismissible nudge shown after a free user plans a cook
+            when they already had 1+ cooks logged. Promotes the Multi-Cook
+            Sequencer Pro feature. Persists dismissal in AsyncStorage so
+            it never reappears once dismissed. */}
+        {showMultiCookTip && !effectivePro && (
+          <View
+            style={{
+              marginBottom: 14,
+              padding: 14,
+              borderRadius: colors.radius,
+              borderWidth: 1,
+              borderColor: "#6C3BF5",
+              backgroundColor: "rgba(108,59,245,0.08)",
+              flexDirection: "row",
+              gap: 12,
+              alignItems: "flex-start",
+            }}
+          >
+            <Feather name="layers" size={18} color="#6C3BF5" style={{ marginTop: 1 }} />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  color: colors.foreground,
+                  fontFamily: "Inter_700Bold",
+                  fontSize: 14,
+                  marginBottom: 4,
+                }}
+              >
+                Cooking more than one thing?
+              </Text>
+              <Text
+                style={{
+                  color: colors.mutedForeground,
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 12.5,
+                  lineHeight: 18,
+                }}
+              >
+                {multiCookTipFood
+                  ? `You've planned ${multiCookTipFood}. Pro's Multi-Cook Sequencer plans every dish around one shared serve time so everything finishes together.`
+                  : "Pro's Multi-Cook Sequencer plans every dish around one shared serve time so everything finishes together."}
+              </Text>
+              <View style={{ flexDirection: "row", gap: 14, marginTop: 10 }}>
+                <Pressable
+                  onPress={() => {
+                    setShowMultiCookTip(false);
+                    showPaywall({
+                      trigger: "pro_required",
+                      featureName: "Multi-Cook Sequencer",
+                      foodType: multiCookTipFood,
+                    });
+                  }}
+                  accessibilityRole="button"
+                >
+                  <Text style={{ color: "#6C3BF5", fontFamily: "Inter_700Bold", fontSize: 13 }}>
+                    See Multi-Cook Sequencer →
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    setShowMultiCookTip(false);
+                    setMultiCookTipDismissed(true);
+                    AsyncStorage.setItem("multi_cook_nudge_dismissed", "1").catch(() => {});
+                  }}
+                  accessibilityRole="button"
+                >
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13 }}>
+                    Dismiss
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* ── Plan Mode Toggle ── */}
         <View style={[s.modeToggleRow, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           <Pressable

@@ -66,6 +66,36 @@ const INPUT_BAR_GAP_ABOVE_TABS = 10;
 
 // ─── Date grouping ─────────────────────────────────────────────────────────
 
+/**
+ * Lightweight food-type extractor for AI chat paywall personalization.
+ * Scans the current message + recent thread history for a known BBQ food
+ * keyword. Returns null when no match — paywall falls back to generic copy.
+ */
+const FOOD_KEYWORDS = [
+  "brisket", "ribs", "pork butt", "pork shoulder", "pork belly", "pulled pork",
+  "chicken", "wings", "turkey", "tri tip", "tri-tip", "steak", "burger", "burgers",
+  "salmon", "fish", "sausage", "sausages", "bacon", "lamb", "prime rib", "pork",
+];
+function detectFoodTypeFromText(
+  current: string,
+  history: Array<{ role: string; content: string }>,
+): string | null {
+  const sources = [current];
+  // Most recent user messages first — they reflect the current topic best.
+  for (let i = history.length - 1; i >= 0 && sources.length < 4; i--) {
+    if (history[i]?.role === "user" && typeof history[i]?.content === "string") {
+      sources.push(history[i].content);
+    }
+  }
+  for (const text of sources) {
+    const lower = text.toLowerCase();
+    for (const kw of FOOD_KEYWORDS) {
+      if (lower.includes(kw)) return kw;
+    }
+  }
+  return null;
+}
+
 function groupConversations(convs: Conversation[]): ConversationGroup[] {
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -265,6 +295,13 @@ export default function AIScreen() {
     const msg = (text || input).trim();
     if (!msg || loading) return;
 
+    // Lightweight food-type extraction from the user's current question so
+    // the paywall copy can personalize ("…and your brisket deserves more
+    // coaching"). We scan the message and the most recent user message in
+    // the thread for a known food keyword. This is best-effort — when no
+    // keyword matches, the paywall falls back to its generic copy.
+    const detectedFood = detectFoodTypeFromText(msg, messages);
+
     // Pre-emptive cap check — saves a server round-trip when the user is
     // already out of free chats and avoids painting a "thinking…" bubble that
     // immediately gets replaced by the paywall.
@@ -273,7 +310,10 @@ export default function AIScreen() {
       !paywallUsage.unlimited &&
       paywallUsage.remaining.aiMessagesToday <= 0
     ) {
-      showPaywall({ trigger: "ai_message_limit_reached" });
+      showPaywall({
+        trigger: "ai_message_limit_reached",
+        foodType: detectedFood,
+      });
       return;
     }
 
@@ -346,6 +386,7 @@ export default function AIScreen() {
           showPaywall({
             trigger: "ai_message_limit_reached",
             subtitle: payload?.message ?? null,
+            foodType: detectedFood,
           });
           // Remove the optimistic empty assistant bubble + the user bubble we
           // just added so the input feels untouched after the modal opens.

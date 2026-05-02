@@ -172,9 +172,13 @@ function defaultSubtitle(
         ? `Your 3-cook journey is just beginning. Add this ${food} and keep building your history with Pro.`
         : "Your 3-cook journey is just beginning. Keep building your history with Pro.";
     case "active_cook_limit_reached":
-      return "Free plan only allows one active cook at a time.";
+      return food
+        ? `Free plan only allows one active cook at a time — finish your current cook before starting this ${food}, or upgrade for unlimited parallel cooks.`
+        : "Free plan only allows one active cook at a time.";
     case "planned_cook_limit_reached":
-      return "Free plan only allows one planned cook at a time.";
+      return food
+        ? `Free plan only allows one planned cook at a time. Upgrade to plan this ${food} alongside your existing cook.`
+        : "Free plan only allows one planned cook at a time.";
     case "ai_message_limit_reached":
       return food
         ? `You've used your 3 free messages today — and your ${food} deserves more coaching. Upgrade for unlimited AI chat.`
