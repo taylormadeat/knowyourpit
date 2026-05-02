@@ -1366,13 +1366,25 @@ function Cook2NudgeBanner({
     };
   }, []);
 
-  if (effectivePro || cookStatus !== "completed" || dismissed !== false) return null;
-
   const completedCount = ((allCooks as any[] | undefined) ?? []).filter(
     (c) => c?.status === "completed",
   ).length;
-  // Only show on the 2nd completed cook — one more and they hit the wall.
-  if (completedCount !== 2) return null;
+  const eligible =
+    !effectivePro &&
+    cookStatus === "completed" &&
+    dismissed === false &&
+    completedCount === 2;
+
+  // Persist the "shown" flag the moment the banner becomes eligible to
+  // render. This guarantees one-time exposure per the spec — even if the
+  // user simply ignores the banner and navigates away, it will not
+  // reappear on the next visit.
+  useEffect(() => {
+    if (!eligible) return;
+    AsyncStorage.setItem("cook2_nudge_dismissed", "1").catch(() => {});
+  }, [eligible]);
+
+  if (!eligible) return null;
 
   const handleDismiss = () => {
     setDismissed(true);
