@@ -402,6 +402,55 @@ export default function CooksScreen() {
               {new Date(item.plannedStartAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
             </Text>
           )}
+          {item.isCompetition && (() => {
+            const cat = item.competitionCategory as KcbsCategory | null;
+            const catColor = cat ? KCBS_CATEGORY_COLOR[cat] : "#EAB308";
+            const hasResults =
+              typeof item.competitionPlacement === "number" || item.judgeScore != null;
+            return (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6, marginTop: 4 }}>
+                {cat ? (
+                  <View
+                    style={{
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                      borderRadius: 4,
+                      backgroundColor: catColor + "22",
+                      borderWidth: 1,
+                      borderColor: catColor,
+                    }}
+                  >
+                    <Text style={{ color: catColor, fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 0.3 }}>
+                      {KCBS_CATEGORY_LABEL[cat]}
+                    </Text>
+                  </View>
+                ) : null}
+                {item.turnInAt && !hasResults ? (
+                  <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>
+                    Turn-in {fmtTime(new Date(item.turnInAt))}
+                  </Text>
+                ) : null}
+                {typeof item.competitionPlacement === "number" ? (
+                  <Text style={{ color: catColor, fontFamily: "Inter_700Bold", fontSize: 12 }}>
+                    {placementLabel(item.competitionPlacement)}
+                  </Text>
+                ) : null}
+                {item.judgeScore != null ? (
+                  <Text style={{ color: colors.foreground, fontSize: 11, fontFamily: "Inter_700Bold" }}>
+                    · {Number(item.judgeScore).toFixed(item.judgeScore % 1 === 0 ? 0 : 4)} pts
+                  </Text>
+                ) : null}
+              </View>
+            );
+          })()}
+          {item.isCompetition && item.judgeNotes ? (
+            <Text
+              style={{ color: colors.mutedForeground, fontSize: 11, fontStyle: "italic", marginTop: 2 }}
+              numberOfLines={2}
+            >
+              "{item.judgeNotes}"
+            </Text>
+          ) : null}
         </View>
         <View style={{ alignItems: "flex-end", gap: 6 }}>
           <View
