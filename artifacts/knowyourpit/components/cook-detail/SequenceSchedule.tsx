@@ -210,11 +210,10 @@ export function SequenceSchedule(p: Props) {
                           const wrapInferred = explicitWrapMin === null;
                           const wrapMs = new Date(item.meatOnAt).getTime() + wrapAtMin * 60000;
                           const isDoneWrap = cookStatus === "active" && wrapMs < nowMs;
-                          const isNextWrap = nextStep?.itemIdx === idx && nextStep?.step === ("wrap" as any);
                           const wrapLabel = item.wrapMethod === "foil" ? "Wrap in foil" : "Wrap in butcher paper";
                           const wrapColor = "#A855F7";
                           return (
-                            <View onLayout={(e) => { rowYRef.current[`${idx}:wrap`] = e.nativeEvent.layout.y; }} style={[s.seqTlRow, isNextWrap && s.seqTlNextRow, isDoneWrap && !confirmedSteps[`${idx}_wrap`] && s.seqTlDoneRow]}>
+                            <View onLayout={(e) => { rowYRef.current[`${idx}:wrap`] = e.nativeEvent.layout.y; }} style={[s.seqTlRow, isDoneWrap && !confirmedSteps[`${idx}_wrap`] && s.seqTlDoneRow]}>
                               {isDoneWrap ? (
                                 <Pressable onPress={() => toggleConfirmedStep(`${idx}_wrap`)} hitSlop={8} style={s.seqTlDotBtn}>
                                   {confirmedSteps[`${idx}_wrap`]
@@ -227,12 +226,7 @@ export function SequenceSchedule(p: Props) {
                               <View style={s.seqTlConnector} />
                               <View style={{ flex: 1 }}>
                                 <View style={s.seqTlLabelRow}>
-                                  <Text style={[s.seqTlLabel, { color: isNextWrap ? wrapColor : colors.mutedForeground }, isDoneWrap && s.seqTlDoneLabel]}>{wrapLabel}</Text>
-                                  {isNextWrap && (
-                                    <View style={[s.seqTlNextBadge, { backgroundColor: wrapColor + "25" }]}>
-                                      <Text style={[s.seqTlNextText, { color: wrapColor }]}>NEXT</Text>
-                                    </View>
-                                  )}
+                                  <Text style={[s.seqTlLabel, { color: colors.mutedForeground }, isDoneWrap && s.seqTlDoneLabel]}>{wrapLabel}</Text>
                                 </View>
                                 <Text style={[s.seqTlTime, { color: isDoneWrap ? colors.mutedForeground : colors.foreground, opacity: isDoneWrap ? 0.55 : 1 }]}>
                                   {wrapInferred ? "≈ " : ""}{new Date(wrapMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
