@@ -55,7 +55,7 @@ export const KCBS_JUDGING_TIPS: Record<KcbsCategory, CategoryJudgingTip> = {
     appearance: "Bite-through skin is everything. Render fat under the skin or flip-and-render. Uniform mahogany color, glossy finish from a sweet glaze brushed on in the last 10–15 minutes.",
     taste: "Layered flavor: salt + sweet + heat. Brine 4–6 hours, season after pat-dry, finish with a thin glaze. Avoid harsh smoke — chicken takes smoke fast.",
     texture: "Tender but not mushy. Pull at 175–180°F internal in the thigh. Resting too long makes skin chewy.",
-    dq: "Pulled or shredded chicken is a DQ. Marked or branded boxes are a DQ. Garnish only parsley/curly parsley/leaf lettuce/cilantro — anything else is a DQ.",
+    dq: "Pulled or shredded chicken is a DQ. Marked or branded boxes are a DQ. Garnish only parsley/curly parsley/green leaf lettuce/kale/cilantro — anything else is a DQ.",
   },
   ribs: {
     appearance: "Even mahogany bark. Light glaze for shine, NOT heavy sauce. Six uniform bones cut clean between ribs, meat side up, all facing the same direction.",
@@ -78,11 +78,25 @@ export const KCBS_JUDGING_TIPS: Record<KcbsCategory, CategoryJudgingTip> = {
 };
 
 export const KCBS_BOX_PACKING_REMINDERS: string[] = [
-  "Garnish base only: parsley, curly parsley, leaf lettuce, or cilantro. NO kale, NO endive, NO orange/yellow lettuce — instant DQ.",
+  "Garnish base only: parsley, curly parsley, green leaf lettuce, kale, or cilantro. NO endive, NO red-tipped/orange/yellow lettuce — instant DQ.",
   "Never mark, brand, or initial the box. Six identical pieces minimum (chicken/ribs).",
   "Pack at 165°F+ to hold heat through judging. Use a hot box with a foil-wrapped warm brick if possible.",
   "Wipe sauce drips off the inside lip — judges deduct on appearance for sloppy presentation.",
 ];
+
+// Per-category turn-in box checklist — surfaced as the body of the
+// "Pack the turn-in box" timeline step in the competition session view so
+// pitmasters get category-specific cues 15 minutes before turn-in.
+export const KCBS_BOX_PACK_CATEGORY_TEXT: Record<KcbsCategory, string> = {
+  chicken:
+    "Box 6 uniform pieces, all same cut, glossy mahogany skin facing up. Garnish base, no sauce pools, hold ≥165°F.",
+  ribs:
+    "Cut 6 clean bones, meat-side up, all facing the same direction. Light glaze for sheen — no heavy sauce.",
+  pork:
+    "Pack three textures: money-muscle medallions fanned, 1.5\" chunks, and pulled with visible bark. Light glaze on top.",
+  brisket:
+    "9+ pencil-thick (¼\") slices shingled meat-side up + burnt-end cubes glazed. Slices must bend without breaking.",
+};
 
 export interface CompetitionContextOptions {
   competitionName?: string | null;

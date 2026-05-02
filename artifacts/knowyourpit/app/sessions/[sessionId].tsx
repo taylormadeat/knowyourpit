@@ -23,7 +23,12 @@ import { useLayout } from "@/hooks/useLayout";
 import { useGetSessionCooks, useUpdateSession, useDeleteSession, useRemoveCookFromSession, useUpdateCook, getGetSessionCooksQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { LogoBackground } from "@/components/LogoBackground";
-import { KCBS_CATEGORY_LABEL, KCBS_CATEGORY_COLOR, type KcbsCategory } from "@/constants/competitionKnowledge";
+import {
+  KCBS_CATEGORY_LABEL,
+  KCBS_CATEGORY_COLOR,
+  KCBS_BOX_PACK_CATEGORY_TEXT,
+  type KcbsCategory,
+} from "@/constants/competitionKnowledge";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
@@ -230,6 +235,14 @@ export default function SessionDetailScreen() {
     isCompetitionSession &&
     competitionCooks.length > 0 &&
     competitionCooks.every((c: any) => typeof c.competitionPlacement === "number");
+  // Spec: "Log Your Results" prompt should only surface after all turn-in times
+  // have passed. We still allow re-opening the modal once any results are
+  // logged so users can correct typos.
+  const allTurnInsPassed =
+    isCompetitionSession &&
+    turnInDates.length > 0 &&
+    turnInDates.every((t) => t < Date.now());
+  const showResultsCta = isCompetitionSession && (allTurnInsPassed || allResultsLogged);
 
   const displayLabel = sessionLabel || (isCompetitionSession ? competitionName ?? "Competition" : "Multi-Cook Session");
 
@@ -574,7 +587,7 @@ export default function SessionDetailScreen() {
             </View>
           </View>
 
-          {isCompetitionSession && (
+          {showResultsCta && (
             <Pressable
               onPress={() => setResultsOpen(true)}
               style={({ pressed }) => [
@@ -835,7 +848,11 @@ export default function SessionDetailScreen() {
                               <View style={s.planStep}>
                                 <View style={[s.planDot, { backgroundColor: "#EAB308" }]} />
                                 <View style={{ flex: 1 }}>
-                                  <Text style={[s.planLabel, { color: colors.foreground }]}>Pack the turn-in box</Text>
+                                  <Text style={[s.planLabel, { color: colors.foreground }]}>
+                                    {cook.competitionCategory
+                                      ? `Pack the ${KCBS_CATEGORY_LABEL[cook.competitionCategory as KcbsCategory]} box`
+                                      : "Pack the turn-in box"}
+                                  </Text>
                                   <Text style={[s.planTime, { color: colors.mutedForeground }]}>
                                     {(() => {
                                       const boxPackMs = itemPlan.boxPackAt
@@ -844,6 +861,16 @@ export default function SessionDetailScreen() {
                                       return `${fmtTime(new Date(boxPackMs))} · 15 min before turn-in`;
                                     })()}
                                   </Text>
+                                  {cook.competitionCategory && KCBS_BOX_PACK_CATEGORY_TEXT[cook.competitionCategory as KcbsCategory] ? (
+                                    <Text
+                                      style={[
+                                        s.planTime,
+                                        { color: colors.mutedForeground, marginTop: 2, fontStyle: "italic" },
+                                      ]}
+                                    >
+                                      {KCBS_BOX_PACK_CATEGORY_TEXT[cook.competitionCategory as KcbsCategory]}
+                                    </Text>
+                                  ) : null}
                                 </View>
                               </View>
                             )}

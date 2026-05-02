@@ -1107,7 +1107,7 @@ function buildCompetitionContextForPrompt(
     lines.push(`- ${KCBS_COMPETITION_TIPS[c as keyof typeof KCBS_COMPETITION_TIPS]}`);
   }
   lines.push(
-    "Box packing reminders: garnish base only (parsley/curly parsley/leaf lettuce/cilantro — no kale, no orange/yellow lettuce — instant DQ). Never mark or initial the box. Pack at 165°F+ to hold heat through judging. Build a 30–60 min hot-hold buffer for brisket and pork; chicken and ribs are tighter.",
+    "Box packing reminders: garnish base only (parsley/curly parsley/green leaf lettuce/kale/cilantro — no endive, no red-tipped/orange/yellow lettuce — instant DQ). Never mark or initial the box. Pack at 165°F+ to hold heat through judging. Build a 30–60 min hot-hold buffer for brisket and pork; chicken and ribs are tighter.",
   );
   lines.push(
     "Within EACH item's notes field, give one COMPETITION-specific tip (e.g., 'flip-and-render thigh skin at the wrap step for bite-through', 'cut a clean half-moon test rib at home before turn-in') — not generic backyard advice.",

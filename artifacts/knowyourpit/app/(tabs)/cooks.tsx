@@ -24,6 +24,12 @@ import { useLayout } from "@/hooks/useLayout";
 import { useListCooks, useUpdateSession } from "@workspace/api-client-react";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
+import {
+  KCBS_CATEGORY_LABEL,
+  KCBS_CATEGORY_COLOR,
+  placementLabel,
+  type KcbsCategory,
+} from "@/constants/competitionKnowledge";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
@@ -441,15 +447,38 @@ export default function CooksScreen() {
     const hasActive = group.cooks.some((c) => c.status === "active");
     const allCompleted = group.cooks.every((c) => c.status === "completed");
     const expanded = expandedSessions.has(group.sessionId);
+    const isComp = group.cooks.some((c: any) => c.isCompetition);
+    const compName = isComp
+      ? (group.cooks.find((c: any) => c.competitionName) as any)?.competitionName ?? group.sessionLabel ?? "Competition"
+      : null;
+    const compCategories: KcbsCategory[] = isComp
+      ? Array.from(
+          new Set(
+            group.cooks
+              .map((c: any) => c.competitionCategory)
+              .filter(Boolean) as KcbsCategory[],
+          ),
+        )
+      : [];
+    const compPlacements = isComp
+      ? group.cooks
+          .filter((c: any) => c.isCompetition && typeof c.competitionPlacement === "number")
+          .map((c: any) => ({
+            cat: c.competitionCategory as KcbsCategory | null,
+            placement: c.competitionPlacement as number,
+          }))
+      : [];
     const dateLabel = group.earliestStart
-      ? `${fmtDate(group.earliestStart)} · serve by ${fmtTime(
-          group.cooks.reduce((latest, c) => {
-            const t = c.plannedStartAt ? new Date(c.plannedStartAt).getTime() : 0;
-            return t > latest.getTime() ? new Date(c.plannedStartAt) : latest;
-          }, group.earliestStart)
-        )}`
+      ? isComp
+        ? fmtDate(group.earliestStart)
+        : `${fmtDate(group.earliestStart)} · serve by ${fmtTime(
+            group.cooks.reduce((latest, c) => {
+              const t = c.plannedStartAt ? new Date(c.plannedStartAt).getTime() : 0;
+              return t > latest.getTime() ? new Date(c.plannedStartAt) : latest;
+            }, group.earliestStart)
+          )}`
       : "Scheduled";
-    const displayLabel = group.sessionLabel || "Multi-Cook Session";
+    const displayLabel = isComp ? compName! : (group.sessionLabel || "Multi-Cook Session");
 
     return (
       <Pressable
@@ -457,7 +486,11 @@ export default function CooksScreen() {
           s.sessionCard,
           {
             backgroundColor: colors.card,
-            borderColor: hasActive ? "#E8482045" : colors.border,
+            borderColor: hasActive
+              ? "#E8482045"
+              : isComp
+                ? "#EAB30855"
+                : colors.border,
             borderRadius: colors.radius,
           },
         ]}
@@ -465,16 +498,31 @@ export default function CooksScreen() {
       >
         <View style={s.sessionHeader}>
           <LinearGradient
-            colors={hasActive ? ["#E84820", "#FF6B2B"] : allCompleted ? ["#16a34a", "#22c55e"] : ["#4f46e5", "#6C3BF5"]}
+            colors={
+              isComp
+                ? ["#EAB308", "#F59E0B"]
+                : hasActive
+                  ? ["#E84820", "#FF6B2B"]
+                  : allCompleted
+                    ? ["#16a34a", "#22c55e"]
+                    : ["#4f46e5", "#6C3BF5"]
+            }
             style={s.sessionIcon}
           >
-            <Feather name="layers" size={18} color="#fff" />
+            <Feather name={isComp ? "award" : "layers"} size={18} color="#fff" />
           </LinearGradient>
           <View style={s.sessionInfo}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <Text style={[s.sessionTitle, { color: colors.foreground }]} numberOfLines={1}>
                 {displayLabel}
               </Text>
+              {isComp && (
+                <View style={{ paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, backgroundColor: "#EAB308" }}>
+                  <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 0.5 }}>
+                    KCBS
+                  </Text>
+                </View>
+              )}
               {hasActive && (
                 <View style={s.livePill}>
                   <View style={s.liveDot} />
@@ -490,7 +538,40 @@ export default function CooksScreen() {
                 {group.sessionNotes}
               </Text>
             ) : null}
-            {!expanded && (
+            {isComp && compCategories.length > 0 && (
+              <View style={[s.sessionTagsRow, { marginTop: 4 }]}>
+                {compCategories.map((cat) => {
+                  const color = KCBS_CATEGORY_COLOR[cat];
+                  const placed = compPlacements.find((p) => p.cat === cat);
+                  return (
+                    <View
+                      key={cat}
+                      style={[
+                        s.sessionTag,
+                        {
+                          backgroundColor: color + "22",
+                          borderWidth: 1,
+                          borderColor: color,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 4,
+                        },
+                      ]}
+                    >
+                      <Text style={[s.sessionTagText, { color }]}>
+                        {KCBS_CATEGORY_LABEL[cat]}
+                      </Text>
+                      {placed ? (
+                        <Text style={[s.sessionTagText, { color, fontFamily: "Inter_700Bold" }]}>
+                          · {placementLabel(placed.placement)}
+                        </Text>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+            {!isComp && !expanded && (
               <View style={s.sessionTagsRow}>
                 {group.cooks.map((c) => (
                   <View
