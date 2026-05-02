@@ -9,7 +9,7 @@ import {
 } from "@workspace/api-client-react";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePaywall } from "@/contexts/PaywallContext";
-import { LockedFeatureCard } from "@/components/LockedFeatureCard";
+import { BlurredProSection } from "@/components/BlurredProSection";
 
 interface Props {
   grillId: number;
@@ -40,18 +40,45 @@ export function GrillFingerprint({ grillId, grillName }: Props) {
   });
 
   if (!effectivePro) {
-    // Reuse the shared Pattern B locked card so locked-state styling is
-    // consistent with multi-cook, devices, etc.
+    // Use the shared blur+CTA pattern so the locked surface matches the
+    // Cook Coach Report and PitMaster Score reveal style. The query is
+    // disabled for free users, so we render representative ghost stats
+    // beneath the BlurView purely to give the surface authentic shape.
     return (
       <View style={{ marginTop: 10 }}>
-        <LockedFeatureCard
+        <BlurredProSection
           featureName="Grill Fingerprint"
-          teaser={`${grillName ? `Your ${grillName}'s` : "Your grill's"} fingerprint is building. Upgrade to Pro to see how its pit accuracy, pull-temp overshoot, and pace compare to baselines.`}
-          icon="cpu"
+          ctaTitle="Unlock your Grill Fingerprint"
+          teaser={`See how ${grillName ? `your ${grillName}'s` : "your grill's"} pit accuracy, overshoot, and pace compare to baselines.`}
           onPress={() =>
             showPaywall({ trigger: "pro_required", featureName: "Grill Fingerprint" })
           }
-        />
+          minHeight={170}
+        >
+          <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, marginTop: 0 }]}>
+            <View style={s.headerRow}>
+              <Feather name="cpu" size={16} color={colors.primary} />
+              <Text style={[s.title, { color: colors.foreground }]}>Grill Fingerprint</Text>
+            </View>
+            <View style={s.chipRow}>
+              <View style={[s.chip, { backgroundColor: colors.muted }]}>
+                <Feather name="thermometer" size={11} color={colors.mutedForeground} />
+                <Text style={[s.chipText, { color: colors.mutedForeground }]}>Runs 6°F hot</Text>
+              </View>
+              <View style={[s.chip, { backgroundColor: colors.muted }]}>
+                <Feather name="trending-up" size={11} color={colors.mutedForeground} />
+                <Text style={[s.chipText, { color: colors.mutedForeground }]}>Overshoots by 4°F</Text>
+              </View>
+            </View>
+            <Text style={[s.sectionLabel, { color: colors.mutedForeground, marginTop: 4 }]}>Pace by meat</Text>
+            <Text style={[s.bodyMuted, { color: colors.mutedForeground }]}>
+              Brisket · 92 min/lb · 8% slower than baseline
+            </Text>
+            <Text style={[s.bodyMuted, { color: colors.mutedForeground }]}>
+              Pork shoulder · 68 min/lb · right at baseline
+            </Text>
+          </View>
+        </BlurredProSection>
       </View>
     );
   }
