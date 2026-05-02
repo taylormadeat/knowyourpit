@@ -288,7 +288,7 @@ export function StoredAiAnalysis(p: Props) {
       {/* Free user: blurred view of the actual coach lists. The real items
           are rendered beneath the BlurView so the conversion moment shows
           authentic content shape, not placeholder copy. */}
-      {isIdentityLinked && !effectivePro && (
+      {isIdentityLinked && !effectivePro && c.status === "completed" && (
         ((storedAssessment?.whatWentWell?.length ?? 0) > 0 ||
           (storedAssessment?.suggestions?.length ?? 1) > 1)
       ) && (() => {

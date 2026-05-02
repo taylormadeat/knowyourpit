@@ -44,12 +44,16 @@ const fmtMins = (mins: number) => {
 export function CheckInHistory({ c, colors, effectivePro, isIdentityLinked, showPaywall }: Props) {
   const history: any[] = Array.isArray((c as any).analysisHistory) ? (c as any).analysisHistory : [];
   if (history.length === 0) return null;
-  // Free users see only the most recent entry; the rest are blurred behind
-  // the Cook Coach paywall. While RC identity is still resolving we also
-  // limit visible entries (without rendering the blur CTA) so an unlinked
-  // free user can't briefly see the full history before isPro flips false.
+  // Per spec, the Cook Coach blur applies to completed cooks only — during
+  // an active cook every check-in stays visible so free users can keep
+  // following the live coaching session. Free users see only the most
+  // recent entry on a completed cook; the rest are blurred behind the
+  // paywall. While RC identity is still resolving we also limit visible
+  // entries (without rendering the blur CTA) so an unlinked free user
+  // can't briefly see the full history before isPro flips false.
   const reversed = [...history].reverse();
-  const limitToOne = !effectivePro && reversed.length > 1;
+  const completed = c.status === "completed";
+  const limitToOne = completed && !effectivePro && reversed.length > 1;
   const isLocked = isIdentityLinked && limitToOne;
   const visibleEntries = limitToOne ? reversed.slice(0, 1) : reversed;
   const hiddenCount = limitToOne ? reversed.length - 1 : 0;
