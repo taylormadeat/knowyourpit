@@ -26,7 +26,7 @@ export const KCBS_CATEGORIES_DETAIL: KcbsCategoryDetail[] = [
     cookTempF: { min: 275, max: 325 },
     targetTempF: { min: 175, max: 180 },
     weightRangeLbs: { min: 3, max: 6 },
-    boxRequirements: "6 identical pieces (thighs/drumsticks/wings) on garnish base, mahogany glaze, no sauce pools, hold ≥165°F.",
+    boxRequirements: "6 identical pieces (thighs/drumsticks/wings) on garnish base, mahogany glaze, no sauce pools, hold above 145°F (KCBS spec floor; pack hotter to buffer judging time).",
     commonMistakes: [
       "Rubbery/chewy skin from low-render fat",
       "Harsh smoke flavor — chicken takes smoke fast",

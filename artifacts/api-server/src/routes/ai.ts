@@ -1091,11 +1091,22 @@ const KCBS_COMPETITION_TIPS: Record<"chicken" | "ribs" | "pork" | "brisket", str
 function buildCompetitionContextForPrompt(
   competitionName: string | null,
   items: ReadonlyArray<{ category?: string | null }>,
+  fallbackCategories?: ReadonlyArray<string> | null,
 ): string {
   const cats = new Set<string>();
   for (const it of items) {
     if (it.category && KCBS_COMPETITION_TIPS[it.category as keyof typeof KCBS_COMPETITION_TIPS]) {
       cats.add(it.category);
+    }
+  }
+  // Fallback: if items lack per-item categories (older client, partial payload),
+  // pull category guidance from the competition.categories array on the body so
+  // the prompt still includes per-category tips.
+  if (cats.size === 0 && fallbackCategories) {
+    for (const c of fallbackCategories) {
+      if (c && KCBS_COMPETITION_TIPS[c as keyof typeof KCBS_COMPETITION_TIPS]) {
+        cats.add(c);
+      }
     }
   }
   const lines: string[] = ["", "=== KCBS COMPETITION COACHING ==="];
@@ -1107,7 +1118,7 @@ function buildCompetitionContextForPrompt(
     lines.push(`- ${KCBS_COMPETITION_TIPS[c as keyof typeof KCBS_COMPETITION_TIPS]}`);
   }
   lines.push(
-    "Box packing reminders: garnish base only (parsley/curly parsley/green leaf lettuce/kale/cilantro — no endive, no red-tipped/orange/yellow lettuce — instant DQ). Never mark or initial the box. Pack at 165°F+ to hold heat through judging. Build a 30–60 min hot-hold buffer for brisket and pork; chicken and ribs are tighter.",
+    "Box packing reminders: garnish base only (parsley/curly parsley/green leaf lettuce/kale/cilantro — no endive, no red-tipped/orange/yellow lettuce — instant DQ). Never mark or initial the box. Hold cooked meat above 145°F (USDA hot-hold safe minimum) through judging — KCBS spec floor is >145°F; pack hotter (160°F+) for brisket/pork to buy a 30–60 min buffer. Chicken and ribs are tighter.",
   );
   lines.push(
     "Within EACH item's notes field, give one COMPETITION-specific tip (e.g., 'flip-and-render thigh skin at the wrap step for bite-through', 'cut a clean half-moon test rib at home before turn-in') — not generic backyard advice.",
@@ -1173,7 +1184,7 @@ router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): P
     : "";
 
   const competitionContext = isCompetitionMode
-    ? buildCompetitionContextForPrompt(competition?.name ?? null, items)
+    ? buildCompetitionContextForPrompt(competition?.name ?? null, items, competition?.categories ?? null)
     : "";
 
   const systemPrompt = `You are knowyourpit AI, a world-class BBQ pit master${isCompetitionMode ? " coaching a competitor in a sanctioned KCBS BBQ competition" : ""}. You are sequencing a multi-cook session${isCompetitionMode ? " where each item has its OWN competition turn-in time" : " where everything must be ready to serve at the same time"}.
