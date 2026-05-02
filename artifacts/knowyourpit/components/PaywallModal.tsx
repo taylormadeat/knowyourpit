@@ -221,6 +221,15 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
     return getTrialInfo(annual);
   }, [annual, isAnnualTrialEligible, isAnnualTrialCheckComplete]);
 
+  /**
+   * True when the user is eligible for *any* free trial on the current
+   * offering — drives the trial-aware headline / CTA copy across the modal.
+   * On iOS the eligibility check is gated to the annual product (which is the
+   * one we configure trials on); if a future monthly trial is added, extend
+   * the eligibility check above to include it.
+   */
+  const isTrial = !!annualTrial;
+
   const savings = useMemo(() => {
     if (!annual || !monthly) return null;
     const yearOfMonthly = monthly.product.price * 12;
@@ -266,8 +275,24 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
               <Feather name="award" size={12} color="#E84520" />
               <Text style={styles.proBadgeText}>knowyourpit PRO</Text>
             </View>
-            <Text style={styles.headline}>{triggerHeadline(trigger, featureName, foodType)}</Text>
-            <Text style={styles.subhead}>{subtitle ?? defaultSubtitle(trigger, foodType)}</Text>
+            <Text style={styles.headline}>
+              {isTrial && !effectivePro
+                ? "Try Pro free for 7 days"
+                : triggerHeadline(trigger, featureName, foodType)}
+            </Text>
+            <Text style={styles.subhead}>
+              {isTrial && !effectivePro
+                ? "Full access to everything. Cancel anytime."
+                : subtitle ?? defaultSubtitle(trigger, foodType)}
+            </Text>
+            {/* Trial-aware nudge — appended under the regular subtitle so the
+                paywall feels like an invitation rather than a wall when the
+                user is still trial-eligible. */}
+            {isTrial && !effectivePro && subtitle && (
+              <Text style={[styles.subhead, { marginTop: 6, opacity: 0.85 }]}>
+                Start a 7-day free trial to unlock unlimited access right now.
+              </Text>
+            )}
             {featureContext ? (
               <View style={styles.contextChip}>
                 <Feather name="info" size={11} color="#F59E0B" />
@@ -420,6 +445,15 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                     <ActivityIndicator color="#E84520" />
                   </View>
                 )}
+
+                {/* "No commitment" reassurance line — sits below the plan
+                    cards so it reads as a guarantee on whichever plan the
+                    user picks. Copy shifts based on trial eligibility. */}
+                <Text style={[styles.noCommitText, { color: colors.mutedForeground }]}>
+                  {isTrial
+                    ? "No charge for 7 days · Cancel anytime in Settings"
+                    : "Cancel anytime · Restore purchases below"}
+                </Text>
               </View>
             )}
 
@@ -537,6 +571,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   trialCtaText: { color: "#fff", fontSize: 13, fontFamily: "Inter_700Bold", letterSpacing: 0.2 },
+  noCommitText: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+    marginTop: 14,
+  },
   planTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff", marginBottom: 4, letterSpacing: 0.3, textTransform: "uppercase" },
   planPrice: { fontSize: 28, fontFamily: "Inter_700Bold", color: "#fff" },
   planPeriod: { fontSize: 14, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.8)" },

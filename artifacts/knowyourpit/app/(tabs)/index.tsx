@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
@@ -138,7 +139,35 @@ export default function HomeScreen() {
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
   const { data: recentCooks, isLoading: cooksLoading } = useGetRecentCooks();
   const { data: insights, isLoading: insightsLoading } = useHomeInsights();
-  const { isPro, isIdentityLinked } = useSubscription();
+  const { isPro, isIdentityLinked, isInTrial, expirationDate } = useSubscription();
+
+  // ── Pro trial banner state ───────────────────────────────────────────
+  // Surfaced when the active Pro entitlement is in its free-trial phase.
+  // Persisted dismissal so once the user X's it, we don't show it again on
+  // this device until they start a brand-new trial cycle.
+  const TRIAL_BANNER_DISMISS_KEY = "knowyourpit:trialBannerDismissed";
+  const [trialBannerDismissed, setTrialBannerDismissed] = React.useState(false);
+  React.useEffect(() => {
+    AsyncStorage.getItem(TRIAL_BANNER_DISMISS_KEY)
+      .then((v) => setTrialBannerDismissed(v === "1"))
+      .catch(() => {});
+  }, []);
+  // Reset the dismissed flag whenever a fresh trial starts so the banner can
+  // re-appear for a new cycle (e.g. user resubscribes after a lapse).
+  React.useEffect(() => {
+    if (!isInTrial) {
+      AsyncStorage.removeItem(TRIAL_BANNER_DISMISS_KEY).catch(() => {});
+      setTrialBannerDismissed(false);
+    }
+  }, [isInTrial]);
+  const trialDaysRemaining = React.useMemo(() => {
+    if (!isInTrial || !expirationDate) return 0;
+    const diffMs = expirationDate.getTime() - Date.now();
+    if (diffMs <= 0) return 0;
+    return Math.max(1, Math.ceil(diffMs / (24 * 60 * 60 * 1000)));
+  }, [isInTrial, expirationDate]);
+  const showTrialBanner =
+    isPro && isInTrial && trialDaysRemaining > 0 && !trialBannerDismissed;
   const effectivePro = useEffectivePro();
   const { showPaywall } = usePaywall();
 

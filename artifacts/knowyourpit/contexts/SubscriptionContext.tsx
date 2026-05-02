@@ -72,6 +72,12 @@ interface SubscriptionContextValue {
   isLoading: boolean;
   /** True when the user has the `pro` entitlement (monthly OR annual). */
   isPro: boolean;
+  /**
+   * True when the active Pro entitlement is in its free-trial / introductory
+   * phase (RevenueCat `periodType === "TRIAL"` or `"INTRO"`). Drives the
+   * "Pro trial active — N days remaining" home-screen banner.
+   */
+  isInTrial: boolean;
   /** When the active subscription expires, or null when not subscribed. */
   expirationDate: Date | null;
   /** RevenueCat current offering (Monthly + Annual packages). null if RC is unavailable. */
@@ -148,6 +154,18 @@ function readExpiration(customerInfo: any): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+/**
+ * True when the active Pro entitlement is currently in its free-trial or
+ * introductory phase. RevenueCat sets `periodType` to "TRIAL" / "INTRO" /
+ * "NORMAL" on every active entitlement; we treat the first two as "trial"
+ * for UX purposes (banner copy, "Cancel before X" messaging, etc).
+ */
+function readIsInTrial(customerInfo: any): boolean {
+  const ent = customerInfo?.entitlements?.active?.[PRO_ENTITLEMENT_ID];
+  const period = (ent?.periodType ?? "").toString().toUpperCase();
+  return period === "TRIAL" || period === "INTRO";
+}
+
 /** Read cached Pro status synchronously on launch. Returns false if no cache. */
 function readCachedIsPro(): boolean {
   try {
@@ -185,6 +203,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [isIdentityLinked, setIsIdentityLinked] = useState(() => !userId);
 
   const [expirationDate, setExpirationDate] = useState<Date | null>(null);
+  const [isInTrial, setIsInTrial] = useState<boolean>(false);
   const [currentOffering, setCurrentOffering] = useState<OfferingLike | null>(null);
   const [isAnnualTrialEligible, setIsAnnualTrialEligible] = useState<boolean | null>(null);
   const [isAnnualTrialCheckComplete, setIsAnnualTrialCheckComplete] = useState<boolean>(
@@ -233,6 +252,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       const info = await purchases.getCustomerInfo();
       updateIsPro(entitlementsHavePro(info));
       setExpirationDate(readExpiration(info));
+      setIsInTrial(readIsInTrial(info));
     } catch {
       // Keep previous state on transient failure.
     }
@@ -304,6 +324,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           if (proFromPhase1 || !userId) {
             updateIsPro(proFromPhase1);
             setExpirationDate(readExpiration(info));
+            setIsInTrial(readIsInTrial(info));
           }
         }
 
@@ -343,6 +364,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
             if (cancelled) return;
             updateIsPro(entitlementsHavePro(info));
             setExpirationDate(readExpiration(info));
+            setIsInTrial(readIsInTrial(info));
           };
           purchases.addCustomerInfoUpdateListener(listener);
         }
@@ -417,6 +439,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         if (info) {
           updateIsPro(pro);
           setExpirationDate(readExpiration(info));
+          setIsInTrial(readIsInTrial(info));
         }
         if (pro) await refreshServerCache();
         return { success: pro, cancelled: false };
@@ -447,6 +470,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       const pro = entitlementsHavePro(info);
       updateIsPro(pro);
       setExpirationDate(readExpiration(info));
+      setIsInTrial(readIsInTrial(info));
       // Always sync the server cache after a restore attempt so the Postgres
       // entitlement row stays accurate regardless of the outcome (clears stale
       // Pro rows when a subscription has lapsed, or activates Pro for device
@@ -468,6 +492,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       isIdentityLinked,
       isLoading,
       isPro,
+      isInTrial,
       expirationDate,
       currentOffering,
       isAnnualTrialEligible,
@@ -483,6 +508,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       isIdentityLinked,
       isLoading,
       isPro,
+      isInTrial,
       expirationDate,
       currentOffering,
       isAnnualTrialEligible,
