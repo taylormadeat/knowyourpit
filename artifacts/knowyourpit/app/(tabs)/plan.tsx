@@ -83,7 +83,6 @@ import {
   type KcbsCategory,
 } from "@/constants/competitionKnowledge";
 import { MultiCookAddItemModal } from "@/components/plan-screen/MultiCookAddItemModal";
-import { LockedFeatureCard } from "@/components/LockedFeatureCard";
 
 export default function PlanScreen() {
   const colors = useColors();
