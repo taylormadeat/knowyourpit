@@ -556,6 +556,15 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                             ? `Just ${(annual.product.price / 12).toFixed(2)} ${annual.product.currencyCode ?? ""}/mo, billed yearly`
                             : "Billed yearly"}
                         </Text>
+                        {/* Cook-limit trigger: surface a visible "Keep
+                            cooking →" affordance even when no free trial
+                            is offered, so the continuation framing is
+                            consistent across both CTA variants. */}
+                        {isCookLimitWall && (
+                          <View style={styles.trialCta}>
+                            <Text style={styles.trialCtaText}>Keep cooking →</Text>
+                          </View>
+                        )}
                       </>
                     )}
                   </Pressable>

@@ -104,12 +104,15 @@ export default function PlanScreen() {
   // permanently after dismissal.
   const [showMultiCookTip, setShowMultiCookTip] = useState(false);
   const [multiCookTipFood, setMultiCookTipFood] = useState<string | null>(null);
-  const [multiCookTipDismissed, setMultiCookTipDismissed] = useState<boolean | null>(null);
+  // Default to `false` (= not dismissed) so a user who plans a cook before
+  // AsyncStorage resolves still sees the nudge. The async load below only
+  // flips this to `true` if the user had previously dismissed it.
+  const [multiCookTipDismissed, setMultiCookTipDismissed] = useState<boolean>(false);
   useEffect(() => {
     let cancelled = false;
     AsyncStorage.getItem("multi_cook_nudge_dismissed")
-      .then((v) => { if (!cancelled) setMultiCookTipDismissed(v === "1"); })
-      .catch(() => { if (!cancelled) setMultiCookTipDismissed(false); });
+      .then((v) => { if (!cancelled && v === "1") setMultiCookTipDismissed(true); })
+      .catch(() => { /* keep default `false` on failure */ });
     return () => { cancelled = true; };
   }, []);
   const bannerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -687,7 +690,7 @@ export default function PlanScreen() {
       // Surfaces only on the next render of the Plan screen and only when
       // the user is free, has 1+ cooks logged already, and hasn't dismissed
       // it permanently. The card promotes Multi-Cook Sequencer.
-      if (isFreeAccount && usedCooksBefore >= 1 && multiCookTipDismissed === false) {
+      if (isFreeAccount && usedCooksBefore >= 1 && !multiCookTipDismissed) {
         setMultiCookTipFood(plannedFood);
         setShowMultiCookTip(true);
       }
