@@ -169,8 +169,19 @@ export default function DevicesScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* MEATER */}
-          <View
+          {/* MEATER — entire card is tappable for free users so the locked
+              state is fully discoverable (Pattern B), not just the CTA. */}
+          <Pressable
+            disabled={effectivePro || meaterStatus?.linked === true}
+            onPress={() =>
+              showPaywall({ trigger: "pro_required", featureName: "MEATER Connection" })
+            }
+            accessibilityRole={!effectivePro && !meaterStatus?.linked ? "button" : undefined}
+            accessibilityLabel={
+              !effectivePro && !meaterStatus?.linked
+                ? "MEATER Thermometer, Pro feature, tap to learn more"
+                : undefined
+            }
             style={[
               s.deviceCard,
               {
@@ -339,10 +350,21 @@ export default function DevicesScreen() {
                 </View>
               </View>
             )}
-          </View>
+          </Pressable>
 
-          {/* ThermoWorks */}
-          <View
+          {/* ThermoWorks — entire card is tappable for free users so the
+              locked state is fully discoverable (Pattern B). */}
+          <Pressable
+            disabled={effectivePro || thermoworksStatus?.linked === true}
+            onPress={() =>
+              showPaywall({ trigger: "pro_required", featureName: "ThermoWorks Connection" })
+            }
+            accessibilityRole={!effectivePro && !thermoworksStatus?.linked ? "button" : undefined}
+            accessibilityLabel={
+              !effectivePro && !thermoworksStatus?.linked
+                ? "ThermoWorks Cloud, Pro feature, tap to learn more"
+                : undefined
+            }
             style={[
               s.deviceCard,
               {
@@ -511,7 +533,7 @@ export default function DevicesScreen() {
                 </View>
               </View>
             )}
-          </View>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

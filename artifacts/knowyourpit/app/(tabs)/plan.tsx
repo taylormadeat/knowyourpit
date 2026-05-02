@@ -83,6 +83,7 @@ import {
   type KcbsCategory,
 } from "@/constants/competitionKnowledge";
 import { MultiCookAddItemModal } from "@/components/plan-screen/MultiCookAddItemModal";
+import { LockedFeatureCard } from "@/components/LockedFeatureCard";
 
 export default function PlanScreen() {
   const colors = useColors();
@@ -819,6 +820,26 @@ export default function PlanScreen() {
             <Feather name={effectivePro ? "chevron-right" : "lock"} size={18} color="#fff" />
           </LinearGradient>
         </Pressable>
+
+        {/* Visible-but-locked Multi-Cook teaser card for free users (Pattern B).
+            The toggle above also opens the paywall, but this card surfaces
+            the value proposition inline so free users see exactly what they
+            get with Pro instead of just an icon-and-chip on a toggle. */}
+        {!effectivePro && planMode === "single" && (
+          <View style={{ marginBottom: 14 }}>
+            <LockedFeatureCard
+              featureName="Multi-Cook Sequencer"
+              teaser="Plan 2–5 cooks with different meats and grills, and PitMaster sequences them so everything is ready at the same time."
+              icon="layers"
+              onPress={() =>
+                showPaywall({
+                  trigger: "pro_required",
+                  featureName: "Multi-Cook Sequencer",
+                })
+              }
+            />
+          </View>
+        )}
 
         {planMode === "single" && (<>
 
