@@ -893,6 +893,30 @@ export const DeleteCookParams = zod.object({
 });
 
 /**
+ * @summary Register or update an iOS Live Activity push token for a cook
+ */
+export const RegisterCookLiveActivityParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RegisterCookLiveActivityBody = zod.object({
+  activityId: zod.string(),
+  pushToken: zod.string(),
+});
+
+export const RegisterCookLiveActivityResponse = zod.object({
+  activityId: zod.string(),
+  cookId: zod.number(),
+});
+
+/**
+ * @summary End all Live Activities tracked for a cook (server stops pushing)
+ */
+export const EndCookLiveActivityParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary List all recipes
  */
 export const ListRecipesQueryParams = zod.object({

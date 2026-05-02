@@ -33,6 +33,7 @@ import { useBottomInset } from "@/hooks/useBottomInset";
 import { useLayout } from "@/hooks/useLayout";
 import { useScheduleStepNotifications } from "@/hooks/useScheduleStepNotifications";
 import { setCookDetailVisible } from "@/hooks/cookDetailVisibility";
+import { useCookLiveActivity } from "@/hooks/useCookLiveActivity";
 import { LogoBackground } from "@/components/LogoBackground";
 import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
 import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
@@ -233,6 +234,21 @@ export default function CookDetailScreen() {
   const [nowMs, setNowMs] = useState(Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [liveReadings, setLiveReadings] = useState<Array<{ timeMinutes: number; tempF: number }>>([]);
+
+  // iOS Live Activity (lock screen + Dynamic Island). No-op on Android,
+  // Expo Go, and unsupported devices.
+  useCookLiveActivity({
+    cookId: cook?.id ?? null,
+    status: cook?.status ?? null,
+    meatLabel: cook?.foodType ?? "Cook",
+    startedAtIso: cook?.actualStartAt ?? null,
+    currentTempF: meaterProbes[0]?.internalTempF ?? thermoworksProbes[0]?.tempF ?? null,
+    targetTempF: cook?.targetTempF ?? null,
+    cookTempF:
+      meaterProbes[0]?.ambientTempF ??
+      cook?.cookTempF ??
+      null,
+  });
 
   const scheduleScrollViewRef = useRef<ScrollView>(null);
   // Cached y-offsets used to scroll the highlighted "next step" row into view

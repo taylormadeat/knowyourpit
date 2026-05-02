@@ -13,6 +13,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { clearHomeInsightsCache } from "./ai";
+import { endLiveActivitiesForCook } from "../lib/liveActivityPush";
 import {
   FREE_COOK_LIMIT,
   respondPaywall,
@@ -226,6 +227,11 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
     grillName = grill?.name ?? null;
   }
   clearHomeInsightsCache(req.userId);
+  if (cook.status === "completed" || cook.status === "cancelled") {
+    void endLiveActivitiesForCook(cook.id).catch((err) =>
+      req.log.warn({ err: err.message, cookId: cook.id }, "endLiveActivitiesForCook failed")
+    );
+  }
   res.json({ ...cook, grillName });
 });
 

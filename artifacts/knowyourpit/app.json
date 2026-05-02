@@ -52,6 +52,7 @@
     },
     "plugins": [
       "./plugins/with-pod-bundle-signing",
+      "./plugins/with-live-activity",
       "expo-apple-authentication",
       "expo-router",
       "expo-font",

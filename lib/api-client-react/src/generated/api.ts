@@ -48,6 +48,7 @@ import type {
   ListRecipesParams,
   ListTemperatureReadingsParams,
   ListTipsParams,
+  LiveActivityRegistration,
   MeaterLinkBody,
   MeaterLinkedResponse,
   MeaterReadingsResponse,
@@ -56,6 +57,7 @@ import type {
   MultiCookResponse,
   PatchAlertBody,
   Recipe,
+  RegisterLiveActivityBody,
   TemperatureHistorySummary,
   TemperatureReading,
   TemperatureScanImageBody,
@@ -1595,6 +1597,181 @@ export const useDeleteCook = <
   TContext
 > => {
   return useMutation(getDeleteCookMutationOptions(options));
+};
+
+/**
+ * @summary Register or update an iOS Live Activity push token for a cook
+ */
+export const getRegisterCookLiveActivityUrl = (id: number) => {
+  return `/api/cooks/${id}/live-activity`;
+};
+
+export const registerCookLiveActivity = async (
+  id: number,
+  registerLiveActivityBody: RegisterLiveActivityBody,
+  options?: RequestInit,
+): Promise<LiveActivityRegistration> => {
+  return customFetch<LiveActivityRegistration>(
+    getRegisterCookLiveActivityUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(registerLiveActivityBody),
+    },
+  );
+};
+
+export const getRegisterCookLiveActivityMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerCookLiveActivity>>,
+    TError,
+    { id: number; data: BodyType<RegisterLiveActivityBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerCookLiveActivity>>,
+  TError,
+  { id: number; data: BodyType<RegisterLiveActivityBody> },
+  TContext
+> => {
+  const mutationKey = ["registerCookLiveActivity"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerCookLiveActivity>>,
+    { id: number; data: BodyType<RegisterLiveActivityBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return registerCookLiveActivity(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterCookLiveActivityMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerCookLiveActivity>>
+>;
+export type RegisterCookLiveActivityMutationBody =
+  BodyType<RegisterLiveActivityBody>;
+export type RegisterCookLiveActivityMutationError = ErrorType<void>;
+
+/**
+ * @summary Register or update an iOS Live Activity push token for a cook
+ */
+export const useRegisterCookLiveActivity = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerCookLiveActivity>>,
+    TError,
+    { id: number; data: BodyType<RegisterLiveActivityBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerCookLiveActivity>>,
+  TError,
+  { id: number; data: BodyType<RegisterLiveActivityBody> },
+  TContext
+> => {
+  return useMutation(getRegisterCookLiveActivityMutationOptions(options));
+};
+
+/**
+ * @summary End all Live Activities tracked for a cook (server stops pushing)
+ */
+export const getEndCookLiveActivityUrl = (id: number) => {
+  return `/api/cooks/${id}/live-activity`;
+};
+
+export const endCookLiveActivity = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getEndCookLiveActivityUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getEndCookLiveActivityMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof endCookLiveActivity>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof endCookLiveActivity>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["endCookLiveActivity"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof endCookLiveActivity>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return endCookLiveActivity(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type EndCookLiveActivityMutationResult = NonNullable<
+  Awaited<ReturnType<typeof endCookLiveActivity>>
+>;
+
+export type EndCookLiveActivityMutationError = ErrorType<unknown>;
+
+/**
+ * @summary End all Live Activities tracked for a cook (server stops pushing)
+ */
+export const useEndCookLiveActivity = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof endCookLiveActivity>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof endCookLiveActivity>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getEndCookLiveActivityMutationOptions(options));
 };
 
 /**

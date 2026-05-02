@@ -18,6 +18,7 @@ import paywallRouter from "./paywall";
 import webhooksRouter from "./webhooks";
 import customMeatCutsRouter from "./customMeatCuts";
 import adminRouter from "./admin";
+import liveActivitiesRouter from "./liveActivities";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(paywallRouter);
 router.use(webhooksRouter);
 router.use(customMeatCutsRouter);
 router.use(adminRouter);
+router.use(liveActivitiesRouter);
 
 export default router;

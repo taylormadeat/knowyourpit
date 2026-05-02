@@ -9,6 +9,7 @@ import {
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../middlewares/requireAuth";
 import { computeSmokerInsights, formatSmokerProfile } from "../lib/smokerCalibration";
+import { pushLiveActivityForCook } from "../lib/liveActivityPush";
 import {
   FREE_AI_ANALYZE_DAILY_LIMIT,
   countAiAnalyzesToday,
@@ -970,6 +971,26 @@ router.post("/temperature/upload", requireAuth, uploadRateLimit, async (req: any
     source,
   }));
   await db.insert(temperatureReadingsTable).values(rows);
+  // Push the latest reading to any iOS Live Activities for this cook so the
+  // lock screen / Dynamic Island stays fresh while the app is closed.
+  let latestTempF: number | null = null;
+  let latestAt = -Infinity;
+  for (const r of rows) {
+    const t = r.recordedAt.getTime();
+    if (t > latestAt) {
+      latestAt = t;
+      latestTempF = r.tempF;
+    }
+  }
+  if (latestTempF !== null) {
+    const tempF = latestTempF;
+    void pushLiveActivityForCook(cookId, tempF).catch((err: Error) =>
+      req.log.warn(
+        { err: err.message, cookId },
+        "pushLiveActivityForCook failed"
+      )
+    );
+  }
   res.status(201).json({ inserted: rows.length, cookId });
 });
 

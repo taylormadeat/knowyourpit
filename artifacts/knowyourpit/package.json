@@ -69,6 +69,7 @@
     "expo-apple-authentication": "~7.2.4",
     "expo-local-authentication": "~17.0.8",
     "react-native-purchases": "9.7.2",
-    "watch-connectivity": "file:./modules/watch-connectivity"
+    "watch-connectivity": "file:./modules/watch-connectivity",
+    "live-activity": "file:./modules/live-activity"
   }
 }

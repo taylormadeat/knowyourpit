@@ -1,0 +1,10 @@
+{
+  "name": "live-activity",
+  "version": "1.0.0",
+  "description": "Expo native module exposing iOS ActivityKit Live Activities to the knowyourpit JS layer",
+  "main": "index",
+  "license": "MIT",
+  "peerDependencies": {
+    "expo-modules-core": "*"
+  }
+}

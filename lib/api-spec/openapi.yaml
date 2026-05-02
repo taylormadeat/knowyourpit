@@ -371,6 +371,46 @@ paths:
         "204":
           description: Deleted
 
+  /cooks/{id}/live-activity:
+    post:
+      operationId: registerCookLiveActivity
+      tags: [cooks]
+      summary: Register or update an iOS Live Activity push token for a cook
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterLiveActivityBody"
+      responses:
+        "200":
+          description: Push token registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveActivityRegistration"
+        "404":
+          description: Cook not found
+    delete:
+      operationId: endCookLiveActivity
+      tags: [cooks]
+      summary: End all Live Activities tracked for a cook (server stops pushing)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Activities ended
+
   /recipes:
     get:
       operationId: listRecipes
@@ -2779,3 +2819,25 @@ components:
           type: ["string", "null"]
         notes:
           type: ["string", "null"]
+
+    RegisterLiveActivityBody:
+      type: object
+      properties:
+        activityId:
+          type: string
+        pushToken:
+          type: string
+      required:
+        - activityId
+        - pushToken
+
+    LiveActivityRegistration:
+      type: object
+      properties:
+        activityId:
+          type: string
+        cookId:
+          type: integer
+      required:
+        - activityId
+        - cookId

@@ -15,3 +15,4 @@ export * from "./ai_analyze_events";
 export * from "./frozen_timeline_events";
 export * from "./subscription_entitlements";
 export * from "./custom_meat_cuts";
+export * from "./live_activities";

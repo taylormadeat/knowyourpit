@@ -1424,6 +1424,16 @@ export interface UpdateCustomMeatCutBody {
   notes?: string | null;
 }
 
+export interface RegisterLiveActivityBody {
+  activityId: string;
+  pushToken: string;
+}
+
+export interface LiveActivityRegistration {
+  activityId: string;
+  cookId: number;
+}
+
 export type ListCooksParams = {
   /**
    * @nullable
