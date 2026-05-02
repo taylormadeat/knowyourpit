@@ -20,6 +20,10 @@ router.get("/dashboard/summary", requireAuth, async (req: any, res): Promise<voi
     .select({ count: sql<number>`count(*)` })
     .from(cooksTable)
     .where(and(eq(cooksTable.userId, userId), eq(cooksTable.status, "planned")));
+  const [activeCookCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(cooksTable)
+    .where(and(eq(cooksTable.userId, userId), eq(cooksTable.status, "active")));
   const [recipeCount] = await db.select({ count: sql<number>`count(*)` }).from(recipesTable);
   const [alertCount] = await db
     .select({ count: sql<number>`count(*)` })
@@ -80,6 +84,7 @@ router.get("/dashboard/summary", requireAuth, async (req: any, res): Promise<voi
     totalCooks: Number(cookCount.count),
     totalGrills: Number(grillCount.count),
     plannedCooks: Number(plannedCookCount.count),
+    activeCooks: Number(activeCookCount.count),
     totalRecipes: Number(recipeCount.count),
     avgCookRating,
     mostUsedGrill,

@@ -137,7 +137,7 @@ export default function HomeScreen() {
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
   const { data: recentCooks, isLoading: cooksLoading } = useGetRecentCooks();
   const { data: insights, isLoading: insightsLoading } = useHomeInsights();
-  const { isPro } = useSubscription();
+  const { isPro, isIdentityLinked } = useSubscription();
   const effectivePro = useEffectivePro();
   const { showPaywall } = usePaywall();
 
@@ -340,7 +340,22 @@ export default function HomeScreen() {
         )}
 
         {/* ── PitMaster Score (Pro-only) ── */}
-        {!effectivePro && (
+        {/*
+          Three states:
+          1. !isIdentityLinked — RC hasn't confirmed this user's identity yet.
+             Show a neutral skeleton so Pro users never see a false paywall flash.
+          2. isIdentityLinked && !effectivePro — Confirmed free tier. Show blur.
+          3. isIdentityLinked && effectivePro — Confirmed Pro. Show real score.
+        */}
+        {!isIdentityLinked ? (
+          <View style={{ marginHorizontal: 16, marginBottom: 12 }}>
+            <View style={s.sectionHeader}>
+              <View style={s.sectionAccent} />
+              <Text style={[s.sectionTitle, { color: colors.foreground }]}>PitMaster Score</Text>
+            </View>
+            <View style={[{ height: 112, borderRadius: colors.radius, backgroundColor: colors.card, opacity: 0.45 }]} />
+          </View>
+        ) : !effectivePro ? (
           <>
             <View style={s.sectionHeader}>
               <View style={s.sectionAccent} />
@@ -410,9 +425,9 @@ export default function HomeScreen() {
               </BlurView>
             </Pressable>
           </>
-        )}
+        ) : null}
 
-        {effectivePro && (insights || insightsLoading) && (
+        {isIdentityLinked && effectivePro && (insights || insightsLoading) && (
           <>
             <View style={s.sectionHeader}>
               <View style={s.sectionAccent} />

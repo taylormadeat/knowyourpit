@@ -49,7 +49,7 @@ export default function MoreScreen() {
   const { user } = useUser();
   const { signOut } = useClerk();
   const qc = useQueryClient();
-  const { isPro, expirationDate, restorePurchases, isLoading: subLoading } = useSubscription();
+  const { isPro, isIdentityLinked, expirationDate, restorePurchases, isLoading: subLoading } = useSubscription();
   const { showPaywall } = usePaywall();
   const effectivePro = useEffectivePro();
   const { getToken } = useAuth();
@@ -230,49 +230,65 @@ export default function MoreScreen() {
         {/*
           ── Subscription card ──
           Always visible at the top of "More" so users can find their plan
-          status (or upgrade) at a glance. Pro users see expiration; free
-          users get a primary-color CTA that opens the paywall sheet.
+          status (or upgrade) at a glance. While the identity-linked RC check
+          is pending, show a neutral skeleton to avoid flashing "Upgrade to Pro"
+          at Pro users. Once confirmed: Pro = status card, Free = upgrade CTA.
         */}
-        <Pressable
-          onPress={() => {
-            if (effectivePro) {
-              Alert.alert(
-                "knowyourpit Pro",
-                isPro && expirationDate
-                  ? `Your subscription renews on ${expirationDate.toLocaleDateString()}. Manage in your App Store / Play Store account.`
-                  : "Your Pro access is active. Manage your subscription in your App Store / Play Store account.",
-              );
-            } else {
-              showPaywall();
-            }
-          }}
-          style={({ pressed }) => [
-            s.subscriptionCard,
-            {
-              backgroundColor: effectivePro ? colors.card : "#E84520",
-              borderColor: effectivePro ? colors.border : "#E84520",
-              borderRadius: colors.radius,
-            },
-            pressed && { opacity: 0.85 },
-          ]}
-        >
-          <View style={[s.subscriptionIcon, { backgroundColor: effectivePro ? "#E8452020" : "rgba(255,255,255,0.2)" }]}>
-            <Feather name={effectivePro ? "award" : "zap"} size={20} color={effectivePro ? "#E84520" : "#fff"} />
+        {!isIdentityLinked ? (
+          <View
+            style={[
+              s.subscriptionCard,
+              { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
+            ]}
+          >
+            <View style={[s.subscriptionIcon, { backgroundColor: colors.border, opacity: 0.4 }]} />
+            <View style={{ flex: 1, gap: 6 }}>
+              <View style={{ height: 14, width: 110, backgroundColor: colors.border, borderRadius: 4, opacity: 0.5 }} />
+              <View style={{ height: 11, width: 70, backgroundColor: colors.border, borderRadius: 4, opacity: 0.3 }} />
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[s.subscriptionTitle, { color: effectivePro ? colors.foreground : "#fff" }]}>
-              {effectivePro ? "knowyourpit Pro" : "Upgrade to Pro"}
-            </Text>
-            <Text style={[s.subscriptionSub, { color: effectivePro ? colors.mutedForeground : "rgba(255,255,255,0.85)" }]}>
-              {effectivePro
-                ? isPro && expirationDate
-                  ? `Renews ${expirationDate.toLocaleDateString()}`
-                  : "Active subscription"
-                : "Unlimited cooks, AI, multi-cook, devices"}
-            </Text>
-          </View>
-          <Feather name="chevron-right" size={18} color={effectivePro ? colors.mutedForeground : "rgba(255,255,255,0.85)"} />
-        </Pressable>
+        ) : (
+          <Pressable
+            onPress={() => {
+              if (effectivePro) {
+                Alert.alert(
+                  "knowyourpit Pro",
+                  isPro && expirationDate
+                    ? `Your subscription renews on ${expirationDate.toLocaleDateString()}. Manage in your App Store / Play Store account.`
+                    : "Your Pro access is active. Manage your subscription in your App Store / Play Store account.",
+                );
+              } else {
+                showPaywall();
+              }
+            }}
+            style={({ pressed }) => [
+              s.subscriptionCard,
+              {
+                backgroundColor: effectivePro ? colors.card : "#E84520",
+                borderColor: effectivePro ? colors.border : "#E84520",
+                borderRadius: colors.radius,
+              },
+              pressed && { opacity: 0.85 },
+            ]}
+          >
+            <View style={[s.subscriptionIcon, { backgroundColor: effectivePro ? "#E8452020" : "rgba(255,255,255,0.2)" }]}>
+              <Feather name={effectivePro ? "award" : "zap"} size={20} color={effectivePro ? "#E84520" : "#fff"} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[s.subscriptionTitle, { color: effectivePro ? colors.foreground : "#fff" }]}>
+                {effectivePro ? "knowyourpit Pro" : "Upgrade to Pro"}
+              </Text>
+              <Text style={[s.subscriptionSub, { color: effectivePro ? colors.mutedForeground : "rgba(255,255,255,0.85)" }]}>
+                {effectivePro
+                  ? isPro && expirationDate
+                    ? `Renews ${expirationDate.toLocaleDateString()}`
+                    : "Active subscription"
+                  : "Unlimited cooks, AI, multi-cook, devices"}
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={effectivePro ? colors.mutedForeground : "rgba(255,255,255,0.85)"} />
+          </Pressable>
+        )}
 
         <Pressable
           onPress={handleRestorePurchases}

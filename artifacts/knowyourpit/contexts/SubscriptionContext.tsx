@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { Platform } from "react-native";
 import { useAuth } from "@clerk/expo";
 import { setSubscriptionActiveGetter, customFetch } from "@workspace/api-client-react";
+import * as SecureStore from "expo-secure-store";
 
 interface IOSIntroductoryDiscount {
   identifier?: string;
@@ -57,6 +58,16 @@ interface OfferingLike {
 interface SubscriptionContextValue {
   /** True once we've made at least one attempt to fetch entitlement state. */
   isReady: boolean;
+  /**
+   * True once the userId-linked RC check has completed (or immediately when
+   * there is no signed-in user). Use this — not isReady — to decide whether
+   * to show the paywall blur. isReady becomes true after the anonymous Phase-1
+   * check, which can briefly return isPro=false even for Pro users because RC
+   * hasn't yet been aliased to their Clerk userId. isIdentityLinked only
+   * becomes true after the Phase-2 logIn+refresh cycle, so the Pro state is
+   * authoritative.
+   */
+  isIdentityLinked: boolean;
   /** True while a purchase or restore is in flight. */
   isLoading: boolean;
   /** True when the user has the `pro` entitlement (monthly OR annual). */
@@ -96,6 +107,7 @@ interface SubscriptionContextValue {
 const SubscriptionContext = createContext<SubscriptionContextValue | null>(null);
 
 const PRO_ENTITLEMENT_ID = "pro";
+const PRO_CACHE_KEY = "kyp_is_pro_v1";
 
 function getEligibleStatus(): number {
   try {
@@ -136,12 +148,42 @@ function readExpiration(customerInfo: any): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+/** Read cached Pro status synchronously on launch. Returns false if no cache. */
+function readCachedIsPro(): boolean {
+  try {
+    const val = SecureStore.getItem(PRO_CACHE_KEY);
+    return val === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Persist Pro status so next launch starts with the correct optimistic value. */
+async function writeCachedIsPro(value: boolean): Promise<void> {
+  try {
+    if (value) {
+      await SecureStore.setItemAsync(PRO_CACHE_KEY, "1");
+    } else {
+      await SecureStore.deleteItemAsync(PRO_CACHE_KEY);
+    }
+  } catch {
+    // Non-fatal — RC will re-establish correct state on next launch.
+  }
+}
+
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
   const { userId, isLoaded: clerkLoaded } = useAuth();
 
   const [isReady, setIsReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isPro, setIsPro] = useState(false);
+
+  // Seed isPro from SecureStore so returning Pro users never see the paywall flash.
+  const [isPro, setIsPro] = useState(() => readCachedIsPro());
+
+  // isIdentityLinked: true once the userId-aliased RC check is done (Phase 2).
+  // Starts true when there's no userId (guest/logged-out = no linking needed).
+  const [isIdentityLinked, setIsIdentityLinked] = useState(() => !userId);
+
   const [expirationDate, setExpirationDate] = useState<Date | null>(null);
   const [currentOffering, setCurrentOffering] = useState<OfferingLike | null>(null);
   const [isAnnualTrialEligible, setIsAnnualTrialEligible] = useState<boolean | null>(null);
@@ -165,6 +207,15 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     };
   }, []);
 
+  /**
+   * Update isPro and persist the new value to SecureStore so the next launch
+   * starts with the correct optimistic state (eliminates the paywall flash).
+   */
+  const updateIsPro = useCallback((value: boolean) => {
+    setIsPro(value);
+    writeCachedIsPro(value).catch(() => {});
+  }, []);
+
   // Tells the API server to drop its negative-cache entry for this user so
   // gated routes see the new Pro state on the very next request.
   const refreshServerCache = useCallback(async () => {
@@ -180,14 +231,14 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     if (!purchases) return;
     try {
       const info = await purchases.getCustomerInfo();
-      setIsPro(entitlementsHavePro(info));
+      updateIsPro(entitlementsHavePro(info));
       setExpirationDate(readExpiration(info));
     } catch {
       // Keep previous state on transient failure.
     }
-  }, []);
+  }, [updateIsPro]);
 
-  // Initial RC configure + first customerInfo + offerings fetch.
+  // Initial RC configure + first customerInfo + offerings fetch (Phase 1).
   //
   // We DO NOT gate this on `clerkLoaded`. RevenueCat can be configured
   // anonymously (appUserID=null) and re-aliased to a Clerk userId later via
@@ -195,6 +246,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   // clerkLoaded means that when the user falls through to guest mode via
   // the boot escape hatch — Clerk's isLoaded is still false at that point —
   // the paywall would be stuck on "Loading subscription options…" forever.
+  //
+  // Phase 1 result is NOT used to downgrade isPro when a userId is present:
+  // the anonymous RC user won't have the Pro entitlement, so we preserve the
+  // cached value and wait for Phase 2 (logIn+refresh) for the authoritative check.
   useEffect(() => {
     let cancelled = false;
     const purchases = loadPurchases();
@@ -202,6 +257,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     if (!purchases) {
       setIsRevenueCatAvailable(false);
       setIsReady(true);
+      // No RC = no linking needed; mark identity as linked immediately.
+      if (!cancelled) setIsIdentityLinked(true);
       return () => {
         cancelled = true;
       };
@@ -212,6 +269,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     if (!apiKey) {
       setIsRevenueCatAvailable(false);
       setIsReady(true);
+      if (!cancelled) setIsIdentityLinked(true);
       return () => {
         cancelled = true;
       };
@@ -238,8 +296,15 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         if (cancelled) return;
 
         if (info) {
-          setIsPro(entitlementsHavePro(info));
-          setExpirationDate(readExpiration(info));
+          const proFromPhase1 = entitlementsHavePro(info);
+          // Phase 1 is authoritative only when there's no userId to link later.
+          // If a userId is present, Phase 2 will do the definitive check — we
+          // only apply Phase 1's result if it returns true (early Pro confirm)
+          // to avoid briefly flashing the paywall for Pro users mid-login.
+          if (proFromPhase1 || !userId) {
+            updateIsPro(proFromPhase1);
+            setExpirationDate(readExpiration(info));
+          }
         }
 
         const current = offerings?.current;
@@ -276,7 +341,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         if (typeof purchases.addCustomerInfoUpdateListener === "function") {
           listener = (info: any) => {
             if (cancelled) return;
-            setIsPro(entitlementsHavePro(info));
+            updateIsPro(entitlementsHavePro(info));
             setExpirationDate(readExpiration(info));
           };
           purchases.addCustomerInfoUpdateListener(listener);
@@ -298,22 +363,41 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         } catch {}
       }
     };
-  }, [userId]);
+  }, [userId, updateIsPro]);
 
+  // Phase 2: alias RC to the Clerk userId and re-fetch authoritative customerInfo.
+  // This is the definitive Pro check. Sets isIdentityLinked=true when done so
+  // screens can safely show or hide paywall content without a false-positive flash.
   useEffect(() => {
     const purchases = purchasesRef.current;
-    if (!purchases) return;
+    if (!purchases) {
+      // RC unavailable — mark linked immediately so UI isn't stuck in skeleton.
+      setIsIdentityLinked(true);
+      return;
+    }
     if (!clerkLoaded) return;
+
+    if (!userId) {
+      // Signed out — clear cached Pro status and mark as linked (no linking needed).
+      writeCachedIsPro(false).catch(() => {});
+      setIsIdentityLinked(true);
+      return;
+    }
+
+    // A userId is present: mark as NOT yet linked while we alias RC and re-fetch.
+    setIsIdentityLinked(false);
 
     (async () => {
       try {
-        if (userId && typeof purchases.logIn === "function") {
+        if (typeof purchases.logIn === "function") {
           await purchases.logIn(userId);
-        } else if (!userId && typeof purchases.logOut === "function") {
-          await purchases.logOut();
         }
         await refresh();
-      } catch {}
+      } catch {
+        // Non-fatal: keep previous state; RC listener will update if entitlements change.
+      } finally {
+        setIsIdentityLinked(true);
+      }
     })();
   }, [userId, clerkLoaded, refresh]);
 
@@ -331,7 +415,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         const info = result?.customerInfo;
         const pro = entitlementsHavePro(info);
         if (info) {
-          setIsPro(pro);
+          updateIsPro(pro);
           setExpirationDate(readExpiration(info));
         }
         if (pro) await refreshServerCache();
@@ -346,7 +430,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         setIsLoading(false);
       }
     },
-    [],
+    [updateIsPro, refreshServerCache],
   );
 
   const restorePurchases = useCallback(async () => {
@@ -361,7 +445,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     try {
       const info = await purchases.restorePurchases();
       const pro = entitlementsHavePro(info);
-      setIsPro(pro);
+      updateIsPro(pro);
       setExpirationDate(readExpiration(info));
       // Always sync the server cache after a restore attempt so the Postgres
       // entitlement row stays accurate regardless of the outcome (clears stale
@@ -376,11 +460,12 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [updateIsPro, refreshServerCache]);
 
   const value = useMemo<SubscriptionContextValue>(
     () => ({
       isReady,
+      isIdentityLinked,
       isLoading,
       isPro,
       expirationDate,
@@ -395,6 +480,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     }),
     [
       isReady,
+      isIdentityLinked,
       isLoading,
       isPro,
       expirationDate,

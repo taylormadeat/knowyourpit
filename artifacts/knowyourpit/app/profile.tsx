@@ -55,7 +55,7 @@ export default function ProfileScreen() {
   const { user } = useUser();
   const { data: grills } = useListGrills();
   const { data: cooks } = useListCooks();
-  const { isPro, expirationDate } = useSubscription();
+  const { isPro, isIdentityLinked, expirationDate } = useSubscription();
   const effectivePro = useEffectivePro();
   const { showPaywall } = usePaywall();
 
@@ -251,59 +251,81 @@ export default function ProfileScreen() {
           </Text>
         </View>
 
-        {/* Plan status row */}
-        <Pressable
-          onPress={effectivePro ? undefined : () => showPaywall({ trigger: "pro_required" })}
-          style={({ pressed }) => [
-            {
+        {/* Plan status row — skeleton while identity-linked RC check is pending */}
+        {!isIdentityLinked ? (
+          <View
+            style={{
               marginHorizontal: 16,
               marginTop: 12,
               padding: 14,
               borderRadius: colors.radius,
               backgroundColor: colors.card,
               borderWidth: 1,
-              borderColor: effectivePro ? colors.primary : colors.border,
+              borderColor: colors.border,
               flexDirection: "row",
               alignItems: "center",
-              opacity: pressed && !effectivePro ? 0.7 : 1,
-            },
-          ]}
-        >
-          <MaterialIcons
-            name={effectivePro ? "verified" : "lock-outline"}
-            size={22}
-            color={effectivePro ? colors.primary : colors.mutedForeground}
-            style={{ marginRight: 12 }}
-          />
-          <View style={{ flex: 1 }}>
-            <Text
-              style={{
-                fontFamily: "Inter_600SemiBold",
-                fontSize: 14,
-                color: colors.foreground,
-              }}
-            >
-              {effectivePro ? "knowyourpit Pro" : "Free plan"}
-            </Text>
-            <Text
-              style={{
-                fontFamily: "Inter_400Regular",
-                fontSize: 12,
-                color: colors.mutedForeground,
-                marginTop: 2,
-              }}
-            >
-              {effectivePro
-                ? isPro && expirationDate
-                  ? `Renews ${new Date(expirationDate).toLocaleDateString()}`
-                  : "Active"
-                : "Tap to unlock unlimited cooks, AI chat & analyses"}
-            </Text>
+            }}
+          >
+            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: colors.border, marginRight: 12, opacity: 0.4 }} />
+            <View style={{ flex: 1, gap: 6 }}>
+              <View style={{ height: 14, width: 100, backgroundColor: colors.border, borderRadius: 4, opacity: 0.5 }} />
+              <View style={{ height: 11, width: 60, backgroundColor: colors.border, borderRadius: 4, opacity: 0.3 }} />
+            </View>
           </View>
-          {!effectivePro && (
-            <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-          )}
-        </Pressable>
+        ) : (
+          <Pressable
+            onPress={effectivePro ? undefined : () => showPaywall({ trigger: "pro_required" })}
+            style={({ pressed }) => [
+              {
+                marginHorizontal: 16,
+                marginTop: 12,
+                padding: 14,
+                borderRadius: colors.radius,
+                backgroundColor: colors.card,
+                borderWidth: 1,
+                borderColor: effectivePro ? colors.primary : colors.border,
+                flexDirection: "row",
+                alignItems: "center",
+                opacity: pressed && !effectivePro ? 0.7 : 1,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name={effectivePro ? "verified" : "lock-outline"}
+              size={22}
+              color={effectivePro ? colors.primary : colors.mutedForeground}
+              style={{ marginRight: 12 }}
+            />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 14,
+                  color: colors.foreground,
+                }}
+              >
+                {effectivePro ? "knowyourpit Pro" : "Free plan"}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 12,
+                  color: colors.mutedForeground,
+                  marginTop: 2,
+                }}
+              >
+                {effectivePro
+                  ? isPro && expirationDate
+                    ? `Renews ${new Date(expirationDate).toLocaleDateString()}`
+                    : "Active"
+                  : "Tap to unlock unlimited cooks, AI chat & analyses"}
+              </Text>
+            </View>
+            {!effectivePro && (
+              <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+            )}
+          </Pressable>
+        )}
 
         {/* Stats */}
         <View style={s.statsRow}>
