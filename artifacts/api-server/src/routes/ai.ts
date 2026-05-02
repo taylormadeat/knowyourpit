@@ -6,7 +6,7 @@ import { db, cooksTable, grillsTable, temperatureReadingsTable, conversations, m
 import { AiChatBody, AiPredictBody, AiMultiCookBody } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../middlewares/requireAuth";
-import { computeSmokerInsights, formatSmokerProfile } from "../lib/smokerCalibration";
+import { computeSmokerInsights, formatSmokerProfile, simplifyFoodType } from "../lib/smokerCalibration";
 import {
   FREE_AI_CHAT_DAILY_LIMIT,
   respondPaywall,
@@ -110,10 +110,55 @@ async function buildUserCookHistory(userId: string): Promise<string> {
   return summary;
 }
 
+async function buildPerGrillFingerprintSection(userId: string): Promise<string> {
+  // Inject a compact fingerprint summary for each of the user's grills so
+  // the AI can answer comparison questions like "how does my Huntsman
+  // compare to normal?" without needing the user to specify a grillId.
+  const userGrills = await db
+    .select({ id: grillsTable.id, name: grillsTable.name, type: grillsTable.type, brand: grillsTable.brand })
+    .from(grillsTable)
+    .where(eq(grillsTable.userId, userId))
+    .limit(20);
+  if (userGrills.length === 0) return "";
+
+  const sections: string[] = [];
+  for (const g of userGrills) {
+    const ins = await computeSmokerInsights(userId, g.id);
+    if (ins.cookCount < 1) continue;
+    const lines: string[] = [];
+    const label = g.brand ? `${g.brand} ${g.name}` : g.name;
+    lines.push(`• ${label}${g.type ? ` (${g.type})` : ""} — ${ins.cookCount} cook${ins.cookCount === 1 ? "" : "s"}, confidence: ${ins.confidenceLevel}`);
+    if (ins.pitBiasF != null && Math.abs(ins.pitBiasF) >= 3) {
+      lines.push(`    runs ${ins.pitBiasF > 0 ? "HOT" : "COLD"} by ~${Math.abs(ins.pitBiasF)}°F vs set point`);
+    }
+    if (ins.overshootF != null && Math.abs(ins.overshootF) >= 3) {
+      lines.push(`    pull-temp ${ins.overshootF > 0 ? "overshoots" : "undershoots"} target by ~${Math.abs(ins.overshootF)}°F`);
+    }
+    for (const [meatKey, p] of Object.entries(ins.durationByMeat)) {
+      if (p.sampleSize < 1) continue;
+      const dir = p.pctDiff == null
+        ? null
+        : p.pctDiff > 5 ? `${p.pctDiff}% slower than baseline`
+        : p.pctDiff < -5 ? `${Math.abs(p.pctDiff)}% faster than baseline`
+        : "right at baseline";
+      lines.push(`    ${meatKey.replace(/_/g, " ")}: ${p.actualMinsPerLb} min/lb (n=${p.sampleSize}${dir ? `, ${dir}` : ""})`);
+    }
+    if (lines.length > 1) sections.push(lines.join("\n"));
+  }
+
+  if (sections.length === 0) return "";
+  return [
+    "=== PER-GRILL FINGERPRINTS (compare grills to each other and to baseline) ===",
+    "Use these to answer any grill-specific comparison questions (e.g. 'how does my X compare to normal?').",
+    ...sections,
+  ].join("\n");
+}
+
 async function buildChatSystemPrompt(userId: string, context: string | null | undefined): Promise<string> {
-  const [cookHistory, smokerInsights] = await Promise.all([
+  const [cookHistory, smokerInsights, grillFingerprints] = await Promise.all([
     buildUserCookHistory(userId),
     computeSmokerInsights(userId),
+    buildPerGrillFingerprintSection(userId),
   ]);
   const smokerProfile = formatSmokerProfile(smokerInsights);
 
@@ -121,7 +166,7 @@ async function buildChatSystemPrompt(userId: string, context: string | null | un
 
 You have full access to this user's personal cook logs. Use this data to give personalized advice, reference their past cooks, and help them improve. When relevant, refer to their actual cook history by name and date.
 
-${cookHistory}${smokerProfile ? `\n\n${smokerProfile}` : ""}${context ? `\n\nAdditional context: ${context}` : ""}`;
+${cookHistory}${smokerProfile ? `\n\n${smokerProfile}` : ""}${grillFingerprints ? `\n\n${grillFingerprints}` : ""}${context ? `\n\nAdditional context: ${context}` : ""}`;
 }
 
 function pickChatSuggestions(): string[] {
@@ -797,6 +842,48 @@ Use this as your primary baseline. Adjust based on actual user data, grill speci
   const predictInsights = await computeSmokerInsights(req.userId);
   const predictSmokerProfile = formatSmokerProfile(predictInsights);
 
+  // ── Fingerprint calibration (deterministic) ─────────────────────────
+  // Build a single `calibratedMinsPerLb` from learned data with this
+  // priority: per-grill+meat (≥2 cooks) → user-wide+meat (≥2 cooks) → null.
+  // When weight is known, this drives the estimate directly.
+  const meatKey = simplifyFoodType(foodType);
+  const grillInsights = grillId
+    ? await computeSmokerInsights(req.userId, grillId)
+    : null;
+  const grillPattern = grillInsights?.durationByMeat?.[meatKey] ?? null;
+  const userPattern = predictInsights.durationByMeat?.[meatKey] ?? null;
+
+  let calibratedMinsPerLb: number | null = null;
+  let calibrationSource: "grill" | "user" | null = null;
+  let calibrationSampleSize = 0;
+  let calibrationBaseline: number | null = null;
+  let calibrationPctDiff: number | null = null;
+
+  if (grillPattern && grillPattern.sampleSize >= 2) {
+    calibratedMinsPerLb = grillPattern.actualMinsPerLb;
+    calibrationSource = "grill";
+    calibrationSampleSize = grillPattern.sampleSize;
+    calibrationBaseline = grillPattern.baselineMinsPerLb;
+    calibrationPctDiff = grillPattern.pctDiff;
+  } else if (userPattern && userPattern.sampleSize >= 2) {
+    calibratedMinsPerLb = userPattern.actualMinsPerLb;
+    calibrationSource = "user";
+    calibrationSampleSize = userPattern.sampleSize;
+    calibrationBaseline = userPattern.baselineMinsPerLb;
+    calibrationPctDiff = userPattern.pctDiff;
+  }
+
+  // Pit bias note (only meaningful when we have per-grill data)
+  const pitBiasF = grillInsights?.pitBiasF ?? null;
+  const significantBias = pitBiasF != null && Math.abs(pitBiasF) >= 3;
+
+  // Prompt guidance (always describes what we're enforcing server-side)
+  const fingerprintGuidance = calibratedMinsPerLb != null
+    ? `\n\n=== LEARNED PACE (ENFORCED SERVER-SIDE) ===\n${calibrationSource === "grill"
+        ? `This grill has cooked ${meatKey.replace(/_/g, " ")} ${calibrationSampleSize} time${calibrationSampleSize === 1 ? "" : "s"} at an actual pace of ${calibratedMinsPerLb} min/lb.`
+        : `Across all your grills, you've cooked ${meatKey.replace(/_/g, " ")} ${calibrationSampleSize} time${calibrationSampleSize === 1 ? "" : "s"} at an actual pace of ${calibratedMinsPerLb} min/lb.`} The final estimate will be derived from ${calibratedMinsPerLb} min/lb × weight, regardless of what you return — so calibrate your rationale and tips to match that pace and explicitly mention that this estimate uses the user's learned pace${calibrationSource === "grill" ? " on this grill" : ""}.${significantBias ? ` This grill also runs ${pitBiasF! > 0 ? "HOT" : "COLD"} by ~${Math.abs(pitBiasF!)}°F vs set point — set temp of ${cookTempF ?? 225}°F delivers ~${Math.round((cookTempF ?? 225) + pitBiasF!)}°F actual; factor that into your tips.` : ""}`
+    : "";
+
   const systemPrompt = `You are knowyourpit AI, a world-class BBQ pit master assistant with deep knowledge of competition-level BBQ. You have access to verified cook data, industry baselines, and the user's personal cook history. Your predictions are trusted and actionable.
 
 Return ONLY valid JSON with this exact structure — no markdown, no extra text:
@@ -843,7 +930,7 @@ ${predictSmokerProfile ? `\n${predictSmokerProfile}\n` : ""}
 ${grillContext}
 ${grillTempContext}
 ${baselineSection}
-${userHistorySection}`;
+${userHistorySection}${fingerprintGuidance}`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4.1-mini",
@@ -885,6 +972,55 @@ ${userHistorySection}`;
     reason: "No wrap needed for this cook.",
     restMinutes: 15,
   };
+
+  // Apply fingerprint deterministically: when we have a learned pace and
+  // a known weight, ALWAYS derive the estimate from `calibratedMinsPerLb
+  // × weightLbs`. The LLM is instructed to align its rationale to this.
+  const fingerprintNoteParts: string[] = [];
+  if (calibratedMinsPerLb != null) {
+    if (weightLbs && weightLbs > 0) {
+      prediction.estimatedDurationMinutes = Math.round(calibratedMinsPerLb * weightLbs);
+    }
+    const meatLabel = meatKey.replace(/_/g, " ");
+    const baseMsg = calibrationSource === "grill"
+      ? `Adjusted for this grill's learned pace on ${meatLabel}: ~${calibratedMinsPerLb} min/lb across ${calibrationSampleSize} cook${calibrationSampleSize === 1 ? "" : "s"}`
+      : `Adjusted for your learned pace on ${meatLabel} (across all grills): ~${calibratedMinsPerLb} min/lb across ${calibrationSampleSize} cook${calibrationSampleSize === 1 ? "" : "s"}`;
+    if (calibrationBaseline != null && calibrationPctDiff != null) {
+      const dirText = calibrationPctDiff > 5
+        ? `${calibrationPctDiff}% slower than ${calibrationBaseline} min/lb baseline`
+        : calibrationPctDiff < -5
+          ? `${Math.abs(calibrationPctDiff)}% faster than ${calibrationBaseline} min/lb baseline`
+          : `right at the ${calibrationBaseline} min/lb baseline`;
+      fingerprintNoteParts.push(`${baseMsg} (${dirText}).`);
+    } else {
+      fingerprintNoteParts.push(`${baseMsg}.`);
+    }
+  }
+  if (significantBias) {
+    const setTemp = cookTempF ?? 225;
+    fingerprintNoteParts.push(
+      `This grill runs ${pitBiasF! > 0 ? "hot" : "cold"} by ~${Math.abs(pitBiasF!)}°F — set ${setTemp}°F delivers ~${Math.round(setTemp + pitBiasF!)}°F actual, factored into the plan.`
+    );
+  }
+  const fingerprintNote: string | null = fingerprintNoteParts.length > 0
+    ? fingerprintNoteParts.join(" ")
+    : null;
+  // The fingerprint materially influenced the response whenever we built
+  // a deterministic note for the user — whether that's a learned-pace
+  // override (with or without a known weight) or a pit-bias adjustment
+  // note. The UI uses this flag to decide whether to render the chip.
+  const fingerprintApplied = fingerprintNote != null;
+  // Distinguish how the fingerprint was applied so the UI can pick chip
+  // text accurately (per-grill learned pace, user-wide learned pace
+  // fallback, or pit-bias-only adjustment).
+  const fingerprintSource: "grill" | "user" | "pit_bias_only" | null =
+    calibrationSource === "grill"
+      ? "grill"
+      : calibrationSource === "user"
+        ? "user"
+        : significantBias
+          ? "pit_bias_only"
+          : null;
 
   const now = new Date();
   const cookMs = prediction.estimatedDurationMinutes * 60000;
@@ -934,6 +1070,9 @@ ${userHistorySection}`;
     confidence: finalConfidence,
     rationale: prediction.rationale || "Based on food type and weight.",
     tips: prediction.tips || [],
+    fingerprintApplied,
+    fingerprintNote,
+    fingerprintSource,
   });
 });
 

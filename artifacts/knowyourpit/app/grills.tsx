@@ -28,6 +28,7 @@ import {
   getListGrillsQueryKey,
 } from "@workspace/api-client-react";
 import { GRILL_CATALOG, type GrillModel } from "@/constants/grillCatalog";
+import { GrillFingerprint } from "@/components/GrillFingerprint";
 
 const GRILL_TYPES = [
   "Kamado", "Offset Smoker", "Pellet Grill", "Kettle", "Gas Grill",
@@ -263,8 +264,9 @@ export default function GrillsScreen() {
           {allGrills.map((item: any) => (
             <View
               key={item.id}
-              style={[s.grillCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
+              style={[s.grillCardWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
             >
+            <View style={s.grillCard}>
               <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.grillCardIcon}>
                 <Feather name="wind" size={20} color="#fff" />
               </LinearGradient>
@@ -339,6 +341,8 @@ export default function GrillsScreen() {
                   <Feather name="trash-2" size={15} color={colors.destructive} />
                 </Pressable>
               </View>
+            </View>
+            <GrillFingerprint grillId={item.id} grillName={item.name} />
             </View>
           ))}
         </ScrollView>
@@ -608,7 +612,8 @@ const s = StyleSheet.create({
   browseCtaText: { color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 14 },
 
   /* My grills flat cards */
-  grillCard: { flexDirection: "row", alignItems: "center", gap: 14, borderWidth: 1, padding: 14 },
+  grillCardWrap: { borderWidth: 1, padding: 14 },
+  grillCard: { flexDirection: "row", alignItems: "center", gap: 14 },
   grillCardIcon: { width: 46, height: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", flexShrink: 0 },
   grillCardInfo: { flex: 1 },
   grillCardName: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 2 },

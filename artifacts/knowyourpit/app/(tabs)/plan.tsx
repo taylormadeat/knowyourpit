@@ -1557,6 +1557,7 @@ export default function PlanScreen() {
         colors={colors}
         aiResult={aiResult}
         applyAiPlan={applyAiPlan}
+        grillName={selectedGrill?.name}
       />
 
       {/* ════ MULTI-COOK RESULT MODAL ════ */}

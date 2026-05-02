@@ -289,6 +289,47 @@ export const DeleteCustomMeatCutParams = zod.object({
 });
 
 /**
+ * @summary Get the learned per-grill calibration profile (fingerprint)
+ */
+export const GetGrillFingerprintParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetGrillFingerprintResponse = zod.object({
+  grillId: zod.number(),
+  cookCount: zod.number().describe("Number of completed cooks on this grill"),
+  confidenceLevel: zod.enum(["none", "building", "developing", "established"]),
+  pitBiasF: zod
+    .number()
+    .nullable()
+    .describe(
+      "Average pit temperature bias vs set point (positive = runs hot)",
+    ),
+  overshootF: zod
+    .number()
+    .nullable()
+    .describe(
+      "Average pull temperature overshoot vs target (positive = overshoots)",
+    ),
+  durationByMeat: zod.record(
+    zod.string(),
+    zod.object({
+      actualMinsPerLb: zod.number(),
+      baselineMinsPerLb: zod.number().nullable(),
+      sampleSize: zod.number(),
+      pctDiff: zod
+        .number()
+        .nullable()
+        .describe(
+          "Percent difference vs baseline (positive = slower than baseline)",
+        ),
+    }),
+  ),
+  runLong: zod.boolean().nullable(),
+  runShort: zod.boolean().nullable(),
+});
+
+/**
  * @summary Get recent temperature readings grouped by cook for a specific grill
  */
 export const GetGrillTemperatureHistoryParams = zod.object({
@@ -1119,6 +1160,28 @@ export const AiPredictResponse = zod.object({
   confidence: zod.enum(["low", "medium", "high"]),
   rationale: zod.string(),
   tips: zod.array(zod.string()),
+  fingerprintApplied: zod
+    .boolean()
+    .describe(
+      "True when the per-grill fingerprint adjusted the time estimate or note",
+    ),
+  fingerprintNote: zod
+    .string()
+    .nullable()
+    .describe(
+      "Human-readable note about how the grill's fingerprint was applied",
+    ),
+  fingerprintSource: zod
+    .union([
+      zod.literal("grill"),
+      zod.literal("user"),
+      zod.literal("pit_bias_only"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe(
+      "Source of the fingerprint adjustment (per-grill learned pace, user-wide fallback, or pit bias only)",
+    ),
 });
 
 /**

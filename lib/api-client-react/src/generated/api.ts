@@ -39,6 +39,7 @@ import type {
   ForumPost,
   ForumPostDetail,
   Grill,
+  GrillFingerprint,
   GrillStats,
   GrillTemperatureHistory,
   HealthStatus,
@@ -988,6 +989,93 @@ export const useDeleteCustomMeatCut = <
 > => {
   return useMutation(getDeleteCustomMeatCutMutationOptions(options));
 };
+
+/**
+ * @summary Get the learned per-grill calibration profile (fingerprint)
+ */
+export const getGetGrillFingerprintUrl = (id: number) => {
+  return `/api/grills/${id}/fingerprint`;
+};
+
+export const getGrillFingerprint = async (
+  id: number,
+  options?: RequestInit,
+): Promise<GrillFingerprint> => {
+  return customFetch<GrillFingerprint>(getGetGrillFingerprintUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetGrillFingerprintQueryKey = (id: number) => {
+  return [`/api/grills/${id}/fingerprint`] as const;
+};
+
+export const getGetGrillFingerprintQueryOptions = <
+  TData = Awaited<ReturnType<typeof getGrillFingerprint>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGrillFingerprint>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetGrillFingerprintQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getGrillFingerprint>>
+  > = ({ signal }) => getGrillFingerprint(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getGrillFingerprint>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetGrillFingerprintQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getGrillFingerprint>>
+>;
+export type GetGrillFingerprintQueryError = ErrorType<void>;
+
+/**
+ * @summary Get the learned per-grill calibration profile (fingerprint)
+ */
+
+export function useGetGrillFingerprint<
+  TData = Awaited<ReturnType<typeof getGrillFingerprint>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGrillFingerprint>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetGrillFingerprintQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get recent temperature readings grouped by cook for a specific grill

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AiPredictResponseConfidence } from "./aiPredictResponseConfidence";
+import type { AiPredictResponseFingerprintSource } from "./aiPredictResponseFingerprintSource";
 import type { WrapRecommendation } from "./wrapRecommendation";
 
 export interface AiPredictResponse {
@@ -37,4 +38,16 @@ export interface AiPredictResponse {
   confidence: AiPredictResponseConfidence;
   rationale: string;
   tips: string[];
+  /** True when the per-grill fingerprint adjusted the time estimate or note */
+  fingerprintApplied: boolean;
+  /**
+   * Human-readable note about how the grill's fingerprint was applied
+   * @nullable
+   */
+  fingerprintNote: string | null;
+  /**
+   * Source of the fingerprint adjustment (per-grill learned pace, user-wide fallback, or pit bias only)
+   * @nullable
+   */
+  fingerprintSource: AiPredictResponseFingerprintSource;
 }

@@ -155,6 +155,54 @@ export interface GrillStats {
   totalReadings: number;
 }
 
+export interface GrillFingerprintDurationPattern {
+  actualMinsPerLb: number;
+  /** @nullable */
+  baselineMinsPerLb: number | null;
+  sampleSize: number;
+  /**
+   * Percent difference vs baseline (positive = slower than baseline)
+   * @nullable
+   */
+  pctDiff: number | null;
+}
+
+export type GrillFingerprintConfidenceLevel =
+  (typeof GrillFingerprintConfidenceLevel)[keyof typeof GrillFingerprintConfidenceLevel];
+
+export const GrillFingerprintConfidenceLevel = {
+  none: "none",
+  building: "building",
+  developing: "developing",
+  established: "established",
+} as const;
+
+export type GrillFingerprintDurationByMeat = {
+  [key: string]: GrillFingerprintDurationPattern;
+};
+
+export interface GrillFingerprint {
+  grillId: number;
+  /** Number of completed cooks on this grill */
+  cookCount: number;
+  confidenceLevel: GrillFingerprintConfidenceLevel;
+  /**
+   * Average pit temperature bias vs set point (positive = runs hot)
+   * @nullable
+   */
+  pitBiasF: number | null;
+  /**
+   * Average pull temperature overshoot vs target (positive = overshoots)
+   * @nullable
+   */
+  overshootF: number | null;
+  durationByMeat: GrillFingerprintDurationByMeat;
+  /** @nullable */
+  runLong: boolean | null;
+  /** @nullable */
+  runShort: boolean | null;
+}
+
 export interface GrillTempReading {
   id: number;
   /** @nullable */
@@ -783,6 +831,20 @@ export const AiPredictResponseConfidence = {
   high: "high",
 } as const;
 
+/**
+ * Source of the fingerprint adjustment (per-grill learned pace, user-wide fallback, or pit bias only)
+ * @nullable
+ */
+export type AiPredictResponseFingerprintSource =
+  | (typeof AiPredictResponseFingerprintSource)[keyof typeof AiPredictResponseFingerprintSource]
+  | null;
+
+export const AiPredictResponseFingerprintSource = {
+  grill: "grill",
+  user: "user",
+  pit_bias_only: "pit_bias_only",
+} as const;
+
 export interface AiPredictResponse {
   /** Active cook time only (food on → off grill), excluding preheat and rest */
   estimatedDurationMinutes: number;
@@ -812,6 +874,18 @@ export interface AiPredictResponse {
   confidence: AiPredictResponseConfidence;
   rationale: string;
   tips: string[];
+  /** True when the per-grill fingerprint adjusted the time estimate or note */
+  fingerprintApplied: boolean;
+  /**
+   * Human-readable note about how the grill's fingerprint was applied
+   * @nullable
+   */
+  fingerprintNote: string | null;
+  /**
+   * Source of the fingerprint adjustment (per-grill learned pace, user-wide fallback, or pit bias only)
+   * @nullable
+   */
+  fingerprintSource: AiPredictResponseFingerprintSource;
 }
 
 export interface MultiCookItem {

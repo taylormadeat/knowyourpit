@@ -230,6 +230,27 @@ paths:
         "204":
           description: Deleted
 
+  /grills/{id}/fingerprint:
+    get:
+      operationId: getGrillFingerprint
+      tags: [grills]
+      summary: Get the learned per-grill calibration profile (fingerprint)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Grill fingerprint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrillFingerprint"
+        "404":
+          description: Grill not found
+
   /grills/{id}/temperature-history:
     get:
       operationId: getGrillTemperatureHistory
@@ -1179,6 +1200,59 @@ components:
         - probeHighTempF
         - totalReadings
 
+    GrillFingerprintDurationPattern:
+      type: object
+      properties:
+        actualMinsPerLb:
+          type: integer
+        baselineMinsPerLb:
+          type: ["integer", "null"]
+        sampleSize:
+          type: integer
+        pctDiff:
+          type: ["integer", "null"]
+          description: Percent difference vs baseline (positive = slower than baseline)
+      required:
+        - actualMinsPerLb
+        - baselineMinsPerLb
+        - sampleSize
+        - pctDiff
+
+    GrillFingerprint:
+      type: object
+      properties:
+        grillId:
+          type: integer
+        cookCount:
+          type: integer
+          description: Number of completed cooks on this grill
+        confidenceLevel:
+          type: string
+          enum: [none, building, developing, established]
+        pitBiasF:
+          type: ["number", "null"]
+          description: Average pit temperature bias vs set point (positive = runs hot)
+        overshootF:
+          type: ["number", "null"]
+          description: Average pull temperature overshoot vs target (positive = overshoots)
+        durationByMeat:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/GrillFingerprintDurationPattern"
+        runLong:
+          type: ["boolean", "null"]
+        runShort:
+          type: ["boolean", "null"]
+      required:
+        - grillId
+        - cookCount
+        - confidenceLevel
+        - pitBiasF
+        - overshootF
+        - durationByMeat
+        - runLong
+        - runShort
+
     GrillTempReading:
       type: object
       properties:
@@ -1966,6 +2040,16 @@ components:
           type: array
           items:
             type: string
+        fingerprintApplied:
+          type: boolean
+          description: True when the per-grill fingerprint adjusted the time estimate or note
+        fingerprintNote:
+          type: ["string", "null"]
+          description: Human-readable note about how the grill's fingerprint was applied
+        fingerprintSource:
+          type: ["string", "null"]
+          enum: [grill, user, pit_bias_only, null]
+          description: Source of the fingerprint adjustment (per-grill learned pace, user-wide fallback, or pit bias only)
       required:
         - estimatedDurationMinutes
         - preheatMinutes
@@ -1976,6 +2060,9 @@ components:
         - wrap
         - confidence
         - rationale
+        - fingerprintApplied
+        - fingerprintNote
+        - fingerprintSource
         - tips
 
     MultiCookItem:

@@ -18,7 +18,7 @@ function getProbes(result: unknown): StoredProbe[] {
   return Array.isArray(r.probes) ? r.probes : [];
 }
 
-function simplifyFoodType(foodType: string): string {
+export function simplifyFoodType(foodType: string): string {
   const lower = foodType.toLowerCase();
   if (lower.includes("brisket")) return "brisket";
   if (lower.includes("pork butt") || lower.includes("boston butt") || lower.includes("pork shoulder")) return "pork_butt";
@@ -42,10 +42,14 @@ export interface DurationPattern {
   actualMinsPerLb: number;
   baselineMinsPerLb: number | null;
   sampleSize: number;
+  pctDiff: number | null;
 }
+
+export type ConfidenceLevel = "none" | "building" | "developing" | "established";
 
 export interface SmokerInsights {
   cookCount: number;
+  confidenceLevel: ConfidenceLevel;
   pitBiasF: number | null;
   overshootF: number | null;
   durationByMeat: Record<string, DurationPattern>;
@@ -53,11 +57,21 @@ export interface SmokerInsights {
   runShort: boolean | null;
 }
 
-export async function computeSmokerInsights(userId: string): Promise<SmokerInsights> {
+export function confidenceLevelFor(cookCount: number): ConfidenceLevel {
+  if (cookCount >= 10) return "established";
+  if (cookCount >= 5) return "developing";
+  if (cookCount >= 2) return "building";
+  return "none";
+}
+
+export async function computeSmokerInsights(userId: string, grillId?: number): Promise<SmokerInsights> {
+  const baseConditions = [eq(cooksTable.userId, userId), eq(cooksTable.status, "completed")];
+  if (grillId != null) baseConditions.push(eq(cooksTable.grillId, grillId));
+
   const completedCooks = await db
     .select()
     .from(cooksTable)
-    .where(and(eq(cooksTable.userId, userId), eq(cooksTable.status, "completed")))
+    .where(and(...baseConditions))
     .orderBy(desc(cooksTable.createdAt))
     .limit(50);
 
@@ -132,10 +146,16 @@ export async function computeSmokerInsights(userId: string): Promise<SmokerInsig
 
   const durationByMeat: Record<string, DurationPattern> = {};
   for (const [key, { total, count }] of Object.entries(durationData)) {
+    const actualMinsPerLb = Math.round(total / count);
+    const baselineMinsPerLb = BASELINE_MINS_PER_LB[key] ?? null;
     durationByMeat[key] = {
-      actualMinsPerLb: Math.round(total / count),
-      baselineMinsPerLb: BASELINE_MINS_PER_LB[key] ?? null,
+      actualMinsPerLb,
+      baselineMinsPerLb,
       sampleSize: count,
+      pctDiff:
+        baselineMinsPerLb != null
+          ? Math.round(((actualMinsPerLb - baselineMinsPerLb) / baselineMinsPerLb) * 100)
+          : null,
     };
   }
 
@@ -152,6 +172,7 @@ export async function computeSmokerInsights(userId: string): Promise<SmokerInsig
 
   return {
     cookCount,
+    confidenceLevel: confidenceLevelFor(cookCount),
     pitBiasF,
     overshootF,
     durationByMeat,
