@@ -20,7 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useLayout } from "@/hooks/useLayout";
-import { useGetSessionCooks, useUpdateSession, useDeleteSession, useRemoveCookFromSession, useUpdateCook, getGetSessionCooksQueryKey } from "@workspace/api-client-react";
+import { useGetSessionCooks, useUpdateSession, useDeleteSession, useRemoveCookFromSession, useUpdateCook, getGetSessionCooksQueryKey, type UpdateCookBody } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { LogoBackground } from "@/components/LogoBackground";
 import {
@@ -301,14 +301,15 @@ export default function SessionDetailScreen() {
         judgeScore === c.judgeScore &&
         judgeNotes === c.judgeNotes
       ) continue;
+      const data: UpdateCookBody = {
+        competitionPlacement: placement,
+        judgeScore: judgeScore,
+        judgeNotes: judgeNotes,
+      };
       tasks.push(
         updateCook.mutateAsync({
           id: c.id,
-          data: {
-            competitionPlacement: placement,
-            judgeScore: judgeScore,
-            judgeNotes: judgeNotes,
-          } as any,
+          data,
         }),
       );
     }
@@ -408,6 +409,18 @@ export default function SessionDetailScreen() {
         const d = new Date(c.plannedStartAt);
         return min === null || d < min ? d : min;
       }, null)
+    : null;
+
+  // For competition mode the canonical "last meaningful time" is the latest
+  // turn-in deadline, NOT plannedEndAt (which is the rest-finish time, i.e.
+  // turn-in minus the box-pack window). The session header summary uses this
+  // when isCompetitionSession to avoid showing a too-early turn-in time.
+  const latestTurnIn = competitionCooks.length > 0
+    ? competitionCooks.reduce((max: Date | null, c: any) => {
+        if (!c.turnInAt) return max;
+        const d = new Date(c.turnInAt);
+        return max === null || d > max ? d : max;
+      }, null as Date | null)
     : null;
 
   const latestEnd = cooks && cooks.length > 0
@@ -561,11 +574,13 @@ export default function SessionDetailScreen() {
               <Text style={[s.summaryMeta, { color: colors.mutedForeground }]}>
                 {(cooks ?? []).length} items
                 {earliestStart ? ` · starts ${fmtTime(earliestStart)}` : ""}
-                {latestEnd
-                  ? isCompetitionSession
-                    ? ` · last turn-in ${fmtTime(latestEnd)}`
-                    : ` · serves ${fmtTime(latestEnd)}`
-                  : ""}
+                {isCompetitionSession
+                  ? latestTurnIn
+                    ? ` · last turn-in ${fmtTime(latestTurnIn)}`
+                    : ""
+                  : latestEnd
+                    ? ` · serves ${fmtTime(latestEnd)}`
+                    : ""}
               </Text>
               {isCompetitionSession && competitionCategories.length > 0 && (
                 <View style={s.catChipsRow}>
