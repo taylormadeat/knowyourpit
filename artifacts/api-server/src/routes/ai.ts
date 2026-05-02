@@ -1158,7 +1158,7 @@ router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): P
   const serveAtDate = new Date(serveAt);
 
   // Build item lines for the prompt
-  const itemLines = items.map((item, i) => {
+  const itemLines = items.map((item: typeof items[number], i: number) => {
     const preheat = item.preheatMinutes ?? 25;
     const parts: string[] = [
       `${i + 1}. ${item.foodType}`,
@@ -1327,8 +1327,42 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
           ? new Date(new Date(turnInAt).getTime() - BOX_PACK_LEAD_MS).toISOString()
           : null;
 
+        // In competition mode, anchor the timeline to the per-item turnInAt.
+        // If the model returned an estimatedFinishAt later than boxPackAt
+        // (i.e. the AI mistakenly planned to the shared serveAt instead of
+        // the per-item turn-in), shift meatOnAt / grillLightAt /
+        // estimatedFinishAt earlier by the delta so the cook lands on time
+        // for box-packing. This is a safety net — the prompt asks the model
+        // to backwards-plan from each item's turnInAt directly.
+        let meatOnAt = item.meatOnAt;
+        let grillLightAt = item.grillLightAt;
+        let estimatedFinishAt = item.estimatedFinishAt;
+        if (isCompetitionMode && boxPackAt && estimatedFinishAt) {
+          const finishMs = new Date(estimatedFinishAt).getTime();
+          const boxMs = new Date(boxPackAt).getTime();
+          if (!Number.isNaN(finishMs) && !Number.isNaN(boxMs) && finishMs > boxMs) {
+            const deltaMs = finishMs - boxMs;
+            req.log.warn(
+              { foodType: item.foodType, deltaMs, finishMs, boxMs },
+              "competition item finish later than boxPackAt; shifting timeline earlier",
+            );
+            const shift = (iso: string | null | undefined): string | null => {
+              if (!iso) return iso ?? null;
+              const t = new Date(iso).getTime();
+              if (Number.isNaN(t)) return iso;
+              return new Date(t - deltaMs).toISOString();
+            };
+            estimatedFinishAt = shift(estimatedFinishAt);
+            meatOnAt = shift(meatOnAt);
+            grillLightAt = shift(grillLightAt);
+          }
+        }
+
         return {
           ...item,
+          meatOnAt,
+          grillLightAt,
+          estimatedFinishAt,
           wrapMethod,
           wrapAtMinutes,
           wrapTempF,

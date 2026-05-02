@@ -29,6 +29,7 @@ The project uses a monorepo structure managed by pnpm workspaces. It is built wi
 - **Recipes**: Enables browsing, searching, favoriting, and managing BBQ recipes.
 - **Community**: Includes a forum for posts, comments, and likes, alongside categorized cooking tips.
 - **Alerts**: Users can set temperature thresholds and rules for notifications.
+- **KCBS Competition Mode (Pro)**: Pro-gated workflow on the Plan tab for backwards-planning a 4-category KCBS competition (chicken, ribs, pork, brisket) to per-item turn-in times. The session view renders a competition badge, category chips, countdowns to each turn-in, a 15-minute box-packing step, and a "Log Your Results" sheet for placement / judge score / notes. Competition placements feed the PitMaster Score with the highest weight (0.5). The Cook Log includes a "Competitions" filter chip.
 
 **Technical Implementations:**
 - **API Codegen**: Utilizes Orval for generating API hooks and Zod schemas from an OpenAPI specification.

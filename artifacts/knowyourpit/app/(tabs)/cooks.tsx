@@ -229,8 +229,13 @@ export default function CooksScreen() {
     }
     if (competitionsOnly) {
       for (const sid of Object.keys(grouped)) {
-        if (!grouped[sid].some((c: any) => c.isCompetition)) {
+        const compCooks = grouped[sid].filter((c: any) => c.isCompetition);
+        if (compCooks.length === 0) {
           delete grouped[sid];
+        } else {
+          // Drop any non-competition cooks from a mixed session so the
+          // expanded session view also strictly respects the filter.
+          grouped[sid] = compCooks;
         }
       }
     }
