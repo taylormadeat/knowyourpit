@@ -95,26 +95,133 @@ function preheatMinsForGrill(grill: any | null): number {
   return 25;
 }
 
+// ─── Frozen-to-Table planning ────────────────────────────────────────────
+// USDA-aligned thaw rate estimates. Fridge: ~24h per 4-5 lbs (we use 4.5).
+// Cold water: ~1h per lb (with water changed every 30 min).
+const THAW_FRIDGE_HOURS_PER_LB = 24 / 4.5;
+const THAW_COLD_WATER_HOURS_PER_LB = 1;
+// Fixed temper window — sit at room temp before going on the grill.
+const TEMPER_MINUTES = 90;
+
+type ThawMethod = "fridge" | "cold_water";
+
+interface FrozenOptions {
+  enabled: boolean;
+  method: ThawMethod;
+}
+
+function calcThawMinutes(weightLbs: number, method: ThawMethod): number {
+  if (weightLbs <= 0) return 0;
+  const hours =
+    method === "fridge"
+      ? weightLbs * THAW_FRIDGE_HOURS_PER_LB
+      : weightLbs * THAW_COLD_WATER_HOURS_PER_LB;
+  return Math.round(hours * 60);
+}
+
+interface FrozenSchedule {
+  method: ThawMethod;
+  thawStartAt: Date; // Move to fridge / start cold-water thaw
+  thawEndAt: Date; // Meat fully thawed (= temper start)
+  temperStartAt: Date; // Same as thawEndAt
+  temperEndAt: Date; // Same as preheat start (cook startAt)
+  thawMins: number;
+  temperMins: number;
+}
+
+interface WrapStage {
+  wrapAt: Date; // when to wrap (mid-cook stall)
+  wrapTempF: number; // estimated internal temp at wrap
+}
+
 interface CookSchedule {
-  startAt: Date;
+  startAt: Date; // preheat start
+  meatOnAt: Date; // preheat end / meat goes on
+  pullAt: Date; // cook end / pull off the grill
+  restEndAt: Date; // rest end / time to serve
   preheatMins: number;
   cookMins: number;
   restMins: number;
   totalMins: number;
+  wrap?: WrapStage; // only for low-and-slow cuts that hit the stall
+  frozen?: FrozenSchedule;
+}
+
+// Heuristic: a cut hits the stall (and benefits from a wrap) if the
+// cookMethod is "Low & Slow" or it's a long cook (≥30 min/lb at low temp).
+function cutHasStall(cut: MeatCut): boolean {
+  const method = (cut.cookMethod ?? "").toLowerCase();
+  if (method.includes("low") && method.includes("slow")) return true;
+  // Long-and-slow cuts that aren't tagged but still stall
+  if (cut.minsPerLb >= 30 && cut.cookTempF <= 275) return true;
+  return false;
 }
 
 function calcSchedule(
   serveAt: Date,
   cut: MeatCut,
   weightLbs: number,
-  grill: any | null
+  grill: any | null,
+  frozenOptions?: FrozenOptions
 ): CookSchedule {
   const preheatMins = preheatMinsForGrill(grill);
   const cookMins = Math.round(cut.minsPerLb * weightLbs);
   const restMins = cut.restMins;
   const totalMins = preheatMins + cookMins + restMins;
   const startAt = new Date(serveAt.getTime() - totalMins * 60 * 1000);
-  return { startAt, preheatMins, cookMins, restMins, totalMins };
+  const meatOnAt = new Date(startAt.getTime() + preheatMins * 60_000);
+  const pullAt = new Date(meatOnAt.getTime() + cookMins * 60_000);
+  const restEndAt = serveAt;
+
+  // Wrap typically happens around the stall (≈60% of cook time, ~160-170°F).
+  const wrap: WrapStage | undefined = cutHasStall(cut)
+    ? {
+        wrapAt: new Date(meatOnAt.getTime() + Math.round(cookMins * 0.6) * 60_000),
+        wrapTempF: 165,
+      }
+    : undefined;
+
+  if (!frozenOptions?.enabled) {
+    return {
+      startAt,
+      meatOnAt,
+      pullAt,
+      restEndAt,
+      preheatMins,
+      cookMins,
+      restMins,
+      totalMins,
+      wrap,
+    };
+  }
+
+  const thawMins = calcThawMinutes(weightLbs, frozenOptions.method);
+  const temperMins = TEMPER_MINUTES;
+  const temperEndAt = startAt;
+  const temperStartAt = new Date(temperEndAt.getTime() - temperMins * 60_000);
+  const thawEndAt = temperStartAt;
+  const thawStartAt = new Date(thawEndAt.getTime() - thawMins * 60_000);
+
+  return {
+    startAt,
+    meatOnAt,
+    pullAt,
+    restEndAt,
+    preheatMins,
+    cookMins,
+    restMins,
+    totalMins,
+    wrap,
+    frozen: {
+      method: frozenOptions.method,
+      thawStartAt,
+      thawEndAt,
+      temperStartAt,
+      temperEndAt,
+      thawMins,
+      temperMins,
+    },
+  };
 }
 
 function fmtDuration(mins: number): string {
@@ -124,6 +231,23 @@ function fmtDuration(mins: number): string {
 function fmtElapsedPlan(ms: number): string {
   if (ms <= 0) return "0m";
   return fmtMinutes(Math.floor(ms / 60000));
+}
+
+// Friendly "in 2 days" / "in 5 hrs" / "in 30 min" helper for the
+// hero call-to-action banner above the timeline.
+function fmtFromNow(target: Date): string {
+  const diffMs = target.getTime() - Date.now();
+  if (diffMs <= 0) return "now";
+  const mins = Math.round(diffMs / 60_000);
+  if (mins < 60) return `in ${mins} min`;
+  const hrs = mins / 60;
+  if (hrs < 24) {
+    const rounded = Math.round(hrs);
+    return `in ${rounded} hr${rounded === 1 ? "" : "s"}`;
+  }
+  const days = hrs / 24;
+  if (days < 1.5) return "tomorrow";
+  return `in ${Math.round(days)} days`;
 }
 
 // ─── Meat prep guide data ────────────────────────────────────────────────
@@ -539,6 +663,10 @@ export default function PlanScreen() {
   const [targetTempF, setTargetTempF] = useState("");
   const [cookTempF, setCookTempF] = useState("");
 
+  // ── Frozen-to-table planning ─────────────────────────────────────────
+  const [frozenEnabled, setFrozenEnabled] = useState(false);
+  const [thawMethod, setThawMethod] = useState<ThawMethod>("fridge");
+
   // ── Serve-by picker state ────────────────────────────────────────────
   const upcomingDates = useMemo(() => getUpcomingDates(), []);
   const defaultServeAt = useMemo(() => {
@@ -628,6 +756,8 @@ export default function PlanScreen() {
     setPrepGuideOpen(false);
     setMeatPickerOpen(false);
     setMeatCategory(MEAT_CATEGORIES[0]);
+    setFrozenEnabled(false);
+    setThawMethod("fridge");
   };
 
   const resetMultiForm = () => {
@@ -666,8 +796,17 @@ export default function PlanScreen() {
   const parsedWeight = parseFloat(weightLbs) || 0;
   const schedule = useMemo(() => {
     if (!selectedCut || parsedWeight <= 0) return null;
-    return calcSchedule(serveAt, selectedCut, parsedWeight, selectedGrill);
-  }, [selectedCut, parsedWeight, serveAt, selectedGrill]);
+    return calcSchedule(serveAt, selectedCut, parsedWeight, selectedGrill, {
+      enabled: frozenEnabled,
+      method: thawMethod,
+    });
+  }, [selectedCut, parsedWeight, serveAt, selectedGrill, frozenEnabled, thawMethod]);
+
+  // Edge case: if frozen toggle is on and the calculated thaw start is in the
+  // past, the serve time is too soon for a full thaw. We surface a warning
+  // and recommend cold-water (or moving the serve time later).
+  const frozenStartInPast =
+    !!schedule?.frozen && schedule.frozen.thawStartAt.getTime() < Date.now();
 
   // When user picks a meat cut, auto-fill temps
   const handlePickCut = (cut: MeatCut) => {
@@ -1055,6 +1194,122 @@ export default function PlanScreen() {
           <Text style={[s.inputUnit, { color: colors.mutedForeground }]}>lbs</Text>
         </View>
 
+        {/* ── Frozen-to-Table Toggle ── */}
+        <Pressable
+          onPress={() => {
+            if (!effectivePro) {
+              showPaywall({
+                trigger: "pro_required",
+                featureName: "Frozen-to-Table Timeline",
+                foodType: selectedCut?.name ?? null,
+              });
+              return;
+            }
+            setFrozenEnabled((prev) => !prev);
+            Haptics.selectionAsync();
+          }}
+          style={[
+            s.frozenCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: frozenEnabled && effectivePro ? "#3B82F6" : colors.border,
+              borderRadius: colors.radius,
+              marginTop: 16,
+              opacity: effectivePro ? 1 : 0.85,
+            },
+          ]}
+        >
+          <View style={[s.frozenIconWrap, { backgroundColor: (effectivePro ? "#3B82F6" : colors.mutedForeground) + "22" }]}>
+            <Feather name="cloud-snow" size={16} color={effectivePro ? "#3B82F6" : colors.mutedForeground} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={[s.frozenTitle, { color: colors.foreground }]}>
+                Starting from frozen?
+              </Text>
+              {!effectivePro && (
+                <View style={s.proPill}>
+                  <Feather name="star" size={9} color="#fff" />
+                  <Text style={s.proPillText}>PRO</Text>
+                </View>
+              )}
+            </View>
+            <Text style={[s.frozenSub, { color: colors.mutedForeground }]} numberOfLines={2}>
+              {effectivePro
+                ? frozenEnabled
+                  ? "We'll add thaw + temper time to your full timeline."
+                  : "Plan your cook from freezer to table."
+                : "Pro: full timeline from freezer to table."}
+            </Text>
+          </View>
+          {effectivePro ? (
+            <View
+              style={[
+                s.toggleTrack,
+                {
+                  backgroundColor: frozenEnabled ? "#3B82F6" : colors.muted,
+                  borderColor: frozenEnabled ? "#3B82F6" : colors.border,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  s.toggleThumb,
+                  {
+                    backgroundColor: "#fff",
+                    transform: [{ translateX: frozenEnabled ? 18 : 0 }],
+                  },
+                ]}
+              />
+            </View>
+          ) : (
+            <Feather name="lock" size={16} color={colors.mutedForeground} />
+          )}
+        </Pressable>
+
+        {/* Thaw method picker — only shown when Pro + toggle on */}
+        {effectivePro && frozenEnabled && (
+          <View style={[s.thawMethodRow, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            {([
+              { key: "fridge" as const, label: "Refrigerator", icon: "box" as const, sub: "~24h per 4–5 lbs" },
+              { key: "cold_water" as const, label: "Cold Water", icon: "droplet" as const, sub: "~1h per lb" },
+            ]).map((m) => {
+              const active = thawMethod === m.key;
+              return (
+                <Pressable
+                  key={m.key}
+                  onPress={() => {
+                    setThawMethod(m.key);
+                    Haptics.selectionAsync();
+                  }}
+                  style={[
+                    s.thawMethodBtn,
+                    {
+                      backgroundColor: active ? "#3B82F6" : "transparent",
+                      borderRadius: colors.radius - 2,
+                    },
+                  ]}
+                >
+                  <Feather name={m.icon} size={14} color={active ? "#fff" : colors.mutedForeground} />
+                  <View style={{ alignItems: "center" }}>
+                    <Text style={[s.thawMethodLabel, { color: active ? "#fff" : colors.foreground }]}>
+                      {m.label}
+                    </Text>
+                    <Text
+                      style={[
+                        s.thawMethodSub,
+                        { color: active ? "rgba(255,255,255,0.85)" : colors.mutedForeground },
+                      ]}
+                    >
+                      {m.sub}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+
         {/* ── Temp overrides ── */}
         <View style={s.tempRow}>
           <View style={{ flex: 1 }}>
@@ -1350,6 +1605,52 @@ export default function PlanScreen() {
           </Pressable>
         )}
 
+        {/* ── First-action hero (frozen mode only) ── */}
+        {schedule?.frozen && !frozenStartInPast && (
+          <View style={[s.firstActionCard, { borderRadius: colors.radius }]}>
+            <LinearGradient
+              colors={["#3B82F6", "#60A5FA"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[s.firstActionInner, { borderRadius: colors.radius }]}
+            >
+              <View style={s.firstActionIcon}>
+                <Feather
+                  name={schedule.frozen.method === "fridge" ? "box" : "droplet"}
+                  size={20}
+                  color="#fff"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.firstActionLabel}>NEXT UP</Text>
+                <Text style={s.firstActionTitle}>
+                  {schedule.frozen.method === "fridge"
+                    ? "Move to fridge"
+                    : "Start cold-water thaw"}{" "}
+                  {fmtFromNow(schedule.frozen.thawStartAt)}
+                </Text>
+                <Text style={s.firstActionSub}>
+                  {formatDateTime(schedule.frozen.thawStartAt)}
+                </Text>
+              </View>
+            </LinearGradient>
+          </View>
+        )}
+
+        {/* ── Frozen warning: thaw start in the past ── */}
+        {schedule?.frozen && frozenStartInPast && (
+          <View style={[s.frozenWarning, { borderRadius: colors.radius }]}>
+            <Feather name="alert-triangle" size={16} color="#F59E0B" />
+            <View style={{ flex: 1 }}>
+              <Text style={s.frozenWarningTitle}>Serve time is too soon</Text>
+              <Text style={s.frozenWarningBody}>
+                A full {schedule.frozen.method === "fridge" ? "fridge thaw" : "cold-water thaw"} for {parsedWeight} lbs needs about {fmtDuration(schedule.frozen.thawMins)}. Push the serve time later
+                {schedule.frozen.method === "fridge" ? " or switch to cold-water thaw" : ""}.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* ── Cook Schedule Summary ── */}
         {schedule && (
           <View style={[s.scheduleCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
@@ -1360,12 +1661,50 @@ export default function PlanScreen() {
               style={s.scheduleHeader}
             >
               <Feather name="clock" size={16} color="#fff" />
-              <Text style={s.scheduleHeaderText}>Your Cook Schedule</Text>
+              <Text style={s.scheduleHeaderText}>
+                {schedule.frozen ? "Frozen → Table Timeline" : "Your Cook Schedule"}
+              </Text>
             </LinearGradient>
             <View style={s.scheduleBody}>
+              {schedule.frozen && (
+                <>
+                  <ScheduleRow
+                    icon={schedule.frozen.method === "fridge" ? "box" : "droplet"}
+                    label={
+                      schedule.frozen.method === "fridge"
+                        ? "Move to fridge"
+                        : "Start cold-water thaw"
+                    }
+                    value={formatDateTime(schedule.frozen.thawStartAt)}
+                    sub={`~${fmtDuration(schedule.frozen.thawMins)} thaw · ${
+                      schedule.frozen.method === "fridge"
+                        ? "fridge thaw"
+                        : "change water every 30 min"
+                    }`}
+                    colors={colors}
+                  />
+                  <View style={[s.scheduleLine, { backgroundColor: colors.border }]} />
+                  <ScheduleRow
+                    icon="check"
+                    label="Meat fully thawed"
+                    value={formatDateTime(schedule.frozen.thawEndAt)}
+                    sub="Move to counter for temper"
+                    colors={colors}
+                  />
+                  <View style={[s.scheduleLine, { backgroundColor: colors.border }]} />
+                  <ScheduleRow
+                    icon="thermometer"
+                    label="Temper at room temp"
+                    value={formatDateTime(schedule.frozen.temperStartAt)}
+                    sub={`~${fmtDuration(schedule.frozen.temperMins)} on the counter`}
+                    colors={colors}
+                  />
+                  <View style={[s.scheduleLine, { backgroundColor: colors.border }]} />
+                </>
+              )}
               <ScheduleRow
                 icon="power"
-                label="Start Grill (preheat)"
+                label="Start preheat"
                 value={formatDateTime(schedule.startAt)}
                 sub={`~${fmtDuration(schedule.preheatMins)} preheat`}
                 colors={colors}
@@ -1373,25 +1712,49 @@ export default function PlanScreen() {
               <View style={[s.scheduleLine, { backgroundColor: colors.border }]} />
               <ScheduleRow
                 icon="zap"
-                label="Put on the meat"
-                value={formatDateTime(new Date(schedule.startAt.getTime() + schedule.preheatMins * 60000))}
+                label="Meat on"
+                value={formatDateTime(schedule.meatOnAt)}
                 sub={`~${fmtDuration(schedule.cookMins)} cook time`}
                 colors={colors}
               />
+              {schedule.wrap && (
+                <>
+                  <View style={[s.scheduleLine, { backgroundColor: colors.border }]} />
+                  <ScheduleRow
+                    icon="package"
+                    label="Stall / wrap"
+                    value={formatDateTime(schedule.wrap.wrapAt)}
+                    sub={`Wrap around ${schedule.wrap.wrapTempF}°F internal to push through the stall`}
+                    colors={colors}
+                  />
+                </>
+              )}
               <View style={[s.scheduleLine, { backgroundColor: colors.border }]} />
               <ScheduleRow
                 icon="pause"
                 label="Pull off the grill"
-                value={formatDateTime(new Date(serveAt.getTime() - schedule.restMins * 60000))}
-                sub={`~${fmtDuration(schedule.restMins)} rest`}
+                value={formatDateTime(schedule.pullAt)}
+                sub="Hits target internal temp"
+                colors={colors}
+              />
+              <View style={[s.scheduleLine, { backgroundColor: colors.border }]} />
+              <ScheduleRow
+                icon="coffee"
+                label="Rest"
+                value={formatDateTime(schedule.pullAt)}
+                sub={`~${fmtDuration(schedule.restMins)} rest before slicing`}
                 colors={colors}
               />
               <View style={[s.scheduleLine, { backgroundColor: colors.border }]} />
               <ScheduleRow
                 icon="check-circle"
                 label="Serve!"
-                value={formatDateTime(serveAt)}
-                sub={`Total: ${fmtDuration(schedule.totalMins)}`}
+                value={formatDateTime(schedule.restEndAt)}
+                sub={
+                  schedule.frozen
+                    ? `Cook total: ${fmtDuration(schedule.totalMins)} · Plus ${fmtDuration(schedule.frozen.thawMins + schedule.frozen.temperMins)} thaw + temper`
+                    : `Total: ${fmtDuration(schedule.totalMins)}`
+                }
                 colors={colors}
                 highlight
               />
@@ -2597,6 +2960,87 @@ const s = StyleSheet.create({
   weatherStrip: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 10 },
   weatherText: { fontSize: 12, fontFamily: "Inter_400Regular" },
   weatherTempText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+
+  // Frozen-to-Table
+  frozenCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    padding: 14,
+  },
+  frozenIconWrap: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  frozenTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  frozenSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  proPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#A855F7",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  proPillText: { fontSize: 9, fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: 0.5 },
+  toggleTrack: { width: 40, height: 22, borderRadius: 12, borderWidth: 1, padding: 1, justifyContent: "center" },
+  toggleThumb: { width: 18, height: 18, borderRadius: 9 },
+  thawMethodRow: {
+    flexDirection: "row",
+    borderWidth: 1,
+    padding: 4,
+    gap: 4,
+    marginTop: 8,
+  },
+  thawMethodBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 10,
+  },
+  thawMethodLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  thawMethodSub: { fontSize: 10, fontFamily: "Inter_400Regular", marginTop: 1 },
+
+  // First-action hero (frozen mode)
+  firstActionCard: { marginTop: 16, overflow: "hidden" },
+  firstActionInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  firstActionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  firstActionLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    color: "rgba(255,255,255,0.85)",
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  firstActionTitle: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#fff" },
+  firstActionSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.85)", marginTop: 2 },
+
+  frozenWarning: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "#F59E0B18",
+    borderWidth: 1,
+    borderColor: "#F59E0B40",
+    padding: 12,
+    marginTop: 12,
+  },
+  frozenWarningTitle: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#F59E0B", marginBottom: 2 },
+  frozenWarningBody: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#92400E", lineHeight: 17 },
 
   // Multi-cook
   multiEmptyBox: { borderWidth: 1, borderRadius: 10, padding: 20, alignItems: "center", gap: 10, marginBottom: 12 },
