@@ -593,6 +593,14 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                     <Text style={[styles.planNote, { color: colors.mutedForeground }]}>
                       Billed monthly · Cancel anytime
                     </Text>
+                    {/* Cook-limit framing on the monthly card too, so the
+                        "Keep cooking →" CTA is visible even on offerings
+                        without an annual plan. */}
+                    {isCookLimitWall && (
+                      <View style={styles.trialCta}>
+                        <Text style={styles.trialCtaText}>Keep cooking →</Text>
+                      </View>
+                    )}
                   </Pressable>
                 )}
 
