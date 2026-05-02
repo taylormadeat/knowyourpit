@@ -144,21 +144,43 @@ export default function HomeScreen() {
   // ── Pro trial banner state ───────────────────────────────────────────
   // Surfaced when the active Pro entitlement is in its free-trial phase.
   // Persisted dismissal so once the user X's it, we don't show it again on
-  // this device until they start a brand-new trial cycle.
+  // this device until the trial actually ends (true → false transition of
+  // isInTrial), at which point we clear it so a future trial cycle re-shows
+  // the banner.
   const TRIAL_BANNER_DISMISS_KEY = "knowyourpit:trialBannerDismissed";
   const [trialBannerDismissed, setTrialBannerDismissed] = React.useState(false);
+  // Hydration gate: avoid rendering the banner until we've read the persisted
+  // dismissal flag, otherwise it can flash in and then disappear once the
+  // AsyncStorage read resolves.
+  const [trialBannerHydrated, setTrialBannerHydrated] = React.useState(false);
   React.useEffect(() => {
+    let cancelled = false;
     AsyncStorage.getItem(TRIAL_BANNER_DISMISS_KEY)
-      .then((v) => setTrialBannerDismissed(v === "1"))
-      .catch(() => {});
+      .then((v) => {
+        if (cancelled) return;
+        setTrialBannerDismissed(v === "1");
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setTrialBannerHydrated(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
-  // Reset the dismissed flag whenever a fresh trial starts so the banner can
-  // re-appear for a new cycle (e.g. user resubscribes after a lapse).
+  // Track the previous `isInTrial` value so we only clear the dismissal flag
+  // on a real true → false transition (trial ended). Resetting on every
+  // render where isInTrial is false would clobber the dismissal during the
+  // brief window before RevenueCat hydrates, then the banner would re-appear
+  // every app launch even after the user dismissed it.
+  const prevIsInTrialRef = React.useRef<boolean | null>(null);
   React.useEffect(() => {
-    if (!isInTrial) {
+    const prev = prevIsInTrialRef.current;
+    if (prev === true && isInTrial === false) {
       AsyncStorage.removeItem(TRIAL_BANNER_DISMISS_KEY).catch(() => {});
       setTrialBannerDismissed(false);
     }
+    prevIsInTrialRef.current = isInTrial;
   }, [isInTrial]);
   const trialDaysRemaining = React.useMemo(() => {
     if (!isInTrial || !expirationDate) return 0;
@@ -167,7 +189,11 @@ export default function HomeScreen() {
     return Math.max(1, Math.ceil(diffMs / (24 * 60 * 60 * 1000)));
   }, [isInTrial, expirationDate]);
   const showTrialBanner =
-    isPro && isInTrial && trialDaysRemaining > 0 && !trialBannerDismissed;
+    trialBannerHydrated &&
+    isPro &&
+    isInTrial &&
+    trialDaysRemaining > 0 &&
+    !trialBannerDismissed;
   const effectivePro = useEffectivePro();
   const { showPaywall } = usePaywall();
 
@@ -282,6 +308,45 @@ export default function HomeScreen() {
         <View style={[s.dividerStrip, { backgroundColor: colors.background }]}>
           <View style={s.dividerLine} />
         </View>
+
+        {/* ── Pro trial active banner ──
+            Amber, dismissible. Only shown while the user's Pro entitlement
+            is in its TRIAL/INTRO period. Days are computed from the RC
+            entitlement's expirationDate so the countdown stays accurate
+            even across app restarts. */}
+        {showTrialBanner && (
+          <View
+            style={s.trialBanner}
+            accessibilityRole="summary"
+            accessibilityLabel={`Pro trial active, ${trialDaysRemaining} ${trialDaysRemaining === 1 ? "day" : "days"} remaining. Cancel anytime in Settings.`}
+          >
+            <View style={s.trialBannerIcon}>
+              <Feather name="gift" size={16} color="#1C1C1F" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.trialBannerTitle}>Pro trial active</Text>
+              <Text style={s.trialBannerSub}>
+                {trialDaysRemaining === 1
+                  ? "1 day remaining · Cancel anytime in Settings"
+                  : `${trialDaysRemaining} days remaining · Cancel anytime in Settings`}
+              </Text>
+            </View>
+            <Pressable
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss Pro trial banner"
+              accessibilityHint="Hides the Pro trial banner until your trial ends"
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                AsyncStorage.setItem(TRIAL_BANNER_DISMISS_KEY, "1").catch(() => {});
+                setTrialBannerDismissed(true);
+              }}
+              style={({ pressed }) => [s.trialBannerClose, pressed && { opacity: 0.6 }]}
+            >
+              <Feather name="x" size={14} color="#1C1C1F" />
+            </Pressable>
+          </View>
+        )}
 
         {/* ── Active Cook Widget ── */}
         {activeCook && (
@@ -860,6 +925,50 @@ const s = StyleSheet.create({
   dividerLine: {
     height: 1,
     backgroundColor: "transparent",
+  },
+
+  /* Pro trial banner */
+  trialBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: "#FACC15",
+    borderWidth: 1,
+    borderColor: "#EAB308",
+  },
+  trialBannerIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(28,28,31,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  trialBannerTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: "#1C1C1F",
+    letterSpacing: 0.2,
+  },
+  trialBannerSub: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    color: "#3F2D08",
+    marginTop: 1,
+  },
+  trialBannerClose: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(28,28,31,0.10)",
   },
 
   /* Active Cook Widget */
