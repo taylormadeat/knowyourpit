@@ -693,11 +693,22 @@ export default function PlanScreen() {
       // it permanently. The card promotes Multi-Cook Sequencer.
       // Strict gate: only show when AsyncStorage has resolved (=== false),
       // never while the dismissal flag is still loading (null).
-      if (isFreeAccount && usedCooksBefore >= 1 && multiCookTipDismissed === false) {
+      const willShowTip =
+        isFreeAccount && usedCooksBefore >= 1 && multiCookTipDismissed === false;
+      if (willShowTip) {
         setMultiCookTipFood(plannedFood);
         setShowMultiCookTip(true);
+        // Persist "shown" the moment the tip appears so it never reappears
+        // on a future visit, even if the user ignores it. This satisfies
+        // the "shown once per context" requirement.
+        setMultiCookTipDismissed(true);
+        AsyncStorage.setItem("multi_cook_nudge_dismissed", "1").catch(() => {});
+        // Skip auto-navigating to the Cooks tab so the user actually sees
+        // the inline tip before leaving the Plan screen. They can navigate
+        // manually after reading or dismissing it.
+      } else {
+        router.push("/(tabs)/cooks" as any);
       }
-      router.push("/(tabs)/cooks" as any);
     } catch (e: any) {
       // Free user hit the cook cap → upgrade modal instead of generic error.
       if (parseAndShowFromError(e)) return;

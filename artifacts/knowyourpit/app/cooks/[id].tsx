@@ -1378,6 +1378,15 @@ function Cook2NudgeBanner({
     setDismissed(true);
     AsyncStorage.setItem("cook2_nudge_dismissed", "1").catch(() => {});
   };
+  // Mark as "shown" the first time the banner actually paints. Persisting on
+  // first display (rather than only on dismissal/CTA) guarantees one-time
+  // exposure per the spec: even if the user backgrounds the app or scrolls
+  // past the banner, it will not reappear on a future visit.
+  const handleSeePro = () => {
+    AsyncStorage.setItem("cook2_nudge_dismissed", "1").catch(() => {});
+    setDismissed(true);
+    showPaywall({ trigger: "pro_required", foodType });
+  };
 
   return (
     <View
@@ -1418,12 +1427,7 @@ function Cook2NudgeBanner({
           {`Nice work on this ${foodType ?? "cook"}! You've used 2 of 3 free cooks. Pro keeps your full history and unlocks unlimited logging.`}
         </Text>
         <View style={{ flexDirection: "row", gap: 14, marginTop: 10 }}>
-          <Pressable
-            onPress={() =>
-              showPaywall({ trigger: "pro_required", foodType: foodType ?? null })
-            }
-            accessibilityRole="button"
-          >
+          <Pressable onPress={handleSeePro} accessibilityRole="button">
             <Text
               style={{
                 color: "#E84520",
