@@ -50,4 +50,14 @@ export interface AiPredictResponse {
    * @nullable
    */
   fingerprintSource: AiPredictResponseFingerprintSource;
+  /**
+   * When fromFrozen is true and the user's desiredFinishAt is too soon for a full thaw, PitMaster may suggest a later serve time that allows for proper thawing. Null when not applicable.
+   * @nullable
+   */
+  recommendedServeAt?: Date | null;
+  /**
+   * Human-readable explanation for the recommendedServeAt adjustment (e.g., why thawing requires more lead time).
+   * @nullable
+   */
+  recommendedServeReason?: string | null;
 }

@@ -412,6 +412,8 @@ export default function PlanScreen() {
           preheatMinutes: preheatMinsForGrill(selectedGrill),
           outdoorTempF: weather.tempF ?? undefined,
           outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
+          fromFrozen: frozenEnabled || undefined,
+          thawMethod: frozenEnabled ? thawMethod : undefined,
         },
       });
       setAiResult(result);

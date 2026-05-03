@@ -9,6 +9,7 @@
 export * from "./aiChatBody";
 export * from "./aiChatResponse";
 export * from "./aiPredictBody";
+export * from "./aiPredictBodyThawMethod";
 export * from "./aiPredictResponse";
 export * from "./aiPredictResponseConfidence";
 export * from "./aiPredictResponseFingerprintSource";

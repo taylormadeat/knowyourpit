@@ -18,7 +18,7 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
     return;
   }
 
-  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast } = parsed.data;
+  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast, fromFrozen, thawMethod } = parsed.data;
 
   const baseline = getMeatBaseline(foodType);
 
@@ -247,7 +247,9 @@ Return ONLY valid JSON with this exact structure — no markdown, no extra text:
     "wrapTempF": number | null,
     "reason": "string",
     "restMinutes": number
-  }
+  },
+  "recommendedServeAt": "ISO-8601 string" | null,
+  "recommendedServeReason": "string" | null
 }
 
 CONFIDENCE RULES (apply strictly):
@@ -265,7 +267,16 @@ ESTIMATION RULES:
 - wrap.reason: be specific — what method, what to add inside (tallow/butter/juice), how tight, what to expect after wrapping
 - wrap.restMinutes: be realistic — brisket 60–120m (can go in cooler), pork butt 45–60m, ribs 15–30m, chicken 10–15m, steaks 5–10m, fish 3–5m
 - tips: write 3 actionable, specific tips for THIS cook — not generic advice. Reference the specific food, grill type, or user's history if available.
-- rationale: explain your estimate in 1–2 sentences, mentioning the baseline and any user data you used.`;
+- rationale: explain your estimate in 1–2 sentences, mentioning the baseline and any user data you used.
+
+FROZEN-MEAT RULES (apply only when "Starting from frozen" is true in the user prompt):
+- Thaw timing benchmarks: fridge thaw needs ~24 hours per 4–5 lbs (USDA-safe); cold-water thaw needs ~30 min per lb with water changed every 30 min and meat sealed in a leak-proof bag.
+- Tempering: after thaw, rest the meat at room temp for 30–45 min (large cuts up to 60 min) to take the chill off the surface before going on the grill.
+- Surface drying: pat the surface dry and (for cuts that benefit from bark — brisket, pork butt, ribs) apply a dry brine AFTER thaw, not while frozen. Salt while frozen pulls out excess moisture and ruins surface texture.
+- Cook time: previously frozen meat that has fully thawed cooks at the same pace as fresh — do NOT add cook time for the frozen state itself. The thaw + temper happens BEFORE estimatedDurationMinutes starts.
+- Tips MUST reference: thaw method timing, surface drying / pat-dry, when to apply rub or dry brine (after thaw), and any food-safety pitfalls relevant to the chosen thaw method.
+- recommendedServeAt: if a desiredFinishAt is provided AND the time between "now" and desiredFinishAt is too short to fit (thaw + temper + preheat + cook + rest), return an ISO timestamp for the EARLIEST realistic serve time that fits the full schedule, plus a short recommendedServeReason. Otherwise return null for both fields.
+- When NOT starting from frozen, ALWAYS return null for both recommendedServeAt and recommendedServeReason.`;
 
   const userPrompt = `Plan this cook:
 Food: ${foodType}
@@ -275,6 +286,7 @@ Target internal temp: ${targetTempF ? `${targetTempF}°F` : "unknown"}
 Preheat time (tracked separately, not in estimatedDurationMinutes): ${preheatMinutes} min
 ${outdoorTempF != null ? `Outdoor ambient temperature: ${outdoorTempF}°F (${outdoorTempIsForecast ? "forecast for cook day" : "current"}) — factor this into your estimate. Cold weather (below 40°F) increases cook time and preheat duration; hot weather (above 90°F) may reduce time or cause temperature spikes.` : ""}
 ${desiredFinishAt ? `Desired serve time: ${new Date(desiredFinishAt).toLocaleString()}` : ""}
+${fromFrozen ? `Starting from frozen: YES. Thaw method chosen by user: ${thawMethod === "cold_water" ? "cold-water thaw (~30 min per lb, change water every 30 min, sealed bag)" : thawMethod === "fridge" ? "refrigerator thaw (~24 hours per 4–5 lbs, USDA-safe)" : "not specified — recommend the safest fit for their timeline"}. Current time (for thaw-feasibility math): ${new Date().toISOString()}. Apply the FROZEN-MEAT RULES from the system prompt: explicitly mention thaw + temper timing, dry-brine AFTER thaw, and surface drying in your tips and rationale. If the desired serve time leaves too little lead time for a full thaw + temper + preheat + cook + rest, populate recommendedServeAt with a realistic earliest serve timestamp and explain why in recommendedServeReason.` : "Starting from frozen: NO. Set recommendedServeAt and recommendedServeReason to null."}
 ${predictSmokerProfile ? `\n${predictSmokerProfile}\n` : ""}
 ${grillContext}
 ${grillTempContext}
@@ -294,7 +306,7 @@ ${userHistorySection}${fingerprintGuidance}`;
   const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
 
   type WrapRec = { wrapAtMinutes: number; method: string; wrapTempF: number | null; reason: string; restMinutes: number };
-  let prediction: { estimatedDurationMinutes: number; confidence: string; rationale: string; tips: string[]; wrap: WrapRec };
+  let prediction: { estimatedDurationMinutes: number; confidence: string; rationale: string; tips: string[]; wrap: WrapRec; recommendedServeAt?: string | null; recommendedServeReason?: string | null };
 
   try {
     prediction = JSON.parse(cleaned);
@@ -311,6 +323,8 @@ ${userHistorySection}${fingerprintGuidance}`;
         reason: "Wrap in foil at around 165°F internal temp to push through the stall faster and keep moisture in. Add a splash of apple juice or beef tallow before sealing.",
         restMinutes: 60,
       },
+      recommendedServeAt: null,
+      recommendedServeReason: null,
     };
   }
 
@@ -408,6 +422,23 @@ ${userHistorySection}${fingerprintGuidance}`;
     fingerprintApplied,
     fingerprintNote,
     fingerprintSource,
+    recommendedServeAt: (() => {
+      if (!fromFrozen) return null;
+      const raw = prediction.recommendedServeAt;
+      if (raw == null || typeof raw !== "string") return null;
+      const parsedTs = Date.parse(raw);
+      if (Number.isNaN(parsedTs)) return null;
+      // Sanity bound: must be in the future and within 14 days from now.
+      const nowMs = Date.now();
+      const maxMs = nowMs + 14 * 24 * 60 * 60 * 1000;
+      if (parsedTs <= nowMs || parsedTs > maxMs) return null;
+      return new Date(parsedTs).toISOString();
+    })(),
+    recommendedServeReason: fromFrozen
+      ? (typeof prediction.recommendedServeReason === "string" && prediction.recommendedServeReason.trim().length > 0
+        ? prediction.recommendedServeReason.trim().slice(0, 500)
+        : null)
+      : null,
   });
 });
 

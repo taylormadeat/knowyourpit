@@ -943,6 +943,19 @@ export interface AiChatResponse {
   suggestions: string[];
 }
 
+/**
+ * Chosen thaw method when fromFrozen is true. "fridge" is slow and safest; "cold_water" is faster but requires more attention. Used to tailor PitMaster's thaw and surface-dry guidance.
+ * @nullable
+ */
+export type AiPredictBodyThawMethod =
+  | (typeof AiPredictBodyThawMethod)[keyof typeof AiPredictBodyThawMethod]
+  | null;
+
+export const AiPredictBodyThawMethod = {
+  fridge: "fridge",
+  cold_water: "cold_water",
+} as const;
+
 export interface AiPredictBody {
   /** @nullable */
   grillId?: number | null;
@@ -970,6 +983,16 @@ export interface AiPredictBody {
    * @nullable
    */
   outdoorTempIsForecast?: boolean | null;
+  /**
+   * True when the meat is starting from a fully frozen state and needs to be thawed before cooking. PitMaster will factor in thaw timing, surface drying, and dry-brine adjustments.
+   * @nullable
+   */
+  fromFrozen?: boolean | null;
+  /**
+   * Chosen thaw method when fromFrozen is true. "fridge" is slow and safest; "cold_water" is faster but requires more attention. Used to tailor PitMaster's thaw and surface-dry guidance.
+   * @nullable
+   */
+  thawMethod?: AiPredictBodyThawMethod;
 }
 
 /**
@@ -1064,6 +1087,16 @@ export interface AiPredictResponse {
    * @nullable
    */
   fingerprintSource: AiPredictResponseFingerprintSource;
+  /**
+   * When fromFrozen is true and the user's desiredFinishAt is too soon for a full thaw, PitMaster may suggest a later serve time that allows for proper thawing. Null when not applicable.
+   * @nullable
+   */
+  recommendedServeAt?: string | null;
+  /**
+   * Human-readable explanation for the recommendedServeAt adjustment (e.g., why thawing requires more lead time).
+   * @nullable
+   */
+  recommendedServeReason?: string | null;
 }
 
 /**

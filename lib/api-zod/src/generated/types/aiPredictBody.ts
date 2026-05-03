@@ -5,6 +5,7 @@
  * PitMaster AI - BBQ Planning & Monitoring API
  * OpenAPI spec version: 0.1.0
  */
+import type { AiPredictBodyThawMethod } from "./aiPredictBodyThawMethod";
 
 export interface AiPredictBody {
   /** @nullable */
@@ -33,4 +34,14 @@ export interface AiPredictBody {
    * @nullable
    */
   outdoorTempIsForecast?: boolean | null;
+  /**
+   * True when the meat is starting from a fully frozen state and needs to be thawed before cooking. PitMaster will factor in thaw timing, surface drying, and dry-brine adjustments.
+   * @nullable
+   */
+  fromFrozen?: boolean | null;
+  /**
+   * Chosen thaw method when fromFrozen is true. "fridge" is slow and safest; "cold_water" is faster but requires more attention. Used to tailor PitMaster's thaw and surface-dry guidance.
+   * @nullable
+   */
+  thawMethod?: AiPredictBodyThawMethod;
 }

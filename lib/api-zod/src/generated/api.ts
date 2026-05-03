@@ -1491,6 +1491,22 @@ export const AiPredictBody = zod.object({
     .describe(
       "True when outdoorTempF is a forecasted value for the cook day (Pro). False or omitted when it is the current ambient temperature.",
     ),
+  fromFrozen: zod
+    .boolean()
+    .nullish()
+    .describe(
+      "True when the meat is starting from a fully frozen state and needs to be thawed before cooking. PitMaster will factor in thaw timing, surface drying, and dry-brine adjustments.",
+    ),
+  thawMethod: zod
+    .union([
+      zod.literal("fridge"),
+      zod.literal("cold_water"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe(
+      'Chosen thaw method when fromFrozen is true. \"fridge\" is slow and safest; \"cold_water\" is faster but requires more attention. Used to tailor PitMaster\'s thaw and surface-dry guidance.',
+    ),
 });
 
 export const AiPredictResponse = zod.object({
@@ -1562,6 +1578,18 @@ export const AiPredictResponse = zod.object({
     .nullable()
     .describe(
       "Source of the fingerprint adjustment (per-grill learned pace, user-wide fallback, or pit bias only)",
+    ),
+  recommendedServeAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "When fromFrozen is true and the user's desiredFinishAt is too soon for a full thaw, PitMaster may suggest a later serve time that allows for proper thawing. Null when not applicable.",
+    ),
+  recommendedServeReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Human-readable explanation for the recommendedServeAt adjustment (e.g., why thawing requires more lead time).",
     ),
 });
 
