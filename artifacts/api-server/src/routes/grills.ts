@@ -126,10 +126,14 @@ router.patch("/grills/:id", requireAuth, async (req: any, res): Promise<void> =>
   }
   // Allow explicit null writes so optional fields (notes, cookingSurfaceSqIn,
   // hopperSizeLbs, etc.) can be cleared from the edit modal. Skip only
-  // undefined keys (which the client never sent in this payload).
+  // undefined keys (which the client never sent in this payload), and guard
+  // non-nullable columns from being cleared to null.
+  const NON_NULLABLE = new Set(["name", "type"]);
   const updateData: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(parsed.data)) {
-    if (v !== undefined) updateData[k] = v;
+    if (v === undefined) continue;
+    if (v === null && NON_NULLABLE.has(k)) continue;
+    updateData[k] = v;
   }
   const [grill] = await db.update(grillsTable).set(updateData)
     .where(and(eq(grillsTable.id, params.data.id), eq(grillsTable.userId, req.userId)))
