@@ -97,6 +97,7 @@ import { SequenceSchedule } from "@/components/cook-detail/SequenceSchedule";
 import { StoredAiAnalysis } from "@/components/cook-detail/StoredAiAnalysis";
 import { AskPitMaster } from "@/components/cook-detail/AskPitMaster";
 import { RateThisCook } from "@/components/cook-detail/RateThisCook";
+import { ShareCookButton } from "@/components/cook-detail/ShareCookButton";
 import { NextUpBanner } from "@/components/NextUpBanner";
 import { SaveCookTemplateSheet, type CookTemplateDraft } from "@/components/SaveCookTemplateSheet";
 
@@ -1267,6 +1268,9 @@ export default function CookDetailScreen() {
           rateSaving={rateSaving}
           saveRatings={saveRatings}
         />
+
+        {/* ── Share Cook (completed cooks only) ───────────────── */}
+        <ShareCookButton cook={c} colors={colors} />
 
 
         {/* ── Check-in History ─────────────────────────────── */}
