@@ -1528,6 +1528,13 @@ components:
           additionalProperties:
             type: string
           description: Map of step keys to ISO timestamps of when the user confirmed each step
+        fromFrozen:
+          type: boolean
+          description: True when this cook was planned starting from frozen meat (Frozen-to-Table mode)
+        thawMethod:
+          type: ["string", "null"]
+          enum: [fridge, cold_water, null]
+          description: Selected thaw method when fromFrozen is true
         isCompetition:
           type: boolean
           description: True when this cook is part of a sanctioned competition (KCBS Competition Mode)
@@ -1583,6 +1590,8 @@ components:
         - sessionId
         - recipeId
         - confirmedSteps
+        - fromFrozen
+        - thawMethod
         - isCompetition
         - competitionName
         - competitionCategory
@@ -1646,6 +1655,13 @@ components:
           description: UUID grouping cooks that were saved together from the Multi-Cook Sequencer
         recipeId:
           type: ["integer", "null"]
+        fromFrozen:
+          type: ["boolean", "null"]
+          description: True when planning the cook starting from frozen meat
+        thawMethod:
+          type: ["string", "null"]
+          enum: [fridge, cold_water, null]
+          description: Selected thaw method when fromFrozen is true
         isCompetition:
           type: ["boolean", "null"]
           description: Mark this cook as part of a KCBS competition
@@ -1714,6 +1730,13 @@ components:
           type: ["integer", "null"]
         recipeId:
           type: ["integer", "null"]
+        fromFrozen:
+          type: ["boolean", "null"]
+          description: True when planning the cook starting from frozen meat
+        thawMethod:
+          type: ["string", "null"]
+          enum: [fridge, cold_water, null]
+          description: Selected thaw method when fromFrozen is true
         confirmedSteps:
           type: ["object", "null"]
           additionalProperties:

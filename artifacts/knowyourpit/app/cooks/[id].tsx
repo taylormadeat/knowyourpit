@@ -98,6 +98,7 @@ import { LastDecisionBanner } from "@/components/cook-detail/LastDecisionBanner"
 import { LiveCookSection } from "@/components/cook-detail/LiveCookSection";
 import { CookSummaryCard } from "@/components/cook-detail/CookSummaryCard";
 import { SequenceSchedule } from "@/components/cook-detail/SequenceSchedule";
+import { FrozenTimeline } from "@/components/cook-detail/FrozenTimeline";
 import { StoredAiAnalysis } from "@/components/cook-detail/StoredAiAnalysis";
 import { AskPitMaster } from "@/components/cook-detail/AskPitMaster";
 import { RateThisCook } from "@/components/cook-detail/RateThisCook";
@@ -1195,6 +1196,7 @@ export default function CookDetailScreen() {
           showCookDetails={showCookDetails}
           setShowCookDetails={setShowCookDetails}
         />
+        <FrozenTimeline c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs} />
         <SequenceSchedule
           c={c}
           colors={colors}

@@ -8,6 +8,7 @@
 import type { UpdateCookBodyCompetitionCategory } from "./updateCookBodyCompetitionCategory";
 import type { UpdateCookBodyConfirmedSteps } from "./updateCookBodyConfirmedSteps";
 import type { UpdateCookBodyStatus } from "./updateCookBodyStatus";
+import type { UpdateCookBodyThawMethod } from "./updateCookBodyThawMethod";
 import type { UpdateCookBodyWrapMethod } from "./updateCookBodyWrapMethod";
 
 export interface UpdateCookBody {
@@ -58,6 +59,16 @@ export interface UpdateCookBody {
   rating?: number | null;
   /** @nullable */
   recipeId?: number | null;
+  /**
+   * True when planning the cook starting from frozen meat
+   * @nullable
+   */
+  fromFrozen?: boolean | null;
+  /**
+   * Selected thaw method when fromFrozen is true
+   * @nullable
+   */
+  thawMethod?: UpdateCookBodyThawMethod;
   /**
    * Map of step keys to ISO timestamps of when the user confirmed each step
    * @nullable

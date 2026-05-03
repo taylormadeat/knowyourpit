@@ -7,6 +7,7 @@
  */
 import type { CookConfirmedSteps } from "./cookConfirmedSteps";
 import type { CookStatus } from "./cookStatus";
+import type { CookThawMethod } from "./cookThawMethod";
 import type { CookWrapMethod } from "./cookWrapMethod";
 
 export interface Cook {
@@ -95,6 +96,13 @@ export interface Cook {
    * @nullable
    */
   confirmedSteps: CookConfirmedSteps;
+  /** True when this cook was planned starting from frozen meat (Frozen-to-Table mode) */
+  fromFrozen: boolean;
+  /**
+   * Selected thaw method when fromFrozen is true
+   * @nullable
+   */
+  thawMethod: CookThawMethod;
   /** True when this cook is part of a sanctioned competition (KCBS Competition Mode) */
   isCompetition: boolean;
   /**

@@ -290,6 +290,19 @@ export const CookWrapMethod = {
  */
 export type CookConfirmedSteps = { [key: string]: string } | null;
 
+/**
+ * Selected thaw method when fromFrozen is true
+ * @nullable
+ */
+export type CookThawMethod =
+  | (typeof CookThawMethod)[keyof typeof CookThawMethod]
+  | null;
+
+export const CookThawMethod = {
+  fridge: "fridge",
+  cold_water: "cold_water",
+} as const;
+
 export interface Cook {
   id: number;
   /** @nullable */
@@ -376,6 +389,13 @@ export interface Cook {
    * @nullable
    */
   confirmedSteps: CookConfirmedSteps;
+  /** True when this cook was planned starting from frozen meat (Frozen-to-Table mode) */
+  fromFrozen: boolean;
+  /**
+   * Selected thaw method when fromFrozen is true
+   * @nullable
+   */
+  thawMethod: CookThawMethod;
   /** True when this cook is part of a sanctioned competition (KCBS Competition Mode) */
   isCompetition: boolean;
   /**
@@ -433,6 +453,19 @@ export const CreateCookBodyWrapMethod = {
   foil: "foil",
   butcher_paper: "butcher_paper",
   none: "none",
+} as const;
+
+/**
+ * Selected thaw method when fromFrozen is true
+ * @nullable
+ */
+export type CreateCookBodyThawMethod =
+  | (typeof CreateCookBodyThawMethod)[keyof typeof CreateCookBodyThawMethod]
+  | null;
+
+export const CreateCookBodyThawMethod = {
+  fridge: "fridge",
+  cold_water: "cold_water",
 } as const;
 
 /**
@@ -505,6 +538,16 @@ export interface CreateCookBody {
   /** @nullable */
   recipeId?: number | null;
   /**
+   * True when planning the cook starting from frozen meat
+   * @nullable
+   */
+  fromFrozen?: boolean | null;
+  /**
+   * Selected thaw method when fromFrozen is true
+   * @nullable
+   */
+  thawMethod?: CreateCookBodyThawMethod;
+  /**
    * Mark this cook as part of a KCBS competition
    * @nullable
    */
@@ -542,6 +585,19 @@ export const UpdateCookBodyWrapMethod = {
   foil: "foil",
   butcher_paper: "butcher_paper",
   none: "none",
+} as const;
+
+/**
+ * Selected thaw method when fromFrozen is true
+ * @nullable
+ */
+export type UpdateCookBodyThawMethod =
+  | (typeof UpdateCookBodyThawMethod)[keyof typeof UpdateCookBodyThawMethod]
+  | null;
+
+export const UpdateCookBodyThawMethod = {
+  fridge: "fridge",
+  cold_water: "cold_water",
 } as const;
 
 /**
@@ -612,6 +668,16 @@ export interface UpdateCookBody {
   rating?: number | null;
   /** @nullable */
   recipeId?: number | null;
+  /**
+   * True when planning the cook starting from frozen meat
+   * @nullable
+   */
+  fromFrozen?: boolean | null;
+  /**
+   * Selected thaw method when fromFrozen is true
+   * @nullable
+   */
+  thawMethod?: UpdateCookBodyThawMethod;
   /**
    * Map of step keys to ISO timestamps of when the user confirmed each step
    * @nullable

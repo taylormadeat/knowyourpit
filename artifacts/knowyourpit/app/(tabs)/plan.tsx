@@ -715,6 +715,8 @@ export default function PlanScreen() {
           ...(wrap?.reason && { wrapReason: wrap.reason }),
           ...(frozenForCook && {
             sequenceData: { schedule: [], frozen: frozenForCook },
+            fromFrozen: true,
+            thawMethod: frozenForCook.method,
           }),
         } as any,
       });

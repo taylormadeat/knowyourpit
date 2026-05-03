@@ -7,6 +7,7 @@
  */
 import type { CreateCookBodyCompetitionCategory } from "./createCookBodyCompetitionCategory";
 import type { CreateCookBodyStatus } from "./createCookBodyStatus";
+import type { CreateCookBodyThawMethod } from "./createCookBodyThawMethod";
 import type { CreateCookBodyWrapMethod } from "./createCookBodyWrapMethod";
 
 export interface CreateCookBody {
@@ -64,6 +65,16 @@ export interface CreateCookBody {
   sessionId?: string | null;
   /** @nullable */
   recipeId?: number | null;
+  /**
+   * True when planning the cook starting from frozen meat
+   * @nullable
+   */
+  fromFrozen?: boolean | null;
+  /**
+   * Selected thaw method when fromFrozen is true
+   * @nullable
+   */
+  thawMethod?: CreateCookBodyThawMethod;
   /**
    * Mark this cook as part of a KCBS competition
    * @nullable

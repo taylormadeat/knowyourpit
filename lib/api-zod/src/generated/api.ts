@@ -595,6 +595,19 @@ export const ListCooksResponseItem = zod.object({
     .describe(
       "Map of step keys to ISO timestamps of when the user confirmed each step",
     ),
+  fromFrozen: zod
+    .boolean()
+    .describe(
+      "True when this cook was planned starting from frozen meat (Frozen-to-Table mode)",
+    ),
+  thawMethod: zod
+    .union([
+      zod.literal("fridge"),
+      zod.literal("cold_water"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Selected thaw method when fromFrozen is true"),
   isCompetition: zod
     .boolean()
     .describe(
@@ -695,6 +708,18 @@ export const CreateCookBody = zod.object({
       "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
     ),
   recipeId: zod.number().nullish(),
+  fromFrozen: zod
+    .boolean()
+    .nullish()
+    .describe("True when planning the cook starting from frozen meat"),
+  thawMethod: zod
+    .union([
+      zod.literal("fridge"),
+      zod.literal("cold_water"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe("Selected thaw method when fromFrozen is true"),
   isCompetition: zod
     .boolean()
     .nullish()
@@ -793,6 +818,19 @@ export const GetCookResponse = zod.object({
     .describe(
       "Map of step keys to ISO timestamps of when the user confirmed each step",
     ),
+  fromFrozen: zod
+    .boolean()
+    .describe(
+      "True when this cook was planned starting from frozen meat (Frozen-to-Table mode)",
+    ),
+  thawMethod: zod
+    .union([
+      zod.literal("fridge"),
+      zod.literal("cold_water"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Selected thaw method when fromFrozen is true"),
   isCompetition: zod
     .boolean()
     .describe(
@@ -886,6 +924,18 @@ export const UpdateCookBody = zod.object({
   ratingFlavor: zod.number().nullish(),
   rating: zod.number().nullish(),
   recipeId: zod.number().nullish(),
+  fromFrozen: zod
+    .boolean()
+    .nullish()
+    .describe("True when planning the cook starting from frozen meat"),
+  thawMethod: zod
+    .union([
+      zod.literal("fridge"),
+      zod.literal("cold_water"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe("Selected thaw method when fromFrozen is true"),
   confirmedSteps: zod
     .record(zod.string(), zod.string())
     .nullish()
@@ -986,6 +1036,19 @@ export const UpdateCookResponse = zod.object({
     .describe(
       "Map of step keys to ISO timestamps of when the user confirmed each step",
     ),
+  fromFrozen: zod
+    .boolean()
+    .describe(
+      "True when this cook was planned starting from frozen meat (Frozen-to-Table mode)",
+    ),
+  thawMethod: zod
+    .union([
+      zod.literal("fridge"),
+      zod.literal("cold_water"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Selected thaw method when fromFrozen is true"),
   isCompetition: zod
     .boolean()
     .describe(
@@ -1949,6 +2012,19 @@ export const GetRecentCooksResponseItem = zod.object({
     .describe(
       "Map of step keys to ISO timestamps of when the user confirmed each step",
     ),
+  fromFrozen: zod
+    .boolean()
+    .describe(
+      "True when this cook was planned starting from frozen meat (Frozen-to-Table mode)",
+    ),
+  thawMethod: zod
+    .union([
+      zod.literal("fridge"),
+      zod.literal("cold_water"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Selected thaw method when fromFrozen is true"),
   isCompetition: zod
     .boolean()
     .describe(
