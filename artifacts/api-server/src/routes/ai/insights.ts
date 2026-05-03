@@ -118,11 +118,9 @@ router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void
     const placementToScore = (placement: number): number => {
       if (placement === 0) return 50;
       if (placement === 1) return 100;
-      if (placement === 2) return 92;
-      if (placement === 3) return 85;
-      if (placement <= 5) return 78;
+      if (placement === 2) return 90;
+      if (placement === 3) return 80;
       if (placement <= 10) return 70;
-      if (placement <= 20) return 60;
       return 50;
     };
     const placementScores: number[] = [];
