@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useUser } from "@clerk/expo";
 import { useRouter } from "expo-router";
-import { useColors } from "@/hooks/useColors";
+import { useAuthColors } from "@/hooks/useAuthColors";
 import { useTopInset } from "@/hooks/useTopInset";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -30,7 +30,7 @@ function validate(value: string): string | null {
 }
 
 export default function SetUsernameScreen() {
-  const colors = useColors();
+  const colors = useAuthColors();
   const topInset = useTopInset();
   const bottomInset = useBottomInset();
   const router = useRouter();

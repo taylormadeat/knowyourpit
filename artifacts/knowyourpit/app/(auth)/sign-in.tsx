@@ -18,7 +18,7 @@ import * as Linking from "expo-linking";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { Link, useRouter } from "expo-router";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { useColors } from "@/hooks/useColors";
+import { useAuthColors } from "@/hooks/useAuthColors";
 import { useTopInset } from "@/hooks/useTopInset";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { useLayout } from "@/hooks/useLayout";
@@ -42,7 +42,7 @@ function useWarmUpBrowser() {
 
 export default function SignInScreen() {
   useWarmUpBrowser();
-  const colors = useColors();
+  const colors = useAuthColors();
   const topInset = useTopInset();
   const bottomInset = useBottomInset();
   const { isTablet, authMaxWidth } = useLayout();
@@ -78,14 +78,72 @@ export default function SignInScreen() {
       if (attempt.status === "complete") {
         await setActive({ session: attempt.createdSessionId });
         router.replace("/(tabs)");
-      } else {
-        setErrorMsg("Sign in could not be completed. Please try again or reset your password.");
-        setShowForgotSuggestion(true);
+        return;
+      }
+      // Status is not "complete" but no error was thrown — give a specific
+      // reason instead of the catch-all "could not be completed".
+      switch (attempt.status) {
+        case "needs_identifier":
+          setErrorMsg("Please enter your email address.");
+          break;
+        case "needs_first_factor":
+          setErrorMsg(
+            "We need to verify it's you. Check your email for a verification code, or reset your password to continue.",
+          );
+          setShowForgotSuggestion(true);
+          break;
+        case "needs_second_factor":
+          setErrorMsg("Two-factor authentication is required for this account.");
+          break;
+        case "needs_new_password":
+          setErrorMsg("Your password needs to be reset before you can sign in.");
+          setShowForgotSuggestion(true);
+          break;
+        default:
+          setErrorMsg("Sign in could not be completed. Please try again or reset your password.");
+          setShowForgotSuggestion(true);
       }
     } catch (e: any) {
-      const msg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Sign in failed. Check your credentials.";
-      setErrorMsg(msg);
-      setShowForgotSuggestion(true);
+      const clerkErr = e?.errors?.[0];
+      const code: string = clerkErr?.code ?? "";
+      const longMsg: string = clerkErr?.longMessage ?? clerkErr?.message ?? "";
+      let friendly: string;
+      switch (code) {
+        case "form_identifier_not_found":
+          friendly = "We couldn't find an account with that email. Double-check the address or sign up.";
+          break;
+        case "form_password_incorrect":
+          friendly = "That password isn't right. Try again or reset your password.";
+          break;
+        case "form_param_format_invalid":
+          friendly = "That email address doesn't look right. Please check it and try again.";
+          break;
+        case "session_exists":
+          friendly = "You're already signed in. Restart the app if you don't see your account.";
+          break;
+        case "too_many_requests":
+        case "user_locked":
+          friendly = "Too many sign-in attempts. Please wait a minute and try again.";
+          break;
+        case "strategy_for_user_invalid":
+          friendly = "This account was created with Google or Apple sign-in. Please use that option above.";
+          break;
+        case "identification_deleted":
+          friendly = "This account has been removed. Please sign up to create a new one.";
+          break;
+        case "captcha_invalid":
+        case "captcha_unavailable":
+          friendly = "Couldn't verify the request. Please try again.";
+          break;
+        default:
+          friendly = longMsg || "Sign in failed. Please check your email and password and try again.";
+      }
+      setErrorMsg(friendly);
+      setShowForgotSuggestion(
+        code === "form_password_incorrect" ||
+          code === "form_identifier_not_found" ||
+          !code,
+      );
     } finally {
       setIsLoading(false);
     }
@@ -251,12 +309,15 @@ export default function SignInScreen() {
         }
       } catch (e: any) {
         if ((e as any).code === "ERR_REQUEST_CANCELED") return;
-        const msg =
+        const rawMsg: string =
           e?.errors?.[0]?.longMessage ??
           e?.errors?.[0]?.message ??
           e?.message ??
-          "Apple sign-in failed. Please try again or use email instead.";
-        setErrorMsg(msg);
+          "";
+        const friendly = /oauth_token_apple|allowed values for parameter strategy/i.test(rawMsg)
+          ? "Apple sign-in is temporarily unavailable. Please use email or Google to sign in."
+          : rawMsg || "Apple sign-in failed. Please try again or use email instead.";
+        setErrorMsg(friendly);
       } finally {
         setAppleLoading(false);
       }

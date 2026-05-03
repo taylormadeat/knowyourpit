@@ -19,7 +19,7 @@ import * as Linking from "expo-linking";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { Link, useRouter } from "expo-router";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { useColors } from "@/hooks/useColors";
+import { useAuthColors } from "@/hooks/useAuthColors";
 import { useTopInset } from "@/hooks/useTopInset";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { useLayout } from "@/hooks/useLayout";
@@ -39,7 +39,7 @@ function useWarmUpBrowser() {
 
 export default function SignUpScreen() {
   useWarmUpBrowser();
-  const colors = useColors();
+  const colors = useAuthColors();
   const topInset = useTopInset();
   const bottomInset = useBottomInset();
   const { isTablet, authMaxWidth } = useLayout();
