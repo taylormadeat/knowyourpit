@@ -1,7 +1,10 @@
 import React from "react";
 import { View, Text, Modal, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import type { MultiCookScheduleItem } from "@workspace/api-client-react";
+import type {
+  MultiCookScheduleItem,
+  MultiCookScheduleItemCategory,
+} from "@workspace/api-client-react";
 import { planStyles as s } from "./styles";
 import { fmtMinutes } from "@/utils/duration";
 
@@ -36,14 +39,61 @@ export function MultiCookResultModal(p: Props) {
             </Pressable>
           </View>
           <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
-            {multiResult && (
+            {multiResult && (() => {
+              const fmtTime = (value: Date | string) =>
+                new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+              const KCBS_LABEL: Record<MultiCookScheduleItemCategory & string, string> = {
+                chicken: "Chicken",
+                ribs: "Ribs",
+                pork: "Pork",
+                brisket: "Brisket",
+              };
+              const isCompetition = multiResult.schedule.some(
+                (it: MultiCookScheduleItem) => Boolean(it.turnInAt) || Boolean(it.category),
+              );
+              const competitionTurnIns: { label: string; turnInAt: Date | string }[] = isCompetition
+                ? multiResult.schedule
+                    .filter(
+                      (it: MultiCookScheduleItem): it is MultiCookScheduleItem & { turnInAt: Date | string } =>
+                        it.turnInAt != null,
+                    )
+                    .map((it) => ({
+                      label:
+                        (it.category && KCBS_LABEL[it.category as keyof typeof KCBS_LABEL]) ||
+                        it.foodType ||
+                        "Item",
+                      turnInAt: it.turnInAt,
+                    }))
+                    .sort(
+                      (a, b) =>
+                        new Date(a.turnInAt).getTime() -
+                        new Date(b.turnInAt).getTime(),
+                    )
+                : [];
+              return (
               <>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                  <Feather name="check-circle" size={16} color="#22c55e" />
-                  <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
-                    Everything ready by {new Date(multiResult.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </Text>
-                </View>
+                {isCompetition ? (
+                  <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, marginBottom: 14 }}>
+                    <Feather name="award" size={16} color="#EAB308" style={{ marginTop: 2 }} />
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text style={{ fontSize: 14, fontFamily: "Inter_700Bold", color: colors.foreground }}>
+                        KCBS turn-ins
+                      </Text>
+                      <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground, lineHeight: 18 }}>
+                        {competitionTurnIns
+                          .map((t) => `${t.label} ${fmtTime(t.turnInAt)}`)
+                          .join("  ·  ")}
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                    <Feather name="check-circle" size={16} color="#22c55e" />
+                    <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
+                      Everything ready by {fmtTime(multiResult.serveAt)}
+                    </Text>
+                  </View>
+                )}
 
                 {multiResult.summary ? (
                   <View style={{ backgroundColor: "#6C3BF510", borderRadius: 8, padding: 12, marginBottom: 16 }}>
@@ -55,6 +105,19 @@ export function MultiCookResultModal(p: Props) {
 
                 {multiResult.schedule.map((item: MultiCookScheduleItem, idx: number) => {
                   const grillLabel = scheduleGrillLabels[idx] ?? null;
+                  const itemTurnInAt: Date | string | null = item.turnInAt ?? null;
+                  const itemBoxPackAt: Date | string | null = item.boxPackAt ?? null;
+                  const itemCategory: MultiCookScheduleItemCategory | null = item.category ?? null;
+                  const KCBS_COLOR: Record<MultiCookScheduleItemCategory & string, string> = {
+                    chicken: "#F59E0B",
+                    ribs: "#EF4444",
+                    pork: "#EC4899",
+                    brisket: "#8B5CF6",
+                  };
+                  const itemAccent =
+                    itemCategory && itemCategory in KCBS_COLOR
+                      ? KCBS_COLOR[itemCategory as keyof typeof KCBS_COLOR]
+                      : "#EAB308";
                   return (
                   <View
                     key={idx}
@@ -87,6 +150,22 @@ export function MultiCookResultModal(p: Props) {
                       </Text>
                     </View>
                     <View style={{ paddingHorizontal: 14, paddingVertical: 10, gap: 7 }}>
+                      {itemTurnInAt ? (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                          <Feather name="award" size={13} color={itemAccent} />
+                          <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: itemAccent, flex: 1 }}>
+                            Turn-in
+                            {itemBoxPackAt ? (
+                              <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
+                                {"  ·  Box pack "}{new Date(itemBoxPackAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </Text>
+                            ) : null}
+                          </Text>
+                          <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: itemAccent }}>
+                            {new Date(itemTurnInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </Text>
+                        </View>
+                      ) : null}
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                         <Feather name="power" size={13} color={colors.mutedForeground} />
                         <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>
@@ -171,7 +250,8 @@ export function MultiCookResultModal(p: Props) {
                   <Text style={[s.dismissBtnText, { color: colors.mutedForeground }]}>Close</Text>
                 </Pressable>
               </>
-            )}
+              );
+            })()}
           </ScrollView>
         </View>
       </View>

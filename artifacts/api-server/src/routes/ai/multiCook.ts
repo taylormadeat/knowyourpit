@@ -248,24 +248,34 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
         let meatOnAt = item.meatOnAt;
         let grillLightAt = item.grillLightAt;
         let estimatedFinishAt = item.estimatedFinishAt;
-        if (isCompetitionMode && boxPackAt && estimatedFinishAt) {
-          const finishMs = new Date(estimatedFinishAt).getTime();
+        // In competition mode, ignore the AI's ISO timestamps for these
+        // fields and recompute deterministically from turnInAt using the
+        // documented formula. The AI is only trusted for durations, rest,
+        // and wrap guidance — never for the actual schedule timestamps,
+        // because it has been observed hallucinating times that fall after
+        // the item's own turn-in.
+        if (isCompetitionMode && boxPackAt) {
+          const restMin = typeof item.restMinutes === "number" && item.restMinutes >= 0
+            ? Math.round(item.restMinutes)
+            : 0;
+          const cookMinForCalc = typeof item.estimatedDurationMinutes === "number" && item.estimatedDurationMinutes > 0
+            ? Math.round(item.estimatedDurationMinutes)
+            : 0;
+          const preheatFromAi = typeof item.preheatMinutes === "number" && item.preheatMinutes >= 0
+            ? Math.round(item.preheatMinutes)
+            : null;
+          const preheatFromInput = typeof inputMatch?.preheatMinutes === "number" && inputMatch.preheatMinutes >= 0
+            ? Math.round(inputMatch.preheatMinutes)
+            : null;
+          const preheatMin = preheatFromInput ?? preheatFromAi ?? 25;
           const boxMs = new Date(boxPackAt).getTime();
-          if (!Number.isNaN(finishMs) && !Number.isNaN(boxMs) && finishMs > boxMs) {
-            const deltaMs = finishMs - boxMs;
-            req.log.warn(
-              { foodType: item.foodType, deltaMs, finishMs, boxMs },
-              "competition item finish later than boxPackAt; shifting timeline earlier",
-            );
-            const shift = (iso: string | null | undefined): string | null => {
-              if (!iso) return iso ?? null;
-              const t = new Date(iso).getTime();
-              if (Number.isNaN(t)) return iso;
-              return new Date(t - deltaMs).toISOString();
-            };
-            estimatedFinishAt = shift(estimatedFinishAt);
-            meatOnAt = shift(meatOnAt);
-            grillLightAt = shift(grillLightAt);
+          if (!Number.isNaN(boxMs)) {
+            const finishMs = boxMs - restMin * 60_000;
+            const meatOnMs = finishMs - cookMinForCalc * 60_000;
+            const lightMs = meatOnMs - preheatMin * 60_000;
+            estimatedFinishAt = new Date(finishMs).toISOString();
+            meatOnAt = new Date(meatOnMs).toISOString();
+            grillLightAt = new Date(lightMs).toISOString();
           }
         }
 
