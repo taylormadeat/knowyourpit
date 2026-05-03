@@ -48,6 +48,28 @@ export interface Grill {
   /** @nullable */
   imageUrl: string | null;
   totalCooks: number;
+  /** Number of cooks logged on this grill (returned by list endpoint) */
+  cookCount?: number;
+  /**
+   * Average overall rating across rated cooks on this grill
+   * @nullable
+   */
+  avgRating?: number | null;
+  /**
+   * Most recent actualStartAt of any completed cook on this grill
+   * @nullable
+   */
+  lastCookAt?: Date | null;
+  /**
+   * Total hours of completed cooks logged on this grill
+   * @nullable
+   */
+  totalHours?: number | null;
+  /**
+   * Food type most frequently cooked on this grill
+   * @nullable
+   */
+  mostCookedFood?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

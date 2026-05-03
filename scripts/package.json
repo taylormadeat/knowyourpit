@@ -10,6 +10,7 @@
     "revoke-pro": "tsx ./src/revokePro.ts",
     "db:backup": "tsx ./src/db-backup.ts",
     "db:backup:csv": "tsx ./src/db-export-csv.ts",
+    "backfill-grill-types": "tsx ./src/backfillGrillTypes.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
@@ -19,6 +20,8 @@
   },
   "dependencies": {
     "@replit/revenuecat-sdk": "4.0.0",
+    "@workspace/db": "workspace:*",
+    "drizzle-orm": "catalog:",
     "pg": "^8.20.0"
   }
 }

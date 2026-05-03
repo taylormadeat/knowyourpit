@@ -34,10 +34,36 @@ import { GrillFingerprint } from "@/components/GrillFingerprint";
 import { GrillTypeIcon } from "@/components/GrillTypeIcon";
 
 const GRILL_TYPES = [
-  "Kamado", "Offset Smoker", "Pellet Grill", "Kettle", "Gas Grill",
-  "Cabinet Smoker", "Reverse Flow", "Drum Smoker", "Electric Smoker", "Other",
+  "Pellet Grill", "Kamado", "Offset Smoker", "Reverse Flow Smoker",
+  "Drum Smoker", "Bullet Smoker", "Kettle", "Gas Grill", "Charcoal Grill",
+  "Cabinet Smoker", "Electric Smoker", "Combo", "Griddle", "Other",
 ];
 const FUEL_TYPES = ["Charcoal", "Wood", "Pellets", "Gas", "Electric", "Combination"];
+
+// Parses catalog cookingSurface strings like "572 sq in", "1,050 sq in" → 572.
+// Returns null for non-numeric values like "Drum" or "3.4 cu ft".
+function parseCookingSurfaceSqIn(raw: string | undefined | null): number | null {
+  if (!raw) return null;
+  const m = raw.replace(/,/g, "").match(/^(\d+(?:\.\d+)?)\s*sq\s*in/i);
+  return m ? parseFloat(m[1]) : null;
+}
+
+// Format a Date/ISO string as a short relative phrase, e.g. "2d ago", "3h ago",
+// "just now". Falls back to a localized date string for >30 days.
+function formatRelativeShort(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return null;
+  const diffMs = Date.now() - t;
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.round(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
 
 interface BrandEntry {
   brand: string;
@@ -96,6 +122,10 @@ export default function GrillsScreen() {
   const [customBrand, setCustomBrand] = useState("");
   const [tempRange, setTempRange] = useState("");
   const [featuresInput, setFeaturesInput] = useState("");
+  const [cookingSurfaceInput, setCookingSurfaceInput] = useState("");
+  const [hopperSizeInput, setHopperSizeInput] = useState("");
+  const [notesInput, setNotesInput] = useState("");
+  const [wifiEnabledInput, setWifiEnabledInput] = useState(false);
 
   // Edit modal state
   const [editingGrillId, setEditingGrillId] = useState<number | null>(null);
@@ -126,14 +156,21 @@ export default function GrillsScreen() {
 
   const handleAddFromCatalog = async (model: GrillModel, brandName: string) => {
     try {
+      const surfaceSqIn = parseCookingSurfaceSqIn(model.cookingSurface);
+      const wifiFromFeatures = Array.isArray(model.features)
+        && model.features.some((f) => /\bwifi\b/i.test(f));
       await createGrill.mutateAsync({
         data: {
           name: `${brandName} ${model.name}`,
           type: model.type,
           fuelType: model.fuelType,
           brand: brandName,
+          model: model.name,
           tempRange: model.tempRange || undefined,
           features: Array.isArray(model.features) && model.features.length > 0 ? model.features : undefined,
+          notes: model.notes || undefined,
+          cookingSurfaceSqIn: surfaceSqIn ?? undefined,
+          wifiEnabled: wifiFromFeatures ? true : undefined,
         },
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -163,6 +200,12 @@ export default function GrillsScreen() {
       return;
     }
     const featuresArr = parseFeaturesInput(featuresInput);
+    const cookingSurfaceVal = cookingSurfaceInput.trim()
+      ? Number(cookingSurfaceInput.trim().replace(/,/g, ""))
+      : NaN;
+    const hopperVal = hopperSizeInput.trim()
+      ? Number(hopperSizeInput.trim().replace(/,/g, ""))
+      : NaN;
     try {
       if (editingGrillId != null) {
         await updateGrill.mutateAsync({
@@ -174,6 +217,10 @@ export default function GrillsScreen() {
             brand: customBrand.trim() || null,
             tempRange: tempRange.trim() || null,
             features: featuresArr.length > 0 ? featuresArr : null,
+            notes: notesInput.trim() || null,
+            cookingSurfaceSqIn: isFinite(cookingSurfaceVal) ? cookingSurfaceVal : null,
+            hopperSizeLbs: isFinite(hopperVal) ? hopperVal : null,
+            wifiEnabled: wifiEnabledInput,
           },
         });
       } else {
@@ -185,6 +232,10 @@ export default function GrillsScreen() {
             brand: customBrand.trim() || undefined,
             tempRange: tempRange.trim() || undefined,
             features: featuresArr.length > 0 ? featuresArr : undefined,
+            notes: notesInput.trim() || undefined,
+            cookingSurfaceSqIn: isFinite(cookingSurfaceVal) ? cookingSurfaceVal : undefined,
+            hopperSizeLbs: isFinite(hopperVal) ? hopperVal : undefined,
+            wifiEnabled: wifiEnabledInput || undefined,
           },
         });
       }
@@ -201,6 +252,8 @@ export default function GrillsScreen() {
   const resetCustomForm = () => {
     setGrillName(""); setGrillType(""); setFuelType(""); setCustomBrand("");
     setTempRange(""); setFeaturesInput(""); setEditingGrillId(null);
+    setCookingSurfaceInput(""); setHopperSizeInput(""); setNotesInput("");
+    setWifiEnabledInput(false);
   };
 
   const openEditModal = (g: any) => {
@@ -211,6 +264,10 @@ export default function GrillsScreen() {
     setCustomBrand(g.brand ?? "");
     setTempRange(g.tempRange ?? "");
     setFeaturesInput(Array.isArray(g.features) ? g.features.join(", ") : "");
+    setCookingSurfaceInput(g.cookingSurfaceSqIn != null ? String(g.cookingSurfaceSqIn) : "");
+    setHopperSizeInput(g.hopperSizeLbs != null ? String(g.hopperSizeLbs) : "");
+    setNotesInput(g.notes ?? "");
+    setWifiEnabledInput(Boolean(g.wifiEnabled));
     setShowCustomForm(true);
     setCatalogSearch("");
     setExpandedCatalogBrands(new Set());
@@ -333,7 +390,33 @@ export default function GrillsScreen() {
                     )}
                   </View>
                 )}
-                {/* ── Grill stats ── */}
+                {/* ── Spec chips (only render fields with data) ── */}
+                {(item.cookingSurfaceSqIn != null || item.wifiEnabled || item.hopperSizeLbs != null) && (
+                  <View style={[s.tagRow, { marginTop: 5 }]}>
+                    {item.cookingSurfaceSqIn != null && (
+                      <View style={[s.tag, { backgroundColor: colors.muted }]}>
+                        <Text style={[s.tagText, { color: colors.mutedForeground }]}>
+                          {Math.round(item.cookingSurfaceSqIn)} sq in
+                        </Text>
+                      </View>
+                    )}
+                    {item.wifiEnabled && (
+                      <View style={[s.tag, { backgroundColor: colors.primary + "18", flexDirection: "row", alignItems: "center", gap: 3 }]}>
+                        <Feather name="wifi" size={10} color={colors.primary} />
+                        <Text style={[s.tagText, { color: colors.primary }]}>WiFi</Text>
+                      </View>
+                    )}
+                    {item.hopperSizeLbs != null && (
+                      <View style={[s.tag, { backgroundColor: colors.muted }]}>
+                        <Text style={[s.tagText, { color: colors.mutedForeground }]}>
+                          {item.hopperSizeLbs} lb hopper
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {/* ── Usage stats ── */}
                 <View style={s.grillStatRow}>
                   <View style={s.grillStatItem}>
                     <Feather name="zap" size={11} color={colors.mutedForeground} />
@@ -341,6 +424,30 @@ export default function GrillsScreen() {
                       {item.cookCount ?? 0} cook{(item.cookCount ?? 0) !== 1 ? "s" : ""}
                     </Text>
                   </View>
+                  {typeof item.totalHours === "number" && item.totalHours > 0 && (
+                    <View style={s.grillStatItem}>
+                      <Feather name="clock" size={11} color={colors.mutedForeground} />
+                      <Text style={[s.grillStatText, { color: colors.mutedForeground }]}>
+                        {item.totalHours >= 10 ? Math.round(item.totalHours) : item.totalHours.toFixed(1)}h smoked
+                      </Text>
+                    </View>
+                  )}
+                  {item.lastCookAt && (
+                    <View style={s.grillStatItem}>
+                      <Feather name="calendar" size={11} color={colors.mutedForeground} />
+                      <Text style={[s.grillStatText, { color: colors.mutedForeground }]}>
+                        Last: {formatRelativeShort(item.lastCookAt)}
+                      </Text>
+                    </View>
+                  )}
+                  {item.mostCookedFood && (
+                    <View style={s.grillStatItem}>
+                      <Feather name="award" size={11} color={colors.mutedForeground} />
+                      <Text style={[s.grillStatText, { color: colors.mutedForeground }]}>
+                        Mostly {item.mostCookedFood}
+                      </Text>
+                    </View>
+                  )}
                   {item.avgRating != null && item.cookCount > 0 && (() => {
                     const avg = parseFloat(item.avgRating);
                     if (isNaN(avg)) return null;
@@ -586,17 +693,65 @@ export default function GrillsScreen() {
                       onChangeText={setTempRange}
                     />
                   </View>
+                  <Text style={[s.label, { color: colors.foreground }]}>Cooking Surface (optional)</Text>
+                  <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                    <TextInput
+                      style={[s.input, { color: colors.foreground }]}
+                      placeholder="sq in (e.g. 572)"
+                      placeholderTextColor={colors.mutedForeground}
+                      value={cookingSurfaceInput}
+                      onChangeText={setCookingSurfaceInput}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <Text style={[s.label, { color: colors.foreground }]}>Hopper Size (optional)</Text>
+                  <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                    <TextInput
+                      style={[s.input, { color: colors.foreground }]}
+                      placeholder="lbs (e.g. 18)"
+                      placeholderTextColor={colors.mutedForeground}
+                      value={hopperSizeInput}
+                      onChangeText={setHopperSizeInput}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <Pressable
+                    onPress={() => setWifiEnabledInput((v) => !v)}
+                    style={[s.wifiToggle, { borderColor: colors.border, backgroundColor: wifiEnabledInput ? colors.primary + "18" : colors.background, borderRadius: colors.radius }]}
+                  >
+                    <Feather name="wifi" size={15} color={wifiEnabledInput ? colors.primary : colors.mutedForeground} />
+                    <Text style={[s.wifiToggleText, { color: wifiEnabledInput ? colors.primary : colors.foreground }]}>
+                      WiFi-enabled
+                    </Text>
+                    <View style={{ flex: 1 }} />
+                    <Feather
+                      name={wifiEnabledInput ? "check-square" : "square"}
+                      size={18}
+                      color={wifiEnabledInput ? colors.primary : colors.mutedForeground}
+                    />
+                  </Pressable>
                   <Text style={[s.label, { color: colors.foreground }]}>Features (optional)</Text>
                   <Text style={[s.helperText, { color: colors.mutedForeground }]}>
-                    Comma-separated, e.g. WiFi enabled, Pellet sensor, Side burner
+                    Comma-separated, e.g. Pellet sensor, Side burner, Sear box
                   </Text>
                   <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius, height: undefined, minHeight: 44, paddingVertical: 8 }]}>
                     <TextInput
                       style={[s.input, { color: colors.foreground, minHeight: 30 }]}
-                      placeholder="WiFi enabled, Side burner, Sear box"
+                      placeholder="Pellet sensor, Side burner, Sear box"
                       placeholderTextColor={colors.mutedForeground}
                       value={featuresInput}
                       onChangeText={setFeaturesInput}
+                      multiline
+                    />
+                  </View>
+                  <Text style={[s.label, { color: colors.foreground }]}>Notes (optional)</Text>
+                  <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius, height: undefined, minHeight: 44, paddingVertical: 8 }]}>
+                    <TextInput
+                      style={[s.input, { color: colors.foreground, minHeight: 30 }]}
+                      placeholder="Anything memorable about this grill"
+                      placeholderTextColor={colors.mutedForeground}
+                      value={notesInput}
+                      onChangeText={setNotesInput}
                       multiline
                     />
                   </View>
@@ -720,4 +875,6 @@ const s = StyleSheet.create({
   saveBtn: { marginTop: 16, paddingVertical: 14, alignItems: "center" },
   saveBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#fff" },
   helperText: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: -4, marginBottom: 4 },
+  wifiToggle: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, marginTop: 12 },
+  wifiToggleText: { fontSize: 14, fontFamily: "Inter_500Medium" },
 });

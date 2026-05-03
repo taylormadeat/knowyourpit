@@ -20,6 +20,8 @@ const isPitProbe = (name: string | null) =>
   name ? PIT_PROBE_NAMES.some(k => name.toLowerCase().includes(k)) : false;
 
 router.get("/grills", requireAuth, async (req: any, res): Promise<void> => {
+  // Main per-grill aggregation: cookCount, avgRating, lastCookAt (most recent
+  // completed actualStartAt), and totalHours (sum of completed cook durations).
   const grills = await db
     .select({
       id: grillsTable.id,
@@ -28,10 +30,18 @@ router.get("/grills", requireAuth, async (req: any, res): Promise<void> => {
       type: grillsTable.type,
       fuelType: grillsTable.fuelType,
       brand: grillsTable.brand,
+      model: grillsTable.model,
       notes: grillsTable.notes,
+      cookingSurfaceSqIn: grillsTable.cookingSurfaceSqIn,
+      wifiEnabled: grillsTable.wifiEnabled,
+      hopperSizeLbs: grillsTable.hopperSizeLbs,
+      tempRange: grillsTable.tempRange,
+      features: grillsTable.features,
       createdAt: grillsTable.createdAt,
       cookCount: sql<number>`cast(count(${cooksTable.id}) as int)`,
       avgRating: sql<number | null>`avg(${cooksTable.rating})`,
+      lastCookAt: sql<string | null>`max(${cooksTable.actualStartAt}) filter (where ${cooksTable.status} = 'completed')`,
+      totalHours: sql<number | null>`sum(extract(epoch from (${cooksTable.actualEndAt} - ${cooksTable.actualStartAt}))) filter (where ${cooksTable.status} = 'completed' and ${cooksTable.actualStartAt} is not null and ${cooksTable.actualEndAt} is not null) / 3600.0`,
     })
     .from(grillsTable)
     .leftJoin(
@@ -41,7 +51,32 @@ router.get("/grills", requireAuth, async (req: any, res): Promise<void> => {
     .where(eq(grillsTable.userId, req.userId))
     .groupBy(grillsTable.id)
     .orderBy(grillsTable.createdAt);
-  res.json(grills);
+
+  // Most-cooked food per grill: separate group-by query, picked in JS.
+  const foodCountsRows = grills.length === 0 ? [] : await db
+    .select({
+      grillId: cooksTable.grillId,
+      foodType: cooksTable.foodType,
+      n: sql<number>`cast(count(*) as int)`,
+    })
+    .from(cooksTable)
+    .where(eq(cooksTable.userId, req.userId))
+    .groupBy(cooksTable.grillId, cooksTable.foodType);
+
+  const mostByGrill = new Map<number, { food: string; n: number }>();
+  for (const row of foodCountsRows) {
+    if (row.grillId == null) continue;
+    const cur = mostByGrill.get(row.grillId);
+    if (!cur || row.n > cur.n) {
+      mostByGrill.set(row.grillId, { food: row.foodType, n: row.n });
+    }
+  }
+
+  const result = grills.map((g) => ({
+    ...g,
+    mostCookedFood: mostByGrill.get(g.id)?.food ?? null,
+  }));
+  res.json(result);
 });
 
 router.post("/grills", requireAuth, async (req: any, res): Promise<void> => {

@@ -1164,6 +1164,22 @@ components:
           type: ["string", "null"]
         totalCooks:
           type: integer
+        cookCount:
+          type: integer
+          description: Number of cooks logged on this grill (returned by list endpoint)
+        avgRating:
+          type: ["number", "null"]
+          description: Average overall rating across rated cooks on this grill
+        lastCookAt:
+          type: ["string", "null"]
+          format: date-time
+          description: Most recent actualStartAt of any completed cook on this grill
+        totalHours:
+          type: ["number", "null"]
+          description: Total hours of completed cooks logged on this grill
+        mostCookedFood:
+          type: ["string", "null"]
+          description: Food type most frequently cooked on this grill
         createdAt:
           type: string
           format: date-time

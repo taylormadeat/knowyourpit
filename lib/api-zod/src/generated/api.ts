@@ -47,6 +47,28 @@ export const ListGrillsResponseItem = zod.object({
   notes: zod.string().nullable(),
   imageUrl: zod.string().nullable(),
   totalCooks: zod.number(),
+  cookCount: zod
+    .number()
+    .optional()
+    .describe(
+      "Number of cooks logged on this grill (returned by list endpoint)",
+    ),
+  avgRating: zod
+    .number()
+    .nullish()
+    .describe("Average overall rating across rated cooks on this grill"),
+  lastCookAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("Most recent actualStartAt of any completed cook on this grill"),
+  totalHours: zod
+    .number()
+    .nullish()
+    .describe("Total hours of completed cooks logged on this grill"),
+  mostCookedFood: zod
+    .string()
+    .nullish()
+    .describe("Food type most frequently cooked on this grill"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -112,6 +134,28 @@ export const GetGrillResponse = zod.object({
   notes: zod.string().nullable(),
   imageUrl: zod.string().nullable(),
   totalCooks: zod.number(),
+  cookCount: zod
+    .number()
+    .optional()
+    .describe(
+      "Number of cooks logged on this grill (returned by list endpoint)",
+    ),
+  avgRating: zod
+    .number()
+    .nullish()
+    .describe("Average overall rating across rated cooks on this grill"),
+  lastCookAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("Most recent actualStartAt of any completed cook on this grill"),
+  totalHours: zod
+    .number()
+    .nullish()
+    .describe("Total hours of completed cooks logged on this grill"),
+  mostCookedFood: zod
+    .string()
+    .nullish()
+    .describe("Food type most frequently cooked on this grill"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -173,6 +217,28 @@ export const UpdateGrillResponse = zod.object({
   notes: zod.string().nullable(),
   imageUrl: zod.string().nullable(),
   totalCooks: zod.number(),
+  cookCount: zod
+    .number()
+    .optional()
+    .describe(
+      "Number of cooks logged on this grill (returned by list endpoint)",
+    ),
+  avgRating: zod
+    .number()
+    .nullish()
+    .describe("Average overall rating across rated cooks on this grill"),
+  lastCookAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("Most recent actualStartAt of any completed cook on this grill"),
+  totalHours: zod
+    .number()
+    .nullish()
+    .describe("Total hours of completed cooks logged on this grill"),
+  mostCookedFood: zod
+    .string()
+    .nullish()
+    .describe("Food type most frequently cooked on this grill"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
