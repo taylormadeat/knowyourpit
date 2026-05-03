@@ -53,6 +53,8 @@ router.get("/grills", requireAuth, async (req: any, res): Promise<void> => {
     .orderBy(grillsTable.createdAt);
 
   // Most-cooked food per grill: separate group-by query, picked in JS.
+  // Restrict to completed cooks with a non-null foodType so the stat reflects
+  // actual cook history, not scheduled/incomplete entries.
   const foodCountsRows = grills.length === 0 ? [] : await db
     .select({
       grillId: cooksTable.grillId,
@@ -60,7 +62,13 @@ router.get("/grills", requireAuth, async (req: any, res): Promise<void> => {
       n: sql<number>`cast(count(*) as int)`,
     })
     .from(cooksTable)
-    .where(eq(cooksTable.userId, req.userId))
+    .where(
+      and(
+        eq(cooksTable.userId, req.userId),
+        eq(cooksTable.status, "completed"),
+        sql`${cooksTable.foodType} is not null`
+      )
+    )
     .groupBy(cooksTable.grillId, cooksTable.foodType);
 
   const mostByGrill = new Map<number, { food: string; n: number }>();
