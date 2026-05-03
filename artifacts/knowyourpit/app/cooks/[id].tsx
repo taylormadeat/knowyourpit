@@ -32,6 +32,10 @@ import { useTopInset } from "@/hooks/useTopInset";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { useLayout } from "@/hooks/useLayout";
 import { useScheduleStepNotifications } from "@/hooks/useScheduleStepNotifications";
+import {
+  useFrozenStageNotifications,
+  cancelStoredFrozenNotifications,
+} from "@/hooks/useFrozenStageNotifications";
 import { setCookDetailVisible } from "@/hooks/cookDetailVisibility";
 import { useCookLiveActivity } from "@/hooks/useCookLiveActivity";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -311,6 +315,15 @@ export default function CookDetailScreen() {
   // _layout.tsx suppresses the system banner while the app is active to
   // avoid duplication.
   useScheduleStepNotifications(Number(id), cookStatus, cookSeqData);
+  // Frozen-to-Table thaw/temper alerts. These fire while the cook is still
+  // `planned` (days before grill-light) so the user gets a heads-up to move
+  // the meat from the freezer/fridge/counter at each stage.
+  useFrozenStageNotifications(
+    Number(id),
+    cookStatus,
+    cookSeqData,
+    (cook as any)?.plannedStartAt ?? null,
+  );
 
   // Compute the current "next step" using the shared helper. Runs before early
   // returns so it respects React's rules of hooks.
@@ -559,6 +572,8 @@ export default function CookDetailScreen() {
         onPress: async () => {
           try {
             await deleteCook.mutateAsync({ id: Number(id) });
+            // Cancel any frozen thaw/temper/preheat alerts queued for this cook.
+            await cancelStoredFrozenNotifications(Number(id)).catch(() => {});
             qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
             qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
             qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });

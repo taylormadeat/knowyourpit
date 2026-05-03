@@ -21,6 +21,7 @@ import { LogoBackground } from "@/components/LogoBackground";
 import * as Haptics from "expo-haptics";
 import * as Crypto from "expo-crypto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { scheduleFrozenStageNotifications } from "@/hooks/useFrozenStageNotifications";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
@@ -681,8 +682,20 @@ export default function PlanScreen() {
       noteParts.push(`Pit Master Tips:\n${(aiResult.tips as string[]).map((t, i) => `${i + 1}. ${t}`).join("\n")}`);
     }
 
+    // Persist Frozen-to-Table thaw/temper times in sequenceData so the cook
+    // detail screen can re-schedule notifications later (e.g. after edits).
+    const frozenForCook = schedule?.frozen
+      ? {
+          method: schedule.frozen.method,
+          thawStartAt: schedule.frozen.thawStartAt.toISOString(),
+          // thawEndAt === temperStartAt by construction; one timestamp covers both.
+          thawEndAt: schedule.frozen.thawEndAt.toISOString(),
+          foodType: selectedCut.name,
+        }
+      : null;
+
     try {
-      await createCook.mutateAsync({
+      const createdCook = await createCook.mutateAsync({
         data: {
           foodType: selectedCut.name,
           weightLbs: parsedWeight,
@@ -700,8 +713,24 @@ export default function PlanScreen() {
           ...(wrap?.wrapAtMinutes > 0 && { wrapAtMinutes: Math.round(wrap.wrapAtMinutes) }),
           ...(wrap?.wrapTempF && { wrapTempF: Math.round(wrap.wrapTempF) }),
           ...(wrap?.reason && { wrapReason: wrap.reason }),
+          ...(frozenForCook && {
+            sequenceData: { schedule: [], frozen: frozenForCook },
+          }),
         } as any,
       });
+      // Fire-and-forget: schedule the thaw/temper/preheat alerts immediately
+      // so they're armed even if the user never opens the cook detail screen.
+      // The cook detail screen's hook will re-reconcile these on mount.
+      const newCookId = (createdCook as { id?: number } | undefined)?.id;
+      if (newCookId && (frozenForCook || plannedStart)) {
+        scheduleFrozenStageNotifications({
+          cookId: newCookId,
+          frozen: frozenForCook,
+          preheatStartAt: plannedStart ? plannedStart.toISOString() : null,
+          foodType: selectedCut.name,
+          includePreheat: true,
+        }).catch(() => {});
+      }
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
       qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });

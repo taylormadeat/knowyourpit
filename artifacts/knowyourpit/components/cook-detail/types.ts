@@ -77,10 +77,21 @@ export interface ScheduleItem {
   wrapReason?: string | null;
 }
 
+export interface FrozenStageInfo {
+  method?: "fridge" | "cold_water";
+  thawStartAt?: string | null;
+  // Meat fully thawed — also doubles as the start of the temper window
+  // (the planner constructs thawEndAt === temperStartAt by design, see
+  // components/plan-screen/frozenSchedule.ts).
+  thawEndAt?: string | null;
+  foodType?: string | null;
+}
+
 export interface SequenceData {
   schedule: ScheduleItem[];
   serveAt?: string;
   summary?: string | null;
+  frozen?: FrozenStageInfo | null;
 }
 
 export type NextStepKey = "grillLight" | "meatOn" | "wrap" | "pullOff" | "serve";
