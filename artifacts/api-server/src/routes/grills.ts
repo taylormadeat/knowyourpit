@@ -72,11 +72,13 @@ router.get("/grills", requireAuth, async (req: any, res): Promise<void> => {
     )
     .groupBy(cooksTable.grillId, cooksTable.foodType);
 
+  // Pick the most-cooked food per grill. On count ties, fall back to
+  // alphabetical order so the result is deterministic across requests.
   const mostByGrill = new Map<number, { food: string; n: number }>();
   for (const row of foodCountsRows) {
     if (row.grillId == null) continue;
     const cur = mostByGrill.get(row.grillId);
-    if (!cur || row.n > cur.n) {
+    if (!cur || row.n > cur.n || (row.n === cur.n && row.foodType < cur.food)) {
       mostByGrill.set(row.grillId, { food: row.foodType, n: row.n });
     }
   }
