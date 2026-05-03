@@ -48,6 +48,19 @@ function parseCookingSurfaceSqIn(raw: string | undefined | null): number | null 
   return m ? parseFloat(m[1]) : null;
 }
 
+// Scans catalog feature strings for an explicit hopper size in pounds, e.g.
+// "Large 21 lb hopper" → 21, "20 lb hopper" → 20. Returns the first numeric
+// match, or null if no quantified hopper info is present.
+function parseHopperSizeLbs(features: string[] | undefined | null): number | null {
+  if (!Array.isArray(features)) return null;
+  for (const f of features) {
+    if (!/hopper/i.test(f)) continue;
+    const m = f.match(/(\d+(?:\.\d+)?)\s*(?:lb|lbs|pound)/i);
+    if (m) return parseFloat(m[1]);
+  }
+  return null;
+}
+
 // Format a Date/ISO string as a short relative phrase, e.g. "2d ago", "3h ago",
 // "just now". Falls back to a localized date string for >30 days.
 function formatRelativeShort(iso: string | null | undefined): string | null {
@@ -157,6 +170,7 @@ export default function GrillsScreen() {
   const handleAddFromCatalog = async (model: GrillModel, brandName: string) => {
     try {
       const surfaceSqIn = parseCookingSurfaceSqIn(model.cookingSurface);
+      const hopperLbs = parseHopperSizeLbs(model.features);
       const wifiFromFeatures = Array.isArray(model.features)
         && model.features.some((f) => /\bwifi\b/i.test(f));
       await createGrill.mutateAsync({
@@ -170,6 +184,7 @@ export default function GrillsScreen() {
           features: Array.isArray(model.features) && model.features.length > 0 ? model.features : undefined,
           notes: model.notes || undefined,
           cookingSurfaceSqIn: surfaceSqIn ?? undefined,
+          hopperSizeLbs: hopperLbs ?? undefined,
           wifiEnabled: wifiFromFeatures ? true : undefined,
         },
       });
