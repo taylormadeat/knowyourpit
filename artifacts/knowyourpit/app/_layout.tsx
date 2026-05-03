@@ -120,6 +120,25 @@ const clerkPubKey =
   "";
 const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL ?? "";
 
+// Loud diagnostic: in a non-__DEV__ build (TestFlight / App Store), refuse to
+// silently fall back to a pk_test_ Clerk dev key — that's exactly what bit the
+// last App Review (reviewer hits prod app, prod app talks to dev Clerk
+// instance, dev Clerk has no reviewer account → "credentials don't work").
+if (!__DEV__) {
+  if (!clerkPubKey) {
+    console.error(
+      "[knowyourpit] FATAL: no Clerk publishable key set in production build. " +
+        "Set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD as an EAS secret and reference it in eas.json build.production.env.",
+    );
+  } else if (clerkPubKey.startsWith("pk_test_")) {
+    console.error(
+      "[knowyourpit] WARNING: production build is using a pk_test_ (development) Clerk key. " +
+        "Sign-in will hit the dev Clerk instance, where reviewer/production accounts do not exist. " +
+        "Set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD to a pk_live_… key before shipping.",
+    );
+  }
+}
+
 let _appIsActive = true;
 if (Platform.OS !== "web") {
   AppState.addEventListener("change", (nextState) => {

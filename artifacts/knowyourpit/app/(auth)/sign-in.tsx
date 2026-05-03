@@ -517,6 +517,23 @@ export default function SignInScreen() {
       height: 50,
       backgroundColor: colors.card,
     },
+    reviewerBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      borderWidth: 1,
+      borderStyle: "dashed",
+      borderColor: colors.border,
+      borderRadius: colors.radius,
+      height: 44,
+      marginTop: 10,
+      backgroundColor: "transparent",
+    },
+    reviewerBtnText: {
+      fontSize: 13,
+      fontFamily: "Inter_500Medium",
+    },
     googleBtnText: {
       fontSize: 15,
       fontFamily: "Inter_500Medium",
@@ -795,6 +812,26 @@ export default function SignInScreen() {
             <Text style={styles.primaryBtnText}>Sign In</Text>
           )}
         </Pressable>
+
+        {process.env.EXPO_PUBLIC_REVIEWER_MODE === "1" && (
+          <Pressable
+            style={({ pressed }) => [
+              styles.reviewerBtn,
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={() => {
+              setEmail("taylor.aad@gmail.com");
+              setPassword("Review2026!");
+              setErrorMsg(null);
+              setShowForgotSuggestion(false);
+            }}
+          >
+            <Feather name="user-check" size={16} color={colors.foreground} />
+            <Text style={[styles.reviewerBtnText, { color: colors.foreground }]}>
+              Fill App Review demo credentials
+            </Text>
+          </Pressable>
+        )}
 
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
