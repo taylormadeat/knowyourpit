@@ -339,7 +339,7 @@ export default function SessionDetailScreen() {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!isCompetitionSession) return;
-    const id = setInterval(() => setNow(Date.now()), 30000);
+    const id = setInterval(() => setNow(Date.now()), 15000);
     return () => clearInterval(id);
   }, [isCompetitionSession]);
   const nextTurnInMs = turnInDates.filter((t) => t > now).sort((a, b) => a - b)[0] ?? null;
@@ -752,14 +752,26 @@ export default function SessionDetailScreen() {
                               </Text>
                             </View>
                           )}
-                          {cook.isCompetition && cook.turnInAt && (
-                            <View style={[s.timeChip, { backgroundColor: "#EAB308" + "22" }]}>
-                              <Feather name="award" size={11} color="#EAB308" />
-                              <Text style={[s.timeChipText, { color: "#EAB308", fontFamily: "Inter_600SemiBold" }]}>
-                                Turn-in {fmtTime(new Date(cook.turnInAt))}
-                              </Text>
-                            </View>
-                          )}
+                          {cook.isCompetition && cook.turnInAt && (() => {
+                            const turnInMs = new Date(cook.turnInAt).getTime();
+                            const diffMs = turnInMs - now;
+                            const cat = cook.competitionCategory as KcbsCategory | null;
+                            const catColor = cat ? KCBS_CATEGORY_COLOR[cat] : "#EAB308";
+                            const isUrgent = diffMs > 0 && diffMs <= 30 * 60 * 1000;
+                            const isPast = diffMs <= 0;
+                            const accent = isUrgent || isPast ? "#ef4444" : catColor;
+                            const label = isPast
+                              ? `Turn-in ${fmtTime(new Date(cook.turnInAt))}`
+                              : `Turn-in ${fmtCountdown(turnInMs)}`;
+                            return (
+                              <View style={[s.timeChip, { backgroundColor: accent + "22", borderWidth: 1, borderColor: accent + "55" }]}>
+                                <Feather name="award" size={11} color={accent} />
+                                <Text style={[s.timeChipText, { color: accent, fontFamily: "Inter_600SemiBold" }]}>
+                                  {label}
+                                </Text>
+                              </View>
+                            );
+                          })()}
                           {(() => {
                             if (!finishTime) return null;
                             const restMs = cook.restMinutes ? cook.restMinutes * 60 * 1000 : 0;

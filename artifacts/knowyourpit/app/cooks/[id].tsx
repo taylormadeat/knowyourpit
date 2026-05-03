@@ -1186,6 +1186,7 @@ export default function CookDetailScreen() {
           setAlertSheetVisible={setAlertSheetVisible}
           setAlertMode={setAlertMode}
           activeCookAlerts={activeCookAlerts}
+          nowMs={nowMs}
         />
         <LastDecisionBanner c={c} colors={colors} />
         <CookSummaryCard

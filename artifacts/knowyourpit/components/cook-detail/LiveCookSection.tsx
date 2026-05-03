@@ -5,6 +5,18 @@ import { s } from "./styles";
 import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
 import { weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
 import { fmtElapsed, getOutdoorTempEffect } from "./utils";
+import { KCBS_CATEGORY_COLOR, KCBS_CATEGORY_LABEL, type KcbsCategory } from "@/constants/competitionKnowledge";
+
+function fmtTurnInCountdown(diffMs: number): string {
+  if (diffMs <= 0) return "now";
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return `in ${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h < 24) return `in ${h}h ${m}m`;
+  const d = Math.floor(h / 24);
+  return `in ${d}d`;
+}
 
 type Colors = any;
 
@@ -25,16 +37,52 @@ interface Props {
   setAlertSheetVisible: (v: boolean) => void;
   setAlertMode: (m: "temp" | "timer") => void;
   activeCookAlerts: any[];
+  nowMs?: number;
 }
 
 export function LiveCookSection(p: Props) {
   const {
     c, colors, weather, meaterLinked, meaterProbes, thermoworksLinked, thermoworksProbes,
     liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, userTempEdited,
-    setAlertSheetVisible, setAlertMode, activeCookAlerts,
+    setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
   } = p;
 
   if (c.status !== "active") return null;
+
+  const turnInBadge = (() => {
+    if (!c.isCompetition || !c.turnInAt) return null;
+    const turnInMs = new Date(c.turnInAt).getTime();
+    const now = nowMs ?? Date.now();
+    const diffMs = turnInMs - now;
+    const cat = (c.competitionCategory ?? null) as KcbsCategory | null;
+    const catColor = cat ? KCBS_CATEGORY_COLOR[cat] : "#EAB308";
+    const catLabel = cat ? KCBS_CATEGORY_LABEL[cat] : "Competition";
+    const isUrgent = diffMs > 0 && diffMs <= 30 * 60 * 1000;
+    const isPast = diffMs <= 0;
+    const accent = isUrgent || isPast ? "#ef4444" : catColor;
+    const text = isPast ? "Turn-in passed" : `Turn-in ${fmtTurnInCountdown(diffMs)}`;
+    return (
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          marginHorizontal: 14,
+          marginTop: 10,
+          padding: 10,
+          borderRadius: 8,
+          backgroundColor: accent + "18",
+          borderWidth: 1,
+          borderColor: accent + "55",
+        }}
+      >
+        <Feather name="award" size={14} color={accent} />
+        <Text style={{ color: accent, fontFamily: "Inter_700Bold", fontSize: 13 }}>
+          {catLabel.toUpperCase()} · {text}
+        </Text>
+      </View>
+    );
+  })();
 
   return (
     <View style={[s.card, { backgroundColor: colors.card, borderColor: "#FF6B2B40", borderRadius: colors.radius }]}>
@@ -57,6 +105,8 @@ export function LiveCookSection(p: Props) {
           <Text style={[s.liveText, { color: "#FF6B2B" }]}>LIVE</Text>
         </View>
       </View>
+
+      {turnInBadge}
 
       <View style={[s.timerRow, { borderTopColor: colors.border }]}>
         <View style={[s.timerChip, { backgroundColor: colors.primary + "18", borderColor: colors.primary + "30" }]}>
