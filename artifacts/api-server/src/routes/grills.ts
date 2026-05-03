@@ -19,6 +19,20 @@ const PIT_PROBE_NAMES = ["pit", "ambient", "grill", "chamber", "dome", "lid"];
 const isPitProbe = (name: string | null) =>
   name ? PIT_PROBE_NAMES.some(k => name.toLowerCase().includes(k)) : false;
 
+export function pickMostCookedByGrill(
+  rows: Array<{ grillId: number | null; foodType: string; n: number }>,
+): Map<number, { food: string; n: number }> {
+  const out = new Map<number, { food: string; n: number }>();
+  for (const row of rows) {
+    if (row.grillId == null) continue;
+    const cur = out.get(row.grillId);
+    if (!cur || row.n > cur.n || (row.n === cur.n && row.foodType < cur.food)) {
+      out.set(row.grillId, { food: row.foodType, n: row.n });
+    }
+  }
+  return out;
+}
+
 router.get("/grills", requireAuth, async (req: any, res): Promise<void> => {
   // Main per-grill aggregation: cookCount, avgRating, lastCookAt (most recent
   // completed actualStartAt), and totalHours (sum of completed cook durations).
@@ -72,14 +86,7 @@ router.get("/grills", requireAuth, async (req: any, res): Promise<void> => {
     )
     .groupBy(cooksTable.grillId, cooksTable.foodType);
 
-  const mostByGrill = new Map<number, { food: string; n: number }>();
-  for (const row of foodCountsRows) {
-    if (row.grillId == null) continue;
-    const cur = mostByGrill.get(row.grillId);
-    if (!cur || row.n > cur.n || (row.n === cur.n && row.foodType < cur.food)) {
-      mostByGrill.set(row.grillId, { food: row.foodType, n: row.n });
-    }
-  }
+  const mostByGrill = pickMostCookedByGrill(foodCountsRows);
 
   const result = grills.map((g) => ({
     ...g,
