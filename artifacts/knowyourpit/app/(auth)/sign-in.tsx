@@ -59,8 +59,21 @@ export default function SignInScreen() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [googleLoading, setGoogleLoading] = React.useState(false);
   const [appleLoading, setAppleLoading] = React.useState(false);
+  const [appleAvailable, setAppleAvailable] = React.useState(Platform.OS === "ios");
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [showForgotSuggestion, setShowForgotSuggestion] = React.useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (Platform.OS === "ios") {
+      AppleAuthentication.isAvailableAsync()
+        .then((available) => { if (!cancelled) setAppleAvailable(available); })
+        .catch(() => { if (!cancelled) setAppleAvailable(false); });
+    } else {
+      setAppleAvailable(false);
+    }
+    return () => { cancelled = true; };
+  }, []);
 
   const [forgotEmail, setForgotEmail] = React.useState("");
   const [resetCode, setResetCode] = React.useState("");
@@ -804,20 +817,22 @@ export default function SignInScreen() {
           )}
         </Pressable>
 
-        <Pressable
-          style={({ pressed }) => [styles.appleBtn, pressed && { opacity: 0.7 }]}
-          onPress={handleApple}
-          disabled={appleLoading || googleLoading}
-        >
-          {appleLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Ionicons name="logo-apple" size={20} color="#fff" />
-              <Text style={styles.appleBtnText}>Continue with Apple</Text>
-            </>
-          )}
-        </Pressable>
+        {appleAvailable && (
+          <Pressable
+            style={({ pressed }) => [styles.appleBtn, pressed && { opacity: 0.7 }]}
+            onPress={handleApple}
+            disabled={appleLoading || googleLoading}
+          >
+            {appleLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="logo-apple" size={20} color="#fff" />
+                <Text style={styles.appleBtnText}>Continue with Apple</Text>
+              </>
+            )}
+          </Pressable>
+        )}
 
         <Text style={styles.legalNotice}>
           By continuing, you agree to our{" "}

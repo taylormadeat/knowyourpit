@@ -55,6 +55,7 @@ export default function SignUpScreen() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [googleLoading, setGoogleLoading] = React.useState(false);
   const [appleLoading, setAppleLoading] = React.useState(false);
+  const [appleAvailable, setAppleAvailable] = React.useState(Platform.OS === "ios");
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [pendingVerification, setPendingVerification] = React.useState(false);
   const [resendLoading, setResendLoading] = React.useState(false);
@@ -63,17 +64,60 @@ export default function SignUpScreen() {
   const [resendSessionExpired, setResendSessionExpired] = React.useState(false);
   const [showSignInLink, setShowSignInLink] = React.useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (Platform.OS === "ios") {
+      AppleAuthentication.isAvailableAsync()
+        .then((available) => { if (!cancelled) setAppleAvailable(available); })
+        .catch(() => { if (!cancelled) setAppleAvailable(false); });
+    } else {
+      setAppleAvailable(false);
+    }
+    return () => { cancelled = true; };
+  }, []);
+
   const handleSignUp = async () => {
     if (!signUp) return;
     try {
       setIsLoading(true);
       setErrorMsg(null);
+      setShowSignInLink(false);
       await signUp.create({ emailAddress: email, password });
       await signUp.prepareVerification({ strategy: "email_code" });
       setPendingVerification(true);
     } catch (e: any) {
-      const msg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "Sign up failed.";
-      setErrorMsg(msg);
+      const code: string = e?.errors?.[0]?.code ?? "";
+      const longMsg: string = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "";
+      let friendly: string;
+      switch (code) {
+        case "form_identifier_exists":
+          friendly = "An account with that email already exists. Try signing in instead.";
+          setShowSignInLink(true);
+          break;
+        case "form_password_pwned":
+          friendly = "That password has been found in a data breach. Please choose a different one.";
+          break;
+        case "form_password_length_too_short":
+        case "form_password_size_in_bytes_exceeded":
+          friendly = "Password must be at least 8 characters.";
+          break;
+        case "form_password_not_strong_enough":
+          friendly = "Please choose a stronger password (mix letters, numbers, and symbols).";
+          break;
+        case "form_param_format_invalid":
+          friendly = "That email address doesn't look right. Please check it and try again.";
+          break;
+        case "captcha_invalid":
+        case "captcha_unavailable":
+          friendly = "Couldn't verify the request. Please try again.";
+          break;
+        case "too_many_requests":
+          friendly = "Too many sign-up attempts. Please wait a minute and try again.";
+          break;
+        default:
+          friendly = longMsg || "Sign up failed. Please check your email and password and try again.";
+      }
+      setErrorMsg(friendly);
     } finally {
       setIsLoading(false);
     }
@@ -112,7 +156,15 @@ export default function SignUpScreen() {
             console.warn("[sign-up] update with username failed:", updateErr?.errors?.[0]?.message ?? updateErr?.message);
           }
         }
-        setErrorMsg("Sign up could not be completed. Please try again.");
+        if (missing.includes("email_address")) {
+          setErrorMsg("Email address is required to complete sign up.");
+        } else if (missing.includes("password")) {
+          setErrorMsg("Password is required to complete sign up.");
+        } else {
+          setErrorMsg(
+            `Almost done — we still need: ${missing.join(", ")}. Please contact support if this keeps happening.`,
+          );
+        }
         return;
       }
 
@@ -157,7 +209,22 @@ export default function SignUpScreen() {
         setErrorMsg("Your email is already verified. Please sign in with your credentials.");
         setShowSignInLink(true);
       } else {
-        setErrorMsg(clerkMsg || "Verification failed.");
+        let friendly: string;
+        switch (clerkCode) {
+          case "form_code_incorrect":
+          case "verification_failed":
+            friendly = "That code isn't right. Double-check the email we sent and try again, or tap Resend code.";
+            break;
+          case "verification_expired":
+            friendly = "That code has expired. Tap Resend code to get a fresh one.";
+            break;
+          case "too_many_requests":
+            friendly = "Too many attempts. Please wait a minute and try again.";
+            break;
+          default:
+            friendly = clerkMsg || "Verification failed. Please try again or tap Resend code.";
+        }
+        setErrorMsg(friendly);
       }
     } finally {
       setIsLoading(false);
@@ -203,8 +270,10 @@ export default function SignUpScreen() {
       } else if (isExpired) {
         setResendSessionExpired(true);
         setResendError("Your sign-up session has expired. Please go back and sign up again.");
+      } else if (clerkCode === "too_many_requests") {
+        setResendError("You've requested too many codes. Please wait a minute before trying again.");
       } else {
-        setResendError(clerkMsg || "Could not resend code. Please try again.");
+        setResendError(clerkMsg || "Could not resend the code right now. Please try again in a moment.");
       }
     } finally {
       setResendLoading(false);
@@ -315,12 +384,15 @@ export default function SignUpScreen() {
         }
       } catch (e: any) {
         if ((e as any).code === "ERR_REQUEST_CANCELED") return;
-        const msg =
+        const rawMsg: string =
           e?.errors?.[0]?.longMessage ??
           e?.errors?.[0]?.message ??
           e?.message ??
-          "Apple sign-in failed. Please try again or use email instead.";
-        setErrorMsg(msg);
+          "";
+        const friendly = /oauth_token_apple|allowed values for parameter strategy/i.test(rawMsg)
+          ? "Apple sign-in is temporarily unavailable. Please use email or Google to sign up."
+          : rawMsg || "Apple sign-in failed. Please try again or use email instead.";
+        setErrorMsg(friendly);
       } finally {
         setAppleLoading(false);
       }
@@ -566,20 +638,22 @@ export default function SignUpScreen() {
           )}
         </Pressable>
 
-        <Pressable
-          style={({ pressed }) => [styles.appleBtn, pressed && { opacity: 0.7 }]}
-          onPress={handleApple}
-          disabled={appleLoading || googleLoading}
-        >
-          {appleLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Ionicons name="logo-apple" size={20} color="#fff" />
-              <Text style={styles.appleBtnText}>Continue with Apple</Text>
-            </>
-          )}
-        </Pressable>
+        {appleAvailable && (
+          <Pressable
+            style={({ pressed }) => [styles.appleBtn, pressed && { opacity: 0.7 }]}
+            onPress={handleApple}
+            disabled={appleLoading || googleLoading}
+          >
+            {appleLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="logo-apple" size={20} color="#fff" />
+                <Text style={styles.appleBtnText}>Continue with Apple</Text>
+              </>
+            )}
+          </Pressable>
+        )}
 
         <View nativeID="clerk-captcha" />
 
