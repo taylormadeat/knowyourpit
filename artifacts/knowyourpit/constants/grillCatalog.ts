@@ -41,7 +41,7 @@ export const GRILL_CATALOG: GrillCategory[] = [
           { name: "Timberline 1300", type: "Pellet Grill", fuelType: "Pellets", tempRange: "165°F – 500°F", cookingSurface: "1300 sq in", features: ["Triple-wall insulation", "Super Smoke mode", "Pellet sensor"] },
           { name: "Timberline (New 2022) XL", type: "Pellet Grill", fuelType: "Pellets", tempRange: "165°F – 500°F", cookingSurface: "1320 sq in", features: ["Induction cooktop", "Pop-and-Lock accessory rail", "Touchscreen controller", "Smart Combustion™"] },
           { name: "Bronson 20", type: "Pellet Grill", fuelType: "Pellets", tempRange: "165°F – 450°F", cookingSurface: "300 sq in", features: ["Compact backyard size", "Digital arc controller", "Porcelain grill grates"] },
-          { name: "Flatrock Griddle", type: "Combo", fuelType: "Gas", tempRange: "200°F – 600°F", cookingSurface: "594 sq in", features: ["3-zone griddle", "FlameLock construction", "EZ-Clean grease management"], notes: "Traeger's gas-powered flat-top griddle" },
+          { name: "Flatrock Griddle", type: "Griddle", fuelType: "Gas", tempRange: "200°F – 600°F", cookingSurface: "594 sq in", features: ["3-zone griddle", "FlameLock construction", "EZ-Clean grease management"], notes: "Traeger's gas-powered flat-top griddle" },
         ],
       },
       {

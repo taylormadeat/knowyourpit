@@ -50,6 +50,8 @@ export interface Grill {
   totalCooks: number;
   /** Number of cooks logged on this grill (returned by list endpoint) */
   cookCount?: number;
+  /** Number of cooks with status=completed on this grill */
+  completedCookCount?: number;
   /**
    * Average overall rating across rated cooks on this grill
    * @nullable

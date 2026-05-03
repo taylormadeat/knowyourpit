@@ -1167,6 +1167,9 @@ components:
         cookCount:
           type: integer
           description: Number of cooks logged on this grill (returned by list endpoint)
+        completedCookCount:
+          type: integer
+          description: Number of cooks with status=completed on this grill
         avgRating:
           type: ["number", "null"]
           description: Average overall rating across rated cooks on this grill

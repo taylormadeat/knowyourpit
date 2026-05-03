@@ -53,6 +53,10 @@ export const ListGrillsResponseItem = zod.object({
     .describe(
       "Number of cooks logged on this grill (returned by list endpoint)",
     ),
+  completedCookCount: zod
+    .number()
+    .optional()
+    .describe("Number of cooks with status=completed on this grill"),
   avgRating: zod
     .number()
     .nullish()
@@ -140,6 +144,10 @@ export const GetGrillResponse = zod.object({
     .describe(
       "Number of cooks logged on this grill (returned by list endpoint)",
     ),
+  completedCookCount: zod
+    .number()
+    .optional()
+    .describe("Number of cooks with status=completed on this grill"),
   avgRating: zod
     .number()
     .nullish()
@@ -223,6 +231,10 @@ export const UpdateGrillResponse = zod.object({
     .describe(
       "Number of cooks logged on this grill (returned by list endpoint)",
     ),
+  completedCookCount: zod
+    .number()
+    .optional()
+    .describe("Number of cooks with status=completed on this grill"),
   avgRating: zod
     .number()
     .nullish()

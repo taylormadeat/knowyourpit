@@ -39,6 +39,7 @@ router.get("/grills", requireAuth, async (req: any, res): Promise<void> => {
       features: grillsTable.features,
       createdAt: grillsTable.createdAt,
       cookCount: sql<number>`cast(count(${cooksTable.id}) as int)`,
+      completedCookCount: sql<number>`cast(count(${cooksTable.id}) filter (where ${cooksTable.status} = 'completed') as int)`,
       avgRating: sql<number | null>`avg(${cooksTable.rating})`,
       lastCookAt: sql<string | null>`max(${cooksTable.actualStartAt}) filter (where ${cooksTable.status} = 'completed')`,
       totalHours: sql<number | null>`sum(extract(epoch from (${cooksTable.actualEndAt} - ${cooksTable.actualStartAt}))) filter (where ${cooksTable.status} = 'completed' and ${cooksTable.actualStartAt} is not null and ${cooksTable.actualEndAt} is not null) / 3600.0`,
