@@ -443,7 +443,7 @@ export default function GrillsScreen() {
                     <View style={s.grillStatItem}>
                       <Feather name="clock" size={11} color={colors.mutedForeground} />
                       <Text style={[s.grillStatText, { color: colors.mutedForeground }]}>
-                        {item.totalHours >= 10 ? Math.round(item.totalHours) : item.totalHours.toFixed(1)}h smoked
+                        {item.totalHours >= 10 ? Math.round(item.totalHours) : item.totalHours.toFixed(1)}h cooked
                       </Text>
                     </View>
                   )}
@@ -451,7 +451,7 @@ export default function GrillsScreen() {
                     <View style={s.grillStatItem}>
                       <Feather name="calendar" size={11} color={colors.mutedForeground} />
                       <Text style={[s.grillStatText, { color: colors.mutedForeground }]}>
-                        Last: {formatRelativeShort(item.lastCookAt)}
+                        Last cooked {formatRelativeShort(item.lastCookAt)}
                       </Text>
                     </View>
                   )}
