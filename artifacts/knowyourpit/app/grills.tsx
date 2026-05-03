@@ -172,7 +172,7 @@ export default function GrillsScreen() {
       const surfaceSqIn = parseCookingSurfaceSqIn(model.cookingSurface);
       const hopperLbs = parseHopperSizeLbs(model.features);
       const wifiFromFeatures = Array.isArray(model.features)
-        && model.features.some((f) => /\bwifi\b/i.test(f));
+        && model.features.some((f) => /\bwi\s*-?\s*fi\b|wifire/i.test(f));
       await createGrill.mutateAsync({
         data: {
           name: `${brandName} ${model.name}`,
@@ -455,7 +455,7 @@ export default function GrillsScreen() {
                       </Text>
                     </View>
                   )}
-                  {item.mostCookedFood && (item.completedCookCount ?? 0) >= 3 && (
+                  {item.mostCookedFood && (item.cookCount ?? 0) >= 3 && (
                     <View style={s.grillStatItem}>
                       <Feather name="award" size={11} color={colors.mutedForeground} />
                       <Text style={[s.grillStatText, { color: colors.mutedForeground }]}>
