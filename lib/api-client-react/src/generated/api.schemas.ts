@@ -1259,6 +1259,11 @@ export interface MultiCookScheduleItem {
    * @nullable
    */
   boxPackAt?: string | null;
+  /**
+   * Optional human-readable warning when the back-planned schedule is not realistically achievable (e.g. grillLightAt is already in the past). Competition Mode only.
+   * @nullable
+   */
+  warning?: string | null;
 }
 
 export interface MultiCookResponse {

@@ -205,6 +205,23 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
       if (!inputByFoodType.has(it.foodType)) inputByFoodType.set(it.foodType, it);
     }
     const BOX_PACK_LEAD_MS = 15 * 60_000;
+    const nowMs = Date.now();
+    const IMMINENT_GRACE_MS = 15 * 60_000;
+    const LONG_COOK_MIN = 120;
+    const formatPastTime = (ms: number): string => {
+      const d = new Date(ms);
+      const now = new Date(nowMs);
+      const sameDay =
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate();
+      const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      if (sameDay) return time + " today";
+      const dayDiff = Math.round((now.setHours(0, 0, 0, 0) - new Date(ms).setHours(0, 0, 0, 0)) / 86_400_000);
+      if (dayDiff === 1) return time + " yesterday";
+      if (dayDiff > 1) return `${time}, ${dayDiff} days ago`;
+      return d.toLocaleString();
+    };
     const schedule = (result.schedule ?? [])
       .map((item: any) => {
         const wrapMethod = normalizeWrapMethod(item.wrapMethod);
@@ -248,6 +265,7 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
         let meatOnAt = item.meatOnAt;
         let grillLightAt = item.grillLightAt;
         let estimatedFinishAt = item.estimatedFinishAt;
+        let warning: string | null = null;
         // In competition mode, ignore the AI's ISO timestamps for these
         // fields and recompute deterministically from turnInAt using the
         // documented formula. The AI is only trusted for durations, rest,
@@ -276,6 +294,16 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
             estimatedFinishAt = new Date(finishMs).toISOString();
             meatOnAt = new Date(meatOnMs).toISOString();
             grillLightAt = new Date(lightMs).toISOString();
+
+            if (lightMs < nowMs) {
+              warning = `You'd need to have started this cook at ${formatPastTime(lightMs)} to make turn-in. The schedule isn't achievable as planned — push this turn-in later or shorten the cook.`;
+            } else if (
+              lightMs - nowMs < IMMINENT_GRACE_MS &&
+              cookMinForCalc >= LONG_COOK_MIN
+            ) {
+              const minsAway = Math.max(1, Math.round((lightMs - nowMs) / 60_000));
+              warning = `You'd need to light the grill in just ${minsAway} min for a ${Math.round(cookMinForCalc / 60)}h cook — that's tighter than realistic.`;
+            }
           }
         }
 
@@ -291,6 +319,7 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
           category,
           turnInAt,
           boxPackAt,
+          warning,
         };
       })
       .sort(

@@ -2413,6 +2413,9 @@ components:
           type: ["string", "null"]
           format: date-time
           description: When to start packing the turn-in box (~15 min before turnInAt) — Competition Mode only
+        warning:
+          type: ["string", "null"]
+          description: Optional human-readable warning when the back-planned schedule is not realistically achievable (e.g. grillLightAt is already in the past). Competition Mode only.
       required:
         - foodType
         - estimatedDurationMinutes

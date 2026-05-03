@@ -150,6 +150,27 @@ export function MultiCookResultModal(p: Props) {
                       </Text>
                     </View>
                     <View style={{ paddingHorizontal: 14, paddingVertical: 10, gap: 7 }}>
+                      {item.warning ? (
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "flex-start",
+                            gap: 8,
+                            backgroundColor: "#EF444418",
+                            borderWidth: 1,
+                            borderColor: "#EF4444",
+                            borderRadius: 8,
+                            paddingHorizontal: 10,
+                            paddingVertical: 8,
+                            marginBottom: 4,
+                          }}
+                        >
+                          <Feather name="alert-triangle" size={14} color="#EF4444" style={{ marginTop: 1 }} />
+                          <Text style={{ flex: 1, fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#EF4444", lineHeight: 17 }}>
+                            {item.warning}
+                          </Text>
+                        </View>
+                      ) : null}
                       {itemTurnInAt ? (
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: colors.border }}>
                           <Feather name="award" size={13} color={itemAccent} />

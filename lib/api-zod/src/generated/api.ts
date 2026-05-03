@@ -1742,6 +1742,12 @@ export const AiMultiCookResponse = zod.object({
           .describe(
             "When to start packing the turn-in box (~15 min before turnInAt) — Competition Mode only",
           ),
+        warning: zod
+          .string()
+          .nullish()
+          .describe(
+            "Optional human-readable warning when the back-planned schedule is not realistically achievable (e.g. grillLightAt is already in the past). Competition Mode only.",
+          ),
       }),
     )
     .describe("All cook items sorted by grillLightAt (earliest first)"),
