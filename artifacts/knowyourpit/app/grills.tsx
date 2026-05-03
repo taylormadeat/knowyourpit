@@ -440,7 +440,7 @@ export default function GrillsScreen() {
                       </Text>
                     </View>
                   )}
-                  {item.mostCookedFood && (
+                  {item.mostCookedFood && (item.cookCount ?? 0) >= 3 && (
                     <View style={s.grillStatItem}>
                       <Feather name="award" size={11} color={colors.mutedForeground} />
                       <Text style={[s.grillStatText, { color: colors.mutedForeground }]}>

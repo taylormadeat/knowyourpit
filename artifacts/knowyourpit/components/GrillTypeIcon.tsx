@@ -20,10 +20,13 @@ export function classifyGrillType(type: string | null | undefined): GrillIconKin
   if (t.includes("kamado") || t.includes("ceramic")) return "kamado";
   if (t.includes("reverse flow") || t.includes("offset")) return "offset";
   if (t.includes("drum")) return "drum";
+  if (t.includes("bullet")) return "cabinet";
   if (t.includes("kettle")) return "kettle";
   if (t.includes("griddle") || t.includes("flat top")) return "griddle";
   if (t.includes("cabinet") || t.includes("electric")) return "cabinet";
   if (t.includes("gas")) return "gas";
+  if (t.includes("charcoal")) return "kettle";
+  if (t.includes("combo")) return "pellet";
   return "default";
 }
 
