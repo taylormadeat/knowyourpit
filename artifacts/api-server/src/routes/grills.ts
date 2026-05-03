@@ -72,8 +72,6 @@ router.get("/grills", requireAuth, async (req: any, res): Promise<void> => {
     )
     .groupBy(cooksTable.grillId, cooksTable.foodType);
 
-  // Pick the most-cooked food per grill. On count ties, fall back to
-  // alphabetical order so the result is deterministic across requests.
   const mostByGrill = new Map<number, { food: string; n: number }>();
   for (const row of foodCountsRows) {
     if (row.grillId == null) continue;
@@ -126,10 +124,6 @@ router.patch("/grills/:id", requireAuth, async (req: any, res): Promise<void> =>
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  // Allow explicit null writes so optional fields (notes, cookingSurfaceSqIn,
-  // hopperSizeLbs, etc.) can be cleared from the edit modal. Skip only
-  // undefined keys (which the client never sent in this payload), and guard
-  // non-nullable columns from being cleared to null.
   const NON_NULLABLE = new Set(["name", "type"]);
   const updateData: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(parsed.data)) {
