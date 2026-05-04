@@ -8,7 +8,7 @@ import {
 import { ClerkProvider, useAuth, useUser } from "@clerk/expo";
 import { safeTokenCache } from "@/lib/tokenCache";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient as useQueryClientInner } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
@@ -613,6 +613,7 @@ function ClerkGatedShell({
   }
   return (
     <IsolatedQueryProvider key={userId ?? "anon"}>
+      <SessionExpiredGuard />
       <SubscriptionProvider>
         <PaywallProvider>
           <BiometricLockProvider>
@@ -630,6 +631,63 @@ function IsolatedQueryProvider({ children }: { children: React.ReactNode }) {
   // Fresh QueryClient per mount (per Clerk userId) — guaranteed clean
   // in-memory cache. No persister is attached: nothing is written to disk,
   // so no leakage path between accounts exists.
-  const [client] = useState(() => new QueryClient());
+  //
+  // retry: never retry a 401 — the token is gone and retrying just floods the
+  // server. Everything else retries up to 2 times (RQ default is 3).
+  const [client] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: (failureCount, error: unknown) => {
+              if ((error as any)?.status === 401) return false;
+              return failureCount < 2;
+            },
+          },
+          mutations: {
+            retry: (failureCount, error: unknown) => {
+              if ((error as any)?.status === 401) return false;
+              return failureCount < 1;
+            },
+          },
+        },
+      }),
+  );
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
+
+// Watches for 401 responses across ALL react-query queries and mutations in the
+// current QueryClient. When one fires it means Clerk's session token has expired
+// or been revoked. We sign the user out immediately so they land on the sign-in
+// screen with a clear message rather than experiencing a broken half-loaded app.
+//
+// Must be rendered inside both ClerkProvider and IsolatedQueryProvider so it
+// has access to both useAuth() and useQueryClient().
+function SessionExpiredGuard() {
+  const { signOut, isSignedIn } = useAuth();
+  const client = useQueryClientInner();
+  useEffect(() => {
+    if (!isSignedIn) return;
+    let signedOut = false;
+    const handle401 = (err: unknown) => {
+      if (signedOut) return;
+      if ((err as any)?.status === 401) {
+        signedOut = true;
+        client.clear();
+        void signOut().catch(() => {});
+      }
+    };
+    const unsubQ = client.getQueryCache().subscribe((event) => {
+      if (event.type === "updated" && event.action.type === "error") {
+        handle401(event.action.error);
+      }
+    });
+    const unsubM = client.getMutationCache().subscribe((event) => {
+      if (event.type === "updated" && event.mutation?.state.status === "error") {
+        handle401(event.mutation.state.error);
+      }
+    });
+    return () => { unsubQ(); unsubM(); };
+  }, [client, isSignedIn, signOut]);
+  return null;
 }

@@ -106,6 +106,11 @@ router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
     ...parsed.data,
     userId: req.userId,
     status: parsed.data.status ?? "planned",
+    // Drizzle's insert type does not accept `null` for boolean NOT NULL columns
+    // (fromFrozen, isCompetition). Strip null → undefined so the DB default
+    // (false) is used when the value is absent from the request body.
+    fromFrozen: parsed.data.fromFrozen ?? undefined,
+    isCompetition: parsed.data.isCompetition ?? undefined,
     ...(analysisResult !== null ? { analysisResult } : {}),
     ...(sequenceData !== null ? { sequenceData } : {}),
   }).returning();

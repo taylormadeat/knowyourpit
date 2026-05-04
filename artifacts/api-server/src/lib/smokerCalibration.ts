@@ -120,7 +120,7 @@ export async function computeSmokerInsights(userId: string, grillId?: number): P
   for (const cook of completedCooks) {
     if (cook.targetTempF == null) continue;
     const probes = getProbes(cook.analysisResult);
-    const meatProbes = probes.filter(p => !isPitProbeByName(p.probeName) && p.finishingTempF != null);
+    const meatProbes = probes.filter(p => !isPitProbeByName(p.probeName ?? null) && p.finishingTempF != null);
     if (meatProbes.length === 0) continue;
     const maxFinishing = Math.max(...meatProbes.map(p => p.finishingTempF!));
     overshoots.push(maxFinishing - cook.targetTempF);
