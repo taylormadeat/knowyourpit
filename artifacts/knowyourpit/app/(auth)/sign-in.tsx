@@ -59,6 +59,7 @@ export default function SignInScreen() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [googleLoading, setGoogleLoading] = React.useState(false);
   const [appleLoading, setAppleLoading] = React.useState(false);
+  const [reviewerLoading, setReviewerLoading] = React.useState(false);
   const [appleAvailable, setAppleAvailable] = React.useState(Platform.OS === "ios");
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [showForgotSuggestion, setShowForgotSuggestion] = React.useState(false);
@@ -220,6 +221,41 @@ export default function SignInScreen() {
     setResetCode("");
     setNewPassword("");
   };
+
+  const handleReviewerSignIn = useCallback(async () => {
+    if (!signIn || !setActive) return;
+    try {
+      setReviewerLoading(true);
+      setErrorMsg(null);
+      const apiBase =
+        process.env.EXPO_PUBLIC_API_URL ??
+        (process.env.EXPO_PUBLIC_DOMAIN
+          ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+          : "");
+      const res = await fetch(`${apiBase}/api/reviewer/sign-in-token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error(`Token request failed (HTTP ${res.status})`);
+      const { token } = (await res.json()) as { token: string };
+      const attempt = await signIn.create({ strategy: "ticket", ticket: token });
+      if (attempt.status === "complete") {
+        await setActive({ session: attempt.createdSessionId });
+        router.replace("/(tabs)");
+      } else {
+        setErrorMsg("Demo sign-in could not be completed. Please try again.");
+      }
+    } catch (e: any) {
+      const msg =
+        e?.errors?.[0]?.longMessage ??
+        e?.errors?.[0]?.message ??
+        e?.message ??
+        "Demo sign-in failed. Please try again.";
+      setErrorMsg(msg);
+    } finally {
+      setReviewerLoading(false);
+    }
+  }, [signIn, setActive, router]);
 
   const handleGoogle = useCallback(async () => {
     try {
@@ -817,19 +853,21 @@ export default function SignInScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.reviewerBtn,
-              pressed && { opacity: 0.7 },
+              (reviewerLoading || pressed) && { opacity: 0.7 },
             ]}
-            onPress={() => {
-              setEmail("taylor.aad@gmail.com");
-              setPassword("Review2026!");
-              setErrorMsg(null);
-              setShowForgotSuggestion(false);
-            }}
+            onPress={handleReviewerSignIn}
+            disabled={reviewerLoading}
           >
-            <Feather name="user-check" size={16} color={colors.foreground} />
-            <Text style={[styles.reviewerBtnText, { color: colors.foreground }]}>
-              Fill App Review demo credentials
-            </Text>
+            {reviewerLoading ? (
+              <ActivityIndicator size="small" color={colors.foreground} />
+            ) : (
+              <>
+                <Feather name="user-check" size={16} color={colors.foreground} />
+                <Text style={[styles.reviewerBtnText, { color: colors.foreground }]}>
+                  Sign in as Demo User
+                </Text>
+              </>
+            )}
           </Pressable>
         )}
 
