@@ -7,7 +7,6 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "prebuildCommand": "node scripts/measure-archive-size.js",
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.2",
         "simulator": true,
@@ -21,7 +20,6 @@
       "developmentClient": true,
       "distribution": "internal",
       "credentialsSource": "remote",
-      "prebuildCommand": "node scripts/measure-archive-size.js",
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.2",
         "simulator": false,
@@ -34,7 +32,6 @@
     "preview": {
       "distribution": "store",
       "credentialsSource": "remote",
-      "prebuildCommand": "node scripts/measure-archive-size.js",
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.2",
         "simulator": false,
@@ -46,9 +43,8 @@
     },
     "production": {
       "credentialsSource": "remote",
-      "prebuildCommand": "node scripts/measure-archive-size.js",
       "cache": {
-        "key": "v20-fix-cfbundleversion"
+        "key": "v23-no-watch-module"
       },
       "ios": {
         "image": "macos-sequoia-15.6-xcode-16.4",

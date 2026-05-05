@@ -23,7 +23,6 @@ import { isCookDetailVisible } from "@/hooks/cookDetailVisibility";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BootDiagnostic } from "@/components/BootDiagnostic";
 import { AppLockScreen } from "@/components/AppLockScreen";
-import { useWatchBridge } from "@/hooks/useWatchBridge";
 import { CACHE_STORAGE_KEY } from "@/constants/cache";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { PaywallProvider } from "@/contexts/PaywallContext";
@@ -183,9 +182,6 @@ function RootLayoutNav() {
     markFirstTimePromptShown,
     setEnabled: setLockEnabled,
   } = useBiometricLockContext();
-  // Bridges the phone app to the Apple Watch companion app (iOS only, no-op elsewhere)
-  useWatchBridge();
-
   // Lock the app whenever it goes to the background, and trigger the
   // biometric prompt automatically the moment it returns to the foreground.
   // Native-only (iOS) — on web AppState transitions are not meaningful here.

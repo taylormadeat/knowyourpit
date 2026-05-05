@@ -1,7 +1,0 @@
-{
-  "name": "WatchConnectivity",
-  "platforms": ["ios"],
-  "ios": {
-    "modules": ["WatchConnectivityModule"]
-  }
-}

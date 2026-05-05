@@ -284,9 +284,6 @@ importers:
       react-native-view-shot:
         specifier: ^5.0.0
         version: 5.0.0(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
-      watch-connectivity:
-        specifier: file:./modules/watch-connectivity
-        version: file:artifacts/knowyourpit/modules/watch-connectivity(expo-modules-core@3.0.29(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))
     devDependencies:
       '@babel/core':
         specifier: ^7.25.2
@@ -6665,11 +6662,6 @@ packages:
 
   warn-once@0.1.1:
     resolution: {integrity: sha512-VkQZJbO8zVImzYFteBXvBOZEl1qL175WH8VmZcxF2fZAoudNhNDvHi+doCaAEdU2l2vtcIwa2zn0QK5+I1HQ3Q==}
-
-  watch-connectivity@file:artifacts/knowyourpit/modules/watch-connectivity:
-    resolution: {directory: artifacts/knowyourpit/modules/watch-connectivity, type: directory}
-    peerDependencies:
-      expo-modules-core: '*'
 
   wcwidth@1.0.1:
     resolution: {integrity: sha512-XHPEwS0q6TaxcvG85+8EYkbiCux2XtWG2mkc47Ng2A77BQu9+DqIOJldST4HgPkuea7dvKSj5VgX3P1d4rW8Tg==}
@@ -13837,10 +13829,6 @@ snapshots:
       makeerror: 1.0.12
 
   warn-once@0.1.1: {}
-
-  watch-connectivity@file:artifacts/knowyourpit/modules/watch-connectivity(expo-modules-core@3.0.29(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)):
-    dependencies:
-      expo-modules-core: 3.0.29(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
 
   wcwidth@1.0.1:
     dependencies:
