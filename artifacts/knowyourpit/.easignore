@@ -45,3 +45,12 @@ Thumbs.db
 
 # Source maps from prior local builds
 *.map
+
+# Local helper scripts (submit.sh, register-app-ids.sh, build.js — not needed by EAS)
+scripts/
+
+# Local dev server used only during development
+server/
+
+# Diagnostics output
+diagnostics/
