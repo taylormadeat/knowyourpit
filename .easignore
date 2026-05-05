@@ -1,0 +1,32 @@
+# Workspace-root EAS ignore — keeps upload lean for pnpm monorepo.
+# EAS archives from workspace root for pnpm monorepos; this file
+# provides exclusions at that level.
+
+# node_modules at workspace root and in all packages
+node_modules/
+
+# Large attached assets (images/videos not needed at build time)
+attached_assets/
+
+# Native build artifacts (regenerated during EAS prebuild)
+artifacts/knowyourpit/ios/
+artifacts/knowyourpit/android/
+artifacts/*/ios/
+artifacts/*/android/
+
+# Expo caches
+**/.expo/
+**/.expo-shared/
+**/.metro-cache/
+
+# Editor / OS
+.vscode/
+.idea/
+**/.DS_Store
+**/Thumbs.db
+
+# pnpm store (inside workspace .local/ — can be many GB)
+.local/
+
+# Git internals
+.git/

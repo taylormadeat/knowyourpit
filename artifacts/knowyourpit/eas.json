@@ -44,10 +44,10 @@
     "production": {
       "credentialsSource": "remote",
       "cache": {
-        "key": "v2-deploy-target-fix"
+        "key": "v20-fix-cfbundleversion"
       },
       "ios": {
-        "image": "macos-sequoia-15.6-xcode-26.2",
+        "image": "macos-sequoia-15.6-xcode-16.4",
         "buildConfiguration": "Release",
         "resourceClass": "m-medium"
       },

@@ -4,7 +4,7 @@ const { withDangerousMod } = require("@expo/config-plugins");
 
 const SIGNING_MARKER = "# PIT_RESOURCE_BUNDLE_SIGNING_FIX";
 const DEPLOY_MARKER = "# PIT_DEPLOYMENT_TARGET_FIX";
-const MIN_IOS = "16.0";
+const MIN_IOS = "16.1";
 
 const withPodBundleSigning = (config) => {
   return withDangerousMod(config, [
@@ -31,16 +31,18 @@ const withPodBundleSigning = (config) => {
         return cfg;
       }
 
-      // Bump the top-level platform :ios line if below minimum.
+      // Bump the top-level platform :ios line if present and below minimum.
       contents = contents.replace(
         /^(platform :ios,\s*['"])[^'"]+(['"])/m,
         `$1${MIN_IOS}$2`,
       );
 
       const patchBlock = (i) => `${i}${DEPLOY_MARKER}
-${i}# Force all pods to iOS ${MIN_IOS} minimum — pods like lottie-ios require it.
+${i}# Force all pods to iOS ${MIN_IOS} minimum — required by LiveActivity.podspec.
 ${i}installer.pods_project.targets.each do |target|
 ${i}  target.build_configurations.each do |config|
+${i}    sdk = config.build_settings['SDKROOT'] || ''
+${i}    next if sdk.start_with?('watch') || sdk.start_with?('appletvos')
 ${i}    current = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
 ${i}    if current.nil? || current.to_f < ${MIN_IOS}
 ${i}      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '${MIN_IOS}'
@@ -49,36 +51,56 @@ ${i}  end
 ${i}end
 
 ${i}${SIGNING_MARKER}
-${i}# Xcode 14+ signs every CocoaPods resource bundle target by default.
-${i}# Disable signing on every product-type.bundle — parent app signature covers them.
+${i}# Xcode 14+ (incl. Xcode 26) signs every CocoaPods resource bundle by default.
+${i}# Set CODE_SIGNING_ALLOWED=NO on ALL pod targets — the parent app signature
+${i}# already covers resource bundles, so they must not be signed separately.
 ${i}installer.pods_project.targets.each do |target|
-${i}  if target.respond_to?(:product_type) && target.product_type == "com.apple.product-type.bundle"
-${i}    target.build_configurations.each do |config|
-${i}      config.build_settings["CODE_SIGNING_ALLOWED"] = "NO"
-${i}      config.build_settings["CODE_SIGN_IDENTITY"] = ""
-${i}      config.build_settings["EXPANDED_CODE_SIGN_IDENTITY"] = ""
-${i}    end
+${i}  target.build_configurations.each do |config|
+${i}    config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+${i}    config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+${i}    config.build_settings['CODE_SIGN_IDENTITY'] = ''
+${i}    config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ''
 ${i}  end
 ${i}end`;
 
-      const postInstallRegex =
-        /^([ \t]*)post_install\s+do\s*\|installer\|([\s\S]*?)\n\1end\b/m;
+      // Use indexOf-based approach (more reliable than regex for nested blocks).
+      // In Expo SDK 54 the post_install block is nested INSIDE target '...' do,
+      // so the indent level of the closing `end` matters for correct injection.
+      const openingPattern = /^([ \t]*)post_install\s+do\s*\|installer\|/m;
+      const match = openingPattern.exec(contents);
 
-      if (postInstallRegex.test(contents)) {
-        contents = contents.replace(
-          postInstallRegex,
-          (match, indent, body) =>
-            `${indent}post_install do |installer|${body}\n\n${patchBlock(
-              indent + "  ",
-            )}\n${indent}end`,
-        );
-        console.log(
-          "[with-pod-bundle-signing] Injected deployment-target + signing fixes into post_install block",
-        );
+      if (match) {
+        const leadingSpaces = match[1];
+        const searchFrom = match.index + match[0].length;
+        const closingToken = `\n${leadingSpaces}end`;
+        const closingIdx = contents.indexOf(closingToken, searchFrom);
+
+        if (closingIdx !== -1) {
+          const patchIndent = leadingSpaces + "  ";
+          const patch = `\n\n${patchBlock(patchIndent)}`;
+          contents =
+            contents.slice(0, closingIdx) +
+            patch +
+            contents.slice(closingIdx);
+          console.log(
+            "[with-pod-bundle-signing] Injected deployment-target + signing fixes into post_install block",
+          );
+        } else {
+          // Fallback: append inside block after opening line
+          const patchIndent = leadingSpaces + "  ";
+          contents =
+            contents.slice(0, searchFrom) +
+            `\n\n${patchBlock(patchIndent)}` +
+            contents.slice(searchFrom);
+          console.log(
+            "[with-pod-bundle-signing] Appended fixes after post_install opening (no closing end found)",
+          );
+        }
       } else {
+        // No post_install block at all — create one.
         contents += `\n\npost_install do |installer|\n${patchBlock("  ")}\nend\n`;
         console.log(
-          "[with-pod-bundle-signing] Appended new post_install block with fixes",
+          "[with-pod-bundle-signing] Created new post_install block with fixes",
         );
       }
 
