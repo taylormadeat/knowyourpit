@@ -10,6 +10,27 @@
  * you can spot size regressions across builds at a glance. Commit
  * BUILD_SIZE_LOG.md to git after each EAS build to preserve the history.
  *
+ * ─── THRESHOLD WARNING (blocking pre-build check) ────────────────────────
+ *
+ * Pass --warn-threshold to make the script exit non-zero when the archive
+ * has grown beyond a set amount. Supported formats:
+ *
+ *   --warn-threshold 10%     → fail if growth > 10 % of the previous size
+ *   --warn-threshold 500KB   → fail if growth > 500 KB  (case-insensitive)
+ *   --warn-threshold 2MB     → fail if growth > 2 MB
+ *   --warn-threshold 1GB     → fail if growth > 1 GB
+ *
+ * Wiring it as a blocking EAS pre-build step (eas.json):
+ *
+ *   "prebuildCommand": "node scripts/measure-archive-size.js --warn-threshold 10%"
+ *
+ * EAS aborts the build when prebuildCommand exits with a non-zero code, so
+ * the team is alerted before the slow cloud build even starts.
+ *
+ * You can also use it in a local wrapper or CI pipeline:
+ *
+ *   node scripts/measure-archive-size.js --warn-threshold 500KB || exit 1
+ *
  * ─── AUTOMATIC (EAS prebuildCommand) ─────────────────────────────────────
  *
  * Every build profile in eas.json sets:
@@ -32,6 +53,7 @@
  * ─── STANDALONE ───────────────────────────────────────────────────────────
  *
  *   node scripts/measure-archive-size.js
+ *   node scripts/measure-archive-size.js --warn-threshold 10%
  *   pnpm run measure-archive-size
  *
  * ──────────────────────────────────────────────────────────────────────────
@@ -44,6 +66,59 @@ const path = require("path");
 
 const projectRoot = path.resolve(__dirname, "..");
 const logPath = path.join(projectRoot, "BUILD_SIZE_LOG.md");
+
+// ---------------------------------------------------------------------------
+// CLI argument parsing
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse --warn-threshold <value> from process.argv.
+ * Returns an object { raw, type, value } or null if not supplied.
+ *
+ *   type "percent"  → value is a number (e.g. 10 for 10 %)
+ *   type "bytes"    → value is a number of bytes (e.g. 524288 for 512 KB)
+ */
+function parseWarnThreshold(argv) {
+  const idx = argv.indexOf("--warn-threshold");
+  if (idx === -1) return null;
+
+  const raw = argv[idx + 1];
+  if (!raw) {
+    console.error("ERROR: --warn-threshold requires a value (e.g. 10% or 500KB)");
+    process.exit(1);
+  }
+
+  // Percentage: ends with %
+  const pctMatch = raw.match(/^(\d+(?:\.\d+)?)%$/i);
+  if (pctMatch) {
+    const value = parseFloat(pctMatch[1]);
+    if (isNaN(value) || value <= 0) {
+      console.error(`ERROR: Invalid --warn-threshold percentage: "${raw}"`);
+      process.exit(1);
+    }
+    return { raw, type: "percent", value };
+  }
+
+  // Absolute size: number + unit (B, KB, MB, GB)
+  const sizeMatch = raw.match(/^(\d+(?:\.\d+)?)(B|KB|MB|GB)$/i);
+  if (sizeMatch) {
+    const num = parseFloat(sizeMatch[1]);
+    const unit = sizeMatch[2].toUpperCase();
+    const multipliers = { B: 1, KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3 };
+    const value = num * multipliers[unit];
+    if (isNaN(value) || value <= 0) {
+      console.error(`ERROR: Invalid --warn-threshold size: "${raw}"`);
+      process.exit(1);
+    }
+    return { raw, type: "bytes", value };
+  }
+
+  console.error(
+    `ERROR: Unrecognised --warn-threshold format: "${raw}"\n` +
+      `       Expected a percentage (e.g. 10%) or a size (e.g. 500KB, 2MB, 1GB)`
+  );
+  process.exit(1);
+}
 
 // ---------------------------------------------------------------------------
 // Pattern parsing — gitignore / easignore syntax
@@ -219,6 +294,44 @@ function parsePreviousBytes(logContent) {
   return isNaN(val) ? null : val;
 }
 
+/**
+ * Check whether the byte delta exceeds the configured threshold.
+ * Returns { exceeded: boolean, message: string } when prevBytes is available,
+ * or { exceeded: false, message: "" } when there is no previous measurement.
+ */
+function checkThreshold(threshold, diffBytes, prevBytes) {
+  if (prevBytes === null || diffBytes <= 0) {
+    return { exceeded: false, message: "" };
+  }
+
+  let exceeded = false;
+  let limitDesc = "";
+
+  if (threshold.type === "percent") {
+    const pct = (diffBytes / prevBytes) * 100;
+    exceeded = pct > threshold.value;
+    limitDesc = `${threshold.value}% (${pct.toFixed(2)}% growth = +${humanSize(diffBytes)})`;
+  } else {
+    exceeded = diffBytes > threshold.value;
+    limitDesc = `${humanSize(threshold.value)} (actual growth = +${humanSize(diffBytes)})`;
+  }
+
+  if (!exceeded) return { exceeded: false, message: "" };
+
+  const message =
+    `\n⚠️  ARCHIVE SIZE WARNING — threshold exceeded!\n` +
+    `   Threshold : ${threshold.raw}\n` +
+    `   Limit     : ${limitDesc}\n` +
+    `   Previous  : ${humanSize(prevBytes)}\n` +
+    `   Current   : ${humanSize(prevBytes + diffBytes)}\n` +
+    `\n` +
+    `   The archive has grown beyond the configured limit.\n` +
+    `   Investigate what was added before submitting an EAS build.\n` +
+    `   To override, remove --warn-threshold from your prebuildCommand.\n`;
+
+  return { exceeded: true, message };
+}
+
 const LOG_HEADER = `# EAS Archive Size Log
 
 Tracks the estimated EAS upload archive size before each build.
@@ -233,6 +346,8 @@ Generated by \`scripts/measure-archive-size.js\` — run \`pnpm run measure-arch
 // ---------------------------------------------------------------------------
 
 function main() {
+  const threshold = parseWarnThreshold(process.argv);
+
   // EAS uses .easignore when present; .gitignore is only the fallback.
   // Mirror that precedence so the size estimate matches what EAS actually uploads.
   const easIgnorePath = path.join(projectRoot, ".easignore");
@@ -253,6 +368,9 @@ function main() {
   console.log(
     `Scanning project (${patterns.length} ignore patterns from ${sourceLabel})...`
   );
+  if (threshold) {
+    console.log(`  Warn threshold: ${threshold.raw}`);
+  }
 
   const { bytes, files } = walk(projectRoot, "", compiled);
   const sizeStr = humanSize(bytes);
@@ -269,10 +387,11 @@ function main() {
 
   const prevBytes = parsePreviousBytes(existingContent);
   let deltaStr = "—";
+  let diffBytes = 0;
   if (prevBytes !== null) {
-    const diff = bytes - prevBytes;
-    const sign = diff >= 0 ? "+" : "-";
-    deltaStr = sign + humanSize(Math.abs(diff));
+    diffBytes = bytes - prevBytes;
+    const sign = diffBytes >= 0 ? "+" : "-";
+    deltaStr = sign + humanSize(Math.abs(diffBytes));
   }
 
   const row = `| ${dateStr} | ${version} | ${build} | ${sizeStr} | ${files} | ${bytes} | ${deltaStr} |`;
@@ -295,6 +414,16 @@ function main() {
   console.log(`  App version  : ${version} (build ${build})`);
   console.log();
   console.log(`Run this script again before your next EAS build to compare sizes.`);
+
+  // Threshold check — must happen after the log is written so the entry is
+  // always recorded even when the check fails.
+  if (threshold && prevBytes !== null) {
+    const { exceeded, message } = checkThreshold(threshold, diffBytes, prevBytes);
+    if (exceeded) {
+      console.error(message);
+      process.exit(1);
+    }
+  }
 }
 
 main();
