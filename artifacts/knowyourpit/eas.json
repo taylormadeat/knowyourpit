@@ -44,10 +44,10 @@
     "production": {
       "credentialsSource": "remote",
       "cache": {
-        "key": "v23-no-watch-module"
+        "key": "v24-xcode-26"
       },
       "ios": {
-        "image": "macos-sequoia-15.6-xcode-16.4",
+        "image": "macos-sequoia-15.6-xcode-26.2",
         "buildConfiguration": "Release",
         "resourceClass": "m-medium"
       },

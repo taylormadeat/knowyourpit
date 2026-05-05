@@ -8,11 +8,15 @@ node_modules/
 # Large attached assets (images/videos not needed at build time)
 attached_assets/
 
+# Other artifacts not needed for the iOS mobile build
+artifacts/marketing/
+artifacts/api-server/
+artifacts/promo-video/
+artifacts/mockup-sandbox/
+
 # Native build artifacts (regenerated during EAS prebuild)
 artifacts/knowyourpit/ios/
 artifacts/knowyourpit/android/
-artifacts/*/ios/
-artifacts/*/android/
 
 # Expo caches
 **/.expo/
@@ -30,3 +34,6 @@ artifacts/*/android/
 
 # Git internals
 .git/
+
+# Screenshots and test outputs
+screenshots/
