@@ -77,7 +77,6 @@
     "expo-auth-session": "~7.0.11",
     "expo-build-properties": "^55.0.13",
     "expo-file-system": "~19.0.21",
-    "expo-local-authentication": "~17.0.8",
     "expo-sharing": "~14.0.8",
     "live-activity": "file:./modules/live-activity",
     "react-native-purchases": "9.7.2",

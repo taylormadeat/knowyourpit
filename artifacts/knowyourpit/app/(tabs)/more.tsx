@@ -8,9 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   Linking,
-  Switch,
 } from "react-native";
-import { useBiometricLockContext } from "@/contexts/BiometricLockContext";
 import { fetch as expoFetch } from "expo/fetch";
 import { useRouter } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -58,53 +56,6 @@ export default function MoreScreen() {
   const effectivePro = useEffectivePro();
   const { getToken } = useAuth();
   const [deleting, setDeleting] = React.useState(false);
-  const {
-    support: lockSupport,
-    isEnabled: lockEnabled,
-    setEnabled: setLockEnabled,
-    isReady: lockReady,
-  } = useBiometricLockContext();
-  const [lockBusy, setLockBusy] = React.useState(false);
-
-  const biometricLabel = React.useMemo(() => {
-    if (lockSupport.status === "available") {
-      // Type 1 = FINGERPRINT, 2 = FACIAL_RECOGNITION, 3 = IRIS
-      if (lockSupport.types.includes(2)) return "Face ID";
-      if (lockSupport.types.includes(1)) return "Touch ID";
-      return "Biometrics";
-    }
-    return "Face ID";
-  }, [lockSupport]);
-
-  const lockUnavailableNote = React.useMemo(() => {
-    if (lockSupport.status !== "unsupported") return null;
-    if (lockSupport.reason === "notEnrolled") {
-      return "Not configured on this device";
-    }
-    if (lockSupport.reason === "noHardware") {
-      return "Not available on this device";
-    }
-    return "Not available on this device";
-  }, [lockSupport]);
-
-  const handleToggleLock = React.useCallback(
-    async (next: boolean) => {
-      if (lockBusy) return;
-      setLockBusy(true);
-      try {
-        const ok = await setLockEnabled(next);
-        if (next && !ok) {
-          Alert.alert(
-            `Couldn't enable ${biometricLabel}`,
-            "We couldn't verify your identity. Please try again.",
-          );
-        }
-      } finally {
-        setLockBusy(false);
-      }
-    },
-    [lockBusy, setLockEnabled, biometricLabel],
-  );
 
   const botPad = useBottomTabBarHeight();
   const { isTablet, contentMaxWidth } = useLayout();
@@ -379,65 +330,6 @@ export default function MoreScreen() {
           </View>
           <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
         </Pressable>
-
-        <View style={s.section}>
-          <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>Security</Text>
-          <View
-            style={[
-              s.sectionCard,
-              { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
-            ]}
-          >
-            <View style={s.menuItem}>
-              <View style={[s.menuIcon, { backgroundColor: colors.primary + "20" }]}>
-                <Feather name="lock" size={16} color={colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[s.menuLabel, { color: colors.foreground }]}>
-                  {`Require ${biometricLabel}`}
-                </Text>
-                {lockUnavailableNote ? (
-                  <Text
-                    style={{
-                      color: colors.mutedForeground,
-                      fontSize: 12,
-                      fontFamily: "Inter_400Regular",
-                      marginTop: 2,
-                    }}
-                  >
-                    {lockUnavailableNote}
-                  </Text>
-                ) : (
-                  <Text
-                    style={{
-                      color: colors.mutedForeground,
-                      fontSize: 12,
-                      fontFamily: "Inter_400Regular",
-                      marginTop: 2,
-                    }}
-                  >
-                    Lock the app when sent to the background
-                  </Text>
-                )}
-              </View>
-              {lockBusy ? (
-                <ActivityIndicator size="small" color={colors.mutedForeground} />
-              ) : (
-                <Switch
-                  value={lockEnabled}
-                  onValueChange={handleToggleLock}
-                  disabled={
-                    !lockReady ||
-                    lockSupport.status !== "available" ||
-                    lockBusy
-                  }
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor="#fff"
-                />
-              )}
-            </View>
-          </View>
-        </View>
 
         {MENU_SECTIONS.map((section) => (
           <View key={section.title} style={s.section}>
