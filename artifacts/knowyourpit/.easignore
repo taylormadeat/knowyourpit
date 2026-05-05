@@ -46,8 +46,12 @@ Thumbs.db
 # Source maps from prior local builds
 *.map
 
-# Local helper scripts (submit.sh, register-app-ids.sh, build.js — not needed by EAS)
-scripts/
+# Local helper scripts (not needed by EAS)
+# List each file explicitly so scripts/measure-archive-size.js remains in the
+# archive and can be invoked by the eas:build:pre npm lifecycle hook.
+scripts/build.js
+scripts/register-app-ids.sh
+scripts/submit.sh
 
 # Local dev server used only during development
 server/

@@ -287,6 +287,7 @@ const withWidgetTarget = (config) =>
             }
         }
 
+
         // Approach 2: scan all build configs by PRODUCT_BUNDLE_IDENTIFIER (quoted + unquoted).
         // Always runs as belt-and-suspenders even if Approach 1 succeeded.
         const buildConfigs = project.pbxXCBuildConfigurationSection();

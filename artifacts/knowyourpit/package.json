@@ -10,7 +10,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "register:app-ids": "bash scripts/register-app-ids.sh"
+    "register:app-ids": "bash scripts/register-app-ids.sh",
+    "measure-archive-size": "node scripts/measure-archive-size.js",
+    "eas:build:ios": "node scripts/measure-archive-size.js && eas build --platform ios",
+    "eas:build:android": "node scripts/measure-archive-size.js && eas build --platform android",
+    "eas:build:all": "node scripts/measure-archive-size.js && eas build --platform all",
+    "eas:build:preview": "node scripts/measure-archive-size.js && eas build --profile preview"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
