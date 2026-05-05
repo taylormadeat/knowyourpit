@@ -1,14 +1,8 @@
-export const KCBS_CATEGORIES = ["chicken", "ribs", "pork", "brisket"] as const;
-export type KcbsCategory = (typeof KCBS_CATEGORIES)[number];
+export const COMPETITION_CATEGORIES = ["chicken", "ribs", "pork", "brisket"] as const;
+export type CompetitionCategory = (typeof COMPETITION_CATEGORIES)[number];
 
-// Spec-aligned structured category metadata. Each entry bundles the canonical
-// turn-in offset (minutes after 11:30 AM judges'-table opening), recommended
-// cook + target internal temps, typical raw weight range, the box-presentation
-// requirements, and the most common point-losing mistakes. Used by the AI
-// prompt builder, the setup modal defaults, and the session-view coaching
-// blocks.
-export interface KcbsCategoryDetail {
-  id: KcbsCategory;
+export interface CompetitionCategoryDetail {
+  id: CompetitionCategory;
   label: string;
   defaultTurnInOffsetMinutes: number;
   cookTempF: { min: number; max: number };
@@ -18,7 +12,7 @@ export interface KcbsCategoryDetail {
   commonMistakes: string[];
 }
 
-export const KCBS_CATEGORIES_DETAIL: KcbsCategoryDetail[] = [
+export const COMPETITION_CATEGORIES_DETAIL: CompetitionCategoryDetail[] = [
   {
     id: "chicken",
     label: "Chicken",
@@ -26,7 +20,7 @@ export const KCBS_CATEGORIES_DETAIL: KcbsCategoryDetail[] = [
     cookTempF: { min: 275, max: 325 },
     targetTempF: { min: 175, max: 180 },
     weightRangeLbs: { min: 3, max: 6 },
-    boxRequirements: "6 identical pieces (thighs/drumsticks/wings) on garnish base, mahogany glaze, no sauce pools, hold above 145°F (KCBS spec floor; pack hotter to buffer judging time).",
+    boxRequirements: "6 identical pieces (thighs/drumsticks/wings) on garnish base, mahogany glaze, no sauce pools, hold above 145°F (spec floor; pack hotter to buffer judging time).",
     commonMistakes: [
       "Rubbery/chewy skin from low-render fat",
       "Harsh smoke flavor — chicken takes smoke fast",
@@ -78,40 +72,40 @@ export const KCBS_CATEGORIES_DETAIL: KcbsCategoryDetail[] = [
   },
 ];
 
-export const KCBS_CATEGORY_LABEL: Record<KcbsCategory, string> = {
+export const COMPETITION_CATEGORY_LABEL: Record<CompetitionCategory, string> = {
   chicken: "Chicken",
   ribs: "Ribs",
   pork: "Pork",
   brisket: "Brisket",
 };
 
-export const KCBS_CATEGORY_COLOR: Record<KcbsCategory, string> = {
+export const COMPETITION_CATEGORY_COLOR: Record<CompetitionCategory, string> = {
   chicken: "#F59E0B",
   ribs: "#EF4444",
   pork: "#EC4899",
   brisket: "#8B5CF6",
 };
 
-export const KCBS_CATEGORY_FOOD_TYPE: Record<KcbsCategory, string> = {
+export const COMPETITION_CATEGORY_FOOD_TYPE: Record<CompetitionCategory, string> = {
   chicken: "Chicken Thighs (Bone-In)",
   ribs: "Spare Ribs (St. Louis)",
   pork: "Pork Shoulder / Boston Butt",
   brisket: "Brisket (Whole Packer)",
 };
 
-export const KCBS_CATEGORY_DEFAULT_WEIGHT_LBS: Record<KcbsCategory, number> = {
+export const COMPETITION_CATEGORY_DEFAULT_WEIGHT_LBS: Record<CompetitionCategory, number> = {
   chicken: 4,
   ribs: 4,
   pork: 9,
   brisket: 14,
 };
 
-export interface KcbsTurnInDefault {
+export interface CompetitionTurnInDefault {
   hour: number;
   minute: number;
 }
 
-export const KCBS_DEFAULT_TURN_INS: Record<KcbsCategory, KcbsTurnInDefault> = {
+export const COMPETITION_DEFAULT_TURN_INS: Record<CompetitionCategory, CompetitionTurnInDefault> = {
   chicken: { hour: 12, minute: 0 },
   ribs: { hour: 12, minute: 30 },
   pork: { hour: 13, minute: 0 },
@@ -127,7 +121,7 @@ export interface CategoryJudgingTip {
   dq: string;
 }
 
-export const KCBS_JUDGING_TIPS: Record<KcbsCategory, CategoryJudgingTip> = {
+export const COMPETITION_JUDGING_TIPS: Record<CompetitionCategory, CategoryJudgingTip> = {
   chicken: {
     appearance: "Bite-through skin is everything. Render fat under the skin or flip-and-render. Uniform mahogany color, glossy finish from a sweet glaze brushed on in the last 10–15 minutes.",
     taste: "Layered flavor: salt + sweet + heat. Brine 4–6 hours, season after pat-dry, finish with a thin glaze. Avoid harsh smoke — chicken takes smoke fast.",
@@ -148,38 +142,22 @@ export const KCBS_JUDGING_TIPS: Record<KcbsCategory, CategoryJudgingTip> = {
   },
   brisket: {
     appearance: "Pencil-thick slices (¼\") shingled, perfect smoke ring, glossy bark. Burnt ends as cubes ½–¾\", glazed and caramelized. NO chopped brisket.",
-    taste: "Beefy + salt + pepper foundation (Texas dalmatian rub). Wrap in butcher paper to retain bark. Burnt ends should be sweet/savory glazed.",
+    taste: "Beefy + salt + pepper foundation (dalmatian rub). Wrap in butcher paper to retain bark. Burnt ends should be sweet/savory glazed.",
     texture: "The pull test: a slice held at one end should bend without breaking, then tear with gentle pull. Probes like warm butter at 203°F-ish. Rest 1–2 hours hot-held.",
     dq: "Sliced brisket must come from the flat, not the point (point goes to burnt ends). Chopped brisket is a DQ. Marked boxes are a DQ.",
   },
 };
 
-export const KCBS_BOX_PACKING_REMINDERS: string[] = [
+export const COMPETITION_BOX_PACKING_REMINDERS: string[] = [
   "Garnish base only: parsley, curly parsley, green leaf lettuce, kale, or cilantro. NO endive, NO red-tipped/orange/yellow lettuce — instant DQ.",
   "Never mark, brand, or initial the box. Six identical pieces minimum (chicken/ribs).",
   "Pack at 165°F+ to hold heat through judging. Use a hot box with a foil-wrapped warm brick if possible.",
   "Wipe sauce drips off the inside lip — judges deduct on appearance for sloppy presentation.",
 ];
 
-// Spec alias: the canonical name for the box-packing rules used by the AI prompt
-// + UI is `KCBS_BOX_PACKING_REMINDERS`. Re-exported under the spec's name
-// `KCBS_BOX_RULES` so docs / future consumers can use either identifier.
-export const KCBS_BOX_RULES = KCBS_BOX_PACKING_REMINDERS;
+export const COMPETITION_BOX_RULES = COMPETITION_BOX_PACKING_REMINDERS;
 
-// KCBS scoring system constants — exposed as a single block so the AI prompt
-// and UI can reference the same source of truth for "how a comp box is judged".
-//
-// Per the task spec (Task #327): KCBS judges score Appearance / Taste / Texture
-// with a 10 / 25 / 25 weight per judge across 6 judges, giving a 360 per-category
-// max (10 + 25 + 25 = 60 per judge × 6 judges = 360). This is the figure shown
-// in the UI and validated against in the results-entry input.
-//
-// (Historical note: the official KCBS rulebook uses a different 1–9 weighted
-// system that yields a 180 max with the lowest judge's score dropped. We
-// intentionally follow the simpler 360-point model the product spec calls out
-// because it matches the consumer-facing "out of 360" framing. All in-app copy,
-// AI prompts, and validation reference the 360 model — do not mix the two.)
-export const KCBS_SCORING = {
+export const COMPETITION_SCORING = {
   criteria: ["appearance", "taste", "texture"] as const,
   perJudgeWeights: { appearance: 10, taste: 25, texture: 25 } as const,
   judgesPerEntry: 6,
@@ -187,10 +165,7 @@ export const KCBS_SCORING = {
   maxScore: 360,
 } as const;
 
-// Per-category turn-in box checklist — surfaced as the body of the
-// "Pack the turn-in box" timeline step in the competition session view so
-// pitmasters get category-specific cues 15 minutes before turn-in.
-export const KCBS_BOX_PACK_CATEGORY_TEXT: Record<KcbsCategory, string> = {
+export const COMPETITION_BOX_PACK_CATEGORY_TEXT: Record<CompetitionCategory, string> = {
   chicken:
     "Box 6 uniform pieces, all same cut, glossy mahogany skin facing up. Garnish base, no sauce pools, hold ≥165°F.",
   ribs:
@@ -203,23 +178,23 @@ export const KCBS_BOX_PACK_CATEGORY_TEXT: Record<KcbsCategory, string> = {
 
 export interface CompetitionContextOptions {
   competitionName?: string | null;
-  categories: KcbsCategory[];
+  categories: CompetitionCategory[];
 }
 
 export function buildCompetitionContext(opts: CompetitionContextOptions): string {
   const lines: string[] = [];
-  lines.push("=== KCBS COMPETITION MODE ===");
+  lines.push("=== COMPETITION MODE ===");
   if (opts.competitionName) {
     lines.push(`Competition: ${opts.competitionName}`);
   }
   lines.push(
-    "This pitmaster is cooking a sanctioned KCBS BBQ competition. Each category has a strict turn-in time. Each entry is judged on Appearance (10 pts), Taste (25 pts), and Texture (25 pts) by 6 judges — 60 points per judge × 6 judges = 360 max per category (no dropped score). Coach for COMPETITION standards, not backyard.",
+    "This pitmaster is cooking a sanctioned BBQ competition. Each category has a strict turn-in time. Each entry is judged on Appearance (10 pts), Taste (25 pts), and Texture (25 pts) by 6 judges — 60 points per judge × 6 judges = 360 max per category (no dropped score). Coach for COMPETITION standards, not backyard.",
   );
   lines.push("");
   lines.push("Category-specific judging standards:");
   for (const cat of opts.categories) {
-    const tips = KCBS_JUDGING_TIPS[cat];
-    const label = KCBS_CATEGORY_LABEL[cat];
+    const tips = COMPETITION_JUDGING_TIPS[cat];
+    const label = COMPETITION_CATEGORY_LABEL[cat];
     lines.push(`- ${label.toUpperCase()}:`);
     lines.push(`  · Appearance: ${tips.appearance}`);
     lines.push(`  · Taste: ${tips.taste}`);
@@ -231,7 +206,7 @@ export function buildCompetitionContext(opts: CompetitionContextOptions): string
   lines.push(
     `- Add a "boxPackAt" timestamp for each item, exactly ${BOX_PACK_LEAD_MINUTES} minutes before that item's turnInAt. Slicing/portioning + box presentation MUST be done in this window.`,
   );
-  for (const r of KCBS_BOX_PACKING_REMINDERS) lines.push(`- ${r}`);
+  for (const r of COMPETITION_BOX_PACKING_REMINDERS) lines.push(`- ${r}`);
   lines.push("");
   lines.push(
     "Backwards-plan EACH item independently to its own turnInAt (NOT to a shared serveAt). Build in a 30–60 minute hot-hold buffer for brisket and pork; chicken and ribs are tighter.",
@@ -239,8 +214,8 @@ export function buildCompetitionContext(opts: CompetitionContextOptions): string
   return lines.join("\n");
 }
 
-export function getDefaultTurnInDate(category: KcbsCategory, baseDate: Date): Date {
-  const def = KCBS_DEFAULT_TURN_INS[category];
+export function getDefaultTurnInDate(category: CompetitionCategory, baseDate: Date): Date {
+  const def = COMPETITION_DEFAULT_TURN_INS[category];
   const d = new Date(baseDate);
   d.setHours(def.hour, def.minute, 0, 0);
   return d;

@@ -5,7 +5,7 @@ import { s } from "./styles";
 import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
 import { weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
 import { fmtElapsed, getOutdoorTempEffect } from "./utils";
-import { KCBS_CATEGORY_COLOR, KCBS_CATEGORY_LABEL, type KcbsCategory } from "@/constants/competitionKnowledge";
+import { COMPETITION_CATEGORY_COLOR, COMPETITION_CATEGORY_LABEL, type CompetitionCategory } from "@/constants/competitionKnowledge";
 
 function fmtTurnInCountdown(diffMs: number): string {
   if (diffMs <= 0) return "now";
@@ -54,9 +54,9 @@ export function LiveCookSection(p: Props) {
     const turnInMs = new Date(c.turnInAt).getTime();
     const now = nowMs ?? Date.now();
     const diffMs = turnInMs - now;
-    const cat = (c.competitionCategory ?? null) as KcbsCategory | null;
-    const catColor = cat ? KCBS_CATEGORY_COLOR[cat] : "#EAB308";
-    const catLabel = cat ? KCBS_CATEGORY_LABEL[cat] : "Competition";
+    const cat = (c.competitionCategory ?? null) as CompetitionCategory | null;
+    const catColor = cat ? COMPETITION_CATEGORY_COLOR[cat] : "#EAB308";
+    const catLabel = cat ? COMPETITION_CATEGORY_LABEL[cat] : "Competition";
     const isUrgent = diffMs > 0 && diffMs <= 30 * 60 * 1000;
     const isPast = diffMs <= 0;
     const accent = isUrgent || isPast ? "#ef4444" : catColor;

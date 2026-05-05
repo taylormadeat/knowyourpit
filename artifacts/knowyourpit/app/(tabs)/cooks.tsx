@@ -25,10 +25,10 @@ import { useListCooks, useUpdateSession } from "@workspace/api-client-react";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import {
-  KCBS_CATEGORY_LABEL,
-  KCBS_CATEGORY_COLOR,
+  COMPETITION_CATEGORY_LABEL,
+  COMPETITION_CATEGORY_COLOR,
   placementLabel,
-  type KcbsCategory,
+  type CompetitionCategory,
 } from "@/constants/competitionKnowledge";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -408,8 +408,8 @@ export default function CooksScreen() {
             </Text>
           )}
           {item.isCompetition && (() => {
-            const cat = item.competitionCategory as KcbsCategory | null;
-            const catColor = cat ? KCBS_CATEGORY_COLOR[cat] : "#EAB308";
+            const cat = item.competitionCategory as CompetitionCategory | null;
+            const catColor = cat ? COMPETITION_CATEGORY_COLOR[cat] : "#EAB308";
             const hasResults =
               typeof item.competitionPlacement === "number" || item.judgeScore != null;
             return (
@@ -426,7 +426,7 @@ export default function CooksScreen() {
                     }}
                   >
                     <Text style={{ color: catColor, fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 0.3 }}>
-                      {KCBS_CATEGORY_LABEL[cat]}
+                      {COMPETITION_CATEGORY_LABEL[cat]}
                     </Text>
                   </View>
                 ) : null}
@@ -505,12 +505,12 @@ export default function CooksScreen() {
     const compName = isComp
       ? (group.cooks.find((c: any) => c.competitionName) as any)?.competitionName ?? group.sessionLabel ?? "Competition"
       : null;
-    const compCategories: KcbsCategory[] = isComp
+    const compCategories: CompetitionCategory[] = isComp
       ? Array.from(
           new Set(
             group.cooks
               .map((c: any) => c.competitionCategory)
-              .filter(Boolean) as KcbsCategory[],
+              .filter(Boolean) as CompetitionCategory[],
           ),
         )
       : [];
@@ -518,7 +518,7 @@ export default function CooksScreen() {
       ? group.cooks
           .filter((c: any) => c.isCompetition && typeof c.competitionPlacement === "number")
           .map((c: any) => ({
-            cat: c.competitionCategory as KcbsCategory | null,
+            cat: c.competitionCategory as CompetitionCategory | null,
             placement: c.competitionPlacement as number,
           }))
       : [];
@@ -573,7 +573,7 @@ export default function CooksScreen() {
               {isComp && (
                 <View style={{ paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, backgroundColor: "#EAB308" }}>
                   <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 0.5 }}>
-                    KCBS
+                    COMP
                   </Text>
                 </View>
               )}
@@ -595,7 +595,7 @@ export default function CooksScreen() {
             {isComp && compCategories.length > 0 && (
               <View style={[s.sessionTagsRow, { marginTop: 4 }]}>
                 {compCategories.map((cat) => {
-                  const color = KCBS_CATEGORY_COLOR[cat];
+                  const color = COMPETITION_CATEGORY_COLOR[cat];
                   const placed = compPlacements.find((p) => p.cat === cat);
                   return (
                     <View
@@ -613,7 +613,7 @@ export default function CooksScreen() {
                       ]}
                     >
                       <Text style={[s.sessionTagText, { color }]}>
-                        {KCBS_CATEGORY_LABEL[cat]}
+                        {COMPETITION_CATEGORY_LABEL[cat]}
                       </Text>
                       {placed ? (
                         <Text style={[s.sessionTagText, { color, fontFamily: "Inter_700Bold" }]}>
@@ -1160,7 +1160,7 @@ export default function CooksScreen() {
               </Text>
               <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
                 {competitionsOnly
-                  ? "Plan a KCBS competition from the Plan tab to see it here"
+                  ? "Plan a competition from the Plan tab to see it here"
                   : ratedOnly
                     ? "Try removing the \"Rated only\" filter to see all cooks"
                     : "Tap + in the top right to log a past cook"}

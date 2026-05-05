@@ -42,7 +42,7 @@ export function MultiCookResultModal(p: Props) {
             {multiResult && (() => {
               const fmtTime = (value: Date | string) =>
                 new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-              const KCBS_LABEL: Record<MultiCookScheduleItemCategory & string, string> = {
+              const COMPETITION_LABEL: Record<MultiCookScheduleItemCategory & string, string> = {
                 chicken: "Chicken",
                 ribs: "Ribs",
                 pork: "Pork",
@@ -59,7 +59,7 @@ export function MultiCookResultModal(p: Props) {
                     )
                     .map((it) => ({
                       label:
-                        (it.category && KCBS_LABEL[it.category as keyof typeof KCBS_LABEL]) ||
+                        (it.category && COMPETITION_LABEL[it.category as keyof typeof COMPETITION_LABEL]) ||
                         it.foodType ||
                         "Item",
                       turnInAt: it.turnInAt,
@@ -77,7 +77,7 @@ export function MultiCookResultModal(p: Props) {
                     <Feather name="award" size={16} color="#EAB308" style={{ marginTop: 2 }} />
                     <View style={{ flex: 1, gap: 4 }}>
                       <Text style={{ fontSize: 14, fontFamily: "Inter_700Bold", color: colors.foreground }}>
-                        KCBS turn-ins
+                        Competition turn-ins
                       </Text>
                       <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground, lineHeight: 18 }}>
                         {competitionTurnIns
@@ -108,15 +108,15 @@ export function MultiCookResultModal(p: Props) {
                   const itemTurnInAt: Date | string | null = item.turnInAt ?? null;
                   const itemBoxPackAt: Date | string | null = item.boxPackAt ?? null;
                   const itemCategory: MultiCookScheduleItemCategory | null = item.category ?? null;
-                  const KCBS_COLOR: Record<MultiCookScheduleItemCategory & string, string> = {
+                  const COMPETITION_COLOR: Record<MultiCookScheduleItemCategory & string, string> = {
                     chicken: "#F59E0B",
                     ribs: "#EF4444",
                     pork: "#EC4899",
                     brisket: "#8B5CF6",
                   };
                   const itemAccent =
-                    itemCategory && itemCategory in KCBS_COLOR
-                      ? KCBS_COLOR[itemCategory as keyof typeof KCBS_COLOR]
+                    itemCategory && itemCategory in COMPETITION_COLOR
+                      ? COMPETITION_COLOR[itemCategory as keyof typeof COMPETITION_COLOR]
                       : "#EAB308";
                   return (
                   <View

@@ -83,9 +83,9 @@ import { AiResultsModal } from "@/components/plan-screen/AiResultsModal";
 import { MultiCookResultModal } from "@/components/plan-screen/MultiCookResultModal";
 import { CompetitionSetupModal, type CompetitionPayload } from "@/components/plan-screen/CompetitionSetupModal";
 import {
-  KCBS_CATEGORY_LABEL,
-  KCBS_CATEGORY_COLOR,
-  type KcbsCategory,
+  COMPETITION_CATEGORY_LABEL,
+  COMPETITION_CATEGORY_COLOR,
+  type CompetitionCategory,
 } from "@/constants/competitionKnowledge";
 import { MultiCookAddItemModal } from "@/components/plan-screen/MultiCookAddItemModal";
 
@@ -226,7 +226,7 @@ export default function PlanScreen() {
   };
 
   // ── Plan mode ─────────────────────────────────────────────────────────
-  const [planMode, setPlanMode] = useState<"single" | "multi">("single");
+  const [planMode, setPlanMode] = useState<"single" | "multi" | "competition">("single");
 
   // ── Saved cook templates ──────────────────────────────────────────────
   const { data: cookTemplates } = useListCookTemplates();
@@ -612,6 +612,7 @@ export default function PlanScreen() {
       qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
       resetMultiForm();
       resetForm();
+      setPlanMode("single");
       router.push("/(tabs)/cooks");
     } catch (e: any) {
       // Free user hit the cook cap mid-multi-save → paywall.
@@ -922,7 +923,7 @@ export default function PlanScreen() {
           </View>
         )}
 
-        {/* ── Plan Mode Toggle ── */}
+        {/* ── Plan Mode Selector (three-way) ── */}
         <View style={[s.modeToggleRow, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           <Pressable
             style={[
@@ -957,9 +958,6 @@ export default function PlanScreen() {
             />
             <Text style={[s.modeToggleText, { color: planMode === "multi" ? "#fff" : colors.mutedForeground }]}>Multi-Cook</Text>
             {!effectivePro && (
-              // Inline PRO chip so free users immediately see this is a
-              // locked feature, not just an inactive tab. Tap still opens
-              // the paywall (handled above).
               <View
                 style={{
                   paddingHorizontal: 5,
@@ -981,65 +979,52 @@ export default function PlanScreen() {
               </View>
             )}
           </Pressable>
-        </View>
-
-        {/* ── Competition Mode entry card (Pro-gated, Pattern B locked entry).
-            Always visible to free users with PRO badge + lock icon (rendered
-            below) and tap-to-paywall — a locked-but-visible entry point per
-            the spec, not a hidden gate. Pro users see the chevron and tap
-            opens the setup sheet. ── */}
-        <Pressable
-          onPress={() => {
-            if (!effectivePro) {
-              showPaywall({ trigger: "pro_required", featureName: "Competition Mode" });
-              return;
-            }
-            setCompetitionSetupOpen(true);
-          }}
-          style={{ marginBottom: 14 }}
-        >
-          <LinearGradient
-            colors={["#EAB308", "#F59E0B"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              borderRadius: colors.radius,
-              padding: 14,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
+          <Pressable
+            style={[
+              s.modeToggleBtn,
+              planMode === "competition" && { backgroundColor: "#EAB308" },
+              { borderRadius: colors.radius - 2 },
+            ]}
+            onPress={() => {
+              if (!effectivePro) {
+                showPaywall({ trigger: "pro_required", featureName: "Competition Mode" });
+                return;
+              }
+              setPlanMode("competition");
+              setCompetitionSetupOpen(true);
             }}
+            accessibilityRole="button"
+            accessibilityLabel={effectivePro ? "Switch to Competition mode" : "Competition Mode, Pro feature, tap to learn more"}
           >
-            <View
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                backgroundColor: "rgba(255,255,255,0.22)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Feather name="award" size={18} color="#fff" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Text style={{ fontFamily: "Inter_700Bold", color: "#fff", fontSize: 14 }}>
-                  KCBS Competition Mode
+            <Feather
+              name={effectivePro ? "award" : "lock"}
+              size={14}
+              color={planMode === "competition" ? "#fff" : colors.mutedForeground}
+            />
+            <Text style={[s.modeToggleText, { color: planMode === "competition" ? "#fff" : colors.mutedForeground }]}>Competition</Text>
+            {!effectivePro && (
+              <View
+                style={{
+                  paddingHorizontal: 5,
+                  paddingVertical: 1,
+                  borderRadius: 4,
+                  backgroundColor: "#EAB30822",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 8.5,
+                    fontFamily: "Inter_700Bold",
+                    color: "#EAB308",
+                    letterSpacing: 0.4,
+                  }}
+                >
+                  PRO
                 </Text>
-                {!effectivePro && (
-                  <View style={{ backgroundColor: "rgba(0,0,0,0.25)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                    <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 9 }}>PRO</Text>
-                  </View>
-                )}
               </View>
-              <Text style={{ fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.92)", fontSize: 11, marginTop: 2 }}>
-                Plan a sanctioned cook with per-category turn-in times + box-pack alarms.
-              </Text>
-            </View>
-            <Feather name={effectivePro ? "chevron-right" : "lock"} size={18} color="#fff" />
-          </LinearGradient>
-        </Pressable>
+            )}
+          </Pressable>
+        </View>
 
         {/* Visible-but-locked Multi-Cook section for free users.
             Renders a wireframe/skeleton preview of the real multi-cook
@@ -2345,7 +2330,12 @@ export default function PlanScreen() {
       {/* ════ MULTI-COOK RESULT MODAL ════ */}
       <MultiCookResultModal
         visible={multiResultOpen}
-        onClose={() => setMultiResultOpen(false)}
+        onClose={() => {
+          setMultiResultOpen(false);
+          // If the user dismisses the result modal without saving during a
+          // competition flow, reset back to single so the Plan tab isn't blank.
+          if (planMode === "competition") setPlanMode("single");
+        }}
         colors={colors}
         multiResult={multiResult}
         scheduleGrillLabels={scheduleGrillLabels}
@@ -2372,9 +2362,10 @@ export default function PlanScreen() {
         visible={competitionSetupOpen}
         onClose={() => {
           setCompetitionSetupOpen(false);
-          // Drop staged competition payload on cancel so it can't leak into
-          // a later regular multi-cook save.
+          // Drop staged competition payload on cancel and revert mode selector
+          // back to single so the UI doesn't stay on "Competition".
           setCompetition(null);
+          setPlanMode("single");
         }}
         colors={colors}
         defaultGrillId={grillId}

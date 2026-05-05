@@ -24,11 +24,11 @@ import { useGetSessionCooks, useUpdateSession, useDeleteSession, useRemoveCookFr
 import { useQueryClient } from "@tanstack/react-query";
 import { LogoBackground } from "@/components/LogoBackground";
 import {
-  KCBS_CATEGORY_LABEL,
-  KCBS_CATEGORY_COLOR,
-  KCBS_BOX_PACK_CATEGORY_TEXT,
+  COMPETITION_CATEGORY_LABEL,
+  COMPETITION_CATEGORY_COLOR,
+  COMPETITION_BOX_PACK_CATEGORY_TEXT,
   placementLabel,
-  type KcbsCategory,
+  type CompetitionCategory,
 } from "@/constants/competitionKnowledge";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -226,8 +226,8 @@ export default function SessionDetailScreen() {
   const isCompetitionSession = (cooks ?? []).some((c: any) => c.isCompetition);
   const competitionName = (cooks ?? []).find((c: any) => c.competitionName)?.competitionName ?? null;
   const competitionCooks = (cooks ?? []).filter((c: any) => c.isCompetition);
-  const competitionCategories: KcbsCategory[] = Array.from(
-    new Set(competitionCooks.map((c: any) => c.competitionCategory).filter(Boolean) as KcbsCategory[]),
+  const competitionCategories: CompetitionCategory[] = Array.from(
+    new Set(competitionCooks.map((c: any) => c.competitionCategory).filter(Boolean) as CompetitionCategory[]),
   );
   const turnInDates = competitionCooks
     .map((c: any) => (c.turnInAt ? new Date(c.turnInAt).getTime() : null))
@@ -295,7 +295,7 @@ export default function SessionDetailScreen() {
       const placement = placementRaw === ""
         ? null
         : Math.max(0, Math.round(Number(placementRaw)));
-      // Judge score: KCBS valid range is 0–360 (10/25/25 weighting × 6 judges, see KCBS_SCORING). Reject NaN/out-of-range silently
+      // Judge score: valid range is 0–360 (10/25/25 weighting × 6 judges, see COMPETITION_SCORING). Reject NaN/out-of-range silently
       // (treat as null rather than blocking save with cryptic API error).
       const judgeScoreRaw = d.judgeScore.trim();
       const judgeScoreParsed = judgeScoreRaw === "" ? null : Number(judgeScoreRaw);
@@ -600,11 +600,11 @@ export default function SessionDetailScreen() {
                       key={c}
                       style={[
                         s.catChip,
-                        { backgroundColor: KCBS_CATEGORY_COLOR[c] + "22", borderColor: KCBS_CATEGORY_COLOR[c] },
+                        { backgroundColor: COMPETITION_CATEGORY_COLOR[c] + "22", borderColor: COMPETITION_CATEGORY_COLOR[c] },
                       ]}
                     >
-                      <Text style={[s.catChipText, { color: KCBS_CATEGORY_COLOR[c] }]}>
-                        {KCBS_CATEGORY_LABEL[c]}
+                      <Text style={[s.catChipText, { color: COMPETITION_CATEGORY_COLOR[c] }]}>
+                        {COMPETITION_CATEGORY_LABEL[c]}
                       </Text>
                     </View>
                   ))}
@@ -690,7 +690,7 @@ export default function SessionDetailScreen() {
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                           <Text style={[s.cookName, { color: colors.foreground }]}>
                             {cook.isCompetition && cook.competitionCategory
-                              ? `${KCBS_CATEGORY_LABEL[cook.competitionCategory as KcbsCategory].toUpperCase()}${cook.turnInAt ? ` · TURN-IN ${fmtTime(new Date(cook.turnInAt))}` : ""}`
+                              ? `${COMPETITION_CATEGORY_LABEL[cook.competitionCategory as CompetitionCategory].toUpperCase()}${cook.turnInAt ? ` · TURN-IN ${fmtTime(new Date(cook.turnInAt))}` : ""}`
                               : (cook.foodType || "Unnamed Cook")}
                           </Text>
                           {cook.isCompetition && cook.competitionCategory && (
@@ -698,18 +698,18 @@ export default function SessionDetailScreen() {
                               style={[
                                 s.miniCatBadge,
                                 {
-                                  backgroundColor: KCBS_CATEGORY_COLOR[cook.competitionCategory as KcbsCategory] + "22",
-                                  borderColor: KCBS_CATEGORY_COLOR[cook.competitionCategory as KcbsCategory],
+                                  backgroundColor: COMPETITION_CATEGORY_COLOR[cook.competitionCategory as CompetitionCategory] + "22",
+                                  borderColor: COMPETITION_CATEGORY_COLOR[cook.competitionCategory as CompetitionCategory],
                                 },
                               ]}
                             >
                               <Text
                                 style={[
                                   s.miniCatBadgeText,
-                                  { color: KCBS_CATEGORY_COLOR[cook.competitionCategory as KcbsCategory] },
+                                  { color: COMPETITION_CATEGORY_COLOR[cook.competitionCategory as CompetitionCategory] },
                                 ]}
                               >
-                                {KCBS_CATEGORY_LABEL[cook.competitionCategory as KcbsCategory]}
+                                {COMPETITION_CATEGORY_LABEL[cook.competitionCategory as CompetitionCategory]}
                               </Text>
                             </View>
                           )}
@@ -755,8 +755,8 @@ export default function SessionDetailScreen() {
                           {cook.isCompetition && cook.turnInAt && (() => {
                             const turnInMs = new Date(cook.turnInAt).getTime();
                             const diffMs = turnInMs - now;
-                            const cat = cook.competitionCategory as KcbsCategory | null;
-                            const catColor = cat ? KCBS_CATEGORY_COLOR[cat] : "#EAB308";
+                            const cat = cook.competitionCategory as CompetitionCategory | null;
+                            const catColor = cat ? COMPETITION_CATEGORY_COLOR[cat] : "#EAB308";
                             const isUrgent = diffMs > 0 && diffMs <= 30 * 60 * 1000;
                             const isPast = diffMs <= 0;
                             const accent = isUrgent || isPast ? "#ef4444" : catColor;
@@ -906,7 +906,7 @@ export default function SessionDetailScreen() {
                                 <View style={{ flex: 1 }}>
                                   <Text style={[s.planLabel, { color: colors.foreground }]}>
                                     {cook.competitionCategory
-                                      ? `Pack the ${KCBS_CATEGORY_LABEL[cook.competitionCategory as KcbsCategory]} box`
+                                      ? `Pack the ${COMPETITION_CATEGORY_LABEL[cook.competitionCategory as CompetitionCategory]} box`
                                       : "Pack the turn-in box"}
                                   </Text>
                                   <Text style={[s.planTime, { color: colors.mutedForeground }]}>
@@ -917,14 +917,14 @@ export default function SessionDetailScreen() {
                                       return `${fmtTime(new Date(boxPackMs))} · 15 min before turn-in`;
                                     })()}
                                   </Text>
-                                  {cook.competitionCategory && KCBS_BOX_PACK_CATEGORY_TEXT[cook.competitionCategory as KcbsCategory] ? (
+                                  {cook.competitionCategory && COMPETITION_BOX_PACK_CATEGORY_TEXT[cook.competitionCategory as CompetitionCategory] ? (
                                     <Text
                                       style={[
                                         s.planTime,
                                         { color: colors.mutedForeground, marginTop: 2, fontStyle: "italic" },
                                       ]}
                                     >
-                                      {KCBS_BOX_PACK_CATEGORY_TEXT[cook.competitionCategory as KcbsCategory]}
+                                      {COMPETITION_BOX_PACK_CATEGORY_TEXT[cook.competitionCategory as CompetitionCategory]}
                                     </Text>
                                   ) : null}
                                 </View>
@@ -938,7 +938,7 @@ export default function SessionDetailScreen() {
                                     TURN-IN
                                   </Text>
                                   <Text style={[s.planTime, { color: colors.mutedForeground }]}>
-                                    {fmtTime(new Date(cook.turnInAt))} · {KCBS_CATEGORY_LABEL[cook.competitionCategory as KcbsCategory] ?? "Competition"}
+                                    {fmtTime(new Date(cook.turnInAt))} · {COMPETITION_CATEGORY_LABEL[cook.competitionCategory as CompetitionCategory] ?? "Competition"}
                                   </Text>
                                 </View>
                               </View>
@@ -1100,7 +1100,7 @@ export default function SessionDetailScreen() {
                   Log Competition Results
                 </Text>
                 <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 }}>
-                  Placement (1 = first), KCBS judge score (0–360), notes per category
+                  Placement (1 = first), judge score (0–360), notes per category
                 </Text>
               </View>
               <Pressable onPress={() => setResultsOpen(false)} hitSlop={8}>
@@ -1110,14 +1110,14 @@ export default function SessionDetailScreen() {
             <ScrollView style={{ maxHeight: 460 }} keyboardShouldPersistTaps="handled">
               {competitionCooks.map((c: any) => {
                 const draft = resultsDraft[c.id] ?? { placement: "", judgeScore: "", judgeNotes: "" };
-                const cat = c.competitionCategory as KcbsCategory | null;
-                const color = cat ? KCBS_CATEGORY_COLOR[cat] : colors.primary;
+                const cat = c.competitionCategory as CompetitionCategory | null;
+                const color = cat ? COMPETITION_CATEGORY_COLOR[cat] : colors.primary;
                 return (
                   <View key={c.id} style={[s.resultsModalRow, { borderBottomColor: colors.border }]}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       {cat && (
                         <View style={[s.miniCatBadge, { backgroundColor: color + "22", borderColor: color }]}>
-                          <Text style={[s.miniCatBadgeText, { color }]}>{KCBS_CATEGORY_LABEL[cat]}</Text>
+                          <Text style={[s.miniCatBadgeText, { color }]}>{COMPETITION_CATEGORY_LABEL[cat]}</Text>
                         </View>
                       )}
                       <Text style={[s.resultsModalCookName, { color: colors.foreground, marginBottom: 0 }]}>

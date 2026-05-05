@@ -14,13 +14,13 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
-  KCBS_CATEGORIES,
-  KCBS_CATEGORY_LABEL,
-  KCBS_CATEGORY_COLOR,
-  KCBS_CATEGORY_FOOD_TYPE,
-  KCBS_CATEGORY_DEFAULT_WEIGHT_LBS,
-  KCBS_DEFAULT_TURN_INS,
-  type KcbsCategory,
+  COMPETITION_CATEGORIES,
+  COMPETITION_CATEGORY_LABEL,
+  COMPETITION_CATEGORY_COLOR,
+  COMPETITION_CATEGORY_FOOD_TYPE,
+  COMPETITION_CATEGORY_DEFAULT_WEIGHT_LBS,
+  COMPETITION_DEFAULT_TURN_INS,
+  type CompetitionCategory,
 } from "@/constants/competitionKnowledge";
 import { MEAT_CUTS, type MeatCut } from "@/constants/meatCuts";
 import { formatDate, formatTime, getUpcomingDates } from "./utils";
@@ -34,7 +34,7 @@ const TURN_IN_SLOTS: Array<{ h: number; m: number }> = (() => {
 })();
 
 export interface CompetitionItem {
-  category: KcbsCategory;
+  category: CompetitionCategory;
   cut: MeatCut;
   weightLbs: string;
   turnInAt: Date;
@@ -83,33 +83,32 @@ export function CompetitionSetupModal({
   }, []);
   const [competitionDate, setCompetitionDate] = useState<Date>(initialDate);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [enabled, setEnabled] = useState<Record<KcbsCategory, boolean>>({
+  const [enabled, setEnabled] = useState<Record<CompetitionCategory, boolean>>({
     chicken: true,
     ribs: true,
     pork: true,
     brisket: true,
   });
-  const [weights, setWeights] = useState<Record<KcbsCategory, string>>(() => {
+  const [weights, setWeights] = useState<Record<CompetitionCategory, string>>(() => {
     const o: any = {};
-    for (const c of KCBS_CATEGORIES) o[c] = String(KCBS_CATEGORY_DEFAULT_WEIGHT_LBS[c]);
+    for (const c of COMPETITION_CATEGORIES) o[c] = String(COMPETITION_CATEGORY_DEFAULT_WEIGHT_LBS[c]);
     return o;
   });
-  const [turnInTimes, setTurnInTimes] = useState<Record<KcbsCategory, Date>>(() => {
+  const [turnInTimes, setTurnInTimes] = useState<Record<CompetitionCategory, Date>>(() => {
     const o: any = {};
-    for (const c of KCBS_CATEGORIES) {
-      o[c] = setTimeOnDate(initialDate, KCBS_DEFAULT_TURN_INS[c].hour, KCBS_DEFAULT_TURN_INS[c].minute);
+    for (const c of COMPETITION_CATEGORIES) {
+      o[c] = setTimeOnDate(initialDate, COMPETITION_DEFAULT_TURN_INS[c].hour, COMPETITION_DEFAULT_TURN_INS[c].minute);
     }
     return o;
   });
-  const [timePickerFor, setTimePickerFor] = useState<KcbsCategory | null>(null);
+  const [timePickerFor, setTimePickerFor] = useState<CompetitionCategory | null>(null);
 
   const upcomingDates = useMemo(() => getUpcomingDates(), []);
 
-  // When competition date changes, re-anchor all turn-in times to that day
   useEffect(() => {
     setTurnInTimes((prev) => {
-      const next: Record<KcbsCategory, Date> = { ...prev };
-      for (const c of KCBS_CATEGORIES) {
+      const next: Record<CompetitionCategory, Date> = { ...prev };
+      for (const c of COMPETITION_CATEGORIES) {
         const t = prev[c];
         next[c] = setTimeOnDate(competitionDate, t.getHours(), t.getMinutes());
       }
@@ -117,28 +116,28 @@ export function CompetitionSetupModal({
     });
   }, [competitionDate]);
 
-  const enabledCount = KCBS_CATEGORIES.filter((c) => enabled[c]).length;
+  const enabledCount = COMPETITION_CATEGORIES.filter((c) => enabled[c]).length;
   const canContinue = enabledCount > 0 && !pending;
 
   const handleContinue = () => {
     if (!canContinue) return;
     const items: CompetitionItem[] = [];
-    for (const c of KCBS_CATEGORIES) {
+    for (const c of COMPETITION_CATEGORIES) {
       if (!enabled[c]) continue;
-      const cutName = KCBS_CATEGORY_FOOD_TYPE[c];
+      const cutName = COMPETITION_CATEGORY_FOOD_TYPE[c];
       const cut = MEAT_CUTS.find((m) => m.name === cutName);
       if (!cut) continue;
       items.push({
         category: c,
         cut,
-        weightLbs: weights[c] || String(KCBS_CATEGORY_DEFAULT_WEIGHT_LBS[c]),
+        weightLbs: weights[c] || String(COMPETITION_CATEGORY_DEFAULT_WEIGHT_LBS[c]),
         turnInAt: turnInTimes[c],
         grillId: defaultGrillId,
       });
     }
     if (items.length === 0) return;
     onContinue({
-      competitionName: competitionName.trim() || "KCBS Competition",
+      competitionName: competitionName.trim() || "My Competition",
       competitionDate,
       items,
     });
@@ -160,7 +159,7 @@ export function CompetitionSetupModal({
                 <Text style={[s.title, { color: colors.foreground }]}>Competition Setup</Text>
               </View>
               <Text style={[s.subtitle, { color: colors.mutedForeground }]}>
-                KCBS Mode · Backwards-plan each category to its turn-in
+                Backwards-plan each category to its turn-in time
               </Text>
             </View>
             <Pressable onPress={onClose} hitSlop={8}>
@@ -201,10 +200,10 @@ export function CompetitionSetupModal({
             </Pressable>
 
             <Text style={[s.label, { color: colors.mutedForeground, marginTop: 14 }]}>CATEGORIES & TURN-IN TIMES</Text>
-            {KCBS_CATEGORIES.map((c) => {
+            {COMPETITION_CATEGORIES.map((c) => {
               const isOn = enabled[c];
-              const color = KCBS_CATEGORY_COLOR[c];
-              const def = KCBS_DEFAULT_TURN_INS[c];
+              const color = COMPETITION_CATEGORY_COLOR[c];
+              const def = COMPETITION_DEFAULT_TURN_INS[c];
               const isDefault =
                 turnInTimes[c].getHours() === def.hour && turnInTimes[c].getMinutes() === def.minute;
               return (
@@ -225,9 +224,9 @@ export function CompetitionSetupModal({
                       <Feather name={isOn ? "check" : "circle"} size={14} color="#fff" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[s.catName, { color: colors.foreground }]}>{KCBS_CATEGORY_LABEL[c]}</Text>
+                      <Text style={[s.catName, { color: colors.foreground }]}>{COMPETITION_CATEGORY_LABEL[c]}</Text>
                       <Text style={[s.catSub, { color: colors.mutedForeground }]} numberOfLines={1}>
-                        {KCBS_CATEGORY_FOOD_TYPE[c]}
+                        {COMPETITION_CATEGORY_FOOD_TYPE[c]}
                       </Text>
                     </View>
                   </Pressable>
@@ -241,7 +240,7 @@ export function CompetitionSetupModal({
                             value={weights[c]}
                             onChangeText={(v) => setWeights((p) => ({ ...p, [c]: v.replace(/[^0-9.]/g, "") }))}
                             keyboardType="decimal-pad"
-                            placeholder={String(KCBS_CATEGORY_DEFAULT_WEIGHT_LBS[c])}
+                            placeholder={String(COMPETITION_CATEGORY_DEFAULT_WEIGHT_LBS[c])}
                             placeholderTextColor={colors.mutedForeground}
                           />
                           <Text style={[s.weightUnit, { color: colors.mutedForeground }]}>lbs</Text>
@@ -263,7 +262,7 @@ export function CompetitionSetupModal({
                           <Feather name="clock" size={12} color={color} />
                           <Text style={[s.turnInText, { color }]}>{fmtTimeFromDate(turnInTimes[c])}</Text>
                           {isDefault ? (
-                            <Text style={[s.turnInDefault, { color }]}> · KCBS</Text>
+                            <Text style={[s.turnInDefault, { color }]}> · default</Text>
                           ) : null}
                           <Feather name="chevron-down" size={12} color={color} />
                         </Pressable>
@@ -358,7 +357,7 @@ export function CompetitionSetupModal({
               <View style={s.handle} />
               <View style={s.subHeader}>
                 <Text style={[s.title, { color: colors.foreground }]}>
-                  {timePickerFor ? `${KCBS_CATEGORY_LABEL[timePickerFor]} Turn-In` : "Turn-In Time"}
+                  {timePickerFor ? `${COMPETITION_CATEGORY_LABEL[timePickerFor]} Turn-In` : "Turn-In Time"}
                 </Text>
                 <Pressable onPress={() => setTimePickerFor(null)} hitSlop={8}>
                   <Feather name="x" size={20} color={colors.mutedForeground} />
@@ -381,20 +380,20 @@ export function CompetitionSetupModal({
                       }}
                       style={[
                         s.subRow,
-                        isSel && timePickerFor && { backgroundColor: KCBS_CATEGORY_COLOR[timePickerFor] + "22" },
+                        isSel && timePickerFor && { backgroundColor: COMPETITION_CATEGORY_COLOR[timePickerFor] + "22" },
                         { borderRadius: colors.radius },
                       ]}
                     >
                       <Text
                         style={[
                           s.subRowText,
-                          { color: isSel && timePickerFor ? KCBS_CATEGORY_COLOR[timePickerFor] : colors.foreground },
+                          { color: isSel && timePickerFor ? COMPETITION_CATEGORY_COLOR[timePickerFor] : colors.foreground },
                         ]}
                       >
                         {formatTime(h, m)}
                       </Text>
                       {isSel && timePickerFor && (
-                        <Feather name="check" size={16} color={KCBS_CATEGORY_COLOR[timePickerFor]} />
+                        <Feather name="check" size={16} color={COMPETITION_CATEGORY_COLOR[timePickerFor]} />
                       )}
                     </Pressable>
                   );
