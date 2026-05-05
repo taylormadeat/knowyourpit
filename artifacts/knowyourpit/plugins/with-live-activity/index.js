@@ -3,7 +3,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const config_plugins_1 = require("@expo/config-plugins");
+let config_plugins_1;
+try { config_plugins_1 = require("@expo/config-plugins"); } catch { /* unavailable during EAS local pre-validation — guarded below */ }
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 
@@ -207,6 +208,7 @@ const withWidgetTarget = (config) =>
     });
 
 const withLiveActivity = (config) => {
+    if (!config_plugins_1) return config;
     config = withLiveActivityInfoPlist(config);
     config = withAppGroupEntitlement(config);
     config = withWidgetSources(config);

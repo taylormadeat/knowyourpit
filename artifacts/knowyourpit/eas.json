@@ -43,6 +43,9 @@
     },
     "production": {
       "credentialsSource": "remote",
+      "cache": {
+        "key": "v2-deploy-target-fix"
+      },
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.2",
         "buildConfiguration": "Release",
