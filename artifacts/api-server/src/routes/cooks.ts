@@ -219,6 +219,36 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
     }
     updateData.confirmedSteps = cs ?? null;
   }
+  // Canonical judgeScore derivation: when any KCBS sub-score is being written,
+  // recompute the compatibility total (appearance + taste + texture) so that
+  // judgeScore always reflects the sub-scores rather than an independent client value.
+  const hasSubScoreUpdate =
+    "judgeScoreAppearance" in updateData ||
+    "judgeScoreTaste" in updateData ||
+    "judgeScoreTexture" in updateData;
+  if (hasSubScoreUpdate) {
+    // Fetch current persisted sub-scores so we can fill in unchanged axes.
+    const [existing] = await db
+      .select({ a: cooksTable.judgeScoreAppearance, t: cooksTable.judgeScoreTaste, x: cooksTable.judgeScoreTexture })
+      .from(cooksTable)
+      .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)));
+    // Distinguish explicit null (client clearing a value) from absent (not changing it).
+    const incomingApp = "judgeScoreAppearance" in updateData
+      ? (updateData.judgeScoreAppearance as number | null)
+      : existing?.a ?? null;
+    const incomingTaste = "judgeScoreTaste" in updateData
+      ? (updateData.judgeScoreTaste as number | null)
+      : existing?.t ?? null;
+    const incomingTexture = "judgeScoreTexture" in updateData
+      ? (updateData.judgeScoreTexture as number | null)
+      : existing?.x ?? null;
+    // Recompute total only when at least one axis has a real value; clear when all are null.
+    if (incomingApp != null || incomingTaste != null || incomingTexture != null) {
+      updateData.judgeScore = (incomingApp ?? 0) + (incomingTaste ?? 0) + (incomingTexture ?? 0);
+    } else {
+      updateData.judgeScore = null;
+    }
+  }
   const [cook] = await db.update(cooksTable).set(updateData)
     .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)))
     .returning();

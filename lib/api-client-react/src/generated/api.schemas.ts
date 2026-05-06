@@ -419,10 +419,30 @@ export interface Cook {
    */
   competitionPlacement: number | null;
   /**
-   * Optional judges' score (0–360 per KCBS_SCORING — 10/25/25 weighting × 6 judges)
+   * Total number of teams competing in the field — used to compute percentile finish.
+   * @nullable
+   */
+  competitionTeamCount: number | null;
+  /**
+   * Total judges' score (0–360). Auto-computed from sub-scores when all three are provided; can also be entered directly for legacy data.
    * @nullable
    */
   judgeScore: number | null;
+  /**
+   * Appearance sub-score (0–60) — 10 pts × 6 judges per KCBS rules.
+   * @nullable
+   */
+  judgeScoreAppearance: number | null;
+  /**
+   * Taste sub-score (0–150) — 25 pts × 6 judges per KCBS rules.
+   * @nullable
+   */
+  judgeScoreTaste: number | null;
+  /**
+   * Texture sub-score (0–150) — 25 pts × 6 judges per KCBS rules.
+   * @nullable
+   */
+  judgeScoreTexture: number | null;
   /**
    * Free-form notes about judge feedback
    * @nullable
@@ -558,6 +578,20 @@ export interface CreateCookBody {
   competitionCategory?: CreateCookBodyCompetitionCategory;
   /** @nullable */
   turnInAt?: string | null;
+  /** @nullable */
+  competitionPlacement?: number | null;
+  /** @nullable */
+  competitionTeamCount?: number | null;
+  /** @nullable */
+  judgeScore?: number | null;
+  /** @nullable */
+  judgeScoreAppearance?: number | null;
+  /** @nullable */
+  judgeScoreTaste?: number | null;
+  /** @nullable */
+  judgeScoreTexture?: number | null;
+  /** @nullable */
+  judgeNotes?: string | null;
 }
 
 /**
@@ -696,8 +730,31 @@ export interface UpdateCookBody {
    * @nullable
    */
   competitionPlacement?: number | null;
-  /** @nullable */
+  /**
+   * Total teams in the field — used to compute percentile finish
+   * @nullable
+   */
+  competitionTeamCount?: number | null;
+  /**
+   * Total score (0–360). Auto-computed from sub-scores when all three are provided.
+   * @nullable
+   */
   judgeScore?: number | null;
+  /**
+   * Appearance sub-score (0–60) per KCBS rules
+   * @nullable
+   */
+  judgeScoreAppearance?: number | null;
+  /**
+   * Taste sub-score (0–150) per KCBS rules
+   * @nullable
+   */
+  judgeScoreTaste?: number | null;
+  /**
+   * Texture sub-score (0–150) per KCBS rules
+   * @nullable
+   */
+  judgeScoreTexture?: number | null;
   /** @nullable */
   judgeNotes?: string | null;
 }
@@ -1139,6 +1196,11 @@ export interface MultiCookItem {
    * @nullable
    */
   turnInAt?: string | null;
+  /**
+   * Minutes needed to walk the turn-in box to the judges' table. Used to schedule walk-to-turn-in notifications and display on the plan timeline.
+   * @nullable
+   */
+  walkMinutes?: number | null;
 }
 
 export type MultiCookCompetitionCategoriesItem =

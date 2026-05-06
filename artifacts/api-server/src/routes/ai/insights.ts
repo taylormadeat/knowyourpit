@@ -125,6 +125,29 @@ router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void
       if (placement <= 20) return 60;
       return 50;
     };
+    // Judge score quality: use sub-scores if available, normalized per-dimension then averaged.
+    // KCBS caps: Appearance=60, Taste=150, Texture=150. Each is normalized to 0–100 and averaged
+    // so that no single dimension dominates even though their raw ranges differ.
+    // Fallback: use total judgeScore/360*100 for legacy single-score cooks.
+    const judgeQualityScores: number[] = [];
+    for (const c of cooks) {
+      if (!c.isCompetition) continue;
+      const hasSubScores = c.judgeScoreAppearance != null || c.judgeScoreTaste != null || c.judgeScoreTexture != null;
+      if (hasSubScores) {
+        const normScores: number[] = [];
+        if (c.judgeScoreAppearance != null) normScores.push(Math.min(100, (c.judgeScoreAppearance / 60) * 100));
+        if (c.judgeScoreTaste != null) normScores.push(Math.min(100, (c.judgeScoreTaste / 150) * 100));
+        if (c.judgeScoreTexture != null) normScores.push(Math.min(100, (c.judgeScoreTexture / 150) * 100));
+        const avg = normScores.reduce((a, b) => a + b, 0) / normScores.length;
+        judgeQualityScores.push(Math.round(avg));
+      } else if (c.judgeScore != null) {
+        judgeQualityScores.push(Math.min(100, Math.round((c.judgeScore / 360) * 100)));
+      }
+    }
+    const judgeQualityScore = judgeQualityScores.length > 0
+      ? Math.round(judgeQualityScores.reduce((s, v) => s + v, 0) / judgeQualityScores.length)
+      : null;
+
     const placementScores: number[] = [];
     for (const c of cooks) {
       if (c.isCompetition && c.competitionPlacement != null) {
@@ -135,11 +158,18 @@ router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void
       placementScores.length > 0
         ? Math.round(placementScores.reduce((s, v) => s + v, 0) / placementScores.length)
         : null;
+    // Blend placement score with judge quality score when both are available
+    const blendedCompetitionScore = (() => {
+      if (competitionScore == null && judgeQualityScore == null) return null;
+      if (competitionScore == null) return judgeQualityScore!;
+      if (judgeQualityScore == null) return competitionScore;
+      return Math.round(competitionScore * 0.65 + judgeQualityScore * 0.35);
+    })();
 
     let weightedSum = 0;
     let totalWeight = 0;
-    if (competitionScore != null) {
-      weightedSum += competitionScore * 0.5; totalWeight += 0.5;
+    if (blendedCompetitionScore != null) {
+      weightedSum += blendedCompetitionScore * 0.5; totalWeight += 0.5;
       if (avgRatingScore != null) { weightedSum += avgRatingScore * 0.15; totalWeight += 0.15; }
       if (planAccuracy != null) { weightedSum += planAccuracy * 0.25; totalWeight += 0.25; }
       if (aiAssessmentScore != null) { weightedSum += aiAssessmentScore * 0.1; totalWeight += 0.1; }

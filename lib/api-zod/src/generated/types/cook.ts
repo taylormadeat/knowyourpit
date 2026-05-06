@@ -126,10 +126,30 @@ export interface Cook {
    */
   competitionPlacement: number | null;
   /**
-   * Optional judges' score (0–360 per KCBS_SCORING — 10/25/25 weighting × 6 judges)
+   * Total number of teams competing in the field — used to compute percentile finish.
+   * @nullable
+   */
+  competitionTeamCount: number | null;
+  /**
+   * Total judges' score (0–360). Auto-computed from sub-scores when all three are provided; can also be entered directly for legacy data.
    * @nullable
    */
   judgeScore: number | null;
+  /**
+   * Appearance sub-score (0–60) — 10 pts × 6 judges per KCBS rules.
+   * @nullable
+   */
+  judgeScoreAppearance: number | null;
+  /**
+   * Taste sub-score (0–150) — 25 pts × 6 judges per KCBS rules.
+   * @nullable
+   */
+  judgeScoreTaste: number | null;
+  /**
+   * Texture sub-score (0–150) — 25 pts × 6 judges per KCBS rules.
+   * @nullable
+   */
+  judgeScoreTexture: number | null;
   /**
    * Free-form notes about judge feedback
    * @nullable

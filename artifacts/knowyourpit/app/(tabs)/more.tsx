@@ -36,6 +36,12 @@ const MENU_SECTIONS = [
     ],
   },
   {
+    title: "Competition",
+    items: [
+      { icon: "award", label: "Competition Career", route: "/competition-career" },
+    ],
+  },
+  {
     title: "Account",
     items: [
       { icon: "user", label: "Profile", route: "/profile" },

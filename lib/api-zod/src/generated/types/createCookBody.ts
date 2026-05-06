@@ -86,4 +86,18 @@ export interface CreateCookBody {
   competitionCategory?: CreateCookBodyCompetitionCategory;
   /** @nullable */
   turnInAt?: Date | null;
+  /** @nullable */
+  competitionPlacement?: number | null;
+  /** @nullable */
+  competitionTeamCount?: number | null;
+  /** @nullable */
+  judgeScore?: number | null;
+  /** @nullable */
+  judgeScoreAppearance?: number | null;
+  /** @nullable */
+  judgeScoreTaste?: number | null;
+  /** @nullable */
+  judgeScoreTexture?: number | null;
+  /** @nullable */
+  judgeNotes?: string | null;
 }

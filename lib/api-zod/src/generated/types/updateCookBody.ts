@@ -87,8 +87,31 @@ export interface UpdateCookBody {
    * @nullable
    */
   competitionPlacement?: number | null;
-  /** @nullable */
+  /**
+   * Total teams in the field — used to compute percentile finish
+   * @nullable
+   */
+  competitionTeamCount?: number | null;
+  /**
+   * Total score (0–360). Auto-computed from sub-scores when all three are provided.
+   * @nullable
+   */
   judgeScore?: number | null;
+  /**
+   * Appearance sub-score (0–60) per KCBS rules
+   * @nullable
+   */
+  judgeScoreAppearance?: number | null;
+  /**
+   * Taste sub-score (0–150) per KCBS rules
+   * @nullable
+   */
+  judgeScoreTaste?: number | null;
+  /**
+   * Texture sub-score (0–150) per KCBS rules
+   * @nullable
+   */
+  judgeScoreTexture?: number | null;
   /** @nullable */
   judgeNotes?: string | null;
 }

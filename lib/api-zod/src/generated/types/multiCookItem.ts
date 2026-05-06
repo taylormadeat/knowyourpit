@@ -32,4 +32,9 @@ export interface MultiCookItem {
    * @nullable
    */
   turnInAt?: Date | null;
+  /**
+   * Minutes needed to walk the turn-in box to the judges' table. Used to schedule walk-to-turn-in notifications and display on the plan timeline.
+   * @nullable
+   */
+  walkMinutes?: number | null;
 }

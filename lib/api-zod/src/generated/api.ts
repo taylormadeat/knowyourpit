@@ -637,12 +637,32 @@ export const ListCooksResponseItem = zod.object({
     .describe(
       "Final placement in the category (1=first, 0=DNP). Higher numbers can represent ranges (6=top 10, 11=top 20, 21=below 20).",
     ),
+  competitionTeamCount: zod
+    .number()
+    .nullable()
+    .describe(
+      "Total number of teams competing in the field — used to compute percentile finish.",
+    ),
   judgeScore: zod
     .number()
     .nullable()
     .describe(
-      "Optional judges' score (0–360 per KCBS_SCORING — 10\/25\/25 weighting × 6 judges)",
+      "Total judges' score (0–360). Auto-computed from sub-scores when all three are provided; can also be entered directly for legacy data.",
     ),
+  judgeScoreAppearance: zod
+    .number()
+    .nullable()
+    .describe(
+      "Appearance sub-score (0–60) — 10 pts × 6 judges per KCBS rules.",
+    ),
+  judgeScoreTaste: zod
+    .number()
+    .nullable()
+    .describe("Taste sub-score (0–150) — 25 pts × 6 judges per KCBS rules."),
+  judgeScoreTexture: zod
+    .number()
+    .nullable()
+    .describe("Texture sub-score (0–150) — 25 pts × 6 judges per KCBS rules."),
   judgeNotes: zod
     .string()
     .nullable()
@@ -735,6 +755,13 @@ export const CreateCookBody = zod.object({
     ])
     .nullish(),
   turnInAt: zod.coerce.date().nullish(),
+  competitionPlacement: zod.number().nullish(),
+  competitionTeamCount: zod.number().nullish(),
+  judgeScore: zod.number().nullish(),
+  judgeScoreAppearance: zod.number().nullish(),
+  judgeScoreTaste: zod.number().nullish(),
+  judgeScoreTexture: zod.number().nullish(),
+  judgeNotes: zod.string().nullish(),
 });
 
 /**
@@ -860,12 +887,32 @@ export const GetCookResponse = zod.object({
     .describe(
       "Final placement in the category (1=first, 0=DNP). Higher numbers can represent ranges (6=top 10, 11=top 20, 21=below 20).",
     ),
+  competitionTeamCount: zod
+    .number()
+    .nullable()
+    .describe(
+      "Total number of teams competing in the field — used to compute percentile finish.",
+    ),
   judgeScore: zod
     .number()
     .nullable()
     .describe(
-      "Optional judges' score (0–360 per KCBS_SCORING — 10\/25\/25 weighting × 6 judges)",
+      "Total judges' score (0–360). Auto-computed from sub-scores when all three are provided; can also be entered directly for legacy data.",
     ),
+  judgeScoreAppearance: zod
+    .number()
+    .nullable()
+    .describe(
+      "Appearance sub-score (0–60) — 10 pts × 6 judges per KCBS rules.",
+    ),
+  judgeScoreTaste: zod
+    .number()
+    .nullable()
+    .describe("Taste sub-score (0–150) — 25 pts × 6 judges per KCBS rules."),
+  judgeScoreTexture: zod
+    .number()
+    .nullable()
+    .describe("Texture sub-score (0–150) — 25 pts × 6 judges per KCBS rules."),
   judgeNotes: zod
     .string()
     .nullable()
@@ -958,7 +1005,28 @@ export const UpdateCookBody = zod.object({
     .number()
     .nullish()
     .describe("1=first, 0=DNP, 6=top 10, 11=top 20, 21=below 20"),
-  judgeScore: zod.number().nullish(),
+  competitionTeamCount: zod
+    .number()
+    .nullish()
+    .describe("Total teams in the field — used to compute percentile finish"),
+  judgeScore: zod
+    .number()
+    .nullish()
+    .describe(
+      "Total score (0–360). Auto-computed from sub-scores when all three are provided.",
+    ),
+  judgeScoreAppearance: zod
+    .number()
+    .nullish()
+    .describe("Appearance sub-score (0–60) per KCBS rules"),
+  judgeScoreTaste: zod
+    .number()
+    .nullish()
+    .describe("Taste sub-score (0–150) per KCBS rules"),
+  judgeScoreTexture: zod
+    .number()
+    .nullish()
+    .describe("Texture sub-score (0–150) per KCBS rules"),
   judgeNotes: zod.string().nullish(),
 });
 
@@ -1078,12 +1146,32 @@ export const UpdateCookResponse = zod.object({
     .describe(
       "Final placement in the category (1=first, 0=DNP). Higher numbers can represent ranges (6=top 10, 11=top 20, 21=below 20).",
     ),
+  competitionTeamCount: zod
+    .number()
+    .nullable()
+    .describe(
+      "Total number of teams competing in the field — used to compute percentile finish.",
+    ),
   judgeScore: zod
     .number()
     .nullable()
     .describe(
-      "Optional judges' score (0–360 per KCBS_SCORING — 10\/25\/25 weighting × 6 judges)",
+      "Total judges' score (0–360). Auto-computed from sub-scores when all three are provided; can also be entered directly for legacy data.",
     ),
+  judgeScoreAppearance: zod
+    .number()
+    .nullable()
+    .describe(
+      "Appearance sub-score (0–60) — 10 pts × 6 judges per KCBS rules.",
+    ),
+  judgeScoreTaste: zod
+    .number()
+    .nullable()
+    .describe("Taste sub-score (0–150) — 25 pts × 6 judges per KCBS rules."),
+  judgeScoreTexture: zod
+    .number()
+    .nullable()
+    .describe("Texture sub-score (0–150) — 25 pts × 6 judges per KCBS rules."),
   judgeNotes: zod
     .string()
     .nullable()
@@ -1629,6 +1717,12 @@ export const AiMultiCookBody = zod.object({
           .describe(
             "Per-item competition turn-in time (Competition Mode). When provided, replaces the shared serveAt for backwards planning of THIS item only.",
           ),
+        walkMinutes: zod
+          .number()
+          .nullish()
+          .describe(
+            "Minutes needed to walk the turn-in box to the judges' table. Used to schedule walk-to-turn-in notifications and display on the plan timeline.",
+          ),
       }),
     )
     .min(1)
@@ -2088,12 +2182,32 @@ export const GetRecentCooksResponseItem = zod.object({
     .describe(
       "Final placement in the category (1=first, 0=DNP). Higher numbers can represent ranges (6=top 10, 11=top 20, 21=below 20).",
     ),
+  competitionTeamCount: zod
+    .number()
+    .nullable()
+    .describe(
+      "Total number of teams competing in the field — used to compute percentile finish.",
+    ),
   judgeScore: zod
     .number()
     .nullable()
     .describe(
-      "Optional judges' score (0–360 per KCBS_SCORING — 10\/25\/25 weighting × 6 judges)",
+      "Total judges' score (0–360). Auto-computed from sub-scores when all three are provided; can also be entered directly for legacy data.",
     ),
+  judgeScoreAppearance: zod
+    .number()
+    .nullable()
+    .describe(
+      "Appearance sub-score (0–60) — 10 pts × 6 judges per KCBS rules.",
+    ),
+  judgeScoreTaste: zod
+    .number()
+    .nullable()
+    .describe("Taste sub-score (0–150) — 25 pts × 6 judges per KCBS rules."),
+  judgeScoreTexture: zod
+    .number()
+    .nullable()
+    .describe("Texture sub-score (0–150) — 25 pts × 6 judges per KCBS rules."),
   judgeNotes: zod
     .string()
     .nullable()

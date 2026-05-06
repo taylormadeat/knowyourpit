@@ -28,6 +28,7 @@ import {
   COMPETITION_CATEGORY_LABEL,
   COMPETITION_CATEGORY_COLOR,
   placementLabel,
+  computePercentile,
   type CompetitionCategory,
 } from "@/constants/competitionKnowledge";
 
@@ -440,11 +441,33 @@ export default function CooksScreen() {
                     {placementLabel(item.competitionPlacement)}
                   </Text>
                 ) : null}
-                {item.judgeScore != null ? (
-                  <Text style={{ color: colors.foreground, fontSize: 11, fontFamily: "Inter_700Bold" }}>
-                    · {Number(item.judgeScore).toFixed(item.judgeScore % 1 === 0 ? 0 : 4)} pts
+                {typeof item.competitionPlacement === "number" && item.competitionTeamCount != null && item.competitionTeamCount > 0 ? (
+                  <Text style={{ color: colors.mutedForeground, fontSize: 10, fontFamily: "Inter_500Medium" }}>
+                    {computePercentile(item.competitionPlacement, item.competitionTeamCount)}
                   </Text>
                 ) : null}
+                {(() => {
+                  const hasSubScores = item.judgeScoreAppearance != null || item.judgeScoreTaste != null || item.judgeScoreTexture != null;
+                  if (hasSubScores) {
+                    const app = item.judgeScoreAppearance ?? 0;
+                    const taste = item.judgeScoreTaste ?? 0;
+                    const texture = item.judgeScoreTexture ?? 0;
+                    const total = app + taste + texture;
+                    return (
+                      <Text style={{ color: colors.foreground, fontSize: 11, fontFamily: "Inter_700Bold" }}>
+                        · {total.toFixed(1)}<Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>/360</Text>
+                      </Text>
+                    );
+                  }
+                  if (item.judgeScore != null) {
+                    return (
+                      <Text style={{ color: colors.foreground, fontSize: 11, fontFamily: "Inter_700Bold" }}>
+                        · {Number(item.judgeScore).toFixed(item.judgeScore % 1 === 0 ? 0 : 1)} pts
+                      </Text>
+                    );
+                  }
+                  return null;
+                })()}
               </View>
             );
           })()}
@@ -1115,6 +1138,15 @@ export default function CooksScreen() {
               Competitions
             </Text>
           </Pressable>
+          {competitionsOnly && (
+            <Pressable
+              onPress={() => router.push("/competition-career" as any)}
+              style={[s.pill, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 4 }]}
+            >
+              <Feather name="bar-chart-2" size={11} color={colors.mutedForeground} />
+              <Text style={[s.pillText, { color: colors.mutedForeground }]}>Career Stats</Text>
+            </Pressable>
+          )}
         </ScrollView>
       </View>
 

@@ -20,6 +20,9 @@ import {
   COMPETITION_CATEGORY_FOOD_TYPE,
   COMPETITION_CATEGORY_DEFAULT_WEIGHT_LBS,
   COMPETITION_DEFAULT_TURN_INS,
+  COMPETITION_WALK_TIME_DEFAULT_MINUTES,
+  COMPETITION_WALK_TIME_MIN_MINUTES,
+  COMPETITION_WALK_TIME_MAX_MINUTES,
   type CompetitionCategory,
 } from "@/constants/competitionKnowledge";
 import { MEAT_CUTS, type MeatCut } from "@/constants/meatCuts";
@@ -39,6 +42,7 @@ export interface CompetitionItem {
   weightLbs: string;
   turnInAt: Date;
   grillId: number | null;
+  walkMinutes: number;
 }
 
 export interface CompetitionPayload {
@@ -102,6 +106,11 @@ export function CompetitionSetupModal({
     return o;
   });
   const [timePickerFor, setTimePickerFor] = useState<CompetitionCategory | null>(null);
+  const [walkMinutes, setWalkMinutes] = useState<Record<CompetitionCategory, number>>(() => {
+    const o: any = {};
+    for (const c of COMPETITION_CATEGORIES) o[c] = COMPETITION_WALK_TIME_DEFAULT_MINUTES;
+    return o;
+  });
 
   const upcomingDates = useMemo(() => getUpcomingDates(), []);
 
@@ -133,6 +142,7 @@ export function CompetitionSetupModal({
         weightLbs: weights[c] || String(COMPETITION_CATEGORY_DEFAULT_WEIGHT_LBS[c]),
         turnInAt: turnInTimes[c],
         grillId: defaultGrillId,
+        walkMinutes: walkMinutes[c],
       });
     }
     if (items.length === 0) return;
@@ -244,6 +254,29 @@ export function CompetitionSetupModal({
                             placeholderTextColor={colors.mutedForeground}
                           />
                           <Text style={[s.weightUnit, { color: colors.mutedForeground }]}>lbs</Text>
+                        </View>
+                      </View>
+                      <View style={s.catFieldRow}>
+                        <Text style={[s.catFieldLabel, { color: colors.mutedForeground }]}>Walk</Text>
+                        <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Pressable
+                            onPress={() => setWalkMinutes((p) => ({ ...p, [c]: Math.max(COMPETITION_WALK_TIME_MIN_MINUTES, p[c] - 1) }))}
+                            style={[s.stepperBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
+                            hitSlop={4}
+                          >
+                            <Feather name="minus" size={14} color={colors.foreground} />
+                          </Pressable>
+                          <Text style={[s.stepperVal, { color: colors.foreground }]}>{walkMinutes[c]} min</Text>
+                          <Pressable
+                            onPress={() => setWalkMinutes((p) => ({ ...p, [c]: Math.min(COMPETITION_WALK_TIME_MAX_MINUTES, p[c] + 1) }))}
+                            style={[s.stepperBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
+                            hitSlop={4}
+                          >
+                            <Feather name="plus" size={14} color={colors.foreground} />
+                          </Pressable>
+                          <Text style={[{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }]}>
+                            to turn-in table
+                          </Text>
                         </View>
                       </View>
                       <View style={s.catFieldRow}>
@@ -473,6 +506,8 @@ const s = StyleSheet.create({
   turnInPill: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1 },
   turnInText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
   turnInDefault: { fontFamily: "Inter_400Regular", fontSize: 10 },
+  stepperBtn: { width: 28, height: 28, borderRadius: 7, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  stepperVal: { fontFamily: "Inter_600SemiBold", fontSize: 13, minWidth: 44, textAlign: "center" },
   cta: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14 },
   ctaText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14 },
 });

@@ -1551,9 +1551,21 @@ components:
         competitionPlacement:
           type: ["integer", "null"]
           description: Final placement in the category (1=first, 0=DNP). Higher numbers can represent ranges (6=top 10, 11=top 20, 21=below 20).
+        competitionTeamCount:
+          type: ["integer", "null"]
+          description: Total number of teams competing in the field — used to compute percentile finish.
         judgeScore:
           type: ["number", "null"]
-          description: Optional judges' score (0–360 per KCBS_SCORING — 10/25/25 weighting × 6 judges)
+          description: Total judges' score (0–360). Auto-computed from sub-scores when all three are provided; can also be entered directly for legacy data.
+        judgeScoreAppearance:
+          type: ["number", "null"]
+          description: Appearance sub-score (0–60) — 10 pts × 6 judges per KCBS rules.
+        judgeScoreTaste:
+          type: ["number", "null"]
+          description: Taste sub-score (0–150) — 25 pts × 6 judges per KCBS rules.
+        judgeScoreTexture:
+          type: ["number", "null"]
+          description: Texture sub-score (0–150) — 25 pts × 6 judges per KCBS rules.
         judgeNotes:
           type: ["string", "null"]
           description: Free-form notes about judge feedback
@@ -1597,7 +1609,11 @@ components:
         - competitionCategory
         - turnInAt
         - competitionPlacement
+        - competitionTeamCount
         - judgeScore
+        - judgeScoreAppearance
+        - judgeScoreTaste
+        - judgeScoreTexture
         - judgeNotes
         - createdAt
         - updatedAt
@@ -1673,6 +1689,20 @@ components:
         turnInAt:
           type: ["string", "null"]
           format: date-time
+        competitionPlacement:
+          type: ["integer", "null"]
+        competitionTeamCount:
+          type: ["integer", "null"]
+        judgeScore:
+          type: ["number", "null"]
+        judgeScoreAppearance:
+          type: ["number", "null"]
+        judgeScoreTaste:
+          type: ["number", "null"]
+        judgeScoreTexture:
+          type: ["number", "null"]
+        judgeNotes:
+          type: ["string", "null"]
       required:
         - foodType
 
@@ -1755,8 +1785,21 @@ components:
         competitionPlacement:
           type: ["integer", "null"]
           description: 1=first, 0=DNP, 6=top 10, 11=top 20, 21=below 20
+        competitionTeamCount:
+          type: ["integer", "null"]
+          description: Total teams in the field — used to compute percentile finish
         judgeScore:
           type: ["number", "null"]
+          description: Total score (0–360). Auto-computed from sub-scores when all three are provided.
+        judgeScoreAppearance:
+          type: ["number", "null"]
+          description: Appearance sub-score (0–60) per KCBS rules
+        judgeScoreTaste:
+          type: ["number", "null"]
+          description: Taste sub-score (0–150) per KCBS rules
+        judgeScoreTexture:
+          type: ["number", "null"]
+          description: Texture sub-score (0–150) per KCBS rules
         judgeNotes:
           type: ["string", "null"]
 
@@ -2316,6 +2359,9 @@ components:
           type: ["string", "null"]
           format: date-time
           description: Per-item competition turn-in time (Competition Mode). When provided, replaces the shared serveAt for backwards planning of THIS item only.
+        walkMinutes:
+          type: ["integer", "null"]
+          description: Minutes needed to walk the turn-in box to the judges' table. Used to schedule walk-to-turn-in notifications and display on the plan timeline.
       required:
         - foodType
 

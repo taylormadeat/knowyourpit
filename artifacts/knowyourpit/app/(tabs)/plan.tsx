@@ -494,6 +494,7 @@ export default function PlanScreen() {
               preheatMinutes: preheatMinsForGrill(itemGrill),
               category: item.category,
               turnInAt: item.turnInAt.toISOString(),
+              walkMinutes: item.walkMinutes,
             };
           }),
           // Pass the latest turn-in as serveAt for backwards compatibility;

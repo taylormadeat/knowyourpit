@@ -163,6 +163,9 @@ export const COMPETITION_SCORING = {
   judgesPerEntry: 6,
   lowestDropped: false,
   maxScore: 360,
+  maxAppearance: 60,
+  maxTaste: 150,
+  maxTexture: 150,
 } as const;
 
 export const COMPETITION_BOX_PACK_CATEGORY_TEXT: Record<CompetitionCategory, string> = {
@@ -175,6 +178,59 @@ export const COMPETITION_BOX_PACK_CATEGORY_TEXT: Record<CompetitionCategory, str
   brisket:
     "9+ pencil-thick (¼\") slices shingled meat-side up + burnt-end cubes glazed. Slices must bend without breaking.",
 };
+
+export interface BoxChecklistItem {
+  id: string;
+  text: string;
+  isDQ?: boolean;
+}
+
+export const COMPETITION_BOX_CHECKLIST: Record<CompetitionCategory, BoxChecklistItem[]> = {
+  chicken: [
+    { id: "c1", text: "Line box with flat/curly parsley, green leaf lettuce, kale, or cilantro only — NO red-tipped, orange, or yellow lettuce", isDQ: true },
+    { id: "c2", text: "At least 6 identical pieces (thighs or drumsticks — same cut)" },
+    { id: "c3", text: "All pieces skin-side up, uniform mahogany color and glaze" },
+    { id: "c4", text: "No sauce pools or drips — wipe the inside lip of the box" },
+    { id: "c5", text: "Meat temp above 145°F (aim 165°F+ when packing to buffer judging time)" },
+    { id: "c6", text: "No pulled or shredded chicken in the box", isDQ: true },
+    { id: "c7", text: "Box is unmarked — no writing, initials, or team identification", isDQ: true },
+    { id: "c8", text: "Garnish does NOT touch meat edges — keep it in the corners/base only" },
+  ],
+  ribs: [
+    { id: "r1", text: "Line box with parsley, curly parsley, green leaf lettuce, kale, or cilantro only", isDQ: true },
+    { id: "r2", text: "6 individual rib bones cut clean between bones (no end cuts with less meat)" },
+    { id: "r3", text: "All bones meat-side up, facing the same direction" },
+    { id: "r4", text: "Light glaze for sheen — no heavy sauce that hides bark" },
+    { id: "r5", text: "Check bite-through: meat should release cleanly with ~¼\" pull-back from bone end" },
+    { id: "r6", text: "No boneless ribs or pulled rib meat in the box", isDQ: true },
+    { id: "r7", text: "No sauce pools or drips on the box walls/lip" },
+    { id: "r8", text: "Box is unmarked — no writing, initials, or team identification", isDQ: true },
+  ],
+  pork: [
+    { id: "p1", text: "Line box with approved garnish: parsley, green leaf lettuce, kale, or cilantro only", isDQ: true },
+    { id: "p2", text: "Money muscle: slice ¼\" thick medallions, fan them on one side of the box" },
+    { id: "p3", text: "Chunks: 1.5\" cubes, tender but holding shape, placed in another section" },
+    { id: "p4", text: "Pulled: include pulled pork WITH visible bark mixed in (not dry or saucy mush)" },
+    { id: "p5", text: "All three presentations glistening with a light finishing glaze" },
+    { id: "p6", text: "No sauce pools — wipe the inside lip of the box clean" },
+    { id: "p7", text: "Box is unmarked — no writing, initials, or team identification", isDQ: true },
+    { id: "p8", text: "Meat temp above 145°F (aim 160°F+ when packing)" },
+  ],
+  brisket: [
+    { id: "b1", text: "Line box with approved garnish: parsley, green leaf lettuce, kale, or cilantro only", isDQ: true },
+    { id: "b2", text: "9+ flat slices, pencil-thick (¼\"), shingled meat-side up — from the FLAT only" },
+    { id: "b3", text: "Burnt ends: ½–¾\" cubes from the POINT, glazed and caramelized" },
+    { id: "b4", text: "Perform bend test: slice should bend without breaking and tear with gentle pull" },
+    { id: "b5", text: "Perfect smoke ring visible on slices" },
+    { id: "b6", text: "No chopped brisket in the box", isDQ: true },
+    { id: "b7", text: "No sauce pools — glaze should be baked/set, not wet" },
+    { id: "b8", text: "Box is unmarked — no writing, initials, or team identification", isDQ: true },
+  ],
+};
+
+export const COMPETITION_WALK_TIME_DEFAULT_MINUTES = 5;
+export const COMPETITION_WALK_TIME_MIN_MINUTES = 1;
+export const COMPETITION_WALK_TIME_MAX_MINUTES = 15;
 
 export interface CompetitionContextOptions {
   competitionName?: string | null;
@@ -255,4 +311,18 @@ export function placementToScore(placement: number | null | undefined): number |
   if (placement <= 10) return 70;
   if (placement <= 20) return 60;
   return 50;
+}
+
+/**
+ * Returns a "Top X% of N teams" label for a given placement and field size.
+ * 1st of 67 → "Top 2%", 8th of 67 → "Top 12%", etc.
+ *
+ * Formula: ceil((placement / teamCount) * 100) so that 1st always reads
+ * ≥ 1% and placement 8/67 = ceil(11.94) = 12 as required by spec example.
+ */
+export function computePercentile(placement: number, teamCount: number): string | null {
+  if (!placement || placement <= 0 || teamCount < 2) return null;
+  const percentile = Math.ceil((placement / teamCount) * 100);
+  const clamped = Math.max(1, Math.min(100, percentile));
+  return `Top ${clamped}% of ${teamCount} teams`;
 }

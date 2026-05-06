@@ -71,6 +71,14 @@ import {
 } from "@workspace/api-client-react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
+import {
+  COMPETITION_CATEGORY_LABEL,
+  COMPETITION_CATEGORY_COLOR,
+  COMPETITION_SCORING,
+  computePercentile,
+  placementLabel,
+  type CompetitionCategory,
+} from "@/constants/competitionKnowledge";
 
 import { s } from "@/components/cook-detail/styles";
 import {
@@ -1167,6 +1175,74 @@ export default function CookDetailScreen() {
             </View>
           ) : null}
         </View>
+
+        {/* ── Competition Results (competition cooks with judge data) ── */}
+        {(c as any).isCompetition && ((c as any).judgeScore != null || (c as any).competitionPlacement != null) && (() => {
+          const cat = (c as any).competitionCategory as CompetitionCategory | undefined;
+          const catColor = cat ? COMPETITION_CATEGORY_COLOR[cat] : "#EAB308";
+          const appearance: number | null = (c as any).judgeScoreAppearance ?? null;
+          const taste: number | null = (c as any).judgeScoreTaste ?? null;
+          const texture: number | null = (c as any).judgeScoreTexture ?? null;
+          const total: number | null = (c as any).judgeScore ?? null;
+          const placement: number | null = (c as any).competitionPlacement ?? null;
+          const teamCount: number | null = (c as any).competitionTeamCount ?? null;
+          const hasSubScores = appearance != null || taste != null || texture != null;
+          const pct = placement != null && teamCount != null ? computePercentile(placement, teamCount) : null;
+          return (
+            <View style={{ backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: catColor + "44", padding: 14, marginBottom: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: catColor }} />
+                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: catColor, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  {cat ? COMPETITION_CATEGORY_LABEL[cat] : "Competition"} Results
+                </Text>
+              </View>
+              {placement != null && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <Feather name="award" size={14} color="#EAB308" />
+                  <Text style={{ fontFamily: "Inter_700Bold", fontSize: 22, color: colors.foreground }}>{placementLabel(placement)}</Text>
+                  {teamCount != null && <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>of {teamCount} teams</Text>}
+                  {pct != null && (
+                    <View style={{ marginLeft: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: "#EAB30820", borderWidth: 1, borderColor: "#EAB308" }}>
+                      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: "#EAB308" }}>{pct}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+              {hasSubScores ? (
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  {[
+                    { label: "App", val: appearance, max: COMPETITION_SCORING.maxAppearance },
+                    { label: "Taste", val: taste, max: COMPETITION_SCORING.maxTaste },
+                    { label: "Texture", val: texture, max: COMPETITION_SCORING.maxTexture },
+                  ].map(({ label, val, max }) => val != null ? (
+                    <View key={label} style={{ flex: 1, backgroundColor: colors.background, borderRadius: 8, padding: 8, alignItems: "center" }}>
+                      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 16, color: colors.foreground }}>{val}</Text>
+                      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground, marginTop: 1 }}>{label} /{max}</Text>
+                      <View style={{ width: "100%", height: 3, borderRadius: 2, backgroundColor: colors.border, marginTop: 4 }}>
+                        <View style={{ width: `${(val / max) * 100}%` as any, height: 3, borderRadius: 2, backgroundColor: catColor }} />
+                      </View>
+                    </View>
+                  ) : null)}
+                  {total != null && (
+                    <View style={{ flex: 1, backgroundColor: colors.background, borderRadius: 8, padding: 8, alignItems: "center" }}>
+                      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 16, color: catColor }}>{total.toFixed(1)}</Text>
+                      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground, marginTop: 1 }}>Total /360</Text>
+                      <View style={{ width: "100%", height: 3, borderRadius: 2, backgroundColor: colors.border, marginTop: 4 }}>
+                        <View style={{ width: `${(total / COMPETITION_SCORING.maxScore) * 100}%` as any, height: 3, borderRadius: 2, backgroundColor: catColor }} />
+                      </View>
+                    </View>
+                  )}
+                </View>
+              ) : total != null ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Feather name="star" size={13} color={catColor} />
+                  <Text style={{ fontFamily: "Inter_700Bold", fontSize: 18, color: colors.foreground }}>{total.toFixed(1)}</Text>
+                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>/ {COMPETITION_SCORING.maxScore}</Text>
+                </View>
+              ) : null}
+            </View>
+          );
+        })()}
 
         {/* ── Live Cook section (active cooks only) ──────────── */}
         <LiveCookSection

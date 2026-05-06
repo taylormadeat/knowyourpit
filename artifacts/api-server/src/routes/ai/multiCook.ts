@@ -301,6 +301,10 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
           }
         }
 
+        const walkMinutes = typeof inputMatch?.walkMinutes === "number" && inputMatch.walkMinutes > 0
+          ? Math.round(inputMatch.walkMinutes)
+          : null;
+
         return {
           ...item,
           meatOnAt,
@@ -314,6 +318,7 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
           turnInAt,
           boxPackAt,
           warning,
+          ...(walkMinutes != null && { walkMinutes }),
         };
       })
       .sort(

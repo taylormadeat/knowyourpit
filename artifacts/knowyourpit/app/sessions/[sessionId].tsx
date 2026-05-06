@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   LayoutChangeEvent,
   Alert,
 } from "react-native";
+import * as Notifications from "expo-notifications";
 import { fmtMinutes } from "@/utils/duration";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,14 +21,18 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useLayout } from "@/hooks/useLayout";
-import { useGetSessionCooks, useUpdateSession, useDeleteSession, useRemoveCookFromSession, useUpdateCook, getGetSessionCooksQueryKey, type UpdateCookBody } from "@workspace/api-client-react";
+import { useGetSessionCooks, useListCooks, useUpdateSession, useDeleteSession, useRemoveCookFromSession, useUpdateCook, getGetSessionCooksQueryKey, type Cook, type UpdateCookBody } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { LogoBackground } from "@/components/LogoBackground";
+import { BoxPresentationChecklist } from "@/components/competition/BoxPresentationChecklist";
 import {
   COMPETITION_CATEGORY_LABEL,
   COMPETITION_CATEGORY_COLOR,
   COMPETITION_BOX_PACK_CATEGORY_TEXT,
+  COMPETITION_SCORING,
+  COMPETITION_WALK_TIME_DEFAULT_MINUTES,
   placementLabel,
+  computePercentile,
   type CompetitionCategory,
 } from "@/constants/competitionKnowledge";
 
@@ -38,7 +43,7 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "#ef4444",
 };
 
-function CookGanttChart({ cooks, colors }: { cooks: any[]; colors: any }) {
+function CookGanttChart({ cooks, colors }: { cooks: Cook[]; colors: ReturnType<typeof useColors> }) {
   const [containerWidth, setContainerWidth] = useState(0);
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
@@ -165,7 +170,7 @@ function fmtCookDuration(mins: number | null | undefined): string {
 // Pull this cook's specific plan steps from its sequenceData.
 // Each cook in a multi-cook session stores the full multi-cook schedule;
 // we match by foodType, breaking ties with the closest meatOnAt timestamp.
-function getItemPlan(cook: any): {
+interface ItemPlan {
   grillLightAt?: string;
   meatOnAt?: string;
   estimatedFinishAt?: string;
@@ -179,13 +184,18 @@ function getItemPlan(cook: any): {
   category?: string | null;
   turnInAt?: string | null;
   boxPackAt?: string | null;
-} | null {
-  const seqData = cook?.sequenceData as { schedule?: any[] } | null | undefined;
+  walkMinutes?: number | null;
+  foodType?: string;
+  warning?: string | null;
+}
+
+function getItemPlan(cook: Cook): ItemPlan | null {
+  const seqData = (cook as Cook & { sequenceData?: unknown })?.sequenceData as { schedule?: ItemPlan[] } | null | undefined;
   if (!seqData?.schedule?.length) return null;
   const cookFoodType = (cook.foodType ?? "").toLowerCase().trim();
   const cookMeatOnMs = cook.plannedStartAt ? new Date(cook.plannedStartAt).getTime() : null;
 
-  let best: any = null;
+  let best: ItemPlan | null = null;
   let bestDelta = Infinity;
   for (const item of seqData.schedule) {
     if ((item.foodType ?? "").toLowerCase().trim() !== cookFoodType) continue;
@@ -197,7 +207,7 @@ function getItemPlan(cook: any): {
   }
   if (!best) {
     best = seqData.schedule.find(
-      (item: any) => (item.foodType ?? "").toLowerCase().trim() === cookFoodType,
+      (item) => (item.foodType ?? "").toLowerCase().trim() === cookFoodType,
     ) ?? null;
   }
   return best;
@@ -216,28 +226,28 @@ export default function SessionDetailScreen() {
   const deleteSession = useDeleteSession();
   const removeCookFromSession = useRemoveCookFromSession(sessionId ?? "");
 
-  const hasActive = (cooks ?? []).some((c: any) => c.status === "active");
-  const allCompleted = (cooks ?? []).every((c: any) => c.status === "completed");
+  const hasActive = (cooks ?? []).some((c) => c.status === "active");
+  const allCompleted = (cooks ?? []).every((c) => c.status === "completed");
 
   const sessionLabel = cooks?.[0]?.sessionLabel ?? null;
   const sessionNotes = cooks?.[0]?.sessionNotes ?? null;
 
   // ── Competition Mode detection ───────────────────────────────────────
-  const isCompetitionSession = (cooks ?? []).some((c: any) => c.isCompetition);
-  const competitionName = (cooks ?? []).find((c: any) => c.competitionName)?.competitionName ?? null;
-  const competitionCooks = (cooks ?? []).filter((c: any) => c.isCompetition);
+  const isCompetitionSession = (cooks ?? []).some((c) => c.isCompetition);
+  const competitionName = (cooks ?? []).find((c) => c.competitionName)?.competitionName ?? null;
+  const competitionCooks = (cooks ?? []).filter((c) => c.isCompetition);
   const competitionCategories: CompetitionCategory[] = Array.from(
-    new Set(competitionCooks.map((c: any) => c.competitionCategory).filter(Boolean) as CompetitionCategory[]),
+    new Set(competitionCooks.map((c) => c.competitionCategory).filter(Boolean) as CompetitionCategory[]),
   );
   const turnInDates = competitionCooks
-    .map((c: any) => (c.turnInAt ? new Date(c.turnInAt).getTime() : null))
+    .map((c) => (c.turnInAt ? new Date(c.turnInAt).getTime() : null))
     .filter((t): t is number => t !== null);
   // Legacy fallback: competition cooks created BEFORE the per-item turnInAt
   // field existed won't have turnInAt set. For those, treat the cook's
   // plannedEndAt (rest-finish time) as the de-facto turn-in moment so the
   // results CTA still surfaces and these cooks aren't stuck in limbo.
   const turnInOrEndDates = competitionCooks
-    .map((c: any) => {
+    .map((c) => {
       const t = c.turnInAt ?? c.plannedEndAt ?? c.plannedStartAt;
       return t ? new Date(t).getTime() : null;
     })
@@ -245,7 +255,7 @@ export default function SessionDetailScreen() {
   const allResultsLogged =
     isCompetitionSession &&
     competitionCooks.length > 0 &&
-    competitionCooks.every((c: any) => typeof c.competitionPlacement === "number");
+    competitionCooks.every((c) => typeof c.competitionPlacement === "number");
   // Spec: "Log Your Results" prompt should only surface after all turn-in times
   // have passed. We still allow re-opening the modal once any results are
   // logged so users can correct typos. Falls back to plannedEndAt for legacy
@@ -267,8 +277,39 @@ export default function SessionDetailScreen() {
   const [resultsOpen, setResultsOpen] = useState(false);
   const updateCook = useUpdateCook();
   const [resultsDraft, setResultsDraft] = useState<
-    Record<number, { placement: string; judgeScore: string; judgeNotes: string }>
+    Record<number, { placement: string; teamCount: string; appearance: string; taste: string; texture: string; judgeNotes: string }>
   >({});
+
+  // Box presentation checklist modal
+  const [checklistCategory, setChecklistCategory] = useState<CompetitionCategory | null>(null);
+
+  // Historical cooks for "Last Time" reference panel
+  const { data: allCooks } = useListCooks();
+  const prevCompCooksByCategory = useMemo(() => {
+    if (!allCooks) return {} as Record<string, Cook[]>;
+    const map: Record<string, Cook[]> = {};
+    for (const c of allCooks) {
+      if (!c.isCompetition || c.status !== "completed" || !c.competitionCategory) continue;
+      if (c.sessionId === sessionId) continue;
+      const cat = c.competitionCategory as string;
+      if (!map[cat]) map[cat] = [];
+      map[cat].push(c);
+    }
+    for (const cat of Object.keys(map)) {
+      map[cat].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+    return map;
+  }, [allCooks, sessionId]);
+
+  const [lastTimeExpanded, setLastTimeExpanded] = useState<Set<string>>(new Set());
+  const toggleLastTime = useCallback((cat: string) => {
+    setLastTimeExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (resultsOpen) {
@@ -276,7 +317,10 @@ export default function SessionDetailScreen() {
       for (const c of competitionCooks) {
         draft[c.id] = {
           placement: c.competitionPlacement != null ? String(c.competitionPlacement) : "",
-          judgeScore: c.judgeScore != null ? String(c.judgeScore) : "",
+          teamCount: c.competitionTeamCount != null ? String(c.competitionTeamCount) : "",
+          appearance: c.judgeScoreAppearance != null ? String(c.judgeScoreAppearance) : "",
+          taste: c.judgeScoreTaste != null ? String(c.judgeScoreTaste) : "",
+          texture: c.judgeScoreTexture != null ? String(c.judgeScoreTexture) : "",
           judgeNotes: c.judgeNotes ?? "",
         };
       }
@@ -290,39 +334,54 @@ export default function SessionDetailScreen() {
     for (const c of competitionCooks) {
       const d = resultsDraft[c.id];
       if (!d) continue;
-      // Placement: 0 = DNP (Did Not Place), 1+ = ranked finish. Coerce to integer ≥ 0.
       const placementRaw = d.placement.trim();
       const placement = placementRaw === ""
         ? null
         : Math.max(0, Math.round(Number(placementRaw)));
-      // Judge score: valid range is 0–360 (10/25/25 weighting × 6 judges, see COMPETITION_SCORING). Reject NaN/out-of-range silently
-      // (treat as null rather than blocking save with cryptic API error).
-      const judgeScoreRaw = d.judgeScore.trim();
-      const judgeScoreParsed = judgeScoreRaw === "" ? null : Number(judgeScoreRaw);
-      const judgeScore =
-        judgeScoreParsed != null &&
-        !Number.isNaN(judgeScoreParsed) &&
-        judgeScoreParsed >= 0 &&
-        judgeScoreParsed <= 360
-          ? judgeScoreParsed
-          : null;
+      const teamCountRaw = d.teamCount.trim();
+      const teamCount = teamCountRaw === "" ? null : Math.max(1, Math.round(Number(teamCountRaw)));
+
+      const parseSubScore = (v: string, max: number): number | null => {
+        const n = Number(v.trim());
+        if (v.trim() === "" || Number.isNaN(n) || n < 0 || n > max) return null;
+        return n;
+      };
+      const appearance = parseSubScore(d.appearance, COMPETITION_SCORING.maxAppearance);
+      const taste = parseSubScore(d.taste, COMPETITION_SCORING.maxTaste);
+      const texture = parseSubScore(d.texture, COMPETITION_SCORING.maxTexture);
+      const hasSubScores = appearance != null || taste != null || texture != null;
+      const computedTotal = hasSubScores
+        ? (appearance ?? 0) + (taste ?? 0) + (texture ?? 0)
+        : null;
+
       const judgeNotes = d.judgeNotes.trim() === "" ? null : d.judgeNotes.trim();
-      if (
-        placement === c.competitionPlacement &&
-        judgeScore === c.judgeScore &&
-        judgeNotes === c.judgeNotes
-      ) continue;
+
+      // Include sub-score keys when:
+      //   1. the user entered at least one value (hasSubScores) — send the values + computed total
+      //   2. the cook already has persisted sub-scores but the user cleared them all — send explicit
+      //      nulls so the server can clear stale values and recompute the total correctly
+      const hadPriorSubScores = c.judgeScoreAppearance != null || c.judgeScoreTaste != null || c.judgeScoreTexture != null;
       const data: UpdateCookBody = {
         competitionPlacement: placement,
-        judgeScore: judgeScore,
+        competitionTeamCount: teamCount,
         judgeNotes: judgeNotes,
+        ...(hasSubScores
+          ? {
+              judgeScoreAppearance: appearance,
+              judgeScoreTaste: taste,
+              judgeScoreTexture: texture,
+              judgeScore: computedTotal,
+            }
+          : hadPriorSubScores
+            ? {
+                judgeScoreAppearance: null,
+                judgeScoreTaste: null,
+                judgeScoreTexture: null,
+                judgeScore: null,
+              }
+            : {}),
       };
-      tasks.push(
-        updateCook.mutateAsync({
-          id: c.id,
-          data,
-        }),
-      );
+      tasks.push(updateCook.mutateAsync({ id: c.id, data }));
     }
     try {
       await Promise.all(tasks);
@@ -335,13 +394,88 @@ export default function SessionDetailScreen() {
     }
   };
 
-  // Countdown tick for competition turn-ins
+  // Countdown tick for competition turn-ins — must be declared before effects that reference `now`
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!isCompetitionSession) return;
     const id = setInterval(() => setNow(Date.now()), 15000);
     return () => clearInterval(id);
   }, [isCompetitionSession]);
+
+  // Stable key capturing the full notification schedule — changes when turnInAt or walkMinutes change
+  const walkNotifKey = competitionCooks
+    .map((c) => {
+      const plan = getItemPlan(c);
+      const walk = plan?.walkMinutes ?? COMPETITION_WALK_TIME_DEFAULT_MINUTES;
+      return `${c.id}:${c.turnInAt ?? ""}:${walk}`;
+    })
+    .sort()
+    .join("|");
+
+  // Cancel walk notifications when all competition items are completed/cancelled
+  const allCompetitionItemsDone = competitionCooks.length > 0 &&
+    competitionCooks.every((c) => c.status === "completed" || c.status === "cancelled");
+
+  // Walk-to-turn-in notifications — re-schedule when category turn-in times or walk durations change
+  useEffect(() => {
+    if (!isCompetitionSession || !competitionCooks.length || allCompetitionItemsDone) return;
+    const notifIds: string[] = [];
+    const scheduleNotifs = async () => {
+      for (const c of competitionCooks) {
+        if (!c.turnInAt) continue;
+        const turnInMs = new Date(c.turnInAt).getTime();
+        const itemPlan = getItemPlan(c);
+        const walk = itemPlan?.walkMinutes ?? COMPETITION_WALK_TIME_DEFAULT_MINUTES;
+        const walkNotifMs = turnInMs - walk * 60_000;
+        if (walkNotifMs <= Date.now()) continue;
+        const cat = c.competitionCategory as CompetitionCategory | null;
+        const catLabel = cat ? COMPETITION_CATEGORY_LABEL[cat] : "your entry";
+        try {
+          const id = await Notifications.scheduleNotificationAsync({
+            content: {
+              title: "Time to walk! 🏆",
+              body: `Start walking — ${catLabel} turn-in in ${walk} min.`,
+              sound: true,
+            },
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(walkNotifMs) },
+          });
+          notifIds.push(id);
+        } catch { /* permissions not granted — fail silently */ }
+      }
+    };
+    scheduleNotifs();
+    return () => {
+      notifIds.forEach((id) => Notifications.cancelScheduledNotificationAsync(id).catch(() => {}));
+    };
+    // walkNotifKey encodes all category turnInAt + walkMinutes values; changes trigger a full reschedule
+    // allCompetitionItemsDone guards against scheduling on already-finished sessions
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, isCompetitionSession, walkNotifKey, allCompetitionItemsDone]);
+
+  // Auto-open box checklist when a category's box-pack window opens (within 1-minute tick window)
+  const [autoChecklistOpened, setAutoChecklistOpened] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!isCompetitionSession) return;
+    for (const c of competitionCooks) {
+      const cat = c.competitionCategory as CompetitionCategory | null;
+      if (!cat || autoChecklistOpened.has(cat)) continue;
+      const itemPlan = getItemPlan(c);
+      const boxPackMs = itemPlan?.boxPackAt
+        ? new Date(itemPlan.boxPackAt).getTime()
+        : c.turnInAt
+          ? new Date(c.turnInAt).getTime() - 15 * 60_000
+          : null;
+      if (boxPackMs == null) continue;
+      // Open within a 90-second window around box-pack time (one tick before or after)
+      if (now >= boxPackMs - 30_000 && now <= boxPackMs + 60_000) {
+        setAutoChecklistOpened((prev) => new Set([...prev, cat]));
+        setChecklistCategory(cat);
+        break;
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [now, isCompetitionSession]);
+
   const nextTurnInMs = turnInDates.filter((t) => t > now).sort((a, b) => a - b)[0] ?? null;
   const fmtCountdown = (ms: number): string => {
     const diff = ms - now;
@@ -415,7 +549,7 @@ export default function SessionDetailScreen() {
   };
 
   const earliestStart = cooks && cooks.length > 0
-    ? cooks.reduce((min: Date | null, c: any) => {
+    ? cooks.reduce((min: Date | null, c) => {
         if (!c.plannedStartAt) return min;
         const d = new Date(c.plannedStartAt);
         return min === null || d < min ? d : min;
@@ -427,7 +561,7 @@ export default function SessionDetailScreen() {
   // turn-in minus the box-pack window). The session header summary uses this
   // when isCompetitionSession to avoid showing a too-early turn-in time.
   const latestTurnIn = competitionCooks.length > 0
-    ? competitionCooks.reduce((max: Date | null, c: any) => {
+    ? competitionCooks.reduce((max: Date | null, c) => {
         if (!c.turnInAt) return max;
         const d = new Date(c.turnInAt);
         return max === null || d > max ? d : max;
@@ -435,7 +569,7 @@ export default function SessionDetailScreen() {
     : null;
 
   const latestEnd = cooks && cooks.length > 0
-    ? cooks.reduce((max: Date | null, c: any) => {
+    ? cooks.reduce((max: Date | null, c) => {
         const t = c.plannedEndAt ?? c.plannedStartAt;
         if (!t) return max;
         const d = new Date(t);
@@ -443,7 +577,7 @@ export default function SessionDetailScreen() {
       }, null)
     : null;
 
-  const handleRemoveCook = (cook: any) => {
+  const handleRemoveCook = (cook: Cook) => {
     Alert.alert(
       "Remove from Session",
       `Remove "${cook.foodType || "this cook"}" from the session? The cook itself won't be deleted.`,
@@ -455,7 +589,7 @@ export default function SessionDetailScreen() {
           onPress: () => {
             removeCookFromSession.mutate(cook.id, {
               onSuccess: () => {
-                const remaining = (cooks ?? []).filter((c: any) => c.id !== cook.id);
+                const remaining = (cooks ?? []).filter((c) => c.id !== cook.id);
                 if (remaining.length === 0) {
                   router.replace("/(tabs)/cooks" as any);
                 }
@@ -654,7 +788,7 @@ export default function SessionDetailScreen() {
           </View>
 
           <View style={[s.timelineCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-            {(cooks ?? []).map((cook: any, idx: number) => {
+            {(cooks ?? []).map((cook, idx: number) => {
               const isActive = cook.status === "active";
               const meatOnTime = cook.plannedStartAt ? new Date(cook.plannedStartAt) : null;
               const finishTime = cook.plannedEndAt ? new Date(cook.plannedEndAt) : null;
@@ -730,6 +864,15 @@ export default function SessionDetailScreen() {
                               </Text>
                             </View>
                           )}
+                          {typeof cook.competitionPlacement === "number" && cook.competitionPlacement > 0 &&
+                           typeof cook.competitionTeamCount === "number" && (() => {
+                            const pct = computePercentile(cook.competitionPlacement, cook.competitionTeamCount!);
+                            return pct ? (
+                              <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 10, backgroundColor: "#EAB30820", borderWidth: 1, borderColor: "#EAB308" }}>
+                                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, color: "#EAB308" }}>{pct}</Text>
+                              </View>
+                            ) : null;
+                          })()}
                           {isActive && (
                             <View style={s.livePill}>
                               <View style={s.liveDot} />
@@ -913,7 +1056,7 @@ export default function SessionDetailScreen() {
                                     {(() => {
                                       const boxPackMs = itemPlan.boxPackAt
                                         ? new Date(itemPlan.boxPackAt).getTime()
-                                        : new Date(cook.turnInAt).getTime() - 15 * 60_000;
+                                        : new Date(cook.turnInAt!).getTime() - 15 * 60_000;
                                       return `${fmtTime(new Date(boxPackMs))} · 15 min before turn-in`;
                                     })()}
                                   </Text>
@@ -939,6 +1082,10 @@ export default function SessionDetailScreen() {
                                   </Text>
                                   <Text style={[s.planTime, { color: colors.mutedForeground }]}>
                                     {fmtTime(new Date(cook.turnInAt))} · {COMPETITION_CATEGORY_LABEL[cook.competitionCategory as CompetitionCategory] ?? "Competition"}
+                                    {(() => {
+                                      const walk = itemPlan?.walkMinutes ?? COMPETITION_WALK_TIME_DEFAULT_MINUTES;
+                                      return ` · Leave ${walk} min early`;
+                                    })()}
                                   </Text>
                                 </View>
                               </View>
@@ -954,6 +1101,117 @@ export default function SessionDetailScreen() {
                                 </View>
                               </View>
                             )}
+
+                            {cook.isCompetition && cook.competitionCategory && (
+                              <Pressable
+                                onPress={() => setChecklistCategory(cook.competitionCategory as CompetitionCategory)}
+                                style={({ pressed }) => [
+                                  s.checklistBtn,
+                                  { borderColor: COMPETITION_CATEGORY_COLOR[cook.competitionCategory as CompetitionCategory], opacity: pressed ? 0.75 : 1 },
+                                ]}
+                              >
+                                <Feather name="package" size={13} color={COMPETITION_CATEGORY_COLOR[cook.competitionCategory as CompetitionCategory]} />
+                                <Text style={[s.checklistBtnText, { color: COMPETITION_CATEGORY_COLOR[cook.competitionCategory as CompetitionCategory] }]}>
+                                  Open {COMPETITION_CATEGORY_LABEL[cook.competitionCategory as CompetitionCategory]} Box Checklist
+                                </Text>
+                              </Pressable>
+                            )}
+
+                            {cook.isCompetition && cook.competitionCategory && (() => {
+                              const cat = cook.competitionCategory as CompetitionCategory;
+                              const prevCooks = prevCompCooksByCategory[cat] ?? [];
+                              const lastCook = prevCooks[0];
+                              const isExpanded = lastTimeExpanded.has(cat);
+                              if (!lastCook) {
+                                return (
+                                  <View style={[s.lastTimeHeader, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                                    <Feather name="clock" size={12} color={colors.mutedForeground} />
+                                    <Text style={[s.lastTimeTitle, { color: colors.mutedForeground }]}>
+                                      First time entering {COMPETITION_CATEGORY_LABEL[cat]} — no prior data
+                                    </Text>
+                                  </View>
+                                );
+                              }
+                              const lastTotal = lastCook.judgeScoreAppearance != null || lastCook.judgeScoreTaste != null || lastCook.judgeScoreTexture != null
+                                ? (lastCook.judgeScoreAppearance ?? 0) + (lastCook.judgeScoreTaste ?? 0) + (lastCook.judgeScoreTexture ?? 0)
+                                : lastCook.judgeScore ?? null;
+                              return (
+                                <Pressable
+                                  onPress={() => toggleLastTime(cat)}
+                                  style={[s.lastTimeHeader, { backgroundColor: colors.background, borderColor: colors.border }]}
+                                >
+                                  <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                    <Feather name="clock" size={12} color={colors.mutedForeground} />
+                                    <Text style={[s.lastTimeTitle, { color: colors.mutedForeground }]}>
+                                      Last time: {lastCook.competitionName ?? "Competition"}
+                                    </Text>
+                                    {lastCook.competitionPlacement != null && (
+                                      <Text style={[s.lastTimePill, { color: "#EAB308" }]}>
+                                        {placementLabel(lastCook.competitionPlacement)}
+                                      </Text>
+                                    )}
+                                    {lastTotal != null && (
+                                      <Text style={[s.lastTimePill, { color: colors.mutedForeground }]}>
+                                        {lastTotal.toFixed(0)}/360
+                                      </Text>
+                                    )}
+                                  </View>
+                                  <Feather name={isExpanded ? "chevron-up" : "chevron-down"} size={13} color={colors.mutedForeground} />
+                                </Pressable>
+                              );
+                            })()}
+
+                            {cook.isCompetition && cook.competitionCategory && lastTimeExpanded.has(cook.competitionCategory as CompetitionCategory) && (() => {
+                              const cat = cook.competitionCategory as CompetitionCategory;
+                              const prevCooks = prevCompCooksByCategory[cat] ?? [];
+                              const lastCook = prevCooks[0];
+                              if (!lastCook) return null;
+                              const hasSubScores = lastCook.judgeScoreAppearance != null || lastCook.judgeScoreTaste != null || lastCook.judgeScoreTexture != null;
+                              return (
+                                <View style={[s.lastTimeBody, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                                  {lastCook.competitionName && (
+                                    <Text style={[s.lastTimeField, { color: colors.mutedForeground }]}>
+                                      Event: {lastCook.competitionName} · {new Date(lastCook.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                    </Text>
+                                  )}
+                                  {hasSubScores && (
+                                    <View style={{ flexDirection: "row", gap: 10, marginTop: 6 }}>
+                                      {lastCook.judgeScoreAppearance != null && (
+                                        <View style={s.lastTimeSubScore}>
+                                          <Text style={[s.lastTimeSubLabel, { color: colors.mutedForeground }]}>App</Text>
+                                          <Text style={[s.lastTimeSubVal, { color: colors.foreground }]}>{lastCook.judgeScoreAppearance}<Text style={{ fontSize: 9, color: colors.mutedForeground }}>/60</Text></Text>
+                                        </View>
+                                      )}
+                                      {lastCook.judgeScoreTaste != null && (
+                                        <View style={s.lastTimeSubScore}>
+                                          <Text style={[s.lastTimeSubLabel, { color: colors.mutedForeground }]}>Taste</Text>
+                                          <Text style={[s.lastTimeSubVal, { color: colors.foreground }]}>{lastCook.judgeScoreTaste}<Text style={{ fontSize: 9, color: colors.mutedForeground }}>/150</Text></Text>
+                                        </View>
+                                      )}
+                                      {lastCook.judgeScoreTexture != null && (
+                                        <View style={s.lastTimeSubScore}>
+                                          <Text style={[s.lastTimeSubLabel, { color: colors.mutedForeground }]}>Texture</Text>
+                                          <Text style={[s.lastTimeSubVal, { color: colors.foreground }]}>{lastCook.judgeScoreTexture}<Text style={{ fontSize: 9, color: colors.mutedForeground }}>/150</Text></Text>
+                                        </View>
+                                      )}
+                                    </View>
+                                  )}
+                                  {lastCook.judgeNotes && (
+                                    <Text style={[s.lastTimeField, { color: colors.mutedForeground, marginTop: 6, fontStyle: "italic" }]}>
+                                      "{lastCook.judgeNotes}"
+                                    </Text>
+                                  )}
+                                  {!hasSubScores && !lastCook.judgeNotes && lastCook.competitionPlacement == null && (
+                                    <Text style={[s.lastTimeField, { color: colors.mutedForeground }]}>No sub-scores or judge notes recorded — log results after your cook to build the reference.</Text>
+                                  )}
+                                  {lastCook.notes && (
+                                    <Text style={[s.lastTimeField, { color: colors.mutedForeground, marginTop: 6 }]}>
+                                      Wood/technique: {lastCook.notes}
+                                    </Text>
+                                  )}
+                                </View>
+                              );
+                            })()}
                           </>
                         ) : (
                           <Text style={[s.itemPlanEmpty, { color: colors.mutedForeground }]}>
@@ -1100,21 +1358,31 @@ export default function SessionDetailScreen() {
                   Log Competition Results
                 </Text>
                 <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 }}>
-                  Placement (1 = first), judge score (0–360), notes per category
+                  KCBS scoring: Appearance (0–60), Taste (0–150), Texture (0–150)
                 </Text>
               </View>
               <Pressable onPress={() => setResultsOpen(false)} hitSlop={8}>
                 <Feather name="x" size={22} color={colors.mutedForeground} />
               </Pressable>
             </View>
-            <ScrollView style={{ maxHeight: 460 }} keyboardShouldPersistTaps="handled">
-              {competitionCooks.map((c: any) => {
-                const draft = resultsDraft[c.id] ?? { placement: "", judgeScore: "", judgeNotes: "" };
+            <ScrollView style={{ maxHeight: 520 }} keyboardShouldPersistTaps="handled">
+              {competitionCooks.map((c) => {
+                const draft = resultsDraft[c.id] ?? { placement: "", teamCount: "", appearance: "", taste: "", texture: "", judgeNotes: "" };
                 const cat = c.competitionCategory as CompetitionCategory | null;
                 const color = cat ? COMPETITION_CATEGORY_COLOR[cat] : colors.primary;
+                const computedTotal = (() => {
+                  const a = Number(draft.appearance); const t = Number(draft.taste); const tx = Number(draft.texture);
+                  if (!draft.appearance && !draft.taste && !draft.texture) return null;
+                  return (isNaN(a) ? 0 : a) + (isNaN(t) ? 0 : t) + (isNaN(tx) ? 0 : tx);
+                })();
+                const percentile = (() => {
+                  const pl = Number(draft.placement); const tc = Number(draft.teamCount);
+                  if (!draft.placement || !draft.teamCount || isNaN(pl) || isNaN(tc)) return null;
+                  return computePercentile(pl, tc);
+                })();
                 return (
                   <View key={c.id} style={[s.resultsModalRow, { borderBottomColor: colors.border }]}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
                       {cat && (
                         <View style={[s.miniCatBadge, { backgroundColor: color + "22", borderColor: color }]}>
                           <Text style={[s.miniCatBadgeText, { color }]}>{COMPETITION_CATEGORY_LABEL[cat]}</Text>
@@ -1124,119 +1392,118 @@ export default function SessionDetailScreen() {
                         {c.foodType ?? "Cook"}
                       </Text>
                     </View>
+
+                    {/* Placement + Team Count row */}
                     <View style={s.resultsModalFieldRow}>
                       <View style={s.resultsModalField}>
-                        <Text style={[s.resultsModalFieldLabel, { color: colors.mutedForeground }]}>
-                          Placement
-                        </Text>
+                        <Text style={[s.resultsModalFieldLabel, { color: colors.mutedForeground }]}>Placement</Text>
                         <TextInput
-                          style={[
-                            s.resultsModalInput,
-                            {
-                              backgroundColor: colors.background,
-                              borderColor: colors.border,
-                              borderRadius: colors.radius - 2,
-                              color: colors.foreground,
-                            },
-                          ]}
-                          placeholder="1, 2, 3… (or tap DNP below)"
+                          style={[s.resultsModalInput, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius - 2, color: colors.foreground }]}
+                          placeholder="1, 2, 3…"
                           placeholderTextColor={colors.mutedForeground}
                           value={draft.placement}
-                          onChangeText={(v) =>
-                            setResultsDraft((p) => ({
-                              ...p,
-                              [c.id]: { ...draft, placement: v.replace(/[^0-9]/g, "") },
-                            }))
-                          }
+                          onChangeText={(v) => setResultsDraft((p) => ({ ...p, [c.id]: { ...draft, placement: v.replace(/[^0-9]/g, "") } }))}
                           keyboardType="number-pad"
                         />
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                        <View style={{ flexDirection: "row", gap: 6, marginTop: 4 }}>
                           <Pressable
-                            onPress={() =>
-                              setResultsDraft((p) => ({
-                                ...p,
-                                [c.id]: { ...draft, placement: "0" },
-                              }))
-                            }
-                            style={({ pressed }) => [
-                              {
-                                paddingHorizontal: 8,
-                                paddingVertical: 4,
-                                borderRadius: 6,
-                                borderWidth: 1,
-                                borderColor: draft.placement === "0" ? "#6B7280" : colors.border,
-                                backgroundColor: draft.placement === "0" ? "#6B728022" : "transparent",
-                                opacity: pressed ? 0.7 : 1,
-                              },
-                            ]}
+                            onPress={() => setResultsDraft((p) => ({ ...p, [c.id]: { ...draft, placement: "0" } }))}
+                            style={({ pressed }) => [{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: draft.placement === "0" ? "#6B7280" : colors.border, backgroundColor: draft.placement === "0" ? "#6B728022" : "transparent", opacity: pressed ? 0.7 : 1 }]}
                           >
-                            <Text
-                              style={{
-                                color: draft.placement === "0" ? "#6B7280" : colors.mutedForeground,
-                                fontFamily: "Inter_700Bold",
-                                fontSize: 11,
-                              }}
-                            >
-                              Mark as DNP
-                            </Text>
+                            <Text style={{ color: draft.placement === "0" ? "#6B7280" : colors.mutedForeground, fontFamily: "Inter_700Bold", fontSize: 10 }}>DNP</Text>
                           </Pressable>
-                          <Text style={{ color: colors.mutedForeground, fontSize: 10, flex: 1 }}>
-                            Tap if this entry didn't place (Did Not Place).
-                          </Text>
                         </View>
+                        {percentile && (
+                          <View style={[s.percentilePill, { backgroundColor: "#EAB30820", borderColor: "#EAB308" }]}>
+                            <Feather name="award" size={10} color="#EAB308" />
+                            <Text style={[s.percentileText, { color: "#EAB308" }]}>{percentile}</Text>
+                          </View>
+                        )}
                       </View>
                       <View style={s.resultsModalField}>
-                        <Text style={[s.resultsModalFieldLabel, { color: colors.mutedForeground }]}>
-                          Judge Score
-                        </Text>
+                        <Text style={[s.resultsModalFieldLabel, { color: colors.mutedForeground }]}>Teams in Field</Text>
                         <TextInput
-                          style={[
-                            s.resultsModalInput,
-                            {
-                              backgroundColor: colors.background,
-                              borderColor: colors.border,
-                              borderRadius: colors.radius - 2,
-                              color: colors.foreground,
-                            },
-                          ]}
-                          placeholder="0–360"
+                          style={[s.resultsModalInput, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius - 2, color: colors.foreground }]}
+                          placeholder="e.g. 42"
                           placeholderTextColor={colors.mutedForeground}
-                          value={draft.judgeScore}
-                          onChangeText={(v) =>
-                            setResultsDraft((p) => ({
-                              ...p,
-                              [c.id]: { ...draft, judgeScore: v.replace(/[^0-9.]/g, "") },
-                            }))
-                          }
+                          value={draft.teamCount}
+                          onChangeText={(v) => setResultsDraft((p) => ({ ...p, [c.id]: { ...draft, teamCount: v.replace(/[^0-9]/g, "") } }))}
+                          keyboardType="number-pad"
+                        />
+                      </View>
+                    </View>
+
+                    {/* KCBS Sub-scores */}
+                    <Text style={[s.resultsModalFieldLabel, { color: colors.mutedForeground, marginTop: 10, marginBottom: 6 }]}>JUDGE SCORES (6 judges × each)</Text>
+                    {(() => {
+                      const appNum = Number(draft.appearance); const tasteNum = Number(draft.taste); const texNum = Number(draft.texture);
+                      const appOver = draft.appearance !== "" && !isNaN(appNum) && appNum > COMPETITION_SCORING.maxAppearance;
+                      const tasteOver = draft.taste !== "" && !isNaN(tasteNum) && tasteNum > COMPETITION_SCORING.maxTaste;
+                      const texOver = draft.texture !== "" && !isNaN(texNum) && texNum > COMPETITION_SCORING.maxTexture;
+                      if (!appOver && !tasteOver && !texOver) return null;
+                      return (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#EF444420", borderRadius: 6, padding: 8, marginBottom: 8, borderWidth: 1, borderColor: "#EF4444" }}>
+                          <Feather name="alert-triangle" size={13} color="#EF4444" />
+                          <Text style={{ color: "#EF4444", fontFamily: "Inter_600SemiBold", fontSize: 11, flex: 1 }}>
+                            {[appOver && "Appearance exceeds 60", tasteOver && "Taste exceeds 150", texOver && "Texture exceeds 150"].filter(Boolean).join(" · ")} — KCBS cap exceeded. Fix or remove the value before saving.
+                          </Text>
+                        </View>
+                      );
+                    })()}
+                    <View style={s.resultsModalFieldRow}>
+                      <View style={s.resultsModalField}>
+                        <Text style={[s.resultsModalFieldLabel, { color: color }]}>Appearance <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular" }}>0–60</Text></Text>
+                        <TextInput
+                          style={[s.resultsModalInput, { backgroundColor: colors.background, borderColor: Number(draft.appearance) > COMPETITION_SCORING.maxAppearance && draft.appearance !== "" ? "#EF4444" : colors.border, borderRadius: colors.radius - 2, color: colors.foreground }]}
+                          placeholder="0–60"
+                          placeholderTextColor={colors.mutedForeground}
+                          value={draft.appearance}
+                          onChangeText={(v) => setResultsDraft((p) => ({ ...p, [c.id]: { ...draft, appearance: v.replace(/[^0-9.]/g, "") } }))}
+                          keyboardType="decimal-pad"
+                        />
+                      </View>
+                      <View style={s.resultsModalField}>
+                        <Text style={[s.resultsModalFieldLabel, { color: color }]}>Taste <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular" }}>0–150</Text></Text>
+                        <TextInput
+                          style={[s.resultsModalInput, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius - 2, color: colors.foreground }]}
+                          placeholder="0–150"
+                          placeholderTextColor={colors.mutedForeground}
+                          value={draft.taste}
+                          onChangeText={(v) => setResultsDraft((p) => ({ ...p, [c.id]: { ...draft, taste: v.replace(/[^0-9.]/g, "") } }))}
+                          keyboardType="decimal-pad"
+                        />
+                      </View>
+                      <View style={s.resultsModalField}>
+                        <Text style={[s.resultsModalFieldLabel, { color: color }]}>Texture <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular" }}>0–150</Text></Text>
+                        <TextInput
+                          style={[s.resultsModalInput, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius - 2, color: colors.foreground }]}
+                          placeholder="0–150"
+                          placeholderTextColor={colors.mutedForeground}
+                          value={draft.texture}
+                          onChangeText={(v) => setResultsDraft((p) => ({ ...p, [c.id]: { ...draft, texture: v.replace(/[^0-9.]/g, "") } }))}
                           keyboardType="decimal-pad"
                         />
                       </View>
                     </View>
-                    <View style={{ marginTop: 6 }}>
-                      <Text style={[s.resultsModalFieldLabel, { color: colors.mutedForeground }]}>
-                        Judge Notes
-                      </Text>
+                    {computedTotal != null && (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 }}>
+                        <Text style={[s.resultsModalFieldLabel, { color: colors.mutedForeground }]}>Total:</Text>
+                        <Text style={{ color: color, fontFamily: "Inter_700Bold", fontSize: 16 }}>{computedTotal.toFixed(1)}</Text>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>/360</Text>
+                        <View style={[{ height: 6, flex: 1, borderRadius: 3, backgroundColor: colors.border, overflow: "hidden" }]}>
+                          <View style={{ height: 6, width: `${(computedTotal / 360) * 100}%` as unknown as number, backgroundColor: color, borderRadius: 3 }} />
+                        </View>
+                      </View>
+                    )}
+
+                    <View style={{ marginTop: 10 }}>
+                      <Text style={[s.resultsModalFieldLabel, { color: colors.mutedForeground }]}>Judge Notes</Text>
                       <TextInput
-                        style={[
-                          s.resultsModalInput,
-                          {
-                            backgroundColor: colors.background,
-                            borderColor: colors.border,
-                            borderRadius: colors.radius - 2,
-                            color: colors.foreground,
-                            minHeight: 56,
-                            textAlignVertical: "top",
-                          },
-                        ]}
-                        placeholder="Comments from judges (e.g. tenderness, smoke ring)"
+                        style={[s.resultsModalInput, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius - 2, color: colors.foreground, minHeight: 56, textAlignVertical: "top" }]}
+                        placeholder="Comments from judges (e.g. bite-through skin, smoke ring)"
                         placeholderTextColor={colors.mutedForeground}
                         value={draft.judgeNotes}
-                        onChangeText={(v) =>
-                          setResultsDraft((p) => ({
-                            ...p,
-                            [c.id]: { ...draft, judgeNotes: v },
-                          }))
-                        }
+                        onChangeText={(v) => setResultsDraft((p) => ({ ...p, [c.id]: { ...draft, judgeNotes: v } }))}
                         multiline
                       />
                     </View>
@@ -1271,6 +1538,15 @@ export default function SessionDetailScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {checklistCategory && (
+        <BoxPresentationChecklist
+          visible={checklistCategory !== null}
+          onClose={() => setChecklistCategory(null)}
+          category={checklistCategory}
+          colors={colors}
+        />
+      )}
     </View>
   );
 }
@@ -1322,7 +1598,7 @@ const s = StyleSheet.create({
   },
   placementBadgeText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 10 },
   resultsModalRow: {
-    paddingVertical: 10,
+    paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   resultsModalCookName: { fontFamily: "Inter_600SemiBold", fontSize: 14, marginBottom: 6 },
@@ -1336,6 +1612,55 @@ const s = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     fontSize: 13,
   },
+  percentilePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginTop: 6,
+    alignSelf: "flex-start",
+  },
+  percentileText: { fontFamily: "Inter_700Bold", fontSize: 11 },
+  checklistBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderRadius: 8,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  checklistBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
+  lastTimeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  lastTimeTitle: { fontFamily: "Inter_500Medium", fontSize: 12, flex: 1 },
+  lastTimePill: { fontFamily: "Inter_700Bold", fontSize: 11 },
+  lastTimeBody: {
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+  },
+  lastTimeField: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 16 },
+  lastTimeSubScore: { alignItems: "center" },
+  lastTimeSubLabel: { fontFamily: "Inter_500Medium", fontSize: 10, marginBottom: 2 },
+  lastTimeSubVal: { fontFamily: "Inter_700Bold", fontSize: 14 },
   container: { flex: 1 },
   header: {
     flexDirection: "row",
