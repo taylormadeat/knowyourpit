@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import path from "path";
 import { clerkMiddleware } from "@clerk/express";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
@@ -46,5 +47,13 @@ app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: true, limit: "15mb" }));
 
 app.use("/api", router);
+
+if (process.env.NODE_ENV === "production") {
+  const marketingDist = path.join(process.cwd(), "artifacts/marketing/dist/public");
+  app.use(express.static(marketingDist));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(marketingDist, "index.html"));
+  });
+}
 
 export default app;

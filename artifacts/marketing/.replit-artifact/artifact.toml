@@ -17,16 +17,6 @@ kind = "web"
   [services.development]
   run = "pnpm --filter @workspace/marketing run dev"
 
-  [services.production]
-  build = [ "pnpm", "--filter", "@workspace/marketing", "run", "build" ]
-  publicDir = "artifacts/marketing/dist/public"
-  serve = "static"
-
-  [[services.production.rewrites]]
-  from = "/*"
-  to = "/index.html"
-
   [services.env]
   PORT = "24268"
   BASE_PATH = "/"
-  
