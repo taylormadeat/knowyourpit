@@ -369,6 +369,7 @@ export default function LogCookScreen() {
       allowsMultipleSelection: true,
       quality: 0.7,
       base64: true,
+      preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
     });
     if (!res.canceled) {
       const picked = res.assets

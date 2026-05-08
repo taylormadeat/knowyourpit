@@ -106,7 +106,7 @@ export default function SignInScreen() {
           setShowForgotSuggestion(true);
           break;
         case "needs_second_factor":
-          setErrorMsg("Two-factor authentication is required for this account.");
+          setErrorMsg("This sign-in couldn't be completed automatically. Please use Continue with Apple or Continue with Google instead.");
           break;
         case "needs_new_password":
           setErrorMsg("Your password needs to be reset before you can sign in.");
