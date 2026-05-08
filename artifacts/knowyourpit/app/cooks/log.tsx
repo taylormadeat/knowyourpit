@@ -475,9 +475,10 @@ export default function LogCookScreen() {
       // alert. Falls through to the alert for any other error.
       const handled = parseAndShowFromError(err);
       if (!handled) {
+        const serverMsg = (err as any)?.response?.data?.error ?? (err as any)?.data?.error ?? null;
         Alert.alert(
           "Scan failed",
-          "Could not analyze the images. Check your connection and try again.",
+          typeof serverMsg === "string" ? serverMsg : "Could not analyze the images. Check your connection and try again.",
         );
       }
     } finally {

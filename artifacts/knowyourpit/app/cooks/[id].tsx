@@ -840,7 +840,11 @@ export default function CookDetailScreen() {
       // Pass foodType so the modal headline can personalize ("Want PitMaster's tips on your brisket?")
       // while still preserving the server-derived trigger and subtitle from the 402 payload.
       if (parseAndShowFromError(e, { foodType: c?.foodType ?? null })) return;
-      Alert.alert("Analysis failed", "Could not analyze the cook. Please check your connection and try again.");
+      const serverMsg = (e as any)?.response?.data?.error ?? (e as any)?.data?.error ?? null;
+      Alert.alert(
+        "Analysis failed",
+        typeof serverMsg === "string" ? serverMsg : "Could not analyze the cook. Please check your connection and try again.",
+      );
     } finally {
       if (!auto) setAnalyzing(false);
     }

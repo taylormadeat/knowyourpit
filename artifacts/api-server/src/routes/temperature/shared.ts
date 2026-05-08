@@ -23,7 +23,35 @@ export const aiRateLimit = rateLimit({
   message: { error: "Too many AI requests. Please wait a moment before trying again." },
 });
 
-export const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+export const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
+/**
+ * Sniff the actual image format from the first bytes of a raw base64 string
+ * (no data: prefix). Returns the detected MIME type, or null if unrecognised.
+ * Used to catch HEIC/HEIF images that iOS photo pickers may return even when
+ * `quality` compression is requested (PHPickerViewController bypasses it).
+ */
+export function detectImageMime(base64: string): string | null {
+  const bytes = Buffer.from(base64.slice(0, 48), "base64");
+  // JPEG: FF D8 FF
+  if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return "image/jpeg";
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return "image/png";
+  // GIF: 47 49 46 38
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return "image/gif";
+  // WebP: RIFF????WEBP
+  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+      bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return "image/webp";
+  // HEIC/HEIF: ISO base media file — "ftyp" box starts at byte 4
+  const ftyp = bytes.slice(4, 8).toString("ascii");
+  if (ftyp === "ftyp") {
+    const brand = bytes.slice(8, 12).toString("ascii");
+    if (brand.startsWith("hei") || brand.startsWith("hev") || brand.startsWith("mif") || brand.startsWith("msf")) {
+      return "image/heic";
+    }
+  }
+  return null;
+}
 
 export interface LiveReading { timeMinutes: number; tempF: number; }
 

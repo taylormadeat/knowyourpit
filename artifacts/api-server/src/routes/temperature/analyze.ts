@@ -13,6 +13,7 @@ import {
 import {
   aiRateLimit,
   ALLOWED_MIME_TYPES,
+  detectImageMime,
   type AuthedRequest,
   type LiveReading,
   type CookPhase,
@@ -87,22 +88,37 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
     res.status(400).json({ error: "Maximum 10 images allowed" });
     return;
   }
+  const resolvedImages: Array<{ base64: string; resolvedMime: string }> = [];
   for (const img of imageList) {
     if (!img.base64 || typeof img.base64 !== "string") {
       res.status(400).json({ error: "Each image must have a base64 field" });
       return;
     }
+    // Sniff actual bytes — client-declared mimeType can be wrong (e.g. iOS
+    // photo picker returns HEIC even when quality compression is requested).
+    const detected = detectImageMime(img.base64);
+    if (detected === "image/heic") {
+      res.status(400).json({
+        error: "HEIC images are not supported. Take a screenshot of your thermometer app instead of uploading from your photo library, or save the image as JPEG or PNG before uploading.",
+      });
+      return;
+    }
+    // Use detected format when available and supported; fall back to the
+    // client-declared type if detection was inconclusive (unknown format).
+    const resolvedMime =
+      detected && ALLOWED_MIME_TYPES.has(detected)
+        ? detected
+        : (typeof img.mimeType === "string" && ALLOWED_MIME_TYPES.has(img.mimeType)
+          ? img.mimeType
+          : "image/jpeg");
+    resolvedImages.push({ base64: img.base64, resolvedMime });
   }
 
-  const imageContentParts = imageList.map((img) => {
-    const safeMime =
-      typeof img.mimeType === "string" && ALLOWED_MIME_TYPES.has(img.mimeType)
-        ? img.mimeType
-        : "image/jpeg";
+  const imageContentParts = resolvedImages.map(({ base64, resolvedMime }) => {
     return {
       type: "image_url" as const,
       image_url: {
-        url: `data:${safeMime};base64,${img.base64}`,
+        url: `data:${resolvedMime};base64,${base64}`,
         detail: "high" as const,
       },
     };
