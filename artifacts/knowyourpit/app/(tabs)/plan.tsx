@@ -52,6 +52,16 @@ import {
   MEAT_CUTS_BY_CATEGORY,
   type MeatCut,
 } from "@/constants/meatCuts";
+import {
+  QP_COOK_METHODS,
+  QP_INJECTION_OPTIONS,
+  QP_SPRITZ_FREQUENCIES,
+  QP_WRAP_FINISH_OPTIONS,
+  type QpCookMethod,
+  type QpInjectionOption,
+  type QpSpritzFrequency,
+  type QpWrapFinishOption,
+} from "@/constants/cookQuickPicks";
 import { useMeaterReadings, type MeaterProbe } from "@/hooks/useMeaterReadings";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
@@ -277,6 +287,12 @@ export default function PlanScreen() {
   const [aiResult, setAiResult] = useState<any | null>(null);
   const [aiResultOpen, setAiResultOpen] = useState(false);
 
+  // ── Technique quick-picks (carried into AI prediction) ────────────────
+  const [qpCookMethod, setQpCookMethod] = useState<QpCookMethod | null>(null);
+  const [qpInjection, setQpInjection] = useState<QpInjectionOption | null>(null);
+  const [qpSpritz, setQpSpritz] = useState<QpSpritzFrequency | null>(null);
+  const [qpWrapFinish, setQpWrapFinish] = useState<QpWrapFinishOption | null>(null);
+
   // ── Multi-cook state ──────────────────────────────────────────────────
   interface MultiItem { cut: MeatCut; weightLbs: string; grillId: number | null; }
   const aiMultiCook = useAiMultiCook();
@@ -414,6 +430,10 @@ export default function PlanScreen() {
           outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
           fromFrozen: frozenEnabled || undefined,
           thawMethod: frozenEnabled ? thawMethod : undefined,
+          cookingMethod: qpCookMethod ?? undefined,
+          injection: qpInjection ?? undefined,
+          spritzFrequency: qpSpritz ?? undefined,
+          wrapFinish: qpWrapFinish ?? undefined,
         },
       });
       setAiResult(result);
@@ -1775,6 +1795,58 @@ export default function PlanScreen() {
             </Pressable>
           </View>
         </View>
+
+        {/* ── Technique Quick-Picks ── */}
+        {(() => {
+          const chipRow = (
+            label: string,
+            options: readonly string[],
+            selected: string | null,
+            onSelect: (v: string | null) => void,
+          ) => (
+            <View style={{ marginBottom: 4 }}>
+              <Text style={[s.label, { color: colors.mutedForeground, marginTop: 12, marginBottom: 6 }]}>
+                {label}
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8 }}
+              >
+                {options.map((opt) => {
+                  const active = selected === opt;
+                  return (
+                    <Pressable
+                      key={opt}
+                      onPress={() => { onSelect(active ? null : opt); Haptics.selectionAsync(); }}
+                      style={[
+                        s.grillChip,
+                        {
+                          backgroundColor: active ? colors.primary : colors.card,
+                          borderColor: active ? colors.primary : colors.border,
+                          borderRadius: colors.radius,
+                        },
+                      ]}
+                    >
+                      <Text style={[s.chipText, { color: active ? "#fff" : colors.foreground }]}>
+                        {opt}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          );
+
+          return (
+            <View style={{ marginTop: 8 }}>
+              {chipRow("Cooking Method", QP_COOK_METHODS, qpCookMethod, (v) => setQpCookMethod(v as QpCookMethod | null))}
+              {chipRow("Injection", QP_INJECTION_OPTIONS, qpInjection, (v) => setQpInjection(v as QpInjectionOption | null))}
+              {chipRow("Spritz Frequency", QP_SPRITZ_FREQUENCIES, qpSpritz, (v) => setQpSpritz(v as QpSpritzFrequency | null))}
+              {chipRow("Wrap / Finish", QP_WRAP_FINISH_OPTIONS, qpWrapFinish, (v) => setQpWrapFinish(v as QpWrapFinishOption | null))}
+            </View>
+          );
+        })()}
 
         {/* ── Outdoor Temperature Strip ── */}
         <WeatherStrip

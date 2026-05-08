@@ -2238,6 +2238,18 @@ components:
           type: ["string", "null"]
           enum: [fridge, cold_water, null]
           description: Chosen thaw method when fromFrozen is true. "fridge" is slow and safest; "cold_water" is faster but requires more attention. Used to tailor PitMaster's thaw and surface-dry guidance.
+        cookingMethod:
+          type: ["string", "null"]
+          description: Cooking technique chosen by the user (e.g. "Low & Slow", "Hot & Fast", "Rotisserie", "Reverse Sear"). Influences time estimate and wrap guidance.
+        injection:
+          type: ["string", "null"]
+          description: Whether the meat is injected ("Injected" or "Not Injected"). Injected cuts retain more moisture and experience a shorter stall.
+        spritzFrequency:
+          type: ["string", "null"]
+          description: How often the user plans to spritz the meat during the cook (e.g. "No Spritz", "Every 30 min", "Every Hour", "Once at Stall"). Affects bark development and moisture retention.
+        wrapFinish:
+          type: ["string", "null"]
+          description: User's intended wrap or finish method (e.g. "No Wrap", "Butcher Paper at Stall", "Foil at Stall (Texas Crutch)", "Foil Boat"). PitMaster should align wrap recommendation with this preference.
       required:
         - foodType
 

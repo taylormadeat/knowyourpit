@@ -44,4 +44,24 @@ export interface AiPredictBody {
    * @nullable
    */
   thawMethod?: AiPredictBodyThawMethod;
+  /**
+   * Cooking technique chosen by the user (e.g. "Low & Slow", "Hot & Fast", "Rotisserie", "Reverse Sear"). Influences time estimate and wrap guidance.
+   * @nullable
+   */
+  cookingMethod?: string | null;
+  /**
+   * Whether the meat is injected ("Injected" or "Not Injected"). Injected cuts retain more moisture and experience a shorter stall.
+   * @nullable
+   */
+  injection?: string | null;
+  /**
+   * How often the user plans to spritz the meat during the cook (e.g. "No Spritz", "Every 30 min", "Every Hour", "Once at Stall"). Affects bark development and moisture retention.
+   * @nullable
+   */
+  spritzFrequency?: string | null;
+  /**
+   * User's intended wrap or finish method (e.g. "No Wrap", "Butcher Paper at Stall", "Foil at Stall (Texas Crutch)", "Foil Boat"). PitMaster should align wrap recommendation with this preference.
+   * @nullable
+   */
+  wrapFinish?: string | null;
 }

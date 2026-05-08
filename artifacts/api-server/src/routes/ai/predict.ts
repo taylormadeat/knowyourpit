@@ -18,7 +18,7 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
     return;
   }
 
-  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast, fromFrozen, thawMethod } = parsed.data;
+  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast, fromFrozen, thawMethod, cookingMethod, injection, spritzFrequency, wrapFinish } = parsed.data;
 
   const baseline = getMeatBaseline(foodType);
 
@@ -269,6 +269,31 @@ ESTIMATION RULES:
 - tips: write 3 actionable, specific tips for THIS cook — not generic advice. Reference the specific food, grill type, or user's history if available.
 - rationale: explain your estimate in 1–2 sentences, mentioning the baseline and any user data you used.
 
+TECHNIQUE RULES (apply when technique fields are provided in the user prompt):
+- Cooking method adjustments:
+  - "Rotisserie": subtract ~15% from baseline cook time (constant rotation = even heat, no stall plateau as pronounced).
+  - "Hot & Fast": subtract 20–30% from baseline time; bark develops faster; wrap earlier if at all.
+  - "Reverse Sear": treat as two-phase — low-heat phase to ~10°F below target, then high-heat sear 2–3 min per side. estimatedDurationMinutes covers the low-heat phase only; note the sear in rationale.
+  - "Braised": time is driven by collagen breakdown, not internal temp; treat a stated targetTempF as a guide but note braising typically runs 3–4 hours regardless of weight for pork/beef cuts.
+  - "Sous Vide + Smoke": the sous vide phase runs before the cook; estimatedDurationMinutes covers only the smoke finish (typically 1–2 hours); note this in rationale.
+  - "Direct Heat": subtract 25–40% from baseline; monitor closely — no stall expected.
+  - "Indirect Heat" / "Low & Slow": use baseline as-is; apply standard stall logic.
+- Injection adjustments:
+  - "Injected": reduce stall duration estimate by 10–20 min (moisture in the meat reduces stall severity). Bark may be slightly less pronounced.
+  - "Not Injected": no adjustment needed.
+- Spritz adjustments:
+  - "Every 30 min" or "Every Hour": frequent lid opens add ~5–10% to total cook time vs. no-spritz baseline; note the trade-off (better bark moisture, slightly longer cook).
+  - "No Spritz": use baseline; bark will develop faster.
+  - "Once at Stall" / "As Needed": negligible time impact; mention in tips.
+- Wrap / finish adjustments:
+  - "Foil at Stall (Texas Crutch)": align wrap.method to "foil". Stall is effectively eliminated — subtract 30–60 min from stall portion of estimate.
+  - "Butcher Paper at Stall": align wrap.method to "butcher_paper". Stall is partially shortened (15–30 min saved vs. no-wrap).
+  - "Foil Boat": align wrap.method to "foil"; bark is preserved on top. Time savings similar to foil wrap.
+  - "No Wrap": align wrap.method to "none"; expect full stall duration.
+  - "Braised in Foil with Liquid": align wrap.method to "foil"; moisture keeps internal temp climbing steadily — subtract up to 45 min from baseline.
+  - "Pulled and Rested in Cooler" / "Sauced and Returned to Smoker": note in tips but don't change estimatedDurationMinutes.
+- When technique fields are provided, explicitly reference them in rationale and at least one tip.
+
 FROZEN-MEAT RULES (apply only when "Starting from frozen" is true in the user prompt):
 - Thaw timing benchmarks: fridge thaw needs ~24 hours per 4–5 lbs (USDA-safe); cold-water thaw needs ~30 min per lb with water changed every 30 min and meat sealed in a leak-proof bag.
 - Tempering: after thaw, rest the meat at room temp for 30–45 min (large cuts up to 60 min) to take the chill off the surface before going on the grill.
@@ -278,6 +303,15 @@ FROZEN-MEAT RULES (apply only when "Starting from frozen" is true in the user pr
 - recommendedServeAt: if a desiredFinishAt is provided AND the time between "now" and desiredFinishAt is too short to fit (thaw + temper + preheat + cook + rest), return an ISO timestamp for the EARLIEST realistic serve time that fits the full schedule, plus a short recommendedServeReason. Otherwise return null for both fields.
 - When NOT starting from frozen, ALWAYS return null for both recommendedServeAt and recommendedServeReason.`;
 
+  const techniqueLines: string[] = [];
+  if (cookingMethod) techniqueLines.push(`Cooking method: ${cookingMethod}`);
+  if (injection) techniqueLines.push(`Injection: ${injection}`);
+  if (spritzFrequency) techniqueLines.push(`Spritz frequency: ${spritzFrequency}`);
+  if (wrapFinish) techniqueLines.push(`Wrap / finish preference: ${wrapFinish}`);
+  const techniqueSection = techniqueLines.length > 0
+    ? `\nTechnique details (apply TECHNIQUE RULES from system prompt):\n${techniqueLines.join("\n")}`
+    : "";
+
   const userPrompt = `Plan this cook:
 Food: ${foodType}
 Weight: ${weightLbs ? `${weightLbs} lbs` : "unknown — use baseline minsPerLb with a 10 lb estimate"}
@@ -286,7 +320,7 @@ Target internal temp: ${targetTempF ? `${targetTempF}°F` : "unknown"}
 Preheat time (tracked separately, not in estimatedDurationMinutes): ${preheatMinutes} min
 ${outdoorTempF != null ? `Outdoor ambient temperature: ${outdoorTempF}°F (${outdoorTempIsForecast ? "forecast for cook day" : "current"}) — factor this into your estimate. Cold weather (below 40°F) increases cook time and preheat duration; hot weather (above 90°F) may reduce time or cause temperature spikes.` : ""}
 ${desiredFinishAt ? `Desired serve time: ${new Date(desiredFinishAt).toLocaleString()}` : ""}
-${fromFrozen ? `Starting from frozen: YES. Thaw method chosen by user: ${thawMethod === "cold_water" ? "cold-water thaw (~30 min per lb, change water every 30 min, sealed bag)" : thawMethod === "fridge" ? "refrigerator thaw (~24 hours per 4–5 lbs, USDA-safe)" : "not specified — recommend the safest fit for their timeline"}. Current time (for thaw-feasibility math): ${new Date().toISOString()}. Apply the FROZEN-MEAT RULES from the system prompt: explicitly mention thaw + temper timing, dry-brine AFTER thaw, and surface drying in your tips and rationale. If the desired serve time leaves too little lead time for a full thaw + temper + preheat + cook + rest, populate recommendedServeAt with a realistic earliest serve timestamp and explain why in recommendedServeReason.` : "Starting from frozen: NO. Set recommendedServeAt and recommendedServeReason to null."}
+${fromFrozen ? `Starting from frozen: YES. Thaw method chosen by user: ${thawMethod === "cold_water" ? "cold-water thaw (~30 min per lb, change water every 30 min, sealed bag)" : thawMethod === "fridge" ? "refrigerator thaw (~24 hours per 4–5 lbs, USDA-safe)" : "not specified — recommend the safest fit for their timeline"}. Current time (for thaw-feasibility math): ${new Date().toISOString()}. Apply the FROZEN-MEAT RULES from the system prompt: explicitly mention thaw + temper timing, dry-brine AFTER thaw, and surface drying in your tips and rationale. If the desired serve time leaves too little lead time for a full thaw + temper + preheat + cook + rest, populate recommendedServeAt with a realistic earliest serve timestamp and explain why in recommendedServeReason.` : "Starting from frozen: NO. Set recommendedServeAt and recommendedServeReason to null."}${techniqueSection}
 ${predictSmokerProfile ? `\n${predictSmokerProfile}\n` : ""}
 ${grillContext}
 ${grillTempContext}
