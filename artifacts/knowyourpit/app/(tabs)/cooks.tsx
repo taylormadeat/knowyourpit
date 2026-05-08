@@ -164,6 +164,8 @@ export default function CooksScreen() {
   const [sortKey, setSortKey] = useState<SortKey>("date-desc");
   const [ratedOnly, setRatedOnly] = useState(false);
   const [competitionsOnly, setCompetitionsOnly] = useState(false);
+  const [techniqueFilter, setTechniqueFilter] = useState<string | null>(null);
+  const [showTechniquePicker, setShowTechniquePicker] = useState(false);
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
   const [editingSession, setEditingSession] = useState<SessionGroup | null>(null);
   const [editLabel, setEditLabel] = useState("");
@@ -185,6 +187,17 @@ export default function CooksScreen() {
     setRefreshing(false);
   };
 
+  const availableTechniques = useMemo(() => {
+    const all: any[] = (cooks as any[]) || [];
+    const seen = new Set<string>();
+    for (const c of all) {
+      if (c.cookingMethod && typeof c.cookingMethod === "string") {
+        seen.add(c.cookingMethod);
+      }
+    }
+    return Array.from(seen).sort();
+  }, [cooks]);
+
   const processedCooks = useMemo(() => {
     let list: any[] = (cooks as any[]) || [];
     if (ratedOnly) {
@@ -192,6 +205,9 @@ export default function CooksScreen() {
     }
     if (competitionsOnly) {
       list = list.filter((item) => item.isCompetition === true);
+    }
+    if (techniqueFilter) {
+      list = list.filter((item) => item.cookingMethod === techniqueFilter);
     }
 
     const STATUS_PRIORITY: Record<string, number> = { active: 0, planned: 1 };
@@ -217,7 +233,7 @@ export default function CooksScreen() {
     });
 
     return list;
-  }, [cooks, sortKey, ratedOnly, competitionsOnly]);
+  }, [cooks, sortKey, ratedOnly, competitionsOnly, techniqueFilter]);
 
   const sessionGroups = useMemo((): SessionGroup[] => {
     const all: any[] = (cooks as any[]) || [];
@@ -237,6 +253,16 @@ export default function CooksScreen() {
           // Drop any non-competition cooks from a mixed session so the
           // expanded session view also strictly respects the filter.
           grouped[sid] = compCooks;
+        }
+      }
+    }
+    if (techniqueFilter) {
+      for (const sid of Object.keys(grouped)) {
+        const techniqueCooks = grouped[sid].filter((c: any) => c.cookingMethod === techniqueFilter);
+        if (techniqueCooks.length === 0) {
+          delete grouped[sid];
+        } else {
+          grouped[sid] = techniqueCooks;
         }
       }
     }
@@ -267,7 +293,7 @@ export default function CooksScreen() {
       return b.earliestStart.getTime() - a.earliestStart.getTime();
     });
     return groups;
-  }, [cooks, sortKey, competitionsOnly]);
+  }, [cooks, sortKey, competitionsOnly, techniqueFilter]);
 
   type UnifiedItem =
     | { type: "cook"; data: any }
@@ -1100,6 +1126,55 @@ export default function CooksScreen() {
         </View>
       </Modal>
 
+      <Modal
+        visible={showTechniquePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTechniquePicker(false)}
+      >
+        <View style={s.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowTechniquePicker(false)}
+          />
+          <View style={[s.techniqueSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={s.seqSheetHandle} />
+            <Text style={[s.modalTitle, { color: colors.foreground, marginBottom: 12 }]}>Filter by technique</Text>
+            <Pressable
+              onPress={() => { setTechniqueFilter(null); setShowTechniquePicker(false); }}
+              style={[
+                s.techniqueOption,
+                { borderColor: colors.border },
+                techniqueFilter === null && { backgroundColor: colors.primary + "18" },
+              ]}
+            >
+              <Text style={[s.techniqueOptionText, { color: techniqueFilter === null ? colors.primary : colors.foreground }]}>
+                All techniques
+              </Text>
+              {techniqueFilter === null && <Feather name="check" size={14} color={colors.primary} />}
+            </Pressable>
+            {availableTechniques.map((technique) => (
+              <Pressable
+                key={technique}
+                onPress={() => { setTechniqueFilter(technique); setShowTechniquePicker(false); }}
+                style={[
+                  s.techniqueOption,
+                  { borderColor: colors.border },
+                  techniqueFilter === technique && { backgroundColor: colors.primary + "18" },
+                ]}
+              >
+                <Text style={[s.techniqueOptionText, { color: techniqueFilter === technique ? colors.primary : colors.foreground }]}>
+                  {technique}
+                </Text>
+                {techniqueFilter === technique && <Feather name="check" size={14} color={colors.primary} />}
+              </Pressable>
+            ))}
+            <View style={{ height: 8 }} />
+          </View>
+        </View>
+      </Modal>
+
       <View style={[s.controls, { borderBottomColor: colors.border }]}>
         <ScrollView
           horizontal
@@ -1169,6 +1244,36 @@ export default function CooksScreen() {
               <Text style={[s.pillText, { color: colors.mutedForeground }]}>Career Stats</Text>
             </Pressable>
           )}
+
+          {(availableTechniques.length > 0 || techniqueFilter !== null) && (
+            <View
+              style={[
+                s.pill,
+                techniqueFilter
+                  ? { backgroundColor: colors.primary }
+                  : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
+                { flexDirection: "row", alignItems: "center", gap: 4, overflow: "hidden" },
+              ]}
+            >
+              <Pressable
+                onPress={() => setShowTechniquePicker(true)}
+                style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+              >
+                <Feather name="sliders" size={11} color={techniqueFilter ? "#fff" : colors.mutedForeground} />
+                <Text style={[s.pillText, { color: techniqueFilter ? "#fff" : colors.mutedForeground }]}>
+                  {techniqueFilter ?? "Technique"}
+                </Text>
+              </Pressable>
+              {techniqueFilter && (
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => setTechniqueFilter(null)}
+                >
+                  <Feather name="x" size={11} color="#fff" />
+                </Pressable>
+              )}
+            </View>
+          )}
         </ScrollView>
       </View>
 
@@ -1210,14 +1315,18 @@ export default function CooksScreen() {
                   ? "No competition cooks yet"
                   : ratedOnly
                     ? "No rated cooks found"
-                    : "No cooks logged yet"}
+                    : techniqueFilter
+                      ? `No "${techniqueFilter}" cooks found`
+                      : "No cooks logged yet"}
               </Text>
               <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
                 {competitionsOnly
                   ? "Plan a competition from the Plan tab to see it here"
                   : ratedOnly
                     ? "Try removing the \"Rated only\" filter to see all cooks"
-                    : "Tap + in the top right to log a past cook"}
+                    : techniqueFilter
+                      ? "Try a different technique or tap the pill to clear"
+                      : "Tap + in the top right to log a past cook"}
               </Text>
             </View>
           }
@@ -1436,6 +1545,27 @@ const s = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 16,
   },
+  techniqueSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 36,
+    maxHeight: "60%",
+  },
+  techniqueOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+  },
+  techniqueOptionText: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+  },
+
   seqServeAt: {
     fontSize: 13,
     fontFamily: "Inter_700Bold",
