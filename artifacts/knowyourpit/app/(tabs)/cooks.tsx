@@ -166,6 +166,8 @@ export default function CooksScreen() {
   const [competitionsOnly, setCompetitionsOnly] = useState(false);
   const [techniqueFilter, setTechniqueFilter] = useState<string | null>(null);
   const [showTechniquePicker, setShowTechniquePicker] = useState(false);
+  const [meatTypeFilter, setMeatTypeFilter] = useState<string | null>(null);
+  const [showMeatTypePicker, setShowMeatTypePicker] = useState(false);
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
   const [editingSession, setEditingSession] = useState<SessionGroup | null>(null);
   const [editLabel, setEditLabel] = useState("");
@@ -198,6 +200,17 @@ export default function CooksScreen() {
     return Array.from(seen).sort();
   }, [cooks]);
 
+  const availableMeatTypes = useMemo(() => {
+    const all: any[] = (cooks as any[]) || [];
+    const seen = new Set<string>();
+    for (const c of all) {
+      if (c.foodType && typeof c.foodType === "string") {
+        seen.add(c.foodType);
+      }
+    }
+    return Array.from(seen).sort();
+  }, [cooks]);
+
   const processedCooks = useMemo(() => {
     let list: any[] = (cooks as any[]) || [];
     if (ratedOnly) {
@@ -208,6 +221,9 @@ export default function CooksScreen() {
     }
     if (techniqueFilter) {
       list = list.filter((item) => item.cookingMethod === techniqueFilter);
+    }
+    if (meatTypeFilter) {
+      list = list.filter((item) => item.foodType === meatTypeFilter);
     }
 
     const STATUS_PRIORITY: Record<string, number> = { active: 0, planned: 1 };
@@ -233,7 +249,7 @@ export default function CooksScreen() {
     });
 
     return list;
-  }, [cooks, sortKey, ratedOnly, competitionsOnly, techniqueFilter]);
+  }, [cooks, sortKey, ratedOnly, competitionsOnly, techniqueFilter, meatTypeFilter]);
 
   const sessionGroups = useMemo((): SessionGroup[] => {
     const all: any[] = (cooks as any[]) || [];
@@ -266,6 +282,16 @@ export default function CooksScreen() {
         }
       }
     }
+    if (meatTypeFilter) {
+      for (const sid of Object.keys(grouped)) {
+        const meatCooks = grouped[sid].filter((c: any) => c.foodType === meatTypeFilter);
+        if (meatCooks.length === 0) {
+          delete grouped[sid];
+        } else {
+          grouped[sid] = meatCooks;
+        }
+      }
+    }
     const groups: SessionGroup[] = Object.entries(grouped).map(([sessionId, sessionCooks]) => {
       const dates = sessionCooks
         .map((c) => c.plannedStartAt ? new Date(c.plannedStartAt) : null)
@@ -293,7 +319,7 @@ export default function CooksScreen() {
       return b.earliestStart.getTime() - a.earliestStart.getTime();
     });
     return groups;
-  }, [cooks, sortKey, competitionsOnly, techniqueFilter]);
+  }, [cooks, sortKey, competitionsOnly, techniqueFilter, meatTypeFilter]);
 
   type UnifiedItem =
     | { type: "cook"; data: any }
@@ -1175,6 +1201,55 @@ export default function CooksScreen() {
         </View>
       </Modal>
 
+      <Modal
+        visible={showMeatTypePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowMeatTypePicker(false)}
+      >
+        <View style={s.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowMeatTypePicker(false)}
+          />
+          <View style={[s.techniqueSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={s.seqSheetHandle} />
+            <Text style={[s.modalTitle, { color: colors.foreground, marginBottom: 12 }]}>Filter by meat type</Text>
+            <Pressable
+              onPress={() => { setMeatTypeFilter(null); setShowMeatTypePicker(false); }}
+              style={[
+                s.techniqueOption,
+                { borderColor: colors.border },
+                meatTypeFilter === null && { backgroundColor: colors.primary + "18" },
+              ]}
+            >
+              <Text style={[s.techniqueOptionText, { color: meatTypeFilter === null ? colors.primary : colors.foreground }]}>
+                All types
+              </Text>
+              {meatTypeFilter === null && <Feather name="check" size={14} color={colors.primary} />}
+            </Pressable>
+            {availableMeatTypes.map((meatType) => (
+              <Pressable
+                key={meatType}
+                onPress={() => { setMeatTypeFilter(meatType); setShowMeatTypePicker(false); }}
+                style={[
+                  s.techniqueOption,
+                  { borderColor: colors.border },
+                  meatTypeFilter === meatType && { backgroundColor: colors.primary + "18" },
+                ]}
+              >
+                <Text style={[s.techniqueOptionText, { color: meatTypeFilter === meatType ? colors.primary : colors.foreground }]}>
+                  {meatType}
+                </Text>
+                {meatTypeFilter === meatType && <Feather name="check" size={14} color={colors.primary} />}
+              </Pressable>
+            ))}
+            <View style={{ height: 8 }} />
+          </View>
+        </View>
+      </Modal>
+
       <View style={[s.controls, { borderBottomColor: colors.border }]}>
         <ScrollView
           horizontal
@@ -1274,6 +1349,36 @@ export default function CooksScreen() {
               )}
             </View>
           )}
+
+          {(availableMeatTypes.length > 0 || meatTypeFilter !== null) && (
+            <View
+              style={[
+                s.pill,
+                meatTypeFilter
+                  ? { backgroundColor: colors.primary }
+                  : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
+                { flexDirection: "row", alignItems: "center", gap: 4, overflow: "hidden" },
+              ]}
+            >
+              <Pressable
+                onPress={() => setShowMeatTypePicker(true)}
+                style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+              >
+                <Feather name="tag" size={11} color={meatTypeFilter ? "#fff" : colors.mutedForeground} />
+                <Text style={[s.pillText, { color: meatTypeFilter ? "#fff" : colors.mutedForeground }]}>
+                  {meatTypeFilter ?? "Meat type"}
+                </Text>
+              </Pressable>
+              {meatTypeFilter && (
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => setMeatTypeFilter(null)}
+                >
+                  <Feather name="x" size={11} color="#fff" />
+                </Pressable>
+              )}
+            </View>
+          )}
         </ScrollView>
       </View>
 
@@ -1315,18 +1420,22 @@ export default function CooksScreen() {
                   ? "No competition cooks yet"
                   : ratedOnly
                     ? "No rated cooks found"
-                    : techniqueFilter
-                      ? `No "${techniqueFilter}" cooks found`
-                      : "No cooks logged yet"}
+                    : meatTypeFilter
+                      ? `No "${meatTypeFilter}" cooks found`
+                      : techniqueFilter
+                        ? `No "${techniqueFilter}" cooks found`
+                        : "No cooks logged yet"}
               </Text>
               <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
                 {competitionsOnly
                   ? "Plan a competition from the Plan tab to see it here"
                   : ratedOnly
                     ? "Try removing the \"Rated only\" filter to see all cooks"
-                    : techniqueFilter
-                      ? "Try a different technique or tap the pill to clear"
-                      : "Tap + in the top right to log a past cook"}
+                    : meatTypeFilter
+                      ? "Try a different meat type or tap the pill to clear"
+                      : techniqueFilter
+                        ? "Try a different technique or tap the pill to clear"
+                        : "Tap + in the top right to log a past cook"}
               </Text>
             </View>
           }
