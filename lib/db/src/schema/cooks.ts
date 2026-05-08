@@ -47,6 +47,10 @@ export const cooksTable = pgTable("cooks", {
   judgeScoreTaste: real("judge_score_taste"),
   judgeScoreTexture: real("judge_score_texture"),
   judgeNotes: text("judge_notes"),
+  cookingMethod: text("cooking_method"),
+  injection: text("injection"),
+  spritzFrequency: text("spritz_frequency"),
+  wrapFinish: text("wrap_finish"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

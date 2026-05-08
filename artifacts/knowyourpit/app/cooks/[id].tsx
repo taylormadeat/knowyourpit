@@ -817,6 +817,11 @@ export default function CookDetailScreen() {
             currentPitTempF: (pitTempInput.trim() && !isNaN(parseFloat(pitTempInput))) ? parseFloat(pitTempInput) : (meaterProbes[0]?.ambientTempF ?? null),
             outdoorTempF: weather.tempF ?? null,
             cookStatus: c?.status ?? null,
+            // Technique quick-picks persisted on the cook record
+            cookingMethod: c?.cookingMethod ?? null,
+            injection: c?.injection ?? null,
+            spritzFrequency: c?.spritzFrequency ?? null,
+            wrapFinish: c?.wrapFinish ?? null,
           },
         } as any,
       });
@@ -1304,6 +1309,31 @@ export default function CookDetailScreen() {
           showCookDetails={showCookDetails}
           setShowCookDetails={setShowCookDetails}
         />
+        {/* ── Technique chips (shown when any technique was saved on the cook) ── */}
+        {(c.cookingMethod || c.injection || c.spritzFrequency || c.wrapFinish) && (
+          <View style={{ backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border, padding: 14 }}>
+            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 12, color: colors.mutedForeground, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 10 }}>
+              Techniques Used
+            </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {[
+                { label: "Method", value: c.cookingMethod },
+                { label: "Injection", value: c.injection },
+                { label: "Spritz", value: c.spritzFrequency },
+                { label: "Wrap / Finish", value: c.wrapFinish },
+              ].filter(t => t.value).map(t => (
+                <View
+                  key={t.label}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, backgroundColor: colors.primary + "15", borderWidth: 1, borderColor: colors.primary + "35" }}
+                >
+                  <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground }}>{t.label}:</Text>
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: colors.primary }}>{t.value}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         <FrozenTimeline c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs} />
         <SequenceSchedule
           c={c}

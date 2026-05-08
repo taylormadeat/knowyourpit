@@ -8,6 +8,13 @@
       "when": 1778039987252,
       "tag": "0001_competition_columns",
       "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1746742800000,
+      "tag": "0002_technique_columns",
+      "breakpoints": false
     }
   ]
 }

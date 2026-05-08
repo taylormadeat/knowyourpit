@@ -74,6 +74,10 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
       currentPitTempF?: number | null;
       outdoorTempF?: number | null;
       cookStatus?: string | null;
+      cookingMethod?: string | null;
+      injection?: string | null;
+      spritzFrequency?: string | null;
+      wrapFinish?: string | null;
     } | null;
   };
 
@@ -181,6 +185,14 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
     contextLines.push("Planned wrap method: No wrap (naked cook)");
   }
   if (cookContext?.restMinutes) contextLines.push(`Planned rest time: ${cookContext.restMinutes} min`);
+
+  // Technique quick-picks saved when the cook was planned
+  const techniqueLines: string[] = [];
+  if (cookContext?.cookingMethod) techniqueLines.push(`Cooking method: ${cookContext.cookingMethod}`);
+  if (cookContext?.injection) techniqueLines.push(`Injection: ${cookContext.injection}`);
+  if (cookContext?.spritzFrequency) techniqueLines.push(`Spritz frequency: ${cookContext.spritzFrequency}`);
+  if (cookContext?.wrapFinish) techniqueLines.push(`Wrap/finish method: ${cookContext.wrapFinish}`);
+  if (techniqueLines.length > 0) contextLines.push(`Techniques used: ${techniqueLines.join(" · ")}`);
 
   // ── Live MEATER readings analysis ────────────────────────────────────────
   const rawLive = Array.isArray(cookContext?.liveReadings) ? cookContext.liveReadings : [];

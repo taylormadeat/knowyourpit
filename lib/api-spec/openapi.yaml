@@ -1569,6 +1569,18 @@ components:
         judgeNotes:
           type: ["string", "null"]
           description: Free-form notes about judge feedback
+        cookingMethod:
+          type: ["string", "null"]
+          description: Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)
+        injection:
+          type: ["string", "null"]
+          description: Injection technique used (e.g. Not Injected, Injected)
+        spritzFrequency:
+          type: ["string", "null"]
+          description: How often the cook was spritzed (e.g. Every Hour, No Spritz)
+        wrapFinish:
+          type: ["string", "null"]
+          description: Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
         createdAt:
           type: string
           format: date-time
@@ -1703,6 +1715,18 @@ components:
           type: ["number", "null"]
         judgeNotes:
           type: ["string", "null"]
+        cookingMethod:
+          type: ["string", "null"]
+          description: Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)
+        injection:
+          type: ["string", "null"]
+          description: Injection technique used (e.g. Not Injected, Injected)
+        spritzFrequency:
+          type: ["string", "null"]
+          description: How often the cook was spritzed (e.g. Every Hour, No Spritz)
+        wrapFinish:
+          type: ["string", "null"]
+          description: Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
       required:
         - foodType
 

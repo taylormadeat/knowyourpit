@@ -667,6 +667,26 @@ export const ListCooksResponseItem = zod.object({
     .string()
     .nullable()
     .describe("Free-form notes about judge feedback"),
+  cookingMethod: zod
+    .string()
+    .nullish()
+    .describe(
+      "Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)",
+    ),
+  injection: zod
+    .string()
+    .nullish()
+    .describe("Injection technique used (e.g. Not Injected, Injected)"),
+  spritzFrequency: zod
+    .string()
+    .nullish()
+    .describe("How often the cook was spritzed (e.g. Every Hour, No Spritz)"),
+  wrapFinish: zod
+    .string()
+    .nullish()
+    .describe(
+      "Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -762,6 +782,26 @@ export const CreateCookBody = zod.object({
   judgeScoreTaste: zod.number().nullish(),
   judgeScoreTexture: zod.number().nullish(),
   judgeNotes: zod.string().nullish(),
+  cookingMethod: zod
+    .string()
+    .nullish()
+    .describe(
+      "Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)",
+    ),
+  injection: zod
+    .string()
+    .nullish()
+    .describe("Injection technique used (e.g. Not Injected, Injected)"),
+  spritzFrequency: zod
+    .string()
+    .nullish()
+    .describe("How often the cook was spritzed (e.g. Every Hour, No Spritz)"),
+  wrapFinish: zod
+    .string()
+    .nullish()
+    .describe(
+      "Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)",
+    ),
 });
 
 /**
@@ -917,6 +957,26 @@ export const GetCookResponse = zod.object({
     .string()
     .nullable()
     .describe("Free-form notes about judge feedback"),
+  cookingMethod: zod
+    .string()
+    .nullish()
+    .describe(
+      "Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)",
+    ),
+  injection: zod
+    .string()
+    .nullish()
+    .describe("Injection technique used (e.g. Not Injected, Injected)"),
+  spritzFrequency: zod
+    .string()
+    .nullish()
+    .describe("How often the cook was spritzed (e.g. Every Hour, No Spritz)"),
+  wrapFinish: zod
+    .string()
+    .nullish()
+    .describe(
+      "Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1176,6 +1236,26 @@ export const UpdateCookResponse = zod.object({
     .string()
     .nullable()
     .describe("Free-form notes about judge feedback"),
+  cookingMethod: zod
+    .string()
+    .nullish()
+    .describe(
+      "Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)",
+    ),
+  injection: zod
+    .string()
+    .nullish()
+    .describe("Injection technique used (e.g. Not Injected, Injected)"),
+  spritzFrequency: zod
+    .string()
+    .nullish()
+    .describe("How often the cook was spritzed (e.g. Every Hour, No Spritz)"),
+  wrapFinish: zod
+    .string()
+    .nullish()
+    .describe(
+      "Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2236,6 +2316,26 @@ export const GetRecentCooksResponseItem = zod.object({
     .string()
     .nullable()
     .describe("Free-form notes about judge feedback"),
+  cookingMethod: zod
+    .string()
+    .nullish()
+    .describe(
+      "Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)",
+    ),
+  injection: zod
+    .string()
+    .nullish()
+    .describe("Injection technique used (e.g. Not Injected, Injected)"),
+  spritzFrequency: zod
+    .string()
+    .nullish()
+    .describe("How often the cook was spritzed (e.g. Every Hour, No Spritz)"),
+  wrapFinish: zod
+    .string()
+    .nullish()
+    .describe(
+      "Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

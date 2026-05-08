@@ -742,6 +742,11 @@ export default function PlanScreen() {
             fromFrozen: true,
             thawMethod: frozenForCook.method,
           }),
+          // Technique quick-picks from the Plan screen
+          ...(qpCookMethod && { cookingMethod: qpCookMethod }),
+          ...(qpInjection && { injection: qpInjection }),
+          ...(qpSpritz && { spritzFrequency: qpSpritz }),
+          ...(qpWrapFinish && { wrapFinish: qpWrapFinish }),
         } as any,
       });
       // Fire-and-forget: schedule the thaw/temper/preheat alerts immediately
