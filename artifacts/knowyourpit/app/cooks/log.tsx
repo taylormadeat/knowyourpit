@@ -43,6 +43,13 @@ import {
 } from "@workspace/api-client-react";
 import { useMeaterReadings, type MeaterProbe } from "@/hooks/useMeaterReadings";
 import { MEAT_CATEGORIES, MEAT_CUTS, MEAT_CUTS_BY_CATEGORY, type MeatCut } from "@/constants/meatCuts";
+import {
+  QP_COOK_METHODS,
+  QP_MEAT_START_TEMPS,
+  QP_INJECTION_OPTIONS,
+  QP_SPRITZ_FREQUENCIES,
+  QP_WRAP_FINISH_OPTIONS,
+} from "@/constants/cookQuickPicks";
 
 import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
@@ -126,6 +133,49 @@ type AnalysisResult = {
   assessment: Assessment | null;
 };
 
+function ChipRow({
+  label,
+  options,
+  selected,
+  onSelect,
+  colors,
+}: {
+  label: string;
+  options: readonly string[];
+  selected: string | null;
+  onSelect: (val: string | null) => void;
+  colors: any;
+}) {
+  return (
+    <View style={qs.chipGroup}>
+      <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>{label}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={qs.chipScroll}>
+        {options.map((opt) => {
+          const active = selected === opt;
+          return (
+            <Pressable
+              key={opt}
+              onPress={() => onSelect(active ? null : opt)}
+              style={[
+                qs.chip,
+                {
+                  borderColor: active ? colors.primary : colors.border,
+                  backgroundColor: active ? colors.primary + "20" : "transparent",
+                  borderRadius: colors.radius,
+                },
+              ]}
+            >
+              <Text style={[qs.chipText, { color: active ? colors.primary : colors.mutedForeground }]}>
+                {opt}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
 function SummaryCell({ label, value, colors, highlight }: { label: string; value: string; colors: any; highlight?: boolean }) {
   return (
     <View style={sc.cell}>
@@ -166,7 +216,27 @@ export default function LogCookScreen() {
   const [cookTempF, setCookTempF] = useState("");
   const [weightLbs, setWeightLbs] = useState("");
   const [cookNotes, setCookNotes] = useState("");
-  const [scanNotes, setScanNotes] = useState("");
+  const [activeCookNoteTags, setActiveCookNoteTags] = useState<string[]>([]);
+
+  // Quick-pick chip state for the scanner "describe the cook" section
+  const [qpMethod, setQpMethod] = useState<string | null>(null);
+  const [qpStartTemp, setQpStartTemp] = useState<string | null>(null);
+  const [qpInjection, setQpInjection] = useState<string | null>(null);
+  const [qpSpritz, setQpSpritz] = useState<string | null>(null);
+  const [qpWrap, setQpWrap] = useState<string | null>(null);
+  const [qpOverflow, setQpOverflow] = useState("");
+
+  // Serialise chip selections into a natural-language string sent to the AI
+  const scanNotes = useMemo(() => {
+    const parts: string[] = [];
+    if (qpMethod) parts.push(`Method: ${qpMethod}`);
+    if (qpStartTemp) parts.push(`Starting temp: ${qpStartTemp}`);
+    if (qpInjection) parts.push(`Injection: ${qpInjection}`);
+    if (qpSpritz) parts.push(`Spritz: ${qpSpritz}`);
+    if (qpWrap) parts.push(`Wrap/Finish: ${qpWrap}`);
+    if (qpOverflow.trim()) parts.push(qpOverflow.trim());
+    return parts.join(" · ");
+  }, [qpMethod, qpStartTemp, qpInjection, qpSpritz, qpWrap, qpOverflow]);
   const [actualStartDate, setActualStartDate] = useState<Date | null>(null);
   const [logDatePickerOpen, setLogDatePickerOpen] = useState(false);
   const [logTimePickerOpen, setLogTimePickerOpen] = useState(false);
@@ -670,20 +740,58 @@ export default function LogCookScreen() {
             </View>
           )}
 
-          <View>
+          <View style={{ gap: 10 }}>
             <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>
-              Describe the cook <Text style={{ fontWeight: "400" }}>(helps PitMaster when images are unclear)</Text>
+              Describe the cook <Text style={{ fontWeight: "400" }}>(helps PitMaster analyse time and technique)</Text>
             </Text>
-            <TextInput
-              style={[s.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
-              placeholder="e.g. 12lb brisket, wrapped at hour 5, hit 203°F after 14 hours…"
-              placeholderTextColor={colors.mutedForeground}
-              value={scanNotes}
-              onChangeText={setScanNotes}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
+            <ChipRow
+              label="Cooking Method"
+              options={QP_COOK_METHODS}
+              selected={qpMethod}
+              onSelect={setQpMethod}
+              colors={colors}
             />
+            <ChipRow
+              label="Meat Starting Temp"
+              options={QP_MEAT_START_TEMPS}
+              selected={qpStartTemp}
+              onSelect={setQpStartTemp}
+              colors={colors}
+            />
+            <ChipRow
+              label="Injection"
+              options={QP_INJECTION_OPTIONS}
+              selected={qpInjection}
+              onSelect={setQpInjection}
+              colors={colors}
+            />
+            <ChipRow
+              label="Spritz Frequency"
+              options={QP_SPRITZ_FREQUENCIES}
+              selected={qpSpritz}
+              onSelect={setQpSpritz}
+              colors={colors}
+            />
+            <ChipRow
+              label="Wrap / Finish"
+              options={QP_WRAP_FINISH_OPTIONS}
+              selected={qpWrap}
+              onSelect={setQpWrap}
+              colors={colors}
+            />
+            <View>
+              <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 6 }]}>Anything else?</Text>
+              <TextInput
+                style={[s.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, minHeight: 56 }]}
+                placeholder="e.g. 12lb brisket, wrapped at hour 6, 3-hour stall…"
+                placeholderTextColor={colors.mutedForeground}
+                value={qpOverflow}
+                onChangeText={setQpOverflow}
+                multiline
+                numberOfLines={2}
+                textAlignVertical="top"
+              />
+            </View>
           </View>
 
           {/* Free-tier remaining-analyzes counter. Hidden for Pro. */}
@@ -1045,6 +1153,42 @@ export default function LogCookScreen() {
 
             <View style={s.fieldWrap}>
               <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Cook notes</Text>
+              {/* Quick-add wrap/finish tags */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={[qs.chipScroll, { marginBottom: 8 }]}
+              >
+                {QP_WRAP_FINISH_OPTIONS.map((tag) => {
+                  const active = activeCookNoteTags.includes(tag);
+                  return (
+                    <Pressable
+                      key={tag}
+                      onPress={() => {
+                        if (active) {
+                          setActiveCookNoteTags((prev) => prev.filter((t) => t !== tag));
+                          setCookNotes((prev) => prev.replace(` · ${tag}`, "").replace(tag, "").trim());
+                        } else {
+                          setActiveCookNoteTags((prev) => [...prev, tag]);
+                          setCookNotes((prev) => (prev.trim() ? `${prev.trim()} · ${tag}` : tag));
+                        }
+                      }}
+                      style={[
+                        qs.chip,
+                        {
+                          borderColor: active ? colors.primary : colors.border,
+                          backgroundColor: active ? colors.primary + "20" : "transparent",
+                          borderRadius: colors.radius,
+                        },
+                      ]}
+                    >
+                      <Text style={[qs.chipText, { color: active ? colors.primary : colors.mutedForeground }]}>
+                        {tag}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
               <TextInput
                 style={[s.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
                 placeholder="Anything worth remembering — wood type, rubs, tweaks…"
@@ -1683,4 +1827,11 @@ const dp2 = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 4, paddingVertical: 14, gap: 10 },
   rowText: { flex: 1, fontSize: 15, fontFamily: "Inter_600SemiBold" },
   rowSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
+});
+
+const qs = StyleSheet.create({
+  chipGroup: { gap: 5 },
+  chipScroll: { flexDirection: "row", gap: 7, paddingVertical: 2 },
+  chip: { paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1 },
+  chipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
 });
