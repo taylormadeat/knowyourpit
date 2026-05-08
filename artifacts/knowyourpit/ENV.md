@@ -123,8 +123,8 @@ dashboard audit.
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD` | — | optional | `eas secret` | EAS secret |
 | `EXPO_PUBLIC_CLERK_PROXY_URL` | — | — | — | Runtime (Replit only) |
 | `EXPO_PUBLIC_REPL_ID` | — | — | — | Runtime (Replit only) |
-| `EXPO_PUBLIC_REVENUECAT_IOS_KEY` | `eas env` | `eas env` | `eas env` | EAS |
-| `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` | `eas env` | `eas env` | `eas env` | EAS |
+| `EXPO_PUBLIC_REVENUECAT_IOS_KEY` | `eas env` ✓ | `eas env` ✓ | `eas env` ✓ | EAS |
+| `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` | `eas env` ✓ | `eas env` ✓ | `eas env` ✓ | EAS |
 
 Variables marked "—" are either not needed in that EAS environment or are
 injected at runtime by the Replit build system and must NOT be set in EAS.
@@ -137,3 +137,31 @@ injected at runtime by the Replit build system and must NOT be set in EAS.
   injection path above.
 - No `EXPO_PUBLIC_*` variables were found that exist only as EAS dashboard
   entries without a matching code reference.
+
+### RevenueCat EAS configuration — verified May 2026
+
+Both `EXPO_PUBLIC_REVENUECAT_IOS_KEY` and `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` were
+created in EAS via `eas env:create` for all three environments. Verified with
+`eas env:list` on 2026-05-08:
+
+```
+Environment: development
+EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=goog_NhQwCEIvuqrJYSJUqLDCoPjjwIy
+EXPO_PUBLIC_REVENUECAT_IOS_KEY=appl_mhkVjHxDzwRmZTeuZSVShSwaimi
+
+Environment: preview
+EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=goog_NhQwCEIvuqrJYSJUqLDCoPjjwIy
+EXPO_PUBLIC_REVENUECAT_IOS_KEY=appl_mhkVjHxDzwRmZTeuZSVShSwaimi
+
+Environment: production
+EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=goog_NhQwCEIvuqrJYSJUqLDCoPjjwIy
+EXPO_PUBLIC_REVENUECAT_IOS_KEY=appl_mhkVjHxDzwRmZTeuZSVShSwaimi
+```
+
+Note: `EXPO_PUBLIC_REVENUECAT_IOS_KEY` was pre-existing in EAS with the correct value
+(`appl_mhkVjHxDzwRmZTeuZSVShSwaimi`) across all three environments.
+`EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` was newly created for all three environments.
+
+A physical-device build is required to fully validate RevenueCat initialization at
+runtime (see `E2E_PURCHASE_TEST_GUIDE.md` TC-1). That execution is tracked as
+follow-up task **#415** (Run the full in-app purchase test on a real device).
