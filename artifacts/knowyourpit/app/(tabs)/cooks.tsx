@@ -391,6 +391,28 @@ export default function CooksScreen() {
           <Text style={[s.meta, { color: colors.mutedForeground }]}>
             {item.grillName || "No grill"}{item.targetTempF ? ` · ${item.targetTempF}°F target` : ""}
           </Text>
+          {item.cookingMethod ? (
+            <View style={{ flexDirection: "row", marginTop: 3 }}>
+              <View
+                style={{
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  borderRadius: 4,
+                  backgroundColor: "#6366f122",
+                  borderWidth: 1,
+                  borderColor: "#6366f155",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <Feather name="wind" size={9} color="#818cf8" />
+                <Text style={{ color: "#818cf8", fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 0.2 }}>
+                  {item.cookingMethod}
+                </Text>
+              </View>
+            </View>
+          ) : null}
           {isActive && elapsedMs !== null && (
             <Text style={[s.liveElapsed, { color: "#E84820" }]}>
               {fmtElapsed(elapsedMs)} on the smoker
