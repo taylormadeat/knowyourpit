@@ -1,10 +1,60 @@
 import React from "react";
-import { View, Text, Pressable, TextInput, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, TextInput, ActivityIndicator, ScrollView, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { s } from "./styles";
+import {
+  QP_COOK_METHODS,
+  QP_MEAT_START_TEMPS,
+  QP_INJECTION_OPTIONS,
+  QP_SPRITZ_FREQUENCIES,
+  QP_WRAP_FINISH_OPTIONS,
+} from "@/constants/cookQuickPicks";
 
 type Colors = any;
+
+function ChipRow({
+  label,
+  options,
+  selected,
+  onSelect,
+  colors,
+}: {
+  label: string;
+  options: readonly string[];
+  selected: string | null;
+  onSelect: (val: string | null) => void;
+  colors: Colors;
+}) {
+  return (
+    <View style={qs.chipGroup}>
+      <Text style={[s.notesInputLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>{label}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={qs.chipScroll}>
+        {options.map((opt) => {
+          const active = selected === opt;
+          return (
+            <Pressable
+              key={opt}
+              onPress={() => onSelect(active ? null : opt)}
+              style={[
+                qs.chip,
+                {
+                  borderColor: active ? colors.primary : colors.border,
+                  backgroundColor: active ? colors.primary + "20" : "transparent",
+                  borderRadius: colors.radius,
+                },
+              ]}
+            >
+              <Text style={[qs.chipText, { color: active ? colors.primary : colors.mutedForeground }]}>
+                {opt}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
 
 interface Props {
   c: any;
@@ -18,7 +68,19 @@ interface Props {
   pitTempInput: string;
   setPitTempInput: (v: string) => void;
   cookNotes: string;
-  setCookNotes: (v: string) => void;
+  setCookNotes: React.Dispatch<React.SetStateAction<string>>;
+  qpMethod: string | null;
+  setQpMethod: (v: string | null) => void;
+  qpStartTemp: string | null;
+  setQpStartTemp: (v: string | null) => void;
+  qpInjection: string | null;
+  setQpInjection: (v: string | null) => void;
+  qpSpritz: string | null;
+  setQpSpritz: (v: string | null) => void;
+  qpWrap: string | null;
+  setQpWrap: (v: string | null) => void;
+  activeCookNoteTags: string[];
+  setActiveCookNoteTags: React.Dispatch<React.SetStateAction<string[]>>;
   paywallUsage: any;
   autoGradePaused: boolean;
   onUpgradeAutoGradePress: () => void;
@@ -38,6 +100,12 @@ export function AskPitMaster(p: Props) {
     c, colors, meaterLinked, meaterProbes,
     userTempInput, setUserTempInput, userTempEdited, setUserTempEdited,
     pitTempInput, setPitTempInput, cookNotes, setCookNotes,
+    qpMethod, setQpMethod,
+    qpStartTemp, setQpStartTemp,
+    qpInjection, setQpInjection,
+    qpSpritz, setQpSpritz,
+    qpWrap, setQpWrap,
+    activeCookNoteTags, setActiveCookNoteTags,
     paywallUsage, autoGradePaused, onUpgradeAutoGradePress,
     analyzing, analyze, lastAnalyzedAtMs, nowMs,
     result, renderDecisions, verdictCfg, assessment, onCardLayout,
@@ -101,10 +169,91 @@ export function AskPitMaster(p: Props) {
         </View>
       </View>
 
+      {/* ── Describe the cook (chip selectors) ───────────────────────── */}
+      <View style={{ gap: 8 }}>
+        <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
+          Describe the cook <Text style={{ fontWeight: "400" }}>(helps PitMaster analyse time and technique)</Text>
+        </Text>
+        <ChipRow
+          label="Cooking Method"
+          options={QP_COOK_METHODS}
+          selected={qpMethod}
+          onSelect={setQpMethod}
+          colors={colors}
+        />
+        <ChipRow
+          label="Meat Starting Temp"
+          options={QP_MEAT_START_TEMPS}
+          selected={qpStartTemp}
+          onSelect={setQpStartTemp}
+          colors={colors}
+        />
+        <ChipRow
+          label="Injection"
+          options={QP_INJECTION_OPTIONS}
+          selected={qpInjection}
+          onSelect={setQpInjection}
+          colors={colors}
+        />
+        <ChipRow
+          label="Spritz Frequency"
+          options={QP_SPRITZ_FREQUENCIES}
+          selected={qpSpritz}
+          onSelect={setQpSpritz}
+          colors={colors}
+        />
+        <ChipRow
+          label="Wrap / Finish"
+          options={QP_WRAP_FINISH_OPTIONS}
+          selected={qpWrap}
+          onSelect={setQpWrap}
+          colors={colors}
+        />
+      </View>
+
+      {/* ── What's happening? (cook notes + quick-add chips) ─────────── */}
       <View>
         <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
           What's happening? <Text style={{ fontWeight: "400" }}>(optional)</Text>
         </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[qs.chipScroll, { marginBottom: 8 }]}
+        >
+          {QP_WRAP_FINISH_OPTIONS.map((tag) => {
+            const active = activeCookNoteTags.includes(tag);
+            return (
+              <Pressable
+                key={tag}
+                onPress={() => {
+                  if (active) {
+                    setActiveCookNoteTags((prev: string[]) => prev.filter((t) => t !== tag));
+                    setCookNotes((prev: string) => {
+                      const parts = prev.split(" · ").map((p) => p.trim()).filter((p) => p !== tag && p !== "");
+                      return parts.join(" · ");
+                    });
+                  } else {
+                    setActiveCookNoteTags((prev: string[]) => [...prev, tag]);
+                    setCookNotes((prev: string) => (prev.trim() ? `${prev.trim()} · ${tag}` : tag));
+                  }
+                }}
+                style={[
+                  qs.chip,
+                  {
+                    borderColor: active ? colors.primary : colors.border,
+                    backgroundColor: active ? colors.primary + "20" : "transparent",
+                    borderRadius: colors.radius,
+                  },
+                ]}
+              >
+                <Text style={[qs.chipText, { color: active ? colors.primary : colors.mutedForeground }]}>
+                  {tag}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
         <TextInput
           style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, minHeight: 56, padding: 10, fontSize: 13 }]}
           placeholder="e.g. Going into the stall around 160°F, just wrapped it in butcher paper..."
@@ -326,3 +475,10 @@ export function AskPitMaster(p: Props) {
     </View>
   );
 }
+
+const qs = StyleSheet.create({
+  chipGroup: { gap: 4 },
+  chipScroll: { flexDirection: "row", gap: 7, paddingVertical: 2 },
+  chip: { paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1 },
+  chipText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+});

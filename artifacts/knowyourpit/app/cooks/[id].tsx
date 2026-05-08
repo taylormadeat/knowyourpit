@@ -145,6 +145,26 @@ export default function CookDetailScreen() {
   const [images, setImages] = useState<PickedImage[]>([]);
   const [cookNotes, setCookNotes] = useState("");
 
+  // Quick-pick chip state for the scanner "describe the cook" section
+  const [qpMethod, setQpMethod] = useState<string | null>(null);
+  const [qpStartTemp, setQpStartTemp] = useState<string | null>(null);
+  const [qpInjection, setQpInjection] = useState<string | null>(null);
+  const [qpSpritz, setQpSpritz] = useState<string | null>(null);
+  const [qpWrap, setQpWrap] = useState<string | null>(null);
+  const [activeCookNoteTags, setActiveCookNoteTags] = useState<string[]>([]);
+
+  // Serialise chip selections into a natural-language string sent to the AI
+  const scanNotes = useMemo(() => {
+    const parts: string[] = [];
+    if (qpMethod) parts.push(`Method: ${qpMethod}`);
+    if (qpStartTemp) parts.push(`Starting temp: ${qpStartTemp}`);
+    if (qpInjection) parts.push(`Injection: ${qpInjection}`);
+    if (qpSpritz) parts.push(`Spritz: ${qpSpritz}`);
+    if (qpWrap) parts.push(`Wrap/Finish: ${qpWrap}`);
+    if (cookNotes.trim()) parts.push(cookNotes.trim());
+    return parts.join(" · ");
+  }, [qpMethod, qpStartTemp, qpInjection, qpSpritz, qpWrap, cookNotes]);
+
   const [userTempInput, setUserTempInput] = useState("");
   const [userTempEdited, setUserTempEdited] = useState(false);
   const [pitTempInput, setPitTempInput] = useState("");
@@ -290,6 +310,12 @@ export default function CookDetailScreen() {
     setUserTempInput("");
     setUserTempEdited(false);
     setPitTempInput("");
+    setQpMethod(null);
+    setQpStartTemp(null);
+    setQpInjection(null);
+    setQpSpritz(null);
+    setQpWrap(null);
+    setActiveCookNoteTags([]);
   }, [id]);
 
   // Initialize ratings from saved cook data; also re-syncs when server refetches after a save
@@ -743,7 +769,7 @@ export default function CookDetailScreen() {
     // userTempInput field.
     const hasMeaterTemp =
       meaterProbes.length > 0 && meaterProbes[0]?.internalTempF != null;
-    const hasAnyInput = images.length > 0 || cookNotes.trim().length > 0 || hasTemp;
+    const hasAnyInput = images.length > 0 || scanNotes.trim().length > 0 || hasTemp;
     if (!hasAnyInput && !(auto && hasMeaterTemp)) {
       if (auto) return; // silent skip — nothing useful to grade right now
       if (cookStatus === "active") {
@@ -769,7 +795,7 @@ export default function CookDetailScreen() {
       const data: any = await analyzeMutation.mutateAsync({
         data: {
           images: images.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),
-          cookNotes: cookNotes.trim() || null,
+          cookNotes: scanNotes.trim() || null,
           cookContext: {
             foodType: c?.foodType,
             targetTempF: c?.targetTempF,
@@ -811,7 +837,7 @@ export default function CookDetailScreen() {
             decisions: data.decisions ?? [],
             // Snapshot context so history is self-contained
             snapshotTempF: userTempInput.trim() && !isNaN(parseFloat(userTempInput)) ? parseFloat(userTempInput) : null,
-            snapshotNotes: cookNotes.trim() || null,
+            snapshotNotes: scanNotes.trim() || null,
             snapshotElapsedMinutes: c?.actualStartAt ? Math.round((Date.now() - new Date(c.actualStartAt).getTime()) / 60000) : null,
             analyzedAt: new Date().toISOString(),
           },
@@ -918,13 +944,13 @@ export default function CookDetailScreen() {
   // effect can have a small, stable dependency list.
   const autoTickRef = useRef<{
     analyze: typeof analyze;
-    cookNotes: string;
+    scanNotes: string;
     userTempInput: string;
     meaterProbes: typeof meaterProbes;
     analyzing: boolean;
-  }>({ analyze, cookNotes, userTempInput, meaterProbes, analyzing });
+  }>({ analyze, scanNotes, userTempInput, meaterProbes, analyzing });
   useEffect(() => {
-    autoTickRef.current = { analyze, cookNotes, userTempInput, meaterProbes, analyzing };
+    autoTickRef.current = { analyze, scanNotes, userTempInput, meaterProbes, analyzing };
   });
 
   useEffect(() => {
@@ -952,7 +978,7 @@ export default function CookDetailScreen() {
         cur.userTempInput.trim().length > 0 && !isNaN(parseFloat(cur.userTempInput));
       const hasMeaterTemp =
         cur.meaterProbes.length > 0 && cur.meaterProbes[0]?.internalTempF != null;
-      const hasNotes = cur.cookNotes.trim().length > 0;
+      const hasNotes = cur.scanNotes.trim().length > 0;
       if (!hasUserTemp && !hasMeaterTemp && !hasNotes) {
         timer = setTimeout(tick, AUTO_GRADE_INTERVAL_MS);
         return;
@@ -1327,6 +1353,18 @@ export default function CookDetailScreen() {
           setPitTempInput={setPitTempInput}
           cookNotes={cookNotes}
           setCookNotes={setCookNotes}
+          qpMethod={qpMethod}
+          setQpMethod={setQpMethod}
+          qpStartTemp={qpStartTemp}
+          setQpStartTemp={setQpStartTemp}
+          qpInjection={qpInjection}
+          setQpInjection={setQpInjection}
+          qpSpritz={qpSpritz}
+          setQpSpritz={setQpSpritz}
+          qpWrap={qpWrap}
+          setQpWrap={setQpWrap}
+          activeCookNoteTags={activeCookNoteTags}
+          setActiveCookNoteTags={setActiveCookNoteTags}
           paywallUsage={paywallUsage}
           autoGradePaused={autoGradePaused}
           onUpgradeAutoGradePress={onUpgradeAutoGradePress}
