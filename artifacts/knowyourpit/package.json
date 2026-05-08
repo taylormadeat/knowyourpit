@@ -15,7 +15,8 @@
     "eas:build:ios": "node scripts/measure-archive-size.js && eas build --platform ios",
     "eas:build:android": "node scripts/measure-archive-size.js && eas build --platform android",
     "eas:build:all": "node scripts/measure-archive-size.js && eas build --platform all",
-    "eas:build:preview": "node scripts/measure-archive-size.js && eas build --profile preview"
+    "eas:build:preview": "node scripts/measure-archive-size.js && eas build --profile preview",
+    "audit-env": "node scripts/audit-env.js"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
