@@ -17,6 +17,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { s, edt } from "./styles";
 import { EDIT_TIME_SLOTS } from "./constants";
 import { formatEditDate, formatEditTime } from "./utils";
+import {
+  QP_COOK_METHODS,
+  QP_INJECTION_OPTIONS,
+  QP_SPRITZ_FREQUENCIES,
+  QP_WRAP_FINISH_OPTIONS,
+} from "@/constants/cookQuickPicks";
 
 type Insets = { top: number; bottom: number; left: number; right: number };
 type Colors = any;
@@ -57,6 +63,59 @@ interface Props {
   editDates: Date[];
   editNotes: string;
   setEditNotes: (v: string) => void;
+  editCookingMethod: string | null;
+  setEditCookingMethod: (v: string | null) => void;
+  editInjection: string | null;
+  setEditInjection: (v: string | null) => void;
+  editSpritzFrequency: string | null;
+  setEditSpritzFrequency: (v: string | null) => void;
+  editWrapFinish: string | null;
+  setEditWrapFinish: (v: string | null) => void;
+}
+
+function ChipRow({
+  label,
+  options,
+  selected,
+  onSelect,
+  colors,
+}: {
+  label: string;
+  options: readonly string[];
+  selected: string | null;
+  onSelect: (v: string | null) => void;
+  colors: Colors;
+}) {
+  return (
+    <View style={{ marginBottom: 4 }}>
+      <Text style={[{ fontSize: 12, fontFamily: "Inter_500Medium", marginBottom: 6 }, { color: colors.mutedForeground }]}>
+        {label}
+      </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingRight: 4 }}>
+        {options.map((opt) => {
+          const active = selected === opt;
+          return (
+            <Pressable
+              key={opt}
+              onPress={() => onSelect(active ? null : opt)}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: active ? "#E84820" : colors.border,
+                backgroundColor: active ? "#E8482018" : colors.card,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontFamily: active ? "Inter_600SemiBold" : "Inter_400Regular", color: active ? "#E84820" : colors.foreground }}>
+                {opt}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
 }
 
 export function EditCookModal(p: Props) {
@@ -73,6 +132,10 @@ export function EditCookModal(p: Props) {
     editEndDateOpen, setEditEndDateOpen,
     editEndTimeOpen, setEditEndTimeOpen,
     editDates, editNotes, setEditNotes,
+    editCookingMethod, setEditCookingMethod,
+    editInjection, setEditInjection,
+    editSpritzFrequency, setEditSpritzFrequency,
+    editWrapFinish, setEditWrapFinish,
   } = p;
 
   return (
@@ -205,6 +268,38 @@ export function EditCookModal(p: Props) {
                 </Text>
               </Pressable>
             </View>
+          </View>
+
+          <View style={[s.editFieldWrap, { gap: 12 }]}>
+            <Text style={[s.editLabel, { color: colors.mutedForeground }]}>Techniques</Text>
+            <ChipRow
+              label="Cooking Method"
+              options={QP_COOK_METHODS}
+              selected={editCookingMethod}
+              onSelect={setEditCookingMethod}
+              colors={colors}
+            />
+            <ChipRow
+              label="Injection"
+              options={QP_INJECTION_OPTIONS}
+              selected={editInjection}
+              onSelect={setEditInjection}
+              colors={colors}
+            />
+            <ChipRow
+              label="Spritz Frequency"
+              options={QP_SPRITZ_FREQUENCIES}
+              selected={editSpritzFrequency}
+              onSelect={setEditSpritzFrequency}
+              colors={colors}
+            />
+            <ChipRow
+              label="Wrap / Finish"
+              options={QP_WRAP_FINISH_OPTIONS}
+              selected={editWrapFinish}
+              onSelect={setEditWrapFinish}
+              colors={colors}
+            />
           </View>
 
           <View style={s.editFieldWrap}>

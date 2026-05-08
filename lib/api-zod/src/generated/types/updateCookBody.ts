@@ -114,4 +114,24 @@ export interface UpdateCookBody {
   judgeScoreTexture?: number | null;
   /** @nullable */
   judgeNotes?: string | null;
+  /**
+   * Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)
+   * @nullable
+   */
+  cookingMethod?: string | null;
+  /**
+   * Injection technique used (e.g. Not Injected, Injected)
+   * @nullable
+   */
+  injection?: string | null;
+  /**
+   * How often the cook was spritzed (e.g. Every Hour, No Spritz)
+   * @nullable
+   */
+  spritzFrequency?: string | null;
+  /**
+   * Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
+   * @nullable
+   */
+  wrapFinish?: string | null;
 }

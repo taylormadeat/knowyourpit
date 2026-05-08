@@ -444,6 +444,10 @@ export default function CookDetailScreen() {
   const [editEndDateOpen, setEditEndDateOpen] = useState(false);
   const [editEndTimeOpen, setEditEndTimeOpen] = useState(false);
   const [editNotes, setEditNotes] = useState("");
+  const [editCookingMethod, setEditCookingMethod] = useState<string | null>(null);
+  const [editInjection, setEditInjection] = useState<string | null>(null);
+  const [editSpritzFrequency, setEditSpritzFrequency] = useState<string | null>(null);
+  const [editWrapFinish, setEditWrapFinish] = useState<string | null>(null);
   const [editSaving, setEditSaving] = useState(false);
 
   const editDates = useMemo(() => getEditDates(), []);
@@ -682,6 +686,10 @@ export default function CookDetailScreen() {
     setEditActualStartDate(c?.actualStartAt ? new Date(c.actualStartAt) : null);
     setEditActualEndDate(c?.actualEndAt ? new Date(c.actualEndAt) : null);
     setEditNotes(c?.notes ?? "");
+    setEditCookingMethod(c?.cookingMethod ?? null);
+    setEditInjection(c?.injection ?? null);
+    setEditSpritzFrequency(c?.spritzFrequency ?? null);
+    setEditWrapFinish(c?.wrapFinish ?? null);
     setEditVisible(true);
   };
 
@@ -702,8 +710,13 @@ export default function CookDetailScreen() {
       else payload.targetTempF = null;
       payload.actualStartAt = editActualStartDate ? editActualStartDate.toISOString() : null;
       payload.actualEndAt = editActualEndDate ? editActualEndDate.toISOString() : null;
+      payload.cookingMethod = editCookingMethod;
+      payload.injection = editInjection;
+      payload.spritzFrequency = editSpritzFrequency;
+      payload.wrapFinish = editWrapFinish;
       await updateCook.mutateAsync({ id: Number(id), data: payload });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
       qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
       qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
@@ -1510,6 +1523,14 @@ export default function CookDetailScreen() {
         editDates={editDates}
         editNotes={editNotes}
         setEditNotes={setEditNotes}
+        editCookingMethod={editCookingMethod}
+        setEditCookingMethod={setEditCookingMethod}
+        editInjection={editInjection}
+        setEditInjection={setEditInjection}
+        editSpritzFrequency={editSpritzFrequency}
+        setEditSpritzFrequency={setEditSpritzFrequency}
+        editWrapFinish={editWrapFinish}
+        setEditWrapFinish={setEditWrapFinish}
       />
 
       <SaveCookTemplateSheet

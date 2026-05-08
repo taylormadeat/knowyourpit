@@ -1088,6 +1088,26 @@ export const UpdateCookBody = zod.object({
     .nullish()
     .describe("Texture sub-score (0–150) per KCBS rules"),
   judgeNotes: zod.string().nullish(),
+  cookingMethod: zod
+    .string()
+    .nullish()
+    .describe(
+      "Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)",
+    ),
+  injection: zod
+    .string()
+    .nullish()
+    .describe("Injection technique used (e.g. Not Injected, Injected)"),
+  spritzFrequency: zod
+    .string()
+    .nullish()
+    .describe("How often the cook was spritzed (e.g. Every Hour, No Spritz)"),
+  wrapFinish: zod
+    .string()
+    .nullish()
+    .describe(
+      "Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)",
+    ),
 });
 
 export const UpdateCookResponse = zod.object({
