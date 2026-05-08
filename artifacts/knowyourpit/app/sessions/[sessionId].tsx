@@ -21,7 +21,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useLayout } from "@/hooks/useLayout";
-import { useGetSessionCooks, useListCooks, useUpdateSession, useDeleteSession, useRemoveCookFromSession, useUpdateCook, getGetSessionCooksQueryKey, type Cook, type UpdateCookBody } from "@workspace/api-client-react";
+import { useGetSessionCooks, useListCooks, useUpdateSession, useDeleteSession, useRemoveCookFromSession, useUpdateCook, useListGrills, getGetSessionCooksQueryKey, type Cook, type UpdateCookBody } from "@workspace/api-client-react";
+import { EditCookModal } from "@/components/cook-detail/EditCookModal";
+import { getEditDates } from "@/components/cook-detail/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { LogoBackground } from "@/components/LogoBackground";
 import { BoxPresentationChecklist } from "@/components/competition/BoxPresentationChecklist";
@@ -300,6 +302,89 @@ export default function SessionDetailScreen() {
     }
     return map;
   }, [allCooks, sessionId]);
+
+  // ── Per-cook edit modal state ────────────────────────────────────────
+  const [cookEditCook, setCookEditCook] = useState<Cook | null>(null);
+  const [cookEditVisible, setCookEditVisible] = useState(false);
+  const [cookEditGrillPickerVisible, setCookEditGrillPickerVisible] = useState(false);
+  const [cookEditFoodType, setCookEditFoodType] = useState("");
+  const [cookEditWeight, setCookEditWeight] = useState("");
+  const [cookEditCookTemp, setCookEditCookTemp] = useState("");
+  const [cookEditTargetTemp, setCookEditTargetTemp] = useState("");
+  const [cookEditGrillId, setCookEditGrillId] = useState<number | null>(null);
+  const [cookEditActualStartDate, setCookEditActualStartDate] = useState<Date | null>(null);
+  const [cookEditActualEndDate, setCookEditActualEndDate] = useState<Date | null>(null);
+  const [cookEditStartDateOpen, setCookEditStartDateOpen] = useState(false);
+  const [cookEditStartTimeOpen, setCookEditStartTimeOpen] = useState(false);
+  const [cookEditEndDateOpen, setCookEditEndDateOpen] = useState(false);
+  const [cookEditEndTimeOpen, setCookEditEndTimeOpen] = useState(false);
+  const [cookEditNotes, setCookEditNotes] = useState("");
+  const [cookEditCookingMethod, setCookEditCookingMethod] = useState<string | null>(null);
+  const [cookEditInjection, setCookEditInjection] = useState<string | null>(null);
+  const [cookEditSpritzFrequency, setCookEditSpritzFrequency] = useState<string | null>(null);
+  const [cookEditWrapFinish, setCookEditWrapFinish] = useState<string | null>(null);
+  const [cookEditSaving, setCookEditSaving] = useState(false);
+
+  const cookEditDates = useMemo(() => getEditDates(), []);
+  const { data: grillsList } = useListGrills();
+  const grills: any[] = Array.isArray(grillsList) ? grillsList : [];
+  const cookEditSelectedGrill = useMemo(
+    () => grills.find((g: any) => g.id === cookEditGrillId) ?? null,
+    [grills, cookEditGrillId],
+  );
+
+  const openCookEdit = useCallback((cook: Cook) => {
+    const c = cook as any;
+    setCookEditCook(cook);
+    setCookEditFoodType(c?.foodType ?? "");
+    setCookEditWeight(c?.weightLbs != null ? String(c.weightLbs) : "");
+    setCookEditCookTemp(c?.cookTempF != null ? String(c.cookTempF) : "");
+    setCookEditTargetTemp(c?.targetTempF != null ? String(c.targetTempF) : "");
+    setCookEditGrillId(c?.grillId ?? null);
+    setCookEditActualStartDate(c?.actualStartAt ? new Date(c.actualStartAt) : null);
+    setCookEditActualEndDate(c?.actualEndAt ? new Date(c.actualEndAt) : null);
+    setCookEditNotes(c?.notes ?? "");
+    setCookEditCookingMethod(c?.cookingMethod ?? null);
+    setCookEditInjection(c?.injection ?? null);
+    setCookEditSpritzFrequency(c?.spritzFrequency ?? null);
+    setCookEditWrapFinish(c?.wrapFinish ?? null);
+    setCookEditVisible(true);
+  }, []);
+
+  const saveCookEdit = async () => {
+    if (!cookEditCook) return;
+    if (!cookEditFoodType.trim()) {
+      Alert.alert("Food type required", "Enter what you cooked.");
+      return;
+    }
+    setCookEditSaving(true);
+    try {
+      const payload: any = { foodType: cookEditFoodType.trim(), notes: cookEditNotes.trim() || null };
+      payload.grillId = cookEditGrillId ?? null;
+      if (cookEditWeight.trim() && !isNaN(parseFloat(cookEditWeight))) payload.weightLbs = parseFloat(cookEditWeight);
+      else payload.weightLbs = null;
+      if (cookEditCookTemp.trim() && !isNaN(parseFloat(cookEditCookTemp))) payload.cookTempF = parseFloat(cookEditCookTemp);
+      else payload.cookTempF = null;
+      if (cookEditTargetTemp.trim() && !isNaN(parseFloat(cookEditTargetTemp))) payload.targetTempF = parseFloat(cookEditTargetTemp);
+      else payload.targetTempF = null;
+      payload.actualStartAt = cookEditActualStartDate ? cookEditActualStartDate.toISOString() : null;
+      payload.actualEndAt = cookEditActualEndDate ? cookEditActualEndDate.toISOString() : null;
+      payload.cookingMethod = cookEditCookingMethod;
+      payload.injection = cookEditInjection;
+      payload.spritzFrequency = cookEditSpritzFrequency;
+      payload.wrapFinish = cookEditWrapFinish;
+      await updateCook.mutateAsync({ id: cookEditCook.id, data: payload });
+      if (sessionId) {
+        await queryClient.invalidateQueries({ queryKey: getGetSessionCooksQueryKey(sessionId) });
+      }
+      setCookEditVisible(false);
+      setCookEditCook(null);
+    } catch {
+      Alert.alert("Save failed", "Could not save changes. Please try again.");
+    } finally {
+      setCookEditSaving(false);
+    }
+  };
 
   const [lastTimeExpanded, setLastTimeExpanded] = useState<Set<string>>(new Set());
   const toggleLastTime = useCallback((cat: string) => {
@@ -1220,6 +1305,19 @@ export default function SessionDetailScreen() {
                         )}
 
                         <Pressable
+                          onPress={() => openCookEdit(cook)}
+                          style={({ pressed }) => [
+                            s.openDetailBtn,
+                            { borderColor: "#E84820", opacity: pressed ? 0.7 : 1, marginBottom: 6 },
+                          ]}
+                        >
+                          <Feather name="edit-2" size={13} color="#E84820" />
+                          <Text style={[s.openDetailText, { color: "#E84820" }]}>
+                            Edit cook &amp; techniques
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
                           onPress={() => router.push(`/cooks/${cook.id}` as any)}
                           style={({ pressed }) => [
                             s.openDetailBtn,
@@ -1547,6 +1645,52 @@ export default function SessionDetailScreen() {
           colors={colors}
         />
       )}
+
+      <EditCookModal
+        visible={cookEditVisible}
+        onClose={() => { setCookEditVisible(false); setCookEditCook(null); }}
+        colors={colors}
+        insets={insets}
+        saveEdit={saveCookEdit}
+        editSaving={cookEditSaving}
+        editFoodType={cookEditFoodType}
+        setEditFoodType={setCookEditFoodType}
+        editSelectedGrill={cookEditSelectedGrill}
+        grills={grills}
+        setEditGrillPickerVisible={setCookEditGrillPickerVisible}
+        editGrillPickerVisible={cookEditGrillPickerVisible}
+        editGrillId={cookEditGrillId}
+        setEditGrillId={setCookEditGrillId}
+        editWeight={cookEditWeight}
+        setEditWeight={setCookEditWeight}
+        editCookTemp={cookEditCookTemp}
+        setEditCookTemp={setCookEditCookTemp}
+        editTargetTemp={cookEditTargetTemp}
+        setEditTargetTemp={setCookEditTargetTemp}
+        editActualStartDate={cookEditActualStartDate}
+        setEditActualStartDate={setCookEditActualStartDate}
+        editActualEndDate={cookEditActualEndDate}
+        setEditActualEndDate={setCookEditActualEndDate}
+        editStartDateOpen={cookEditStartDateOpen}
+        setEditStartDateOpen={setCookEditStartDateOpen}
+        editStartTimeOpen={cookEditStartTimeOpen}
+        setEditStartTimeOpen={setCookEditStartTimeOpen}
+        editEndDateOpen={cookEditEndDateOpen}
+        setEditEndDateOpen={setCookEditEndDateOpen}
+        editEndTimeOpen={cookEditEndTimeOpen}
+        setEditEndTimeOpen={setCookEditEndTimeOpen}
+        editDates={cookEditDates}
+        editNotes={cookEditNotes}
+        setEditNotes={setCookEditNotes}
+        editCookingMethod={cookEditCookingMethod}
+        setEditCookingMethod={setCookEditCookingMethod}
+        editInjection={cookEditInjection}
+        setEditInjection={setCookEditInjection}
+        editSpritzFrequency={cookEditSpritzFrequency}
+        setEditSpritzFrequency={setCookEditSpritzFrequency}
+        editWrapFinish={cookEditWrapFinish}
+        setEditWrapFinish={setCookEditWrapFinish}
+      />
     </View>
   );
 }
