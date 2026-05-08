@@ -1167,7 +1167,10 @@ export default function LogCookScreen() {
                       onPress={() => {
                         if (active) {
                           setActiveCookNoteTags((prev) => prev.filter((t) => t !== tag));
-                          setCookNotes((prev) => prev.replace(` · ${tag}`, "").replace(tag, "").trim());
+                          setCookNotes((prev) => {
+                            const parts = prev.split(" · ").map((p) => p.trim()).filter((p) => p !== tag && p !== "");
+                            return parts.join(" · ");
+                          });
                         } else {
                           setActiveCookNoteTags((prev) => [...prev, tag]);
                           setCookNotes((prev) => (prev.trim() ? `${prev.trim()} · ${tag}` : tag));
