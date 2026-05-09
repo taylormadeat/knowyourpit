@@ -28,7 +28,7 @@ const logoImg = require("@/assets/images/logo.png");
 
 WebBrowser.maybeCompleteAuthSession();
 
-type Step = "signin" | "forgot_request" | "forgot_verify";
+type Step = "signin" | "forgot_request" | "forgot_verify" | "second_factor";
 
 function useWarmUpBrowser() {
   useEffect(() => {
@@ -80,6 +80,7 @@ export default function SignInScreen() {
   const [newPassword, setNewPassword] = React.useState("");
   const [showNewPass, setShowNewPass] = React.useState(false);
   const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
+  const [secondFactorCode, setSecondFactorCode] = React.useState("");
 
   const handleSignIn = async () => {
     if (!signIn) return;
@@ -106,7 +107,14 @@ export default function SignInScreen() {
           setShowForgotSuggestion(true);
           break;
         case "needs_second_factor":
-          setErrorMsg("This sign-in couldn't be completed automatically. Please use Continue with Apple or Continue with Google instead.");
+          try {
+            await attempt.prepareSecondFactor({ strategy: "email_code" });
+          } catch {
+            // ignore — the code may already be in-flight
+          }
+          setSecondFactorCode("");
+          setErrorMsg(null);
+          setStep("second_factor");
           break;
         case "needs_new_password":
           setErrorMsg("Your password needs to be reset before you can sign in.");
@@ -219,6 +227,37 @@ export default function SignInScreen() {
     setForgotEmail("");
     setResetCode("");
     setNewPassword("");
+    setSecondFactorCode("");
+  };
+
+  const handleSecondFactor = async () => {
+    if (!signIn) return;
+    try {
+      setIsLoading(true);
+      setErrorMsg(null);
+      const attempt = await signIn.attemptSecondFactor({
+        strategy: "email_code",
+        code: secondFactorCode.trim(),
+      });
+      if (attempt.status === "complete") {
+        await setActive({ session: attempt.createdSessionId });
+        router.replace("/(tabs)");
+      } else {
+        setErrorMsg("Verification failed. Please try again.");
+      }
+    } catch (e: any) {
+      const code: string = e?.errors?.[0]?.code ?? "";
+      const longMsg: string = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "";
+      if (code === "verification_failed" || code === "form_code_incorrect") {
+        setErrorMsg("That code is incorrect. Please check your email and try again.");
+      } else if (code === "verification_expired") {
+        setErrorMsg("That code has expired. Go back and sign in again to request a new one.");
+      } else {
+        setErrorMsg(longMsg || "Verification failed. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGoogle = useCallback(async () => {
@@ -374,6 +413,7 @@ export default function SignInScreen() {
   const canSubmit = !!email && !!password && !isLoading;
   const canRequestReset = !!forgotEmail.trim() && !isLoading;
   const canVerifyReset = !!resetCode.trim() && !!newPassword && !isLoading;
+  const canVerifySecondFactor = !!secondFactorCode.trim() && !isLoading;
 
   const styles = StyleSheet.create({
     outer: {
@@ -697,6 +737,62 @@ export default function SignInScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.primaryBtnText}>Reset Password</Text>
+            )}
+          </Pressable>
+
+          <Pressable style={styles.backLink} onPress={goBackToSignIn}>
+            <Text style={styles.backLinkText}>Back to sign in</Text>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
+
+  if (step === "second_factor") {
+    return (
+      <KeyboardAvoidingView
+        style={styles.outer}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <LogoBackground opacity={0.04} />
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Image source={logoImg} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.title}>Check your email</Text>
+          <Text style={styles.hintText}>
+            We sent a verification code to {email}. Enter it below to finish signing in.
+          </Text>
+
+          <Text style={styles.label}>Verification code</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              value={secondFactorCode}
+              onChangeText={setSecondFactorCode}
+              placeholder="123456"
+              placeholderTextColor={styles.hintText.color as string}
+              keyboardType="number-pad"
+              autoComplete="one-time-code"
+              autoFocus
+            />
+          </View>
+          {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.primaryBtn,
+              (!canVerifySecondFactor || pressed) && styles.primaryBtnDisabled,
+            ]}
+            onPress={handleSecondFactor}
+            disabled={!canVerifySecondFactor}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.primaryBtnText}>Verify</Text>
             )}
           </Pressable>
 
