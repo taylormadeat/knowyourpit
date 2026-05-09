@@ -6,9 +6,10 @@
 #   ./scripts/submit-ios.sh <EAS_BUILD_ID>     # submits a specific build by ID
 #
 # Required secret (set in Replit Secrets):
-#   ASC_API_KEY_P8_CONTENT — full contents of AuthKey_XXXXXXXXXX.p8 downloaded
-#                            from App Store Connect (Users and Access →
-#                            Integrations → App Store Connect API)
+#   ASC_API_KEY_P8 — full contents of AuthKey_XXXXXXXXXX.p8 downloaded
+#                    from App Store Connect (Users and Access →
+#                    Integrations → App Store Connect API)
+#   (ASC_API_KEY_P8_CONTENT is also accepted for backwards compatibility)
 #
 # Key ID and Issuer ID are hardcoded in eas.json submit.production.ios.
 # Update them there if you rotate the ASC API key.
@@ -22,11 +23,11 @@ import os, re, sys
 
 key_file = sys.argv[1]
 
-# Accept either secret name for backwards compatibility
-content = os.environ.get("ASC_API_KEY_P8_CONTENT") or os.environ.get("ASC_API_KEY_P8", "")
+# Accept either secret name (ASC_API_KEY_P8 is preferred; ASC_API_KEY_P8_CONTENT for backwards compat)
+content = os.environ.get("ASC_API_KEY_P8") or os.environ.get("ASC_API_KEY_P8_CONTENT", "")
 
 if not content:
-    print("ERROR: ASC_API_KEY_P8_CONTENT secret is not set", file=sys.stderr)
+    print("ERROR: ASC_API_KEY_P8 secret is not set (also accepts ASC_API_KEY_P8_CONTENT)", file=sys.stderr)
     sys.exit(1)
 
 # Some secret stores persist newlines as literal \n — normalise them first
@@ -34,7 +35,7 @@ content = content.replace("\\n", "\n")
 
 match = re.search(r"-----BEGIN PRIVATE KEY-----(.*?)-----END PRIVATE KEY-----", content, re.DOTALL)
 if not match:
-    print("ERROR: ASC_API_KEY_P8_CONTENT does not look like a valid PEM key", file=sys.stderr)
+    print("ERROR: ASC_API_KEY_P8 does not look like a valid PEM key", file=sys.stderr)
     sys.exit(1)
 
 b64 = re.sub(r"\s+", "", match.group(1))
