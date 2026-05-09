@@ -9,7 +9,6 @@
 #   ASC_API_KEY_P8 — full contents of AuthKey_XXXXXXXXXX.p8 downloaded
 #                    from App Store Connect (Users and Access →
 #                    Integrations → App Store Connect API)
-#   (ASC_API_KEY_P8_CONTENT is also accepted for backwards compatibility)
 #
 # Key ID and Issuer ID are hardcoded in eas.json submit.production.ios.
 # Update them there if you rotate the ASC API key.
@@ -23,11 +22,10 @@ import os, re, sys
 
 key_file = sys.argv[1]
 
-# Accept either secret name (ASC_API_KEY_P8 is preferred; ASC_API_KEY_P8_CONTENT for backwards compat)
-content = os.environ.get("ASC_API_KEY_P8") or os.environ.get("ASC_API_KEY_P8_CONTENT", "")
+content = os.environ.get("ASC_API_KEY_P8", "")
 
 if not content:
-    print("ERROR: ASC_API_KEY_P8 secret is not set (also accepts ASC_API_KEY_P8_CONTENT)", file=sys.stderr)
+    print("ERROR: ASC_API_KEY_P8 secret is not set", file=sys.stderr)
     sys.exit(1)
 
 # Some secret stores persist newlines as literal \n — normalise them first
