@@ -66,8 +66,8 @@
         "ascAppId": "6763445064",
         "appleTeamId": "W8AY23XJTF",
         "ascApiKeyPath": "/tmp/eas_submit_key.p8",
-        "ascApiKeyId": "$ASC_API_KEY_ID",
-        "ascApiKeyIssuerId": "$ASC_API_ISSUER_ID"
+        "ascApiKeyId": "3J5AF7DP8R",
+        "ascApiKeyIssuerId": "2548969f-a92c-4ab7-b550-342a8afa0b37"
       },
       "android": {
         "serviceAccountKeyPath": "REPLACE_WITH_PATH_TO_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
