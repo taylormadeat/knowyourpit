@@ -515,6 +515,19 @@ export default function LogCookScreen() {
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
         const needle = norm(data.detectedFoodType);
 
+        // matchSub: within score-2 ties, ranks by match direction so that cuts
+        // which are *strictly more specific* than the detected string (e.g.
+        // "Salmon Fillet" for detected "Salmon") beat exact equivalents (e.g. a
+        // custom cut named exactly "Salmon"), which in turn beat cuts that are
+        // *less specific* than detected. Lower sub = better.
+        const matchSub = (hay: string): 0 | 1 | 2 => {
+          const hayHasNeedle = hay.includes(needle);
+          const needleHasHay = needle.includes(hay);
+          if (hayHasNeedle && !needleHasHay) return 0; // cut is strictly more specific
+          if (hayHasNeedle && needleHasHay) return 1;  // exact equivalence
+          return 2;                                     // cut is less specific
+        };
+
         const scoreCut = (cutName: string): number => {
           const hay = norm(cutName);
           // Tier 1: exact containment in either direction — perfect match
@@ -534,16 +547,21 @@ export default function LogCookScreen() {
         };
 
         const scored = allMeatCuts
-          .map((c, idx) => ({ cut: c, score: scoreCut(c.name), idx }))
+          .map((c, idx) => ({ cut: c, score: scoreCut(c.name), hay: norm(c.name), idx }))
           .filter((x) => x.score > 0)
           .sort((a, b) => {
             if (b.score !== a.score) return b.score - a.score;
-            // For exact-containment ties (score 2): preserve original list order so
-            // that the most common cut wins (e.g. "Salmon Fillet" before
-            // "Cold-Smoked Salmon (Lox)" when the detected type is just "Salmon").
-            if (a.score === 2) return a.idx - b.idx;
+            if (a.score === 2) {
+              // Within exact-containment ties, rank by match direction first:
+              // sub=0 (cut strictly more specific) beats sub=1 (exact) beats sub=2.
+              // Within the same sub-tier, preserve list order so the first entry in
+              // MEAT_CUTS wins (e.g. "Salmon Fillet" before "Cold-Smoked Salmon (Lox)").
+              const subDiff = matchSub(a.hay) - matchSub(b.hay);
+              if (subDiff !== 0) return subDiff;
+              return a.idx - b.idx;
+            }
             // For ratio ties: prefer the more specific (longer) cut name.
-            return norm(b.cut.name).length - norm(a.cut.name).length;
+            return b.hay.length - a.hay.length;
           });
         const cutMatch = scored[0]?.cut ?? null;
         const resolvedFoodType = cutMatch ? cutMatch.name : data.detectedFoodType;
