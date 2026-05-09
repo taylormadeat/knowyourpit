@@ -25,9 +25,7 @@
     "http-proxy-middleware": "^3.0.5",
     "jsonwebtoken": "^9.0.3",
     "pino": "^9",
-    "pino-http": "^10",
-    "resend": "^6.12.3",
-    "svix": "^1.93.0"
+    "pino-http": "^10"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
