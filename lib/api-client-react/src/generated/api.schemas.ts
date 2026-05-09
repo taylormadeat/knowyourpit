@@ -1699,48 +1699,6 @@ export interface UpdateCustomMeatCutBody {
   notes?: string | null;
 }
 
-export interface CookTemplate {
-  id: number;
-  name: string;
-  foodType: string;
-  /** @nullable */
-  meatCategory: string | null;
-  /** @nullable */
-  weightLbs: number | null;
-  /** @nullable */
-  grillId: number | null;
-  /** @nullable */
-  cookTempF: number | null;
-  /** @nullable */
-  targetTempF: number | null;
-  /** @nullable */
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateCookTemplateBody {
-  name: string;
-  foodType: string;
-  /** @nullable */
-  meatCategory?: string | null;
-  /** @nullable */
-  weightLbs?: number | null;
-  /** @nullable */
-  grillId?: number | null;
-  /** @nullable */
-  cookTempF?: number | null;
-  /** @nullable */
-  targetTempF?: number | null;
-  /** @nullable */
-  notes?: string | null;
-}
-
-export interface UpdateCookTemplateBody {
-  /** @nullable */
-  name?: string | null;
-}
-
 export interface RegisterLiveActivityBody {
   activityId: string;
   pushToken: string;

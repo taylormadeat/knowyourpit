@@ -112,7 +112,6 @@ import { AskPitMaster } from "@/components/cook-detail/AskPitMaster";
 import { RateThisCook } from "@/components/cook-detail/RateThisCook";
 import { ShareCookButton } from "@/components/cook-detail/ShareCookButton";
 import { NextUpBanner } from "@/components/NextUpBanner";
-import { SaveCookTemplateSheet, type CookTemplateDraft } from "@/components/SaveCookTemplateSheet";
 
 // Silence a dev-only LogBox warning that can fire from RN's measureLayout when
 // the underlying native node briefly detaches between layout passes. Our
@@ -177,9 +176,6 @@ export default function CookDetailScreen() {
   const [rateFlavor, setRateFlavor] = useState<number>(0);
   const [rateBark, setRateBark] = useState<number>(0);
   const [rateSaving, setRateSaving] = useState(false);
-
-  const [saveTplOpen, setSaveTplOpen] = useState(false);
-  const [saveTplDraft, setSaveTplDraft] = useState<CookTemplateDraft | null>(null);
 
   const createAlert = useCreateAlert();
   const patchAlert = usePatchAlert();
@@ -1148,36 +1144,6 @@ export default function CookDetailScreen() {
         </Pressable>
         <Text style={s.headerTitle} numberOfLines={1}>{c.foodType || "Cook"}</Text>
         <View style={s.headerRight}>
-          <Pressable
-            onPress={() => {
-              const cookData = cook as Cook | undefined;
-              if (!cookData?.foodType) {
-                Alert.alert("Nothing to save", "This cook has no meat type set yet.");
-                return;
-              }
-              const grillName =
-                (grills as Grill[]).find((g) => g.id === cookData.grillId)?.name ?? null;
-              const def = grillName
-                ? `${cookData.foodType} on ${grillName}`
-                : cookData.foodType;
-              setSaveTplDraft({
-                defaultName: def,
-                foodType: cookData.foodType,
-                meatCategory: null,
-                weightLbs: cookData.weightLbs ?? null,
-                grillId: cookData.grillId ?? null,
-                cookTempF: cookData.cookTempF ?? null,
-                targetTempF: cookData.targetTempF ?? null,
-                notes: null,
-              });
-              setSaveTplOpen(true);
-            }}
-            style={s.editBtn}
-            hitSlop={8}
-            accessibilityLabel="Save as template"
-          >
-            <Feather name="bookmark" size={17} color="#F3EDE1" />
-          </Pressable>
           <Pressable onPress={openEdit} style={s.editBtn} hitSlop={8}>
             <Feather name="edit-2" size={17} color="#F3EDE1" />
           </Pressable>
@@ -1531,12 +1497,6 @@ export default function CookDetailScreen() {
         setEditSpritzFrequency={setEditSpritzFrequency}
         editWrapFinish={editWrapFinish}
         setEditWrapFinish={setEditWrapFinish}
-      />
-
-      <SaveCookTemplateSheet
-        visible={saveTplOpen}
-        onClose={() => setSaveTplOpen(false)}
-        draft={saveTplDraft}
       />
 
       {/* ── Set Alert Sheet ─────────────────────────────────── */}

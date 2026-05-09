@@ -33,8 +33,6 @@ tags:
     description: ThermoWorks Cloud thermometer integration
   - name: customMeatCuts
     description: User-defined custom meat cuts
-  - name: cookTemplates
-    description: Saved cook templates for one-tap re-planning
 
 paths:
   /healthz:
@@ -222,78 +220,6 @@ paths:
       operationId: deleteCustomMeatCut
       tags: [customMeatCuts]
       summary: Delete a custom meat cut
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "204":
-          description: Deleted
-
-  /cook-templates:
-    get:
-      operationId: listCookTemplates
-      tags: [cookTemplates]
-      summary: List all saved cook templates for the authenticated user
-      responses:
-        "200":
-          description: List of cook templates
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/CookTemplate"
-    post:
-      operationId: createCookTemplate
-      tags: [cookTemplates]
-      summary: Save a new cook template
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateCookTemplateBody"
-      responses:
-        "201":
-          description: Created cook template
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CookTemplate"
-
-  /cook-templates/{id}:
-    patch:
-      operationId: updateCookTemplate
-      tags: [cookTemplates]
-      summary: Rename a cook template
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateCookTemplateBody"
-      responses:
-        "200":
-          description: Updated cook template
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CookTemplate"
-        "404":
-          description: Not found
-    delete:
-      operationId: deleteCookTemplate
-      tags: [cookTemplates]
-      summary: Delete a cook template
       parameters:
         - name: id
           in: path
@@ -3048,75 +2974,6 @@ components:
         cookMethod:
           type: ["string", "null"]
         notes:
-          type: ["string", "null"]
-
-    CookTemplate:
-      type: object
-      properties:
-        id:
-          type: integer
-        name:
-          type: string
-        foodType:
-          type: string
-        meatCategory:
-          type: ["string", "null"]
-        weightLbs:
-          type: ["number", "null"]
-        grillId:
-          type: ["integer", "null"]
-        cookTempF:
-          type: ["number", "null"]
-        targetTempF:
-          type: ["number", "null"]
-        notes:
-          type: ["string", "null"]
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-      required:
-        - id
-        - name
-        - foodType
-        - meatCategory
-        - weightLbs
-        - grillId
-        - cookTempF
-        - targetTempF
-        - notes
-        - createdAt
-        - updatedAt
-
-    CreateCookTemplateBody:
-      type: object
-      properties:
-        name:
-          type: string
-        foodType:
-          type: string
-        meatCategory:
-          type: ["string", "null"]
-        weightLbs:
-          type: ["number", "null"]
-        grillId:
-          type: ["integer", "null"]
-        cookTempF:
-          type: ["number", "null"]
-        targetTempF:
-          type: ["number", "null"]
-        notes:
-          type: ["string", "null"]
-      required:
-        - name
-        - foodType
-
-    UpdateCookTemplateBody:
-      type: object
-      properties:
-        name:
           type: ["string", "null"]
 
     RegisterLiveActivityBody:
