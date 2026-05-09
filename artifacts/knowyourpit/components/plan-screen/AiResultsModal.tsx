@@ -8,6 +8,14 @@ import { fmtDuration, formatDateTime } from "./utils";
 
 type Colors = any;
 
+interface SelectedChips {
+  cookingMethod?: string | null;
+  meatStartTemp?: string | null;
+  injection?: string | null;
+  spritzFrequency?: string | null;
+  wrapFinish?: string | null;
+}
+
 interface Props {
   visible: boolean;
   onClose: () => void;
@@ -15,10 +23,24 @@ interface Props {
   aiResult: any | null;
   applyAiPlan: () => void;
   grillName?: string;
+  selectedChips?: SelectedChips;
 }
 
+const CHIP_LABELS: { key: keyof SelectedChips; label: string }[] = [
+  { key: "cookingMethod", label: "Method" },
+  { key: "meatStartTemp", label: "Start Temp" },
+  { key: "injection", label: "Injection" },
+  { key: "spritzFrequency", label: "Spritz" },
+  { key: "wrapFinish", label: "Wrap" },
+];
+
 export function AiResultsModal(p: Props) {
-  const { visible, onClose, colors, aiResult, applyAiPlan, grillName } = p;
+  const { visible, onClose, colors, aiResult, applyAiPlan, grillName, selectedChips } = p;
+
+  const activeChips = selectedChips
+    ? CHIP_LABELS.filter((c) => selectedChips[c.key])
+    : [];
+
   return (
     <Modal
       visible={visible}
@@ -53,6 +75,47 @@ export function AiResultsModal(p: Props) {
           <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 40 }}>
             {aiResult && (
               <>
+                {/* ── Technique selections echo ── */}
+                {activeChips.length > 0 && (
+                  <View style={{
+                    marginTop: 14,
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    gap: 6,
+                    alignItems: "center",
+                  }}>
+                    <Text style={{
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 11,
+                      color: colors.mutedForeground,
+                      marginRight: 2,
+                    }}>
+                      Your picks:
+                    </Text>
+                    {activeChips.map(({ key, label }) => (
+                      <View
+                        key={key}
+                        style={{
+                          backgroundColor: "#6C3BF5" + "15",
+                          borderColor: "#6C3BF5" + "40",
+                          borderWidth: 1,
+                          borderRadius: 20,
+                          paddingHorizontal: 10,
+                          paddingVertical: 3,
+                        }}
+                      >
+                        <Text style={{
+                          fontFamily: "Inter_500Medium",
+                          fontSize: 11,
+                          color: "#6C3BF5",
+                        }}>
+                          {label}: {selectedChips![key]}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
                 {aiResult.fingerprintApplied && (() => {
                   const source = aiResult.fingerprintSource;
                   const headline = source === "grill"

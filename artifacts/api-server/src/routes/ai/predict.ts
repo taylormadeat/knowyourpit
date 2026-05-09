@@ -18,7 +18,7 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
     return;
   }
 
-  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast, fromFrozen, thawMethod, cookingMethod, injection, spritzFrequency, wrapFinish } = parsed.data;
+  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast, fromFrozen, thawMethod, cookingMethod, injection, spritzFrequency, wrapFinish, meatStartTemp } = parsed.data;
 
   const baseline = getMeatBaseline(foodType);
 
@@ -269,6 +269,11 @@ ESTIMATION RULES:
 - tips: write 3 actionable, specific tips for THIS cook — not generic advice. Reference the specific food, grill type, or user's history if available.
 - rationale: explain your estimate in 1–2 sentences, mentioning the baseline and any user data you used.
 
+MEAT START TEMP RULES (apply when "Meat starting temperature" is provided):
+- "Cold from Fridge": The meat goes onto the grill straight from refrigerator temperature (~38°F). For large cuts over 5 lbs (brisket, pork butt, whole birds), add 20–30 min to the estimate — the cold surface delays bark formation and extends the initial rise phase before the stall. For small cuts under 3 lbs (steaks, chops, thighs), the impact is minimal (<10 min). Mention this in rationale and note it in a tip.
+- "Tempered to Room Temp": Meat has rested at room temperature 30–60 min before going on the grill (~65–70°F surface). Use baseline cook time as-is — no adjustment needed. Note in a tip that tempering gives more even cooking across the thickness.
+- When meatStartTemp is provided, explicitly reference it in the rationale.
+
 TECHNIQUE RULES (apply when technique fields are provided in the user prompt):
 - Cooking method adjustments:
   - "Rotisserie": subtract ~15% from baseline cook time (constant rotation = even heat, no stall plateau as pronounced).
@@ -305,6 +310,7 @@ FROZEN-MEAT RULES (apply only when "Starting from frozen" is true in the user pr
 
   const techniqueLines: string[] = [];
   if (cookingMethod) techniqueLines.push(`Cooking method: ${cookingMethod}`);
+  if (meatStartTemp) techniqueLines.push(`Meat starting temperature: ${meatStartTemp}`);
   if (injection) techniqueLines.push(`Injection: ${injection}`);
   if (spritzFrequency) techniqueLines.push(`Spritz frequency: ${spritzFrequency}`);
   if (wrapFinish) techniqueLines.push(`Wrap / finish preference: ${wrapFinish}`);

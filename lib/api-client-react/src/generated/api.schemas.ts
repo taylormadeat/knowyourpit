@@ -1130,6 +1130,11 @@ export interface AiPredictBody {
    * @nullable
    */
   wrapFinish?: string | null;
+  /**
+   * Starting temperature state of the meat ("Cold from Fridge" or "Tempered to Room Temp"). Cold-from-fridge meat adds ~20–30 min to large cuts; tempered meat cooks at baseline pace.
+   * @nullable
+   */
+  meatStartTemp?: string | null;
 }
 
 /**

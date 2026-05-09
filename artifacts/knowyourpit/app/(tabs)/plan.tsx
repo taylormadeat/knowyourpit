@@ -55,10 +55,12 @@ import {
 import {
   QP_COOK_METHODS,
   QP_INJECTION_OPTIONS,
+  QP_MEAT_START_TEMPS,
   QP_SPRITZ_FREQUENCIES,
   QP_WRAP_FINISH_OPTIONS,
   type QpCookMethod,
   type QpInjectionOption,
+  type QpMeatStartTemp,
   type QpSpritzFrequency,
   type QpWrapFinishOption,
 } from "@/constants/cookQuickPicks";
@@ -289,6 +291,7 @@ export default function PlanScreen() {
 
   // ── Technique quick-picks (carried into AI prediction) ────────────────
   const [qpCookMethod, setQpCookMethod] = useState<QpCookMethod | null>(null);
+  const [qpMeatStartTemp, setQpMeatStartTemp] = useState<QpMeatStartTemp | null>(null);
   const [qpInjection, setQpInjection] = useState<QpInjectionOption | null>(null);
   const [qpSpritz, setQpSpritz] = useState<QpSpritzFrequency | null>(null);
   const [qpWrapFinish, setQpWrapFinish] = useState<QpWrapFinishOption | null>(null);
@@ -431,6 +434,7 @@ export default function PlanScreen() {
           fromFrozen: frozenEnabled || undefined,
           thawMethod: frozenEnabled ? thawMethod : undefined,
           cookingMethod: qpCookMethod ?? undefined,
+          meatStartTemp: qpMeatStartTemp ?? undefined,
           injection: qpInjection ?? undefined,
           spritzFrequency: qpSpritz ?? undefined,
           wrapFinish: qpWrapFinish ?? undefined,
@@ -744,6 +748,7 @@ export default function PlanScreen() {
           }),
           // Technique quick-picks from the Plan screen
           ...(qpCookMethod && { cookingMethod: qpCookMethod }),
+          ...(qpMeatStartTemp && { meatStartTemp: qpMeatStartTemp }),
           ...(qpInjection && { injection: qpInjection }),
           ...(qpSpritz && { spritzFrequency: qpSpritz }),
           ...(qpWrapFinish && { wrapFinish: qpWrapFinish }),
@@ -1846,6 +1851,7 @@ export default function PlanScreen() {
           return (
             <View style={{ marginTop: 8 }}>
               {chipRow("Cooking Method", QP_COOK_METHODS, qpCookMethod, (v) => setQpCookMethod(v as QpCookMethod | null))}
+              {chipRow("Meat Starting Temp", QP_MEAT_START_TEMPS, qpMeatStartTemp, (v) => setQpMeatStartTemp(v as QpMeatStartTemp | null))}
               {chipRow("Injection", QP_INJECTION_OPTIONS, qpInjection, (v) => setQpInjection(v as QpInjectionOption | null))}
               {chipRow("Spritz Frequency", QP_SPRITZ_FREQUENCIES, qpSpritz, (v) => setQpSpritz(v as QpSpritzFrequency | null))}
               {chipRow("Wrap / Finish", QP_WRAP_FINISH_OPTIONS, qpWrapFinish, (v) => setQpWrapFinish(v as QpWrapFinishOption | null))}
@@ -2403,6 +2409,13 @@ export default function PlanScreen() {
         aiResult={aiResult}
         applyAiPlan={applyAiPlan}
         grillName={selectedGrill?.name}
+        selectedChips={{
+          cookingMethod: qpCookMethod,
+          meatStartTemp: qpMeatStartTemp,
+          injection: qpInjection,
+          spritzFrequency: qpSpritz,
+          wrapFinish: qpWrapFinish,
+        }}
       />
 
       {/* ════ MULTI-COOK RESULT MODAL ════ */}

@@ -1719,6 +1719,12 @@ export const AiPredictBody = zod.object({
     .describe(
       'User\'s intended wrap or finish method (e.g. \"No Wrap\", \"Butcher Paper at Stall\", \"Foil at Stall (Texas Crutch)\", \"Foil Boat\"). PitMaster should align wrap recommendation with this preference.',
     ),
+  meatStartTemp: zod
+    .string()
+    .nullish()
+    .describe(
+      'Starting temperature state of the meat (\"Cold from Fridge\" or \"Tempered to Room Temp\"). Cold-from-fridge meat adds ~20–30 min to large cuts; tempered meat cooks at baseline pace.',
+    ),
 });
 
 export const AiPredictResponse = zod.object({
