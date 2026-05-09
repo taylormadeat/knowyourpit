@@ -42,6 +42,12 @@ app.use(cors({ credentials: true, origin: true }));
 
 app.use(clerkMiddleware({ secretKey: clerkSecretKey }));
 
+// Capture the raw body for the Clerk webhook endpoint BEFORE the global JSON
+// parser processes it. Svix signature verification requires the exact bytes
+// that were sent — re-stringifying the parsed object can change whitespace /
+// key ordering and will produce a mismatched signature.
+app.use("/api/webhooks/clerk", express.raw({ type: "application/json", limit: "1mb" }));
+
 app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: true, limit: "15mb" }));
 

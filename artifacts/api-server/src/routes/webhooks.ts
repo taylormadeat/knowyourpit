@@ -1,5 +1,8 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { Webhook } from "svix";
+import { db, webhookEvents } from "@workspace/db";
 import { invalidateProCache, upsertEntitlementCache } from "../lib/paywall";
+import { sendWelcomeEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -173,6 +176,146 @@ router.post("/webhooks/revenuecat", async (req: Request, res: Response): Promise
   }
 
   // Always return 200 so RevenueCat doesn't retry.
+  res.json({ ok: true });
+});
+
+/**
+ * POST /api/webhooks/clerk
+ *
+ * Receives Clerk server-to-server webhook events, verifies the Svix signature,
+ * and handles user lifecycle events. Currently sends a welcome email when a
+ * new user registers (user.created).
+ *
+ * Idempotency: each Svix message ID is stored in the webhook_events table on
+ * first processing. Duplicate deliveries (Clerk retries) with the same ID are
+ * acknowledged and skipped without re-sending the email.
+ */
+router.post("/webhooks/clerk", async (req: Request, res: Response): Promise<void> => {
+  const webhookSecret = process.env.CLERK_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    req.log.error(
+      "CLERK_WEBHOOK_SECRET is not set — rejecting Clerk webhook. Set this env var to enable Clerk webhooks.",
+    );
+    res.status(500).json({ error: "Webhook secret not configured" });
+    return;
+  }
+
+  // express.raw() gives us a Buffer for this route; fall back to JSON stringify
+  // for any edge case where the body is already parsed (should not happen).
+  const payload: string | Buffer = Buffer.isBuffer(req.body)
+    ? req.body
+    : JSON.stringify(req.body);
+
+  const svixId = req.headers["svix-id"] as string | undefined;
+  const svixTimestamp = req.headers["svix-timestamp"] as string | undefined;
+  const svixSignature = req.headers["svix-signature"] as string | undefined;
+
+  if (!svixId || !svixTimestamp || !svixSignature) {
+    req.log.warn("Clerk webhook: missing Svix headers");
+    res.status(400).json({ error: "Missing Svix headers" });
+    return;
+  }
+
+  let event: Record<string, unknown>;
+  try {
+    const wh = new Webhook(webhookSecret);
+    event = wh.verify(payload, {
+      "svix-id": svixId,
+      "svix-timestamp": svixTimestamp,
+      "svix-signature": svixSignature,
+    }) as Record<string, unknown>;
+  } catch (err: unknown) {
+    req.log.warn({ err }, "Clerk webhook: signature verification failed");
+    res.status(400).json({ error: "Invalid signature" });
+    return;
+  }
+
+  const eventType = (event.type as string | undefined) ?? "";
+
+  if (eventType !== "user.created") {
+    // Acknowledge unhandled event types so Clerk doesn't retry.
+    req.log.info({ eventType }, "Clerk webhook: unhandled event type — acknowledged");
+    res.json({ ok: true, skipped: true });
+    return;
+  }
+
+  // Idempotency check: skip if we've already processed this Svix message.
+  // Only treat a Postgres unique-constraint violation (error code 23505) as a
+  // duplicate — all other DB errors are re-thrown so Clerk retries the delivery.
+  try {
+    await db.insert(webhookEvents).values({
+      messageId: svixId,
+      source: "clerk",
+      eventType,
+    });
+  } catch (dbErr: unknown) {
+    const pgCode =
+      dbErr !== null &&
+      typeof dbErr === "object" &&
+      "code" in dbErr &&
+      typeof (dbErr as Record<string, unknown>).code === "string"
+        ? (dbErr as Record<string, unknown>).code
+        : undefined;
+
+    if (pgCode === "23505") {
+      // Unique constraint violation — we already processed this message ID.
+      req.log.info({ svixId }, "Clerk webhook: duplicate message ID — skipping");
+      res.json({ ok: true, skipped: true });
+      return;
+    }
+
+    // Any other DB error: log and return 500 so Clerk retries.
+    req.log.error({ err: dbErr, svixId }, "Clerk webhook: DB error recording idempotency key");
+    res.status(500).json({ error: "Internal error" });
+    return;
+  }
+
+  // Typed shape for a Clerk email address object within user.created payload.
+  interface ClerkEmailAddress {
+    id: string;
+    email_address: string;
+  }
+
+  function isClerkEmailAddress(val: unknown): val is ClerkEmailAddress {
+    return (
+      typeof val === "object" &&
+      val !== null &&
+      typeof (val as Record<string, unknown>).id === "string" &&
+      typeof (val as Record<string, unknown>).email_address === "string"
+    );
+  }
+
+  // Extract user details from the Clerk user.created payload.
+  const data = (event.data ?? {}) as Record<string, unknown>;
+  const rawEmailAddresses = Array.isArray(data.email_addresses) ? data.email_addresses : [];
+  const emailAddresses = rawEmailAddresses.filter(isClerkEmailAddress);
+  const primaryEmailId =
+    typeof data.primary_email_address_id === "string" ? data.primary_email_address_id : undefined;
+
+  const primaryEmail =
+    emailAddresses.find((e) => e.id === primaryEmailId) ?? emailAddresses[0];
+  const toEmail = primaryEmail?.email_address;
+
+  if (!toEmail) {
+    req.log.warn({ svixId }, "Clerk webhook: user.created has no email address — skipping welcome email");
+    res.json({ ok: true });
+    return;
+  }
+
+  const firstName =
+    typeof data.first_name === "string" && data.first_name.trim().length > 0
+      ? data.first_name.trim()
+      : null;
+
+  try {
+    await sendWelcomeEmail({ toEmail, firstName });
+    req.log.info({ svixId, toEmail }, "Clerk webhook: welcome email sent");
+  } catch (err) {
+    req.log.error({ err, toEmail }, "Clerk webhook: failed to send welcome email");
+    // Don't return a non-200 — Clerk would retry, but the email failure is
+    // non-critical and we've already committed the idempotency row.
+  }
+
   res.json({ ok: true });
 });
 
