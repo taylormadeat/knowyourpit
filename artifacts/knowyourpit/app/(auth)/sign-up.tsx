@@ -50,19 +50,12 @@ export default function SignUpScreen() {
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [code, setCode] = React.useState("");
   const [showPass, setShowPass] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   const [googleLoading, setGoogleLoading] = React.useState(false);
   const [appleLoading, setAppleLoading] = React.useState(false);
   const [appleAvailable, setAppleAvailable] = React.useState(Platform.OS === "ios");
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
-  const [pendingVerification, setPendingVerification] = React.useState(false);
-  const [resendLoading, setResendLoading] = React.useState(false);
-  const [resendSuccess, setResendSuccess] = React.useState(false);
-  const [resendError, setResendError] = React.useState<string | null>(null);
-  const [resendSessionExpired, setResendSessionExpired] = React.useState(false);
-  const [showSignInLink, setShowSignInLink] = React.useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,10 +74,36 @@ export default function SignUpScreen() {
     try {
       setIsLoading(true);
       setErrorMsg(null);
-      setShowSignInLink(false);
-      await signUp.create({ emailAddress: email, password });
-      await signUp.prepareVerification({ strategy: "email_code" });
-      setPendingVerification(true);
+      const result = await signUp.create({ emailAddress: email, password });
+      if (result.status === "complete") {
+        await setActive({ session: result.createdSessionId });
+        router.replace("/(tabs)");
+        return;
+      }
+      if (result.status === "missing_requirements") {
+        const missing = result.missingFields ?? [];
+        if (missing.includes("username") && email) {
+          const base = email
+            .split("@")[0]
+            .replace(/[^a-z0-9]/gi, "")
+            .toLowerCase()
+            .slice(0, 15);
+          const suffix = Math.floor(Math.random() * 9000 + 1000);
+          try {
+            const updated = await signUp.update({ username: `${base}${suffix}` });
+            if (updated.status === "complete" && updated.createdSessionId) {
+              await setActive({ session: updated.createdSessionId });
+              router.replace("/(tabs)");
+              return;
+            }
+          } catch (updateErr: any) {
+            console.warn("[sign-up] update with username failed:", updateErr?.errors?.[0]?.message ?? updateErr?.message);
+          }
+        }
+        setErrorMsg("Sign up could not be completed. Please contact support.");
+        return;
+      }
+      setErrorMsg("Sign up could not be completed. Please try again.");
     } catch (e: any) {
       const code: string = e?.errors?.[0]?.code ?? "";
       const longMsg: string = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "";
@@ -92,7 +111,6 @@ export default function SignUpScreen() {
       switch (code) {
         case "form_identifier_exists":
           friendly = "An account with that email already exists. Try signing in instead.";
-          setShowSignInLink(true);
           break;
         case "form_password_pwned":
           friendly = "That password has been found in a data breach. Please choose a different one.";
@@ -120,163 +138,6 @@ export default function SignUpScreen() {
       setErrorMsg(friendly);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleVerify = async () => {
-    if (!signUp) return;
-    try {
-      setIsLoading(true);
-      setErrorMsg(null);
-      setShowSignInLink(false);
-      const result = await signUp.attemptVerification({ strategy: "email_code", code });
-      if (result.status === "complete") {
-        await setActive({ session: result.createdSessionId });
-        router.replace("/(tabs)");
-        return;
-      }
-
-      if (result.status === "missing_requirements") {
-        const missing = (result as any).missingFields ?? [];
-        if (missing.includes("username") && email) {
-          const base = email
-            .split("@")[0]
-            .replace(/[^a-z0-9]/gi, "")
-            .toLowerCase()
-            .slice(0, 15);
-          const suffix = Math.floor(Math.random() * 9000 + 1000);
-          try {
-            const updated = await signUp.update({ username: `${base}${suffix}` });
-            if (updated.status === "complete" && updated.createdSessionId) {
-              await setActive({ session: updated.createdSessionId });
-              router.replace("/(tabs)");
-              return;
-            }
-          } catch (updateErr: any) {
-            console.warn("[sign-up] update with username failed:", updateErr?.errors?.[0]?.message ?? updateErr?.message);
-          }
-        }
-        if (missing.includes("email_address")) {
-          setErrorMsg("Email address is required to complete sign up.");
-        } else if (missing.includes("password")) {
-          setErrorMsg("Password is required to complete sign up.");
-        } else {
-          setErrorMsg(
-            `Almost done — we still need: ${missing.join(", ")}. Please contact support if this keeps happening.`,
-          );
-        }
-        return;
-      }
-
-      const emailVerified = (result as any).verifications?.emailAddress?.status === "verified";
-      if (emailVerified && signIn && signInSetActive) {
-        try {
-          const attempt = await signIn.create({ identifier: email, password });
-          if (attempt.status === "complete") {
-            await signInSetActive({ session: attempt.createdSessionId });
-            router.replace("/(tabs)");
-            return;
-          }
-        } catch (signInErr: any) {
-          console.warn("[sign-up] auto-sign-in after non-complete verified failed:", signInErr?.errors?.[0]?.message ?? signInErr?.message);
-        }
-        setErrorMsg("Your email is already verified. Please sign in with your credentials.");
-        setShowSignInLink(true);
-      } else {
-        setErrorMsg("Verification could not be completed. Please request a new code and try again.");
-      }
-    } catch (e: any) {
-      const clerkCode = e?.errors?.[0]?.code ?? "";
-      const clerkMsg: string = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "";
-      const isAlreadyVerified =
-        clerkCode === "form_identifier_exists" ||
-        clerkCode === "verification_already_verified" ||
-        clerkMsg.toLowerCase().includes("already been verified") ||
-        clerkMsg.toLowerCase().includes("already verified");
-
-      if (isAlreadyVerified && signIn && signInSetActive) {
-        try {
-          const attempt = await signIn.create({ identifier: email, password });
-          if (attempt.status === "complete") {
-            await signInSetActive({ session: attempt.createdSessionId });
-            router.replace("/(tabs)");
-            return;
-          }
-        } catch (signInErr: any) {
-          const signInErrMsg = signInErr?.errors?.[0]?.longMessage ?? signInErr?.errors?.[0]?.message ?? signInErr?.message ?? "unknown";
-          console.warn("[sign-up] auto-sign-in after already-verified failed:", signInErrMsg);
-        }
-        setErrorMsg("Your email is already verified. Please sign in with your credentials.");
-        setShowSignInLink(true);
-      } else {
-        let friendly: string;
-        switch (clerkCode) {
-          case "form_code_incorrect":
-          case "verification_failed":
-            friendly = "That code isn't right. Double-check the email we sent and try again, or tap Resend code.";
-            break;
-          case "verification_expired":
-            friendly = "That code has expired. Tap Resend code to get a fresh one.";
-            break;
-          case "too_many_requests":
-            friendly = "Too many attempts. Please wait a minute and try again.";
-            break;
-          default:
-            friendly = clerkMsg || "Verification failed. Please try again or tap Resend code.";
-        }
-        setErrorMsg(friendly);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    if (!signUp) return;
-    try {
-      setResendLoading(true);
-      setResendError(null);
-      setResendSuccess(false);
-      setResendSessionExpired(false);
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-      setResendSuccess(true);
-      setTimeout(() => setResendSuccess(false), 4000);
-    } catch (e: any) {
-      const clerkCode = e?.errors?.[0]?.code ?? "";
-      const clerkMsg: string = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "";
-      const isExpired =
-        clerkCode === "session_exists" ||
-        clerkCode === "sign_up_not_found" ||
-        clerkMsg.toLowerCase().includes("expired") ||
-        clerkMsg.toLowerCase().includes("not found");
-      const isAlreadyFulfilled =
-        clerkMsg.toLowerCase().includes("already been fulfilled") ||
-        clerkMsg.toLowerCase().includes("already fulfilled") ||
-        clerkMsg.toLowerCase().includes("already been verified") ||
-        clerkMsg.toLowerCase().includes("already verified");
-      if (isAlreadyFulfilled && signIn && signInSetActive) {
-        try {
-          const attempt = await signIn.create({ identifier: email, password });
-          if (attempt.status === "complete") {
-            await signInSetActive({ session: attempt.createdSessionId });
-            router.replace("/(tabs)");
-            return;
-          }
-        } catch (signInErr: any) {
-          console.warn("[sign-up] auto-sign-in after fulfilled resend failed:", signInErr?.errors?.[0]?.message ?? signInErr?.message);
-        }
-        setResendError("Your email is already verified. Please sign in with your credentials.");
-        setShowSignInLink(true);
-      } else if (isExpired) {
-        setResendSessionExpired(true);
-        setResendError("Your sign-up session has expired. Please go back and sign up again.");
-      } else if (clerkCode === "too_many_requests") {
-        setResendError("You've requested too many codes. Please wait a minute before trying again.");
-      } else {
-        setResendError(clerkMsg || "Could not resend the code right now. Please try again in a moment.");
-      }
-    } finally {
-      setResendLoading(false);
     }
   };
 
@@ -497,75 +358,7 @@ export default function SignUpScreen() {
       color: colors.mutedForeground,
       textDecorationLine: "underline",
     },
-    verifyHint: { fontSize: 14, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginBottom: 24, lineHeight: 20 },
-    resendBtn: { alignItems: "center", marginTop: 16 },
-    resendText: { fontSize: 14, fontFamily: "Inter_500Medium", color: colors.primary },
-    resendSuccessText: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#22c55e", textAlign: "center", marginTop: 12 },
-    signInLinkBtn: { alignItems: "center", marginTop: 8, marginBottom: 4 },
-    signInLinkText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.primary, textDecorationLine: "underline" },
   });
-
-  if (pendingVerification) {
-    return (
-      <KeyboardAvoidingView style={styles.outer} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.logo}>
-            <Feather name="mail" size={28} color="#fff" />
-          </View>
-          <Text style={styles.title}>Check your email</Text>
-          <Text style={styles.verifyHint}>
-            We sent a verification code to {email}. Enter it below.
-          </Text>
-          <Text style={styles.label}>Verification Code</Text>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.input}
-              value={code}
-              onChangeText={setCode}
-              placeholder="123456"
-              placeholderTextColor={colors.mutedForeground}
-              keyboardType="number-pad"
-              autoFocus
-            />
-          </View>
-          {errorMsg && (
-            <Text style={styles.errorText}>{errorMsg}</Text>
-          )}
-          {showSignInLink && (
-            <Pressable onPress={() => router.replace("/(auth)/sign-in")} style={styles.signInLinkBtn}>
-              <Text style={styles.signInLinkText}>Go to sign in</Text>
-            </Pressable>
-          )}
-          <Pressable
-            style={({ pressed }) => [styles.primaryBtn, (isLoading || pressed) && styles.primaryBtnDisabled]}
-            onPress={handleVerify}
-            disabled={isLoading || !code}
-          >
-            {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Verify</Text>}
-          </Pressable>
-          {resendSuccess && (
-            <Text style={styles.resendSuccessText}>A new code has been sent to your email.</Text>
-          )}
-          {resendError && (
-            <Text style={styles.errorText}>{resendError}</Text>
-          )}
-          {resendSessionExpired ? (
-            <Pressable onPress={() => setPendingVerification(false)} style={styles.resendBtn}>
-              <Text style={styles.resendText}>Back to sign up</Text>
-            </Pressable>
-          ) : (
-            <Pressable style={styles.resendBtn} onPress={handleResend} disabled={resendLoading}>
-              {resendLoading ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Text style={styles.resendText}>Resend code</Text>
-              )}
-            </Pressable>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
-    );
-  }
 
   const canSubmit = !!email && !!password && !isLoading;
 
