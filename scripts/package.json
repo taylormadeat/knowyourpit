@@ -11,6 +11,7 @@
     "db:backup": "tsx ./src/db-backup.ts",
     "db:backup:csv": "tsx ./src/db-export-csv.ts",
     "backfill-grill-types": "tsx ./src/backfillGrillTypes.ts",
+    "db:prod-drop-orphans": "tsx ./src/drop-orphan-tables-prod.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

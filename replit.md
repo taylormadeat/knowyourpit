@@ -67,7 +67,28 @@ This means removing a table from `lib/db/src/schema/index.ts` and merging the ta
 
 **Safety gate**: `drop-orphan-tables.ts` requires `ALLOW_ORPHAN_DROP=true` to be set in the environment; otherwise it exits with an error. This prevents the script from running accidentally against a production database. The post-merge script sets this variable inline (`ALLOW_ORPHAN_DROP=true pnpm …`). **Never** set `ALLOW_ORPHAN_DROP=true` when `DATABASE_URL` points to the production database.
 
-> **Production note**: Schema removals in production must be applied manually (e.g. `DROP TABLE IF EXISTS <name> CASCADE` in a psql session or via an explicit migration). The `drop-orphans` script is **never** run against production automatically.
+### Production orphan-table cleanup (runbook)
+
+When a table is removed from the Drizzle schema and merged, it is automatically dropped from the **dev** database by the post-merge script. Production requires a manual step using the dedicated admin script:
+
+```
+# Step 1 — dry-run: inspect what will be dropped (no changes made)
+DATABASE_URL=<prod-url> ALLOW_PROD_DROPS=1 \
+  pnpm --filter @workspace/scripts run db:prod-drop-orphans
+
+# Step 2 — live drop: actually remove the orphan tables
+DATABASE_URL=<prod-url> ALLOW_PROD_DROPS=1 \
+  pnpm --filter @workspace/scripts run db:prod-drop-orphans -- --confirm
+```
+
+Script: `scripts/src/drop-orphan-tables-prod.ts`
+
+**Safety gates (both must be satisfied before any table is dropped):**
+
+1. `ALLOW_PROD_DROPS=1` must be set — explicit acknowledgement that the target is production and drops are intentional.
+2. `--confirm` must be passed as a CLI argument — without it the script runs in dry-run mode, printing the orphan list and exiting cleanly.
+
+Always run the dry-run first to review the list before passing `--confirm`. The `drop-orphans` script (dev) is **never** run against production.
 
 ## Ops Log
 
