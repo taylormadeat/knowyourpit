@@ -441,7 +441,7 @@ export default function CooksScreen() {
             )}
           </View>
           <Text style={[s.meta, { color: colors.mutedForeground }]}>
-            {item.grillName || "No grill"}{item.targetTempF ? ` · ${item.targetTempF}°F target` : ""}
+            {item.grillName || "No grill"}{item.targetTempF ? ` · internal target ${item.targetTempF}°F` : ""}
           </Text>
           {item.cookingMethod ? (
             <View style={{ flexDirection: "row", marginTop: 3 }}>

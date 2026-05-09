@@ -37,7 +37,7 @@ export function CookSummaryCard(p: Props) {
   const planGrade = cookStatus === "completed" ? computePlanGrade(c) : null;
 
   const statTiles: { icon: string; label: string; value: string; sub?: string }[] = [];
-  if (c.targetTempF) statTiles.push({ icon: "thermometer", label: "Target", value: `${c.targetTempF}°F` });
+  if (c.targetTempF) statTiles.push({ icon: "thermometer", label: "Internal Target", value: `${c.targetTempF}°F` });
   if (c.cookTempF) statTiles.push({ icon: "wind", label: "Pit Temp", value: `${c.cookTempF}°F` });
   if (plannedDurMs) statTiles.push({ icon: "clock", label: "Planned", value: fmtDuration(plannedDurMs) });
   if (actualDurMs) statTiles.push({
@@ -51,7 +51,7 @@ export function CookSummaryCard(p: Props) {
     { label: "Food", value: c.foodType },
     { label: "Grill", value: (c as any).grillName },
     { label: "Weight", value: c.weightLbs ? `${c.weightLbs} lbs` : null },
-    { label: "Target Temp", value: c.targetTempF ? `${c.targetTempF}°F` : null },
+    { label: "Internal Target", value: c.targetTempF ? `${c.targetTempF}°F` : null },
     { label: "Pit Temp", value: c.cookTempF ? `${c.cookTempF}°F` : null },
     { label: "Planned Start", value: c.plannedStartAt ? new Date(c.plannedStartAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null },
     { label: "Serve By", value: c.plannedEndAt ? new Date(c.plannedEndAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null },

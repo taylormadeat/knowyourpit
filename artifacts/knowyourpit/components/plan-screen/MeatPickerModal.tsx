@@ -77,7 +77,7 @@ export function MeatPickerModal(p: Props) {
                 <View style={{ flex: 1 }}>
                   <Text style={[s.cutName, { color: colors.foreground }]}>{item.name}</Text>
                   <Text style={[s.cutMeta, { color: colors.mutedForeground }]}>
-                    Target {item.targetTempF}°F · Cook at {item.cookTempF}°F · ~{item.minsPerLb} min/lb
+                    Internal target {item.targetTempF}°F · Pit: {item.cookTempF}°F · ~{item.minsPerLb} min/lb
                   </Text>
                   {item.notes && (
                     <Text style={[s.cutNote, { color: colors.mutedForeground }]}>{item.notes}</Text>

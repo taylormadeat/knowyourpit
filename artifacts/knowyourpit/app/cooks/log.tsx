@@ -915,7 +915,7 @@ export default function LogCookScreen() {
                     {result.detectedFoodType ? <SummaryCell label="Cut Detected" value={result.detectedFoodType} colors={colors} /> : null}
                     {result.cookDurationMinutes != null ? <SummaryCell label="Cook Duration" value={`${Math.floor(result.cookDurationMinutes / 60)}h ${result.cookDurationMinutes % 60}m`} colors={colors} highlight /> : null}
                     {result.detectedWeightLbs != null ? <SummaryCell label="Weight" value={`${result.detectedWeightLbs} lbs`} colors={colors} /> : null}
-                    {result.detectedCookTempF != null ? <SummaryCell label="Cook Temp" value={`${Math.round(result.detectedCookTempF)}°F`} colors={colors} /> : null}
+                    {result.detectedCookTempF != null ? <SummaryCell label="Pit Temp" value={`${Math.round(result.detectedCookTempF)}°F`} colors={colors} /> : null}
                     {result.detectedTargetTempF != null ? <SummaryCell label="Finish Temp" value={`${Math.round(result.detectedTargetTempF)}°F`} colors={colors} /> : null}
                     {result.detectedGrillBrand ? <SummaryCell label="Grill / Smoker" value={result.detectedGrillBrand} colors={colors} /> : null}
                     {result.detectedWoodType ? <SummaryCell label="Wood / Pellets" value={result.detectedWoodType} colors={colors} /> : null}
@@ -1165,7 +1165,7 @@ export default function LogCookScreen() {
             <View style={s.row2}>
               <View style={[s.fieldWrap, { flex: 1 }]}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                  <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>Cook Temp (°F)</Text>
+                  <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>Pit Temp (°F)</Text>
                   {aiScanned && !cookTempF.trim() && (
                     <View style={s.needsFillBadge}>
                       <Feather name="alert-circle" size={11} color="#F59E0B" />
@@ -1184,7 +1184,7 @@ export default function LogCookScreen() {
               </View>
               <View style={[s.fieldWrap, { flex: 1 }]}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                  <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>Target Temp (°F)</Text>
+                  <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>Internal Target (°F)</Text>
                   {aiScanned && !targetTempF.trim() && (
                     <View style={s.needsFillBadge}>
                       <Feather name="alert-circle" size={11} color="#F59E0B" />

@@ -1481,7 +1481,7 @@ export default function PlanScreen() {
         {/* ── Temp overrides ── */}
         <View style={s.tempRow}>
           <View style={{ flex: 1 }}>
-            <Label colors={colors}>Target Temp (°F)</Label>
+            <Label colors={colors}>Internal Target (°F)</Label>
             <View style={[s.inputWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
               <TextInput
                 style={[s.input, { color: colors.foreground }]}
@@ -1496,7 +1496,7 @@ export default function PlanScreen() {
           </View>
           <View style={{ width: 12 }} />
           <View style={{ flex: 1 }}>
-            <Label colors={colors}>Cook Temp (°F)</Label>
+            <Label colors={colors}>Pit Temp (°F)</Label>
             <View style={[s.inputWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
               <TextInput
                 style={[s.input, { color: colors.foreground }]}
@@ -2115,7 +2115,7 @@ export default function PlanScreen() {
                     <Text style={[s.multiItemName, { color: colors.foreground }]}>{item.cut.name}</Text>
                     <Text style={[s.multiItemMeta, { color: colors.mutedForeground }]}>
                       {parseFloat(item.weightLbs) > 0 ? `${item.weightLbs} lbs` : "weight not set"}
-                      {" · "}{item.cut.cookTempF}°F cook · target {item.cut.targetTempF}°F
+                      {" · "}Pit: {item.cut.cookTempF}°F · Internal target: {item.cut.targetTempF}°F
                     </Text>
                     {(grills as any[] | undefined)?.length ? (
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>

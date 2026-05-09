@@ -196,7 +196,7 @@ export function EditCookModal(p: Props) {
               />
             </View>
             <View style={[s.editFieldWrap, { flex: 1 }]}>
-              <Text style={[s.editLabel, { color: colors.mutedForeground }]}>Cook Temp (°F)</Text>
+              <Text style={[s.editLabel, { color: colors.mutedForeground }]}>Pit Temp (°F)</Text>
               <TextInput
                 style={[s.editInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
                 placeholder="225" placeholderTextColor={colors.mutedForeground}
@@ -207,7 +207,7 @@ export function EditCookModal(p: Props) {
 
           <View style={s.editRow2}>
             <View style={[s.editFieldWrap, { flex: 1 }]}>
-              <Text style={[s.editLabel, { color: colors.mutedForeground }]}>Target Temp (°F)</Text>
+              <Text style={[s.editLabel, { color: colors.mutedForeground }]}>Internal Target (°F)</Text>
               <TextInput
                 style={[s.editInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
                 placeholder="203" placeholderTextColor={colors.mutedForeground}

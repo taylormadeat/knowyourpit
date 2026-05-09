@@ -968,7 +968,7 @@ export default function SessionDetailScreen() {
                         {cook.grillName ? (
                           <Text style={[s.cookGrill, { color: colors.mutedForeground }]}>
                             {cook.grillName}
-                            {cook.targetTempF ? ` · ${cook.targetTempF}°F target` : ""}
+                            {cook.targetTempF ? ` · internal target ${cook.targetTempF}°F` : ""}
                           </Text>
                         ) : null}
                         <View style={s.timesRow}>
