@@ -505,13 +505,43 @@ export default function LogCookScreen() {
 
       // Auto-populate form fields from detected data (only if field is still empty)
       if (data.detectedFoodType && !foodType.trim()) {
-        // Try to fuzzy-match against known meat cuts (built-in + custom) for a canonical name
+        // Try to fuzzy-match against known meat cuts (built-in + custom) for a canonical name.
+        // Uses a scored ranking instead of first-match to avoid false positives from shared
+        // cooking-method words (e.g. "Smoked" in "Smoked Sausage Links" matching "Center Cut
+        // Smoked Salmon"). Scoring: count significant words (≥4 chars) from the cut name that
+        // appear in the detected string, divided by total significant words (ratio 0–1). On ties,
+        // prefer the longer (more specific) cut name. Exact containment is checked first as a
+        // top-priority shortcut.
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
         const needle = norm(data.detectedFoodType);
-        const cutMatch = allMeatCuts.find((c) => {
-          const hay = norm(c.name);
-          return hay.includes(needle) || needle.includes(norm(c.name.split(" ")[0]));
-        });
+
+        const scoreCut = (cutName: string): number => {
+          const hay = norm(cutName);
+          // Tier 1: exact containment in either direction — perfect match
+          if (hay.includes(needle) || needle.includes(hay)) return 2;
+          // Tier 2: split the ORIGINAL cut name into individual words first (before
+          // normalizing), then score by ratio of significant words (≥4 chars) that
+          // appear as substrings of the needle. Using the original split avoids the
+          // one-big-blob problem that occurs when normalizing the whole name at once
+          // (e.g. "Salmon Fillet" → "salmonfillet" would never substring-match).
+          const words = cutName
+            .split(/[\s\-\/\(\),]+/)
+            .map((w) => norm(w))
+            .filter((w) => w.length >= 4);
+          if (words.length === 0) return 0;
+          const matched = words.filter((w) => needle.includes(w)).length;
+          return matched / words.length;
+        };
+
+        const scored = allMeatCuts
+          .map((c) => ({ cut: c, score: scoreCut(c.name) }))
+          .filter((x) => x.score > 0)
+          .sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            // Tiebreak: prefer more specific (longer normalized) cut name
+            return norm(b.cut.name).length - norm(a.cut.name).length;
+          });
+        const cutMatch = scored[0]?.cut ?? null;
         const resolvedFoodType = cutMatch ? cutMatch.name : data.detectedFoodType;
         setFoodType(resolvedFoodType);
         // Auto-set temps from matched cut if still empty
