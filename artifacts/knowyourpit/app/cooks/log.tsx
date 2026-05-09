@@ -534,11 +534,15 @@ export default function LogCookScreen() {
         };
 
         const scored = allMeatCuts
-          .map((c) => ({ cut: c, score: scoreCut(c.name) }))
+          .map((c, idx) => ({ cut: c, score: scoreCut(c.name), idx }))
           .filter((x) => x.score > 0)
           .sort((a, b) => {
             if (b.score !== a.score) return b.score - a.score;
-            // Tiebreak: prefer more specific (longer normalized) cut name
+            // For exact-containment ties (score 2): preserve original list order so
+            // that the most common cut wins (e.g. "Salmon Fillet" before
+            // "Cold-Smoked Salmon (Lox)" when the detected type is just "Salmon").
+            if (a.score === 2) return a.idx - b.idx;
+            // For ratio ties: prefer the more specific (longer) cut name.
             return norm(b.cut.name).length - norm(a.cut.name).length;
           });
         const cutMatch = scored[0]?.cut ?? null;
