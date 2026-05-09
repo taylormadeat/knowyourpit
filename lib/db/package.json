@@ -10,6 +10,7 @@
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
+    "drop-orphans": "tsx src/drop-orphan-tables.ts",
     "seed-history": "tsx src/seed-history.ts"
   },
   "dependencies": {

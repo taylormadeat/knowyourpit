@@ -56,6 +56,19 @@ The project uses a monorepo structure managed by pnpm workspaces. It is built wi
 - **RevenueCat**: Subscription paywall — `pro` entitlement (monthly + annual). Mobile uses `react-native-purchases`; admin scripts in `scripts/src/{seedRevenueCatProducts,grantPro,revokePro}.ts` use `@replit/revenuecat-sdk` via the Replit RevenueCat connector. Server-side gates live in `artifacts/api-server/src/lib/paywall.ts` and emit a uniform 402 response via `respondPaywall(res, ...)`. Set `PAYWALL_ENABLED=false` to bypass every gate globally.
 - **App Store Connect API Key (EAS submit)**: Used by `artifacts/knowyourpit/scripts/submit-ios.sh` to upload iOS builds to TestFlight. Current active key: ID `3WTDG9D596`, Issuer ID `2548969f-a92c-4ab7-b550-342a8afa0b37` (rotated from `3J5AF7DP8R` on 2026-05-09 — old key was revoked in App Store Connect). Key content stored in the `ASC_API_KEY_P8` Replit secret. Key ID is also set in `ASC_API_KEY_ID` secret and hardcoded in `artifacts/knowyourpit/eas.json` under `submit.production.ios.ascApiKeyId`.
 
+## Database Schema Sync Behaviour
+
+`drizzle-kit push --force` only creates and alters tables that exist in the Drizzle schema; it does **not** drop tables that have been removed from the schema. To prevent orphan tables accumulating in the dev database after schema removals, the post-merge setup script (`scripts/post-merge.sh`) runs two steps in order:
+
+1. **`drop-orphans`** (`lib/db/src/drop-orphan-tables.ts`) — queries `pg_tables` for every table in the `public` schema, compares against the Drizzle schema exports, and issues `DROP TABLE … CASCADE` for any table that is absent from the schema.
+2. **`push-force`** — pushes the current schema to the dev database, auto-approving any destructive column/index changes.
+
+This means removing a table from `lib/db/src/schema/index.ts` and merging the task is sufficient to drop it from dev on the next post-merge run. No manual `DROP TABLE` step is needed.
+
+**Safety gate**: `drop-orphan-tables.ts` requires `ALLOW_ORPHAN_DROP=true` to be set in the environment; otherwise it exits with an error. This prevents the script from running accidentally against a production database. The post-merge script sets this variable inline (`ALLOW_ORPHAN_DROP=true pnpm …`). **Never** set `ALLOW_ORPHAN_DROP=true` when `DATABASE_URL` points to the production database.
+
+> **Production note**: Schema removals in production must be applied manually (e.g. `DROP TABLE IF EXISTS <name> CASCADE` in a psql session or via an explicit migration). The `drop-orphans` script is **never** run against production automatically.
+
 ## Ops Log
 
 - **2026-05-09 — webhook_events cleanup (task #462)**: The cancelled welcome-email feature (task #459) had created a `webhook_events` idempotency table via `push-force`. The schema export was already removed from `lib/db/src/schema/index.ts`. On cleanup: production DB — `to_regclass('public.webhook_events')` returned `NULL` (table never reached prod); dev DB — table existed and was dropped with `DROP TABLE IF EXISTS webhook_events` (confirmed `NULL` after drop). No migration file was required; codebase had zero remaining references.
