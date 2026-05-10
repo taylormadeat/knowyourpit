@@ -656,6 +656,12 @@ export default function CookDetailScreen() {
     };
   }, [id]);
 
+  // Auto-expand the schedule for planned cooks so users immediately see their
+  // full timeline (light grill, meat on, pull off, etc.) without tapping.
+  useEffect(() => {
+    if (cookStatus === "planned") setSeqScheduleExpanded(true);
+  }, [cookStatus]);
+
   // Auto-expand the schedule and smooth-scroll the highlighted row into view
   // whenever the next step changes. We use cached onLayout offsets instead of
   // measureLayout so we never call into a possibly-detached native node.
