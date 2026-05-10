@@ -3,6 +3,7 @@ import type {
   NextStep,
   NextStepKey,
   PlanGrade,
+  ScheduleItem,
   SequenceData,
 } from "./types";
 
@@ -152,6 +153,67 @@ export function getOutdoorTempEffect(tempF: number | null): string | null {
   if (tempF < 95)
     return "Warm day — pit temps may run hot. Check vents frequently.";
   return "Very hot — your pit needs less fuel. Watch for temperature spikes.";
+}
+
+/**
+ * When the user confirms a schedule step at an actual time, shift all
+ * downstream timestamps for that item forward or backward by the same delta.
+ * Returns a new schedule array (immutable). Ignores deltas < 1 minute to
+ * avoid noise from tap-timing jitter.
+ */
+export function rippleScheduleTimestamps(
+  schedule: ScheduleItem[],
+  itemIdx: number,
+  step: "grillLight" | "meatOn" | "wrap" | "pullOff",
+  actualTimeMs: number,
+): ScheduleItem[] {
+  return schedule.map((item, idx) => {
+    if (idx !== itemIdx) return item;
+    const updated = { ...item };
+
+    if (step === "grillLight" && item.grillLightAt) {
+      const plannedMs = new Date(item.grillLightAt).getTime();
+      const deltaMs = actualTimeMs - plannedMs;
+      if (Math.abs(deltaMs) < 60_000) return item;
+      updated.grillLightAt = new Date(actualTimeMs).toISOString();
+      if (item.meatOnAt) {
+        updated.meatOnAt = new Date(new Date(item.meatOnAt).getTime() + deltaMs).toISOString();
+      }
+      if (item.estimatedFinishAt) {
+        updated.estimatedFinishAt = new Date(
+          new Date(item.estimatedFinishAt).getTime() + deltaMs,
+        ).toISOString();
+      }
+    } else if (step === "meatOn" && item.meatOnAt) {
+      const plannedMs = new Date(item.meatOnAt).getTime();
+      const deltaMs = actualTimeMs - plannedMs;
+      if (Math.abs(deltaMs) < 60_000) return item;
+      updated.meatOnAt = new Date(actualTimeMs).toISOString();
+      if (item.estimatedFinishAt) {
+        updated.estimatedFinishAt = new Date(
+          new Date(item.estimatedFinishAt).getTime() + deltaMs,
+        ).toISOString();
+      }
+      // wrapAtMinutes is relative to meatOnAt — wrap time shifts automatically
+    } else if (step === "wrap" && item.meatOnAt && (item.wrapAtMinutes ?? 0) > 0) {
+      const plannedWrapMs =
+        new Date(item.meatOnAt).getTime() + (item.wrapAtMinutes ?? 0) * 60_000;
+      const deltaMs = actualTimeMs - plannedWrapMs;
+      if (Math.abs(deltaMs) >= 60_000 && item.estimatedFinishAt) {
+        updated.estimatedFinishAt = new Date(
+          new Date(item.estimatedFinishAt).getTime() + deltaMs,
+        ).toISOString();
+        // Update wrapAtMinutes to reflect actual wrap time offset from meatOnAt
+        updated.wrapAtMinutes = Math.round(
+          (actualTimeMs - new Date(item.meatOnAt).getTime()) / 60_000,
+        );
+      }
+    } else if (step === "pullOff" && item.estimatedFinishAt) {
+      updated.estimatedFinishAt = new Date(actualTimeMs).toISOString();
+    }
+
+    return updated;
+  });
 }
 
 export function computeNextStep(

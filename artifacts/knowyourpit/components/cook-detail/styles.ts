@@ -376,6 +376,23 @@ export const s = StyleSheet.create({
   },
   seqTlNoteText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 17 },
 
+  seqTlStallBtns: { flexDirection: "row", gap: 8, marginTop: 6 },
+  seqTlStallBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 4, paddingVertical: 7, borderWidth: 1, borderRadius: 8,
+  },
+  seqTlStallBtnText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+
+  seqTlFuelRow: {
+    flexDirection: "row", gap: 8, marginTop: 10, paddingTop: 10,
+    borderTopWidth: 1, borderStyle: "dashed",
+  },
+  seqTlFuelBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 5, paddingVertical: 8, borderWidth: 1, borderRadius: 8,
+  },
+  seqTlFuelBtnText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+
 });
 
 export const edt = StyleSheet.create({

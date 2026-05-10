@@ -23,6 +23,27 @@ interface Props {
   itemYRef: { current: Record<number, number> };
   timelineYRef: { current: Record<number, number> };
   rowYRef: { current: Record<string, number> };
+  onQuickLog?: (action: "charcoal" | "wood") => void;
+}
+
+function isStallProneMeat(foodType: string): boolean {
+  const ft = (foodType ?? "").toLowerCase();
+  return (
+    ft.includes("brisket") ||
+    ft.includes("pork shoulder") ||
+    ft.includes("pork butt") ||
+    ft.includes("pork belly") ||
+    ft.includes("chuck")
+  );
+}
+
+function isProbeTenderMeat(foodType: string): boolean {
+  const ft = (foodType ?? "").toLowerCase();
+  return (
+    ft.includes("brisket") ||
+    ft.includes("pork shoulder") ||
+    ft.includes("pork butt")
+  );
 }
 
 export function SequenceSchedule(p: Props) {
@@ -31,6 +52,7 @@ export function SequenceSchedule(p: Props) {
     seqScheduleExpanded, setSeqScheduleExpanded,
     confirmedSteps, toggleConfirmedStep,
     scheduleListYRef, itemYRef, timelineYRef, rowYRef,
+    onQuickLog,
   } = p;
 
   const seqData = (c.sequenceData as { schedule: any[]; serveAt: string; summary?: string | null } | null | undefined);
@@ -82,6 +104,12 @@ export function SequenceSchedule(p: Props) {
         >
           {seqData.schedule.map((item: any, idx: number) => {
             const isCurrent = idx === currentIdx;
+            const stallProne = isStallProneMeat(item.foodType ?? "");
+            const probeTender = isProbeTenderMeat(item.foodType ?? "");
+            const stallConfirmed = !!confirmedSteps[`${idx}_stall`];
+            const probeTenderConfirmed = !!confirmedSteps[`${idx}_probeTender`];
+            const isActive = cookStatus === "active";
+
             return (
               <View
                 key={idx}
@@ -124,6 +152,7 @@ export function SequenceSchedule(p: Props) {
                     const isDoneServe = cookStatus === "active" && serveMs < nowMs;
                     return (
                       <>
+                        {/* ── Light grill ── */}
                         <View onLayout={(e) => { rowYRef.current[`${idx}:grillLight`] = e.nativeEvent.layout.y; }} style={[s.seqTlRow, isNextGrillLight && s.seqTlNextRow, isDoneGrillLight && !confirmedSteps[`${idx}_grillLight`] && s.seqTlDoneRow]}>
                           {isDoneGrillLight ? (
                             <Pressable onPress={() => toggleConfirmedStep(`${idx}_grillLight`)} hitSlop={8} style={s.seqTlDotBtn}>
@@ -157,6 +186,8 @@ export function SequenceSchedule(p: Props) {
                             </Text>
                           </View>
                         </View>
+
+                        {/* ── Meat on ── */}
                         <View onLayout={(e) => { rowYRef.current[`${idx}:meatOn`] = e.nativeEvent.layout.y; }} style={[s.seqTlRow, isNextMeatOn && s.seqTlNextRow, isDoneMeatOn && !confirmedSteps[`${idx}_meatOn`] && s.seqTlDoneRow]}>
                           {isDoneMeatOn ? (
                             <Pressable onPress={() => toggleConfirmedStep(`${idx}_meatOn`)} hitSlop={8} style={s.seqTlDotBtn}>
@@ -191,6 +222,50 @@ export function SequenceSchedule(p: Props) {
                             </Text>
                           </View>
                         </View>
+
+                        {/* ── Stall zone (brisket / pork shoulder / chuck — active cooks only) ── */}
+                        {isActive && stallProne && (
+                          <View style={[s.seqTlRow, { marginLeft: 4 }]}>
+                            <Pressable
+                              onPress={() => toggleConfirmedStep(`${idx}_stall`)}
+                              hitSlop={8}
+                              style={s.seqTlDotBtn}
+                            >
+                              {stallConfirmed
+                                ? <Feather name="check-circle" size={14} color="#ef4444" />
+                                : <View style={[s.seqTlDot, { backgroundColor: "#ef444488" }]} />}
+                            </Pressable>
+                            <View style={[s.seqTlConnector, { borderColor: "#ef444433" }]} />
+                            <View style={{ flex: 1 }}>
+                              <View style={s.seqTlLabelRow}>
+                                <Feather name="activity" size={11} color="#ef4444" style={{ marginRight: 3 }} />
+                                <Text style={[s.seqTlLabel, { color: "#ef4444" }]}>
+                                  {stallConfirmed ? "Stall detected" : "Stall zone"}
+                                </Text>
+                              </View>
+                              <Text style={[s.seqTlMeta, { color: colors.mutedForeground, marginTop: 1 }]}>
+                                {stallConfirmed ? "Temp plateau logged" : "Tap when temp plateaus — pick your move"}
+                              </Text>
+                              {stallConfirmed && (
+                                <View style={s.seqTlStallBtns}>
+                                  <Pressable
+                                    onPress={() => toggleConfirmedStep(`${idx}_wrap`)}
+                                    style={[s.seqTlStallBtn, { borderColor: "#A855F7" }]}
+                                  >
+                                    <Feather name="package" size={11} color="#A855F7" />
+                                    <Text style={[s.seqTlStallBtnText, { color: "#A855F7" }]}>Wrap Now</Text>
+                                  </Pressable>
+                                  <View style={[s.seqTlStallBtn, { borderColor: colors.border }]}>
+                                    <Feather name="wind" size={11} color={colors.mutedForeground} />
+                                    <Text style={[s.seqTlStallBtnText, { color: colors.mutedForeground }]}>Riding It Out</Text>
+                                  </View>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        )}
+
+                        {/* ── Wrap ── */}
                         {item.wrapMethod && item.wrapMethod !== "none" ? (() => {
                           const explicitWrapMin = (item.wrapAtMinutes ?? 0) > 0
                             ? Math.round(item.wrapAtMinutes)
@@ -198,22 +273,9 @@ export function SequenceSchedule(p: Props) {
                           const cookMin = typeof item.estimatedDurationMinutes === "number" && item.estimatedDurationMinutes > 0
                             ? item.estimatedDurationMinutes
                             : null;
-                          // Inferred wrap timing — used only as a last-resort display
-                          // when neither explicit `wrapAtMinutes` nor `wrapTempF` is
-                          // available. We intentionally keep this fallback so cooks
-                          // saved before the AI sequencer reliably emitted wrap fields
-                          // still surface a wrap row. The display marks it with "≈"
-                          // and "around the stall" so the pitmaster knows it's an
-                          // estimate, and `computeNextStep` deliberately ignores
-                          // inferred timing so the persistent banner never counts
-                          // down to a guess.
                           const inferredWrapMin = cookMin != null
                             ? Math.max(30, Math.round(cookMin * 0.55))
                             : null;
-                          // Spec: when wrapAtMinutes is missing but wrapTempF is set,
-                          // the wrap is purely temp-triggered — render "when internal
-                          // reaches X°F" instead of an inferred clock time so the
-                          // pitmaster doesn't anchor on a fake countdown.
                           const wrapMode: "clock" | "temp" =
                             explicitWrapMin == null && item.wrapTempF != null
                               ? "temp"
@@ -225,9 +287,6 @@ export function SequenceSchedule(p: Props) {
                             ? new Date(item.meatOnAt).getTime() + wrapAtMin * 60000
                             : null;
                           const isDoneWrap = wrapMs != null && cookStatus === "active" && wrapMs < nowMs;
-                          // Match NextUpBanner.getStepLabel and useScheduleStepNotifications:
-                          // unknown wrap methods fall back to plain "Wrap" rather than
-                          // mislabeling as butcher paper.
                           const wrapLabel =
                             item.wrapMethod === "foil"
                               ? "Wrap in foil"
@@ -235,9 +294,6 @@ export function SequenceSchedule(p: Props) {
                                 ? "Wrap in butcher paper"
                                 : "Wrap";
                           const wrapColor = "#A855F7";
-                          // Only highlight as NEXT when we have an explicit clock time —
-                          // matches computeNextStep's eligibility, so the persistent
-                          // banner countdown and the timeline highlight stay in sync.
                           const isNextWrap =
                             nextStep?.itemIdx === idx && nextStep?.step === "wrap";
                           return (
@@ -291,6 +347,37 @@ export function SequenceSchedule(p: Props) {
                             </View>
                           );
                         })() : null}
+
+                        {/* ── Probe tenderness check (brisket / pork shoulder — active cooks only) ── */}
+                        {isActive && probeTender && (
+                          <View style={[s.seqTlRow, { marginLeft: 4 }]}>
+                            <Pressable
+                              onPress={() => toggleConfirmedStep(`${idx}_probeTender`)}
+                              hitSlop={8}
+                              style={s.seqTlDotBtn}
+                            >
+                              {probeTenderConfirmed
+                                ? <Feather name="check-circle" size={14} color="#84cc16" />
+                                : <View style={[s.seqTlDot, { backgroundColor: "#84cc1688" }]} />}
+                            </Pressable>
+                            <View style={[s.seqTlConnector, { borderColor: "#84cc1633" }]} />
+                            <View style={{ flex: 1 }}>
+                              <View style={s.seqTlLabelRow}>
+                                <Feather name="check-square" size={11} color="#84cc16" style={{ marginRight: 3 }} />
+                                <Text style={[s.seqTlLabel, { color: "#84cc16" }]}>
+                                  {probeTenderConfirmed ? "Probe tender ✓" : "Check probe tenderness"}
+                                </Text>
+                              </View>
+                              <Text style={[s.seqTlMeta, { color: colors.mutedForeground, marginTop: 1 }]}>
+                                {probeTenderConfirmed
+                                  ? "Probe slides in cleanly — nearly done"
+                                  : "Tap when probe slides in with zero resistance"}
+                              </Text>
+                            </View>
+                          </View>
+                        )}
+
+                        {/* ── Pull off ── */}
                         <View onLayout={(e) => { rowYRef.current[`${idx}:pullOff`] = e.nativeEvent.layout.y; }} style={[s.seqTlRow, { marginBottom: item.restMinutes > 0 ? 8 : 0 }, isNextPullOff && s.seqTlNextRow, isDonePullOff && !confirmedSteps[`${idx}_pullOff`] && s.seqTlDoneRow]}>
                           {isDonePullOff ? (
                             <Pressable onPress={() => toggleConfirmedStep(`${idx}_pullOff`)} hitSlop={8} style={s.seqTlDotBtn}>
@@ -328,6 +415,8 @@ export function SequenceSchedule(p: Props) {
                             </Text>
                           </View>
                         </View>
+
+                        {/* ── Ready to serve ── */}
                         {item.restMinutes > 0 && (
                           <View onLayout={(e) => { rowYRef.current[`${idx}:serve`] = e.nativeEvent.layout.y; }} style={[s.seqTlRow, { marginBottom: 0 }, isNextServe && s.seqTlNextRow, isDoneServe && !confirmedSteps[`${idx}_serve`] && s.seqTlDoneRow]}>
                             {isDoneServe ? (
@@ -364,12 +453,34 @@ export function SequenceSchedule(p: Props) {
                     );
                   })()}
                 </View>
+
+                {/* ── Item notes ── */}
                 {item.notes ? (
                   <View style={[s.seqTlNoteBox, { backgroundColor: colors.border + "44" }]}>
                     <Feather name="info" size={12} color={colors.mutedForeground} />
                     <Text style={[s.seqTlNoteText, { color: colors.mutedForeground }]}>{item.notes}</Text>
                   </View>
                 ) : null}
+
+                {/* ── Fuel quick-log (active cooks only) ── */}
+                {isActive && onQuickLog && (
+                  <View style={[s.seqTlFuelRow, { borderTopColor: colors.border }]}>
+                    <Pressable
+                      onPress={() => onQuickLog("charcoal")}
+                      style={[s.seqTlFuelBtn, { borderColor: colors.border }]}
+                    >
+                      <Text style={{ fontSize: 13 }}>🪨</Text>
+                      <Text style={[s.seqTlFuelBtnText, { color: colors.mutedForeground }]}>+ Charcoal</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => onQuickLog("wood")}
+                      style={[s.seqTlFuelBtn, { borderColor: colors.border }]}
+                    >
+                      <Text style={{ fontSize: 13 }}>🪵</Text>
+                      <Text style={[s.seqTlFuelBtnText, { color: colors.mutedForeground }]}>+ Wood</Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
             );
           })}

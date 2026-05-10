@@ -31,6 +31,7 @@ import { useColors } from "@/hooks/useColors";
 import { useTopInset } from "@/hooks/useTopInset";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { useLayout } from "@/hooks/useLayout";
+import { useAuth } from "@clerk/expo";
 import { useScheduleStepNotifications } from "@/hooks/useScheduleStepNotifications";
 import {
   useFrozenStageNotifications,
@@ -92,6 +93,7 @@ import {
 import {
   getEditDates,
   computeNextStep,
+  rippleScheduleTimestamps,
 } from "@/components/cook-detail/utils";
 import type {
   PickedImage,
@@ -114,6 +116,8 @@ import {
 import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
 import { getCheckinSchedule } from "@/constants/checkinKnowledge";
 import type { CookCheckin } from "@workspace/api-client-react";
+import { WrapTempSheet } from "@/components/cook-detail/WrapTempSheet";
+import { ActualVsPlannedRecap } from "@/components/cook-detail/ActualVsPlannedRecap";
 import { EditCookModal } from "@/components/cook-detail/EditCookModal";
 import { AlertSheet } from "@/components/cook-detail/AlertSheet";
 import { CheckInHistory } from "@/components/cook-detail/CheckInHistory";
@@ -143,6 +147,10 @@ LogBox.ignoreLogs(["ref.measureLayout must be called with a ref"]);
 
 const logoImg = require("@/assets/images/logo.png");
 
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
+
 export default function CookDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -150,6 +158,7 @@ export default function CookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const qc = useQueryClient();
 
+  const { getToken } = useAuth();
   const { data: cook, isLoading } = useGetCook(Number(id));
   const deleteCook = useDeleteCook();
   const updateCook = useUpdateCook();
@@ -283,26 +292,147 @@ export default function CookDetailScreen() {
     setConfirmedSteps(stored && typeof stored === "object" ? stored : {});
   }, [id, cook?.confirmedSteps]);
 
+  // Pending wrap confirmation — set when user taps the wrap dot so we can
+  // show the WrapTempSheet before committing the confirmed timestamp.
+  const [wrapTempPending, setWrapTempPending] = useState<{
+    key: string;
+    itemIdx: number;
+  } | null>(null);
+
   const toggleConfirmedStep = async (key: string) => {
+    const sep = key.indexOf("_");
+    const itemIdx = sep >= 0 ? parseInt(key.slice(0, sep), 10) : -1;
+    const step = sep >= 0 ? key.slice(sep + 1) : key;
+
     const prev = confirmedSteps;
+    const isConfirming = !prev[key];
+
+    // Wrap step: intercept and show the temp input sheet first
+    if (isConfirming && step === "wrap" && cookSeqData?.schedule?.[itemIdx]) {
+      setWrapTempPending({ key, itemIdx });
+      return;
+    }
+
     const next = { ...prev };
+    const actualTime = new Date();
     if (next[key]) {
       delete next[key];
     } else {
-      next[key] = new Date().toISOString();
+      next[key] = actualTime.toISOString();
     }
     setConfirmedSteps(next);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // Ripple downstream timestamps when confirming a schedule anchor step
+    let updatedSeqData: SequenceData | null = null;
+    const ripplableSteps = ["grillLight", "meatOn", "pullOff"] as const;
+    if (isConfirming && itemIdx >= 0 && cookSeqData?.schedule) {
+      const rippleStep = step as (typeof ripplableSteps)[number];
+      if ((ripplableSteps as readonly string[]).includes(rippleStep)) {
+        const updatedSchedule = rippleScheduleTimestamps(
+          cookSeqData.schedule,
+          itemIdx,
+          rippleStep,
+          actualTime.getTime(),
+        );
+        const maxServeMs = Math.max(
+          0,
+          ...updatedSchedule.map((item: ScheduleItem) =>
+            item.estimatedFinishAt
+              ? new Date(item.estimatedFinishAt).getTime() + (item.restMinutes ?? 0) * 60_000
+              : 0,
+          ),
+        );
+        updatedSeqData = {
+          ...cookSeqData,
+          schedule: updatedSchedule,
+          ...(maxServeMs > 0 ? { serveAt: new Date(maxServeMs).toISOString() } : {}),
+        };
+      }
+    }
+
     try {
       await updateCook.mutateAsync({
         id: Number(id),
-        data: { confirmedSteps: next },
+        data: {
+          confirmedSteps: next,
+          ...(updatedSeqData ? { sequenceData: updatedSeqData } : {}),
+        } as any,
       });
       qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
     } catch {
       setConfirmedSteps(prev);
     }
   };
+
+  // Called by WrapTempSheet after the user provides (or skips) the internal temp.
+  const confirmWrap = async (key: string, itemIdx: number, _tempF: number | null) => {
+    setWrapTempPending(null);
+    const prev = confirmedSteps;
+    const actualTime = new Date();
+    const next = { ...prev, [key]: actualTime.toISOString() };
+    setConfirmedSteps(next);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    let updatedSeqData: SequenceData | null = null;
+    if (cookSeqData?.schedule) {
+      const updatedSchedule = rippleScheduleTimestamps(
+        cookSeqData.schedule,
+        itemIdx,
+        "wrap",
+        actualTime.getTime(),
+      );
+      const maxServeMs = Math.max(
+        0,
+        ...updatedSchedule.map((item: ScheduleItem) =>
+          item.estimatedFinishAt
+            ? new Date(item.estimatedFinishAt).getTime() + (item.restMinutes ?? 0) * 60_000
+            : 0,
+        ),
+      );
+      updatedSeqData = {
+        ...cookSeqData,
+        schedule: updatedSchedule,
+        ...(maxServeMs > 0 ? { serveAt: new Date(maxServeMs).toISOString() } : {}),
+      };
+    }
+
+    try {
+      await updateCook.mutateAsync({
+        id: Number(id),
+        data: {
+          confirmedSteps: next,
+          ...(updatedSeqData ? { sequenceData: updatedSeqData } : {}),
+        } as any,
+      });
+      qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+    } catch {
+      setConfirmedSteps(prev);
+    }
+  };
+
+  // Fuel quick-log: post a charcoal_add or wood_add cook event.
+  const handleLogFuelEvent = useCallback(
+    async (action: "charcoal" | "wood") => {
+      if (!cook?.id) return;
+      const eventType = action === "charcoal" ? "charcoal_add" : "wood_add";
+      try {
+        const token = await getToken();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        await fetch(`${API_BASE_URL}/api/cooks/${cook.id}/events`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ eventType }),
+        });
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        qc.invalidateQueries({ queryKey: getListCookEventsQueryKey(cook.id) });
+      } catch {
+        // Fuel logs are optional — silently swallow errors
+      }
+    },
+    [cook?.id, getToken, qc],
+  );
 
   // Check-in history for this cook (active, completed, and planned cooks)
   const { data: cookCheckins = [], isLoading: checkinsLoading } = useListCookCheckins(
@@ -1772,7 +1902,34 @@ export default function CookDetailScreen() {
           itemYRef={itemYRef}
           timelineYRef={timelineYRef}
           rowYRef={rowYRef}
+          onQuickLog={cookStatus === "active" ? handleLogFuelEvent : undefined}
         />
+
+        {/* ── Timeline accuracy recap ───────────────────────────── */}
+        {Object.keys(confirmedSteps).length > 0 && cookSeqData && (
+          <ActualVsPlannedRecap
+            sequenceData={cookSeqData}
+            confirmedSteps={confirmedSteps}
+            currentItemIdx={(() => {
+              const cookFT = (c.foodType ?? "").toLowerCase().trim();
+              const meatOnMs = c.plannedStartAt ? new Date(c.plannedStartAt).getTime() : null;
+              let best = -1;
+              if (meatOnMs !== null) {
+                let bestDelta = Infinity;
+                cookSeqData.schedule.forEach((item: any, idx: number) => {
+                  if ((item.foodType ?? "").toLowerCase().trim() !== cookFT) return;
+                  const t = item.meatOnAt ? new Date(item.meatOnAt).getTime() : null;
+                  if (t === null) return;
+                  const d = Math.abs(t - meatOnMs);
+                  if (d < bestDelta) { bestDelta = d; best = idx; }
+                });
+              }
+              if (best === -1) best = cookSeqData.schedule.findIndex((item: any) => (item.foodType ?? "").toLowerCase().trim() === cookFT);
+              return Math.max(0, best);
+            })()}
+            colors={colors}
+          />
+        )}
 
         {/* ── Stored AI analysis ──────────────────────────────── */}
         <StoredAiAnalysis
@@ -1945,6 +2102,27 @@ export default function CookDetailScreen() {
         </Pressable>
         </View>
       </ScrollView>
+
+      {/* ── Wrap Temp Sheet ──────────────────────────────────── */}
+      {wrapTempPending && (() => {
+        const item = cookSeqData?.schedule?.[wrapTempPending.itemIdx] as any;
+        const wrapLabel =
+          item?.wrapMethod === "foil"
+            ? "Wrap in foil"
+            : item?.wrapMethod === "butcher_paper"
+              ? "Wrap in butcher paper"
+              : "Confirm Wrap";
+        return (
+          <WrapTempSheet
+            visible
+            wrapTempF={item?.wrapTempF ?? null}
+            wrapLabel={wrapLabel}
+            onSkip={() => confirmWrap(wrapTempPending.key, wrapTempPending.itemIdx, null)}
+            onConfirm={(tempF) => confirmWrap(wrapTempPending.key, wrapTempPending.itemIdx, tempF)}
+            colors={colors}
+          />
+        );
+      })()}
 
       {/* ── Edit Cook Modal ──────────────────────────────────── */}
       {/* (Cook2NudgeBanner rendered above; see component below.) */}

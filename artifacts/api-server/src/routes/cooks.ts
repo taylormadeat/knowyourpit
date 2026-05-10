@@ -219,6 +219,14 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
     }
     updateData.confirmedSteps = cs ?? null;
   }
+  if ("sequenceData" in req.body) {
+    const sd = req.body.sequenceData;
+    if (sd !== null && (typeof sd !== "object" || Array.isArray(sd))) {
+      res.status(400).json({ error: "sequenceData must be an object or null" });
+      return;
+    }
+    updateData.sequenceData = sd ?? null;
+  }
   // Canonical judgeScore derivation: when any KCBS sub-score is being written,
   // recompute the compatibility total (appearance + taste + texture) so that
   // judgeScore always reflects the sub-scores rather than an independent client value.
