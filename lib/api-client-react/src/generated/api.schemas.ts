@@ -1008,6 +1008,11 @@ export interface AnalyzeCookBody {
    * @nullable
    */
   cookNotes?: string | null;
+  /**
+   * Optional cook ID — when provided, the analysis result is saved as a Pit Journal entry
+   * @nullable
+   */
+  cookId?: number | null;
 }
 
 export interface ProbeTimePoint {
@@ -1840,6 +1845,7 @@ export const CookLogEventEventType = {
   user_note: "user_note",
   proactive_alert: "proactive_alert",
   voice_note: "voice_note",
+  ai_analysis: "ai_analysis",
 } as const;
 
 /**

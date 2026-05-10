@@ -3,7 +3,7 @@ import { eq, and, asc } from "drizzle-orm";
 import { db, cooksTable, cookEvents } from "@workspace/db";
 import { z } from "zod/v4";
 import { requireAuth } from "../middlewares/requireAuth";
-import type { CookCheckin } from "@workspace/db";
+import type { CookCheckin, CookEvent } from "@workspace/db";
 const router: IRouter = Router();
 
 const CookEventIdParams = z.object({ id: z.coerce.number().int().positive() });
@@ -36,7 +36,7 @@ const CreateCookEventBodySchema = z.object({
 
 export interface CookHealthInput {
   checkins: Pick<CookCheckin, "internalTempF" | "pitTempF" | "statusFlag" | "phaseKey" | "scheduledAt" | "firedAt">[];
-  events: { eventType: EventType }[];
+  events: { eventType: CookEvent["eventType"] }[];
   cookTempF: number | null | undefined;
 }
 

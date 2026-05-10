@@ -2195,6 +2195,9 @@ components:
         cookNotes:
           type: ["string", "null"]
           description: Optional free-text notes from the user about the cook
+        cookId:
+          type: ["integer", "null"]
+          description: Optional cook ID — when provided, the analysis result is saved as a Pit Journal entry
       required:
         - images
 
@@ -3296,7 +3299,7 @@ components:
           format: date-time
         eventType:
           type: string
-          enum: [lid_open, flare_up, spritz, charcoal_add, wood_add, fuel_low, vent_adjust, user_note, proactive_alert, voice_note]
+          enum: [lid_open, flare_up, spritz, charcoal_add, wood_add, fuel_low, vent_adjust, user_note, proactive_alert, voice_note, ai_analysis]
         note:
           type: ["string", "null"]
         metadata:

@@ -1365,6 +1365,7 @@ export const ListCookEventsResponseItem = zod.object({
     "user_note",
     "proactive_alert",
     "voice_note",
+    "ai_analysis",
   ]),
   note: zod.string().nullable(),
   metadata: zod.record(zod.string(), zod.unknown()).nullable(),
@@ -1704,6 +1705,12 @@ export const AnalyzeCookBody = zod.object({
     .string()
     .nullish()
     .describe("Optional free-text notes from the user about the cook"),
+  cookId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Optional cook ID — when provided, the analysis result is saved as a Pit Journal entry",
+    ),
 });
 
 export const AnalyzeCookResponse = zod.object({

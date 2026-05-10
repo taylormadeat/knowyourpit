@@ -20,4 +20,5 @@ export const CookLogEventEventType = {
   user_note: "user_note",
   proactive_alert: "proactive_alert",
   voice_note: "voice_note",
+  ai_analysis: "ai_analysis",
 } as const;

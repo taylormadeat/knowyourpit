@@ -1312,6 +1312,7 @@ export default function CookDetailScreen() {
         data: {
           images: images.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),
           cookNotes: notesForAnalysis || null,
+          cookId: Number(id),
           cookContext: {
             foodType: c?.foodType,
             targetTempF: c?.targetTempF,
@@ -1366,6 +1367,7 @@ export default function CookDetailScreen() {
       });
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
       qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
+      qc.invalidateQueries({ queryKey: getListCookEventsQueryKey(Number(id)) });
       // Bump local clock — this both surfaces "Updated X min ago" UI and
       // resets the 30-min auto-grade timer regardless of which path ran.
       setLastAnalyzedAtMs(Date.now());

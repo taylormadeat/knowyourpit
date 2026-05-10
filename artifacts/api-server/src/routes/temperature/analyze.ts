@@ -1,6 +1,8 @@
 import { Router, type IRouter, type Request } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../../middlewares/requireAuth";
+import { db, cookEvents, cooksTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { computeSmokerInsights, formatSmokerProfile } from "../../lib/smokerCalibration";
 import {
   FREE_AI_ANALYZE_DAILY_LIMIT,
@@ -50,10 +52,12 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
   const {
     images,
     cookNotes,
+    cookId,
     cookContext,
   } = req.body as {
     images?: Array<{ base64?: string; mimeType?: string }>;
     cookNotes?: string | null;
+    cookId?: number | null;
     cookContext?: {
       foodType?: string;
       targetTempF?: number;
@@ -462,6 +466,34 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
     // keeps the quota counter authoritative.
     if (!bypass) {
       await recordAiAnalyzeEvent((req as AuthedRequest).userId);
+    }
+
+    // Save analysis to the Pit Journal when a cookId is provided.
+    // We verify ownership before writing so a rogue client can't post
+    // journal entries to another user's cook.
+    if (typeof cookId === "number" && isFinite(cookId) && safeAssessment) {
+      try {
+        const userId = (req as AuthedRequest).userId;
+        const [ownedCook] = await db
+          .select({ id: cooksTable.id })
+          .from(cooksTable)
+          .where(and(eq(cooksTable.id, cookId), eq(cooksTable.userId, userId)));
+        if (ownedCook) {
+          await db.insert(cookEvents).values({
+            cookId,
+            eventType: "ai_analysis",
+            note: safeAssessment.summary || null,
+            metadata: {
+              verdict: safeAssessment.verdict,
+              summary: safeAssessment.summary,
+              decisions: safeDecisions.slice(0, 3).map((d) => d.instruction),
+            },
+          });
+        }
+      } catch (journalErr) {
+        // Journal writes are best-effort — don't fail the whole analysis
+        req.log.warn({ err: journalErr }, "Failed to write ai_analysis journal entry");
+      }
     }
 
     res.json({

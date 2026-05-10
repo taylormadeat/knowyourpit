@@ -15,4 +15,9 @@ export interface AnalyzeCookBody {
    * @nullable
    */
   cookNotes?: string | null;
+  /**
+   * Optional cook ID — when provided, the analysis result is saved as a Pit Journal entry
+   * @nullable
+   */
+  cookId?: number | null;
 }

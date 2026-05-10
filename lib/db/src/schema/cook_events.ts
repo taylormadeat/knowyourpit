@@ -13,6 +13,7 @@ export const cookEventTypeEnum = pgEnum("cook_event_type", [
   "user_note",
   "proactive_alert",
   "voice_note",
+  "ai_analysis",
 ]);
 
 export const cookEvents = pgTable("cook_events", {

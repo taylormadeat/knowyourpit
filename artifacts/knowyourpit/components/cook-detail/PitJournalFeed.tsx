@@ -27,19 +27,21 @@ interface JournalEntry {
   summary: string;
   detail?: string;
   rawEventType?: string;
+  aiDecisions?: string[];
 }
 
 const EVENT_TYPE_CONFIG: Record<string, { icon: FeatherName; color: string; label: string }> = {
-  lid_open:        { icon: "wind",          color: "#6B7280", label: "Lid Opened"     },
-  flare_up:        { icon: "alert-triangle",color: "#EF4444", label: "Flare-Up"       },
-  spritz:          { icon: "droplet",       color: "#3B82F6", label: "Spritz"         },
-  charcoal_add:    { icon: "plus-circle",   color: "#F97316", label: "Charcoal Added" },
-  wood_add:        { icon: "package",       color: "#92400E", label: "Wood Added"     },
-  fuel_low:        { icon: "trending-down", color: "#8B5CF6", label: "Fuel Low"       },
-  vent_adjust:     { icon: "sliders",       color: "#0EA5E9", label: "Vent Adjusted"  },
-  user_note:       { icon: "edit-3",        color: "#22c55e", label: "Note"           },
-  proactive_alert: { icon: "bell",          color: "#EAB308", label: "AI Alert"       },
-  voice_note:      { icon: "mic",           color: "#A78BFA", label: "Voice Note"     },
+  lid_open:        { icon: "wind",          color: "#6B7280", label: "Lid Opened"        },
+  flare_up:        { icon: "alert-triangle",color: "#EF4444", label: "Flare-Up"          },
+  spritz:          { icon: "droplet",       color: "#3B82F6", label: "Spritz"            },
+  charcoal_add:    { icon: "plus-circle",   color: "#F97316", label: "Charcoal Added"    },
+  wood_add:        { icon: "package",       color: "#92400E", label: "Wood Added"        },
+  fuel_low:        { icon: "trending-down", color: "#8B5CF6", label: "Fuel Low"          },
+  vent_adjust:     { icon: "sliders",       color: "#0EA5E9", label: "Vent Adjusted"     },
+  user_note:       { icon: "edit-3",        color: "#22c55e", label: "Note"              },
+  proactive_alert: { icon: "bell",          color: "#EAB308", label: "AI Alert"          },
+  voice_note:      { icon: "mic",           color: "#A78BFA", label: "Voice Note"        },
+  ai_analysis:     { icon: "cpu",           color: "#6C3BF5", label: "PitMaster Analysis"},
 };
 
 const DEFAULT_EVENT_CFG: { icon: FeatherName; color: string; label: string } = {
@@ -134,9 +136,38 @@ export function PitJournalFeed({
     });
   }
 
-  // --- Cook events (quick-log / proactive alerts) ---
+  // --- Cook events (quick-log / proactive alerts / AI analysis) ---
   for (const evt of events) {
     const cfg = EVENT_TYPE_CONFIG[evt.eventType] ?? DEFAULT_EVENT_CFG;
+
+    if (evt.eventType === "ai_analysis") {
+      const meta = evt.metadata as { verdict?: string; summary?: string; decisions?: string[] } | null;
+      const verdict = meta?.verdict ?? "";
+      const verdictColor =
+        verdict === "on_track" ? "#22c55e" :
+        verdict === "watch"    ? "#F59E0B" :
+        verdict === "action_needed" ? "#EF4444" :
+        cfg.color;
+      const verdictLabel =
+        verdict === "on_track"     ? "On Track"      :
+        verdict === "watch"        ? "Watch"         :
+        verdict === "action_needed"? "Action Needed" :
+        verdict ? verdict : "Analysis";
+      const decisions = Array.isArray(meta?.decisions) ? meta.decisions.filter(Boolean) : [];
+      entries.push({
+        id: `event-${evt.id}`,
+        occurredAt: new Date(evt.occurredAt).getTime(),
+        type: "event",
+        icon: cfg.icon,
+        color: verdictColor,
+        summary: `PitMaster Analysis — ${verdictLabel}`,
+        detail: meta?.summary ?? evt.note ?? undefined,
+        rawEventType: evt.eventType,
+        aiDecisions: decisions.length > 0 ? decisions : undefined,
+      });
+      continue;
+    }
+
     entries.push({
       id: `event-${evt.id}`,
       occurredAt: new Date(evt.occurredAt).getTime(),
@@ -447,6 +478,26 @@ function JournalContainer({
                         >
                           {entry.detail}
                         </Text>
+                      )}
+                      {isOpen && entry.aiDecisions && entry.aiDecisions.length > 0 && (
+                        <View style={{ marginTop: 6, gap: 4 }}>
+                          {entry.aiDecisions.map((decision, dIdx) => (
+                            <View key={dIdx} style={{ flexDirection: "row", gap: 6, alignItems: "flex-start" }}>
+                              <Text style={{ color: entry.color, fontSize: 11, lineHeight: 17 }}>›</Text>
+                              <Text
+                                style={{
+                                  fontFamily: "Inter_400Regular",
+                                  fontSize: 11,
+                                  color: colors.mutedForeground as string,
+                                  lineHeight: 17,
+                                  flex: 1,
+                                }}
+                              >
+                                {decision}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
                       )}
                     </View>
                   </View>
