@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, Easing, View, Text, Pressable } from "react-native";
 
 export function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
@@ -44,6 +44,49 @@ export function barColor(progress: number, isOver: boolean): string {
   return "#FF6B2B";
 }
 
+interface AnimatedBarFillProps {
+  progress: number;
+  color: string;
+  borderRadius?: number;
+}
+
+export function AnimatedBarFill({ progress, color, borderRadius = 3 }: AnimatedBarFillProps) {
+  const animatedValue = useRef(new Animated.Value(progress)).current;
+  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    if (animationRef.current) {
+      animationRef.current.stop();
+    }
+    animationRef.current = Animated.timing(animatedValue, {
+      toValue: progress,
+      duration: 1000,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    });
+    animationRef.current.start(() => {
+      animationRef.current = null;
+    });
+  }, [progress]);
+
+  const animatedWidth = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0%", "100%"],
+    extrapolate: "clamp",
+  });
+
+  return (
+    <Animated.View
+      style={{
+        width: animatedWidth,
+        height: "100%",
+        borderRadius,
+        backgroundColor: color,
+      }}
+    />
+  );
+}
+
 interface Props {
   startMs: number;
   estimatedFinishMs: number | null;
@@ -69,14 +112,7 @@ export function CookProgressBar({ startMs, estimatedFinishMs, nowMs, colors }: P
             overflow: "hidden",
           }}
         >
-          <View
-            style={{
-              width: `${indeterminateFill * 100}%`,
-              height: "100%",
-              borderRadius: 3,
-              backgroundColor: "#FF6B2B60",
-            }}
-          />
+          <AnimatedBarFill progress={indeterminateFill} color="#FF6B2B60" borderRadius={3} />
         </View>
         <Text
           style={{
@@ -118,14 +154,7 @@ export function CookProgressBar({ startMs, estimatedFinishMs, nowMs, colors }: P
           overflow: "hidden",
         }}
       >
-        <View
-          style={{
-            width: `${progress * 100}%`,
-            height: "100%",
-            borderRadius: 4,
-            backgroundColor: accent,
-          }}
-        />
+        <AnimatedBarFill progress={progress} color={accent} borderRadius={4} />
       </View>
       <View
         style={{

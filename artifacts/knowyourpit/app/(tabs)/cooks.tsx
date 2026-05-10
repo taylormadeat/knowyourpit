@@ -35,7 +35,7 @@ import {
   type CompetitionCategory,
 } from "@/constants/competitionKnowledge";
 import { getCookCardBar, type CookCardBar } from "@/utils/cookCardBar";
-import { fmtRemaining, barColor, clamp } from "@/components/cook-detail/CookProgressBar";
+import { fmtRemaining, barColor, clamp, AnimatedBarFill } from "@/components/cook-detail/CookProgressBar";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
@@ -863,14 +863,7 @@ export default function CooksScreen() {
                       overflow: "hidden",
                     }}
                   >
-                    <View
-                      style={{
-                        width: `${progress * 100}%`,
-                        height: "100%",
-                        borderRadius: 3,
-                        backgroundColor: accent,
-                      }}
-                    />
+                    <AnimatedBarFill progress={progress} color={accent} borderRadius={3} />
                   </View>
                 </View>
               );
