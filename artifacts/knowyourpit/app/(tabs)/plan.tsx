@@ -1257,7 +1257,9 @@ export default function PlanScreen() {
           if (cookName.trim()) advParts.push(cookName.trim());
           if (frozenEnabled) advParts.push("Starting frozen");
           if (qpCookMethod) advParts.push(qpCookMethod);
+          if (qpMeatStartTemp) advParts.push(qpMeatStartTemp);
           if (qpInjection) advParts.push(qpInjection);
+          if (qpSpritz) advParts.push(qpSpritz);
           if (qpWrapFinish) advParts.push(qpWrapFinish);
           if (selectedProbeId) advParts.push("Probe linked");
           if (notes.trim()) advParts.push("Notes");
