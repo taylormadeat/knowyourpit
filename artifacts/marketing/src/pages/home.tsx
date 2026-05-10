@@ -1,4 +1,4 @@
-import { ChefHat, Volume2, VolumeX, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChefHat, Volume2, VolumeX, ChevronLeft, ChevronRight, Thermometer, Timer, Trophy, Layers } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
 import { useState } from "react";
@@ -17,12 +17,6 @@ const SHOTS = [
     title: "A plan built for your pit",
     caption: "Tell PitMaster what you're cooking and when you want to serve. It builds an hour-by-hour schedule around your specific smoker, your cook history, and today's outdoor temperature — not a generic timeline.",
     alt: "Plan a Cook screen with Pulled Pork selected and a prep guide open",
-  },
-  {
-    src: "ss-cook-log.png",
-    title: "Sequence a full multi-item cook",
-    caption: "Add your brisket, ribs, and chicken — pick one serve time — and PitMaster works out when each item needs to start. It tells you when to light every grill, when to put each cut on, and when to pull it, so everything is resting and ready at the same moment.",
-    alt: "Cook Log showing a Multi-Cook Session with Spare Ribs, Prime Rib, and Chicken Thighs",
   },
   {
     src: "ss-cook-detail.png",
@@ -49,6 +43,21 @@ const SLIDE_VARIANTS = {
   center: { x: 0, opacity: 1 },
   exit: (dir: number) => ({ x: dir > 0 ? -60 : 60, opacity: 0 }),
 };
+
+const APP_STORE_URL = "https://apps.apple.com/app/id6763445064";
+
+function AppStoreButton({ className = "", label = "Download on the App Store" }: { className?: string; label?: string }) {
+  return (
+    <a
+      href={APP_STORE_URL}
+      target="_blank"
+      rel="noreferrer"
+      className={`inline-flex items-center justify-center h-14 px-8 rounded-lg bg-primary text-primary-foreground font-bold text-base md:text-lg transition-all md:hover:bg-primary/90 md:hover:scale-105 active:scale-95 shadow-[0_0_40px_-10px_rgba(210,80,30,0.5)] ${className}`}
+    >
+      {label}
+    </a>
+  );
+}
 
 export default function Home() {
   const [muted, setMuted] = useState(true);
@@ -91,7 +100,7 @@ export default function Home() {
         </div>
 
         <div className="container relative z-10 px-4 flex flex-col items-center text-center">
-          <h1 className="sr-only">knowyourpit — AI that reads your cook data and tells you what it means</h1>
+          <h1 className="sr-only">knowyourpit — AI watching your cook in real time so you always know what to do next</h1>
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -105,29 +114,50 @@ export default function Home() {
             />
           </motion.div>
 
+          <motion.h2
+            className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-4 md:mb-5"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.15, ease: "easeOut" }}
+          >
+            Your pit, live. Your AI, always watching.
+          </motion.h2>
+
           <motion.p
             className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mb-8 md:mb-10 leading-relaxed"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           >
-            Every grill runs differently. Every cook tracks differently. knowyourpit reads yours — temperatures, history, your specific rig — and returns decisions built from that data alone. Not advice pulled from a generic playbook. Insight that fits how you cook, from your first fire to your next competition.
+            PitMaster reads your temperature curve, your cook history, and your plan — then tells you exactly what to do next. Not generic advice. Real decisions for your rig, your cook, right now.
           </motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
-            className="w-full sm:w-auto flex justify-center"
+            className="flex flex-col sm:flex-row gap-4 items-center"
           >
-            <a
-              href="https://apps.apple.com/app/id6763445064"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center w-full sm:w-auto h-14 px-8 rounded-lg bg-primary text-primary-foreground font-bold text-base md:text-lg transition-all md:hover:bg-primary/90 md:hover:scale-105 active:scale-95 shadow-[0_0_40px_-10px_rgba(210,80,30,0.5)]"
-            >
-              Available on iOS
-            </a>
+            <AppStoreButton label="Available on iOS" className="w-full sm:w-auto" />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1, delay: 0.6 }}
+            className="mt-10 md:mt-14 flex flex-wrap justify-center gap-6 md:gap-10 text-sm text-muted-foreground"
+          >
+            {[
+              { icon: <Thermometer className="w-4 h-4" />, label: "Live probe monitoring" },
+              { icon: <Layers className="w-4 h-4" />, label: "Multi-cook sequencing" },
+              { icon: <Trophy className="w-4 h-4" />, label: "Competition mode" },
+              { icon: <Timer className="w-4 h-4" />, label: "Real-time AI decisions" },
+            ].map(({ icon, label }) => (
+              <div key={label} className="flex items-center gap-2">
+                <span className="text-primary">{icon}</span>
+                <span>{label}</span>
+              </div>
+            ))}
           </motion.div>
         </div>
       </section>
@@ -136,7 +166,6 @@ export default function Home() {
       <section className="py-16 md:py-24 bg-background border-b border-white/5">
         <div className="container px-4">
           <div className="flex flex-col md:flex-row md:items-center md:gap-16 lg:gap-24 max-w-5xl mx-auto">
-            {/* Text */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -155,7 +184,6 @@ export default function Home() {
               </p>
             </motion.div>
 
-            {/* Video phone */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               whileInView={{ opacity: 1, scale: 1 }}
@@ -185,6 +213,219 @@ export default function Home() {
                 </button>
               </div>
             </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Live Cook ─────────────────────────────────────────────────── */}
+      <section className="py-16 md:py-24 bg-background border-b border-white/5">
+        <div className="container px-4">
+          <div className="flex flex-col md:flex-row md:items-center md:gap-16 lg:gap-24 max-w-5xl mx-auto">
+            {/* Text — left on desktop, top on mobile */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
+              className="flex flex-col items-center md:items-start text-center md:text-left md:flex-1 mb-10 md:mb-0"
+            >
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4">
+                <Thermometer className="w-3.5 h-3.5" />
+                Live Cook
+              </span>
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
+                Never guess what to do next.
+              </h2>
+              <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-6">
+                While your meat is on the pit, PitMaster is watching the curve. It surfaces three things in real time: what's happening now, what to do next, and how long you have left. No checking forums. No second-guessing. Just clear calls from your actual cook data.
+              </p>
+              <ul className="space-y-3 text-sm md:text-base text-muted-foreground mb-8 text-left w-full max-w-sm md:max-w-none">
+                {[
+                  "AI verdict on your current temp curve — stalling, climbing, or on track",
+                  "Ranked list of next moves with the reasoning behind each one",
+                  "Live elapsed timer and predicted finish, updated as the cook progresses",
+                ].map((point) => (
+                  <li key={point} className="flex items-start gap-3">
+                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
+              <AppStoreButton label="Start your first live cook" className="w-full sm:w-auto" />
+            </motion.div>
+
+            {/* Phone mockup — right on desktop, bottom on mobile */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
+              className="flex justify-center md:flex-shrink-0"
+            >
+              <div className="relative w-[min(260px,80vw)] sm:w-[280px] md:w-[300px] lg:w-[320px]">
+                <div className="relative aspect-[35/76] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(221,107,32,0.45)] overflow-hidden">
+                  <img
+                    src={`${BASE}ss-live-cook.jpg`}
+                    alt="Live cook screen showing elapsed timer, probe temperature, and AI verdict banner"
+                    className="absolute inset-0 w-full h-full object-cover object-top"
+                  />
+                </div>
+                {/* Glow pulse effect */}
+                <div className="absolute inset-0 rounded-[2.5rem] md:rounded-[3rem] ring-1 ring-primary/20 animate-pulse pointer-events-none" />
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Multi-Cook Sequencing ──────────────────────────────────────── */}
+      <section className="py-16 md:py-24 bg-zinc-950/60 border-b border-white/5">
+        <div className="container px-4">
+          <div className="flex flex-col md:flex-row md:items-center md:gap-16 lg:gap-24 max-w-5xl mx-auto">
+            {/* Phone mockup — left on desktop, bottom on mobile */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
+              className="flex justify-center md:flex-shrink-0 mt-10 md:mt-0 order-2 md:order-1"
+            >
+              <div className="relative w-[min(260px,80vw)] sm:w-[280px] md:w-[300px] lg:w-[320px] aspect-[35/76] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(100,150,255,0.2)] overflow-hidden">
+                <img
+                  src={`${BASE}ss-cook-log.png`}
+                  alt="Cook log showing a multi-cook session with Spare Ribs, Prime Rib, and Chicken Thighs all sequenced to the same serve time"
+                  className="absolute inset-0 w-full h-full object-cover object-top"
+                />
+              </div>
+            </motion.div>
+
+            {/* Text — right on desktop, top on mobile */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
+              className="flex flex-col items-center md:items-start text-center md:text-left md:flex-1 order-1 md:order-2"
+            >
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-medium mb-4">
+                <Layers className="w-3.5 h-3.5" />
+                Multi-Cook Sequencing
+              </span>
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
+                Six meats. One finish time. Zero guessing.
+              </h2>
+              <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-6">
+                Hosting a cookout or catering an event means every cut needs to land at the table at the same time. PitMaster sequences your entire cook backwards from your serve time — factoring in each cut's weight, your specific smoker, and your cook history — and tells you when to light every grill, when to put each piece on, and when to pull it.
+              </p>
+              <ul className="space-y-3 text-sm md:text-base text-muted-foreground mb-8 text-left w-full max-w-sm md:max-w-none">
+                {[
+                  "Add all your meats, set one serve time, get a staggered start schedule",
+                  "Per-item light, put-on, and pull times so nothing sits too long",
+                  "The feature that separates serious backyard cooks from the rest",
+                ].map((point) => (
+                  <li key={point} className="flex items-start gap-3">
+                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
+              <AppStoreButton label="Plan your next cook" className="w-full sm:w-auto" />
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Competition Mode ───────────────────────────────────────────── */}
+      <section className="relative py-16 md:py-24 border-b border-amber-500/10 overflow-hidden">
+        {/* Gold background glow */}
+        <div className="absolute inset-0 bg-background" />
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-900/20 via-background to-background pointer-events-none" />
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
+
+        <div className="container px-4 relative z-10">
+          {/* Section header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+            className="text-center max-w-2xl mx-auto mb-12 md:mb-16"
+          >
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm font-medium mb-4">
+              <Trophy className="w-3.5 h-3.5" />
+              Competition Mode — Pro
+            </span>
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
+              Built for pitmasters who compete.
+            </h2>
+            <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
+              Competition BBQ runs on turn-in times, not serve windows. PitMaster flips the plan — you enter each category's turn-in, and it works backwards to tell you exactly when to put each piece on and when to start boxing.
+            </p>
+          </motion.div>
+
+          {/* Feature grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-12 md:mb-16">
+            {[
+              {
+                title: "Backwards from turn-in",
+                body: "Enter your KCBS turn-in times for chicken, ribs, pork, and brisket. PitMaster works backwards to give you precise start times and a 15-minute box-packing window per category.",
+                icon: <Timer className="w-5 h-5" />,
+              },
+              {
+                title: "Per-category countdowns",
+                body: "The session screen shows live countdowns to each turn-in. Inside 30 minutes the timer goes red — so you always know how much runway you have left for any category.",
+                icon: <Thermometer className="w-5 h-5" />,
+              },
+              {
+                title: "KCBS scoring tracker",
+                body: "Log Appearance, Taste, and Texture scores after each competition. PitMaster tracks your placement percentile, category averages, and score trends across your entire career.",
+                icon: <Trophy className="w-5 h-5" />,
+              },
+            ].map(({ title, body, icon }) => (
+              <motion.div
+                key={title}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="rounded-2xl bg-amber-500/5 border border-amber-500/15 p-6 flex flex-col gap-3"
+              >
+                <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0">
+                  {icon}
+                </div>
+                <h3 className="text-base md:text-lg font-bold text-foreground">{title}</h3>
+                <p className="text-sm md:text-base text-muted-foreground leading-relaxed">{body}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Extra detail row */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+            className="max-w-3xl mx-auto rounded-2xl bg-amber-500/5 border border-amber-500/15 p-6 md:p-8 mb-10 flex flex-col md:flex-row md:items-center gap-6"
+          >
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-400 uppercase tracking-wider mb-2">Box Presentation Checklist</p>
+              <p className="text-muted-foreground text-sm md:text-base leading-relaxed">
+                Open the per-category checklist to walk through presentation before you walk your box to the judges' table. Every detail — garnish, portion placement, sauce line — in a tap.
+              </p>
+            </div>
+            <div className="flex-shrink-0 flex justify-center">
+              <div className="inline-flex flex-col items-center gap-1">
+                <div className="text-3xl font-black text-amber-400">Top 12%</div>
+                <div className="text-xs text-muted-foreground">example placement percentile</div>
+              </div>
+            </div>
+          </motion.div>
+
+          <div className="flex justify-center">
+            <AppStoreButton
+              label="Unlock Competition Mode"
+              className="bg-amber-500 text-black md:hover:bg-amber-400 shadow-[0_0_40px_-10px_rgba(245,158,11,0.6)]"
+            />
           </div>
         </div>
       </section>
@@ -336,7 +577,7 @@ export default function Home() {
           PitMaster makes your cook data mean something — whether you're chasing a ribbon or your first pulled pork.
         </p>
         <a
-          href="https://apps.apple.com/app/id6763445064"
+          href={APP_STORE_URL}
           target="_blank"
           rel="noreferrer"
           className="inline-flex items-center justify-center w-full max-w-xs sm:max-w-none sm:w-auto h-14 px-10 sm:px-12 rounded-lg bg-white text-black font-bold text-base md:text-lg md:hover:bg-gray-200 active:scale-95 transition-all"
