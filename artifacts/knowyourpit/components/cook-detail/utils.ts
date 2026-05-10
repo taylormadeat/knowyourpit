@@ -156,16 +156,49 @@ export function getOutdoorTempEffect(tempF: number | null): string | null {
 }
 
 /**
+ * Resolve the pull temperature for a schedule item.
+ *
+ * Resolution order:
+ *   1. item.targetTempF when present (explicit value set by the AI sequencer)
+ *   2. 203°F as the universal low-and-slow fallback when targetTempF is absent
+ *
+ * 203°F is the most common low-and-slow pull temp (brisket, pork shoulder,
+ * pork butt) and is conservative — it errs toward a longer remaining estimate
+ * rather than under-cooking. Items like chicken or ribs should have an
+ * explicit targetTempF supplied by the AI sequencer so that scaling uses
+ * their correct pull temperature instead of this fallback.
+ */
+function resolvePullTempF(item: ScheduleItem): number {
+  return item.targetTempF ?? 203;
+}
+
+/**
  * When the user confirms a schedule step at an actual time, shift all
  * downstream timestamps for that item forward or backward by the same delta.
  * Returns a new schedule array (immutable). Ignores deltas < 1 minute to
  * avoid noise from tap-timing jitter.
+ *
+ * For the "wrap" step an optional `actualWrapTempF` may be supplied (the
+ * internal temperature the user read off their probe at wrap time).  When
+ * provided, the remaining post-wrap time is scaled to account for how far the
+ * meat actually is from done compared to where the plan assumed it would be:
+ *
+ *   scaleFactor = (pullTempF − actualWrapTempF) / (pullTempF − targetWrapTempF)
+ *
+ * A scale > 1 means the meat is cooler than planned → more time needed.
+ * A scale < 1 means the meat is hotter than planned → less time needed.
+ * The factor is clamped to [0.5, 2.0] to prevent wild swings from bad input.
+ *
+ * Temperature-based scaling is applied independently of whether the wrap was
+ * clock-triggered (wrapAtMinutes > 0) or temp-triggered (wrapTempF only), so
+ * the feature works for both wrap styles.
  */
 export function rippleScheduleTimestamps(
   schedule: ScheduleItem[],
   itemIdx: number,
   step: "grillLight" | "meatOn" | "wrap" | "pullOff",
   actualTimeMs: number,
+  actualWrapTempF?: number | null,
 ): ScheduleItem[] {
   return schedule.map((item, idx) => {
     if (idx !== itemIdx) return item;
@@ -195,18 +228,60 @@ export function rippleScheduleTimestamps(
         ).toISOString();
       }
       // wrapAtMinutes is relative to meatOnAt — wrap time shifts automatically
-    } else if (step === "wrap" && item.meatOnAt && (item.wrapAtMinutes ?? 0) > 0) {
-      const plannedWrapMs =
-        new Date(item.meatOnAt).getTime() + (item.wrapAtMinutes ?? 0) * 60_000;
-      const deltaMs = actualTimeMs - plannedWrapMs;
-      if (Math.abs(deltaMs) >= 60_000 && item.estimatedFinishAt) {
-        updated.estimatedFinishAt = new Date(
-          new Date(item.estimatedFinishAt).getTime() + deltaMs,
-        ).toISOString();
-        // Update wrapAtMinutes to reflect actual wrap time offset from meatOnAt
-        updated.wrapAtMinutes = Math.round(
-          (actualTimeMs - new Date(item.meatOnAt).getTime()) / 60_000,
-        );
+    } else if (step === "wrap") {
+      // --- Timing adjustment (clock-triggered wraps only) ---
+      // Only applicable when the schedule includes a planned clock-based wrap
+      // offset (wrapAtMinutes > 0). Temp-triggered wraps have no planned clock
+      // time to compare against, so timing delta is skipped for them.
+      let timingDeltaMs = 0;
+      if (item.meatOnAt && (item.wrapAtMinutes ?? 0) > 0) {
+        const plannedWrapMs =
+          new Date(item.meatOnAt).getTime() + (item.wrapAtMinutes ?? 0) * 60_000;
+        const deltaMs = actualTimeMs - plannedWrapMs;
+        if (Math.abs(deltaMs) >= 60_000) {
+          timingDeltaMs = deltaMs;
+          // Update wrapAtMinutes to reflect actual wrap time offset from meatOnAt
+          updated.wrapAtMinutes = Math.round(
+            (actualTimeMs - new Date(item.meatOnAt).getTime()) / 60_000,
+          );
+        }
+      }
+
+      if (item.estimatedFinishAt) {
+        // Step 1 — shift finish time by the timing delta.
+        let newFinishMs = new Date(item.estimatedFinishAt).getTime() + timingDeltaMs;
+
+        // Step 2 — apply a temperature-based scale to the remaining post-wrap
+        // time when the caller supplies the actual internal temp at wrap.
+        // This applies for both clock-triggered and temp-triggered wraps.
+        //
+        //   scaleFactor = (pullTempF − actualWrapTempF) / (pullTempF − targetWrapTempF)
+        //
+        // This is a proportional model: the fraction of the temperature journey
+        // still ahead of the meat determines how much cook time remains relative
+        // to the original post-wrap window.
+        if (actualWrapTempF != null) {
+          const targetWrapTempF = item.wrapTempF ?? actualWrapTempF; // fallback: no-op (scale = 1)
+          const pullTempF = resolvePullTempF(item);
+          const tempRange = pullTempF - targetWrapTempF;
+
+          if (tempRange > 0) {
+            // Remaining time from actual wrap moment to the (timing-adjusted) finish.
+            const remainingMs = newFinishMs - actualTimeMs;
+
+            if (remainingMs > 0) {
+              const scaleFactor = Math.min(
+                2.0,
+                Math.max(0.5, (pullTempF - actualWrapTempF) / tempRange),
+              );
+              newFinishMs = actualTimeMs + remainingMs * scaleFactor;
+            }
+          }
+        }
+
+        if (timingDeltaMs !== 0 || actualWrapTempF != null) {
+          updated.estimatedFinishAt = new Date(newFinishMs).toISOString();
+        }
       }
     } else if (step === "pullOff" && item.estimatedFinishAt) {
       updated.estimatedFinishAt = new Date(actualTimeMs).toISOString();

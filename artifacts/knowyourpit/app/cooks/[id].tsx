@@ -366,7 +366,7 @@ export default function CookDetailScreen() {
   };
 
   // Called by WrapTempSheet after the user provides (or skips) the internal temp.
-  const confirmWrap = async (key: string, itemIdx: number, _tempF: number | null) => {
+  const confirmWrap = async (key: string, itemIdx: number, tempF: number | null) => {
     setWrapTempPending(null);
     const prev = confirmedSteps;
     const actualTime = new Date();
@@ -381,6 +381,7 @@ export default function CookDetailScreen() {
         itemIdx,
         "wrap",
         actualTime.getTime(),
+        tempF,
       );
       const maxServeMs = Math.max(
         0,

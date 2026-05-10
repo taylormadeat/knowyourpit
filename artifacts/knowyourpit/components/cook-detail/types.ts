@@ -76,6 +76,8 @@ export interface ScheduleItem {
   wrapAtMinutes?: number | null;
   wrapTempF?: number | null;
   wrapReason?: string | null;
+  /** Target internal temperature at which the item is considered done (pull temp). */
+  targetTempF?: number | null;
 }
 
 export interface FrozenStageInfo {
