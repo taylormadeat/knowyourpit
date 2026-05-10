@@ -212,61 +212,79 @@ export default function SignUpScreen() {
           ],
         });
         if (!credential.identityToken) throw new Error("No identity token from Apple.");
+
+        // Step 1: Always start with signIn.create — this registers the Apple OAuth
+        // session with the Clerk client. For existing users it completes the sign-in;
+        // for new users Clerk either marks firstFactorVerification.status="transferable"
+        // or throws an "account not found" type error (legacy SDK). In both cases the
+        // OAuth context is retained on the client for use by signUp.create({ transfer: true }).
+        let signInThrew = false;
         try {
-          const attempt = await signUp.create({
+          await signIn.create({
             strategy: "oauth_token_apple",
             token: credential.identityToken,
           });
-          if (attempt.status === "complete") {
-            await setActive({ session: attempt.createdSessionId });
-            router.replace("/(tabs)");
-          } else if (attempt.status === "missing_requirements") {
-            const missing = attempt.missingFields ?? [];
-            if (missing.includes("username")) {
-              const base = (
-                attempt.emailAddress?.split("@")[0] ??
-                credential.fullName?.givenName ??
-                "user"
-              )
-                .replace(/[^a-z0-9]/gi, "")
-                .toLowerCase()
-                .slice(0, 15);
-              const suffix = Math.floor(Math.random() * 9000 + 1000);
-              const updated = await attempt.update({ username: `${base}${suffix}` });
-              if (updated.status === "complete" && updated.createdSessionId) {
-                await setActive({ session: updated.createdSessionId });
-                router.replace("/(tabs)");
-              } else {
-                setErrorMsg("Apple sign-in could not be completed. Please try again.");
-              }
-            } else if (missing.includes("email_address")) {
-              setErrorMsg("Apple couldn't share your email this time. Please sign up with email instead.");
-            } else {
-              setErrorMsg("Apple sign-in could not be completed. Please try again.");
-            }
-          } else {
-            setErrorMsg("Apple sign-in could not be completed. Please try again.");
-          }
-        } catch (signUpErr: any) {
-          const code = signUpErr?.errors?.[0]?.code;
+        } catch (signInErr: any) {
+          signInThrew = true;
+          const code = signInErr?.errors?.[0]?.code;
           if (
-            code === "form_identifier_exists" ||
-            code === "external_account_exists"
+            code !== "form_identifier_not_found" &&
+            code !== "strategy_for_user_invalid" &&
+            code !== "external_account_not_found"
           ) {
-            const attempt = await signIn.create({
-              strategy: "oauth_token_apple",
-              token: credential.identityToken,
-            });
-            if (attempt.status === "complete") {
-              await signInSetActive({ session: attempt.createdSessionId });
-              router.replace("/(tabs)");
-            } else {
-              setErrorMsg("Apple sign-in could not be completed. Please try again.");
-            }
-          } else {
-            throw signUpErr;
+            throw signInErr;
           }
         }
+
+        // Step 2: Existing user — sign-in completed
+        if (!signInThrew && signIn.createdSessionId) {
+          await signInSetActive({ session: signIn.createdSessionId });
+          router.replace("/(tabs)");
+          return;
+        }
+
+        // Step 3: New user — TRANSFER the Apple OAuth context from signIn into a
+        // sign-up. Using { transfer: true } is REQUIRED here. Calling
+        // signUp.create({ strategy, token }) directly creates a sign-up that is not
+        // properly authorized for subsequent update() calls (results in "you are not
+        // authorized to perform this request"). This matches Clerk's official
+        // useSignInWithApple.ios.js implementation.
+        const signUpAttempt = await signUp.create({ transfer: true });
+
+        if (signUpAttempt.status === "complete" && signUpAttempt.createdSessionId) {
+          await setActive({ session: signUpAttempt.createdSessionId });
+          router.replace("/(tabs)");
+          return;
+        }
+
+        if (signUpAttempt.status === "missing_requirements") {
+          const missing = signUpAttempt.missingFields ?? [];
+          if (missing.includes("username")) {
+            const base = (
+              signUpAttempt.emailAddress?.split("@")[0] ??
+              credential.fullName?.givenName ??
+              "user"
+            )
+              .replace(/[^a-z0-9]/gi, "")
+              .toLowerCase()
+              .slice(0, 15);
+            const suffix = Math.floor(Math.random() * 9000 + 1000);
+            const updated = await signUp.update({ username: `${base}${suffix}` });
+            if (updated.status === "complete" && updated.createdSessionId) {
+              await setActive({ session: updated.createdSessionId });
+              router.replace("/(tabs)");
+              return;
+            }
+            setErrorMsg("Apple sign-in could not be completed. Please try again.");
+            return;
+          }
+          if (missing.includes("email_address")) {
+            setErrorMsg("Apple couldn't share your email this time. Please sign up with email instead.");
+            return;
+          }
+        }
+
+        setErrorMsg("Apple sign-in could not be completed. Please try again.");
       } catch (e: any) {
         if ((e as any).code === "ERR_REQUEST_CANCELED") return;
         const rawMsg: string =
