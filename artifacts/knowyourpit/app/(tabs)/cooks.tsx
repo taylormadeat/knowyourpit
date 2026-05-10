@@ -517,6 +517,19 @@ export default function CooksScreen() {
               </View>
             </View>
           ) : null}
+          {inSession && bar !== null && (
+            <View
+              style={{
+                marginTop: 7,
+                height: 3,
+                borderRadius: 2,
+                backgroundColor: colors.border,
+                overflow: "hidden",
+              }}
+            >
+              <AnimatedBarFill progress={bar.progress} color={bar.color} borderRadius={2} />
+            </View>
+          )}
           {isActive && elapsedMs !== null && (
             <Text style={[s.liveElapsed, { color: "#E84820" }]}>
               {fmtElapsed(elapsedMs)} on the smoker
@@ -705,7 +718,7 @@ export default function CooksScreen() {
           <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
         </View>
         </View>
-        {bar !== null && (
+        {!inSession && bar !== null && (
           <View style={{ height: 4, backgroundColor: colors.border, overflow: "hidden" }}>
             <View
               style={{
