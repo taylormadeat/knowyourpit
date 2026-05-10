@@ -35,7 +35,7 @@ import {
   type CompetitionCategory,
 } from "@/constants/competitionKnowledge";
 import { getCookCardBar, type CookCardBar } from "@/utils/cookCardBar";
-import { fmtRemaining } from "@/components/cook-detail/CookProgressBar";
+import { fmtRemaining, barColor, clamp } from "@/components/cook-detail/CookProgressBar";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
@@ -788,15 +788,49 @@ export default function CooksScreen() {
               const isOver = nowMs > latestFinishMs;
               const remainingMs = isOver ? 0 : latestFinishMs - nowMs;
               const overMs = isOver ? nowMs - latestFinishMs : 0;
+
+              const startTimes = activeCooks
+                .map((c: any) => {
+                  const raw = c.startedAt ?? c.plannedStartAt ?? null;
+                  if (!raw) return null;
+                  return (typeof raw === "string" ? new Date(raw) : raw).getTime();
+                })
+                .filter((t): t is number => t !== null);
+              const earliestStartMs = startTimes.length > 0 ? Math.min(...startTimes) : null;
+              const totalMs = earliestStartMs !== null ? latestFinishMs - earliestStartMs : 0;
+              const elapsedMs = earliestStartMs !== null ? nowMs - earliestStartMs : 0;
+              const rawProgress = totalMs > 0 ? elapsedMs / totalMs : 0;
+              const progress = clamp(rawProgress, 0, 1);
+              const accent = barColor(progress, isOver);
+
               return (
-                <Text
-                  style={[
-                    s.liveElapsed,
-                    { color: isOver ? "#ef4444" : colors.mutedForeground, fontFamily: "Inter_400Regular" },
-                  ]}
-                >
-                  {fmtRemaining(remainingMs, isOver, overMs)}
-                </Text>
+                <View style={{ marginTop: 4 }}>
+                  <Text
+                    style={[
+                      s.liveElapsed,
+                      { color: isOver ? "#ef4444" : colors.mutedForeground, fontFamily: "Inter_400Regular", marginBottom: 5 },
+                    ]}
+                  >
+                    {fmtRemaining(remainingMs, isOver, overMs)}
+                  </Text>
+                  <View
+                    style={{
+                      height: 5,
+                      borderRadius: 3,
+                      backgroundColor: colors.border,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: `${progress * 100}%`,
+                        height: "100%",
+                        borderRadius: 3,
+                        backgroundColor: accent,
+                      }}
+                    />
+                  </View>
+                </View>
               );
             })()}
             {isComp && compCategories.length > 0 && (
