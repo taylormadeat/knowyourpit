@@ -17,6 +17,7 @@ import { useSSO } from "@clerk/expo";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import * as AppleAuthentication from "expo-apple-authentication";
+import * as Crypto from "expo-crypto";
 import { Link, useRouter } from "expo-router";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useAuthColors } from "@/hooks/useAuthColors";
@@ -203,55 +204,80 @@ export default function SignUpScreen() {
   const handleApple = useCallback(async () => {
     if (Platform.OS === "ios") {
       if (!signUp || !setActive || !signIn || !signInSetActive) return;
+      const log = (step: string, data: Record<string, unknown> = {}) => {
+        console.log(`[apple-signin] ${step}`, data);
+      };
       try {
         setAppleLoading(true);
+
+        // Generate nonce — Apple embeds it in the identity token JWT and Clerk's
+        // backend validates it. Without a nonce, Clerk treats the token as
+        // lower-trust and rejects signUp.create({ transfer: true }) with
+        // "you are not authorized to perform this request". This matches Clerk's
+        // official useSignInWithApple.ios.js hook exactly.
+        const nonce = Crypto.randomUUID();
+        log("apple.request", { hasNonce: true });
         const credential = await AppleAuthentication.signInAsync({
           requestedScopes: [
             AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
             AppleAuthentication.AppleAuthenticationScope.EMAIL,
           ],
+          nonce,
         });
-        if (!credential.identityToken) throw new Error("No identity token from Apple.");
-
-        // Step 1: Always start with signIn.create — this registers the Apple OAuth
-        // session with the Clerk client. For existing users it completes the sign-in;
-        // for new users Clerk either marks firstFactorVerification.status="transferable"
-        // or throws an "account not found" type error (legacy SDK). In both cases the
-        // OAuth context is retained on the client for use by signUp.create({ transfer: true }).
-        let signInThrew = false;
-        try {
-          await signIn.create({
-            strategy: "oauth_token_apple",
-            token: credential.identityToken,
-          });
-        } catch (signInErr: any) {
-          signInThrew = true;
-          const code = signInErr?.errors?.[0]?.code;
-          if (
-            code !== "form_identifier_not_found" &&
-            code !== "strategy_for_user_invalid" &&
-            code !== "external_account_not_found"
-          ) {
-            throw signInErr;
-          }
+        if (!credential.identityToken) {
+          log("apple.no_identity_token");
+          throw new Error("No identity token from Apple.");
         }
+        log("apple.credential", {
+          hasFullName: !!credential.fullName?.givenName,
+          hasEmail: !!credential.email,
+          userPresent: !!credential.user,
+        });
 
-        // Step 2: Existing user — sign-in completed
-        if (!signInThrew && signIn.createdSessionId) {
+        // Step 1: signIn.create registers the Apple OAuth session on the Clerk client.
+        // - Existing user → status "complete" with createdSessionId
+        // - New user     → firstFactorVerification.status === "transferable"
+        await signIn.create({
+          strategy: "oauth_token_apple",
+          token: credential.identityToken,
+        });
+        const ffvStatus = signIn.firstFactorVerification?.status;
+        log("signin.create.result", {
+          status: signIn.status,
+          firstFactorVerificationStatus: ffvStatus,
+          hasCreatedSessionId: !!signIn.createdSessionId,
+        });
+
+        // Step 2: Existing user
+        if (signIn.createdSessionId) {
+          log("signin.complete.set_active");
           await signInSetActive({ session: signIn.createdSessionId });
           router.replace("/(tabs)");
           return;
         }
 
-        // Step 3: New user — TRANSFER the Apple OAuth context from signIn into a
-        // sign-up. Using { transfer: true } is REQUIRED here. Calling
-        // signUp.create({ strategy, token }) directly creates a sign-up that is not
-        // properly authorized for subsequent update() calls (results in "you are not
-        // authorized to perform this request"). This matches Clerk's official
-        // useSignInWithApple.ios.js implementation.
-        const signUpAttempt = await signUp.create({ transfer: true });
+        // Step 3: New user — branch on Clerk's documented "transferable" status.
+        // This matches the official useSignInWithApple.ios.js hook line-for-line.
+        if (ffvStatus !== "transferable") {
+          log("signin.not_transferable", { status: ffvStatus });
+          setErrorMsg("Apple sign-in could not be completed. Please try again.");
+          return;
+        }
+
+        log("signup.transfer.create");
+        const signUpAttempt = await signUp.create({
+          transfer: true,
+          unsafeMetadata: { signInProvider: "apple" },
+        });
+        log("signup.transfer.result", {
+          status: signUpAttempt.status,
+          missingFields: signUpAttempt.missingFields,
+          hasCreatedSessionId: !!signUpAttempt.createdSessionId,
+          hasEmailAddress: !!signUpAttempt.emailAddress,
+        });
 
         if (signUpAttempt.status === "complete" && signUpAttempt.createdSessionId) {
+          log("signup.complete.set_active");
           await setActive({ session: signUpAttempt.createdSessionId });
           router.replace("/(tabs)");
           return;
@@ -269,7 +295,13 @@ export default function SignUpScreen() {
               .toLowerCase()
               .slice(0, 15);
             const suffix = Math.floor(Math.random() * 9000 + 1000);
-            const updated = await signUp.update({ username: `${base}${suffix}` });
+            const generatedUsername = `${base}${suffix}`;
+            log("signup.update.username", { length: generatedUsername.length });
+            const updated = await signUp.update({ username: generatedUsername });
+            log("signup.update.result", {
+              status: updated.status,
+              hasCreatedSessionId: !!updated.createdSessionId,
+            });
             if (updated.status === "complete" && updated.createdSessionId) {
               await setActive({ session: updated.createdSessionId });
               router.replace("/(tabs)");
@@ -284,12 +316,24 @@ export default function SignUpScreen() {
           }
         }
 
+        log("signup.unhandled", { status: signUpAttempt.status });
         setErrorMsg("Apple sign-in could not be completed. Please try again.");
       } catch (e: any) {
-        if ((e as any).code === "ERR_REQUEST_CANCELED") return;
+        if ((e as any).code === "ERR_REQUEST_CANCELED") {
+          log("apple.cancelled");
+          return;
+        }
+        const clerkErr = e?.errors?.[0];
+        log("apple.error", {
+          name: e?.name,
+          code: clerkErr?.code,
+          longMessage: clerkErr?.longMessage,
+          message: clerkErr?.message ?? e?.message,
+          metaSessionId: e?.meta?.session_id,
+        });
         const rawMsg: string =
-          e?.errors?.[0]?.longMessage ??
-          e?.errors?.[0]?.message ??
+          clerkErr?.longMessage ??
+          clerkErr?.message ??
           e?.message ??
           "";
         const friendly = /oauth_token_apple|allowed values for parameter strategy/i.test(rawMsg)
