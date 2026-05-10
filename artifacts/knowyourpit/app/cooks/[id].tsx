@@ -1699,6 +1699,33 @@ export default function CookDetailScreen() {
           showCookDetails={showCookDetails}
           setShowCookDetails={setShowCookDetails}
         />
+
+        {/* ── Start Cook CTA (planned cooks only, above the schedule) ── */}
+        {cookStatus === "planned" && (
+          <Pressable
+            style={({ pressed }) => [
+              s.actionBtn,
+              {
+                backgroundColor: STATUS_COLORS["active"] || colors.primary,
+                borderRadius: colors.radius,
+                marginTop: 4,
+              },
+              (updateCook.isPending || pressed) && { opacity: 0.7 },
+            ]}
+            onPress={() => handleStatusUpdate("active")}
+            disabled={updateCook.isPending}
+          >
+            {updateCook.isPending ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Feather name="play" size={18} color="#fff" />
+                <Text style={s.actionText}>Start Cook</Text>
+              </>
+            )}
+          </Pressable>
+        )}
+
         {/* ── Technique chips (shown when any technique was saved on the cook) ── */}
         {(c.cookingMethod || c.injection || c.spritzFrequency || c.wrapFinish) && (
           <View style={{ backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border, padding: 14 }}>
@@ -1890,8 +1917,8 @@ export default function CookDetailScreen() {
           showPaywall={showPaywall}
         />
 
-        {/* Status action button */}
-        {nextStatus && (
+        {/* Status action button — hidden for planned (the prominent Start Cook CTA above handles that) */}
+        {nextStatus && cookStatus !== "planned" && (
           <Pressable
             style={({ pressed }) => [s.actionBtn, { backgroundColor: statusColor, borderRadius: colors.radius }, (updateCook.isPending || pressed) && { opacity: 0.7 }]}
             onPress={() => handleStatusUpdate(nextStatus)}
