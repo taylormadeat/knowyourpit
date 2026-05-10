@@ -1,4 +1,4 @@
-import VideoWithControls from "@/components/video/VideoWithControls";
+import VideoTemplate from "@/components/video/VideoTemplate";
 
 /**
  * Outer page: black letterbox frame.
@@ -20,7 +20,7 @@ export default function App() {
           containerType: "size",
         }}
       >
-        <VideoWithControls />
+        <VideoTemplate />
       </div>
     </div>
   );
