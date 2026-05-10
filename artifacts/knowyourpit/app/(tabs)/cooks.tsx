@@ -726,6 +726,32 @@ export default function CooksScreen() {
                 {group.sessionNotes}
               </Text>
             ) : null}
+            {hasActive && (() => {
+              const activeCooks = group.cooks.filter((c: any) => c.status === "active");
+              const finishTimes = activeCooks
+                .map((c: any) => {
+                  const seqFinish = c.sequenceData?.schedule?.[0]?.estimatedFinishAt ?? null;
+                  const raw = seqFinish ?? c.plannedEndAt ?? null;
+                  if (!raw) return null;
+                  return (typeof raw === "string" ? new Date(raw) : raw).getTime();
+                })
+                .filter((t): t is number => t !== null);
+              if (finishTimes.length === 0) return null;
+              const latestFinishMs = Math.max(...finishTimes);
+              const isOver = nowMs > latestFinishMs;
+              const remainingMs = isOver ? 0 : latestFinishMs - nowMs;
+              const overMs = isOver ? nowMs - latestFinishMs : 0;
+              return (
+                <Text
+                  style={[
+                    s.liveElapsed,
+                    { color: isOver ? "#ef4444" : colors.mutedForeground, fontFamily: "Inter_400Regular" },
+                  ]}
+                >
+                  {fmtRemaining(remainingMs, isOver, overMs)}
+                </Text>
+              );
+            })()}
             {isComp && compCategories.length > 0 && (
               <View style={[s.sessionTagsRow, { marginTop: 4 }]}>
                 {compCategories.map((cat) => {
