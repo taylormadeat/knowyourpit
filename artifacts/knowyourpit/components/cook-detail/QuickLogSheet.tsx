@@ -60,6 +60,7 @@ export function QuickLogSheet({ visible, onClose, cookId, colors, onEventLogged,
   const [selectedType, setSelectedType] = useState<EventType | null>(null);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const createEvent = useCreateCookEvent();
 
@@ -85,15 +86,13 @@ export function QuickLogSheet({ visible, onClose, cookId, colors, onEventLogged,
       if (selectedType === "user_note" && noteText.trim()) {
         onNoteLogged?.(noteText.trim());
       }
+      setSaveError(null);
       setNote("");
       setSelectedType(null);
       onClose();
     } catch {
-      Alert.alert(
-        "Couldn't save",
-        "Check your connection and try again.",
-        [{ text: "OK" }],
-      );
+      setSaveError("Couldn't save — check your connection and try again.");
+      Alert.alert("Couldn't save", "Check your connection and try again.", [{ text: "OK" }]);
     } finally {
       setSaving(false);
     }
@@ -102,6 +101,7 @@ export function QuickLogSheet({ visible, onClose, cookId, colors, onEventLogged,
   const handleClose = () => {
     setNote("");
     setSelectedType(null);
+    setSaveError(null);
     onClose();
   };
 
@@ -263,6 +263,19 @@ export function QuickLogSheet({ visible, onClose, cookId, colors, onEventLogged,
                       </Text>
                     )}
                   </Pressable>
+
+                  {/* Inline error feedback */}
+                  {saveError && (
+                    <Text style={{
+                      fontFamily: "Inter_400Regular",
+                      fontSize: 13,
+                      color: "#EF4444",
+                      textAlign: "center",
+                      marginTop: -4,
+                    }}>
+                      {saveError}
+                    </Text>
+                  )}
 
                   {/* Quick-submit without note for non-required events */}
                   {!isNoteRequired && note.trim().length === 0 && (

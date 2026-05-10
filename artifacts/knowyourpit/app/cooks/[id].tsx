@@ -2285,8 +2285,10 @@ export default function CookDetailScreen() {
           qc.invalidateQueries({ queryKey: getListCookEventsQueryKey(Number(id)) });
         }}
         onNoteLogged={(noteText) => {
-          // Inject the note directly into the analysis call so PitMaster
-          // sees it immediately — no React state update cycle needed.
+          // Persist note into cookNotes so subsequent manual analyses include it.
+          setCookNotes((prev) => (prev.trim() ? `${prev.trim()}\n${noteText}` : noteText));
+          // Inject directly into analysis call so PitMaster sees it
+          // immediately without waiting for a React state update cycle.
           analyze({ extraNotes: noteText });
         }}
       />
