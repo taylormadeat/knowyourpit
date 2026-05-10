@@ -1398,6 +1398,14 @@ export const CreateCookEventBody = zod.object({
 });
 
 /**
+ * @summary Retract (delete) a specific cook event
+ */
+export const DeleteCookEventParams = zod.object({
+  id: zod.coerce.number(),
+  eventId: zod.coerce.number(),
+});
+
+/**
  * @summary Get the computed health score for a cook
  */
 export const GetCookHealthParams = zod.object({

@@ -361,18 +361,52 @@ export default function CookDetailScreen() {
       });
       qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
 
-      // Post a cook event for high-signal milestones so they appear in the Pit Journal
-      if (isConfirming && (step === "stall" || step === "probeTender")) {
+      // Post or retract a cook event for high-signal milestones so they appear in the Pit Journal
+      if (step === "stall" || step === "probeTender") {
         const noteText = step === "stall" ? "Stall detected" : "Probe tender achieved";
         try {
           const token = await getToken();
           const headers: Record<string, string> = { "Content-Type": "application/json" };
           if (token) headers["Authorization"] = `Bearer ${token}`;
-          await fetch(`${API_BASE_URL}/api/cooks/${Number(id)}/events`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({ eventType: "user_note", note: noteText }),
-          });
+          if (isConfirming) {
+            await fetch(`${API_BASE_URL}/api/cooks/${Number(id)}/events`, {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                eventType: "user_note",
+                note: noteText,
+                metadata: { milestoneStep: step },
+              }),
+            });
+          } else {
+            // Un-confirming: retract the most recent auto-generated milestone journal entry.
+            // Match by metadata.milestoneStep so we don't accidentally delete a user-written
+            // note that happens to have the same text.
+            const eventsRes = await fetch(`${API_BASE_URL}/api/cooks/${Number(id)}/events`, {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (eventsRes.ok) {
+              const events: {
+                id: number;
+                eventType: string;
+                note: string | null;
+                metadata: Record<string, unknown> | null;
+              }[] = await eventsRes.json();
+              const match = [...events]
+                .reverse()
+                .find(
+                  (e) =>
+                    e.eventType === "user_note" &&
+                    e.metadata?.milestoneStep === step,
+                );
+              if (match) {
+                await fetch(`${API_BASE_URL}/api/cooks/${Number(id)}/events/${match.id}`, {
+                  method: "DELETE",
+                  headers: token ? { Authorization: `Bearer ${token}` } : {},
+                });
+              }
+            }
+          }
           qc.invalidateQueries({ queryKey: getListCookEventsQueryKey(Number(id)) });
         } catch {
           // Journal events are best-effort — don't block or alert the user

@@ -491,6 +491,28 @@ paths:
         "404":
           description: Cook not found
 
+  /cooks/{id}/events/{eventId}:
+    delete:
+      operationId: deleteCookEvent
+      tags: [cooks]
+      summary: Retract (delete) a specific cook event
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Event deleted
+        "404":
+          description: Cook or event not found
+
   /cooks/{id}/health:
     get:
       operationId: getCookHealth

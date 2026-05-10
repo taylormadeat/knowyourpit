@@ -243,6 +243,41 @@ router.post("/cooks/:id/events", requireAuth, async (req: any, res): Promise<voi
   res.status(201).json(event);
 });
 
+const DeleteCookEventParams = z.object({
+  id: z.coerce.number().int().positive(),
+  eventId: z.coerce.number().int().positive(),
+});
+
+router.delete("/cooks/:id/events/:eventId", requireAuth, async (req: any, res): Promise<void> => {
+  const params = DeleteCookEventParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [cook] = await db
+    .select({ id: cooksTable.id })
+    .from(cooksTable)
+    .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)));
+
+  if (!cook) {
+    res.status(404).json({ error: "Cook not found" });
+    return;
+  }
+
+  const [deleted] = await db
+    .delete(cookEvents)
+    .where(and(eq(cookEvents.id, params.data.eventId), eq(cookEvents.cookId, params.data.id)))
+    .returning({ id: cookEvents.id });
+
+  if (!deleted) {
+    res.status(404).json({ error: "Event not found" });
+    return;
+  }
+
+  res.status(204).end();
+});
+
 router.get("/cooks/:id/health", requireAuth, async (req: any, res): Promise<void> => {
   const params = CookEventIdParams.safeParse(req.params);
   if (!params.success) {

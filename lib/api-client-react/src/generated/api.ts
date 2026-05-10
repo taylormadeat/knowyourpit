@@ -2043,6 +2043,91 @@ export const useCreateCookEvent = <
 };
 
 /**
+ * @summary Retract (delete) a specific cook event
+ */
+export const getDeleteCookEventUrl = (id: number, eventId: number) => {
+  return `/api/cooks/${id}/events/${eventId}`;
+};
+
+export const deleteCookEvent = async (
+  id: number,
+  eventId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteCookEventUrl(id, eventId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCookEventMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCookEvent>>,
+    TError,
+    { id: number; eventId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCookEvent>>,
+  TError,
+  { id: number; eventId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteCookEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCookEvent>>,
+    { id: number; eventId: number }
+  > = (props) => {
+    const { id, eventId } = props ?? {};
+
+    return deleteCookEvent(id, eventId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCookEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCookEvent>>
+>;
+
+export type DeleteCookEventMutationError = ErrorType<void>;
+
+/**
+ * @summary Retract (delete) a specific cook event
+ */
+export const useDeleteCookEvent = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCookEvent>>,
+    TError,
+    { id: number; eventId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCookEvent>>,
+  TError,
+  { id: number; eventId: number },
+  TContext
+> => {
+  return useMutation(getDeleteCookEventMutationOptions(options));
+};
+
+/**
  * @summary Get the computed health score for a cook
  */
 export const getGetCookHealthUrl = (id: number) => {
