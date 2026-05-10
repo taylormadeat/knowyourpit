@@ -1580,7 +1580,7 @@ export default function CookDetailScreen() {
     const upper = c.finishTimeRangeUpper;
     if (lower && upper) {
       const upperMs = new Date(upper).getTime();
-      if (upperMs > Date.now()) {
+      if (upperMs > nowMs) {
         return (new Date(lower).getTime() + upperMs) / 2;
       }
     }
@@ -1588,7 +1588,7 @@ export default function CookDetailScreen() {
     if (seqFinish) return new Date(seqFinish).getTime();
     if (c.plannedEndAt) return new Date(c.plannedEndAt).getTime();
     return null;
-  }, [c.finishTimeRangeLower, c.finishTimeRangeUpper, cookSeqData, c.plannedEndAt]);
+  }, [c.finishTimeRangeLower, c.finishTimeRangeUpper, cookSeqData, c.plannedEndAt, nowMs]);
 
   // Live graph from accumulated MEATER readings
   const liveGraphProbes = liveReadings.length >= 2
