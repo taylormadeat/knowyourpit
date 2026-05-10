@@ -1571,6 +1571,25 @@ export default function CookDetailScreen() {
   const elapsedMs = c.actualStartAt ? nowMs - new Date(c.actualStartAt).getTime() : 0;
   const remainingMs = c.plannedEndAt ? new Date(c.plannedEndAt).getTime() - nowMs : null;
 
+  // Best-available finish estimate for the progress bar (priority order):
+  // 1. AI-refined confidence window midpoint (updated live by check-in analysis)
+  // 2. sequenceData estimatedFinishAt (AI plan, rippled when steps are confirmed)
+  // 3. plannedEndAt (user-set serve time — least accurate)
+  const estimatedFinishMs = useMemo(() => {
+    const lower = c.finishTimeRangeLower;
+    const upper = c.finishTimeRangeUpper;
+    if (lower && upper) {
+      const upperMs = new Date(upper).getTime();
+      if (upperMs > Date.now()) {
+        return (new Date(lower).getTime() + upperMs) / 2;
+      }
+    }
+    const seqFinish = cookSeqData?.schedule?.[0]?.estimatedFinishAt;
+    if (seqFinish) return new Date(seqFinish).getTime();
+    if (c.plannedEndAt) return new Date(c.plannedEndAt).getTime();
+    return null;
+  }, [c.finishTimeRangeLower, c.finishTimeRangeUpper, cookSeqData, c.plannedEndAt]);
+
   // Live graph from accumulated MEATER readings
   const liveGraphProbes = liveReadings.length >= 2
     ? [{ probeName: meaterProbes[0]?.deviceName ?? "Probe 1", timeSeries: liveReadings, finishingTempF: liveReadings[liveReadings.length - 1].tempF }]
@@ -1894,6 +1913,7 @@ export default function CookDetailScreen() {
           cardWidth={cardWidth}
           elapsedMs={elapsedMs}
           remainingMs={remainingMs}
+          estimatedFinishMs={estimatedFinishMs}
           userTempEdited={userTempEdited}
           setAlertSheetVisible={setAlertSheetVisible}
           setAlertMode={setAlertMode}

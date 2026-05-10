@@ -6,6 +6,7 @@ import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
 import { weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
 import { fmtElapsed, getOutdoorTempEffect } from "./utils";
 import { COMPETITION_CATEGORY_COLOR, COMPETITION_CATEGORY_LABEL, type CompetitionCategory } from "@/constants/competitionKnowledge";
+import { CookProgressBar } from "./CookProgressBar";
 
 function fmtTurnInCountdown(diffMs: number): string {
   if (diffMs <= 0) return "now";
@@ -33,6 +34,7 @@ interface Props {
   cardWidth: number;
   elapsedMs: number;
   remainingMs: number | null;
+  estimatedFinishMs: number | null;
   userTempEdited: boolean;
   setAlertSheetVisible: (v: boolean) => void;
   setAlertMode: (m: "temp" | "timer") => void;
@@ -43,8 +45,8 @@ interface Props {
 export function LiveCookSection(p: Props) {
   const {
     c, colors, weather, meaterLinked, meaterProbes, thermoworksLinked, thermoworksProbes,
-    liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, userTempEdited,
-    setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
+    liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, estimatedFinishMs,
+    userTempEdited, setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
   } = p;
 
   if (c.status !== "active") return null;
@@ -107,6 +109,13 @@ export function LiveCookSection(p: Props) {
       </View>
 
       {turnInBadge}
+
+      <CookProgressBar
+        startMs={c.actualStartAt ? new Date(c.actualStartAt).getTime() : 0}
+        estimatedFinishMs={estimatedFinishMs}
+        nowMs={nowMs ?? Date.now()}
+        colors={colors}
+      />
 
       <View style={[s.timerRow, { borderTopColor: colors.border }]}>
         <View style={[s.timerChip, { backgroundColor: colors.primary + "18", borderColor: colors.primary + "30" }]}>
