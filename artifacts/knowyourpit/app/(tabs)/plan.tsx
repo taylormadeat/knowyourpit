@@ -41,6 +41,7 @@ import {
 } from "@workspace/api-client-react";
 import { NextUpBanner, getStepTargetMs } from "@/components/NextUpBanner";
 import { computeNextStep } from "@/components/cook-detail/utils";
+import { fmtRemaining } from "@/components/cook-detail/CookProgressBar";
 import type { SequenceData } from "@/components/cook-detail/types";
 import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
 import {
@@ -178,6 +179,17 @@ export default function PlanScreen() {
   const activeElapsedMs = activeCook?.actualStartAt
     ? bannerNowMs - new Date(activeCook.actualStartAt).getTime()
     : 0;
+
+  const activeCookRemainingLabel = useMemo(() => {
+    const seqFinish = activeSeqData?.schedule?.[0]?.estimatedFinishAt;
+    const rawFinish = seqFinish ?? activeCook?.plannedEndAt ?? null;
+    if (!rawFinish) return null;
+    const finishMs = new Date(rawFinish).getTime();
+    const overMs = Math.max(0, bannerNowMs - finishMs);
+    const remainingMs = Math.max(0, finishMs - bannerNowMs);
+    const isOver = bannerNowMs >= finishMs;
+    return fmtRemaining(remainingMs, isOver, overMs);
+  }, [activeSeqData, activeCook?.plannedEndAt, bannerNowMs]);
 
   // ── Form state ───────────────────────────────────────────────────────
   const [cookName, setCookName] = useState("");
@@ -818,9 +830,24 @@ export default function PlanScreen() {
           >
             <View style={s.nowCookingLeft}>
               <View style={[s.nowCookingDot, { backgroundColor: "#fff" }]} />
-              <Text style={s.nowCookingTitle} numberOfLines={1}>
-                🔥 Now cooking · {activeCook.foodType ?? "Cook in progress"}
-              </Text>
+              <View style={{ flexShrink: 1 }}>
+                <Text style={s.nowCookingTitle} numberOfLines={1}>
+                  🔥 Now cooking · {activeCook.foodType ?? "Cook in progress"}
+                </Text>
+                {activeCookRemainingLabel && (
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontFamily: "Inter_400Regular",
+                      color: "#ffffff99",
+                      marginTop: 1,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {activeCookRemainingLabel}
+                  </Text>
+                )}
+              </View>
             </View>
             <Text style={s.nowCookingElapsed}>
               {activeElapsedMs > 0 ? fmtElapsedPlan(activeElapsedMs) : "Just started"}

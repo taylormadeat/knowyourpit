@@ -23,7 +23,7 @@ function fmtFinishTime(finishMs: number): string {
   return `Done ~${h}:${m} ${ampm}`;
 }
 
-function fmtRemaining(remainingMs: number, isOver: boolean, overMs: number): string {
+export function fmtRemaining(remainingMs: number, isOver: boolean, overMs: number): string {
   if (isOver) return `+${fmtDuration(overMs)} over`;
   return `~${fmtDuration(remainingMs)} remaining`;
 }
