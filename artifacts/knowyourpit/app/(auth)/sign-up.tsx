@@ -237,28 +237,51 @@ export default function SignUpScreen() {
         // Step 1: signIn.create registers the Apple OAuth session on the Clerk client.
         // - Existing user → status "complete" with createdSessionId
         // - New user     → firstFactorVerification.status === "transferable"
-        await signIn.create({
-          strategy: "oauth_token_apple",
-          token: credential.identityToken,
-        });
-        const ffvStatus = signIn.firstFactorVerification?.status;
+        // We use the returned resource directly (don't rely on mutated hook state)
+        // and keep a narrow defensive catch for legacy SDK paths that throw on
+        // unknown user instead of returning a transferable status.
+        let signInResult: typeof signIn | null = null;
+        let signInThrewTransferable = false;
+        try {
+          signInResult = await signIn.create({
+            strategy: "oauth_token_apple",
+            token: credential.identityToken,
+          });
+        } catch (signInErr: any) {
+          const code = signInErr?.errors?.[0]?.code;
+          log("signin.create.threw", { code, message: signInErr?.errors?.[0]?.message });
+          if (
+            code === "form_identifier_not_found" ||
+            code === "strategy_for_user_invalid" ||
+            code === "external_account_not_found"
+          ) {
+            // Legacy "no Clerk user yet" — proceed to transfer-mode sign-up.
+            signInThrewTransferable = true;
+          } else {
+            throw signInErr;
+          }
+        }
+        const ffvStatus = signInResult?.firstFactorVerification?.status;
+        const createdSessionId = signInResult?.createdSessionId;
         log("signin.create.result", {
-          status: signIn.status,
+          status: signInResult?.status,
           firstFactorVerificationStatus: ffvStatus,
-          hasCreatedSessionId: !!signIn.createdSessionId,
+          hasCreatedSessionId: !!createdSessionId,
+          threwTransferable: signInThrewTransferable,
         });
 
         // Step 2: Existing user
-        if (signIn.createdSessionId) {
+        if (createdSessionId) {
           log("signin.complete.set_active");
-          await signInSetActive({ session: signIn.createdSessionId });
+          await signInSetActive({ session: createdSessionId });
           router.replace("/(tabs)");
           return;
         }
 
-        // Step 3: New user — branch on Clerk's documented "transferable" status.
-        // This matches the official useSignInWithApple.ios.js hook line-for-line.
-        if (ffvStatus !== "transferable") {
+        // Step 3: New user — branch on Clerk's documented "transferable" status,
+        // OR on the legacy thrown-error fallback. Either way the OAuth context is
+        // attached on the client and signUp.create({ transfer: true }) will work.
+        if (ffvStatus !== "transferable" && !signInThrewTransferable) {
           log("signin.not_transferable", { status: ffvStatus });
           setErrorMsg("Apple sign-in could not be completed. Please try again.");
           return;
