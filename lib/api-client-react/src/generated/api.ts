@@ -27,10 +27,13 @@ import type {
   CheckinScheduleItem,
   Cook,
   CookCheckin,
+  CookHealthScore,
+  CookLogEvent,
   CookingTip,
   CreateAlertBody,
   CreateCookBody,
   CreateCookCheckinBody,
+  CreateCookEventBody,
   CreateCustomMeatCutBody,
   CreateForumCommentBody,
   CreateForumPostBody,
@@ -1864,6 +1867,267 @@ export const useCreateCookCheckin = <
 > => {
   return useMutation(getCreateCookCheckinMutationOptions(options));
 };
+
+/**
+ * @summary Get all quick-log events for a cook
+ */
+export const getListCookEventsUrl = (id: number) => {
+  return `/api/cooks/${id}/events`;
+};
+
+export const listCookEvents = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CookLogEvent[]> => {
+  return customFetch<CookLogEvent[]>(getListCookEventsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCookEventsQueryKey = (id: number) => {
+  return [`/api/cooks/${id}/events`] as const;
+};
+
+export const getListCookEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCookEvents>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCookEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCookEventsQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCookEvents>>> = ({
+    signal,
+  }) => listCookEvents(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCookEvents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCookEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCookEvents>>
+>;
+export type ListCookEventsQueryError = ErrorType<void>;
+
+/**
+ * @summary Get all quick-log events for a cook
+ */
+
+export function useListCookEvents<
+  TData = Awaited<ReturnType<typeof listCookEvents>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCookEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCookEventsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Log a quick event during an active cook
+ */
+export const getCreateCookEventUrl = (id: number) => {
+  return `/api/cooks/${id}/events`;
+};
+
+export const createCookEvent = async (
+  id: number,
+  createCookEventBody: CreateCookEventBody,
+  options?: RequestInit,
+): Promise<CookLogEvent> => {
+  return customFetch<CookLogEvent>(getCreateCookEventUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCookEventBody),
+  });
+};
+
+export const getCreateCookEventMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCookEvent>>,
+    TError,
+    { id: number; data: BodyType<CreateCookEventBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCookEvent>>,
+  TError,
+  { id: number; data: BodyType<CreateCookEventBody> },
+  TContext
+> => {
+  const mutationKey = ["createCookEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCookEvent>>,
+    { id: number; data: BodyType<CreateCookEventBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return createCookEvent(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCookEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCookEvent>>
+>;
+export type CreateCookEventMutationBody = BodyType<CreateCookEventBody>;
+export type CreateCookEventMutationError = ErrorType<void>;
+
+/**
+ * @summary Log a quick event during an active cook
+ */
+export const useCreateCookEvent = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCookEvent>>,
+    TError,
+    { id: number; data: BodyType<CreateCookEventBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCookEvent>>,
+  TError,
+  { id: number; data: BodyType<CreateCookEventBody> },
+  TContext
+> => {
+  return useMutation(getCreateCookEventMutationOptions(options));
+};
+
+/**
+ * @summary Get the computed health score for a cook
+ */
+export const getGetCookHealthUrl = (id: number) => {
+  return `/api/cooks/${id}/health`;
+};
+
+export const getCookHealth = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CookHealthScore> => {
+  return customFetch<CookHealthScore>(getGetCookHealthUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCookHealthQueryKey = (id: number) => {
+  return [`/api/cooks/${id}/health`] as const;
+};
+
+export const getGetCookHealthQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCookHealth>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCookHealth>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCookHealthQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCookHealth>>> = ({
+    signal,
+  }) => getCookHealth(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCookHealth>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCookHealthQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCookHealth>>
+>;
+export type GetCookHealthQueryError = ErrorType<void>;
+
+/**
+ * @summary Get the computed health score for a cook
+ */
+
+export function useGetCookHealth<
+  TData = Awaited<ReturnType<typeof getCookHealth>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCookHealth>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCookHealthQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Register or update an iOS Live Activity push token for a cook

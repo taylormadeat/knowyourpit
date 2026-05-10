@@ -175,6 +175,26 @@ export interface Cook {
    * @nullable
    */
   wrapFinish?: string | null;
+  /**
+   * Lower bound of the finish time confidence range
+   * @nullable
+   */
+  finishTimeRangeLower?: Date | null;
+  /**
+   * Upper bound of the finish time confidence range
+   * @nullable
+   */
+  finishTimeRangeUpper?: Date | null;
+  /**
+   * Cook health letter grade (A, B, C, D, F)
+   * @nullable
+   */
+  healthScore?: string | null;
+  /**
+   * One-line explanation of the health score
+   * @nullable
+   */
+  healthScoreReason?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

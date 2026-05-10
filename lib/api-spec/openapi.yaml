@@ -443,6 +443,75 @@ paths:
         "404":
           description: Cook not found
 
+  /cooks/{id}/events:
+    get:
+      operationId: listCookEvents
+      tags: [cooks]
+      summary: Get all quick-log events for a cook
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of cook events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CookLogEvent"
+        "404":
+          description: Cook not found
+    post:
+      operationId: createCookEvent
+      tags: [cooks]
+      summary: Log a quick event during an active cook
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCookEventBody"
+      responses:
+        "201":
+          description: Event logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CookLogEvent"
+        "404":
+          description: Cook not found
+
+  /cooks/{id}/health:
+    get:
+      operationId: getCookHealth
+      tags: [cooks]
+      summary: Get the computed health score for a cook
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Cook health score
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CookHealthScore"
+        "404":
+          description: Cook not found
+
   /cooks/{id}/live-activity:
     post:
       operationId: registerCookLiveActivity
@@ -1579,6 +1648,20 @@ components:
         wrapFinish:
           type: ["string", "null"]
           description: Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
+        finishTimeRangeLower:
+          type: ["string", "null"]
+          format: date-time
+          description: Lower bound of the finish time confidence range
+        finishTimeRangeUpper:
+          type: ["string", "null"]
+          format: date-time
+          description: Upper bound of the finish time confidence range
+        healthScore:
+          type: ["string", "null"]
+          description: Cook health letter grade (A, B, C, D, F)
+        healthScoreReason:
+          type: ["string", "null"]
+          description: One-line explanation of the health score
         createdAt:
           type: string
           format: date-time
@@ -3172,3 +3255,95 @@ components:
           type: ["string", "null"]
       required:
         - scheduledAt
+
+    CookLogEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        cookId:
+          type: integer
+        occurredAt:
+          type: string
+          format: date-time
+        eventType:
+          type: string
+          enum: [lid_open, flare_up, spritz, charcoal_add, wood_add, fuel_low, vent_adjust, user_note, proactive_alert, voice_note]
+        note:
+          type: ["string", "null"]
+        metadata:
+          type: ["object", "null"]
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - cookId
+        - occurredAt
+        - eventType
+        - note
+        - metadata
+        - createdAt
+
+    CreateCookEventBody:
+      type: object
+      properties:
+        eventType:
+          type: string
+          enum: [lid_open, flare_up, spritz, charcoal_add, wood_add, fuel_low, vent_adjust, user_note, proactive_alert, voice_note]
+        note:
+          type: ["string", "null"]
+        occurredAt:
+          type: ["string", "null"]
+          format: date-time
+        metadata:
+          type: ["object", "null"]
+          additionalProperties: true
+      required:
+        - eventType
+
+    CookHealthScore:
+      type: object
+      properties:
+        cookId:
+          type: integer
+        grade:
+          type: string
+          description: "Letter grade: A, B, C, D, or F"
+          enum: [A, B, C, D, F]
+        reason:
+          type: string
+          description: One-line plain-English explanation of the grade
+        factors:
+          type: object
+          description: Breakdown of individual score contributors
+          properties:
+            tempTracking:
+              type: string
+              description: How well internal temps are tracking the expected range
+            stepTiming:
+              type: string
+              description: How on-time confirmed step completions are
+            issueCount:
+              type: integer
+              description: Number of flagged issues (flare-ups, stalls, drifts)
+            stallDetected:
+              type: boolean
+              description: Whether an extended stall was detected
+            pitDrift:
+              type: boolean
+              description: Whether significant pit temperature drift was detected
+          required:
+            - issueCount
+            - stallDetected
+            - pitDrift
+        computedAt:
+          type: string
+          format: date-time
+      required:
+        - cookId
+        - grade
+        - reason
+        - factors
+        - computedAt

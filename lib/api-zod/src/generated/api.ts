@@ -621,6 +621,22 @@ export const ListCooksResponseItem = zod.object({
     .describe(
       "Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)",
     ),
+  finishTimeRangeLower: zod.coerce
+    .date()
+    .nullish()
+    .describe("Lower bound of the finish time confidence range"),
+  finishTimeRangeUpper: zod.coerce
+    .date()
+    .nullish()
+    .describe("Upper bound of the finish time confidence range"),
+  healthScore: zod
+    .string()
+    .nullish()
+    .describe("Cook health letter grade (A, B, C, D, F)"),
+  healthScoreReason: zod
+    .string()
+    .nullish()
+    .describe("One-line explanation of the health score"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -911,6 +927,22 @@ export const GetCookResponse = zod.object({
     .describe(
       "Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)",
     ),
+  finishTimeRangeLower: zod.coerce
+    .date()
+    .nullish()
+    .describe("Lower bound of the finish time confidence range"),
+  finishTimeRangeUpper: zod.coerce
+    .date()
+    .nullish()
+    .describe("Upper bound of the finish time confidence range"),
+  healthScore: zod
+    .string()
+    .nullish()
+    .describe("Cook health letter grade (A, B, C, D, F)"),
+  healthScoreReason: zod
+    .string()
+    .nullish()
+    .describe("One-line explanation of the health score"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1210,6 +1242,22 @@ export const UpdateCookResponse = zod.object({
     .describe(
       "Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)",
     ),
+  finishTimeRangeLower: zod.coerce
+    .date()
+    .nullish()
+    .describe("Lower bound of the finish time confidence range"),
+  finishTimeRangeUpper: zod.coerce
+    .date()
+    .nullish()
+    .describe("Upper bound of the finish time confidence range"),
+  healthScore: zod
+    .string()
+    .nullish()
+    .describe("Cook health letter grade (A, B, C, D, F)"),
+  healthScoreReason: zod
+    .string()
+    .nullish()
+    .describe("One-line explanation of the health score"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1293,6 +1341,99 @@ export const CreateCookCheckinBody = zod.object({
   autoDismissed: zod.boolean().optional(),
   phaseLabel: zod.string().nullish(),
   phaseKey: zod.string().nullish(),
+});
+
+/**
+ * @summary Get all quick-log events for a cook
+ */
+export const ListCookEventsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListCookEventsResponseItem = zod.object({
+  id: zod.number(),
+  cookId: zod.number(),
+  occurredAt: zod.coerce.date(),
+  eventType: zod.enum([
+    "lid_open",
+    "flare_up",
+    "spritz",
+    "charcoal_add",
+    "wood_add",
+    "fuel_low",
+    "vent_adjust",
+    "user_note",
+    "proactive_alert",
+    "voice_note",
+  ]),
+  note: zod.string().nullable(),
+  metadata: zod.record(zod.string(), zod.unknown()).nullable(),
+  createdAt: zod.coerce.date(),
+});
+export const ListCookEventsResponse = zod.array(ListCookEventsResponseItem);
+
+/**
+ * @summary Log a quick event during an active cook
+ */
+export const CreateCookEventParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateCookEventBody = zod.object({
+  eventType: zod.enum([
+    "lid_open",
+    "flare_up",
+    "spritz",
+    "charcoal_add",
+    "wood_add",
+    "fuel_low",
+    "vent_adjust",
+    "user_note",
+    "proactive_alert",
+    "voice_note",
+  ]),
+  note: zod.string().nullish(),
+  occurredAt: zod.coerce.date().nullish(),
+  metadata: zod.record(zod.string(), zod.unknown()).nullish(),
+});
+
+/**
+ * @summary Get the computed health score for a cook
+ */
+export const GetCookHealthParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetCookHealthResponse = zod.object({
+  cookId: zod.number(),
+  grade: zod
+    .enum(["A", "B", "C", "D", "F"])
+    .describe("Letter grade: A, B, C, D, or F"),
+  reason: zod
+    .string()
+    .describe("One-line plain-English explanation of the grade"),
+  factors: zod
+    .object({
+      tempTracking: zod
+        .string()
+        .optional()
+        .describe("How well internal temps are tracking the expected range"),
+      stepTiming: zod
+        .string()
+        .optional()
+        .describe("How on-time confirmed step completions are"),
+      issueCount: zod
+        .number()
+        .describe("Number of flagged issues (flare-ups, stalls, drifts)"),
+      stallDetected: zod
+        .boolean()
+        .describe("Whether an extended stall was detected"),
+      pitDrift: zod
+        .boolean()
+        .describe("Whether significant pit temperature drift was detected"),
+    })
+    .describe("Breakdown of individual score contributors"),
+  computedAt: zod.coerce.date(),
 });
 
 /**
@@ -2370,6 +2511,22 @@ export const GetRecentCooksResponseItem = zod.object({
     .describe(
       "Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)",
     ),
+  finishTimeRangeLower: zod.coerce
+    .date()
+    .nullish()
+    .describe("Lower bound of the finish time confidence range"),
+  finishTimeRangeUpper: zod.coerce
+    .date()
+    .nullish()
+    .describe("Upper bound of the finish time confidence range"),
+  healthScore: zod
+    .string()
+    .nullish()
+    .describe("Cook health letter grade (A, B, C, D, F)"),
+  healthScoreReason: zod
+    .string()
+    .nullish()
+    .describe("One-line explanation of the health score"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

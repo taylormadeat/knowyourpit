@@ -51,6 +51,10 @@ export const cooksTable = pgTable("cooks", {
   injection: text("injection"),
   spritzFrequency: text("spritz_frequency"),
   wrapFinish: text("wrap_finish"),
+  finishTimeRangeLower: timestamp("finish_time_range_lower", { withTimezone: true }),
+  finishTimeRangeUpper: timestamp("finish_time_range_upper", { withTimezone: true }),
+  healthScore: text("health_score"),
+  healthScoreReason: text("health_score_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
-import { db, cooksTable, cookCheckins } from "@workspace/db";
+import { eq, and, asc } from "drizzle-orm";
+import { db, cooksTable, cookCheckins, cookEvents } from "@workspace/db";
 import { z } from "zod/v4";
 import { requireAuth } from "../middlewares/requireAuth";
 import {
@@ -8,6 +8,7 @@ import {
   getCheckinSchedule,
   generateCheckinSchedule,
 } from "@workspace/checkin-schedule";
+import { computeCookHealthScore, computeFinishRange } from "./cookEvents";
 
 // ---------------------------------------------------------------------------
 // Derived lookup: expected internal temp range per phase key.
@@ -279,6 +280,61 @@ router.post("/cooks/:id/checkins", requireAuth, async (req: any, res): Promise<v
         }
       }
     }
+  }
+
+  // Compute and persist health score + finish confidence range after each checkin
+  try {
+    const allCheckins = await db
+      .select()
+      .from(cookCheckins)
+      .where(eq(cookCheckins.cookId, params.data.id))
+      .orderBy(asc(cookCheckins.scheduledAt));
+
+    const allEvents = await db
+      .select({ eventType: cookEvents.eventType })
+      .from(cookEvents)
+      .where(eq(cookEvents.cookId, params.data.id));
+
+    const [cookForHealth] = await db
+      .select({ cookTempF: cooksTable.cookTempF, sequenceData: cooksTable.sequenceData })
+      .from(cooksTable)
+      .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)));
+
+    if (cookForHealth) {
+      const health = computeCookHealthScore({
+        checkins: allCheckins,
+        events: allEvents,
+        cookTempF: cookForHealth.cookTempF,
+      });
+
+      const updatePayload: Record<string, unknown> = {
+        healthScore: String(health.grade),
+        healthScoreReason: health.reason,
+      };
+
+      // Compute finish range if sequence data is available
+      const seqData = cookForHealth.sequenceData;
+      const seq = typeof seqData === "string" ? JSON.parse(seqData) : seqData;
+      const firstItem = Array.isArray(seq?.schedule) ? (seq.schedule[0] as Record<string, unknown>) : null;
+      if (firstItem?.estimatedFinishAt) {
+        const estimatedFinishAt = new Date(firstItem.estimatedFinishAt as string);
+        if (!isNaN(estimatedFinishAt.getTime())) {
+          const issueCount = allCheckins.filter(
+            (ci) => ci.statusFlag === "flare_up" || ci.statusFlag === "running_behind",
+          ).length;
+          const range = computeFinishRange(estimatedFinishAt, allCheckins.length, issueCount);
+          updatePayload.finishTimeRangeLower = range.lower.toISOString();
+          updatePayload.finishTimeRangeUpper = range.upper.toISOString();
+        }
+      }
+
+      await db
+        .update(cooksTable)
+        .set(updatePayload)
+        .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)));
+    }
+  } catch {
+    // health score update is best-effort; don't fail the checkin save
   }
 
   res.status(201).json(checkin);

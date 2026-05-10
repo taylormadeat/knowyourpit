@@ -468,6 +468,26 @@ export interface Cook {
    * @nullable
    */
   wrapFinish?: string | null;
+  /**
+   * Lower bound of the finish time confidence range
+   * @nullable
+   */
+  finishTimeRangeLower?: string | null;
+  /**
+   * Upper bound of the finish time confidence range
+   * @nullable
+   */
+  finishTimeRangeUpper?: string | null;
+  /**
+   * Cook health letter grade (A, B, C, D, F)
+   * @nullable
+   */
+  healthScore?: string | null;
+  /**
+   * One-line explanation of the health score
+   * @nullable
+   */
+  healthScoreReason?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1794,6 +1814,111 @@ export interface CreateCookCheckinBody {
   phaseLabel?: string | null;
   /** @nullable */
   phaseKey?: string | null;
+}
+
+export type CookLogEventEventType =
+  (typeof CookLogEventEventType)[keyof typeof CookLogEventEventType];
+
+export const CookLogEventEventType = {
+  lid_open: "lid_open",
+  flare_up: "flare_up",
+  spritz: "spritz",
+  charcoal_add: "charcoal_add",
+  wood_add: "wood_add",
+  fuel_low: "fuel_low",
+  vent_adjust: "vent_adjust",
+  user_note: "user_note",
+  proactive_alert: "proactive_alert",
+  voice_note: "voice_note",
+} as const;
+
+/**
+ * @nullable
+ */
+export type CookLogEventMetadata = { [key: string]: unknown } | null;
+
+export interface CookLogEvent {
+  id: number;
+  cookId: number;
+  occurredAt: string;
+  eventType: CookLogEventEventType;
+  /** @nullable */
+  note: string | null;
+  /** @nullable */
+  metadata: CookLogEventMetadata;
+  createdAt: string;
+}
+
+export type CreateCookEventBodyEventType =
+  (typeof CreateCookEventBodyEventType)[keyof typeof CreateCookEventBodyEventType];
+
+export const CreateCookEventBodyEventType = {
+  lid_open: "lid_open",
+  flare_up: "flare_up",
+  spritz: "spritz",
+  charcoal_add: "charcoal_add",
+  wood_add: "wood_add",
+  fuel_low: "fuel_low",
+  vent_adjust: "vent_adjust",
+  user_note: "user_note",
+  proactive_alert: "proactive_alert",
+  voice_note: "voice_note",
+} as const;
+
+/**
+ * @nullable
+ */
+export type CreateCookEventBodyMetadata = { [key: string]: unknown } | null;
+
+export interface CreateCookEventBody {
+  eventType: CreateCookEventBodyEventType;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  occurredAt?: string | null;
+  /** @nullable */
+  metadata?: CreateCookEventBodyMetadata;
+}
+
+/**
+ * Letter grade: A, B, C, D, or F
+ */
+export type CookHealthScoreGrade =
+  (typeof CookHealthScoreGrade)[keyof typeof CookHealthScoreGrade];
+
+export const CookHealthScoreGrade = {
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  F: "F",
+} as const;
+
+/**
+ * Breakdown of individual score contributors
+ */
+export type CookHealthScoreFactors = {
+  /** How well internal temps are tracking the expected range */
+  tempTracking?: string;
+  /** How on-time confirmed step completions are */
+  stepTiming?: string;
+  /** Number of flagged issues (flare-ups, stalls, drifts) */
+  issueCount: number;
+  /** Whether an extended stall was detected */
+  stallDetected: boolean;
+  /** Whether significant pit temperature drift was detected */
+  pitDrift: boolean;
+};
+
+export interface CookHealthScore {
+  cookId: number;
+  /** Letter grade: A, B, C, D, or F */
+  grade: CookHealthScoreGrade;
+  /** One-line plain-English explanation of the grade */
+  reason: string;
+  /** Breakdown of individual score contributors */
+  factors: CookHealthScoreFactors;
+  computedAt: string;
 }
 
 export type ListCooksParams = {

@@ -129,6 +129,11 @@ import { AskPitMaster } from "@/components/cook-detail/AskPitMaster";
 import { RateThisCook } from "@/components/cook-detail/RateThisCook";
 import { ShareCookButton } from "@/components/cook-detail/ShareCookButton";
 import { NextUpBanner } from "@/components/NextUpBanner";
+import { QuickLogSheet } from "@/components/cook-detail/QuickLogSheet";
+import { CookHealthScoreCard } from "@/components/cook-detail/CookHealthScoreCard";
+import { PitJournalFeed } from "@/components/cook-detail/PitJournalFeed";
+import { useProactiveAlerts } from "@/hooks/useProactiveAlerts";
+import { getListCookEventsQueryKey } from "@workspace/api-client-react";
 
 // Silence a dev-only LogBox warning that can fire from RN's measureLayout when
 // the underlying native node briefly detaches between layout passes. Our
@@ -227,6 +232,7 @@ export default function CookDetailScreen() {
   const [alertLabel, setAlertLabel] = useState("");
   const [alertMinutesBefore, setAlertMinutesBefore] = useState("30");
   const [alertSaving, setAlertSaving] = useState(false);
+  const [quickLogVisible, setQuickLogVisible] = useState(false);
   const [showCookDetails, setShowCookDetails] = useState(false);
   const [seqScheduleExpanded, setSeqScheduleExpanded] = useState(false);
   const [expandedStoredSections, setExpandedStoredSections] = useState<Set<string>>(new Set());
@@ -247,6 +253,29 @@ export default function CookDetailScreen() {
     });
   };
   const firedAlertIds = useRef<Set<number>>(new Set());
+  const proactiveAlerts = useProactiveAlerts();
+  // Reset per-cook fired state whenever the viewed cook changes so alerts
+  // are not silenced when navigating between cooks in the same session.
+  useEffect(() => {
+    proactiveAlerts.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+  const [proactiveCoachingNote, setProactiveCoachingNote] = useState<string | null>(null);
+  // When the user taps a proactive-alert notification while on this cook screen,
+  // surface the alert message as an in-screen dismissible coaching card.
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data ?? {};
+      if (data.proactiveAlert === true && String(data.cookId) === String(id)) {
+        const msg =
+          typeof data.alertMessage === "string"
+            ? data.alertMessage
+            : "PitMaster detected a deviation in your cook. Open the check-in to log observations.";
+        setProactiveCoachingNote(msg);
+      }
+    });
+    return () => sub.remove();
+  }, [id]);
 
   const [confirmedSteps, setConfirmedSteps] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -717,6 +746,29 @@ export default function CookDetailScreen() {
         { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: currentTemp },
       ]);
 
+      // Proactive deviation alerts (spike, stall, pit-drop).
+      // expectedInternalTempF is the midpoint of the current checkin phase's
+      // expected range — walk the schedule to find the first phase whose upper
+      // bound is above the current probe temp (that is the phase we're in now).
+      const checkinSched = getCheckinSchedule((cook as any)?.foodType ?? null);
+      let phaseExpectedInternalMid: number | null = null;
+      for (const p of checkinSched.phases) {
+        const rng = p.expectedInternalTempRange;
+        if (rng && rng[1] > currentTemp) {
+          phaseExpectedInternalMid = (rng[0] + rng[1]) / 2;
+          break;
+        }
+      }
+      proactiveAlerts.check({
+        cookId: Number(id),
+        cookStatus,
+        probeInternalTempF: currentTemp,
+        pitTempF: meaterProbes[0]?.ambientTempF ?? null,
+        targetCookTempF: (cook as any)?.cookTempF ?? null,
+        expectedInternalTempF: phaseExpectedInternalMid,
+        foodType: (cook as any)?.foodType ?? null,
+      });
+
       // Check active temperature threshold alerts for this cook
       for (const alert of activeCookAlerts) {
         if (alert.alertType === "target_reached" && !firedAlertIds.current.has(alert.id)) {
@@ -1150,9 +1202,9 @@ export default function CookDetailScreen() {
   // larger of (server timestamp, current local timestamp) so that a fresh
   // local analyze isn't clobbered by a delayed refetch.
   useEffect(() => {
-    const c2 = cook as any;
-    const stored = c2?.analysisResult?.analyzedAt as string | null | undefined;
-    const hist = Array.isArray(c2?.analysisHistory) ? c2.analysisHistory : [];
+    const cookAny = cook as any;
+    const stored = cookAny?.analysisResult?.analyzedAt as string | null | undefined;
+    const hist = Array.isArray(cookAny?.analysisHistory) ? cookAny.analysisHistory : [];
     const histLast = hist.length > 0
       ? (hist[hist.length - 1]?.savedAt ?? hist[hist.length - 1]?.analyzedAt ?? null)
       : null;
@@ -1438,6 +1490,118 @@ export default function CookDetailScreen() {
           ) : null}
         </View>
 
+        {/* ── Finish confidence window (active cooks with computed range) ─── */}
+        {cookStatus === "active" && (() => {
+          const lower = c.finishTimeRangeLower;
+          const upper = c.finishTimeRangeUpper;
+          if (!lower || !upper) return null;
+          const fmtT = (iso: string) =>
+            new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+          const lowerMs = new Date(lower).getTime();
+          const upperMs = new Date(upper).getTime();
+          const nowMs2 = Date.now();
+          if (upperMs < nowMs2) return null;
+          const midMs = (lowerMs + upperMs) / 2;
+          const confidenceMinutes = (upperMs - lowerMs) / 60000;
+          const confidenceLabel = confidenceMinutes <= 30 ? "High" : confidenceMinutes <= 60 ? "Medium" : "Low";
+          const confidenceColor = confidenceMinutes <= 30 ? "#22c55e" : confidenceMinutes <= 60 ? "#F59E0B" : "#6B7280";
+          const inMin = Math.max(0, Math.round((midMs - nowMs2) / 60000));
+          return (
+            <View
+              style={{
+                backgroundColor: colors.card as string,
+                borderRadius: colors.radius as number,
+                borderWidth: 1,
+                borderColor: `${confidenceColor}40`,
+                padding: 14,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <View
+                style={{
+                  width: 34, height: 34, borderRadius: 17,
+                  backgroundColor: `${confidenceColor}18`,
+                  borderWidth: 1.5, borderColor: `${confidenceColor}50`,
+                  alignItems: "center", justifyContent: "center",
+                }}
+              >
+                <Feather name="clock" size={16} color={confidenceColor} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: colors.foreground as string }}>
+                  Ready between {fmtT(lower)} – {fmtT(upper)}
+                </Text>
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground as string, marginTop: 2 }}>
+                  ~{inMin} min away · {confidenceLabel} confidence
+                </Text>
+              </View>
+              <View
+                style={{
+                  paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+                  backgroundColor: `${confidenceColor}18`, borderWidth: 1, borderColor: `${confidenceColor}40`,
+                }}
+              >
+                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: confidenceColor }}>{confidenceLabel}</Text>
+              </View>
+            </View>
+          );
+        })()}
+
+        {/* ── Proactive Alert Coaching Card (shown on notification tap) ── */}
+        {proactiveCoachingNote && (
+          <View
+            style={{
+              backgroundColor: "#EAB30815",
+              borderRadius: colors.radius as number,
+              borderWidth: 1,
+              borderColor: "#EAB30850",
+              padding: 14,
+              flexDirection: "row",
+              gap: 10,
+              alignItems: "flex-start",
+            }}
+          >
+            <Feather name="alert-circle" size={16} color="#EAB308" style={{ marginTop: 1 }} />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontFamily: "Inter_700Bold",
+                  fontSize: 13,
+                  color: "#EAB308",
+                  marginBottom: 4,
+                }}
+              >
+                PitMaster Alert
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 13,
+                  color: colors.foreground as string,
+                  lineHeight: 18,
+                }}
+              >
+                {proactiveCoachingNote}
+              </Text>
+            </View>
+            <Pressable onPress={() => setProactiveCoachingNote(null)} hitSlop={8}>
+              <Feather name="x" size={16} color={colors.mutedForeground as string} />
+            </Pressable>
+          </View>
+        )}
+
+        {/* ── Cook Health Score (active / completed) ──────────── */}
+        {(cookStatus === "active" || cookStatus === "completed") && (
+          <CookHealthScoreCard
+            cookId={Number(id)}
+            colors={colors}
+            cookStatus={cookStatus}
+            checkinCount={(cookCheckins as CookCheckin[]).length}
+          />
+        )}
+
         {/* ── Competition Results (competition cooks with judge data) ── */}
         {(c as any).isCompetition && ((c as any).judgeScore != null || (c as any).competitionPlacement != null) && (() => {
           const cat = (c as any).competitionCategory as CompetitionCategory | undefined;
@@ -1686,6 +1850,37 @@ export default function CookDetailScreen() {
           cookSeqData={cookSeqData as SequenceData | null}
         />
 
+        {/* ── Pit Journal Feed ──────────────────────────────── */}
+        <PitJournalFeed
+          cookId={Number(id)}
+          colors={colors}
+          cookStatus={cookStatus}
+          checkins={cookCheckins as CookCheckin[]}
+          triggeredAlerts={activeCookAlerts
+            .filter((a) => a.triggeredAt != null)
+            .map((a) => ({ id: a.id, message: a.message ?? "Temperature alert triggered", triggeredAt: a.triggeredAt as string }))}
+          stepConfirmations={(() => {
+            interface StepItem {
+              phaseKey?: string | null;
+              phaseLabel?: string | null;
+              confirmedAt?: string | null;
+            }
+            const schedule = (cookSeqData?.schedule ?? []) as StepItem[];
+            return schedule
+              .filter((item) => item.confirmedAt != null)
+              .map((item, i) => ({
+                id: `step-${item.phaseKey ?? i}`,
+                label: item.phaseLabel ?? "Step complete",
+                confirmedAt: item.confirmedAt as string,
+              }));
+          })()}
+          liveReadingMilestones={liveReadings.filter((r, i, arr) => {
+            if (i === 0) return false;
+            const prev = arr[i - 1];
+            return Math.floor(r.tempF / 25) > Math.floor(prev.tempF / 25);
+          }).map((r, i) => ({ id: `probe-${i}`, tempF: r.tempF, timeMinutes: r.timeMinutes }))}
+        />
+
         {/* ── Check-in History (AI analysis history) ────────── */}
         <CheckInHistory
           c={c}
@@ -1783,6 +1978,43 @@ export default function CookDetailScreen() {
         setAlertMinutesBefore={setAlertMinutesBefore}
         alertSaving={alertSaving}
         saveAlert={saveAlert}
+      />
+
+      {/* ── Quick Log FAB (active cooks only) ────────────────── */}
+      {cookStatus === "active" && (
+        <Pressable
+          onPress={() => setQuickLogVisible(true)}
+          style={({ pressed }) => ({
+            position: "absolute",
+            bottom: botPad + 24,
+            right: 24,
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: "#E84820",
+            alignItems: "center",
+            justifyContent: "center",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: 0.4,
+            shadowRadius: 5,
+            elevation: 8,
+            opacity: pressed ? 0.8 : 1,
+          })}
+        >
+          <Feather name="zap" size={22} color="#fff" />
+        </Pressable>
+      )}
+
+      {/* ── Quick Log Sheet ───────────────────────────────────── */}
+      <QuickLogSheet
+        visible={quickLogVisible}
+        onClose={() => setQuickLogVisible(false)}
+        cookId={Number(id)}
+        colors={colors}
+        onEventLogged={() => {
+          qc.invalidateQueries({ queryKey: getListCookEventsQueryKey(Number(id)) });
+        }}
       />
 
       {/* ── Smart Check-In Modal ─────────────────────────────── */}

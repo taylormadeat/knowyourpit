@@ -20,6 +20,7 @@ import customMeatCutsRouter from "./customMeatCuts";
 import adminRouter from "./admin";
 import liveActivitiesRouter from "./liveActivities";
 import cookCheckinsRouter from "./cookCheckins";
+import cookEventsRouter from "./cookEvents";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(customMeatCutsRouter);
 router.use(adminRouter);
 router.use(liveActivitiesRouter);
 router.use(cookCheckinsRouter);
+router.use(cookEventsRouter);
 
 export default router;

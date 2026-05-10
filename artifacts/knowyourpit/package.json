@@ -77,6 +77,7 @@
     "@tanstack/react-query-persist-client": "^5.99.2",
     "expo-apple-authentication": "~7.2.4",
     "expo-auth-session": "~7.0.11",
+    "expo-av": "^16.0.8",
     "expo-build-properties": "^55.0.13",
     "expo-file-system": "~19.0.21",
     "expo-sharing": "~14.0.8",
