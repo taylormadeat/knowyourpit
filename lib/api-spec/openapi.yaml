@@ -2370,6 +2370,9 @@ components:
         meatStartTemp:
           type: ["string", "null"]
           description: Starting temperature state of the meat ("Cold from Fridge" or "Tempered to Room Temp"). Cold-from-fridge meat adds ~20–30 min to large cuts; tempered meat cooks at baseline pace.
+        notes:
+          type: ["string", "null"]
+          description: Optional free-text cook notes from the user (e.g. wood choice, rub details, special instructions). PitMaster factors these into timing, technique, and tip recommendations.
       required:
         - foodType
 
@@ -2534,6 +2537,9 @@ components:
           description: True when outdoorTempF is a forecasted value for the cook day (Pro). False or omitted when it is the current ambient temperature.
         competition:
           $ref: "#/components/schemas/MultiCookCompetition"
+        notes:
+          type: ["string", "null"]
+          description: Optional session-level free-text notes (e.g. wood choice, rub, special instructions). PitMaster factors these into timing and tips for all items in the session.
       required:
         - items
         - serveAt

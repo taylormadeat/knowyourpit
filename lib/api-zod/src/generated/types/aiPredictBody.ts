@@ -69,4 +69,9 @@ export interface AiPredictBody {
    * @nullable
    */
   meatStartTemp?: string | null;
+  /**
+   * Optional free-text cook notes from the user (e.g. wood choice, rub details, special instructions). PitMaster factors these into timing, technique, and tip recommendations.
+   * @nullable
+   */
+  notes?: string | null;
 }

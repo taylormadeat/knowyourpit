@@ -416,6 +416,7 @@ export default function PlanScreen() {
           injection: qpInjection ?? undefined,
           spritzFrequency: qpSpritz ?? undefined,
           wrapFinish: qpWrapFinish ?? undefined,
+          notes: notes.trim() || undefined,
         },
       });
       setAiResult(result);
@@ -459,6 +460,7 @@ export default function PlanScreen() {
           serveAt: serveAt.toISOString(),
           outdoorTempF: weather.tempF ?? undefined,
           outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
+          notes: notes.trim() || undefined,
         },
       });
       setMultiResult(result as any);
@@ -513,6 +515,7 @@ export default function PlanScreen() {
               new Set(payload.items.map((i) => i.category)),
             ),
           },
+          notes: notes.trim() || undefined,
         },
       });
       setCompetitionSetupOpen(false);

@@ -69,7 +69,7 @@ router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): P
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { items, serveAt, outdoorTempF, outdoorTempIsForecast, competition } = parsed.data;
+  const { items, serveAt, outdoorTempF, outdoorTempIsForecast, competition, notes } = parsed.data;
 
   const isCompetitionMode = competition?.isCompetition === true;
 
@@ -164,8 +164,12 @@ Return ONLY valid JSON, no markdown:
   "summary": "One sentence summary of the full sequencing plan${isCompetitionMode ? " (mention competition pacing)" : ""}"
 }${isCompetitionMode ? `\n\n${competitionContext}` : ""}`;
 
+  const sessionNotesSection = notes && notes.trim()
+    ? `\nCook Notes (user-provided — factor these into your rationale and tips for all items):\n${notes.trim()}\n`
+    : "";
+
   const userPrompt = `${isCompetitionMode ? `Competition session${competition?.name ? ` — ${competition.name}` : ""}. Each item has its own turn-in time below.` : `Multi-cook session. Everything must be ready to serve at: ${serveAtDate.toLocaleString()}`}
-${outdoorLine}
+${outdoorLine}${sessionNotesSection}
 Items to cook:
 ${itemLines}
 

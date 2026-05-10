@@ -18,7 +18,7 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
     return;
   }
 
-  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast, fromFrozen, thawMethod, cookingMethod, injection, spritzFrequency, wrapFinish, meatStartTemp } = parsed.data;
+  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast, fromFrozen, thawMethod, cookingMethod, injection, spritzFrequency, wrapFinish, meatStartTemp, notes } = parsed.data;
 
   const baseline = getMeatBaseline(foodType);
 
@@ -318,12 +318,16 @@ FROZEN-MEAT RULES (apply only when "Starting from frozen" is true in the user pr
     ? `\nTechnique details (apply TECHNIQUE RULES from system prompt):\n${techniqueLines.join("\n")}`
     : "";
 
+  const cookNotesSection = notes && notes.trim()
+    ? `\nCook Notes (user-provided — factor these into your rationale, timing, and tips):\n${notes.trim()}`
+    : "";
+
   const userPrompt = `Plan this cook:
 Food: ${foodType}
 Weight: ${weightLbs ? `${weightLbs} lbs` : "unknown — use baseline minsPerLb with a 10 lb estimate"}
 Cook temperature: ${cookTempF ? `${cookTempF}°F` : "unknown"}
 Target internal temp: ${targetTempF ? `${targetTempF}°F` : "unknown"}
-Preheat time (tracked separately, not in estimatedDurationMinutes): ${preheatMinutes} min
+Preheat time (tracked separately, not in estimatedDurationMinutes): ${preheatMinutes} min${cookNotesSection}
 ${outdoorTempF != null ? `Outdoor ambient temperature: ${outdoorTempF}°F (${outdoorTempIsForecast ? "forecast for cook day" : "current"}) — factor this into your estimate. Cold weather (below 40°F) increases cook time and preheat duration; hot weather (above 90°F) may reduce time or cause temperature spikes.` : ""}
 ${desiredFinishAt ? `Desired serve time: ${new Date(desiredFinishAt).toLocaleString()}` : ""}
 ${fromFrozen ? `Starting from frozen: YES. Thaw method chosen by user: ${thawMethod === "cold_water" ? "cold-water thaw (~30 min per lb, change water every 30 min, sealed bag)" : thawMethod === "fridge" ? "refrigerator thaw (~24 hours per 4–5 lbs, USDA-safe)" : "not specified — recommend the safest fit for their timeline"}. Current time (for thaw-feasibility math): ${new Date().toISOString()}. Apply the FROZEN-MEAT RULES from the system prompt: explicitly mention thaw + temper timing, dry-brine AFTER thaw, and surface drying in your tips and rationale. If the desired serve time leaves too little lead time for a full thaw + temper + preheat + cook + rest, populate recommendedServeAt with a realistic earliest serve timestamp and explain why in recommendedServeReason.` : "Starting from frozen: NO. Set recommendedServeAt and recommendedServeReason to null."}${techniqueSection}

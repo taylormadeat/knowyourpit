@@ -1155,6 +1155,11 @@ export interface AiPredictBody {
    * @nullable
    */
   meatStartTemp?: string | null;
+  /**
+   * Optional free-text cook notes from the user (e.g. wood choice, rub details, special instructions). PitMaster factors these into timing, technique, and tip recommendations.
+   * @nullable
+   */
+  notes?: string | null;
 }
 
 /**
@@ -1345,6 +1350,11 @@ export interface MultiCookBody {
    */
   outdoorTempIsForecast?: boolean | null;
   competition?: MultiCookCompetition;
+  /**
+   * Optional session-level free-text notes (e.g. wood choice, rub, special instructions). PitMaster factors these into timing and tips for all items in the session.
+   * @nullable
+   */
+  notes?: string | null;
 }
 
 /**

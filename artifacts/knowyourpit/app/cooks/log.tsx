@@ -492,10 +492,11 @@ export default function LogCookScreen() {
       if (cookTempF.trim()) contextPayload.cookTempF = parseFloat(cookTempF);
       if (weightLbs.trim()) contextPayload.weightLbs = parseFloat(weightLbs);
 
+      const combinedNotes = [scanNotes.trim(), cookNotes.trim()].filter(Boolean).join("\n") || null;
       const data: any = await analyzeMutation.mutateAsync({
         data: {
           images: images.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),
-          cookNotes: scanNotes.trim() || null,
+          cookNotes: combinedNotes,
           cookContext: Object.keys(contextPayload).length > 0 ? contextPayload : undefined,
         } as any,
       });
@@ -643,7 +644,7 @@ export default function LogCookScreen() {
           if (targetTempF.trim()) contextPayload.targetTempF = parseFloat(targetTempF);
           if (cookTempF.trim()) contextPayload.cookTempF = parseFloat(cookTempF);
           if (weightLbs.trim()) contextPayload.weightLbs = parseFloat(weightLbs);
-          const aiNotes = scanNotes.trim() || cookNotes.trim() || null;
+          const aiNotes = [scanNotes.trim(), cookNotes.trim()].filter(Boolean).join("\n") || null;
           autoResult = await analyzeMutation.mutateAsync({
             data: {
               images: images.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),

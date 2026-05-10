@@ -1874,6 +1874,12 @@ export const AiPredictBody = zod.object({
     .describe(
       'Starting temperature state of the meat (\"Cold from Fridge\" or \"Tempered to Room Temp\"). Cold-from-fridge meat adds ~20–30 min to large cuts; tempered meat cooks at baseline pace.',
     ),
+  notes: zod
+    .string()
+    .nullish()
+    .describe(
+      "Optional free-text cook notes from the user (e.g. wood choice, rub details, special instructions). PitMaster factors these into timing, technique, and tip recommendations.",
+    ),
 });
 
 export const AiPredictResponse = zod.object({
@@ -2035,6 +2041,12 @@ export const AiMultiCookBody = zod.object({
         ),
     })
     .optional(),
+  notes: zod
+    .string()
+    .nullish()
+    .describe(
+      "Optional session-level free-text notes (e.g. wood choice, rub, special instructions). PitMaster factors these into timing and tips for all items in the session.",
+    ),
 });
 
 export const AiMultiCookResponse = zod.object({
