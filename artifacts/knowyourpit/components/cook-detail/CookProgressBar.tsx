@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text } from "react-native";
+import React, { useState } from "react";
+import { View, Text, Pressable } from "react-native";
 
 export function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
@@ -11,6 +11,16 @@ function fmtDuration(ms: number): string {
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function fmtFinishTime(finishMs: number): string {
+  const d = new Date(finishMs);
+  const hours = d.getHours();
+  const minutes = d.getMinutes();
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const h = hours % 12 || 12;
+  const m = minutes.toString().padStart(2, "0");
+  return `Done ~${h}:${m} ${ampm}`;
 }
 
 function fmtRemaining(remainingMs: number, isOver: boolean, overMs: number): string {
@@ -42,11 +52,11 @@ interface Props {
 }
 
 export function CookProgressBar({ startMs, estimatedFinishMs, nowMs, colors }: Props) {
+  const [showFinishTime, setShowFinishTime] = useState(false);
+
   if (!startMs) return null;
 
   if (estimatedFinishMs === null) {
-    // Elapsed-aware indeterminate fill: grows from 0 → ~50% over 12 hours so
-    // it tracks time without implying we know when the cook will end.
     const elapsedMs = Math.max(0, nowMs - startMs);
     const indeterminateFill = Math.min(elapsedMs / (12 * 3600 * 1000), 0.5);
     return (
@@ -91,7 +101,12 @@ export function CookProgressBar({ startMs, estimatedFinishMs, nowMs, colors }: P
   const label = phaseLabel(progress, isOver);
   const overMs = isOver ? nowMs - estimatedFinishMs : 0;
   const remainingMs = isOver ? 0 : estimatedFinishMs - nowMs;
-  const countdownLabel = fmtRemaining(remainingMs, isOver, overMs);
+
+  const countdownLabel = isOver
+    ? `+${fmtDuration(overMs)} over`
+    : showFinishTime
+    ? fmtFinishTime(estimatedFinishMs)
+    : `~${fmtDuration(remainingMs)} remaining`;
 
   return (
     <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 2 }}>
@@ -139,17 +154,24 @@ export function CookProgressBar({ startMs, estimatedFinishMs, nowMs, colors }: P
           {Math.round(progress * 100)}%
         </Text>
       </View>
-      <Text
-        style={{
-          fontSize: 11,
-          fontFamily: "Inter_400Regular",
-          color: isOver ? accent : colors.mutedForeground,
-          marginTop: 2,
-          textAlign: "right",
+      <Pressable
+        onPress={() => {
+          if (!isOver) setShowFinishTime((prev) => !prev);
         }}
+        hitSlop={8}
       >
-        {countdownLabel}
-      </Text>
+        <Text
+          style={{
+            fontSize: 11,
+            fontFamily: "Inter_400Regular",
+            color: isOver ? accent : colors.mutedForeground,
+            marginTop: 2,
+            textAlign: "right",
+          }}
+        >
+          {countdownLabel}
+        </Text>
+      </Pressable>
     </View>
   );
 }
