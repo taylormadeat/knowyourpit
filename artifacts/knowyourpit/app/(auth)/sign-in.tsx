@@ -441,8 +441,13 @@ export default function SignInScreen() {
               hasCreatedSessionId: !!updated.createdSessionId,
             });
             if (updated.status === "complete" && updated.createdSessionId) {
+              // Auto-generated Clerk username only satisfies the missing_requirement.
+              // The user-facing display name lives in user.unsafeMetadata.username and
+              // is set on the dedicated set-username screen — route there now so the
+              // user picks their own handle before landing on the dashboard.
+              log("signup.complete.set_active.route_set_username");
               await signUpSetActive({ session: updated.createdSessionId });
-              router.replace("/(tabs)");
+              router.replace("/(auth)/set-username");
               return;
             }
             setErrorMsg("Apple sign-in could not be completed. Please try again.");
