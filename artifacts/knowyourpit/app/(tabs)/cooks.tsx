@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useNow } from "@/hooks/useNow";
 import {
   View,
   Text,
@@ -180,6 +181,12 @@ export default function CooksScreen() {
   const [seqSaveError, setSeqSaveError] = useState<string | null>(null);
   const { data: cooks, isLoading, refetch } = useListCooks();
   const updateSession = useUpdateSession();
+
+  const hasActiveCooks = useMemo(
+    () => ((cooks as any[]) || []).some((c) => c.status === "active"),
+    [cooks],
+  );
+  const nowMs = useNow(1000, hasActiveCooks);
 
   const botPad = useBottomTabBarHeight();
   const { isTablet, contentMaxWidth } = useLayout();
@@ -403,13 +410,13 @@ export default function CooksScreen() {
     const isActive = item.status === "active";
     const isPlanned = item.status === "planned";
     const elapsedMs = isActive && item.actualStartAt
-      ? Date.now() - new Date(item.actualStartAt).getTime()
+      ? nowMs - new Date(item.actualStartAt).getTime()
       : null;
     const plannedStartMs = isPlanned && item.plannedStartAt
       ? new Date(item.plannedStartAt).getTime()
       : null;
-    const isSoon = plannedStartMs !== null && plannedStartMs - Date.now() < 48 * 60 * 60 * 1000;
-    const bar = getCookCardBar(item, Date.now());
+    const isSoon = plannedStartMs !== null && plannedStartMs - nowMs < 48 * 60 * 60 * 1000;
+    const bar = getCookCardBar(item, nowMs);
 
     return (
       <Pressable
