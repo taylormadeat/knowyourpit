@@ -183,6 +183,20 @@ export default function CookDetailScreen() {
   const [qpWrap, setQpWrap] = useState<string | null>(null);
   const [activeCookNoteTags, setActiveCookNoteTags] = useState<string[]>([]);
 
+  // Seed quick-pick chips from the cook record on first non-null load so the
+  // "Describe the cook" section reflects the user's saved technique choices.
+  const qpSeededRef = useRef(false);
+  useEffect(() => {
+    if (qpSeededRef.current) return;
+    const c = cook as any;
+    if (!c) return;
+    qpSeededRef.current = true;
+    if (c.cookingMethod) setQpMethod(c.cookingMethod);
+    if (c.injection) setQpInjection(c.injection);
+    if (c.spritzFrequency) setQpSpritz(c.spritzFrequency);
+    if (c.wrapFinish) setQpWrap(c.wrapFinish);
+  }, [cook]);
+
   // Serialise chip selections into a natural-language string sent to the AI
   const scanNotes = useMemo(() => {
     const parts: string[] = [];
@@ -839,10 +853,10 @@ export default function CookDetailScreen() {
     };
   }, [id]);
 
-  // Auto-expand the schedule for planned cooks so users immediately see their
-  // full timeline (light grill, meat on, pull off, etc.) without tapping.
+  // Auto-expand the schedule for planned and active cooks so users immediately
+  // see their full timeline (light grill, meat on, pull off, etc.) without tapping.
   useEffect(() => {
-    if (cookStatus === "planned") setSeqScheduleExpanded(true);
+    if (cookStatus === "planned" || cookStatus === "active") setSeqScheduleExpanded(true);
   }, [cookStatus]);
 
   // Auto-expand the schedule and smooth-scroll the highlighted row into view

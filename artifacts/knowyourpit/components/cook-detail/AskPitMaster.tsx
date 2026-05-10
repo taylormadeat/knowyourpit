@@ -110,7 +110,24 @@ export function AskPitMaster(p: Props) {
     analyzing, analyze, lastAnalyzedAtMs, nowMs,
     result, renderDecisions, verdictCfg, assessment, onCardLayout,
   } = p;
+
+  // Technique disclosure row state — starts expanded so users without saved
+  // techniques can pick them; collapses once seeded values arrive.
+  const [describeExpanded, setDescribeExpanded] = React.useState(true);
+  const hasCollapsedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (hasCollapsedRef.current) return;
+    if (qpMethod || qpInjection || qpSpritz || qpWrap) {
+      setDescribeExpanded(false);
+      hasCollapsedRef.current = true;
+    }
+  }, [qpMethod, qpInjection, qpSpritz, qpWrap]);
+
   if (c.status !== "active") return null;
+
+  const techniquesSummary = [qpMethod, qpInjection, qpSpritz, qpWrap]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <View
@@ -169,46 +186,75 @@ export function AskPitMaster(p: Props) {
         </View>
       </View>
 
-      {/* ── Describe the cook (chip selectors) ───────────────────────── */}
+      {/* ── Describe the cook (collapsible chip selectors) ───────────── */}
       <View style={{ gap: 8 }}>
-        <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
-          Describe the cook <Text style={{ fontWeight: "400" }}>(helps PitMaster analyse time and technique)</Text>
-        </Text>
-        <ChipRow
-          label="Cooking Method"
-          options={QP_COOK_METHODS}
-          selected={qpMethod}
-          onSelect={setQpMethod}
-          colors={colors}
-        />
-        <ChipRow
-          label="Meat Starting Temp"
-          options={QP_MEAT_START_TEMPS}
-          selected={qpStartTemp}
-          onSelect={setQpStartTemp}
-          colors={colors}
-        />
-        <ChipRow
-          label="Injection"
-          options={QP_INJECTION_OPTIONS}
-          selected={qpInjection}
-          onSelect={setQpInjection}
-          colors={colors}
-        />
-        <ChipRow
-          label="Spritz Frequency"
-          options={QP_SPRITZ_FREQUENCIES}
-          selected={qpSpritz}
-          onSelect={setQpSpritz}
-          colors={colors}
-        />
-        <ChipRow
-          label="Wrap / Finish"
-          options={QP_WRAP_FINISH_OPTIONS}
-          selected={qpWrap}
-          onSelect={setQpWrap}
-          colors={colors}
-        />
+        <Pressable
+          onPress={() => setDescribeExpanded((e) => !e)}
+          style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
+              Describe the cook{" "}
+              <Text style={{ fontWeight: "400" }}>(helps PitMaster analyse time and technique)</Text>
+            </Text>
+            {!describeExpanded && (
+              <Text
+                style={{
+                  color: techniquesSummary ? colors.foreground : colors.mutedForeground,
+                  fontSize: 13,
+                  marginTop: 2,
+                }}
+                numberOfLines={1}
+              >
+                {techniquesSummary || "Tap to describe your cook"}
+              </Text>
+            )}
+          </View>
+          <Feather
+            name={describeExpanded ? "chevron-up" : "chevron-down"}
+            size={16}
+            color={colors.mutedForeground as string}
+          />
+        </Pressable>
+        {describeExpanded && (
+          <>
+            <ChipRow
+              label="Cooking Method"
+              options={QP_COOK_METHODS}
+              selected={qpMethod}
+              onSelect={setQpMethod}
+              colors={colors}
+            />
+            <ChipRow
+              label="Meat Starting Temp"
+              options={QP_MEAT_START_TEMPS}
+              selected={qpStartTemp}
+              onSelect={setQpStartTemp}
+              colors={colors}
+            />
+            <ChipRow
+              label="Injection"
+              options={QP_INJECTION_OPTIONS}
+              selected={qpInjection}
+              onSelect={setQpInjection}
+              colors={colors}
+            />
+            <ChipRow
+              label="Spritz Frequency"
+              options={QP_SPRITZ_FREQUENCIES}
+              selected={qpSpritz}
+              onSelect={setQpSpritz}
+              colors={colors}
+            />
+            <ChipRow
+              label="Wrap / Finish"
+              options={QP_WRAP_FINISH_OPTIONS}
+              selected={qpWrap}
+              onSelect={setQpWrap}
+              colors={colors}
+            />
+          </>
+        )}
       </View>
 
       {/* ── What's happening? (cook notes + quick-add chips) ─────────── */}

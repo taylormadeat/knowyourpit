@@ -85,11 +85,21 @@ export function CookCheckinTimeline({
   checkinsLoading,
   onOpenCheckin,
 }: Props) {
-  const [expanded, setExpanded] = useState(false);
+  // Auto-expand for active cooks so users see their check-in points immediately.
+  const [expanded, setExpanded] = useState(cookStatus === "active");
 
   const firstItem = cookSeqData?.schedule?.[0];
-  const meatOnAt = firstItem?.meatOnAt;
-  const estimatedFinishAt = firstItem?.estimatedFinishAt;
+  // Fall back to the cook's own timestamps when sequenceData is absent
+  // (e.g. single-cook sessions started without the multi-cook sequencer).
+  const meatOnAt =
+    firstItem?.meatOnAt ??
+    (c?.actualStartAt as string | null | undefined) ??
+    (c?.plannedStartAt as string | null | undefined) ??
+    null;
+  const estimatedFinishAt =
+    firstItem?.estimatedFinishAt ??
+    (c?.plannedEndAt as string | null | undefined) ??
+    null;
   const foodType = (firstItem?.foodType ?? (c?.foodType as string | null | undefined)) || null;
 
   const scheduledCheckins: ScheduledCheckin[] = React.useMemo(() => {
@@ -100,10 +110,10 @@ export function CookCheckinTimeline({
     const anchor: CheckinSequenceAnchor = {
       meatOnAt,
       estimatedFinishAt,
-      wrapAtMinutes: firstItem?.wrapAtMinutes ?? null,
+      wrapAtMinutes: firstItem?.wrapAtMinutes ?? (c?.wrapAtMinutes as number | null | undefined) ?? null,
     };
     return generateCheckinSchedule(foodType, meatOnAtMs, finishAtMs, anchor);
-  }, [foodType, meatOnAt, estimatedFinishAt, firstItem?.wrapAtMinutes]);
+  }, [foodType, meatOnAt, estimatedFinishAt, firstItem?.wrapAtMinutes, c?.wrapAtMinutes]);
 
   const completedMap = React.useMemo(() => {
     const map = new Map<string, CookCheckin>();
