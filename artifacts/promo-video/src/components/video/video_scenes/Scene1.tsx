@@ -17,7 +17,7 @@ export function Scene1() {
         className="absolute inset-0 w-full h-full object-cover"
         initial={{ scale: 1.05, x: '2%', y: '2%' }}
         animate={{ scale: 1.15, x: '-2%', y: '-2%' }}
-        transition={{ duration: 6, ease: 'linear' }}
+        transition={{ duration: 5, ease: 'linear' }}
       />
     </motion.div>
   );
