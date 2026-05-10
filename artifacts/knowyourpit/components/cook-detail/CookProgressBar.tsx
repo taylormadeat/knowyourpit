@@ -5,12 +5,17 @@ function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
 }
 
-function fmtOver(ms: number): string {
+function fmtDuration(ms: number): string {
   const totalMin = Math.round(ms / 60000);
   if (totalMin < 60) return `${totalMin}m`;
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function fmtRemaining(remainingMs: number, isOver: boolean, overMs: number): string {
+  if (isOver) return `+${fmtDuration(overMs)} over`;
+  return `~${fmtDuration(remainingMs)} remaining`;
 }
 
 function phaseLabel(progress: number, isOver: boolean): string {
@@ -85,6 +90,8 @@ export function CookProgressBar({ startMs, estimatedFinishMs, nowMs, colors }: P
   const accent = barColor(progress, isOver);
   const label = phaseLabel(progress, isOver);
   const overMs = isOver ? nowMs - estimatedFinishMs : 0;
+  const remainingMs = isOver ? 0 : estimatedFinishMs - nowMs;
+  const countdownLabel = fmtRemaining(remainingMs, isOver, overMs);
 
   return (
     <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 2 }}>
@@ -129,11 +136,20 @@ export function CookProgressBar({ startMs, estimatedFinishMs, nowMs, colors }: P
             color: accent,
           }}
         >
-          {isOver
-            ? `+${fmtOver(overMs)} over`
-            : `${Math.round(progress * 100)}%`}
+          {Math.round(progress * 100)}%
         </Text>
       </View>
+      <Text
+        style={{
+          fontSize: 11,
+          fontFamily: "Inter_400Regular",
+          color: isOver ? accent : colors.mutedForeground,
+          marginTop: 2,
+          textAlign: "right",
+        }}
+      >
+        {countdownLabel}
+      </Text>
     </View>
   );
 }
