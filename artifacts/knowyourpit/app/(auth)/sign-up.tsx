@@ -220,6 +220,28 @@ export default function SignUpScreen() {
           if (attempt.status === "complete") {
             await setActive({ session: attempt.createdSessionId });
             router.replace("/(tabs)");
+          } else if (attempt.status === "missing_requirements") {
+            const missing = attempt.missingFields ?? [];
+            if (missing.includes("username")) {
+              const base = (
+                attempt.emailAddress?.split("@")[0] ??
+                credential.fullName?.givenName ??
+                "user"
+              )
+                .replace(/[^a-z0-9]/gi, "")
+                .toLowerCase()
+                .slice(0, 15);
+              const suffix = Math.floor(Math.random() * 9000 + 1000);
+              const updated = await signUp.update({ username: `${base}${suffix}` });
+              if (updated.status === "complete" && updated.createdSessionId) {
+                await setActive({ session: updated.createdSessionId });
+                router.replace("/(tabs)");
+              } else {
+                setErrorMsg("Apple sign-in could not be completed. Please try again.");
+              }
+            } else {
+              setErrorMsg("Apple sign-in could not be completed. Please try again.");
+            }
           } else {
             setErrorMsg("Apple sign-in could not be completed. Please try again.");
           }
