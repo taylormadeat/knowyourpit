@@ -1709,6 +1709,93 @@ export interface LiveActivityRegistration {
   cookId: number;
 }
 
+export type CookCheckinStatusFlag =
+  | (typeof CookCheckinStatusFlag)[keyof typeof CookCheckinStatusFlag]
+  | null;
+
+export const CookCheckinStatusFlag = {
+  all_good: "all_good",
+  running_behind: "running_behind",
+  flare_up: "flare_up",
+  low_fuel: "low_fuel",
+} as const;
+
+export interface CookCheckin {
+  id: number;
+  cookId: number;
+  scheduledAt: string;
+  /** @nullable */
+  firedAt: string | null;
+  /** @nullable */
+  internalTempF: number | null;
+  /** @nullable */
+  pitTempF: number | null;
+  statusFlag: CookCheckinStatusFlag;
+  /** @nullable */
+  userNote: string | null;
+  /** @nullable */
+  photoKey: string | null;
+  /** @nullable */
+  aiGuidanceShown: string | null;
+  autoDismissed: boolean;
+  /** @nullable */
+  phaseLabel: string | null;
+  /** @nullable */
+  phaseKey: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CheckinScheduleItemAnchorType =
+  (typeof CheckinScheduleItemAnchorType)[keyof typeof CheckinScheduleItemAnchorType];
+
+export const CheckinScheduleItemAnchorType = {
+  sequence: "sequence",
+  percent: "percent",
+} as const;
+
+export interface CheckinScheduleItem {
+  phaseKey: string;
+  phaseLabel: string;
+  scheduledAt: string;
+  anchorType: CheckinScheduleItemAnchorType;
+}
+
+/**
+ * @nullable
+ */
+export type CreateCookCheckinBodyStatusFlag =
+  | (typeof CreateCookCheckinBodyStatusFlag)[keyof typeof CreateCookCheckinBodyStatusFlag]
+  | null;
+
+export const CreateCookCheckinBodyStatusFlag = {
+  all_good: "all_good",
+  running_behind: "running_behind",
+  flare_up: "flare_up",
+  low_fuel: "low_fuel",
+} as const;
+
+export interface CreateCookCheckinBody {
+  scheduledAt: string;
+  /** @nullable */
+  internalTempF?: number | null;
+  /** @nullable */
+  pitTempF?: number | null;
+  /** @nullable */
+  statusFlag?: CreateCookCheckinBodyStatusFlag;
+  /** @nullable */
+  userNote?: string | null;
+  /** @nullable */
+  photoKey?: string | null;
+  /** @nullable */
+  aiGuidanceShown?: string | null;
+  autoDismissed?: boolean;
+  /** @nullable */
+  phaseLabel?: string | null;
+  /** @nullable */
+  phaseKey?: string | null;
+}
+
 export type ListCooksParams = {
   /**
    * @nullable

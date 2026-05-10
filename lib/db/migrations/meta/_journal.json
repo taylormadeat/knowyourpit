@@ -15,6 +15,13 @@
       "when": 1746742800000,
       "tag": "0002_technique_columns",
       "breakpoints": false
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1747123200000,
+      "tag": "0003_cook_checkins_table",
+      "breakpoints": false
     }
   ]
 }

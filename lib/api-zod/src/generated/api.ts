@@ -1222,6 +1222,80 @@ export const DeleteCookParams = zod.object({
 });
 
 /**
+ * Returns the AI-plan-anchored check-in schedule derived from the cook's sequence data. This is the single source of truth for check-in timing — the mobile app uses these times when scheduling local notifications.
+ * @summary Get the server-computed check-in schedule for a cook
+ */
+export const GetCookCheckinScheduleParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetCookCheckinScheduleResponseItem = zod.object({
+  phaseKey: zod.string(),
+  phaseLabel: zod.string(),
+  scheduledAt: zod.coerce.date(),
+  anchorType: zod.enum(["sequence", "percent"]),
+});
+export const GetCookCheckinScheduleResponse = zod.array(
+  GetCookCheckinScheduleResponseItem,
+);
+
+/**
+ * @summary Get all check-ins for a cook
+ */
+export const ListCookCheckinsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListCookCheckinsResponseItem = zod.object({
+  id: zod.number(),
+  cookId: zod.number(),
+  scheduledAt: zod.coerce.date(),
+  firedAt: zod.coerce.date().nullable(),
+  internalTempF: zod.number().nullable(),
+  pitTempF: zod.number().nullable(),
+  statusFlag: zod
+    .enum(["all_good", "running_behind", "flare_up", "low_fuel"])
+    .nullable(),
+  userNote: zod.string().nullable(),
+  photoKey: zod.string().nullable(),
+  aiGuidanceShown: zod.string().nullable(),
+  autoDismissed: zod.boolean(),
+  phaseLabel: zod.string().nullable(),
+  phaseKey: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListCookCheckinsResponse = zod.array(ListCookCheckinsResponseItem);
+
+/**
+ * @summary Record a check-in response for a cook
+ */
+export const CreateCookCheckinParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateCookCheckinBody = zod.object({
+  scheduledAt: zod.coerce.date(),
+  internalTempF: zod.number().nullish(),
+  pitTempF: zod.number().nullish(),
+  statusFlag: zod
+    .union([
+      zod.literal("all_good"),
+      zod.literal("running_behind"),
+      zod.literal("flare_up"),
+      zod.literal("low_fuel"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  userNote: zod.string().nullish(),
+  photoKey: zod.string().nullish(),
+  aiGuidanceShown: zod.string().nullish(),
+  autoDismissed: zod.boolean().optional(),
+  phaseLabel: zod.string().nullish(),
+  phaseKey: zod.string().nullish(),
+});
+
+/**
  * @summary Register or update an iOS Live Activity push token for a cook
  */
 export const RegisterCookLiveActivityParams = zod.object({

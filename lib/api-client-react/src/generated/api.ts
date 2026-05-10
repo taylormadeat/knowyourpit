@@ -24,10 +24,13 @@ import type {
   Alert,
   AnalyzeCookBody,
   AnalyzeCookResult,
+  CheckinScheduleItem,
   Cook,
+  CookCheckin,
   CookingTip,
   CreateAlertBody,
   CreateCookBody,
+  CreateCookCheckinBody,
   CreateCustomMeatCutBody,
   CreateForumCommentBody,
   CreateForumPostBody,
@@ -1597,6 +1600,269 @@ export const useDeleteCook = <
   TContext
 > => {
   return useMutation(getDeleteCookMutationOptions(options));
+};
+
+/**
+ * Returns the AI-plan-anchored check-in schedule derived from the cook's sequence data. This is the single source of truth for check-in timing — the mobile app uses these times when scheduling local notifications.
+ * @summary Get the server-computed check-in schedule for a cook
+ */
+export const getGetCookCheckinScheduleUrl = (id: number) => {
+  return `/api/cooks/${id}/checkins/schedule`;
+};
+
+export const getCookCheckinSchedule = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CheckinScheduleItem[]> => {
+  return customFetch<CheckinScheduleItem[]>(getGetCookCheckinScheduleUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCookCheckinScheduleQueryKey = (id: number) => {
+  return [`/api/cooks/${id}/checkins/schedule`] as const;
+};
+
+export const getGetCookCheckinScheduleQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCookCheckinSchedule>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCookCheckinSchedule>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCookCheckinScheduleQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCookCheckinSchedule>>
+  > = ({ signal }) => getCookCheckinSchedule(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCookCheckinSchedule>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCookCheckinScheduleQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCookCheckinSchedule>>
+>;
+export type GetCookCheckinScheduleQueryError = ErrorType<void>;
+
+/**
+ * @summary Get the server-computed check-in schedule for a cook
+ */
+
+export function useGetCookCheckinSchedule<
+  TData = Awaited<ReturnType<typeof getCookCheckinSchedule>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCookCheckinSchedule>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCookCheckinScheduleQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get all check-ins for a cook
+ */
+export const getListCookCheckinsUrl = (id: number) => {
+  return `/api/cooks/${id}/checkins`;
+};
+
+export const listCookCheckins = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CookCheckin[]> => {
+  return customFetch<CookCheckin[]>(getListCookCheckinsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCookCheckinsQueryKey = (id: number) => {
+  return [`/api/cooks/${id}/checkins`] as const;
+};
+
+export const getListCookCheckinsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCookCheckins>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCookCheckins>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCookCheckinsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCookCheckins>>
+  > = ({ signal }) => listCookCheckins(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCookCheckins>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCookCheckinsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCookCheckins>>
+>;
+export type ListCookCheckinsQueryError = ErrorType<void>;
+
+/**
+ * @summary Get all check-ins for a cook
+ */
+
+export function useListCookCheckins<
+  TData = Awaited<ReturnType<typeof listCookCheckins>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCookCheckins>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCookCheckinsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Record a check-in response for a cook
+ */
+export const getCreateCookCheckinUrl = (id: number) => {
+  return `/api/cooks/${id}/checkins`;
+};
+
+export const createCookCheckin = async (
+  id: number,
+  createCookCheckinBody: CreateCookCheckinBody,
+  options?: RequestInit,
+): Promise<CookCheckin> => {
+  return customFetch<CookCheckin>(getCreateCookCheckinUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCookCheckinBody),
+  });
+};
+
+export const getCreateCookCheckinMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCookCheckin>>,
+    TError,
+    { id: number; data: BodyType<CreateCookCheckinBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCookCheckin>>,
+  TError,
+  { id: number; data: BodyType<CreateCookCheckinBody> },
+  TContext
+> => {
+  const mutationKey = ["createCookCheckin"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCookCheckin>>,
+    { id: number; data: BodyType<CreateCookCheckinBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return createCookCheckin(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCookCheckinMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCookCheckin>>
+>;
+export type CreateCookCheckinMutationBody = BodyType<CreateCookCheckinBody>;
+export type CreateCookCheckinMutationError = ErrorType<void>;
+
+/**
+ * @summary Record a check-in response for a cook
+ */
+export const useCreateCookCheckin = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCookCheckin>>,
+    TError,
+    { id: number; data: BodyType<CreateCookCheckinBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCookCheckin>>,
+  TError,
+  { id: number; data: BodyType<CreateCookCheckinBody> },
+  TContext
+> => {
+  return useMutation(getCreateCookCheckinMutationOptions(options));
 };
 
 /**

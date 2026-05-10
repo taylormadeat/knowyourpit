@@ -33,6 +33,7 @@
     "@types/react-dom": "~19.1.7",
     "@ungap/structured-clone": "^1.3.0",
     "@workspace/api-client-react": "workspace:*",
+    "@workspace/checkin-schedule": "workspace:*",
     "debug": "^4.4.3",
     "expo": "~54.0.33",
     "expo-blur": "~15.0.8",

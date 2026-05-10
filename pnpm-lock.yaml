@@ -178,6 +178,9 @@ importers:
       '@workspace/api-zod':
         specifier: workspace:*
         version: link:../../lib/api-zod
+      '@workspace/checkin-schedule':
+        specifier: workspace:*
+        version: link:../../lib/checkin-schedule
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
@@ -324,6 +327,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/checkin-schedule':
+        specifier: workspace:*
+        version: link:../../lib/checkin-schedule
       debug:
         specifier: ^4.4.3
         version: 4.4.3
@@ -776,6 +782,8 @@ importers:
         version: 3.25.76
 
   lib/brand-assets: {}
+
+  lib/checkin-schedule: {}
 
   lib/db:
     dependencies:

@@ -71,6 +71,7 @@ export interface ScheduleItem {
    * accompanying fields describe when to wrap (a minute offset from meatOn,
    * a target internal temp, or both) and why.
    */
+  weightLbs?: number | null;
   wrapMethod?: string | null;
   wrapAtMinutes?: number | null;
   wrapTempF?: number | null;

@@ -18,7 +18,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { setBaseUrl, setAuthTokenGetter, patchAlert, listAlerts } from "@workspace/api-client-react";
-import { isCookDetailVisible } from "@/hooks/cookDetailVisibility";
+import { isCookDetailVisible, getCurrentCookId } from "@/hooks/cookDetailVisibility";
+import { setPendingCheckin } from "@/lib/pendingCheckinNotif";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BootDiagnostic } from "@/components/BootDiagnostic";
@@ -238,8 +239,39 @@ function RootLayoutNav() {
 
     // Fired when the user taps a notification from the background or lock screen
     const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as { alertId?: number } | undefined;
+      const data = response.notification.request.content.data as {
+        alertId?: number;
+        checkin?: boolean;
+        cookId?: number;
+        phaseKey?: string;
+        phaseLabel?: string;
+        scheduledAt?: number;
+      } | undefined;
       if (data?.alertId) markAlertTriggered(data.alertId);
+
+      // Route check-in notification taps to the correct cook detail screen.
+      // useCheckinDeepLink in [id].tsx handles the foreground case (user already
+      // on that cook's screen with a matching cookId). This handler covers taps
+      // from the background, lock screen, or any other screen.
+      if (
+        data?.checkin &&
+        typeof data.cookId === "number" &&
+        typeof data.phaseKey === "string" &&
+        typeof data.scheduledAt === "number"
+      ) {
+        const alreadyOnCook =
+          isCookDetailVisible() && getCurrentCookId() === data.cookId;
+        if (!alreadyOnCook) {
+          setPendingCheckin({
+            cookId: data.cookId,
+            phaseKey: data.phaseKey,
+            phaseLabel: data.phaseLabel ?? data.phaseKey,
+            scheduledAt: data.scheduledAt,
+          });
+          router.push({ pathname: "/cooks/[id]", params: { id: String(data.cookId) } });
+        }
+        // else: useCheckinDeepLink listener in [id].tsx handles it directly
+      }
     });
 
     return () => {

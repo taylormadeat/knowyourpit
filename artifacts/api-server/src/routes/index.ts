@@ -19,6 +19,7 @@ import webhooksRouter from "./webhooks";
 import customMeatCutsRouter from "./customMeatCuts";
 import adminRouter from "./admin";
 import liveActivitiesRouter from "./liveActivities";
+import cookCheckinsRouter from "./cookCheckins";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(webhooksRouter);
 router.use(customMeatCutsRouter);
 router.use(adminRouter);
 router.use(liveActivitiesRouter);
+router.use(cookCheckinsRouter);
 
 export default router;

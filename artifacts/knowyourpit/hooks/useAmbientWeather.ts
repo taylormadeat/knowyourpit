@@ -5,6 +5,8 @@ export type AmbientWeather = {
   tempF: number | null;
   tempC: number | null;
   conditionCode: number | null;
+  /** Current wind speed in mph; null when unavailable or for forecast fetches. */
+  windSpeedMph: number | null;
   loading: boolean;
   locationDenied: boolean;
   error: string | null;
@@ -50,6 +52,7 @@ interface CacheEntry {
   tempF: number;
   tempC: number;
   conditionCode: number;
+  windSpeedMph: number | null;
   fetchedAt: number;
 }
 
@@ -115,6 +118,9 @@ export function useAmbientWeather(targetDate?: Date | null): AmbientWeather {
   const [conditionCode, setConditionCode] = useState<number | null>(
     initialEntry?.conditionCode ?? null,
   );
+  const [windSpeedMph, setWindSpeedMph] = useState<number | null>(
+    initialEntry?.windSpeedMph ?? null,
+  );
   const [loading, setLoading] = useState<boolean>(initialEntry == null);
   const [locationDenied, setLocationDenied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -165,6 +171,7 @@ export function useAmbientWeather(targetDate?: Date | null): AmbientWeather {
 
         let tF: number | null = null;
         let wCode: number | null = null;
+        let windMph: number | null = null;
 
         if (wantsForecast && targetKey) {
           const url =
@@ -189,13 +196,14 @@ export function useAmbientWeather(targetDate?: Date | null): AmbientWeather {
         } else {
           const url =
             `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
-            `&current=temperature_2m,weathercode&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`;
+            `&current=temperature_2m,weathercode,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`;
           const resp = await fetch(url);
           if (!resp.ok) throw new Error(`Weather API error: ${resp.status}`);
           const json = await resp.json();
           if (cancelled) return;
           tF = json.current?.temperature_2m ?? null;
           wCode = json.current?.weathercode ?? null;
+          windMph = json.current?.wind_speed_10m ?? null;
         }
 
         if (tF != null) {
@@ -204,6 +212,7 @@ export function useAmbientWeather(targetDate?: Date | null): AmbientWeather {
             tempF: Math.round(tF),
             tempC: tCRounded,
             conditionCode: wCode ?? 0,
+            windSpeedMph: windMph != null ? Math.round(windMph) : null,
             fetchedAt: Date.now(),
           };
           if (wantsForecast && targetKey) {
@@ -214,6 +223,7 @@ export function useAmbientWeather(targetDate?: Date | null): AmbientWeather {
           setTempF(Math.round(tF));
           setTempC(tCRounded);
           setConditionCode(wCode);
+          setWindSpeedMph(windMph != null ? Math.round(windMph) : null);
         }
         setLoading(false);
       } catch (e: any) {
@@ -234,6 +244,7 @@ export function useAmbientWeather(targetDate?: Date | null): AmbientWeather {
     tempF,
     tempC,
     conditionCode,
+    windSpeedMph,
     loading,
     locationDenied,
     error,

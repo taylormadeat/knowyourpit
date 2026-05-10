@@ -36,7 +36,8 @@ import {
   useFrozenStageNotifications,
   cancelStoredFrozenNotifications,
 } from "@/hooks/useFrozenStageNotifications";
-import { setCookDetailVisible } from "@/hooks/cookDetailVisibility";
+import { setCookDetailVisible, setCurrentCookId } from "@/hooks/cookDetailVisibility";
+import { consumePendingCheckin } from "@/lib/pendingCheckinNotif";
 import { useCookLiveActivity } from "@/hooks/useCookLiveActivity";
 import { LogoBackground } from "@/components/LogoBackground";
 import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
@@ -61,6 +62,8 @@ import {
   useCreateAlert,
   usePatchAlert,
   useListCooks,
+  useListCookCheckins,
+  useCreateCookCheckin,
   getListCooksQueryKey,
   getGetCookQueryKey,
   getGetDashboardSummaryQueryKey,
@@ -68,6 +71,7 @@ import {
   getListAlertsQueryKey,
   getGetMeaterReadingsQueryKey,
   getGetThermoworksReadingsQueryKey,
+  getListCookCheckinsQueryKey,
 } from "@workspace/api-client-react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
@@ -99,9 +103,22 @@ import type {
   SequenceData,
   NextStep,
 } from "@/components/cook-detail/types";
+
+import {
+  useCheckinNotifications,
+  useCheckinDeepLink,
+  evaluateAutoDismiss,
+  rescheduleCheckinNotifications,
+  cancelStoredCheckinNotifications,
+} from "@/hooks/useCheckinNotifications";
+import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
+import { getCheckinSchedule } from "@/constants/checkinKnowledge";
+import type { CookCheckin } from "@workspace/api-client-react";
 import { EditCookModal } from "@/components/cook-detail/EditCookModal";
 import { AlertSheet } from "@/components/cook-detail/AlertSheet";
 import { CheckInHistory } from "@/components/cook-detail/CheckInHistory";
+import { CheckinModal } from "@/components/cook-detail/CheckinModal";
+import { CookCheckinTimeline, CookJourneyReplay } from "@/components/cook-detail/CookCheckinTimeline";
 import { LastDecisionBanner } from "@/components/cook-detail/LastDecisionBanner";
 import { LiveCookSection } from "@/components/cook-detail/LiveCookSection";
 import { CookSummaryCard } from "@/components/cook-detail/CookSummaryCard";
@@ -193,6 +210,16 @@ export default function CookDetailScreen() {
     (a: any) => a.cookId === Number(id) && a.isActive,
   );
 
+  // Check-in modal state
+  const [checkinModalVisible, setCheckinModalVisible] = useState(false);
+  const [activeCheckin, setActiveCheckin] = useState<ScheduledCheckin | null>(null);
+  const createCheckin = useCreateCookCheckin();
+
+  const openCheckin = useCallback((sc: ScheduledCheckin) => {
+    setActiveCheckin(sc);
+    setCheckinModalVisible(true);
+  }, []);
+
   // Alert sheet state
   const [alertSheetVisible, setAlertSheetVisible] = useState(false);
   const [alertMode, setAlertMode] = useState<"temp" | "timer">("temp");
@@ -247,6 +274,18 @@ export default function CookDetailScreen() {
       setConfirmedSteps(prev);
     }
   };
+
+  // Check-in history for this cook (active and completed cooks)
+  const { data: cookCheckins = [], isLoading: checkinsLoading } = useListCookCheckins(
+    Number(id),
+    {
+      query: {
+        queryKey: getListCookCheckinsQueryKey(Number(id)),
+        enabled: cookStatus === "active" || cookStatus === "completed",
+        refetchOnWindowFocus: cookStatus === "active",
+      },
+    },
+  );
 
   const { data: meaterData, isLoading: meaterLoading } = useGetMeaterReadings({
     query: {
@@ -355,6 +394,207 @@ export default function CookDetailScreen() {
     cookSeqData,
     (cook as any)?.plannedStartAt ?? null,
   );
+  // Smart check-in notifications — fire at BBQ milestone points while cook is active.
+  useCheckinNotifications(Number(id) || null, cookStatus, cookSeqData);
+  // Background / cross-screen deep link: consume pending check-in notification
+  // placed by the _layout.tsx router handler when the user was NOT on this cook
+  // screen at the time of the notification tap.
+  useFocusEffect(
+    useCallback(() => {
+      const pending = consumePendingCheckin();
+      if (!pending || pending.cookId !== Number(id)) return;
+
+      const phase =
+        getCheckinSchedule(cook?.foodType).phases.find(
+          (p) => p.key === pending.phaseKey,
+        ) ?? getCheckinSchedule(null).phases[0];
+
+      const sc: ScheduledCheckin = {
+        id: `${pending.phaseKey}_deeplink`,
+        phaseKey: pending.phaseKey,
+        phaseLabel: pending.phaseLabel,
+        scheduledAt: pending.scheduledAt,
+        phase,
+      };
+
+      const probeInternalTempF =
+        meaterProbes[0]?.internalTempF ?? thermoworksProbes[0]?.tempF ?? null;
+      const lastCheckinTempF =
+        cookCheckins.length > 0
+          ? (cookCheckins[cookCheckins.length - 1] as CookCheckin).internalTempF ?? null
+          : null;
+
+      evaluateAutoDismiss({
+        probeInternalTempF,
+        lastCheckinInternalTempF: lastCheckinTempF,
+        expectedRange: phase.expectedInternalTempRange,
+      })
+        .then(async ({ shouldDismiss }) => {
+          if (shouldDismiss && probeInternalTempF != null) {
+            try {
+              await createCheckin.mutateAsync({
+                id: Number(id),
+                data: {
+                  scheduledAt: new Date(pending.scheduledAt).toISOString(),
+                  internalTempF: probeInternalTempF,
+                  pitTempF: meaterProbes[0]?.ambientTempF ?? null,
+                  statusFlag: "all_good",
+                  userNote: null,
+                  photoKey: null,
+                  aiGuidanceShown: null,
+                  autoDismissed: true,
+                  phaseLabel: pending.phaseLabel,
+                  phaseKey: pending.phaseKey,
+                },
+              });
+              qc.invalidateQueries({ queryKey: getListCookCheckinsQueryKey(Number(id)) });
+              // Summary notification so the pitmaster knows the auto-dismiss fired.
+              Notifications.scheduleNotificationAsync({
+                content: {
+                  title: `✓ ${pending.phaseLabel} — auto-logged`,
+                  body: `${Math.round(probeInternalTempF)}°F recorded. Cook is on track.`,
+                  data: {},
+                },
+                trigger: { seconds: 1, type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL },
+              }).catch(() => {});
+              const first = cookSeqData?.schedule?.[0];
+              if (first?.meatOnAt && first?.estimatedFinishAt) {
+                const completed = new Set(
+                  (cookCheckins as CookCheckin[])
+                    .map((ci) => ci.phaseKey)
+                    .filter((k): k is string => k != null),
+                );
+                completed.add(pending.phaseKey);
+                rescheduleCheckinNotifications({
+                  cookId: Number(id),
+                  foodType: first.foodType ?? null,
+                  weightLbs: cook?.weightLbs ?? null,
+                  meatOnAt: first.meatOnAt,
+                  estimatedFinishAt: first.estimatedFinishAt,
+                  wrapAtMinutes: first.wrapAtMinutes ?? null,
+                  completedPhaseKeys: completed,
+                  actualInternalTempF: probeInternalTempF,
+                }).catch(() => {});
+              }
+            } catch {
+              openCheckin(sc);
+            }
+          } else {
+            openCheckin(sc);
+          }
+        })
+        .catch(() => openCheckin(sc));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id, cook, meaterProbes, thermoworksProbes, cookCheckins, openCheckin, createCheckin, qc, cookSeqData]),
+  );
+
+  // Foreground deep-link handler: fires when the user taps a check-in notification
+  // while already on THIS cook's screen (cookId validated inside the hook).
+  // The background case is handled by _layout.tsx + the useFocusEffect above.
+  useCheckinDeepLink(
+    Number(id) || null,
+    useCallback(
+      (data) => {
+        const phase =
+          getCheckinSchedule(cook?.foodType).phases.find(
+            (p) => p.key === data.phaseKey,
+          ) ?? getCheckinSchedule(null).phases[0];
+
+        const sc: ScheduledCheckin = {
+          id: `${data.phaseKey}_deeplink`,
+          phaseKey: data.phaseKey,
+          phaseLabel: data.phaseLabel,
+          scheduledAt: data.scheduledAt,
+          phase,
+        };
+
+        const probeInternalTempF =
+          meaterProbes[0]?.internalTempF ?? thermoworksProbes[0]?.tempF ?? null;
+        const lastCheckinTempF =
+          cookCheckins.length > 0
+            ? (cookCheckins[cookCheckins.length - 1] as CookCheckin).internalTempF ?? null
+            : null;
+
+        // Evaluate auto-dismiss conditions (async) and act accordingly
+        evaluateAutoDismiss({
+          probeInternalTempF,
+          lastCheckinInternalTempF: lastCheckinTempF,
+          expectedRange: phase.expectedInternalTempRange,
+        })
+          .then(async ({ shouldDismiss }) => {
+            if (shouldDismiss && probeInternalTempF != null) {
+              // Auto-save via the authenticated mutation — no modal opened
+              try {
+                await createCheckin.mutateAsync({
+                  id: Number(id),
+                  data: {
+                    scheduledAt: new Date(data.scheduledAt).toISOString(),
+                    internalTempF: probeInternalTempF,
+                    pitTempF: meaterProbes[0]?.ambientTempF ?? null,
+                    statusFlag: "all_good",
+                    userNote: null,
+                    photoKey: null,
+                    aiGuidanceShown: null,
+                    autoDismissed: true,
+                    phaseLabel: data.phaseLabel,
+                    phaseKey: data.phaseKey,
+                  },
+                });
+                qc.invalidateQueries({ queryKey: getListCookCheckinsQueryKey(Number(id)) });
+                // Summary notification so the pitmaster knows the auto-dismiss fired.
+                Notifications.scheduleNotificationAsync({
+                  content: {
+                    title: `✓ ${data.phaseLabel} — auto-logged`,
+                    body: `${Math.round(probeInternalTempF)}°F recorded. Cook is on track.`,
+                    data: {},
+                  },
+                  trigger: { seconds: 1, type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL },
+                }).catch(() => {});
+
+                // Adaptive reschedule now that a check-in is complete
+                const first = cookSeqData?.schedule?.[0];
+                if (first?.meatOnAt && first?.estimatedFinishAt) {
+                  const completed = new Set(
+                    (cookCheckins as CookCheckin[])
+                      .map((ci) => ci.phaseKey)
+                      .filter((k): k is string => k != null),
+                  );
+                  completed.add(data.phaseKey);
+                  rescheduleCheckinNotifications({
+                    cookId: Number(id),
+                    foodType: first.foodType ?? null,
+                    weightLbs: cook?.weightLbs ?? null,
+                    meatOnAt: first.meatOnAt,
+                    estimatedFinishAt: first.estimatedFinishAt,
+                    wrapAtMinutes: first.wrapAtMinutes ?? null,
+                    completedPhaseKeys: completed,
+                    actualInternalTempF: probeInternalTempF,
+                  }).catch(() => {});
+                }
+              } catch {
+                // Auto-dismiss failed — fall back to showing the modal
+                openCheckin(sc);
+              }
+            } else {
+              openCheckin(sc);
+            }
+          })
+          .catch(() => openCheckin(sc));
+      },
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [
+        cook?.foodType,
+        openCheckin,
+        meaterProbes,
+        thermoworksProbes,
+        cookCheckins,
+        cookSeqData,
+        id,
+        createCheckin,
+        qc,
+      ],
+    ),
+  );
 
   // Compute the current "next step" using the shared helper. Runs before early
   // returns so it respects React's rules of hooks.
@@ -375,12 +615,17 @@ export default function CookDetailScreen() {
   // effect tell whether the step actually changed (vs. nowMs ticking).
   const prevNextStepKeyRef = useRef<string | null | undefined>(undefined);
 
-  // Track when this screen is mounted so the global notification handler can
-  // suppress schedule-step system banners in favour of the in-app banner.
+  // Track when this screen is mounted and which cook is displayed so the
+  // global notification handler can route check-in taps to the correct screen.
   useEffect(() => {
+    const numId = Number(id);
     setCookDetailVisible(true);
-    return () => setCookDetailVisible(false);
-  }, []);
+    setCurrentCookId(isNaN(numId) ? null : numId);
+    return () => {
+      setCookDetailVisible(false);
+      setCurrentCookId(null);
+    };
+  }, [id]);
 
   // Auto-expand the schedule and smooth-scroll the highlighted row into view
   // whenever the next step changes. We use cached onLayout offsets instead of
@@ -607,8 +852,10 @@ export default function CookDetailScreen() {
         onPress: async () => {
           try {
             await deleteCook.mutateAsync({ id: Number(id) });
-            // Cancel any frozen thaw/temper/preheat alerts queued for this cook.
+            // Cancel all local notifications tied to this cook so none fire
+            // after deletion (frozen thaw/temper alerts + smart check-ins).
             await cancelStoredFrozenNotifications(Number(id)).catch(() => {});
+            await cancelStoredCheckinNotifications(Number(id)).catch(() => {});
             qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
             qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
             qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
@@ -1027,7 +1274,7 @@ export default function CookDetailScreen() {
     showPaywall({
       trigger: "pro_required",
       featureName: "Live auto-grading",
-      foodType: (cook as any)?.foodType ?? null,
+      foodType: cook?.foodType ?? null,
     });
   }, [showPaywall, cook]);
 
@@ -1419,7 +1666,27 @@ export default function CookDetailScreen() {
         <ShareCookButton cook={c} colors={colors} />
 
 
-        {/* ── Check-in History ─────────────────────────────── */}
+        {/* ── Smart Check-In Timeline ──────────────────────── */}
+        <CookCheckinTimeline
+          c={c as Record<string, unknown>}
+          colors={colors}
+          cookStatus={cookStatus}
+          nowMs={nowMs}
+          cookSeqData={cookSeqData as SequenceData | null}
+          checkins={cookCheckins as CookCheckin[]}
+          checkinsLoading={checkinsLoading}
+          onOpenCheckin={openCheckin}
+        />
+
+        {/* ── Cook Journey Replay (completed cooks) ─────────── */}
+        <CookJourneyReplay
+          c={c as Record<string, unknown>}
+          colors={colors}
+          checkins={cookCheckins as CookCheckin[]}
+          cookSeqData={cookSeqData as SequenceData | null}
+        />
+
+        {/* ── Check-in History (AI analysis history) ────────── */}
         <CheckInHistory
           c={c}
           colors={colors}
@@ -1517,6 +1784,63 @@ export default function CookDetailScreen() {
         alertSaving={alertSaving}
         saveAlert={saveAlert}
       />
+
+      {/* ── Smart Check-In Modal ─────────────────────────────── */}
+      {activeCheckin && (
+        <CheckinModal
+          visible={checkinModalVisible}
+          onClose={() => setCheckinModalVisible(false)}
+          cookId={Number(id)}
+          colors={colors}
+          phase={activeCheckin.phase}
+          scheduledAt={activeCheckin.scheduledAt}
+          foodType={cook?.foodType}
+          weightLbs={cook?.weightLbs ?? null}
+          currentInternalTempF={meaterProbes[0]?.internalTempF ?? thermoworksProbes[0]?.tempF ?? null}
+          currentPitTempF={meaterProbes[0]?.ambientTempF ?? null}
+          lastCheckinInternalTempF={
+            cookCheckins.length > 0
+              ? (cookCheckins[cookCheckins.length - 1] as CookCheckin).internalTempF ?? null
+              : null
+          }
+          targetCookTempF={cook?.cookTempF ?? null}
+          weatherTempF={weather?.tempF ?? null}
+          weatherWindSpeedMph={weather?.windSpeedMph ?? null}
+          onCheckinSaved={(savedInternalTempF) => {
+            qc.invalidateQueries({ queryKey: getListCookCheckinsQueryKey(Number(id)) });
+            // Adaptive rescheduling: recompute remaining notifications based on
+            // the actual internal temp just recorded vs what was expected.
+            // Use the submitted modal temp (savedInternalTempF) — not the probe
+            // reading — so manual-entry cooks reschedule correctly too.
+            const first = cookSeqData?.schedule?.[0];
+            if (first?.meatOnAt && first?.estimatedFinishAt) {
+              const completedKeys = new Set(
+                (cookCheckins as CookCheckin[])
+                  .map((ci) => ci.phaseKey)
+                  .filter((k): k is string => k != null),
+              );
+              if (activeCheckin?.phaseKey) completedKeys.add(activeCheckin.phaseKey);
+              // Prefer the saved check-in temp; fall back to live probe only when
+              // no manual temp was entered (pure visual-milestone check-in).
+              const adaptiveTemp =
+                savedInternalTempF ??
+                meaterProbes[0]?.internalTempF ??
+                thermoworksProbes[0]?.tempF ??
+                null;
+              rescheduleCheckinNotifications({
+                cookId: Number(id),
+                foodType: first.foodType ?? null,
+                weightLbs: cook?.weightLbs ?? null,
+                meatOnAt: first.meatOnAt,
+                estimatedFinishAt: first.estimatedFinishAt,
+                wrapAtMinutes: first.wrapAtMinutes ?? null,
+                completedPhaseKeys: completedKeys,
+                actualInternalTempF: adaptiveTemp,
+              }).catch(() => {});
+            }
+          }}
+        />
+      )}
     </View>
   );
 }

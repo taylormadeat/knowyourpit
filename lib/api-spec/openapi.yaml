@@ -371,6 +371,78 @@ paths:
         "204":
           description: Deleted
 
+  /cooks/{id}/checkins/schedule:
+    get:
+      operationId: getCookCheckinSchedule
+      tags: [cooks]
+      summary: Get the server-computed check-in schedule for a cook
+      description: Returns the AI-plan-anchored check-in schedule derived from the cook's sequence data. This is the single source of truth for check-in timing — the mobile app uses these times when scheduling local notifications.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Computed check-in schedule
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CheckinScheduleItem"
+        "404":
+          description: Cook not found
+
+  /cooks/{id}/checkins:
+    get:
+      operationId: listCookCheckins
+      tags: [cooks]
+      summary: Get all check-ins for a cook
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of check-ins
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CookCheckin"
+        "404":
+          description: Cook not found
+    post:
+      operationId: createCookCheckin
+      tags: [cooks]
+      summary: Record a check-in response for a cook
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCookCheckinBody"
+      responses:
+        "201":
+          description: Check-in recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CookCheckin"
+        "404":
+          description: Cook not found
+
   /cooks/{id}/live-activity:
     post:
       operationId: registerCookLiveActivity
@@ -2997,3 +3069,106 @@ components:
       required:
         - activityId
         - cookId
+
+    CookCheckin:
+      type: object
+      properties:
+        id:
+          type: integer
+        cookId:
+          type: integer
+        scheduledAt:
+          type: string
+          format: date-time
+        firedAt:
+          type: ["string", "null"]
+          format: date-time
+        internalTempF:
+          type: ["number", "null"]
+        pitTempF:
+          type: ["number", "null"]
+        statusFlag:
+          type: string
+          nullable: true
+          enum: [all_good, running_behind, flare_up, low_fuel]
+        userNote:
+          type: ["string", "null"]
+        photoKey:
+          type: ["string", "null"]
+        aiGuidanceShown:
+          type: ["string", "null"]
+        autoDismissed:
+          type: boolean
+        phaseLabel:
+          type: ["string", "null"]
+        phaseKey:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - cookId
+        - scheduledAt
+        - firedAt
+        - internalTempF
+        - pitTempF
+        - statusFlag
+        - userNote
+        - photoKey
+        - aiGuidanceShown
+        - autoDismissed
+        - phaseLabel
+        - phaseKey
+        - createdAt
+        - updatedAt
+
+    CheckinScheduleItem:
+      type: object
+      properties:
+        phaseKey:
+          type: string
+        phaseLabel:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        anchorType:
+          type: string
+          enum: [sequence, percent]
+      required:
+        - phaseKey
+        - phaseLabel
+        - scheduledAt
+        - anchorType
+
+    CreateCookCheckinBody:
+      type: object
+      properties:
+        scheduledAt:
+          type: string
+          format: date-time
+        internalTempF:
+          type: ["number", "null"]
+        pitTempF:
+          type: ["number", "null"]
+        statusFlag:
+          type: ["string", "null"]
+          enum: [all_good, running_behind, flare_up, low_fuel, null]
+        userNote:
+          type: ["string", "null"]
+        photoKey:
+          type: ["string", "null"]
+        aiGuidanceShown:
+          type: ["string", "null"]
+        autoDismissed:
+          type: boolean
+        phaseLabel:
+          type: ["string", "null"]
+        phaseKey:
+          type: ["string", "null"]
+      required:
+        - scheduledAt
