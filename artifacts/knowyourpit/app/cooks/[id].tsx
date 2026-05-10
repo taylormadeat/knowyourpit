@@ -159,7 +159,7 @@ export default function CookDetailScreen() {
   const qc = useQueryClient();
 
   const { getToken } = useAuth();
-  const { data: cook, isLoading } = useGetCook(Number(id));
+  const { data: cook, isLoading, dataUpdatedAt: cookDataUpdatedAt } = useGetCook(Number(id));
   const deleteCook = useDeleteCook();
   const updateCook = useUpdateCook();
   const analyzeMutation = useAnalyzeCook();
@@ -343,6 +343,19 @@ export default function CookDetailScreen() {
       setWrapAdjustedFinishMs(null);
     }
   }, [cookFinishLower, cookFinishUpper]);
+
+  // Belt-and-suspenders for the identical-bounds edge case: when a check-in
+  // or AI analyze completes, we set pendingWrapClearRef and invalidate the
+  // cook query. The above bounds-change effect handles the common case, but
+  // if the server returns the same finishTimeRangeLower/Upper (effect won't
+  // fire), this effect fires on cookDataUpdatedAt — guaranteed to change on
+  // every successful cook query refetch — and clears the override atomically.
+  const pendingWrapClearRef = useRef(false);
+  useEffect(() => {
+    if (!pendingWrapClearRef.current) return;
+    pendingWrapClearRef.current = false;
+    setWrapAdjustedFinishMs(null);
+  }, [cookDataUpdatedAt]);
 
   // Pending wrap confirmation — set when user taps the wrap dot so we can
   // show the WrapTempSheet before committing the confirmed timestamp.
@@ -734,12 +747,13 @@ export default function CookDetailScreen() {
                 },
               });
               // A completed check-in may carry a fresher AI finish window from
-              // the server. Clear the local wrap-adjusted estimate now so the
-              // progress bar immediately reflects the updated AI midpoint rather
-              // than waiting for the data-reactive effect to fire on the next
-              // query-cache update (also handles the edge case where the server
-              // returns identical bound values and the effect wouldn't fire).
-              setWrapAdjustedFinishMs(null);
+              // the server. Set the pending-clear flag and invalidate the cook
+              // query — the dataUpdatedAt-watching effect will clear
+              // wrapAdjustedFinishMs atomically when fresh data lands,
+              // covering both the bounds-change case and the identical-bounds
+              // edge case (no intermediate backward jump to stale values).
+              pendingWrapClearRef.current = true;
+              qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
               qc.invalidateQueries({ queryKey: getListCookCheckinsQueryKey(Number(id)) });
               // Summary notification so the pitmaster knows the auto-dismiss fired.
               Notifications.scheduleNotificationAsync({
@@ -833,9 +847,12 @@ export default function CookDetailScreen() {
                     phaseKey: data.phaseKey,
                   },
                 });
-                // Clear the local wrap-adjusted estimate so the progress bar
-                // immediately reflects the server's fresher AI finish window.
-                setWrapAdjustedFinishMs(null);
+                // Set the pending-clear flag and invalidate the cook query —
+                // the dataUpdatedAt-watching effect clears wrapAdjustedFinishMs
+                // atomically when fresh data lands (covers both bounds-change
+                // and identical-bounds edge cases; no stale-value jump).
+                pendingWrapClearRef.current = true;
+                qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
                 qc.invalidateQueries({ queryKey: getListCookCheckinsQueryKey(Number(id)) });
                 // Summary notification so the pitmaster knows the auto-dismiss fired.
                 Notifications.scheduleNotificationAsync({
@@ -1413,13 +1430,6 @@ export default function CookDetailScreen() {
         } as any,
       });
       setResult(data);
-      // Fresh AI analysis carries an updated finish window — discard the local
-      // wrap-adjusted estimate so the progress bar immediately uses the
-      // AI-refined midpoint. This is belt-and-suspenders alongside the
-      // data-reactive useEffect: it fires synchronously in this success path
-      // and also handles the edge case where the server returns identical
-      // finishTimeRangeLower/Upper bounds (the effect would not fire then).
-      setWrapAdjustedFinishMs(null);
       // Save full analysis result to the cook record (backend also appends to analysisHistory)
       await updateCook.mutateAsync({
         id: Number(id),
@@ -1445,6 +1455,13 @@ export default function CookDetailScreen() {
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
       qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
       qc.invalidateQueries({ queryKey: getListCookEventsQueryKey(Number(id)) });
+      // Fresh AI analysis carries an updated finishTimeRangeLower/Upper on
+      // the cook record. Set the pending-clear flag and invalidate the cook
+      // query — the dataUpdatedAt-watching effect clears wrapAdjustedFinishMs
+      // atomically when fresh data lands (covers bounds-change and
+      // identical-bounds edge cases; no backward jump to stale values).
+      pendingWrapClearRef.current = true;
+      qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
       // Bump local clock — this both surfaces "Updated X min ago" UI and
       // resets the 30-min auto-grade timer regardless of which path ran.
       setLastAnalyzedAtMs(Date.now());
@@ -2435,11 +2452,12 @@ export default function CookDetailScreen() {
           weatherWindSpeedMph={weather?.windSpeedMph ?? null}
           onCheckinSaved={(savedInternalTempF) => {
             // A manual check-in may carry a fresher AI finish window from the
-            // server. Clear the local wrap-adjusted estimate immediately so the
-            // progress bar reflects the AI-refined midpoint without waiting for
-            // the data-reactive effect (also covers the edge case where the
-            // server returns identical finishTimeRangeLower/Upper bounds).
-            setWrapAdjustedFinishMs(null);
+            // server. Set the pending-clear flag and invalidate the cook query
+            // — the dataUpdatedAt-watching effect clears wrapAdjustedFinishMs
+            // atomically when fresh data lands (covers both bounds-change and
+            // identical-bounds edge cases; no stale-value backward jump).
+            pendingWrapClearRef.current = true;
+            qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
             qc.invalidateQueries({ queryKey: getListCookCheckinsQueryKey(Number(id)) });
             // Adaptive rescheduling: recompute remaining notifications based on
             // the actual internal temp just recorded vs what was expected.
