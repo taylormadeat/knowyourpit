@@ -31,7 +31,7 @@ import {
 } from "@workspace/api-client-react";
 import { GRILL_CATALOG, type GrillModel } from "@/constants/grillCatalog";
 import { GrillFingerprint } from "@/components/GrillFingerprint";
-import { GrillTypeIcon } from "@/components/GrillTypeIcon";
+import { GrillTypeIcon, classifyGrillType, grillGradientColors } from "@/components/GrillTypeIcon";
 
 const GRILL_TYPES = [
   "Pellet Grill", "Kamado", "Offset Smoker", "Reverse Flow Smoker",
@@ -368,7 +368,7 @@ export default function GrillsScreen() {
               style={[s.grillCardWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
             >
             <View style={s.grillCard}>
-              <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.grillCardIcon}>
+              <LinearGradient colors={grillGradientColors(classifyGrillType(item.type))} style={s.grillCardIcon}>
                 <GrillTypeIcon type={item.type} size={22} color="#fff" />
               </LinearGradient>
               <View style={s.grillCardInfo}>

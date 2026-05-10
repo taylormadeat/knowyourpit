@@ -44,10 +44,12 @@ export function preheatMinsForGrill(grill: any | null): number {
   if (!grill) return 25;
   const t = (grill.type || "").toLowerCase();
   if (t.includes("gas")) return 15;
-  if (t.includes("pellet")) return 30;
-  if (t.includes("kamado") || t.includes("ceramic")) return 45;
-  if (t.includes("offset")) return 40;
   if (t.includes("electric")) return 20;
+  if (t.includes("pellet")) return 30;
+  if (t.includes("charcoal") || t.includes("kettle")) return 25;
+  if (t.includes("drum")) return 30;
+  if (t.includes("kamado") || t.includes("ceramic")) return 45;
+  if (t.includes("offset") || t.includes("reverse flow")) return 40;
   return 25;
 }
 

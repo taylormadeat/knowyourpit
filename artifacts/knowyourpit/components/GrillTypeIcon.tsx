@@ -30,6 +30,25 @@ export function classifyGrillType(type: string | null | undefined): GrillIconKin
   return "default";
 }
 
+// Returns a two-stop LinearGradient color pair for each grill kind so
+// every card/icon background reflects the actual fuel / cooker type.
+// "Charcoal Grill" and "Kettle" both classify as "kettle" and therefore
+// share the same charcoal-toned gradient — no pellet-specific colour leaks
+// into charcoal grill cards.
+export function grillGradientColors(kind: GrillIconKind): [string, string] {
+  switch (kind) {
+    case "pellet":  return ["#E84820", "#FF6B2B"]; // fire-orange — pellet auger heat
+    case "kamado":  return ["#B45309", "#D97706"]; // amber — ceramic / kamado clay
+    case "offset":  return ["#78350F", "#A16207"]; // dark amber-brown — smoked wood
+    case "drum":    return ["#6D28D9", "#7C3AED"]; // purple — UDS community vibe
+    case "kettle":  return ["#292524", "#57534E"]; // charcoal-stone — charcoal fuel
+    case "gas":     return ["#0369A1", "#0EA5E9"]; // sky-blue — gas flame
+    case "griddle": return ["#475569", "#64748B"]; // slate — flat steel surface
+    case "cabinet": return ["#065F46", "#059669"]; // teal-green — vertical cabinet
+    default:        return ["#E84820", "#FF6B2B"]; // fallback orange
+  }
+}
+
 interface Props {
   type?: string | null;
   size?: number;
