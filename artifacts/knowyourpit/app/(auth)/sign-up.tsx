@@ -232,13 +232,15 @@ export default function SignUpScreen() {
                 .toLowerCase()
                 .slice(0, 15);
               const suffix = Math.floor(Math.random() * 9000 + 1000);
-              const updated = await signUp.update({ username: `${base}${suffix}` });
+              const updated = await attempt.update({ username: `${base}${suffix}` });
               if (updated.status === "complete" && updated.createdSessionId) {
                 await setActive({ session: updated.createdSessionId });
                 router.replace("/(tabs)");
               } else {
                 setErrorMsg("Apple sign-in could not be completed. Please try again.");
               }
+            } else if (missing.includes("email_address")) {
+              setErrorMsg("Apple couldn't share your email this time. Please sign up with email instead.");
             } else {
               setErrorMsg("Apple sign-in could not be completed. Please try again.");
             }
