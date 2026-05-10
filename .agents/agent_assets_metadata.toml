@@ -42,6 +42,12 @@ uri = "file://artifacts/promo-video/public/brand/smoke-wisp.png"
 type = "image"
 title = "generated_image"
 
+[[generated]]
+id = "CCi30FmfhQ5109QL19jQJ"
+uri = "file://artifacts/promo-video/public/brand/scene1-couch.png"
+type = "image"
+title = "person relaxing on couch"
+
 [[outputs]]
 id = "Qp7H6VGZ9ofBB5-ABXfas"
 uri = "file://screenshots/app-store-6.7in/IMG_1746.png"
