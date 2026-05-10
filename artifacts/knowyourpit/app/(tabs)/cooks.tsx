@@ -33,6 +33,7 @@ import {
   type CompetitionCategory,
 } from "@/constants/competitionKnowledge";
 import { getCookCardBar, type CookCardBar } from "@/utils/cookCardBar";
+import { fmtRemaining } from "@/components/cook-detail/CookProgressBar";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
@@ -480,6 +481,20 @@ export default function CooksScreen() {
               {fmtElapsed(elapsedMs)} on the smoker
             </Text>
           )}
+          {isActive && (() => {
+            const seqFinish = item.sequenceData?.schedule?.[0]?.estimatedFinishAt;
+            const rawFinish = seqFinish ?? item.plannedEndAt ?? null;
+            if (!rawFinish) return null;
+            const finishMs = new Date(rawFinish).getTime();
+            const isOver = nowMs > finishMs;
+            const remainingMs = isOver ? 0 : finishMs - nowMs;
+            const overMs = isOver ? nowMs - finishMs : 0;
+            return (
+              <Text style={[s.liveElapsed, { color: isOver ? "#ef4444" : colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                {fmtRemaining(remainingMs, isOver, overMs)}
+              </Text>
+            );
+          })()}
           {isPlanned && plannedStartMs !== null && (
             <Text style={[s.date, { color: isSoon ? "#3b82f6" : colors.mutedForeground }]}>
               {isSoon
