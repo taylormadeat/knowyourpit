@@ -304,7 +304,7 @@ export default function CookDetailScreen() {
     }
   };
 
-  // Check-in history for this cook (active and completed cooks)
+  // Check-in history for this cook (active, completed, and planned cooks)
   const { data: cookCheckins = [], isLoading: checkinsLoading } = useListCookCheckins(
     Number(id),
     {

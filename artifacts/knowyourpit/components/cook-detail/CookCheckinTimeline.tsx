@@ -273,7 +273,7 @@ export function CookCheckinTimeline({
                           </Text>
                         )}
 
-                        {isNext && isActive && !isPlanned && (
+                        {isNext && isActive && (
                           <Pressable
                             onPress={() => onOpenCheckin(sc)}
                             style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 6, alignSelf: "flex-start" }}
