@@ -1103,6 +1103,43 @@ export default function CookDetailScreen() {
     }
   }, [activeCookAlerts.length, cook]);
 
+  // When a wrap-temp adjustment shifts the estimated finish time, reschedule any
+  // pending "time before serve" push notifications so they fire at the correct time.
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    if (!wrapAdjustedFinishMs) return;
+    const tbsAlerts = activeCookAlerts.filter(
+      (a: any) => a.alertType === "time_before_serve" && a.isActive && !a.triggered,
+    );
+    if (!tbsAlerts.length) return;
+
+    (async () => {
+      for (const alert of tbsAlerts) {
+        if (alert.scheduledNotificationId) {
+          await Notifications.cancelScheduledNotificationAsync(alert.scheduledNotificationId).catch(() => {});
+        }
+        const minutesBefore = alert.thresholdTempF as number;
+        const fireAt = wrapAdjustedFinishMs - minutesBefore * 60 * 1000;
+        if (fireAt <= Date.now()) continue;
+        const label = (alert.message as string | null) ?? `${fmtMinutes(minutesBefore)} before serve time`;
+        try {
+          const notificationId = await Notifications.scheduleNotificationAsync({
+            content: {
+              title: "⏱ Serve Time Approaching",
+              body: label,
+              sound: true,
+              data: { alertId: alert.id, cookId: Number(id) },
+            },
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(fireAt) },
+          });
+          await patchAlert.mutateAsync({ id: alert.id, data: { scheduledNotificationId: notificationId } });
+        } catch {
+          // Best-effort — don't block the wrap confirmation flow
+        }
+      }
+    })();
+  }, [wrapAdjustedFinishMs, activeCookAlerts, id]);
+
   const topPad = useTopInset();
   const botPad = useBottomInset();
   const { isTablet, detailMaxWidth } = useLayout();
