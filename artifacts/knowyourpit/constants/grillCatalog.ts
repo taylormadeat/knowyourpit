@@ -142,21 +142,6 @@ export const GRILL_CATALOG: GrillCategory[] = [
         ],
       },
       {
-        brand: "Spider Grills",
-        logoUrl: "https://logo.clearbit.com/spidergrills.com",
-        models: [
-          {
-            name: "Huntsman",
-            type: "Pellet Grill",
-            fuelType: "Pellets",
-            tempRange: "180°F – 500°F",
-            cookingSurface: "700 sq in",
-            features: ["WiFi + Bluetooth app control", "PID temperature controller", "Auto fan regulation", "Large pellet hopper", "Stainless steel grates", "Two-zone cooking"],
-            notes: "Spider Grills' flagship standalone pellet smoker with full app connectivity",
-          },
-        ],
-      },
-      {
         brand: "Z Grills",
         logoUrl: "https://logo.clearbit.com/zgrills.com",
         models: [
@@ -518,6 +503,21 @@ export const GRILL_CATALOG: GrillCategory[] = [
         models: [
           { name: "Kettleman", type: "Kettle", fuelType: "Charcoal", tempRange: "300°F – 600°F", cookingSurface: "365 sq in", features: ["Damper-free design", "TRU-Infrared cooking grates", "Heat-resistant handle"] },
           { name: "Kettleman TRU-Infrared XL", type: "Kettle", fuelType: "Charcoal", tempRange: "300°F – 600°F", cookingSurface: "510 sq in", features: ["TRU-Infrared", "Larger capacity", "Hinged lid"] },
+        ],
+      },
+      {
+        brand: "Spider Grills",
+        logoUrl: "https://logo.clearbit.com/spidergrills.com",
+        models: [
+          {
+            name: "Huntsman",
+            type: "Charcoal Grill",
+            fuelType: "Charcoal",
+            tempRange: "225°F – 700°F",
+            cookingSurface: "700 sq in",
+            features: ["WiFi + Bluetooth app control", "PID temperature controller", "Auto fan regulation", "Stainless steel grates", "Two-zone cooking"],
+            notes: "Charcoal grill with integrated fan controller for precision temperature management via app — achieves pellet-grill-style set-and-forget convenience using charcoal",
+          },
         ],
       },
     ],
