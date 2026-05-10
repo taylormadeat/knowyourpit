@@ -448,7 +448,7 @@ export default function CooksScreen() {
     setEditingSession(null);
   };
 
-  const renderCookItem = ({ item }: { item: any }) => {
+  const renderCookItem = ({ item, inSession }: { item: any; inSession?: boolean }) => {
     const isActive = item.status === "active";
     const isPlanned = item.status === "planned";
     const elapsedMs = isActive && item.actualStartAt
@@ -639,6 +639,48 @@ export default function CooksScreen() {
               {item.status}
             </Text>
           </View>
+          {inSession && bar !== null && isActive && (() => {
+            const isIndeterminate = bar.color === "#FF6B2B60";
+            if (isIndeterminate) {
+              return (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 3,
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 10,
+                    backgroundColor: "#FF6B2B22",
+                    borderWidth: 1,
+                    borderColor: "#FF6B2B55",
+                  }}
+                >
+                  <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: "#FF6B2B" }} />
+                  <Text style={{ color: "#FF6B2B", fontSize: 10, fontFamily: "Inter_700Bold" }}>—%</Text>
+                </View>
+              );
+            }
+            const pct = Math.round(bar.progress * 100);
+            return (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 3,
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  borderRadius: 10,
+                  backgroundColor: bar.color + "22",
+                  borderWidth: 1,
+                  borderColor: bar.color + "66",
+                }}
+              >
+                <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: bar.color }} />
+                <Text style={{ color: bar.color, fontSize: 10, fontFamily: "Inter_700Bold" }}>{pct}%</Text>
+              </View>
+            );
+          })()}
           {(() => {
             if (item.status !== "completed") return null;
             const avg = avgRating(item);
@@ -939,7 +981,7 @@ export default function CooksScreen() {
     if (item.type === "sessionCook") {
       return (
         <View style={{ paddingLeft: 12 }}>
-          {renderCookItem({ item: item.data })}
+          {renderCookItem({ item: item.data, inSession: true })}
         </View>
       );
     }
