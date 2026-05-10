@@ -237,6 +237,8 @@ export function CookCheckinTimeline({
                             ? fmtCountdown(sc.scheduledAt, nowMs)
                             : isPast
                             ? `Missed · ${fmtTime(sc.scheduledAt)}`
+                            : isPlanned && sc.scheduledAt > nowMs
+                            ? `${fmtTime(sc.scheduledAt)} · ${fmtCountdown(sc.scheduledAt, nowMs)}`
                             : fmtTime(sc.scheduledAt)}
                         </Text>
 
