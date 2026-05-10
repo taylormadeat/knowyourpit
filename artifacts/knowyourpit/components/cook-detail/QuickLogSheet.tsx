@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import type { ComponentProps } from "react";
 import { Feather } from "@expo/vector-icons";
@@ -52,9 +53,10 @@ interface Props {
     background: string;
   };
   onEventLogged: () => void;
+  onNoteLogged?: (noteText: string) => void;
 }
 
-export function QuickLogSheet({ visible, onClose, cookId, colors, onEventLogged }: Props) {
+export function QuickLogSheet({ visible, onClose, cookId, colors, onEventLogged, onNoteLogged }: Props) {
   const [selectedType, setSelectedType] = useState<EventType | null>(null);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
@@ -80,11 +82,18 @@ export function QuickLogSheet({ visible, onClose, cookId, colors, onEventLogged 
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onEventLogged();
+      if (selectedType === "user_note" && noteText.trim()) {
+        onNoteLogged?.(noteText.trim());
+      }
       setNote("");
       setSelectedType(null);
       onClose();
     } catch {
-      // best-effort
+      Alert.alert(
+        "Couldn't save",
+        "Check your connection and try again.",
+        [{ text: "OK" }],
+      );
     } finally {
       setSaving(false);
     }

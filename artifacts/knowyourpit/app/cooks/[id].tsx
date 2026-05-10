@@ -1257,8 +1257,13 @@ export default function CookDetailScreen() {
   // whenever an analyze (manual OR auto) finishes successfully.
   const [lastAnalyzedAtMs, setLastAnalyzedAtMs] = useState<number | null>(null);
 
-  const analyze = async (opts: { auto?: boolean } = {}) => {
+  const analyze = async (opts: { auto?: boolean; extraNotes?: string } = {}) => {
     const auto = opts.auto === true;
+    // extraNotes lets callers (e.g. quick-log note) inject text directly into
+    // the analysis context without racing a React state update cycle.
+    const notesForAnalysis = opts.extraNotes != null
+      ? [opts.extraNotes.trim(), scanNotes.trim()].filter(Boolean).join(" · ")
+      : scanNotes.trim();
     const hasTemp = userTempInput.trim().length > 0 && !isNaN(parseFloat(userTempInput));
     // For auto-grade ticks, a live MEATER probe temperature counts as
     // gradeable input on its own (the analyze API also forwards live
@@ -1266,7 +1271,7 @@ export default function CookDetailScreen() {
     // userTempInput field.
     const hasMeaterTemp =
       meaterProbes.length > 0 && meaterProbes[0]?.internalTempF != null;
-    const hasAnyInput = images.length > 0 || scanNotes.trim().length > 0 || hasTemp;
+    const hasAnyInput = images.length > 0 || notesForAnalysis.length > 0 || hasTemp;
     if (!hasAnyInput && !(auto && hasMeaterTemp)) {
       if (auto) return; // silent skip — nothing useful to grade right now
       if (cookStatus === "active") {
@@ -1292,7 +1297,7 @@ export default function CookDetailScreen() {
       const data: any = await analyzeMutation.mutateAsync({
         data: {
           images: images.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),
-          cookNotes: scanNotes.trim() || null,
+          cookNotes: notesForAnalysis || null,
           cookContext: {
             foodType: c?.foodType,
             targetTempF: c?.targetTempF,
@@ -1339,7 +1344,7 @@ export default function CookDetailScreen() {
             decisions: data.decisions ?? [],
             // Snapshot context so history is self-contained
             snapshotTempF: userTempInput.trim() && !isNaN(parseFloat(userTempInput)) ? parseFloat(userTempInput) : null,
-            snapshotNotes: scanNotes.trim() || null,
+            snapshotNotes: notesForAnalysis || null,
             snapshotElapsedMinutes: c?.actualStartAt ? Math.round((Date.now() - new Date(c.actualStartAt).getTime()) / 60000) : null,
             analyzedAt: new Date().toISOString(),
           },
@@ -2278,6 +2283,11 @@ export default function CookDetailScreen() {
         colors={colors}
         onEventLogged={() => {
           qc.invalidateQueries({ queryKey: getListCookEventsQueryKey(Number(id)) });
+        }}
+        onNoteLogged={(noteText) => {
+          // Inject the note directly into the analysis call so PitMaster
+          // sees it immediately — no React state update cycle needed.
+          analyze({ extraNotes: noteText });
         }}
       />
 
