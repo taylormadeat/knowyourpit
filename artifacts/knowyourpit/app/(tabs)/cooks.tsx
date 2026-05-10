@@ -14,6 +14,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  type StyleProp,
+  type TextStyle,
 } from "react-native";
 import { fmtMinutes } from "@/utils/duration";
 import { useRouter } from "expo-router";
@@ -82,6 +84,45 @@ function fmtCountdown(targetMs: number): string {
 
 function fmtTime(d: Date): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function fmtFinishTime(finishMs: number): string {
+  const d = new Date(finishMs);
+  const hours = d.getHours();
+  const minutes = d.getMinutes();
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const h = hours % 12 || 12;
+  const m = minutes.toString().padStart(2, "0");
+  return `Done ~${h}:${m} ${ampm}`;
+}
+
+interface RemainingTimeToggleProps {
+  finishMs: number;
+  isOver: boolean;
+  remainingMs: number;
+  overMs: number;
+  textStyle: StyleProp<TextStyle>;
+  overColor: string;
+  mutedColor: string;
+}
+
+function RemainingTimeToggle({ finishMs, isOver, remainingMs, overMs, textStyle, overColor, mutedColor }: RemainingTimeToggleProps) {
+  const [showFinishTime, setShowFinishTime] = useState(false);
+  const label = isOver
+    ? fmtRemaining(remainingMs, true, overMs)
+    : showFinishTime
+    ? fmtFinishTime(finishMs)
+    : fmtRemaining(remainingMs, false, overMs);
+  return (
+    <Pressable
+      onPress={() => { if (!isOver) setShowFinishTime((prev) => !prev); }}
+      hitSlop={8}
+    >
+      <Text style={[textStyle, { color: isOver ? overColor : mutedColor, fontFamily: "Inter_400Regular" }]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
 }
 
 function shiftSequenceData(data: SequenceData, offsetMs: number): SequenceData {
@@ -490,9 +531,15 @@ export default function CooksScreen() {
             const remainingMs = isOver ? 0 : finishMs - nowMs;
             const overMs = isOver ? nowMs - finishMs : 0;
             return (
-              <Text style={[s.liveElapsed, { color: isOver ? "#ef4444" : colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                {fmtRemaining(remainingMs, isOver, overMs)}
-              </Text>
+              <RemainingTimeToggle
+                finishMs={finishMs}
+                isOver={isOver}
+                remainingMs={remainingMs}
+                overMs={overMs}
+                textStyle={s.liveElapsed}
+                overColor="#ef4444"
+                mutedColor={colors.mutedForeground}
+              />
             );
           })()}
           {isPlanned && plannedStartMs !== null && (
