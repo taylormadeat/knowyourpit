@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text } from "react-native";
 
-function clamp(v: number, min: number, max: number): number {
+export function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
 }
 
@@ -27,7 +27,7 @@ function phaseLabel(progress: number, isOver: boolean): string {
   return "Almost done!";
 }
 
-function barColor(progress: number, isOver: boolean): string {
+export function barColor(progress: number, isOver: boolean): string {
   if (isOver) return "#ef4444";
   if (progress >= 0.9) return "#22c55e";
   if (progress >= 0.6) return "#F59E0B";
