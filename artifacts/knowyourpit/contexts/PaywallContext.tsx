@@ -18,6 +18,19 @@ interface PaywallContextValue {
   showPaywall: (opts?: ShowOptions) => void;
   hidePaywall: () => void;
   /**
+   * Temporarily hide the paywall without clearing its state (e.g. while
+   * navigating to the Pro showcase screen). The modal stays mounted so
+   * `resumePaywall` can restore it instantly without losing the trigger context.
+   */
+  pausePaywall: () => void;
+  /**
+   * Restore the paywall after a `pausePaywall` call (e.g. when the user
+   * navigates back from the showcase or taps "Unlock Pro").
+   */
+  resumePaywall: () => void;
+  /** True while the modal is visible but temporarily hidden via `pausePaywall`. */
+  isPaywallPaused: boolean;
+  /**
    * Parse a paywall payload out of an HTTP error and open the modal in a single
    * call. Pass `extras` to layer foodType/featureContext personalization on top
    * of the server-derived trigger/subtitle without losing the original message.
@@ -72,14 +85,22 @@ function extractPaywallPayload(err: any): { code: string; message?: string; feat
 
 export function PaywallProvider({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [opts, setOpts] = useState<ShowOptions>({});
 
   const showPaywall = useCallback((next?: ShowOptions) => {
     setOpts(next ?? {});
     setVisible(true);
+    setPaused(false);
   }, []);
 
-  const hidePaywall = useCallback(() => setVisible(false), []);
+  const hidePaywall = useCallback(() => {
+    setVisible(false);
+    setPaused(false);
+  }, []);
+
+  const pausePaywall = useCallback(() => setPaused(true), []);
+  const resumePaywall = useCallback(() => setPaused(false), []);
 
   const parseAndShowFromError = useCallback(
     (err: unknown, extras?: ParseExtras): boolean => {
@@ -100,16 +121,17 @@ export function PaywallProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo<PaywallContextValue>(
-    () => ({ showPaywall, hidePaywall, parseAndShowFromError }),
-    [showPaywall, hidePaywall, parseAndShowFromError],
+    () => ({ showPaywall, hidePaywall, pausePaywall, resumePaywall, isPaywallPaused: paused, parseAndShowFromError }),
+    [showPaywall, hidePaywall, pausePaywall, resumePaywall, paused, parseAndShowFromError],
   );
 
   return (
     <PaywallContext.Provider value={value}>
       {children}
       <PaywallModal
-        visible={visible}
+        visible={visible && !paused}
         onClose={hidePaywall}
+        onPause={pausePaywall}
         trigger={opts.trigger ?? null}
         subtitle={opts.subtitle ?? null}
         featureName={opts.featureName ?? null}

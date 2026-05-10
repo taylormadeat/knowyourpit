@@ -11,6 +11,7 @@ import {
   Platform,
   Linking,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useColors } from "@/hooks/useColors";
@@ -95,6 +96,13 @@ export type PaywallTrigger =
 interface PaywallModalProps {
   visible: boolean;
   onClose: () => void;
+  /**
+   * Called instead of `onClose` when the user taps "See what's included →".
+   * The caller (PaywallContext) temporarily hides the modal without clearing
+   * its state, then navigates to the Pro showcase screen. The modal is
+   * restored automatically when the user navigates back.
+   */
+  onPause?: () => void;
   trigger?: PaywallTrigger | null;
   /** Optional human-friendly subtitle override (e.g. server-supplied 402 message). */
   subtitle?: string | null;
@@ -231,8 +239,9 @@ function periodLabel(p?: string | null): string {
   return `/ ${p.replace(/^P/, "").toLowerCase()}`;
 }
 
-export function PaywallModal({ visible, onClose, trigger, subtitle, featureName, foodType, featureContext }: PaywallModalProps) {
+export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, featureName, foodType, featureContext }: PaywallModalProps) {
   const colors = useColors();
+  const router = useRouter();
   const {
     isReady,
     isLoading,
@@ -401,6 +410,18 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                 <Text style={styles.contextChipText}>{featureContext}</Text>
               </View>
             ) : null}
+            {!effectivePro && (
+              <Pressable
+                onPress={() => {
+                  onPause?.();
+                  router.push("/pro-features" as any);
+                }}
+                hitSlop={10}
+                style={styles.seeWhatsIncluded}
+              >
+                <Text style={styles.seeWhatsIncludedText}>See what's included →</Text>
+              </Pressable>
+            )}
           </LinearGradient>
 
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
@@ -891,6 +912,8 @@ const styles = StyleSheet.create({
   legalLink: { fontSize: 11, fontFamily: "Inter_400Regular", textDecorationLine: "underline" },
   policySep: { fontSize: 11, fontFamily: "Inter_400Regular" },
   legal: { fontSize: 11, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 16, paddingHorizontal: 8 },
+  seeWhatsIncluded: { marginTop: 14, alignSelf: "flex-start" },
+  seeWhatsIncludedText: { color: "rgba(240,232,213,0.75)", fontSize: 13, fontFamily: "Inter_500Medium", textDecorationLine: "underline" },
   journeyBlock: {
     paddingHorizontal: 20,
     paddingTop: 18,

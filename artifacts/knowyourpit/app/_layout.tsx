@@ -299,6 +299,7 @@ function RootLayoutNav() {
         <Stack.Screen name="cooks/[id]" />
         <Stack.Screen name="sessions/[sessionId]" />
         <Stack.Screen name="recipe/[id]" />
+        <Stack.Screen name="pro-features" />
       </Stack>
     </View>
   );

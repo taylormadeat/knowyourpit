@@ -20,7 +20,6 @@ import { useLayout } from "@/hooks/useLayout";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { useSubscription } from "@/contexts/SubscriptionContext";
-import { usePaywall } from "@/contexts/PaywallContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 
 const API_BASE_URL =
@@ -57,7 +56,6 @@ export default function MoreScreen() {
   const { signOut } = useClerk();
   const qc = useQueryClient();
   const { isPro, isIdentityLinked, expirationDate, restorePurchases, isLoading: subLoading } = useSubscription();
-  const { showPaywall } = usePaywall();
   const effectivePro = useEffectivePro();
   const { getToken } = useAuth();
   const [deleting, setDeleting] = React.useState(false);
@@ -267,7 +265,7 @@ export default function MoreScreen() {
                     : "Your Pro access is active. Manage your subscription in your App Store / Play Store account.",
                 );
               } else {
-                showPaywall();
+                router.push("/pro-features" as any);
               }
             }}
             style={({ pressed }) => [
