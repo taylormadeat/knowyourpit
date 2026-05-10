@@ -1629,7 +1629,6 @@ export default function CookDetailScreen() {
 
   // Live timer computed values
   const elapsedMs = c.actualStartAt ? nowMs - new Date(c.actualStartAt).getTime() : 0;
-  const remainingMs = c.plannedEndAt ? new Date(c.plannedEndAt).getTime() - nowMs : null;
 
   // Best-available finish estimate for the progress bar (priority order):
   // 1. Wrap-temp-adjusted finish (set immediately on wrap confirmation — overrides
@@ -1652,6 +1651,10 @@ export default function CookDetailScreen() {
     if (c.plannedEndAt) return new Date(c.plannedEndAt).getTime();
     return null;
   }, [wrapAdjustedFinishMs, c.finishTimeRangeLower, c.finishTimeRangeUpper, cookSeqData, c.plannedEndAt, nowMs]);
+
+  // Remaining time for the live banner — derived from estimatedFinishMs so it
+  // stays in sync with the progress bar (including wrap-temp adjustments).
+  const remainingMs = estimatedFinishMs != null ? estimatedFinishMs - nowMs : null;
 
   // Live graph from accumulated MEATER readings
   const liveGraphProbes = liveReadings.length >= 2
