@@ -465,19 +465,20 @@ export function SequenceSchedule(p: Props) {
                 {/* ── Fuel quick-log (active cooks only) ── */}
                 {isActive && onQuickLog && (
                   <View style={[s.seqTlFuelRow, { borderTopColor: colors.border }]}>
+                    <Text style={[s.seqTlFuelLabel, { color: colors.mutedForeground }]}>Log fuel</Text>
                     <Pressable
                       onPress={() => onQuickLog("charcoal")}
-                      style={[s.seqTlFuelBtn, { borderColor: colors.border }]}
+                      style={[s.seqTlFuelBtn, s.seqTlFuelBtnCharcoal]}
                     >
-                      <Text style={{ fontSize: 13 }}>🪨</Text>
-                      <Text style={[s.seqTlFuelBtnText, { color: colors.mutedForeground }]}>+ Charcoal</Text>
+                      <Feather name="grid" size={13} color="#9CA3AF" />
+                      <Text style={[s.seqTlFuelBtnText, { color: "#9CA3AF" }]}>Charcoal</Text>
                     </Pressable>
                     <Pressable
                       onPress={() => onQuickLog("wood")}
-                      style={[s.seqTlFuelBtn, { borderColor: colors.border }]}
+                      style={[s.seqTlFuelBtn, s.seqTlFuelBtnWood]}
                     >
-                      <Text style={{ fontSize: 13 }}>🪵</Text>
-                      <Text style={[s.seqTlFuelBtnText, { color: colors.mutedForeground }]}>+ Wood</Text>
+                      <Feather name="wind" size={13} color="#D97706" />
+                      <Text style={[s.seqTlFuelBtnText, { color: "#D97706" }]}>Wood</Text>
                     </Pressable>
                   </View>
                 )}

@@ -384,14 +384,26 @@ export const s = StyleSheet.create({
   seqTlStallBtnText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
 
   seqTlFuelRow: {
-    flexDirection: "row", gap: 8, marginTop: 10, paddingTop: 10,
+    flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, paddingTop: 10,
     borderTopWidth: 1, borderStyle: "dashed",
+  },
+  seqTlFuelLabel: {
+    fontSize: 11, fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase", letterSpacing: 0.5, marginRight: 2,
   },
   seqTlFuelBtn: {
     flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 5, paddingVertical: 8, borderWidth: 1, borderRadius: 8,
+    gap: 5, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1, borderRadius: 20,
   },
-  seqTlFuelBtnText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  seqTlFuelBtnCharcoal: {
+    backgroundColor: "rgba(120,113,108,0.12)",
+    borderColor: "rgba(120,113,108,0.45)",
+  },
+  seqTlFuelBtnWood: {
+    backgroundColor: "rgba(217,119,6,0.12)",
+    borderColor: "rgba(217,119,6,0.45)",
+  },
+  seqTlFuelBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
 
 });
 
