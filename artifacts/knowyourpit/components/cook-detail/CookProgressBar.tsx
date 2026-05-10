@@ -42,7 +42,7 @@ export function CookProgressBar({ startMs, estimatedFinishMs, nowMs, colors }: P
   if (estimatedFinishMs === null) {
     // Elapsed-aware indeterminate fill: grows from 0 → ~50% over 12 hours so
     // it tracks time without implying we know when the cook will end.
-    const elapsedMs = nowMs - startMs;
+    const elapsedMs = Math.max(0, nowMs - startMs);
     const indeterminateFill = Math.min(elapsedMs / (12 * 3600 * 1000), 0.5);
     return (
       <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 2 }}>
