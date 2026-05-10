@@ -306,6 +306,44 @@ export default function CookDetailScreen() {
     setConfirmedSteps(stored && typeof stored === "object" ? stored : {});
   }, [id, cook?.confirmedSteps]);
 
+  // Immediately-updated finish time after a wrap-temp confirmation — allows the
+  // progress bar to reflect the temperature-scaled estimate without waiting for
+  // the next AI check-in to update finishTimeRangeLower/Upper.
+  const [wrapAdjustedFinishMs, setWrapAdjustedFinishMs] = useState<number | null>(null);
+
+  // Extract finishTimeRangeLower once so effects can track it cleanly without
+  // spreading casts into hooks or dependency arrays. The field exists on the
+  // server response but is not in the generated Cook type, so we use a narrow
+  // local shape rather than a broad `as any`.
+  type CookWithFinishWindow = {
+    finishTimeRangeLower?: string | null;
+    finishTimeRangeUpper?: string | null;
+  };
+  const cookWithFinishWindow = cook as CookWithFinishWindow | undefined;
+  const cookFinishLower: string | null = cookWithFinishWindow?.finishTimeRangeLower ?? null;
+  const cookFinishUpper: string | null = cookWithFinishWindow?.finishTimeRangeUpper ?? null;
+
+  // Reset the local override whenever the cook changes identity (navigation to a
+  // different cook screen) so stale state can't leak across cooks.
+  useEffect(() => {
+    setWrapAdjustedFinishMs(null);
+  }, [id]);
+
+  // Discard the local wrap-adjusted override as soon as a fresh AI check-in
+  // updates either bound of the finish window (meaning the server now has a more
+  // authoritative post-wrap estimate). We track both lower and upper so that a
+  // server response that only updates the upper bound still clears the override.
+  // We skip the initial mount so the effect only fires on genuine post-wrap changes.
+  const prevFinishWindowRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const current = `${cookFinishLower}|${cookFinishUpper}`;
+    const prev = prevFinishWindowRef.current;
+    prevFinishWindowRef.current = current;
+    if (prev !== undefined && prev !== current) {
+      setWrapAdjustedFinishMs(null);
+    }
+  }, [cookFinishLower, cookFinishUpper]);
+
   // Pending wrap confirmation — set when user taps the wrap dot so we can
   // show the WrapTempSheet before committing the confirmed timestamp.
   const [wrapTempPending, setWrapTempPending] = useState<{
@@ -325,6 +363,14 @@ export default function CookDetailScreen() {
     if (isConfirming && step === "wrap" && cookSeqData?.schedule?.[itemIdx]) {
       setWrapTempPending({ key, itemIdx });
       return;
+    }
+
+    // Wrap step unconfirm: discard the local temp-adjusted finish so the bar
+    // reverts to the schedule / AI-window estimate. Save the prior value so we
+    // can roll back if the mutation fails.
+    const prevWrapAdjustedFinishMs = wrapAdjustedFinishMs;
+    if (!isConfirming && step === "wrap") {
+      setWrapAdjustedFinishMs(null);
     }
 
     const next = { ...prev };
@@ -428,6 +474,9 @@ export default function CookDetailScreen() {
       }
     } catch {
       setConfirmedSteps(prev);
+      if (!isConfirming && step === "wrap") {
+        setWrapAdjustedFinishMs(prevWrapAdjustedFinishMs);
+      }
     }
   };
 
@@ -464,6 +513,16 @@ export default function CookDetailScreen() {
       };
     }
 
+    // Capture the wrap-temp-adjusted finish time immediately so the progress bar
+    // reflects it without waiting for the AI check-in window to update.
+    // We use schedule[0] to match the same anchor as the estimatedFinishMs
+    // priority-chain fallback, ensuring consistent bar movement across all cooks.
+    if (tempF !== null && updatedSeqData?.schedule?.[0]?.estimatedFinishAt) {
+      setWrapAdjustedFinishMs(
+        new Date(updatedSeqData.schedule[0].estimatedFinishAt).getTime(),
+      );
+    }
+
     try {
       await updateCook.mutateAsync({
         id: Number(id),
@@ -475,6 +534,7 @@ export default function CookDetailScreen() {
       qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
     } catch {
       setConfirmedSteps(prev);
+      setWrapAdjustedFinishMs(null);
     }
   };
 
@@ -1572,10 +1632,13 @@ export default function CookDetailScreen() {
   const remainingMs = c.plannedEndAt ? new Date(c.plannedEndAt).getTime() - nowMs : null;
 
   // Best-available finish estimate for the progress bar (priority order):
-  // 1. AI-refined confidence window midpoint (updated live by check-in analysis)
-  // 2. sequenceData estimatedFinishAt (AI plan, rippled when steps are confirmed)
-  // 3. plannedEndAt (user-set serve time — least accurate)
+  // 1. Wrap-temp-adjusted finish (set immediately on wrap confirmation — overrides
+  //    the stale AI window so the bar updates without waiting for the next check-in)
+  // 2. AI-refined confidence window midpoint (updated live by check-in analysis)
+  // 3. sequenceData estimatedFinishAt (AI plan, rippled when steps are confirmed)
+  // 4. plannedEndAt (user-set serve time — least accurate)
   const estimatedFinishMs = useMemo(() => {
+    if (wrapAdjustedFinishMs != null) return wrapAdjustedFinishMs;
     const lower = c.finishTimeRangeLower;
     const upper = c.finishTimeRangeUpper;
     if (lower && upper) {
@@ -1588,7 +1651,7 @@ export default function CookDetailScreen() {
     if (seqFinish) return new Date(seqFinish).getTime();
     if (c.plannedEndAt) return new Date(c.plannedEndAt).getTime();
     return null;
-  }, [c.finishTimeRangeLower, c.finishTimeRangeUpper, cookSeqData, c.plannedEndAt, nowMs]);
+  }, [wrapAdjustedFinishMs, c.finishTimeRangeLower, c.finishTimeRangeUpper, cookSeqData, c.plannedEndAt, nowMs]);
 
   // Live graph from accumulated MEATER readings
   const liveGraphProbes = liveReadings.length >= 2
