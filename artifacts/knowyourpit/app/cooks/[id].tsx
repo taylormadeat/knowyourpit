@@ -310,7 +310,7 @@ export default function CookDetailScreen() {
     {
       query: {
         queryKey: getListCookCheckinsQueryKey(Number(id)),
-        enabled: cookStatus === "active" || cookStatus === "completed",
+        enabled: cookStatus === "active" || cookStatus === "completed" || cookStatus === "planned",
         refetchOnWindowFocus: cookStatus === "active",
       },
     },

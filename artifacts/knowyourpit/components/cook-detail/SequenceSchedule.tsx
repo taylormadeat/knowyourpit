@@ -146,7 +146,7 @@ export function SequenceSchedule(p: Props) {
                             </View>
                             <Text style={[s.seqTlTime, { color: isDoneGrillLight ? colors.mutedForeground : colors.foreground, opacity: isDoneGrillLight ? 0.55 : 1 }]}>
                               {new Date(item.grillLightAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                              {cookStatus === "active" && !isDoneGrillLight && (
+                              {(cookStatus === "active" || cookStatus === "planned") && !isDoneGrillLight && (
                                 <Text style={[s.seqTlMeta, { color: "#f59e0b" }]}>
                                   {" "}· {relCountdown(new Date(item.grillLightAt).getTime(), nowMs)}
                                 </Text>
@@ -179,7 +179,7 @@ export function SequenceSchedule(p: Props) {
                             </View>
                             <Text style={[s.seqTlTime, { color: isDoneMeatOn ? colors.mutedForeground : colors.foreground, opacity: isDoneMeatOn ? 0.55 : 1 }]}>
                               {new Date(item.meatOnAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                              {cookStatus === "active" && !isDoneMeatOn && (
+                              {(cookStatus === "active" || cookStatus === "planned") && !isDoneMeatOn && (
                                 <Text style={[s.seqTlMeta, { color: "#EB6C2B" }]}>
                                   {" "}· {relCountdown(new Date(item.meatOnAt).getTime(), nowMs)}
                                 </Text>
@@ -268,7 +268,7 @@ export function SequenceSchedule(p: Props) {
                                 ) : (
                                   <Text style={[s.seqTlTime, { color: isDoneWrap ? colors.mutedForeground : colors.foreground, opacity: isDoneWrap ? 0.55 : 1 }]}>
                                     {wrapInferred ? "≈ " : ""}{wrapMs != null ? new Date(wrapMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
-                                    {wrapMs != null && cookStatus === "active" && !isDoneWrap && (
+                                    {wrapMs != null && (cookStatus === "active" || cookStatus === "planned") && !isDoneWrap && (
                                       <Text style={[s.seqTlMeta, { color: wrapColor }]}>
                                         {" "}· {relCountdown(wrapMs, nowMs)}
                                       </Text>
@@ -315,7 +315,7 @@ export function SequenceSchedule(p: Props) {
                             </View>
                             <Text style={[s.seqTlTime, { color: isDonePullOff ? colors.mutedForeground : colors.foreground, opacity: isDonePullOff ? 0.55 : 1 }]}>
                               {new Date(item.estimatedFinishAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                              {cookStatus === "active" && !isDonePullOff && (
+                              {(cookStatus === "active" || cookStatus === "planned") && !isDonePullOff && (
                                 <Text style={[s.seqTlMeta, { color: "#22c55e" }]}>
                                   {" "}· {relCountdown(new Date(item.estimatedFinishAt).getTime(), nowMs)}
                                 </Text>
@@ -351,7 +351,7 @@ export function SequenceSchedule(p: Props) {
                               </View>
                               <Text style={[s.seqTlTime, { color: isDoneServe ? colors.mutedForeground : colors.foreground, opacity: isDoneServe ? 0.55 : 1 }]}>
                                 {new Date(serveMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                {cookStatus === "active" && !isDoneServe && (
+                                {(cookStatus === "active" || cookStatus === "planned") && !isDoneServe && (
                                   <Text style={[s.seqTlMeta, { color: "#6366f1" }]}>
                                     {" "}· {relCountdown(serveMs, nowMs)}
                                   </Text>

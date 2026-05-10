@@ -115,8 +115,9 @@ export function CookCheckinTimeline({
 
   const isActive = cookStatus === "active";
   const isCompleted = cookStatus === "completed";
+  const isPlanned = cookStatus === "planned";
 
-  if (!isActive && !isCompleted) return null;
+  if (!isActive && !isCompleted && !isPlanned) return null;
   if (scheduledCheckins.length === 0 && checkins.length === 0) return null;
 
   const completedCount = checkins.length;
@@ -149,7 +150,9 @@ export function CookCheckinTimeline({
             Check-In Timeline
           </Text>
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, marginTop: 2 }}>
-            {completedCount > 0 ? `${completedCount} completed` : isActive ? `${upcomingCount} upcoming` : "No check-ins recorded"}
+            {isPlanned
+              ? `${scheduledCheckins.length} check-in${scheduledCheckins.length !== 1 ? "s" : ""} planned`
+              : completedCount > 0 ? `${completedCount} completed` : isActive ? `${upcomingCount} upcoming` : "No check-ins recorded"}
             {isActive && upcomingCount > 0 && completedCount > 0 ? ` · ${upcomingCount} upcoming` : ""}
           </Text>
         </View>
@@ -268,7 +271,7 @@ export function CookCheckinTimeline({
                           </Text>
                         )}
 
-                        {isNext && isActive && (
+                        {isNext && isActive && !isPlanned && (
                           <Pressable
                             onPress={() => onOpenCheckin(sc)}
                             style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 6, alignSelf: "flex-start" }}
