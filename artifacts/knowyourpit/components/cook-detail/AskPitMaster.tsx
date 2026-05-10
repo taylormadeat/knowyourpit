@@ -111,17 +111,18 @@ export function AskPitMaster(p: Props) {
     result, renderDecisions, verdictCfg, assessment, onCardLayout,
   } = p;
 
-  // Technique disclosure row state — starts expanded so users without saved
-  // techniques can pick them; collapses once seeded values arrive.
+  // Technique disclosure row state. Reads directly from the cook record `c`
+  // (not from qp props which are one render behind) so the section collapses
+  // on the same frame as the first active-cook render with no transient flash.
   const [describeExpanded, setDescribeExpanded] = React.useState(true);
-  const hasCollapsedRef = React.useRef(false);
+  const describeInitializedRef = React.useRef(false);
   React.useEffect(() => {
-    if (hasCollapsedRef.current) return;
-    if (qpMethod || qpInjection || qpSpritz || qpWrap) {
-      setDescribeExpanded(false);
-      hasCollapsedRef.current = true;
-    }
-  }, [qpMethod, qpInjection, qpSpritz, qpWrap]);
+    if (describeInitializedRef.current) return;
+    if (!c?.status) return; // cook not yet loaded
+    describeInitializedRef.current = true;
+    const hasTechs = !!(c?.cookingMethod || c?.injection || c?.spritzFrequency || c?.wrapFinish);
+    if (hasTechs) setDescribeExpanded(false);
+  }, [c]);
 
   if (c.status !== "active") return null;
 
