@@ -360,6 +360,24 @@ export default function CookDetailScreen() {
         } as any,
       });
       qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+
+      // Post a cook event for high-signal milestones so they appear in the Pit Journal
+      if (isConfirming && (step === "stall" || step === "probeTender")) {
+        const noteText = step === "stall" ? "Stall detected" : "Probe tender achieved";
+        try {
+          const token = await getToken();
+          const headers: Record<string, string> = { "Content-Type": "application/json" };
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+          await fetch(`${API_BASE_URL}/api/cooks/${Number(id)}/events`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ eventType: "user_note", note: noteText }),
+          });
+          qc.invalidateQueries({ queryKey: getListCookEventsQueryKey(Number(id)) });
+        } catch {
+          // Journal events are best-effort — don't block or alert the user
+        }
+      }
     } catch {
       setConfirmedSteps(prev);
     }
