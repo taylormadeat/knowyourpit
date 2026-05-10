@@ -206,7 +206,8 @@ export default function PlanScreen() {
     d.setHours(18, 0, 0, 0);
     return d;
   }, []);
-  const [serveAt, setServeAt] = useState<Date>(defaultServeAt);
+  const [serveAt, setServeAt] = useState<Date | null>(null);
+  const [cookNowMode, setCookNowMode] = useState<"now" | "later">("now");
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
 
@@ -251,6 +252,7 @@ export default function PlanScreen() {
   // here, and the AI submit handlers also block free users hitting the
   // forecast path before any network call.
   const isFutureCookDay = useMemo(() => {
+    if (!serveAt) return false;
     const now = new Date();
     return !(
       serveAt.getFullYear() === now.getFullYear() &&
@@ -306,10 +308,8 @@ export default function PlanScreen() {
     setNotes("");
     setTargetTempF("");
     setCookTempF("");
-    const fresh = new Date();
-    fresh.setDate(fresh.getDate() + 1);
-    fresh.setHours(18, 0, 0, 0);
-    setServeAt(fresh);
+    setServeAt(null);
+    setCookNowMode("now");
     setAiResult(null);
     setAiResultOpen(false);
     setSelectedProbeId(null);
@@ -332,6 +332,14 @@ export default function PlanScreen() {
     setMultiPickedCut(null);
     setCompetition(null);
   };
+
+  // Multi-cook and competition modes always require a serve time.
+  // When the user switches to those modes, initialize serveAt if not yet set.
+  useEffect(() => {
+    if ((planMode === "multi" || planMode === "competition") && !serveAt) {
+      setServeAt(defaultServeAt);
+    }
+  }, [planMode]);
 
   // ── Derived values ───────────────────────────────────────────────────
   const selectedGrill = useMemo(
@@ -358,7 +366,7 @@ export default function PlanScreen() {
 
   const parsedWeight = parseFloat(weightLbs) || 0;
   const schedule = useMemo(() => {
-    if (!selectedCut || parsedWeight <= 0) return null;
+    if (!selectedCut || parsedWeight <= 0 || !serveAt) return null;
     return calcSchedule(serveAt, selectedCut, parsedWeight, selectedGrill, {
       enabled: frozenEnabled,
       method: thawMethod,
@@ -405,7 +413,7 @@ export default function PlanScreen() {
           cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
           targetTempF: targetTempF ? Number(targetTempF) : selectedCut.targetTempF,
           grillId: grillId ?? undefined,
-          desiredFinishAt: serveAt instanceof Date ? serveAt.toISOString() : serveAt,
+          desiredFinishAt: serveAt ? serveAt.toISOString() : undefined,
           preheatMinutes: preheatMinsForGrill(selectedGrill),
           outdoorTempF: weather.tempF ?? undefined,
           outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
@@ -457,7 +465,7 @@ export default function PlanScreen() {
               preheatMinutes: preheatMinsForGrill(itemGrill),
             };
           }),
-          serveAt: serveAt.toISOString(),
+          serveAt: (serveAt ?? defaultServeAt).toISOString(),
           outdoorTempF: weather.tempF ?? undefined,
           outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
           notes: notes.trim() || undefined,
@@ -655,7 +663,7 @@ export default function PlanScreen() {
         });
         return;
       }
-      if (paywallUsage.usage.plannedCooks >= 1) {
+      if (cookNowMode === "later" && paywallUsage.usage.plannedCooks >= 1) {
         showPaywall({
           trigger: "planned_cook_limit_reached",
           foodType: selectedCut?.name ?? null,
@@ -712,9 +720,13 @@ export default function PlanScreen() {
           cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
           grillId: grillId ?? undefined,
           notes: noteParts.join("\n\n") || undefined,
-          status: "planned",
-          plannedEndAt: serveAt,
-          plannedStartAt: plannedStart,
+          status: cookNowMode === "now" ? "active" : "planned",
+          ...(cookNowMode === "now"
+            ? { actualStartAt: new Date() as any }
+            : {
+                ...(serveAt && { plannedEndAt: serveAt }),
+                ...(plannedStart && { plannedStartAt: plannedStart }),
+              }),
           preheatMinutes: preheatMins,
           restMinutes: restMins,
           // Wrap guidance from AI plan
@@ -739,7 +751,7 @@ export default function PlanScreen() {
       // so they're armed even if the user never opens the cook detail screen.
       // The cook detail screen's hook will re-reconcile these on mount.
       const newCookId = (createdCook as { id?: number } | undefined)?.id;
-      if (newCookId && (frozenForCook || plannedStart)) {
+      if (cookNowMode === "later" && newCookId && (frozenForCook || plannedStart)) {
         scheduleFrozenStageNotifications({
           cookId: newCookId,
           frozen: frozenForCook,
@@ -765,7 +777,7 @@ export default function PlanScreen() {
       // Strict gate: only show when AsyncStorage has resolved (=== false),
       // never while the dismissal flag is still loading (null).
       const willShowTip =
-        isFreeAccount && usedCooksBefore >= 1 && multiCookTipDismissed === false;
+        cookNowMode !== "now" && isFreeAccount && usedCooksBefore >= 1 && multiCookTipDismissed === false;
       if (willShowTip) {
         setMultiCookTipFood(plannedFood);
         setShowMultiCookTip(true);
@@ -777,6 +789,8 @@ export default function PlanScreen() {
         // Skip auto-navigating to the Cooks tab so the user actually sees
         // the inline tip before leaving the Plan screen. They can navigate
         // manually after reading or dismissing it.
+      } else if (cookNowMode === "now" && newCookId) {
+        router.push(`/cooks/${newCookId}` as any);
       } else {
         router.push("/(tabs)/cooks" as any);
       }
@@ -1059,6 +1073,41 @@ export default function PlanScreen() {
 
         {planMode === "single" && (<>
 
+        {/* ── Cook Now / Plan for Later toggle ── */}
+        <View style={[s.modeToggleRow, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, marginBottom: 18 }]}>
+          <Pressable
+            style={[
+              s.modeToggleBtn,
+              cookNowMode === "now" && { backgroundColor: "#22c55e" },
+              { borderRadius: colors.radius - 2 },
+            ]}
+            onPress={() => { setCookNowMode("now"); setServeAt(null); Haptics.selectionAsync(); }}
+          >
+            <Feather name="play" size={14} color={cookNowMode === "now" ? "#fff" : colors.mutedForeground} />
+            <Text style={[s.modeToggleText, { color: cookNowMode === "now" ? "#fff" : colors.mutedForeground }]}>Cook Now</Text>
+          </Pressable>
+          <Pressable
+            style={[
+              s.modeToggleBtn,
+              cookNowMode === "later" && { backgroundColor: colors.primary },
+              { borderRadius: colors.radius - 2 },
+            ]}
+            onPress={() => {
+              setCookNowMode("later");
+              if (!serveAt) {
+                const d = new Date();
+                d.setDate(d.getDate() + 1);
+                d.setHours(18, 0, 0, 0);
+                setServeAt(d);
+              }
+              Haptics.selectionAsync();
+            }}
+          >
+            <Feather name="calendar" size={14} color={cookNowMode === "later" ? "#fff" : colors.mutedForeground} />
+            <Text style={[s.modeToggleText, { color: cookNowMode === "later" ? "#fff" : colors.mutedForeground }]}>Plan for Later</Text>
+          </Pressable>
+        </View>
+
         {/* ══ ZONE 1 — Essentials ══
             Meat cut, weight, and serve-by are the three inputs needed to
             produce a basic schedule. They appear above the fold with no
@@ -1108,33 +1157,64 @@ export default function PlanScreen() {
           <Text style={[s.inputUnit, { color: colors.mutedForeground }]}>lbs</Text>
         </View>
 
-        {/* ── Serve By ── */}
-        <Label colors={colors}>When do you want to serve?</Label>
-        <View style={[s.serveByCard, { backgroundColor: colors.card, borderColor: colors.primary + "40", borderRadius: colors.radius }]}>
-          <View style={s.serveByRow}>
-            <Feather name="calendar" size={16} color={colors.primary} />
-            <Text style={[s.serveByLabel, { color: colors.mutedForeground }]}>Date</Text>
-            <Pressable
-              onPress={() => setDatePickerOpen(true)}
-              style={[s.serveByBtn, { backgroundColor: colors.primary + "18", borderRadius: 8 }]}
-            >
-              <Text style={[s.serveByBtnText, { color: colors.primary }]}>{formatDate(serveAt)}</Text>
-            </Pressable>
-          </View>
-          <View style={[s.serveByDivider, { backgroundColor: colors.border }]} />
-          <View style={s.serveByRow}>
-            <Feather name="clock" size={16} color={colors.primary} />
-            <Text style={[s.serveByLabel, { color: colors.mutedForeground }]}>Time</Text>
-            <Pressable
-              onPress={() => setTimePickerOpen(true)}
-              style={[s.serveByBtn, { backgroundColor: colors.primary + "18", borderRadius: 8 }]}
-            >
-              <Text style={[s.serveByBtnText, { color: colors.primary }]}>
-                {formatTime(serveAt.getHours(), serveAt.getMinutes())}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
+        {/* ── Serve By (Plan for Later only) ── */}
+        {cookNowMode === "later" && (
+          <>
+            <Label colors={colors}>When do you want to serve?</Label>
+            <View style={[s.serveByCard, { backgroundColor: colors.card, borderColor: colors.primary + "40", borderRadius: colors.radius }]}>
+              {serveAt ? (
+                <>
+                  <View style={s.serveByRow}>
+                    <Feather name="calendar" size={16} color={colors.primary} />
+                    <Text style={[s.serveByLabel, { color: colors.mutedForeground }]}>Date</Text>
+                    <Pressable
+                      onPress={() => setDatePickerOpen(true)}
+                      style={[s.serveByBtn, { backgroundColor: colors.primary + "18", borderRadius: 8 }]}
+                    >
+                      <Text style={[s.serveByBtnText, { color: colors.primary }]}>{formatDate(serveAt)}</Text>
+                    </Pressable>
+                  </View>
+                  <View style={[s.serveByDivider, { backgroundColor: colors.border }]} />
+                  <View style={s.serveByRow}>
+                    <Feather name="clock" size={16} color={colors.primary} />
+                    <Text style={[s.serveByLabel, { color: colors.mutedForeground }]}>Time</Text>
+                    <Pressable
+                      onPress={() => setTimePickerOpen(true)}
+                      style={[s.serveByBtn, { backgroundColor: colors.primary + "18", borderRadius: 8 }]}
+                    >
+                      <Text style={[s.serveByBtnText, { color: colors.primary }]}>
+                        {formatTime(serveAt.getHours(), serveAt.getMinutes())}
+                      </Text>
+                    </Pressable>
+                  </View>
+                  <View style={[s.serveByDivider, { backgroundColor: colors.border }]} />
+                  <Pressable
+                    onPress={() => setServeAt(null)}
+                    style={s.serveByRow}
+                  >
+                    <Feather name="x-circle" size={16} color={colors.mutedForeground} />
+                    <Text style={[s.serveByLabel, { flex: 1, color: colors.mutedForeground }]}>No serve time</Text>
+                    <Text style={[s.serveByBtnText, { color: colors.mutedForeground, fontSize: 12 }]}>Clear</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <Pressable
+                  onPress={() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + 1);
+                    d.setHours(18, 0, 0, 0);
+                    setServeAt(d);
+                    setDatePickerOpen(true);
+                  }}
+                  style={[s.serveByRow, { justifyContent: "center", paddingVertical: 14 }]}
+                >
+                  <Feather name="calendar" size={16} color={colors.primary} />
+                  <Text style={[s.serveByBtnText, { color: colors.primary, marginLeft: 8 }]}>Set a serve time (optional)</Text>
+                </Pressable>
+              )}
+            </View>
+          </>
+        )}
 
         {/* ══ ZONE 2 — Your Setup ══
             Grill selection and temperature overrides. Auto-filled from the
@@ -1733,7 +1813,7 @@ export default function PlanScreen() {
           colors={colors}
           isFutureCookDay={isFutureCookDay}
           effectivePro={effectivePro}
-          serveAt={serveAt}
+          serveAt={serveAt ?? new Date()}
           factoredLabel="factored into AI plan"
           onLockedTap={() =>
             showPaywall({
@@ -1841,8 +1921,8 @@ export default function PlanScreen() {
           </View>
         )}
 
-        {/* ── Cook Schedule Summary ── */}
-        {schedule && (
+        {/* ── Cook Schedule Summary (Plan for Later only) ── */}
+        {cookNowMode === "later" && schedule && (
           <View style={[s.scheduleCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
             <LinearGradient
               colors={["#E84820", "#FF6B2B"]}
@@ -1958,8 +2038,8 @@ export default function PlanScreen() {
           </View>
         )}
 
-        {/* Free-tier planned-cook slot counter. Hidden for Pro and until first planned cook. */}
-        {paywallUsage && !paywallUsage.unlimited && paywallUsage.usage.plannedCooks > 0 && (
+        {/* Free-tier planned-cook slot counter. Only shown in Plan for Later mode. */}
+        {cookNowMode === "later" && paywallUsage && !paywallUsage.unlimited && paywallUsage.usage.plannedCooks > 0 && (
           <Text
             style={{
               fontSize: 12,
@@ -1990,8 +2070,8 @@ export default function PlanScreen() {
             <ActivityIndicator color="#fff" />
           ) : (
             <>
-              <Feather name="zap" size={18} color="#fff" />
-              <Text style={s.submitText}>Save Cook Plan</Text>
+              <Feather name={cookNowMode === "now" ? "play" : "zap"} size={18} color="#fff" />
+              <Text style={s.submitText}>{cookNowMode === "now" ? "Start Cooking Now" : "Save Cook Plan"}</Text>
             </>
           )}
         </Pressable>
@@ -2011,7 +2091,7 @@ export default function PlanScreen() {
               onPress={() => setDatePickerOpen(true)}
               style={[s.serveByBtn, { backgroundColor: colors.primary + "18", borderRadius: 8 }]}
             >
-              <Text style={[s.serveByBtnText, { color: colors.primary }]}>{formatDate(serveAt)}</Text>
+              <Text style={[s.serveByBtnText, { color: colors.primary }]}>{formatDate(serveAt ?? defaultServeAt)}</Text>
             </Pressable>
           </View>
           <View style={[s.serveByDivider, { backgroundColor: colors.border }]} />
@@ -2023,7 +2103,7 @@ export default function PlanScreen() {
               style={[s.serveByBtn, { backgroundColor: colors.primary + "18", borderRadius: 8 }]}
             >
               <Text style={[s.serveByBtnText, { color: colors.primary }]}>
-                {formatTime(serveAt.getHours(), serveAt.getMinutes())}
+                {formatTime((serveAt ?? defaultServeAt).getHours(), (serveAt ?? defaultServeAt).getMinutes())}
               </Text>
             </Pressable>
           </View>
@@ -2152,7 +2232,7 @@ export default function PlanScreen() {
           colors={colors}
           isFutureCookDay={isFutureCookDay}
           effectivePro={effectivePro}
-          serveAt={serveAt}
+          serveAt={serveAt ?? new Date()}
           factoredLabel="factored into sequence"
           onLockedTap={() =>
             showPaywall({
@@ -2192,7 +2272,7 @@ export default function PlanScreen() {
                   <Text style={s.aiBtnSub}>
                     {multiItems.length < 2
                       ? "Add at least 2 items first"
-                      : `AI will schedule ${multiItems.length} items for ${formatTime(serveAt.getHours(), serveAt.getMinutes())}`}
+                      : `AI will schedule ${multiItems.length} items for ${formatTime((serveAt ?? defaultServeAt).getHours(), (serveAt ?? defaultServeAt).getMinutes())}`}
                   </Text>
                 </View>
                 <Feather name="chevron-right" size={16} color="rgba(255,255,255,0.7)" />
@@ -2235,7 +2315,7 @@ export default function PlanScreen() {
         visible={datePickerOpen}
         onClose={() => setDatePickerOpen(false)}
         colors={colors}
-        serveAt={serveAt}
+        serveAt={serveAt ?? defaultServeAt}
         setServeAt={setServeAt}
         upcomingDates={upcomingDates}
       />
@@ -2245,7 +2325,7 @@ export default function PlanScreen() {
         visible={timePickerOpen}
         onClose={() => setTimePickerOpen(false)}
         colors={colors}
-        serveAt={serveAt}
+        serveAt={serveAt ?? defaultServeAt}
         setServeAt={setServeAt}
       />
 
