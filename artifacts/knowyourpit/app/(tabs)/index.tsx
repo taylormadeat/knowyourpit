@@ -26,6 +26,7 @@ import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { BlurredProSection } from "@/components/BlurredProSection";
+import { getCookCardBar } from "@/utils/cookCardBar";
 
 const logoImg = require("@/assets/images/logo.png");
 
@@ -354,52 +355,70 @@ export default function HomeScreen() {
             style={({ pressed }) => [pressed && { opacity: 0.88 }]}
             onPress={() => router.push(`/cooks/${activeCook.id}` as any)}
           >
-            <LinearGradient
-              colors={["#2D1008", "#1E0B04"]}
-              style={[s.activeCookWidget, { borderColor: "#E8482055" }]}
-            >
-              {/* Live indicator row */}
-              <View style={s.activeLiveRow}>
-                <View style={s.liveDot} />
-                <Text style={s.liveLabel}>LIVE ON THE SMOKER</Text>
-                {activeCook.actualStartAt && (
-                  <Text style={s.elapsedBadge}>
-                    {fmtElapsed(Date.now() - new Date(activeCook.actualStartAt).getTime())} in
-                  </Text>
-                )}
-              </View>
+            {(() => {
+              const bar = getCookCardBar(activeCook, Date.now());
+              return (
+                <LinearGradient
+                  colors={["#2D1008", "#1E0B04"]}
+                  style={[s.activeCookWidget, { borderColor: "#E8482055" }]}
+                >
+                  {/* Live indicator row */}
+                  <View style={s.activeLiveRow}>
+                    <View style={s.liveDot} />
+                    <Text style={s.liveLabel}>LIVE ON THE SMOKER</Text>
+                    {activeCook.actualStartAt && (
+                      <Text style={s.elapsedBadge}>
+                        {fmtElapsed(Date.now() - new Date(activeCook.actualStartAt).getTime())} in
+                      </Text>
+                    )}
+                  </View>
 
-              {/* Food type */}
-              <Text style={s.activeFoodType}>
-                {activeCook.foodType || "Cook in progress"}
-              </Text>
-              {activeCook.grillName ? (
-                <Text style={s.activeGrill}>{activeCook.grillName}</Text>
-              ) : null}
-
-              {/* Last decision teaser */}
-              {topDecision ? (
-                <View style={[s.decisionTeaser, { backgroundColor: topDecisionColor! + "18", borderColor: topDecisionColor! + "40" }]}>
-                  <View style={[s.decisionTeaserDot, { backgroundColor: topDecisionColor! }]} />
-                  <Text style={[s.decisionTeaserText, { color: topDecisionColor! }]} numberOfLines={2}>
-                    {topDecision.instruction}
+                  {/* Food type */}
+                  <Text style={s.activeFoodType}>
+                    {activeCook.foodType || "Cook in progress"}
                   </Text>
-                </View>
-              ) : (
-                <View style={s.decisionTeaser}>
-                  <Feather name="zap" size={13} color="#F59E0B" />
-                  <Text style={[s.decisionTeaserText, { color: "#F59E0B" }]}>
-                    Tap to check in with PitMaster for your next step
-                  </Text>
-                </View>
-              )}
+                  {activeCook.grillName ? (
+                    <Text style={s.activeGrill}>{activeCook.grillName}</Text>
+                  ) : null}
 
-              {/* CTA */}
-              <View style={s.checkOnItRow}>
-                <Text style={s.checkOnItText}>Check on your cook</Text>
-                <Feather name="chevron-right" size={16} color="#E84820" />
-              </View>
-            </LinearGradient>
+                  {/* Last decision teaser */}
+                  {topDecision ? (
+                    <View style={[s.decisionTeaser, { backgroundColor: topDecisionColor! + "18", borderColor: topDecisionColor! + "40" }]}>
+                      <View style={[s.decisionTeaserDot, { backgroundColor: topDecisionColor! }]} />
+                      <Text style={[s.decisionTeaserText, { color: topDecisionColor! }]} numberOfLines={2}>
+                        {topDecision.instruction}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={s.decisionTeaser}>
+                      <Feather name="zap" size={13} color="#F59E0B" />
+                      <Text style={[s.decisionTeaserText, { color: "#F59E0B" }]}>
+                        Tap to check in with PitMaster for your next step
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* CTA */}
+                  <View style={s.checkOnItRow}>
+                    <Text style={s.checkOnItText}>Check on your cook</Text>
+                    <Feather name="chevron-right" size={16} color="#E84820" />
+                  </View>
+
+                  {/* Progress bar — 4px flush at bottom edge */}
+                  {bar !== null && (
+                    <View style={s.activeCookBar}>
+                      <View
+                        style={{
+                          width: `${bar.progress * 100}%`,
+                          height: "100%",
+                          backgroundColor: bar.color,
+                        }}
+                      />
+                    </View>
+                  )}
+                </LinearGradient>
+              );
+            })()}
           </Pressable>
         )}
 
@@ -958,8 +977,18 @@ const s = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 14,
     borderWidth: 1,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 0,
     gap: 10,
+    overflow: "hidden",
+  },
+  activeCookBar: {
+    height: 4,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    overflow: "hidden",
+    marginTop: 6,
+    marginHorizontal: -16,
   },
   activeLiveRow: {
     flexDirection: "row",
