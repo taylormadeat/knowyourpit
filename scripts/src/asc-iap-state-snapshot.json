@@ -1,0 +1,36 @@
+{
+  "capturedAt": "2026-05-11T19:49:54.872Z",
+  "subscriptions": [
+    {
+      "productId": "com.knowyourpit.pro.annual",
+      "ascId": "6764194128",
+      "state": "READY_TO_SUBMIT",
+      "reviewNote": "Unlocks all Pro features: AI cook predictions, PitMaster coaching, competition mode, and unlimited cook history. Best value — billed annually. Includes 7-day free trial.",
+      "subscriptionPeriod": "ONE_YEAR",
+      "reviewScreenshot": {
+        "id": "a415082d-46d2-4b9b-a891-870b762b75d1",
+        "deliveryState": "COMPLETE",
+        "fileName": "SOURCE"
+      }
+    },
+    {
+      "productId": "com.knowyourpit.pro.monthly",
+      "ascId": "6764196256",
+      "state": "READY_TO_SUBMIT",
+      "reviewNote": "Unlocks all Pro features: AI cook predictions, PitMaster coaching, competition mode, and unlimited cook history. Billed monthly, cancel anytime.",
+      "subscriptionPeriod": "ONE_MONTH",
+      "reviewScreenshot": {
+        "id": "caf568d5-06ad-4ee7-9dd5-d0452b374d8b",
+        "deliveryState": "COMPLETE",
+        "fileName": "SOURCE"
+      }
+    }
+  ],
+  "appVersion": {
+    "id": "6aefd377-a9d3-4688-a097-7535c19dedc3",
+    "versionString": "1.0",
+    "appStoreState": "PREPARE_FOR_SUBMISSION",
+    "attachedBuildVersion": "88",
+    "attachedBuildId": "c3de1d50-3dcb-4fd2-8137-55caf7eddade"
+  }
+}

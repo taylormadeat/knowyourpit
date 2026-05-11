@@ -5,6 +5,18 @@
  * products under it if they don't already exist.  Pricing is set via
  * basePlanPrices after creation.
  *
+ * Also ensures each subscription has a review screenshot uploaded — a required
+ * field for the subscription to exit MISSING_METADATA and reach READY_TO_SUBMIT.
+ * Without this, StoreKit cannot serve the products even in the TestFlight sandbox
+ * and RevenueCat will fail with "None of the products could be fetched from ASC".
+ *
+ * The screenshot endpoint is /subscriptionAppStoreReviewScreenshots (type name)
+ * reached via the singular relationship `appStoreReviewScreenshot` on each
+ * subscription. It follows the standard ASC multi-part upload protocol:
+ *   1. POST reservation  → get upload URL(s) and asset ID
+ *   2. PUT chunk(s)      → upload bytes to Apple object storage
+ *   3. PATCH commit      → confirm with MD5 checksum
+ *
  * Prerequisites (all already in Replit secrets / env):
  *   ASC_API_KEY_P8    — full contents of the .p8 private key file
  *   ASC_API_KEY_ID    — the 10-char key ID (e.g. 3WTDG9D596)
@@ -14,13 +26,26 @@
  *   pnpm --filter @workspace/scripts exec tsx src/createAscIapProducts.ts
  */
 
-import { createSign } from "crypto";
+import { createSign, createHash } from "crypto";
 
 const KEY_P8 = process.env.ASC_API_KEY_P8!;
 const KEY_ID = process.env.ASC_API_KEY_ID!;
 const ISSUER_ID = process.env.ASC_API_ISSUER_ID!;
 const APP_ID = "6763445064";
 const BASE = "https://api.appstoreconnect.apple.com/v1";
+
+/**
+ * URL template for downloading an existing iPhone 6.7" App Store screenshot to
+ * use as the IAP review screenshot.  Replace {w}x{h} with actual dimensions.
+ *
+ * This screenshot was already uploaded to the app version's App Store listing.
+ * Using it avoids embedding a binary in the repo while still satisfying Apple's
+ * review screenshot requirement for each auto-renewable subscription.
+ *
+ * Source: appScreenshotSets/cf8fc5bb (APP_IPHONE_65) → appScreenshots/698ebb35
+ */
+const REVIEW_SCREENSHOT_URL =
+  "https://is1-ssl.mzstatic.com/image/thumb/PurpleSource221/v4/8d/ca/7c/8dca7c78-4824-6ca9-7c7e-f12f4c0030d6/IMG_1748.png/1284x2778bb.png";
 
 // ── JWT ──────────────────────────────────────────────────────────────────────
 
@@ -75,10 +100,30 @@ async function ascPost(path: string, body: object): Promise<any> {
   return res.json();
 }
 
+async function ascPatch(path: string, body: object): Promise<any> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${makeJwt()}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 204) return { ok: true };
+  return res.json();
+}
+
+async function ascDelete(path: string): Promise<void> {
+  await fetch(`${BASE}${path}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${makeJwt()}` },
+  });
+}
+
 // ── Subscription group ───────────────────────────────────────────────────────
 
 async function findOrCreateGroup(): Promise<string> {
-  // The collection GET on /subscriptionGroups is forbidden — must use the app relationship URL
   const list = await ascGet(`/apps/${APP_ID}/subscriptionGroups?limit=50`);
   const existing = list.data?.find(
     (g: any) =>
@@ -104,7 +149,6 @@ async function findOrCreateGroup(): Promise<string> {
   if (result.errors) {
     const msg = JSON.stringify(result.errors);
     if (msg.includes("409") || msg.includes("DUPLICATE") || msg.includes("already")) {
-      // Group exists but wasn't in the list — try fetching directly
       console.log("  Group already exists (409) — re-fetching to locate it…");
       const all = await ascGet(`/apps/${APP_ID}/subscriptionGroups?limit=200`);
       const found = all.data?.[0];
@@ -183,7 +227,6 @@ async function findOrCreateSubscription(
   groupId: string,
   spec: SubSpec,
 ): Promise<string> {
-  // List subscriptions via the group relationship URL
   const list = await ascGet(`/subscriptionGroups/${groupId}/subscriptions?limit=50`);
   const existing = list.data?.find(
     (s: any) => s.attributes?.productId === spec.productId,
@@ -206,7 +249,6 @@ async function findOrCreateSubscription(
         groupLevel: spec.groupLevel,
       },
       relationships: {
-        // ASC v1 uses "group" not "subscriptionGroup"
         group: { data: { type: "subscriptionGroups", id: groupId } },
       },
     },
@@ -256,12 +298,99 @@ async function ensureSubLocalisation(subId: string, spec: SubSpec): Promise<void
   }
 }
 
-// ── Prices ───────────────────────────────────────────────────────────────────
+// ── Review screenshot ─────────────────────────────────────────────────────────
 
 /**
- * Get the App Store price point ID for a given USD amount.
- * ASC price points are enumerated; we look for the right one by amount.
+ * Ensure a review screenshot exists for the subscription.
+ *
+ * Apple requires a review screenshot for each auto-renewable subscription to
+ * exit MISSING_METADATA.  Without it, StoreKit cannot serve the product in the
+ * TestFlight sandbox and RevenueCat fails with "could not be fetched from ASC".
+ *
+ * The endpoint is /subscriptionAppStoreReviewScreenshots (undocumented in the
+ * public OpenAPI spec but reachable via the `appStoreReviewScreenshot` singular
+ * relationship on each subscription resource).
+ *
+ * Flow:
+ *   1. Check if a screenshot already exists and is COMPLETE → skip
+ *   2. If AWAITING_UPLOAD (stuck reservation) → delete it first
+ *   3. Download the source image from Apple's CDN (existing App Store screenshot)
+ *   4. POST reservation → PUT bytes → PATCH commit with MD5
  */
+async function ensureReviewScreenshot(subId: string, productId: string): Promise<void> {
+  const current = await ascGet(`/subscriptions/${subId}/appStoreReviewScreenshot`);
+  const existing = current.data;
+
+  if (existing) {
+    const deliveryState = existing.attributes?.assetDeliveryState?.state as string | undefined;
+    if (deliveryState === "COMPLETE") {
+      console.log(`    ✓ Review screenshot already uploaded and COMPLETE for "${productId}"`);
+      return;
+    }
+    if (deliveryState === "AWAITING_UPLOAD" || deliveryState === "UPLOAD_COMPLETE") {
+      console.log(`    ⚠ Existing screenshot stuck at ${deliveryState} — deleting and re-uploading`);
+      await ascDelete(`/subscriptionAppStoreReviewScreenshots/${existing.id}`);
+    }
+  }
+
+  console.log(`    Downloading review screenshot source…`);
+  const imgResp = await fetch(REVIEW_SCREENSHOT_URL);
+  if (!imgResp.ok) {
+    console.warn(`    ⚠ Could not download screenshot (${imgResp.status}) — upload manually in ASC`);
+    return;
+  }
+  const imgBuf = Buffer.from(await imgResp.arrayBuffer());
+  const md5 = createHash("md5").update(imgBuf).digest("hex");
+
+  const reservation = await ascPost("/subscriptionAppStoreReviewScreenshots", {
+    data: {
+      type: "subscriptionAppStoreReviewScreenshots",
+      attributes: { fileName: "paywall_review.png", fileSize: imgBuf.length },
+      relationships: { subscription: { data: { type: "subscriptions", id: subId } } },
+    },
+  });
+  if (reservation.errors) {
+    console.warn(`    ⚠ Reservation failed: ${JSON.stringify(reservation.errors)}`);
+    return;
+  }
+
+  const reservationId: string = reservation.data.id;
+  const ops: any[] = reservation.data.attributes?.uploadOperations ?? [];
+
+  for (const op of ops) {
+    const offset: number = op.offset ?? 0;
+    const length: number = op.length ?? imgBuf.length;
+    const chunk = imgBuf.subarray(offset, offset + length);
+    const headers: Record<string, string> = {};
+    for (const h of (op.requestHeaders ?? [])) headers[h.name] = h.value;
+    const putResp = await fetch(op.url as string, { method: "PUT", headers, body: chunk });
+    if (!putResp.ok) {
+      console.warn(`    ⚠ PUT part ${op.partNumber} failed: ${putResp.status}`);
+      return;
+    }
+  }
+
+  const commit = await ascPatch(`/subscriptionAppStoreReviewScreenshots/${reservationId}`, {
+    data: {
+      type: "subscriptionAppStoreReviewScreenshots",
+      id: reservationId,
+      attributes: { sourceFileChecksum: md5, uploaded: true },
+    },
+  });
+
+  if (commit.errors) {
+    console.warn(`    ⚠ Commit failed: ${JSON.stringify(commit.errors)}`);
+  } else {
+    const state = commit.data?.attributes?.assetDeliveryState?.state ?? "unknown";
+    console.log(`    + Review screenshot uploaded (delivery=${state})`);
+    if (state === "UPLOAD_COMPLETE") {
+      console.log(`    ⏳ Apple is processing the screenshot — state will become COMPLETE shortly`);
+    }
+  }
+}
+
+// ── Prices ───────────────────────────────────────────────────────────────────
+
 async function findPricePointId(
   subId: string,
   usdAmount: number,
@@ -340,21 +469,22 @@ async function main() {
     const subId = await findOrCreateSubscription(groupId, spec);
     await ensureSubLocalisation(subId, spec);
     await ensurePrice(subId, spec);
+    await ensureReviewScreenshot(subId, spec.productId);
   }
 
   console.log("\n══════════════════════════════════════════════════════════════");
   console.log(" Done!");
   console.log("══════════════════════════════════════════════════════════════");
   console.log("");
-  console.log("  Next manual steps in App Store Connect:");
-  console.log("  1. Monetization → Subscriptions → 'knowyourpit Pro' group:");
-  console.log("     - Verify 'com.knowyourpit.pro.monthly'  is present at $4.99/month");
-  console.log("     - Verify 'com.knowyourpit.pro.annual'   is present at $29.99/year");
-  console.log("  2. For the annual plan: add a 7-day free trial introductory offer.");
-  console.log("  3. Submit both subscriptions for review (or they auto-approve in");
-  console.log("     some accounts when the app is already approved).");
-  console.log("  4. Return here and run setupProductionPricing.ts again so RevenueCat");
-  console.log("     can sync the products from the App Store.");
+  console.log("  State after setup:");
+  console.log("  Both subscriptions should now be READY_TO_SUBMIT, which");
+  console.log("  allows StoreKit to serve them in the TestFlight sandbox.");
+  console.log("  Run checkAscIapState to verify.");
+  console.log("");
+  console.log("  Remaining manual steps in App Store Connect:");
+  console.log("  1. App Information → set Primary Category (e.g. Food & Drink)");
+  console.log("  2. App Information → complete the Age Rating questionnaire");
+  console.log("  3. Submit app version for App Store Review (includes IAPs)");
 }
 
 main().catch((err) => {
