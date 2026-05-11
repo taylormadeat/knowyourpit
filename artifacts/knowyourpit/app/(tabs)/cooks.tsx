@@ -577,7 +577,7 @@ export default function CooksScreen() {
               </View>
             </View>
           ) : null}
-          {(inSession || isActive) && bar !== null && (
+          {(inSession || (isActive && bar !== null)) && (
             <View
               style={{
                 marginTop: 7,
@@ -587,7 +587,9 @@ export default function CooksScreen() {
                 overflow: "hidden",
               }}
             >
-              <AnimatedBarFill progress={bar.progress} color={bar.color} borderRadius={2} />
+              {bar !== null && (
+                <AnimatedBarFill progress={bar.progress} color={bar.color} borderRadius={2} />
+              )}
             </View>
           )}
           {isActive && elapsedMs !== null && (
