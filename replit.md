@@ -92,6 +92,16 @@ Always run the dry-run first to review the list before passing `--confirm`. The 
 
 ## Ops Log
 
+- **2026-05-11 — Build #88 shipped to TestFlight (paywall diagnostics)**:
+  - All diagnostic info now always visible (removed `__DEV__` guard from PaywallModal error screen).
+  - Error message (`lastError`) always shown when present — will display exact RC/StoreKit error in TestFlight.
+  - Added `offeringsFailureReason: "timeout" | "error" | "no_products" | null` to `SubscriptionContextValue`; wired in timer callback ("timeout"), outer catch ("error"), silent `.catch()` path ("error"), and no-current-offering paths.
+  - Diagnostic footer row (offering identifier + reason + failed flag) always visible under the error message.
+  - PaywallModal now shows specific text for each reason type (timeout / error / no_products).
+  - `retryOfferings` captures errors into `lastError` instead of swallowing silently.
+  - EAS build id `f0f4307b-31d2-4d48-95f8-1cf3dd641716`; TestFlight submission id `77958b9d-2739-48bd-9783-1ca963dcef01`. Note: EAS_NO_VCS=1 required.
+  - ASC subscriptions still in MISSING_METADATA. Both localizations updated to short descriptions (≤55 chars). Apple docs confirm MISSING_METADATA does not block sandbox/TestFlight StoreKit. Build #88 diagnostics will reveal the actual RC/StoreKit error path.
+
 - **2026-05-11 — Build #87 shipped to TestFlight (paywall fix)**: Root-cause investigation: MISSING_METADATA state on both IAP subscriptions persists but Apple docs confirm sandbox StoreKit still serves MISSING_METADATA products — not the actual blocker. Real fix: SubscriptionContext safety timer extended 8 s → 25 s so slow StoreKit/RC requests don't prematurely show "Couldn't load"; `setOfferingsLoadFailed(false)` now fires when offerings arrive after the timer (previously the error screen was sticky even on late success). PaywallModal "Couldn't load" screen now shows diagnostic info in DEV builds (offering name, failed flag, RC lastError) to aid future debugging. ASC: uploaded 1024×1024 promotional PNG to both IAP subscriptions via ASC API (UPLOAD_COMPLETE → PREPARE_FOR_SUBMISSION); subscription group + per-subscription en-US localizations confirmed; prices confirmed. EAS build id `028258a1-2a1c-46b6-b444-2fbc1e3c112b`; TestFlight submission id `04a4de81-15e3-4807-a31d-cc4d7c958896`. Note: EAS_NO_VCS=1 required.
 
 - **2026-05-11 — Build #86 queued to TestFlight (task #590)**: Features: forced dark theme globally — `userInterfaceStyle` changed from `"automatic"` to `"dark"` in `app.json`; bare `useColorScheme()` in `app/(tabs)/_layout.tsx` replaced with `isDark = true`. ASC groundwork: confirmed RC iOS SDK key is correct (app_store key `appl_mhkVJhxDzwRmZTeUZSVShSwaimi`); both IAP products verified in ASC (`com.knowyourpit.pro.monthly` id=6764196256, `com.knowyourpit.pro.annual` id=6764194128); USD prices set ($4.99/mo, $29.99/yr); review notes patched; products in `MISSING_METADATA` state (requires promotional screenshot for App Review, does not block TestFlight sandbox). EAS build id `0ce18eab-431d-40cc-a1aa-64bcce25efd0`. Note: EAS_NO_VCS=1 required.

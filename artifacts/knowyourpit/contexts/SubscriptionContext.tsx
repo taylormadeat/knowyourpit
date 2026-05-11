@@ -110,6 +110,15 @@ interface SubscriptionContextValue {
    * from "still loading" in the paywall UI.
    */
   offeringsLoadFailed: boolean;
+  /**
+   * Why offerings failed to load. Use this to show a specific error message
+   * in the paywall instead of a generic one.
+   * - "timeout"     → safety timer fired before RC responded
+   * - "error"       → RC/StoreKit threw a catchable exception (see lastError)
+   * - "no_products" → getOfferings() succeeded but returned no packages
+   * - null          → no failure; offerings loaded OK (or not yet attempted)
+   */
+  offeringsFailureReason: "timeout" | "error" | "no_products" | null;
   /** Trigger an in-app purchase for a specific package. */
   purchasePackage: (pkg: PurchasePackageLike) => Promise<{ success: boolean; cancelled: boolean }>;
   /** Restore previous purchases (App Store / Play Store flow). */
@@ -220,6 +229,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [isInTrial, setIsInTrial] = useState<boolean>(false);
   const [currentOffering, setCurrentOffering] = useState<OfferingLike | null>(null);
   const [offeringsLoadFailed, setOfferingsLoadFailed] = useState(false);
+  const [offeringsFailureReason, setOfferingsFailureReason] = useState<"timeout" | "error" | "no_products" | null>(null);
   const [isAnnualTrialEligible, setIsAnnualTrialEligible] = useState<boolean | null>(null);
   const [isAnnualTrialCheckComplete, setIsAnnualTrialCheckComplete] = useState<boolean>(
     Platform.OS !== "ios",
@@ -282,17 +292,21 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       const offerings = await purchases.getOfferings();
       const current = offerings?.current;
       if (current) {
+        const monthly = current.monthly ?? null;
+        const annual = current.annual ?? null;
         setCurrentOffering({
           identifier: current.identifier,
           serverDescription: current.serverDescription,
           availablePackages: current.availablePackages ?? [],
-          monthly: current.monthly ?? null,
-          annual: current.annual ?? null,
+          monthly,
+          annual,
         });
         setOfferingsLoadFailed(false);
+        setOfferingsFailureReason(!monthly && !annual ? "no_products" : null);
       }
-    } catch {
+    } catch (e: any) {
       // Non-fatal — offeringsLoadFailed stays true, user can tap retry again.
+      setLastError(`retry: ${e?.message ?? e}`);
     }
   }, []);
 
@@ -347,6 +361,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     const safetyTimer = setTimeout(() => {
       if (!cancelled) {
         setOfferingsLoadFailed(true);
+        setOfferingsFailureReason("timeout");
         setIsReady(true);
       }
     }, 25000);
@@ -357,9 +372,17 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           purchases.configure({ apiKey, appUserID: userId ?? null });
         }
 
+        let silentOfferingsError: string | null = null;
         const [info, offerings] = await Promise.all([
-          purchases.getCustomerInfo().catch(() => null),
-          purchases.getOfferings().catch(() => null),
+          purchases.getCustomerInfo().catch((e: any) => {
+            if (!cancelled) setLastError(`customerInfo: ${e?.message ?? e}`);
+            return null;
+          }),
+          purchases.getOfferings().catch((e: any) => {
+            silentOfferingsError = e?.message ?? String(e);
+            if (!cancelled) setLastError(`getOfferings: ${silentOfferingsError}`);
+            return null;
+          }),
         ]);
 
         if (cancelled) return;
@@ -382,12 +405,20 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           // Clear any stale failure flag — offerings arrived (possibly after the
           // safety timer fired). The paywall will re-render with the real packages.
           setOfferingsLoadFailed(false);
+          const monthly = current.monthly ?? null;
+          const annual = current.annual ?? null;
+          // If the offering came back but StoreKit returned no products, flag it.
+          if (!monthly && !annual) {
+            setOfferingsFailureReason("no_products");
+          } else {
+            setOfferingsFailureReason(null);
+          }
           setCurrentOffering({
             identifier: current.identifier,
             serverDescription: current.serverDescription,
             availablePackages: current.availablePackages ?? [],
-            monthly: current.monthly ?? null,
-            annual: current.annual ?? null,
+            monthly,
+            annual,
           });
 
           if (Platform.OS === "ios" && current.annual) {
@@ -409,6 +440,13 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           } else if (Platform.OS === "ios") {
             if (!cancelled) setIsAnnualTrialCheckComplete(true);
           }
+        } else {
+          // getOfferings() either threw silently (silentOfferingsError set) or
+          // returned no current offering — mark as failed so the paywall shows retry.
+          if (!cancelled) {
+            setOfferingsLoadFailed(true);
+            setOfferingsFailureReason(silentOfferingsError ? "error" : "no_products");
+          }
         }
 
         if (typeof purchases.addCustomerInfoUpdateListener === "function") {
@@ -426,6 +464,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           // Mark offerings as failed so the paywall shows a retry button rather
           // than an ambiguous empty state.
           setOfferingsLoadFailed(true);
+          setOfferingsFailureReason("error");
         }
       } finally {
         clearTimeout(safetyTimer);
@@ -557,6 +596,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       lastError,
       isRevenueCatAvailable,
       offeringsLoadFailed,
+      offeringsFailureReason,
       purchasePackage,
       restorePurchases,
       refresh,
@@ -575,6 +615,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       lastError,
       isRevenueCatAvailable,
       offeringsLoadFailed,
+      offeringsFailureReason,
       purchasePackage,
       restorePurchases,
       refresh,

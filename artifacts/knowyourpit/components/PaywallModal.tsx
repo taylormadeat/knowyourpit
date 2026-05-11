@@ -249,6 +249,7 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
     isAnnualTrialCheckComplete,
     isRevenueCatAvailable,
     offeringsLoadFailed,
+    offeringsFailureReason,
     purchasePackage,
     restorePurchases,
     lastError,
@@ -573,20 +574,22 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
                   Couldn't load subscription options
                 </Text>
                 <Text style={[styles.statusSub, { color: colors.mutedForeground }]}>
-                  {offeringsLoadFailed
+                  {offeringsFailureReason === "timeout"
                     ? "Store timed out. Check your connection and tap retry."
-                    : "Products not found in the App Store. Check your connection and tap retry."}
+                    : offeringsFailureReason === "error"
+                      ? "Store returned an error. Check your connection and tap retry."
+                      : offeringsFailureReason === "no_products"
+                        ? "Products not found in the App Store. Tap retry or check back later."
+                        : "Subscription options unavailable. Tap retry."}
                 </Text>
-                {__DEV__ && lastError ? (
-                  <Text style={[styles.statusSub, { color: "#F59E0B", fontFamily: "monospace", fontSize: 11, marginTop: 4 }]}>
-                    {`RC error: ${lastError}`}
+                {lastError ? (
+                  <Text style={[styles.statusSub, { color: "#F59E0B", fontSize: 11, marginTop: 4 }]}>
+                    {`Error: ${lastError}`}
                   </Text>
                 ) : null}
-                {__DEV__ && (
-                  <Text style={[styles.statusSub, { color: colors.mutedForeground, fontSize: 11, marginTop: 2 }]}>
-                    {`offering=${currentOffering ? currentOffering.identifier : "null"} failed=${offeringsLoadFailed}`}
-                  </Text>
-                )}
+                <Text style={[styles.statusSub, { color: colors.mutedForeground, fontSize: 10, marginTop: 2, opacity: 0.6 }]}>
+                  {`offering=${currentOffering ? currentOffering.identifier : "none"} reason=${offeringsFailureReason ?? "?"} failed=${offeringsLoadFailed}`}
+                </Text>
                 <Pressable
                   onPress={retryOfferings}
                   style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.75 }]}
