@@ -1,0 +1,33 @@
+appId: com.knowyourpit.app
+---
+# Sign in with a pre-seeded demo account so the app reaches the tab shell.
+# Pass credentials via env vars: SCREENSHOT_EMAIL and SCREENSHOT_PASSWORD.
+# Example:
+#   maestro test --env SCREENSHOT_EMAIL=demo@example.com \
+#                --env SCREENSHOT_PASSWORD=SuperSecret1 \
+#                .maestro/screenshots/00-auth.yaml
+
+- launchApp:
+    clearState: true
+
+# Wait for either the sign-in gate or the already-authenticated tab bar.
+# If the tab bar is already visible we skip auth entirely.
+- runFlow:
+    when:
+      visible: "Sign in to knowyourpit"
+    commands:
+      - tapOn:
+          text: "you@example.com"
+      - inputText: "${SCREENSHOT_EMAIL}"
+      - tapOn:
+          text: "••••••••"
+      - inputText: "${SCREENSHOT_PASSWORD}"
+      - tapOn:
+          text: "Sign In"
+      - waitForAnimationToEnd:
+          timeout: 6000
+
+# Assert the tab bar is visible before any screenshot flows run.
+- assertVisible:
+    text: "Home"
+    timeout: 10000

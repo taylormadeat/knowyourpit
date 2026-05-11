@@ -1,0 +1,11 @@
+appId: com.knowyourpit.app
+---
+# Run once to sign in, then capture all target screens.
+# Required env vars: SCREENSHOT_EMAIL, SCREENSHOT_PASSWORD
+- runFlow: screenshots/00-auth.yaml
+- runFlow: screenshots/01-dashboard.yaml
+- runFlow: screenshots/02-cook-log.yaml
+- runFlow: screenshots/03-plan.yaml
+- runFlow: screenshots/04-pitmaster.yaml
+- runFlow: screenshots/05-my-grills.yaml
+- runFlow: screenshots/06-pro-features.yaml

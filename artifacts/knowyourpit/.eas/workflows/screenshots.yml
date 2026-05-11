@@ -1,0 +1,138 @@
+name: App Store Screenshots
+on:
+  workflow_dispatch: {}
+
+jobs:
+  capture-iphone:
+    name: Capture iPhone screenshots (1290×2796)
+    type: custom
+    environment:
+      node-version: 20.x
+    secrets:
+      - SCREENSHOT_EMAIL
+      - SCREENSHOT_PASSWORD
+    steps:
+      - uses: eas/checkout@v1
+
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          export PATH="$HOME/.maestro/bin:$PATH"
+          maestro --version
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Build simulator .app
+        working-directory: artifacts/knowyourpit
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+          EAS_NO_VCS=1 eas build \
+            --profile development \
+            --platform ios \
+            --local \
+            --non-interactive \
+            --output /tmp/knowyourpit-sim.tar.gz
+
+      - name: Boot iPhone 15 Pro Max and run Maestro flows
+        working-directory: artifacts/knowyourpit
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+
+          # Extract .app bundle
+          mkdir -p /tmp/sim-build
+          tar -xzf /tmp/knowyourpit-sim.tar.gz -C /tmp/sim-build
+          APP_PATH=$(find /tmp/sim-build -name "*.app" | head -1)
+
+          # Boot the simulator
+          UDID=$(xcrun simctl list devices available | grep "iPhone 15 Pro Max" | head -1 | grep -oE '[A-F0-9-]{36}')
+          xcrun simctl boot "$UDID" 2>/dev/null || true
+          open -a Simulator --args -CurrentDeviceUDID "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+
+          # Install and run flows
+          xcrun simctl install "$UDID" "$APP_PATH"
+          mkdir -p screenshots/iphone
+          MAESTRO_DRIVER_STARTUP_TIMEOUT=120000 \
+            maestro test \
+              --output screenshots/iphone \
+              --env SCREENSHOT_EMAIL="$SCREENSHOT_EMAIL" \
+              --env SCREENSHOT_PASSWORD="$SCREENSHOT_PASSWORD" \
+              .maestro/screenshot-all.yaml
+
+          # Resize to App Store 6.7" dimensions (1290×2796)
+          for f in screenshots/iphone/*.png; do
+            sips -z 2796 1290 "$f" --out "$f" &>/dev/null
+          done
+
+      - uses: eas/upload-artifact@v1
+        with:
+          name: screenshots-iphone
+          path: artifacts/knowyourpit/screenshots/iphone
+
+  capture-ipad:
+    name: Capture iPad screenshots (2064×2752)
+    type: custom
+    environment:
+      node-version: 20.x
+    secrets:
+      - SCREENSHOT_EMAIL
+      - SCREENSHOT_PASSWORD
+    steps:
+      - uses: eas/checkout@v1
+
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          export PATH="$HOME/.maestro/bin:$PATH"
+          maestro --version
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Build simulator .app
+        working-directory: artifacts/knowyourpit
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+          EAS_NO_VCS=1 eas build \
+            --profile development \
+            --platform ios \
+            --local \
+            --non-interactive \
+            --output /tmp/knowyourpit-sim.tar.gz
+
+      - name: Boot iPad Pro 13-inch (M4) and run Maestro flows
+        working-directory: artifacts/knowyourpit
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+
+          # Extract .app bundle
+          mkdir -p /tmp/sim-build
+          tar -xzf /tmp/knowyourpit-sim.tar.gz -C /tmp/sim-build
+          APP_PATH=$(find /tmp/sim-build -name "*.app" | head -1)
+
+          # Boot the simulator
+          UDID=$(xcrun simctl list devices available | grep "iPad Pro 13-inch (M4)" | head -1 | grep -oE '[A-F0-9-]{36}')
+          xcrun simctl boot "$UDID" 2>/dev/null || true
+          open -a Simulator --args -CurrentDeviceUDID "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+
+          # Install and run flows
+          xcrun simctl install "$UDID" "$APP_PATH"
+          mkdir -p screenshots/ipad
+          MAESTRO_DRIVER_STARTUP_TIMEOUT=120000 \
+            maestro test \
+              --output screenshots/ipad \
+              --env SCREENSHOT_EMAIL="$SCREENSHOT_EMAIL" \
+              --env SCREENSHOT_PASSWORD="$SCREENSHOT_PASSWORD" \
+              .maestro/screenshot-all.yaml
+
+          # Resize to App Store iPad Pro 13" dimensions (2064×2752)
+          for f in screenshots/ipad/*.png; do
+            sips -z 2752 2064 "$f" --out "$f" &>/dev/null
+          done
+
+      - uses: eas/upload-artifact@v1
+        with:
+          name: screenshots-ipad
+          path: artifacts/knowyourpit/screenshots/ipad

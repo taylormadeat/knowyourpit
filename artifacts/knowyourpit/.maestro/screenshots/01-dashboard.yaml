@@ -1,0 +1,10 @@
+appId: com.knowyourpit.app
+---
+- tapOn:
+    text: "Home"
+- waitForAnimationToEnd:
+    timeout: 2000
+- assertVisible:
+    text: "Home"
+    timeout: 5000
+- takeScreenshot: "01-dashboard"

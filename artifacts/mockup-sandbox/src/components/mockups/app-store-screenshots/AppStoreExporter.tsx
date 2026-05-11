@@ -1,3 +1,9 @@
+// FALLBACK: This HTML/CSS composite generator remains useful for rapid design
+// iteration and environments where the iOS simulator is unavailable.
+// For production App Store submissions, use the real simulator capture workflow:
+//   artifacts/knowyourpit/scripts/take-screenshots.sh
+// See artifacts/knowyourpit/screenshots/README.md for full instructions.
+
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import html2canvas from "html2canvas";

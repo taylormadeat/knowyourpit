@@ -1,0 +1,10 @@
+appId: com.knowyourpit.app
+---
+- tapOn:
+    text: "PitMaster"
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    text: "PitMaster"
+    timeout: 5000
+- takeScreenshot: "04-pitmaster"
