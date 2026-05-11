@@ -293,8 +293,8 @@ export default function CooksScreen() {
   const updateSession = useUpdateSession();
   const deleteCook = useDeleteCook();
   const qc = useQueryClient();
-  const openSwipeableRef = useRef<any>(null);
-  const swipeableRefs = useRef<Record<number, any>>({});
+  const openSwipeableRef = useRef<Swipeable | null>(null);
+  const swipeableRefs = useRef<Record<number, Swipeable>>({});
 
   const hasActiveCooks = useMemo(
     () => ((cooks as any[]) || []).some((c) => c.status === "active"),
@@ -522,7 +522,7 @@ export default function CooksScreen() {
 
   const handleSwipeDelete = (cookId: number) => {
     Alert.alert(
-      "Delete Cook",
+      "Delete Cook?",
       "This cannot be undone.",
       [
         {
@@ -537,8 +537,9 @@ export default function CooksScreen() {
             try {
               await deleteCook.mutateAsync({ id: cookId });
               qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
-            } catch (e: any) {
-              Alert.alert("Delete Failed", e?.message ?? "Could not delete this cook. Please try again.");
+            } catch (e: unknown) {
+              const msg = e instanceof Error ? e.message : "Could not delete this cook. Please try again.";
+              Alert.alert("Delete Failed", msg);
             }
           },
         },
@@ -549,7 +550,8 @@ export default function CooksScreen() {
   const renderDeleteAction = (cookId: number) => () => (
     <Pressable
       style={{
-        width: 80,
+        flex: 1,
+        minWidth: 80,
         backgroundColor: "#ef4444",
         alignItems: "center",
         justifyContent: "center",
