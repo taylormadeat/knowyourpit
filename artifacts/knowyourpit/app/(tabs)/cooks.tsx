@@ -45,6 +45,8 @@ import {
 } from "@/constants/competitionKnowledge";
 import { getCookCardBar, type CookCardBar } from "@/utils/cookCardBar";
 import { fmtRemaining, barColor, clamp, AnimatedBarFill } from "@/components/cook-detail/CookProgressBar";
+import { cancelStoredFrozenNotifications } from "@/hooks/useFrozenStageNotifications";
+import { cancelStoredCheckinNotifications } from "@/hooks/useCheckinNotifications";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
@@ -536,6 +538,8 @@ export default function CooksScreen() {
           onPress: async () => {
             try {
               await deleteCook.mutateAsync({ id: cookId });
+              await cancelStoredFrozenNotifications(cookId).catch(() => {});
+              await cancelStoredCheckinNotifications(cookId).catch(() => {});
               qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
             } catch (e: unknown) {
               const msg = e instanceof Error ? e.message : "Could not delete this cook. Please try again.";
