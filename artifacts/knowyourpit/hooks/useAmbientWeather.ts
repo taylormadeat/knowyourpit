@@ -89,10 +89,15 @@ function isSameLocalDay(a: Date, b: Date): boolean {
  *   the Plan screen so cooks scheduled for tomorrow are weather-adjusted for
  *   tomorrow, not today.
  *
- * Forecast fetches are gated by the caller (Plan screen requires Pro). The
- * hook itself does not enforce entitlement — pass `null` for free users.
+ * `options.enabled` (default true) — pass `false` to skip all fetching and
+ * return null values immediately. Used to gate weather entirely behind Pro so
+ * free users never trigger a location request or receive any weather data.
  */
-export function useAmbientWeather(targetDate?: Date | null): AmbientWeather {
+export function useAmbientWeather(
+  targetDate?: Date | null,
+  options?: { enabled?: boolean },
+): AmbientWeather {
+  const enabled = options?.enabled ?? true;
   // Recompute the target key reactively so changing the cook date triggers a
   // new fetch. We compare YYYY-MM-DD against today's local date — anything
   // before-or-equal-to today resolves to "current conditions".
@@ -110,8 +115,9 @@ export function useAmbientWeather(targetDate?: Date | null): AmbientWeather {
     return { wantsForecast: true, targetKey: ymd(targetDate) };
   }, [targetDate?.getTime()]);
 
-  const initialEntry =
-    wantsForecast && targetKey ? cachedForecasts.get(targetKey) : cachedCurrent;
+  const initialEntry = enabled
+    ? (wantsForecast && targetKey ? cachedForecasts.get(targetKey) : cachedCurrent)
+    : null;
 
   const [tempF, setTempF] = useState<number | null>(initialEntry?.tempF ?? null);
   const [tempC, setTempC] = useState<number | null>(initialEntry?.tempC ?? null);
@@ -121,7 +127,7 @@ export function useAmbientWeather(targetDate?: Date | null): AmbientWeather {
   const [windSpeedMph, setWindSpeedMph] = useState<number | null>(
     initialEntry?.windSpeedMph ?? null,
   );
-  const [loading, setLoading] = useState<boolean>(initialEntry == null);
+  const [loading, setLoading] = useState<boolean>(enabled && initialEntry == null);
   const [locationDenied, setLocationDenied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetchTick, setFetchTick] = useState(0);
@@ -133,6 +139,7 @@ export function useAmbientWeather(targetDate?: Date | null): AmbientWeather {
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
 
     async function fetchWeather() {
@@ -238,7 +245,7 @@ export function useAmbientWeather(targetDate?: Date | null): AmbientWeather {
     return () => {
       cancelled = true;
     };
-  }, [fetchTick, targetKey, wantsForecast]);
+  }, [fetchTick, targetKey, wantsForecast, enabled]);
 
   return {
     tempF,

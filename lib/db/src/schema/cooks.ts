@@ -31,7 +31,6 @@ export const cooksTable = pgTable("cooks", {
   sessionNotes: text("session_notes"),
   sequenceData: jsonb("sequence_data"),
   confirmedSteps: jsonb("confirmed_steps"),
-  recipeId: integer("recipe_id"),
   analysisResult: jsonb("analysis_result"),
   analysisHistory: jsonb("analysis_history"),
   fromFrozen: boolean("from_frozen").notNull().default(false),

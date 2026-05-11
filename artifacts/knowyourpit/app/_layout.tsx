@@ -288,17 +288,11 @@ function RootLayoutNav() {
         <Stack.Screen name="(auth)/sign-up" />
         <Stack.Screen name="(auth)/set-username" options={{ gestureEnabled: false }} />
         <Stack.Screen name="grills" />
-        <Stack.Screen name="recipes" />
-        <Stack.Screen name="tips" />
         <Stack.Screen name="temperature" />
-        <Stack.Screen name="temp-history" />
-        <Stack.Screen name="meat-prep" />
-        <Stack.Screen name="shop" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="alerts" />
         <Stack.Screen name="cooks/[id]" />
         <Stack.Screen name="sessions/[sessionId]" />
-        <Stack.Screen name="recipe/[id]" />
         <Stack.Screen name="pro-features" />
       </Stack>
     </View>

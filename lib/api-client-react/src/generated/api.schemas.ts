@@ -382,8 +382,6 @@ export interface Cook {
    * @nullable
    */
   sessionId: string | null;
-  /** @nullable */
-  recipeId: number | null;
   /**
    * Map of step keys to ISO timestamps of when the user confirmed each step
    * @nullable
@@ -837,78 +835,6 @@ export interface UpdateCookBody {
    * @nullable
    */
   wrapFinish?: string | null;
-}
-
-export interface Recipe {
-  id: number;
-  title: string;
-  /** @nullable */
-  description: string | null;
-  /** beef, pork, chicken, fish, vegetables, etc. */
-  category: string;
-  ingredients: string;
-  instructions: string;
-  /** @nullable */
-  cookTempF: number | null;
-  /** @nullable */
-  targetTempF: number | null;
-  /** @nullable */
-  estimatedTimeMinutes: number | null;
-  /** @nullable */
-  servings: number | null;
-  isFavorite: boolean;
-  /** @nullable */
-  imageUrl: string | null;
-  /** @nullable */
-  tags: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateRecipeBody {
-  title: string;
-  /** @nullable */
-  description?: string | null;
-  category: string;
-  ingredients: string;
-  instructions: string;
-  /** @nullable */
-  cookTempF?: number | null;
-  /** @nullable */
-  targetTempF?: number | null;
-  /** @nullable */
-  estimatedTimeMinutes?: number | null;
-  /** @nullable */
-  servings?: number | null;
-  /** @nullable */
-  imageUrl?: string | null;
-  /** @nullable */
-  tags?: string | null;
-}
-
-export interface UpdateRecipeBody {
-  /** @nullable */
-  title?: string | null;
-  /** @nullable */
-  description?: string | null;
-  /** @nullable */
-  category?: string | null;
-  /** @nullable */
-  ingredients?: string | null;
-  /** @nullable */
-  instructions?: string | null;
-  /** @nullable */
-  cookTempF?: number | null;
-  /** @nullable */
-  targetTempF?: number | null;
-  /** @nullable */
-  estimatedTimeMinutes?: number | null;
-  /** @nullable */
-  servings?: number | null;
-  /** @nullable */
-  imageUrl?: string | null;
-  /** @nullable */
-  tags?: string | null;
 }
 
 export interface TemperatureReading {
@@ -1456,74 +1382,6 @@ export interface MultiCookResponse {
   summary: string;
 }
 
-export interface ForumPost {
-  id: number;
-  title: string;
-  content: string;
-  category: string;
-  authorName: string;
-  /** @nullable */
-  authorAvatar: string | null;
-  likesCount: number;
-  commentsCount: number;
-  /** @nullable */
-  imageUrl: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ForumComment {
-  id: number;
-  postId: number;
-  content: string;
-  authorName: string;
-  /** @nullable */
-  authorAvatar: string | null;
-  createdAt: string;
-}
-
-export interface ForumPostDetail {
-  post: ForumPost;
-  comments: ForumComment[];
-}
-
-export interface CreateForumPostBody {
-  title: string;
-  content: string;
-  category: string;
-  authorName: string;
-  /** @nullable */
-  authorAvatar?: string | null;
-  /** @nullable */
-  imageUrl?: string | null;
-}
-
-export interface CreateForumCommentBody {
-  content: string;
-  authorName: string;
-  /** @nullable */
-  authorAvatar?: string | null;
-}
-
-export type CookingTipDifficulty =
-  (typeof CookingTipDifficulty)[keyof typeof CookingTipDifficulty];
-
-export const CookingTipDifficulty = {
-  beginner: "beginner",
-  intermediate: "intermediate",
-  advanced: "advanced",
-} as const;
-
-export interface CookingTip {
-  id: number;
-  title: string;
-  content: string;
-  category: string;
-  difficulty: CookingTipDifficulty;
-  /** @nullable */
-  imageUrl: string | null;
-}
-
 export type AlertAlertType =
   (typeof AlertAlertType)[keyof typeof AlertAlertType];
 
@@ -1585,7 +1443,6 @@ export interface DashboardSummary {
   totalCooks: number;
   totalGrills: number;
   activeCooks: number;
-  totalRecipes: number;
   /** @nullable */
   avgCookRating: number | null;
   /** @nullable */
@@ -1959,31 +1816,6 @@ export const ListCooksStatus = {
   cancelled: "cancelled",
 } as const;
 
-export type ListRecipesParams = {
-  /**
-   * @nullable
-   */
-  category?: string | null;
-  /**
-   * @nullable
-   */
-  search?: string | null;
-};
-
 export type ListTemperatureReadingsParams = {
   cookId: number;
-};
-
-export type ListForumPostsParams = {
-  /**
-   * @nullable
-   */
-  category?: string | null;
-};
-
-export type ListTipsParams = {
-  /**
-   * @nullable
-   */
-  category?: string | null;
 };

@@ -227,8 +227,9 @@ export default function CookDetailScreen() {
 
   const cookStatus = (cook as any)?.status;
 
-  // Ambient outdoor weather — used for live cook display and PitMaster context
-  const weather = useAmbientWeather();
+  // Ambient outdoor weather — Pro-only; free users get null values so no
+  // location request is ever triggered for non-subscribers.
+  const weather = useAmbientWeather(undefined, { enabled: effectivePro });
 
   // Alerts for this cook (active ones, used for MEATER threshold checking)
   const { data: cookAlerts } = useListAlerts({

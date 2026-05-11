@@ -522,7 +522,6 @@ export const ListCooksResponseItem = zod.object({
     .describe(
       "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
     ),
-  recipeId: zod.number().nullable(),
   confirmedSteps: zod
     .record(zod.string(), zod.string())
     .nullable()
@@ -828,7 +827,6 @@ export const GetCookResponse = zod.object({
     .describe(
       "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
     ),
-  recipeId: zod.number().nullable(),
   confirmedSteps: zod
     .record(zod.string(), zod.string())
     .nullable()
@@ -1143,7 +1141,6 @@ export const UpdateCookResponse = zod.object({
     .describe(
       "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
     ),
-  recipeId: zod.number().nullable(),
   confirmedSteps: zod
     .record(zod.string(), zod.string())
     .nullable()
@@ -1467,154 +1464,6 @@ export const RegisterCookLiveActivityResponse = zod.object({
  */
 export const EndCookLiveActivityParams = zod.object({
   id: zod.coerce.number(),
-});
-
-/**
- * @summary List all recipes
- */
-export const ListRecipesQueryParams = zod.object({
-  category: zod.coerce.string().nullish(),
-  search: zod.coerce.string().nullish(),
-});
-
-export const ListRecipesResponseItem = zod.object({
-  id: zod.number(),
-  title: zod.string(),
-  description: zod.string().nullable(),
-  category: zod
-    .string()
-    .describe("beef, pork, chicken, fish, vegetables, etc."),
-  ingredients: zod.string(),
-  instructions: zod.string(),
-  cookTempF: zod.number().nullable(),
-  targetTempF: zod.number().nullable(),
-  estimatedTimeMinutes: zod.number().nullable(),
-  servings: zod.number().nullable(),
-  isFavorite: zod.boolean(),
-  imageUrl: zod.string().nullable(),
-  tags: zod.string().nullable(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
-});
-export const ListRecipesResponse = zod.array(ListRecipesResponseItem);
-
-/**
- * @summary Create a new recipe
- */
-export const CreateRecipeBody = zod.object({
-  title: zod.string(),
-  description: zod.string().nullish(),
-  category: zod.string(),
-  ingredients: zod.string(),
-  instructions: zod.string(),
-  cookTempF: zod.number().nullish(),
-  targetTempF: zod.number().nullish(),
-  estimatedTimeMinutes: zod.number().nullish(),
-  servings: zod.number().nullish(),
-  imageUrl: zod.string().nullish(),
-  tags: zod.string().nullish(),
-});
-
-/**
- * @summary Get a recipe by ID
- */
-export const GetRecipeParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const GetRecipeResponse = zod.object({
-  id: zod.number(),
-  title: zod.string(),
-  description: zod.string().nullable(),
-  category: zod
-    .string()
-    .describe("beef, pork, chicken, fish, vegetables, etc."),
-  ingredients: zod.string(),
-  instructions: zod.string(),
-  cookTempF: zod.number().nullable(),
-  targetTempF: zod.number().nullable(),
-  estimatedTimeMinutes: zod.number().nullable(),
-  servings: zod.number().nullable(),
-  isFavorite: zod.boolean(),
-  imageUrl: zod.string().nullable(),
-  tags: zod.string().nullable(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
-});
-
-/**
- * @summary Update a recipe
- */
-export const UpdateRecipeParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const UpdateRecipeBody = zod.object({
-  title: zod.string().nullish(),
-  description: zod.string().nullish(),
-  category: zod.string().nullish(),
-  ingredients: zod.string().nullish(),
-  instructions: zod.string().nullish(),
-  cookTempF: zod.number().nullish(),
-  targetTempF: zod.number().nullish(),
-  estimatedTimeMinutes: zod.number().nullish(),
-  servings: zod.number().nullish(),
-  imageUrl: zod.string().nullish(),
-  tags: zod.string().nullish(),
-});
-
-export const UpdateRecipeResponse = zod.object({
-  id: zod.number(),
-  title: zod.string(),
-  description: zod.string().nullable(),
-  category: zod
-    .string()
-    .describe("beef, pork, chicken, fish, vegetables, etc."),
-  ingredients: zod.string(),
-  instructions: zod.string(),
-  cookTempF: zod.number().nullable(),
-  targetTempF: zod.number().nullable(),
-  estimatedTimeMinutes: zod.number().nullable(),
-  servings: zod.number().nullable(),
-  isFavorite: zod.boolean(),
-  imageUrl: zod.string().nullable(),
-  tags: zod.string().nullable(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
-});
-
-/**
- * @summary Delete a recipe
- */
-export const DeleteRecipeParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-/**
- * @summary Toggle recipe favorite status
- */
-export const ToggleRecipeFavoriteParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const ToggleRecipeFavoriteResponse = zod.object({
-  id: zod.number(),
-  title: zod.string(),
-  description: zod.string().nullable(),
-  category: zod
-    .string()
-    .describe("beef, pork, chicken, fish, vegetables, etc."),
-  ingredients: zod.string(),
-  instructions: zod.string(),
-  cookTempF: zod.number().nullable(),
-  targetTempF: zod.number().nullable(),
-  estimatedTimeMinutes: zod.number().nullable(),
-  servings: zod.number().nullable(),
-  isFavorite: zod.boolean(),
-  imageUrl: zod.string().nullable(),
-  tags: zod.string().nullable(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
 });
 
 /**
@@ -2158,124 +2007,6 @@ export const AiMultiCookResponse = zod.object({
 });
 
 /**
- * @summary List forum posts
- */
-export const ListForumPostsQueryParams = zod.object({
-  category: zod.coerce.string().nullish(),
-});
-
-export const ListForumPostsResponseItem = zod.object({
-  id: zod.number(),
-  title: zod.string(),
-  content: zod.string(),
-  category: zod.string(),
-  authorName: zod.string(),
-  authorAvatar: zod.string().nullable(),
-  likesCount: zod.number(),
-  commentsCount: zod.number(),
-  imageUrl: zod.string().nullable(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
-});
-export const ListForumPostsResponse = zod.array(ListForumPostsResponseItem);
-
-/**
- * @summary Create a forum post
- */
-export const CreateForumPostBody = zod.object({
-  title: zod.string(),
-  content: zod.string(),
-  category: zod.string(),
-  authorName: zod.string(),
-  authorAvatar: zod.string().nullish(),
-  imageUrl: zod.string().nullish(),
-});
-
-/**
- * @summary Get a forum post with its comments
- */
-export const GetForumPostParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const GetForumPostResponse = zod.object({
-  post: zod.object({
-    id: zod.number(),
-    title: zod.string(),
-    content: zod.string(),
-    category: zod.string(),
-    authorName: zod.string(),
-    authorAvatar: zod.string().nullable(),
-    likesCount: zod.number(),
-    commentsCount: zod.number(),
-    imageUrl: zod.string().nullable(),
-    createdAt: zod.coerce.date(),
-    updatedAt: zod.coerce.date(),
-  }),
-  comments: zod.array(
-    zod.object({
-      id: zod.number(),
-      postId: zod.number(),
-      content: zod.string(),
-      authorName: zod.string(),
-      authorAvatar: zod.string().nullable(),
-      createdAt: zod.coerce.date(),
-    }),
-  ),
-});
-
-/**
- * @summary Like a forum post
- */
-export const LikeForumPostParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const LikeForumPostResponse = zod.object({
-  id: zod.number(),
-  title: zod.string(),
-  content: zod.string(),
-  category: zod.string(),
-  authorName: zod.string(),
-  authorAvatar: zod.string().nullable(),
-  likesCount: zod.number(),
-  commentsCount: zod.number(),
-  imageUrl: zod.string().nullable(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
-});
-
-/**
- * @summary Add a comment to a forum post
- */
-export const CreateForumCommentParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const CreateForumCommentBody = zod.object({
-  content: zod.string(),
-  authorName: zod.string(),
-  authorAvatar: zod.string().nullish(),
-});
-
-/**
- * @summary Get cooking tips
- */
-export const ListTipsQueryParams = zod.object({
-  category: zod.coerce.string().nullish(),
-});
-
-export const ListTipsResponseItem = zod.object({
-  id: zod.number(),
-  title: zod.string(),
-  content: zod.string(),
-  category: zod.string(),
-  difficulty: zod.enum(["beginner", "intermediate", "advanced"]),
-  imageUrl: zod.string().nullable(),
-});
-export const ListTipsResponse = zod.array(ListTipsResponseItem);
-
-/**
  * @summary List temperature alerts
  */
 export const ListAlertsResponseItem = zod.object({
@@ -2361,7 +2092,6 @@ export const GetDashboardSummaryResponse = zod.object({
   totalCooks: zod.number(),
   totalGrills: zod.number(),
   activeCooks: zod.number(),
-  totalRecipes: zod.number(),
   avgCookRating: zod.number().nullable(),
   mostUsedGrill: zod.string().nullable(),
   favoriteFood: zod.string().nullable(),
@@ -2439,7 +2169,6 @@ export const GetRecentCooksResponseItem = zod.object({
     .describe(
       "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
     ),
-  recipeId: zod.number().nullable(),
   confirmedSteps: zod
     .record(zod.string(), zod.string())
     .nullable()

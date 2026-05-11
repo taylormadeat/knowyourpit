@@ -156,7 +156,7 @@ export function LiveCookSection(p: Props) {
         )}
       </View>
 
-      {!weather.locationDenied && (
+      {!weather.locationDenied && (weather.loading || weather.tempF != null) && (
         <View style={[s.weatherStrip, { borderTopColor: colors.border, borderBottomColor: colors.border, flexDirection: "column", alignItems: "flex-start", gap: 4 }]}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
             <Feather

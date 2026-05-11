@@ -89,8 +89,6 @@ export interface Cook {
    * @nullable
    */
   sessionId: string | null;
-  /** @nullable */
-  recipeId: number | null;
   /**
    * Map of step keys to ISO timestamps of when the user confirmed each step
    * @nullable

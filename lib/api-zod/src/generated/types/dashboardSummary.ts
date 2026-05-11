@@ -10,7 +10,6 @@ export interface DashboardSummary {
   totalCooks: number;
   totalGrills: number;
   activeCooks: number;
-  totalRecipes: number;
   /** @nullable */
   avgCookRating: number | null;
   /** @nullable */

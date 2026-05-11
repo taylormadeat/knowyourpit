@@ -258,11 +258,10 @@ export default function PlanScreen() {
   const effectivePro = useEffectivePro();
 
   // ── Weather ───────────────────────────────────────────────────────────
-  // Pro users planning a future cook get the forecast for that day; everyone
-  // else (free users on a future date, or anyone on a same-day cook) sees
-  // current conditions. The hook itself just fetches — entitlement gating is
-  // here, and the AI submit handlers also block free users hitting the
-  // forecast path before any network call.
+  // Weather is a Pro-only feature. Free users never trigger a location request
+  // and receive no weather data whatsoever. Pro users planning a same-day cook
+  // see current conditions; a future cook date gets the daily forecast for
+  // that specific day.
   const isFutureCookDay = useMemo(() => {
     if (!serveAt) return false;
     const now = new Date();
@@ -272,8 +271,8 @@ export default function PlanScreen() {
       serveAt.getDate() === now.getDate()
     ) && serveAt.getTime() > now.getTime();
   }, [serveAt]);
-  const weatherTargetDate = effectivePro && isFutureCookDay ? serveAt : null;
-  const weather = useAmbientWeather(weatherTargetDate);
+  const weatherTargetDate = isFutureCookDay ? serveAt : null;
+  const weather = useAmbientWeather(weatherTargetDate, { enabled: effectivePro });
 
   // ── AI predict state ──────────────────────────────────────────────────
   const aiPredict = useAiPredict();
@@ -404,17 +403,6 @@ export default function PlanScreen() {
   const handleAiPlan = async () => {
     if (!selectedCut) {
       Alert.alert("Select a Meat Cut First", "Choose a meat cut so PitMaster can tailor the plan.");
-      return;
-    }
-    // Pro gate for cook-day forecasts. Free users planning a future cook
-    // get the paywall instead of having today's weather silently misapplied
-    // to tomorrow's cook.
-    if (isFutureCookDay && !effectivePro) {
-      showPaywall({
-        trigger: "pro_required",
-        featureName: "Cook-Day Weather Forecast",
-        subtitle: "Pro plans use the forecast for your cook day so weather adjustments line up with the day you're actually cooking.",
-      });
       return;
     }
     try {
@@ -1845,8 +1833,8 @@ export default function PlanScreen() {
           onLockedTap={() =>
             showPaywall({
               trigger: "pro_required",
-              featureName: "Cook-Day Weather Forecast",
-              subtitle: "Pro plans pull the forecast for your cook day so weather adjustments line up with the day you're actually cooking.",
+              featureName: "Weather Insights",
+              subtitle: "Pro members see current outdoor conditions and cook-day forecasts factored directly into AI time estimates.",
             })
           }
         />
@@ -2264,8 +2252,8 @@ export default function PlanScreen() {
           onLockedTap={() =>
             showPaywall({
               trigger: "pro_required",
-              featureName: "Cook-Day Weather Forecast",
-              subtitle: "Pro plans pull the forecast for your cook day so weather adjustments line up with the day you're actually cooking.",
+              featureName: "Weather Insights",
+              subtitle: "Pro members see current outdoor conditions and cook-day forecasts factored directly into AI time estimates.",
             })
           }
         />
@@ -2447,9 +2435,9 @@ function WeatherStrip({
   factoredLabel: string;
   onLockedTap: () => void;
 }) {
-  // Free-tier upsell: future-day forecast is Pro-only. Show the strip with a
-  // lock badge so the value of upgrading is visible right where it matters.
-  if (isFutureCookDay && !effectivePro) {
+  // Weather is fully Pro-only. Show a lock badge for all free users so the
+  // value of upgrading is visible right where it matters.
+  if (!effectivePro) {
     return (
       <Pressable
         onPress={onLockedTap}
@@ -2457,7 +2445,7 @@ function WeatherStrip({
       >
         <Feather name="cloud" size={13} color={colors.mutedForeground} />
         <Text style={[s.weatherText, { color: colors.mutedForeground }]}>
-          Forecast for {formatDate(serveAt)} —
+          {isFutureCookDay ? `Forecast for ${formatDate(serveAt)}` : "Outdoor weather"} —
         </Text>
         <View
           style={{
