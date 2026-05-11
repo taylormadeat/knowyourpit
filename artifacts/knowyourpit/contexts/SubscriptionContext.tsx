@@ -108,6 +108,12 @@ interface SubscriptionContextValue {
   restorePurchases: () => Promise<{ success: boolean; error?: string | null }>;
   /** Re-poll RevenueCat for fresh customerInfo (used after grant scripts run). */
   refresh: () => Promise<void>;
+  /**
+   * Re-fetch offerings from RevenueCat. Call this when the paywall shows a
+   * "couldn't load" state (e.g. after a 12-second timeout on iPadOS) so the
+   * user can retry without restarting the app.
+   */
+  retryOfferings: () => Promise<void>;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextValue | null>(null);
@@ -258,6 +264,26 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     }
   }, [updateIsPro]);
 
+  const retryOfferings = useCallback(async () => {
+    const purchases = purchasesRef.current;
+    if (!purchases) return;
+    try {
+      const offerings = await purchases.getOfferings();
+      const current = offerings?.current;
+      if (current) {
+        setCurrentOffering({
+          identifier: current.identifier,
+          serverDescription: current.serverDescription,
+          availablePackages: current.availablePackages ?? [],
+          monthly: current.monthly ?? null,
+          annual: current.annual ?? null,
+        });
+      }
+    } catch {
+      // Non-fatal — user can tap retry again.
+    }
+  }, []);
+
   // Initial RC configure + first customerInfo + offerings fetch (Phase 1).
   //
   // We DO NOT gate this on `clerkLoaded`. RevenueCat can be configured
@@ -301,6 +327,13 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     if (Platform.OS === "ios") setIsAnnualTrialCheckComplete(false);
 
     let listener: ((info: any) => void) | null = null;
+
+    // Safety timer: if RC's network calls haven't resolved within 12 seconds
+    // (observed on iPadOS 26 beta where StoreKit can stall), force isReady=true
+    // so the paywall shows a retry button instead of spinning forever.
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) setIsReady(true);
+    }, 12000);
 
     (async () => {
       try {
@@ -373,12 +406,14 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           setLastError(err?.message ?? "Failed to initialize subscriptions.");
         }
       } finally {
+        clearTimeout(safetyTimer);
         if (!cancelled) setIsReady(true);
       }
     })();
 
     return () => {
       cancelled = true;
+      clearTimeout(safetyTimer);
       if (listener && typeof purchases.removeCustomerInfoUpdateListener === "function") {
         try {
           purchases.removeCustomerInfoUpdateListener(listener);
@@ -502,6 +537,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       purchasePackage,
       restorePurchases,
       refresh,
+      retryOfferings,
     }),
     [
       isReady,
@@ -518,6 +554,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       purchasePackage,
       restorePurchases,
       refresh,
+      retryOfferings,
     ],
   );
 

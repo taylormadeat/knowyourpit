@@ -252,6 +252,7 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
     purchasePackage,
     restorePurchases,
     lastError,
+    retryOfferings,
   } = useSubscription();
   const effectivePro = useEffectivePro();
 
@@ -567,10 +568,20 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
               </View>
             ) : !annual && !monthly ? (
               <View style={styles.statusBlock}>
-                <ActivityIndicator color="#E84520" />
-                <Text style={[styles.statusText, { color: colors.mutedForeground }]}>
-                  Loading plans from {Platform.OS === "ios" ? "App Store" : "Play Store"}…
+                <Feather name="wifi-off" size={28} color="#F59E0B" />
+                <Text style={[styles.statusText, { color: colors.foreground }]}>
+                  Couldn't load subscription options
                 </Text>
+                <Text style={[styles.statusSub, { color: colors.mutedForeground }]}>
+                  Check your connection and try again.
+                </Text>
+                <Pressable
+                  onPress={retryOfferings}
+                  style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.75 }]}
+                >
+                  <Feather name="refresh-cw" size={14} color="#fff" />
+                  <Text style={styles.retryBtnText}>Tap to retry</Text>
+                </Pressable>
               </View>
             ) : (
               <View style={styles.plansContainer}>
@@ -905,6 +916,17 @@ const styles = StyleSheet.create({
   },
   statusText: { fontSize: 15, fontFamily: "Inter_600SemiBold", textAlign: "center" },
   statusSub: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center" },
+  retryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#E84520",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginTop: 8,
+  },
+  retryBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
   footer: { paddingHorizontal: 20, paddingTop: 18, alignItems: "center", gap: 10 },
   linkText: { fontSize: 13, fontFamily: "Inter_500Medium", textDecorationLine: "underline" },
   policyRow: { flexDirection: "row", alignItems: "center", gap: 6 },
