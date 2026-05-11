@@ -951,13 +951,20 @@ export default function CooksScreen() {
                     ? "#6b7280"
                     : STATUS_COLORS[c.status] || colors.primary;
                   const isActive = c.status === "active";
+                  const tagColor = STATUS_COLORS[c.status] || colors.primary;
+                  const progressLabel =
+                    c.status === "completed"
+                      ? "✓"
+                      : c.status === "active"
+                      ? `${bar ? Math.round(bar.progress * 100) : 0}%`
+                      : null;
                   return (
                     <View
                       key={c.id}
                       style={[
                         s.sessionTag,
                         {
-                          backgroundColor: (STATUS_COLORS[c.status] || colors.primary) + "20",
+                          backgroundColor: tagColor + "20",
                           flexDirection: "row",
                           alignItems: "center",
                           gap: 4,
@@ -965,9 +972,23 @@ export default function CooksScreen() {
                       ]}
                     >
                       <ProgressDot color={dotColor} active={isActive} />
-                      <Text style={[s.sessionTagText, { color: STATUS_COLORS[c.status] || colors.primary }]}>
+                      <Text style={[s.sessionTagText, { color: tagColor }]}>
                         {c.foodType}
                       </Text>
+                      {progressLabel !== null && (
+                        <Text
+                          style={[
+                            s.sessionTagText,
+                            {
+                              color: dotColor,
+                              fontFamily: "Inter_700Bold",
+                              fontSize: 10,
+                            },
+                          ]}
+                        >
+                          {progressLabel}
+                        </Text>
+                      )}
                     </View>
                   );
                 })}
