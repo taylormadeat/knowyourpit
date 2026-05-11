@@ -92,6 +92,14 @@ Always run the dry-run first to review the list before passing `--confirm`. The 
 
 ## Ops Log
 
+- **2026-05-11 — IAP MISSING_METADATA fixed (task #594, no new build needed)**:
+  - Root cause confirmed via build #88 diagnostics: RC error "None of the products registered in the RevenueCat dashboard could be fetched from App Store Connect" — both `com.knowyourpit.pro.annual` and `com.knowyourpit.pro.monthly` were in MISSING_METADATA, blocking StoreKit from serving them even in sandbox.
+  - Fix: discovered `subscriptionAppStoreReviewScreenshots` (type) endpoint via ASC API relationship probing. Uploaded a review screenshot (1284×2778 from existing App Store screenshot set) for both subscriptions via POST reservation → PUT upload → PATCH commit flow.
+  - Annual subscription had a prior stuck AWAITING_UPLOAD reservation (from the earlier failed attempt); it was deleted via DELETE before re-uploading.
+  - Both subscriptions transitioned: MISSING_METADATA → **READY_TO_SUBMIT**. StoreKit sandbox now serves both products; RC paywall should load on next app launch in TestFlight (build #88 — no new build needed, this is a server-side ASC state change).
+  - App version v1.0 (6aefd377) also updated: build switched from #81 → #88 (c3de1d50) and supportUrl corrected to `https://knowyourpit.com/support`. Version is now in PREPARE_FOR_SUBMISSION.
+  - App Store Review submission still pending (API FORBIDDEN — needs primary category + age rating set in ASC web UI before submitting). IAPs will be reviewed alongside the app when submitted.
+
 - **2026-05-11 — Build #88 shipped to TestFlight (paywall diagnostics)**:
   - All diagnostic info now always visible (removed `__DEV__` guard from PaywallModal error screen).
   - Error message (`lastError`) always shown when present — will display exact RC/StoreKit error in TestFlight.
