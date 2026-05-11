@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Easing, View, Text, Pressable } from "react-native";
+import { Animated, View, Text, Pressable } from "react-native";
 
 export function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
@@ -51,22 +51,18 @@ interface AnimatedBarFillProps {
 }
 
 export function AnimatedBarFill({ progress, color, borderRadius = 3 }: AnimatedBarFillProps) {
-  const animatedValue = useRef(new Animated.Value(progress)).current;
-  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
+  const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (animationRef.current) {
-      animationRef.current.stop();
-    }
-    animationRef.current = Animated.timing(animatedValue, {
+    const spring = Animated.spring(animatedValue, {
       toValue: progress,
-      duration: 1000,
-      easing: Easing.linear,
       useNativeDriver: false,
+      overshootClamping: true,
+      tension: 60,
+      friction: 12,
     });
-    animationRef.current.start(() => {
-      animationRef.current = null;
-    });
+    spring.start();
+    return () => spring.stop();
   }, [progress]);
 
   const animatedWidth = animatedValue.interpolate({
