@@ -522,6 +522,37 @@ export default function CooksScreen() {
     setEditingSession(null);
   };
 
+  const handleSessionDelete = (group: SessionGroup) => {
+    const cookCount = group.cooks.length;
+    Alert.alert(
+      "Delete Session?",
+      `This will permanently delete all ${cookCount} cook${cookCount !== 1 ? "s" : ""} in this session. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await Promise.all(
+                group.cooks.map(async (cook) => {
+                  await deleteCook.mutateAsync({ id: cook.id });
+                  await cancelStoredFrozenNotifications(cook.id).catch(() => {});
+                  await cancelStoredCheckinNotifications(cook.id).catch(() => {});
+                }),
+              );
+            } catch (e: unknown) {
+              const msg = e instanceof Error ? e.message : "Could not delete this session. Please try again.";
+              Alert.alert("Delete Failed", msg);
+            } finally {
+              qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleSwipeDelete = (cookId: number) => {
     Alert.alert(
       "Delete Cook?",
@@ -1131,13 +1162,22 @@ export default function CooksScreen() {
             )}
           </View>
           <View style={{ alignItems: "center", gap: 8 }}>
-            <Pressable
-              hitSlop={8}
-              onPress={(e) => { e.stopPropagation(); openEditModal(group); }}
-              style={[s.editBtn, { backgroundColor: colors.border }]}
-            >
-              <Feather name="edit-2" size={13} color={colors.mutedForeground} />
-            </Pressable>
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              <Pressable
+                hitSlop={8}
+                onPress={(e) => { e.stopPropagation(); openEditModal(group); }}
+                style={[s.editBtn, { backgroundColor: colors.border }]}
+              >
+                <Feather name="edit-2" size={13} color={colors.mutedForeground} />
+              </Pressable>
+              <Pressable
+                hitSlop={8}
+                onPress={(e) => { e.stopPropagation(); handleSessionDelete(group); }}
+                style={[s.editBtn, { backgroundColor: "#ef444420" }]}
+              >
+                <Feather name="trash-2" size={13} color="#ef4444" />
+              </Pressable>
+            </View>
             <Feather name={expanded ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
           </View>
         </View>
