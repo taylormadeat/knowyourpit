@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Modal,
   View,
@@ -278,20 +278,53 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
     return list.filter((c) => c.status === "completed").slice(0, 3);
   }, [isCookLimitWall, recentCooksData]);
 
+  const annual = currentOffering?.annual ?? null;
+  const monthly = currentOffering?.monthly ?? null;
+
   const [isRetrying, setIsRetrying] = useState(false);
+  const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
+  const retryingRef = useRef(false);
+
+  // When the error screen is visible (modal open, no packages, RC ready), start
+  // a 15-second auto-retry countdown. The user can also tap to retry immediately.
+  const showingError = visible && isReady && !annual && !monthly;
 
   const handleRetry = useCallback(async () => {
-    if (isRetrying) return;
+    if (retryingRef.current) return;
+    retryingRef.current = true;
     setIsRetrying(true);
+    setRetryCountdown(null);
     try {
       await retryOfferings();
     } finally {
+      retryingRef.current = false;
       setIsRetrying(false);
     }
-  }, [isRetrying, retryOfferings]);
+  }, [retryOfferings]);
 
-  const annual = currentOffering?.annual ?? null;
-  const monthly = currentOffering?.monthly ?? null;
+  // Countdown + auto-retry effect: runs whenever the error screen appears.
+  // Resets when offerings load successfully or when modal closes.
+  useEffect(() => {
+    if (!showingError || isRetrying) {
+      setRetryCountdown(null);
+      return;
+    }
+    const COUNTDOWN = 15;
+    setRetryCountdown(COUNTDOWN);
+    const interval = setInterval(() => {
+      setRetryCountdown((prev) => {
+        if (prev === null || retryingRef.current) return prev;
+        if (prev <= 1) {
+          clearInterval(interval);
+          handleRetry();
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showingError]);
 
   const annualTrial = useMemo(() => {
     if (Platform.OS === "ios") {
@@ -602,13 +635,18 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
                 <Text style={[styles.statusSub, { color: colors.mutedForeground, fontSize: 10, marginTop: 2, opacity: 0.6 }]}>
                   {`offering=${currentOffering ? currentOffering.identifier : "none"} reason=${offeringsFailureReason ?? "?"} failed=${offeringsLoadFailed}`}
                 </Text>
+                {retryCountdown !== null && !isRetrying && (
+                  <Text style={[styles.statusSub, { color: colors.mutedForeground, fontSize: 11, marginTop: 6 }]}>
+                    {`Auto-retrying in ${retryCountdown}s…`}
+                  </Text>
+                )}
                 <Pressable
                   onPress={handleRetry}
                   disabled={isRetrying}
                   style={({ pressed }) => [styles.retryBtn, (pressed || isRetrying) && { opacity: 0.6 }]}
                 >
                   <Feather name={isRetrying ? "loader" : "refresh-cw"} size={14} color="#fff" />
-                  <Text style={styles.retryBtnText}>{isRetrying ? "Retrying…" : "Tap to retry"}</Text>
+                  <Text style={styles.retryBtnText}>{isRetrying ? "Retrying…" : "Retry now"}</Text>
                 </Pressable>
               </View>
             ) : (

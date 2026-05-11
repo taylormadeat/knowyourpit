@@ -408,15 +408,16 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
         const current = offerings?.current;
         if (current) {
-          // Clear any stale failure flag — offerings arrived (possibly after the
-          // safety timer fired). The paywall will re-render with the real packages.
-          setOfferingsLoadFailed(false);
           const monthly = current.monthly ?? null;
           const annual = current.annual ?? null;
-          // If the offering came back but StoreKit returned no products, flag it.
           if (!monthly && !annual) {
+            // Offering returned but StoreKit provided no products — flag as failure
+            // so the paywall error screen and retry countdown are shown.
+            setOfferingsLoadFailed(true);
             setOfferingsFailureReason("no_products");
           } else {
+            // Real packages arrived — clear any stale failure from the safety timer.
+            setOfferingsLoadFailed(false);
             setOfferingsFailureReason(null);
           }
           setCurrentOffering({
