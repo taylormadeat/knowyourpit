@@ -15,9 +15,11 @@ import {
   Platform,
   TouchableOpacity,
   Animated,
+  Alert,
   type StyleProp,
   type TextStyle,
 } from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
 import { fmtMinutes } from "@/utils/duration";
 import { useRouter } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -25,7 +27,13 @@ import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useColors } from "@/hooks/useColors";
 import { useLayout } from "@/hooks/useLayout";
-import { useListCooks, useUpdateSession } from "@workspace/api-client-react";
+import {
+  useListCooks,
+  useUpdateSession,
+  useDeleteCook,
+  getListCooksQueryKey,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import {
@@ -283,6 +291,10 @@ export default function CooksScreen() {
   const [seqSaveError, setSeqSaveError] = useState<string | null>(null);
   const { data: cooks, isLoading, refetch } = useListCooks();
   const updateSession = useUpdateSession();
+  const deleteCook = useDeleteCook();
+  const qc = useQueryClient();
+  const openSwipeableRef = useRef<any>(null);
+  const swipeableRefs = useRef<Record<number, any>>({});
 
   const hasActiveCooks = useMemo(
     () => ((cooks as any[]) || []).some((c) => c.status === "active"),
@@ -508,6 +520,49 @@ export default function CooksScreen() {
     setEditingSession(null);
   };
 
+  const handleSwipeDelete = (cookId: number) => {
+    Alert.alert(
+      "Delete Cook",
+      "This cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+          onPress: () => { openSwipeableRef.current?.close(); },
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteCook.mutateAsync({ id: cookId });
+              qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+            } catch (e: any) {
+              Alert.alert("Delete Failed", e?.message ?? "Could not delete this cook. Please try again.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const renderDeleteAction = (cookId: number) => () => (
+    <Pressable
+      style={{
+        width: 80,
+        backgroundColor: "#ef4444",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+      onPress={() => handleSwipeDelete(cookId)}
+    >
+      <Feather name="trash-2" size={20} color="#fff" />
+      <Text style={{ color: "#fff", fontSize: 11, fontFamily: "Inter_600SemiBold", marginTop: 3 }}>
+        Delete
+      </Text>
+    </Pressable>
+  );
+
   const renderCookItem = ({ item, inSession }: { item: any; inSession?: boolean }) => {
     const isActive = item.status === "active";
     const isPlanned = item.status === "planned";
@@ -521,6 +576,23 @@ export default function CooksScreen() {
     const bar = getCookCardBar(item, nowMs);
 
     return (
+      <Swipeable
+        ref={(ref) => {
+          if (ref) swipeableRefs.current[item.id] = ref;
+          else delete swipeableRefs.current[item.id];
+        }}
+        renderRightActions={renderDeleteAction(item.id)}
+        onSwipeableOpen={() => {
+          const currentRef = swipeableRefs.current[item.id];
+          if (openSwipeableRef.current && openSwipeableRef.current !== currentRef) {
+            openSwipeableRef.current.close();
+          }
+          openSwipeableRef.current = currentRef;
+        }}
+        friction={2}
+        rightThreshold={40}
+        overshootRight={false}
+      >
       <Pressable
         style={({ pressed }) => [
           s.card,
@@ -792,6 +864,7 @@ export default function CooksScreen() {
           </View>
         )}
       </Pressable>
+      </Swipeable>
     );
   };
 
