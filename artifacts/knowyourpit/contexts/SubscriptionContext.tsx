@@ -102,6 +102,14 @@ interface SubscriptionContextValue {
   lastError: string | null;
   /** Whether RevenueCat is actually loaded (false in dev builds without the SDK). */
   isRevenueCatAvailable: boolean;
+  /**
+   * True when Phase 1 completed (or timed out) with no offerings loaded —
+   * either because the safety timer fired before RC responded, or because
+   * getOfferings() returned no current offering. Resets to false when
+   * retryOfferings() succeeds. Use this to distinguish "timed out / failed"
+   * from "still loading" in the paywall UI.
+   */
+  offeringsLoadFailed: boolean;
   /** Trigger an in-app purchase for a specific package. */
   purchasePackage: (pkg: PurchasePackageLike) => Promise<{ success: boolean; cancelled: boolean }>;
   /** Restore previous purchases (App Store / Play Store flow). */
@@ -211,6 +219,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [expirationDate, setExpirationDate] = useState<Date | null>(null);
   const [isInTrial, setIsInTrial] = useState<boolean>(false);
   const [currentOffering, setCurrentOffering] = useState<OfferingLike | null>(null);
+  const [offeringsLoadFailed, setOfferingsLoadFailed] = useState(false);
   const [isAnnualTrialEligible, setIsAnnualTrialEligible] = useState<boolean | null>(null);
   const [isAnnualTrialCheckComplete, setIsAnnualTrialCheckComplete] = useState<boolean>(
     Platform.OS !== "ios",
@@ -267,6 +276,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const retryOfferings = useCallback(async () => {
     const purchases = purchasesRef.current;
     if (!purchases) return;
+    // RC is already configured from Phase 1 — we only need to re-fetch offerings.
+    // A full re-configure is not needed and would risk duplicate SDK init.
     try {
       const offerings = await purchases.getOfferings();
       const current = offerings?.current;
@@ -278,9 +289,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           monthly: current.monthly ?? null,
           annual: current.annual ?? null,
         });
+        setOfferingsLoadFailed(false);
       }
     } catch {
-      // Non-fatal — user can tap retry again.
+      // Non-fatal — offeringsLoadFailed stays true, user can tap retry again.
     }
   }, []);
 
@@ -330,9 +342,13 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
     // Safety timer: if RC's network calls haven't resolved within 12 seconds
     // (observed on iPadOS 26 beta where StoreKit can stall), force isReady=true
-    // so the paywall shows a retry button instead of spinning forever.
+    // and flag offeringsLoadFailed=true so the paywall shows a retry button
+    // instead of spinning forever.
     const safetyTimer = setTimeout(() => {
-      if (!cancelled) setIsReady(true);
+      if (!cancelled) {
+        setOfferingsLoadFailed(true);
+        setIsReady(true);
+      }
     }, 12000);
 
     (async () => {
@@ -404,6 +420,9 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       } catch (err: any) {
         if (!cancelled) {
           setLastError(err?.message ?? "Failed to initialize subscriptions.");
+          // Mark offerings as failed so the paywall shows a retry button rather
+          // than an ambiguous empty state.
+          setOfferingsLoadFailed(true);
         }
       } finally {
         clearTimeout(safetyTimer);
@@ -534,6 +553,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       isAnnualTrialCheckComplete,
       lastError,
       isRevenueCatAvailable,
+      offeringsLoadFailed,
       purchasePackage,
       restorePurchases,
       refresh,
@@ -551,6 +571,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       isAnnualTrialCheckComplete,
       lastError,
       isRevenueCatAvailable,
+      offeringsLoadFailed,
       purchasePackage,
       restorePurchases,
       refresh,

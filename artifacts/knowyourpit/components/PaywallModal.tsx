@@ -249,6 +249,7 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
     isAnnualTrialEligible,
     isAnnualTrialCheckComplete,
     isRevenueCatAvailable,
+    offeringsLoadFailed,
     purchasePackage,
     restorePurchases,
     lastError,
