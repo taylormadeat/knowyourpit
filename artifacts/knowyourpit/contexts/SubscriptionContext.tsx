@@ -305,8 +305,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           setOfferingsLoadFailed(true);
           setOfferingsFailureReason("no_products");
         } else {
+          // Packages loaded — clear stale error text and failure flags.
           setOfferingsLoadFailed(false);
           setOfferingsFailureReason(null);
+          setLastError(null);
         }
       } else {
         // getOfferings() returned no current offering without throwing —
@@ -422,9 +424,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
             setOfferingsLoadFailed(true);
             setOfferingsFailureReason("no_products");
           } else {
-            // Real packages arrived — clear any stale failure from the safety timer.
+            // Real packages arrived — clear any stale failure and prior error text.
             setOfferingsLoadFailed(false);
             setOfferingsFailureReason(null);
+            setLastError(null);
           }
           setCurrentOffering({
             identifier: current.identifier,
