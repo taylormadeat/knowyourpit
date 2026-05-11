@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Modal,
   View,
@@ -277,6 +277,18 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
     // cards (or hides if zero).
     return list.filter((c) => c.status === "completed").slice(0, 3);
   }, [isCookLimitWall, recentCooksData]);
+
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  const handleRetry = useCallback(async () => {
+    if (isRetrying) return;
+    setIsRetrying(true);
+    try {
+      await retryOfferings();
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [isRetrying, retryOfferings]);
 
   const annual = currentOffering?.annual ?? null;
   const monthly = currentOffering?.monthly ?? null;
@@ -591,11 +603,12 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
                   {`offering=${currentOffering ? currentOffering.identifier : "none"} reason=${offeringsFailureReason ?? "?"} failed=${offeringsLoadFailed}`}
                 </Text>
                 <Pressable
-                  onPress={retryOfferings}
-                  style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.75 }]}
+                  onPress={handleRetry}
+                  disabled={isRetrying}
+                  style={({ pressed }) => [styles.retryBtn, (pressed || isRetrying) && { opacity: 0.6 }]}
                 >
-                  <Feather name="refresh-cw" size={14} color="#fff" />
-                  <Text style={styles.retryBtnText}>Tap to retry</Text>
+                  <Feather name={isRetrying ? "loader" : "refresh-cw"} size={14} color="#fff" />
+                  <Text style={styles.retryBtnText}>{isRetrying ? "Retrying…" : "Tap to retry"}</Text>
                 </Pressable>
               </View>
             ) : (

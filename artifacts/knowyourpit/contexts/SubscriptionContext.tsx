@@ -303,10 +303,16 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         });
         setOfferingsLoadFailed(false);
         setOfferingsFailureReason(!monthly && !annual ? "no_products" : null);
+      } else {
+        // getOfferings() returned no current offering without throwing —
+        // keep failure flag set and update the reason so diagnostics are accurate.
+        setOfferingsLoadFailed(true);
+        setOfferingsFailureReason("no_products");
       }
     } catch (e: any) {
       // Non-fatal — offeringsLoadFailed stays true, user can tap retry again.
       setLastError(`retry: ${e?.message ?? e}`);
+      setOfferingsFailureReason("error");
     }
   }, []);
 
