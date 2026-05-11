@@ -232,6 +232,17 @@ export default function HomeScreen() {
     ? `${upcomingCook.foodType || "Your cook"} is coming up — time to prep`
     : "Ready to fire it up?";
 
+  // Ticking clock — updates every minute while the tab is focused so elapsed
+  // timers on the active cook widget stay live without extra API calls.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useFocusEffect(
+    useCallback(() => {
+      setNowMs(Date.now());
+      const id = setInterval(() => setNowMs(Date.now()), 60_000);
+      return () => clearInterval(id);
+    }, [])
+  );
+
   // New title every time the home screen is focused (login, tab switch, app foreground)
   const [titleSeed, setTitleSeed] = useState(() => Math.random());
   useFocusEffect(
@@ -357,7 +368,7 @@ export default function HomeScreen() {
             onPress={() => router.push(`/cooks/${activeCook.id}` as any)}
           >
             {(() => {
-              const bar = getCookCardBar(activeCook, Date.now());
+              const bar = getCookCardBar(activeCook, nowMs);
               return (
                 <LinearGradient
                   colors={["#2D1008", "#1E0B04"]}
@@ -369,7 +380,7 @@ export default function HomeScreen() {
                     <Text style={s.liveLabel}>LIVE ON THE SMOKER</Text>
                     {activeCook.actualStartAt && (
                       <Text style={s.elapsedBadge}>
-                        {fmtElapsed(Date.now() - new Date(activeCook.actualStartAt).getTime())} in
+                        {fmtElapsed(nowMs - new Date(activeCook.actualStartAt).getTime())} in
                       </Text>
                     )}
                   </View>
@@ -788,7 +799,7 @@ export default function HomeScreen() {
                 </Text>
                 {cook.status === "active" && cook.actualStartAt && (
                   <Text style={[s.cookElapsed, { color: "#E84820" }]}>
-                    {fmtElapsed(Date.now() - new Date(cook.actualStartAt).getTime())} elapsed
+                    {fmtElapsed(nowMs - new Date(cook.actualStartAt).getTime())} elapsed
                   </Text>
                 )}
               </View>
