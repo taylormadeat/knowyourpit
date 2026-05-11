@@ -30,7 +30,6 @@ import {
   getListGrillsQueryKey,
 } from "@workspace/api-client-react";
 import { GRILL_CATALOG, type GrillModel } from "@/constants/grillCatalog";
-import { GrillFingerprint } from "@/components/GrillFingerprint";
 import { GrillTypeIcon, classifyGrillType, grillGradientColors } from "@/components/GrillTypeIcon";
 
 const GRILL_TYPES = [
@@ -493,7 +492,6 @@ export default function GrillsScreen() {
                 </Pressable>
               </View>
             </View>
-            <GrillFingerprint grillId={item.id} grillName={item.name} />
             </View>
             </View>
           ))}

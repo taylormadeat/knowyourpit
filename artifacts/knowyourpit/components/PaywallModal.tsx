@@ -122,7 +122,6 @@ const FEATURES: ReadonlyArray<{ icon: FeatherIconName; title: string; desc: stri
   { icon: "layers", title: "Multi-Cook Sequencer", desc: "Plan brisket + ribs + sides on one timeline." },
   { icon: "calendar", title: "Multiple active & planned cooks", desc: "Run more than one cook at a time and queue up future cooks." },
   { icon: "bar-chart-2", title: "Cook Quality Analytics", desc: "See your tenderness, bark, and flavor trends over time." },
-  { icon: "cpu", title: "Grill Fingerprint", desc: "AI learns your grill's unique heat quirks across every cook and calibrates your plans to match." },
   { icon: "wind", title: "Frozen-to-Table Planner", desc: "Full timeline from freezer to table — every thaw, rest, and smoke step timed perfectly." },
   { icon: "award", title: "Competition Mode", desc: "Competition-ready plans with staggered turn-in times for Chicken, Ribs, Pork, and Brisket." },
   { icon: "cloud", title: "Cook-Day Weather Forecast", desc: "See the forecast before you fire up so you can adjust smoke time for wind and cold." },

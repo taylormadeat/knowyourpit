@@ -116,42 +116,6 @@ export function AiResultsModal(p: Props) {
                   </View>
                 )}
 
-                {aiResult.fingerprintApplied && (() => {
-                  const source = aiResult.fingerprintSource;
-                  const headline = source === "grill"
-                    ? `Adjusted for ${grillName ? `${grillName}'s` : "this grill's"} learned pace`
-                    : source === "user"
-                      ? "Adjusted for your learned pace across grills"
-                      : source === "pit_bias_only"
-                        ? `Adjusted for ${grillName ? `${grillName}'s` : "this grill's"} pit bias`
-                        : "Adjusted using your grill fingerprint";
-                  return (
-                    <View style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 8,
-                      backgroundColor: "#6C3BF5" + "15",
-                      borderColor: "#6C3BF5" + "40",
-                      borderWidth: 1,
-                      borderRadius: 10,
-                      paddingHorizontal: 12,
-                      paddingVertical: 10,
-                      marginTop: 14,
-                    }}>
-                      <Feather name="cpu" size={14} color="#6C3BF5" />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 12, color: "#6C3BF5" }}>
-                          {headline}
-                        </Text>
-                        {aiResult.fingerprintNote && (
-                          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 2 }}>
-                            {aiResult.fingerprintNote}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                  );
-                })()}
                 <View style={[s.aiSection, { borderColor: colors.border }]}>
                   <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>PitMaster Analysis</Text>
                   <Text style={[s.aiBody, { color: colors.mutedForeground }]}>{aiResult.rationale}</Text>

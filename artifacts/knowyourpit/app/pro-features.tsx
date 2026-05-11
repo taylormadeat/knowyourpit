@@ -138,39 +138,6 @@ function AIPitmasterPreview({ colors }: { colors: any }) {
   );
 }
 
-function GrillFingerprintPreview({ colors }: { colors: any }) {
-  const bars = [
-    { label: "Left zone", offset: -8, color: "#E84520" },
-    { label: "Center", offset: +3, color: "#22C55E" },
-    { label: "Right zone", offset: -14, color: "#F59E0B" },
-    { label: "Dome", offset: +22, color: "#8B5CF6" },
-  ];
-  return (
-    <View style={pv.fingerprintWrap}>
-      <Text style={[pv.fpTitle, { color: colors.foreground }]}>Your grill's hot/cold zones</Text>
-      {bars.map((b) => (
-        <View key={b.label} style={pv.fpRow}>
-          <Text style={[pv.fpLabel, { color: colors.mutedForeground }]}>{b.label}</Text>
-          <View style={[pv.fpTrack, { backgroundColor: colors.border }]}>
-            <View
-              style={[
-                pv.fpBar,
-                {
-                  backgroundColor: b.color,
-                  width: Math.abs(b.offset) * 2.5,
-                  alignSelf: b.offset < 0 ? "flex-start" : "flex-end",
-                },
-              ]}
-            />
-          </View>
-          <Text style={[pv.fpVal, { color: b.offset < 0 ? "#22C55E" : "#E84520" }]}>
-            {b.offset > 0 ? `+${b.offset}°` : `${b.offset}°`}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
-}
 
 function WeatherPreview({ colors }: { colors: any }) {
   return (
@@ -299,12 +266,6 @@ const FEATURES = [
     headline: "Unlimited AI PitMaster",
     benefit: "Ask anything, anytime — no daily chat or scan limits. Get pro coaching for every cook.",
     Preview: AIPitmasterPreview,
-  },
-  {
-    id: "fingerprint",
-    headline: "Grill Fingerprint",
-    benefit: "AI maps your grill's hot and cold zones across every cook and tunes your plans to match.",
-    Preview: GrillFingerprintPreview,
   },
   {
     id: "weather",
@@ -562,15 +523,6 @@ const pv = StyleSheet.create({
   aiAvatar: { width: 16, height: 16, borderRadius: 8, backgroundColor: "#E84520", alignItems: "center", justifyContent: "center" },
   aiName: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
   bubbleAIText: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
-
-  // Grill fingerprint
-  fingerprintWrap: { padding: 12, gap: 8 },
-  fpTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
-  fpRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  fpLabel: { fontSize: 10, fontFamily: "Inter_400Regular", width: 72 },
-  fpTrack: { flex: 1, height: 8, borderRadius: 4, overflow: "visible" },
-  fpBar: { height: 8, borderRadius: 4 },
-  fpVal: { fontSize: 11, fontFamily: "Inter_700Bold", width: 34, textAlign: "right" },
 
   // Weather
   weatherWrap: { margin: 12, borderRadius: 10, borderWidth: 1, overflow: "hidden" },
