@@ -573,8 +573,20 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
                   Couldn't load subscription options
                 </Text>
                 <Text style={[styles.statusSub, { color: colors.mutedForeground }]}>
-                  Check your connection and try again.
+                  {offeringsLoadFailed
+                    ? "Store timed out. Check your connection and tap retry."
+                    : "Products not found in the App Store. Check your connection and tap retry."}
                 </Text>
+                {__DEV__ && lastError ? (
+                  <Text style={[styles.statusSub, { color: "#F59E0B", fontFamily: "monospace", fontSize: 11, marginTop: 4 }]}>
+                    {`RC error: ${lastError}`}
+                  </Text>
+                ) : null}
+                {__DEV__ && (
+                  <Text style={[styles.statusSub, { color: colors.mutedForeground, fontSize: 11, marginTop: 2 }]}>
+                    {`offering=${currentOffering ? currentOffering.identifier : "null"} failed=${offeringsLoadFailed}`}
+                  </Text>
+                )}
                 <Pressable
                   onPress={retryOfferings}
                   style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.75 }]}

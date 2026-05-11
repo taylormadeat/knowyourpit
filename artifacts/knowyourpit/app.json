@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.knowyourpit.app",
-      "buildNumber": "86",
+      "buildNumber": "87",
       "appleTeamId": "W8AY23XJTF",
       "usesAppleSignIn": true,
       "infoPlist": {
