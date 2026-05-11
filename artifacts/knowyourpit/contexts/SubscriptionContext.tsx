@@ -340,7 +340,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
     let listener: ((info: any) => void) | null = null;
 
-    // Safety timer: if RC's network calls haven't resolved within 12 seconds
+    // Safety timer: if RC's network calls haven't resolved within 8 seconds
     // (observed on iPadOS 26 beta where StoreKit can stall), force isReady=true
     // and flag offeringsLoadFailed=true so the paywall shows a retry button
     // instead of spinning forever.
@@ -349,7 +349,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         setOfferingsLoadFailed(true);
         setIsReady(true);
       }
-    }, 12000);
+    }, 8000);
 
     (async () => {
       try {
