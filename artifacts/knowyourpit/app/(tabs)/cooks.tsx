@@ -71,6 +71,39 @@ function ProgressDot({ color, active }: { color: string; active: boolean }) {
   );
 }
 
+function AnimatedFill({ progress, color }: { progress: number; color: string }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const spring = Animated.spring(anim, {
+      toValue: progress,
+      useNativeDriver: false,
+      overshootClamping: true,
+      tension: 60,
+      friction: 12,
+    });
+    spring.start();
+    return () => spring.stop();
+  }, [progress, anim]);
+  const width = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0%", "100%"],
+    extrapolate: "clamp",
+  });
+  return (
+    <Animated.View
+      style={{
+        position: "absolute",
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width,
+        backgroundColor: color,
+        borderRadius: 999,
+      }}
+    />
+  );
+}
+
 const VERDICT_BADGE: Record<string, { label: string; color: string; icon: keyof typeof Feather.glyphMap }> = {
   perfect:     { label: "Perfect",    color: "#22c55e", icon: "award" },
   good:        { label: "Good",       color: "#14b8a6", icon: "thumbs-up" },
@@ -982,19 +1015,7 @@ export default function CooksScreen() {
                         },
                       ]}
                     >
-                      {fillProgress > 0 && (
-                        <View
-                          style={{
-                            position: "absolute",
-                            left: 0,
-                            top: 0,
-                            bottom: 0,
-                            width: `${Math.round(fillProgress * 100)}%`,
-                            backgroundColor: fillColor,
-                            borderRadius: 999,
-                          }}
-                        />
-                      )}
+                      <AnimatedFill progress={fillProgress} color={fillColor} />
                       <ProgressDot color={dotColor} active={isActive} />
                       <Text style={[s.sessionTagText, { color: tagColor }]}>
                         {c.foodType}
