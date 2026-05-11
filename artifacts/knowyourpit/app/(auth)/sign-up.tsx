@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -38,6 +38,24 @@ function useWarmUpBrowser() {
   }, []);
 }
 
+async function autoSetUsername(
+  signUp: NonNullable<ReturnType<typeof useSignUp>["signUp"]>,
+  emailHint: string,
+): Promise<"complete" | "failed"> {
+  const base = emailHint
+    .split("@")[0]
+    .replace(/[^a-z0-9]/gi, "")
+    .toLowerCase()
+    .slice(0, 15);
+  const suffix = Math.floor(Math.random() * 9000 + 1000);
+  try {
+    const updated = await signUp.update({ username: `${base}${suffix}` });
+    return updated.status === "complete" && updated.createdSessionId ? "complete" : "failed";
+  } catch {
+    return "failed";
+  }
+}
+
 export default function SignUpScreen() {
   useWarmUpBrowser();
   const colors = useAuthColors();
@@ -58,6 +76,11 @@ export default function SignUpScreen() {
   const [appleAvailable, setAppleAvailable] = React.useState(Platform.OS === "ios");
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
+  const [pendingVerification, setPendingVerification] = React.useState(false);
+  const [verificationCode, setVerificationCode] = React.useState("");
+  const [verifyLoading, setVerifyLoading] = React.useState(false);
+  const codeInputRef = useRef<TextInput>(null);
+
   useEffect(() => {
     let cancelled = false;
     if (Platform.OS === "ios") {
@@ -76,34 +99,37 @@ export default function SignUpScreen() {
       setIsLoading(true);
       setErrorMsg(null);
       const result = await signUp.create({ emailAddress: email, password });
-      if (result.status === "complete") {
+
+      if (result.status === "complete" && result.createdSessionId) {
         await setActive({ session: result.createdSessionId });
         router.replace("/(tabs)");
         return;
       }
+
+      if (
+        result.unverifiedFields?.includes("email_address") ||
+        result.verifications?.emailAddress?.status === "unverified"
+      ) {
+        await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+        setPendingVerification(true);
+        setTimeout(() => codeInputRef.current?.focus(), 300);
+        return;
+      }
+
       if (result.status === "missing_requirements") {
         const missing = result.missingFields ?? [];
-        if (missing.includes("username") && email) {
-          const base = email
-            .split("@")[0]
-            .replace(/[^a-z0-9]/gi, "")
-            .toLowerCase()
-            .slice(0, 15);
-          const suffix = Math.floor(Math.random() * 9000 + 1000);
-          try {
-            const updated = await signUp.update({ username: `${base}${suffix}` });
-            if (updated.status === "complete" && updated.createdSessionId) {
-              await setActive({ session: updated.createdSessionId });
-              router.replace("/(tabs)");
-              return;
-            }
-          } catch (updateErr: any) {
-            console.warn("[sign-up] update with username failed:", updateErr?.errors?.[0]?.message ?? updateErr?.message);
+        if (missing.includes("username")) {
+          const outcome = await autoSetUsername(signUp, email);
+          if (outcome === "complete" && signUp.createdSessionId) {
+            await setActive({ session: signUp.createdSessionId });
+            router.replace("/(tabs)");
+            return;
           }
         }
         setErrorMsg("Sign up could not be completed. Please contact support.");
         return;
       }
+
       setErrorMsg("Sign up could not be completed. Please try again.");
     } catch (e: any) {
       const code: string = e?.errors?.[0]?.code ?? "";
@@ -139,6 +165,63 @@ export default function SignUpScreen() {
       setErrorMsg(friendly);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleVerify = async () => {
+    if (!signUp) return;
+    try {
+      setVerifyLoading(true);
+      setErrorMsg(null);
+      const result = await signUp.attemptEmailAddressVerification({ code: verificationCode });
+
+      if (result.status === "complete" && result.createdSessionId) {
+        await setActive({ session: result.createdSessionId });
+        router.replace("/(tabs)");
+        return;
+      }
+
+      if (result.status === "missing_requirements") {
+        const missing = result.missingFields ?? [];
+        if (missing.includes("username")) {
+          const outcome = await autoSetUsername(signUp, email);
+          if (outcome === "complete" && signUp.createdSessionId) {
+            await setActive({ session: signUp.createdSessionId });
+            router.replace("/(tabs)");
+            return;
+          }
+        }
+        setErrorMsg("Sign up could not be completed. Please contact support.");
+        return;
+      }
+
+      setErrorMsg("Verification failed. Please try again.");
+    } catch (e: any) {
+      const code: string = e?.errors?.[0]?.code ?? "";
+      const longMsg: string = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "";
+      if (code === "form_code_incorrect") {
+        setErrorMsg("That code is incorrect. Please check the email and try again.");
+      } else if (code === "verification_expired") {
+        setErrorMsg("That code has expired. Go back and request a new one.");
+      } else if (code === "too_many_requests") {
+        setErrorMsg("Too many attempts. Please wait a moment and try again.");
+      } else {
+        setErrorMsg(longMsg || "Verification failed. Please try again.");
+      }
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!signUp) return;
+    try {
+      setErrorMsg(null);
+      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      setVerificationCode("");
+      setErrorMsg("A new code has been sent to your email.");
+    } catch {
+      setErrorMsg("Couldn't resend the code. Please try again.");
     }
   };
 
@@ -210,11 +293,6 @@ export default function SignUpScreen() {
       try {
         setAppleLoading(true);
 
-        // Generate nonce — Apple embeds it in the identity token JWT and Clerk's
-        // backend validates it. Without a nonce, Clerk treats the token as
-        // lower-trust and rejects signUp.create({ transfer: true }) with
-        // "you are not authorized to perform this request". This matches Clerk's
-        // official useSignInWithApple.ios.js hook exactly.
         const nonce = Crypto.randomUUID();
         log("apple.request", { hasNonce: true });
         const credential = await AppleAuthentication.signInAsync({
@@ -234,12 +312,6 @@ export default function SignUpScreen() {
           userPresent: !!credential.user,
         });
 
-        // Step 1: signIn.create registers the Apple OAuth session on the Clerk client.
-        // - Existing user → status "complete" with createdSessionId
-        // - New user     → firstFactorVerification.status === "transferable"
-        // We use the returned resource directly (don't rely on mutated hook state)
-        // and keep a narrow defensive catch for legacy SDK paths that throw on
-        // unknown user instead of returning a transferable status.
         let signInResult: typeof signIn | null = null;
         let signInThrewTransferable = false;
         try {
@@ -255,7 +327,6 @@ export default function SignUpScreen() {
             code === "strategy_for_user_invalid" ||
             code === "external_account_not_found"
           ) {
-            // Legacy "no Clerk user yet" — proceed to transfer-mode sign-up.
             signInThrewTransferable = true;
           } else {
             throw signInErr;
@@ -270,7 +341,6 @@ export default function SignUpScreen() {
           threwTransferable: signInThrewTransferable,
         });
 
-        // Step 2: Existing user
         if (createdSessionId) {
           log("signin.complete.set_active");
           await signInSetActive({ session: createdSessionId });
@@ -278,9 +348,6 @@ export default function SignUpScreen() {
           return;
         }
 
-        // Step 3: New user — branch on Clerk's documented "transferable" status,
-        // OR on the legacy thrown-error fallback. Either way the OAuth context is
-        // attached on the client and signUp.create({ transfer: true }) will work.
         if (ffvStatus !== "transferable" && !signInThrewTransferable) {
           log("signin.not_transferable", { status: ffvStatus });
           setErrorMsg("Apple sign-in could not be completed. Please try again.");
@@ -326,10 +393,6 @@ export default function SignUpScreen() {
               hasCreatedSessionId: !!updated.createdSessionId,
             });
             if (updated.status === "complete" && updated.createdSessionId) {
-              // Auto-generated Clerk username only satisfies the missing_requirement.
-              // The user-facing display name lives in user.unsafeMetadata.username and
-              // is set on the dedicated set-username screen — route there now so the
-              // user picks their own handle before landing on the dashboard.
               log("signup.complete.set_active.route_set_username");
               await setActive({ session: updated.createdSessionId });
               router.replace("/(auth)/set-username");
@@ -434,6 +497,7 @@ export default function SignUpScreen() {
     input: { flex: 1, height: 48, fontSize: 15, fontFamily: "Inter_400Regular", color: colors.foreground },
     eyeBtn: { padding: 4 },
     errorText: { fontSize: 12, fontFamily: "Inter_400Regular", color: colors.destructive, marginTop: -10, marginBottom: 12 },
+    successText: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#4ade80", marginTop: -10, marginBottom: 12 },
     primaryBtn: {
       backgroundColor: colors.primary, borderRadius: colors.radius,
       height: 50, alignItems: "center", justifyContent: "center", marginTop: 8,
@@ -472,9 +536,106 @@ export default function SignUpScreen() {
       color: colors.mutedForeground,
       textDecorationLine: "underline",
     },
+    verifyHint: {
+      fontSize: 14,
+      fontFamily: "Inter_400Regular",
+      color: colors.mutedForeground,
+      marginBottom: 28,
+      lineHeight: 20,
+    },
+    verifyEmail: {
+      fontFamily: "Inter_600SemiBold",
+      color: colors.foreground,
+    },
+    codeInput: {
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: colors.radius,
+      height: 56,
+      fontSize: 24,
+      fontFamily: "Inter_700Bold",
+      color: colors.foreground,
+      textAlign: "center",
+      letterSpacing: 8,
+      marginBottom: 16,
+      paddingHorizontal: 14,
+    },
+    resendRow: {
+      flexDirection: "row",
+      justifyContent: "center",
+      marginTop: 20,
+      gap: 4,
+    },
+    resendText: { fontSize: 14, fontFamily: "Inter_400Regular", color: colors.mutedForeground },
+    resendLink: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.primary },
+    backBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginBottom: 24,
+    },
+    backBtnText: { fontSize: 14, fontFamily: "Inter_500Medium", color: colors.mutedForeground },
   });
 
   const canSubmit = !!email && !!password && !isLoading;
+  const canVerify = verificationCode.length >= 6 && !verifyLoading;
+  const isSuccess = errorMsg?.startsWith("A new code");
+
+  if (pendingVerification) {
+    return (
+      <KeyboardAvoidingView style={styles.outer} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <LogoBackground opacity={0.04} />
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <Image source={logoImg} style={styles.logo} resizeMode="contain" />
+
+          <Pressable style={styles.backBtn} onPress={() => { setPendingVerification(false); setErrorMsg(null); setVerificationCode(""); }}>
+            <Feather name="arrow-left" size={16} color={colors.mutedForeground} />
+            <Text style={styles.backBtnText}>Back</Text>
+          </Pressable>
+
+          <Text style={styles.title}>Check your email</Text>
+          <Text style={styles.verifyHint}>
+            We sent a 6-digit code to{" "}
+            <Text style={styles.verifyEmail}>{email}</Text>
+            {". "}Enter it below to verify your account.
+          </Text>
+
+          <Text style={styles.label}>Verification code</Text>
+          <TextInput
+            ref={codeInputRef}
+            style={styles.codeInput}
+            value={verificationCode}
+            onChangeText={(v) => { setVerificationCode(v.replace(/[^0-9]/g, "").slice(0, 6)); setErrorMsg(null); }}
+            placeholder="000000"
+            placeholderTextColor={colors.mutedForeground}
+            keyboardType="number-pad"
+            autoComplete="one-time-code"
+            maxLength={6}
+          />
+
+          {errorMsg && (
+            <Text style={isSuccess ? styles.successText : styles.errorText}>{errorMsg}</Text>
+          )}
+
+          <Pressable
+            style={({ pressed }) => [styles.primaryBtn, (!canVerify || pressed) && styles.primaryBtnDisabled]}
+            onPress={handleVerify}
+            disabled={!canVerify}
+          >
+            {verifyLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Verify Email</Text>}
+          </Pressable>
+
+          <View style={styles.resendRow}>
+            <Text style={styles.resendText}>Didn't get it?</Text>
+            <Pressable onPress={handleResend}>
+              <Text style={styles.resendLink}>Resend code</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
     <KeyboardAvoidingView style={styles.outer} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -585,9 +746,7 @@ export default function SignUpScreen() {
         <View style={styles.footer}>
           <Text style={styles.footerText}>Have an account?</Text>
           <Link href="/(auth)/sign-in" asChild>
-            <Pressable>
-              <Text style={styles.footerLink}>Sign in</Text>
-            </Pressable>
+            <Pressable><Text style={styles.footerLink}>Sign in</Text></Pressable>
           </Link>
         </View>
       </ScrollView>
