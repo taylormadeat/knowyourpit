@@ -283,6 +283,11 @@ export default function CooksScreen() {
   const [meatTypeFilter, setMeatTypeFilter] = useState<string | null>(null);
   const [showMeatTypePicker, setShowMeatTypePicker] = useState(false);
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
+  const [pendingDeleteGroup, setPendingDeleteGroup] = useState<SessionGroup | null>(null);
+  const pendingDeleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDeleteGroupRef = useRef<SessionGroup | null>(null);
+  const snackbarGenRef = useRef(0);
+  const snackbarAnim = useRef(new Animated.Value(0)).current;
   const [editingSession, setEditingSession] = useState<SessionGroup | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editNotes, setEditNotes] = useState("");
@@ -522,32 +527,108 @@ export default function CooksScreen() {
     setEditingSession(null);
   };
 
+  useEffect(() => {
+    pendingDeleteGroupRef.current = pendingDeleteGroup;
+  }, [pendingDeleteGroup]);
+
+  useEffect(() => {
+    return () => {
+      // Intentional design: if the user navigates away during the 5-second grace
+      // period the pending delete is cancelled (navigate-away = implicit undo).
+      // This mirrors the behaviour of tapping Undo and avoids firing mutations
+      // against a component that is no longer mounted.
+      if (pendingDeleteTimerRef.current) clearTimeout(pendingDeleteTimerRef.current);
+    };
+  }, []);
+
+  const showDeleteSnackbar = (group: SessionGroup) => {
+    if (pendingDeleteTimerRef.current !== null) {
+      clearTimeout(pendingDeleteTimerRef.current);
+      pendingDeleteTimerRef.current = null;
+      const prev = pendingDeleteGroupRef.current;
+      if (prev !== null) {
+        void (async () => {
+          try {
+            await Promise.all(
+              prev.cooks.map(async (cook) => {
+                await deleteCook.mutateAsync({ id: cook.id });
+                await cancelStoredFrozenNotifications(cook.id).catch(() => {});
+                await cancelStoredCheckinNotifications(cook.id).catch(() => {});
+              }),
+            );
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : "Could not delete the previous session. Please try again.";
+            Alert.alert("Delete Failed", msg);
+          } finally {
+            qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+          }
+        })();
+      }
+    }
+
+    snackbarGenRef.current += 1;
+    setPendingDeleteGroup(group);
+    Animated.spring(snackbarAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 12,
+    }).start();
+
+    pendingDeleteTimerRef.current = setTimeout(() => {
+      pendingDeleteTimerRef.current = null;
+      commitSessionDelete(group);
+    }, 5000);
+  };
+
+  const dismissDeleteSnackbar = () => {
+    const gen = snackbarGenRef.current;
+    Animated.timing(snackbarAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      if (snackbarGenRef.current === gen) setPendingDeleteGroup(null);
+    });
+  };
+
+  const commitSessionDelete = async (group: SessionGroup) => {
+    dismissDeleteSnackbar();
+    try {
+      await Promise.all(
+        group.cooks.map(async (cook) => {
+          await deleteCook.mutateAsync({ id: cook.id });
+          await cancelStoredFrozenNotifications(cook.id).catch(() => {});
+          await cancelStoredCheckinNotifications(cook.id).catch(() => {});
+        }),
+      );
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Could not delete this session. Please try again.";
+      Alert.alert("Delete Failed", msg);
+    } finally {
+      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+    }
+  };
+
+  const handleUndoDelete = () => {
+    if (pendingDeleteTimerRef.current) {
+      clearTimeout(pendingDeleteTimerRef.current);
+      pendingDeleteTimerRef.current = null;
+    }
+    dismissDeleteSnackbar();
+  };
+
   const handleSessionDelete = (group: SessionGroup) => {
     const cookCount = group.cooks.length;
     Alert.alert(
       "Delete Session?",
-      `This will permanently delete all ${cookCount} cook${cookCount !== 1 ? "s" : ""} in this session. This cannot be undone.`,
+      `This will delete all ${cookCount} cook${cookCount !== 1 ? "s" : ""} in this session.`,
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
           style: "destructive",
-          onPress: async () => {
-            try {
-              await Promise.all(
-                group.cooks.map(async (cook) => {
-                  await deleteCook.mutateAsync({ id: cook.id });
-                  await cancelStoredFrozenNotifications(cook.id).catch(() => {});
-                  await cancelStoredCheckinNotifications(cook.id).catch(() => {});
-                }),
-              );
-            } catch (e: unknown) {
-              const msg = e instanceof Error ? e.message : "Could not delete this session. Please try again.";
-              Alert.alert("Delete Failed", msg);
-            } finally {
-              qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
-            }
-          },
+          onPress: () => showDeleteSnackbar(group),
         },
       ]
     );
@@ -1863,6 +1944,34 @@ export default function CooksScreen() {
         />
       )}
 
+      {pendingDeleteGroup !== null && (
+        <Animated.View
+          style={[
+            s.snackbar,
+            {
+              bottom: botPad + 12,
+              transform: [
+                {
+                  translateY: snackbarAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [80, 0],
+                  }),
+                },
+              ],
+              opacity: snackbarAnim,
+            },
+          ]}
+          pointerEvents="box-none"
+        >
+          <Text style={s.snackbarText} numberOfLines={1}>
+            Session will be deleted
+          </Text>
+          <Pressable onPress={handleUndoDelete} hitSlop={8} style={s.snackbarUndo}>
+            <Text style={s.snackbarUndoText}>Undo</Text>
+          </Pressable>
+        </Animated.View>
+      )}
+
     </View>
   );
 }
@@ -2274,5 +2383,38 @@ const s = StyleSheet.create({
   seqItemOffsetValue: {
     fontSize: 12,
     fontFamily: "Inter_600SemiBold",
+  },
+
+  snackbar: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#1c1c1e",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  snackbarText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    color: "#fff",
+  },
+  snackbarUndo: {
+    marginLeft: 12,
+    paddingHorizontal: 4,
+  },
+  snackbarUndoText: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: "#EB6C2B",
   },
 });
