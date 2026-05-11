@@ -288,9 +288,12 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
   const [retryKey, setRetryKey] = useState(0);
   const retryingRef = useRef(false);
 
-  // When the error screen is visible (modal open, no packages, RC ready), start
-  // a 15-second auto-retry countdown. The user can also tap to retry immediately.
-  const showingError = visible && isReady && !annual && !monthly;
+  // When the error screen is visible (modal open, no packages, RC ready, RC is
+  // available and offerings are flagged as failed), start a 15-second auto-retry
+  // countdown. Gating on `isRevenueCatAvailable && offeringsLoadFailed` avoids
+  // spurious retry loops when RC is simply not supported on this device.
+  const showingError =
+    visible && isReady && isRevenueCatAvailable && offeringsLoadFailed && !annual && !monthly;
 
   const handleRetry = useCallback(async () => {
     if (retryingRef.current) return;

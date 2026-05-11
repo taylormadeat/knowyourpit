@@ -315,8 +315,9 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         setOfferingsFailureReason("no_products");
       }
     } catch (e: any) {
-      // Non-fatal — offeringsLoadFailed stays true, user can tap retry again.
+      // Non-fatal — keep failure flags set so the retry countdown restarts.
       setLastError(`retry: ${e?.message ?? e}`);
+      setOfferingsLoadFailed(true);
       setOfferingsFailureReason("error");
     }
   }, []);
