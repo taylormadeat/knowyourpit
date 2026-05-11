@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { useNow } from "@/hooks/useNow";
 import {
   View,
@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Animated,
   type StyleProp,
   type TextStyle,
 } from "react-native";
@@ -43,6 +44,32 @@ const STATUS_COLORS: Record<string, string> = {
   completed: "#22c55e",
   cancelled: "#ef4444",
 };
+
+function ProgressDot({ color, active }: { color: string; active: boolean }) {
+  const pulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!active) return;
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.25, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [active, pulse]);
+  return (
+    <Animated.View
+      style={{
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: color,
+        opacity: active ? pulse : 1,
+      }}
+    />
+  );
+}
 
 const VERDICT_BADGE: Record<string, { label: string; color: string; icon: keyof typeof Feather.glyphMap }> = {
   perfect:     { label: "Perfect",    color: "#22c55e", icon: "award" },
@@ -916,19 +943,34 @@ export default function CooksScreen() {
             )}
             {!isComp && !expanded && (
               <View style={s.sessionTagsRow}>
-                {group.cooks.map((c) => (
-                  <View
-                    key={c.id}
-                    style={[
-                      s.sessionTag,
-                      { backgroundColor: (STATUS_COLORS[c.status] || colors.primary) + "20" },
-                    ]}
-                  >
-                    <Text style={[s.sessionTagText, { color: STATUS_COLORS[c.status] || colors.primary }]}>
-                      {c.foodType}
-                    </Text>
-                  </View>
-                ))}
+                {group.cooks.map((c) => {
+                  const bar = getCookCardBar(c, nowMs);
+                  const dotColor = bar
+                    ? bar.color
+                    : c.status === "planned"
+                    ? "#6b7280"
+                    : STATUS_COLORS[c.status] || colors.primary;
+                  const isActive = c.status === "active";
+                  return (
+                    <View
+                      key={c.id}
+                      style={[
+                        s.sessionTag,
+                        {
+                          backgroundColor: (STATUS_COLORS[c.status] || colors.primary) + "20",
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 4,
+                        },
+                      ]}
+                    >
+                      <ProgressDot color={dotColor} active={isActive} />
+                      <Text style={[s.sessionTagText, { color: STATUS_COLORS[c.status] || colors.primary }]}>
+                        {c.foodType}
+                      </Text>
+                    </View>
+                  );
+                })}
               </View>
             )}
             {group.sequenceData && (
