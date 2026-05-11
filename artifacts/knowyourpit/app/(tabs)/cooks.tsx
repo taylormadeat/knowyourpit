@@ -544,7 +544,7 @@ export default function CooksScreen() {
               </View>
             </View>
           ) : null}
-          {inSession && bar !== null && (
+          {(inSession || isActive) && bar !== null && (
             <View
               style={{
                 marginTop: 7,
