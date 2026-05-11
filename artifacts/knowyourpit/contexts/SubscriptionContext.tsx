@@ -301,8 +301,13 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           monthly,
           annual,
         });
-        setOfferingsLoadFailed(false);
-        setOfferingsFailureReason(!monthly && !annual ? "no_products" : null);
+        if (!monthly && !annual) {
+          setOfferingsLoadFailed(true);
+          setOfferingsFailureReason("no_products");
+        } else {
+          setOfferingsLoadFailed(false);
+          setOfferingsFailureReason(null);
+        }
       } else {
         // getOfferings() returned no current offering without throwing —
         // keep failure flag set and update the reason so diagnostics are accurate.

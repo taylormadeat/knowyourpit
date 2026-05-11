@@ -283,6 +283,9 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
 
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
+  // retryKey increments after every retry attempt that still leaves error state —
+  // this restarts the countdown useEffect even when showingError hasn't changed.
+  const [retryKey, setRetryKey] = useState(0);
   const retryingRef = useRef(false);
 
   // When the error screen is visible (modal open, no packages, RC ready), start
@@ -299,13 +302,16 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
     } finally {
       retryingRef.current = false;
       setIsRetrying(false);
+      // Bump key so the countdown effect restarts even if showingError stays true.
+      setRetryKey((k) => k + 1);
     }
   }, [retryOfferings]);
 
-  // Countdown + auto-retry effect: runs whenever the error screen appears.
-  // Resets when offerings load successfully or when modal closes.
+  // Countdown + auto-retry effect: starts a 15s countdown each time the error
+  // screen appears or after each failed retry attempt (retryKey bump).
+  // Clears when offerings load successfully or modal closes.
   useEffect(() => {
-    if (!showingError || isRetrying) {
+    if (!showingError) {
       setRetryCountdown(null);
       return;
     }
@@ -323,8 +329,10 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
       });
     }, 1000);
     return () => clearInterval(interval);
+  // retryKey is intentionally included: a new key value restarts the countdown
+  // after each retry attempt that still leaves the error screen visible.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showingError]);
+  }, [showingError, retryKey]);
 
   const annualTrial = useMemo(() => {
     if (Platform.OS === "ios") {
