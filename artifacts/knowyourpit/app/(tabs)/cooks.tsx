@@ -958,6 +958,16 @@ export default function CooksScreen() {
                       : c.status === "active"
                       ? `${bar ? Math.round(bar.progress * 100) : 0}%`
                       : null;
+                  const fillProgress =
+                    c.status === "completed"
+                      ? 1
+                      : c.status === "active" && bar
+                      ? Math.max(0, Math.min(1, bar.progress))
+                      : 0;
+                  const fillColor =
+                    c.status === "completed"
+                      ? "#22c55e30"
+                      : tagColor + "30";
                   return (
                     <View
                       key={c.id}
@@ -968,9 +978,23 @@ export default function CooksScreen() {
                           flexDirection: "row",
                           alignItems: "center",
                           gap: 4,
+                          overflow: "hidden",
                         },
                       ]}
                     >
+                      {fillProgress > 0 && (
+                        <View
+                          style={{
+                            position: "absolute",
+                            left: 0,
+                            top: 0,
+                            bottom: 0,
+                            width: `${Math.round(fillProgress * 100)}%`,
+                            backgroundColor: fillColor,
+                            borderRadius: 999,
+                          }}
+                        />
+                      )}
                       <ProgressDot color={dotColor} active={isActive} />
                       <Text style={[s.sessionTagText, { color: tagColor }]}>
                         {c.foodType}
