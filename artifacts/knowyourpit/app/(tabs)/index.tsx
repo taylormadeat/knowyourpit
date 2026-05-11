@@ -27,6 +27,7 @@ import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { BlurredProSection } from "@/components/BlurredProSection";
 import { getCookCardBar } from "@/utils/cookCardBar";
+import { AnimatedBarFill } from "@/components/cook-detail/CookProgressBar";
 
 const logoImg = require("@/assets/images/logo.png");
 
@@ -404,16 +405,10 @@ export default function HomeScreen() {
                     <Feather name="chevron-right" size={16} color="#E84820" />
                   </View>
 
-                  {/* Progress bar — 4px flush at bottom edge */}
+                  {/* Progress bar — 3px flush at bottom edge */}
                   {bar !== null && (
                     <View style={s.activeCookBar}>
-                      <View
-                        style={{
-                          width: `${bar.progress * 100}%`,
-                          height: "100%",
-                          backgroundColor: bar.color,
-                        }}
-                      />
+                      <AnimatedBarFill progress={bar.progress} color={bar.color} borderRadius={0} />
                     </View>
                   )}
                 </LinearGradient>
@@ -984,7 +979,7 @@ const s = StyleSheet.create({
     overflow: "hidden",
   },
   activeCookBar: {
-    height: 4,
+    height: 3,
     backgroundColor: "rgba(255,255,255,0.06)",
     overflow: "hidden",
     marginTop: 6,
