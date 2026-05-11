@@ -83,7 +83,6 @@ async function main() {
   console.log("══════════════════════════════════════════════════════════════");
 
   let allServiceable = true;
-  const results: Array<{ productId: string; id: string; state: string; screenshotState: string }> = [];
 
   for (const sub of SUBSCRIPTION_IDS) {
     const detail = await ascGet(`/subscriptions/${sub.id}`);
@@ -101,8 +100,6 @@ async function main() {
     console.log(`      state:              ${state}${serviceable ? " (StoreKit-serviceable)" : " (NOT serviceable — StoreKit cannot serve this product)"}`);
     console.log(`      review screenshot:  ${screenshotState}`);
     console.log("");
-
-    results.push({ productId: sub.productId, id: sub.id, state, screenshotState });
   }
 
   console.log("══════════════════════════════════════════════════════════════");
