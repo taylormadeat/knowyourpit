@@ -12,6 +12,7 @@ interface SettingsRowProps {
   icon?: FeatherName;
   iconColor?: string;
   onPress: () => void;
+  onClear?: () => void;
   colors: any;
   rightElement?: React.ReactNode;
   disabled?: boolean;
@@ -25,6 +26,7 @@ export function SettingsRow({
   icon,
   iconColor,
   onPress,
+  onClear,
   colors,
   rightElement,
   disabled,
@@ -66,8 +68,21 @@ export function SettingsRow({
             {value ?? placeholder}
           </Text>
         )}
-        {!disabled && (
-          <Feather name="chevron-right" size={14} color={colors.mutedForeground + "80"} />
+        {onClear && value ? (
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation?.();
+              onClear();
+            }}
+            hitSlop={8}
+            style={[sr.clearBtn, { backgroundColor: colors.mutedForeground + "20" }]}
+          >
+            <Feather name="x" size={10} color={colors.mutedForeground} />
+          </Pressable>
+        ) : (
+          !disabled && (
+            <Feather name="chevron-right" size={14} color={colors.mutedForeground + "80"} />
+          )
         )}
       </View>
     </Pressable>
@@ -106,5 +121,12 @@ const sr = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     textAlign: "right",
+  },
+  clearBtn: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

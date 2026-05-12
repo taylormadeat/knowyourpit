@@ -243,6 +243,7 @@ export function EditCookModal(p: Props) {
                 icon="thermometer"
                 iconColor="#E84820"
                 onPress={() => setCookMethodSheetOpen(true)}
+                onClear={() => setEditCookingMethod(null)}
                 colors={colors}
               />
               <SettingsRow
@@ -252,6 +253,7 @@ export function EditCookModal(p: Props) {
                 icon="droplet"
                 iconColor="#6C3BF5"
                 onPress={() => setInjectionSheetOpen(true)}
+                onClear={() => setEditInjection(null)}
                 colors={colors}
               />
               <SettingsRow
@@ -261,6 +263,7 @@ export function EditCookModal(p: Props) {
                 icon="wind"
                 iconColor="#0EA5E9"
                 onPress={() => setSpritzSheetOpen(true)}
+                onClear={() => setEditSpritzFrequency(null)}
                 colors={colors}
               />
               <SettingsRow
@@ -270,6 +273,7 @@ export function EditCookModal(p: Props) {
                 icon="package"
                 iconColor="#F59E0B"
                 onPress={() => setWrapFinishSheetOpen(true)}
+                onClear={() => setEditWrapFinish(null)}
                 colors={colors}
                 isLast
               />
