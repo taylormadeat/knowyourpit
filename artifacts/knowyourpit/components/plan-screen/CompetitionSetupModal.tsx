@@ -108,7 +108,7 @@ export function CompetitionSetupModal({
   });
   const [timePickerFor, setTimePickerFor] = useState<CompetitionCategory | null>(null);
   const [selectedCuts, setSelectedCuts] = useState<Record<CompetitionCategory, string>>(() => {
-    const o: any = {};
+    const o = {} as Record<CompetitionCategory, string>;
     for (const c of COMPETITION_CATEGORIES) o[c] = COMPETITION_CATEGORY_FOOD_TYPE[c];
     return o;
   });
