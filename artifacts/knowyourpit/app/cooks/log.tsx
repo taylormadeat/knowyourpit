@@ -1825,7 +1825,6 @@ const s = StyleSheet.create({
 const gp = StyleSheet.create({
   modalWrap: { flex: 1, justifyContent: "flex-end" },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
   sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 10, paddingHorizontal: 16, maxHeight: "80%" },
   handle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 14 },
   title: { fontSize: 17, fontFamily: "Inter_700Bold", marginBottom: 12, paddingHorizontal: 4 },
@@ -1861,6 +1860,5 @@ const dp2 = StyleSheet.create({
   title: { fontSize: 17, fontFamily: "Inter_700Bold" },
   row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 4, paddingVertical: 14, gap: 10 },
   rowText: { flex: 1, fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  rowSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
 });
 
