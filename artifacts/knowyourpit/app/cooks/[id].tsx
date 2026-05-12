@@ -2521,8 +2521,6 @@ export default function CookDetailScreen() {
             paddingVertical: 10,
             borderRadius: 24,
             backgroundColor: "#E84820",
-            flexDirection: "row",
-            alignItems: "center",
             shadowColor: "#000",
             shadowOffset: { width: 0, height: 3 },
             shadowOpacity: 0.4,
@@ -2531,8 +2529,10 @@ export default function CookDetailScreen() {
             opacity: pressed ? 0.8 : 1,
           })}
         >
-          <Feather name="plus-circle" size={18} color="#fff" />
-          <Text style={{ color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold", marginLeft: 7 }}>Log</Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Feather name="plus-circle" size={18} color="#fff" />
+            <Text style={{ color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold", marginLeft: 7 }}>Log</Text>
+          </View>
         </Pressable>
       )}
 
