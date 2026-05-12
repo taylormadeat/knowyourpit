@@ -266,7 +266,6 @@ export default function CookDetailScreen() {
   const [alertMinutesBefore, setAlertMinutesBefore] = useState("30");
   const [alertSaving, setAlertSaving] = useState(false);
   const [quickLogVisible, setQuickLogVisible] = useState(false);
-  const [showCookDetails, setShowCookDetails] = useState(false);
 
   // Technique picker sheet state (inline edit on cook detail)
   const [techMethodSheetOpen, setTechMethodSheetOpen] = useState(false);
@@ -2078,8 +2077,6 @@ export default function CookDetailScreen() {
           colors={colors}
           cookStatus={cookStatus}
           nowMs={nowMs}
-          showCookDetails={showCookDetails}
-          setShowCookDetails={setShowCookDetails}
         />
 
         {/* ── Start Cook CTA (planned cooks only, above the schedule) ── */}
