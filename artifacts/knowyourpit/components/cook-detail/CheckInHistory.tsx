@@ -1,7 +1,8 @@
-import React from "react";
-import { View, Text, Pressable } from "react-native";
+import React, { useRef } from "react";
+import { View, Text, Pressable, Animated } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { Swipeable } from "react-native-gesture-handler";
 import { s } from "./styles";
 import { BlurredProSection } from "@/components/BlurredProSection";
 import type { ShowOptions } from "@/contexts/PaywallContext";
@@ -44,13 +45,112 @@ const fmtMins = (mins: number) => {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
+const fmtUpcomingTime = (ms: number) => {
+  try {
+    return new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  } catch { return ""; }
+};
+
+interface PlannedRowProps {
+  sc: ScheduledCheckin;
+  isCurrent: boolean;
+  showBorderTop: boolean;
+  colors: Colors;
+  onRemovePlanned?: (phaseKey: string) => void;
+}
+
+function PlannedCheckinRow({ sc, isCurrent, showBorderTop, colors, onRemovePlanned }: PlannedRowProps) {
+  const swipeRef = useRef<Swipeable>(null);
+
+  const renderRightActions = (
+    _progress: Animated.AnimatedInterpolation<number>,
+    dragX: Animated.AnimatedInterpolation<number>,
+  ) => {
+    const translateX = dragX.interpolate({
+      inputRange: [-80, 0],
+      outputRange: [0, 80],
+      extrapolate: "clamp",
+    });
+    return (
+      <Animated.View
+        style={{
+          width: 80,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#EF444420",
+          transform: [{ translateX }],
+        }}
+      >
+        <Pressable
+          onPress={() => {
+            swipeRef.current?.close();
+            onRemovePlanned?.(sc.phaseKey);
+          }}
+          style={{ alignItems: "center", gap: 3 }}
+        >
+          <Feather name="bell-off" size={18} color="#EF4444" />
+          <Text style={{ fontSize: 10, fontFamily: "Inter_600SemiBold", color: "#EF4444" }}>Remove</Text>
+        </Pressable>
+      </Animated.View>
+    );
+  };
+
+  const accentColor = isCurrent ? "#F59E0B" : "#6C3BF5";
+
+  return (
+    <Swipeable
+      ref={swipeRef}
+      renderRightActions={onRemovePlanned ? renderRightActions : undefined}
+      overshootRight={false}
+      friction={2}
+    >
+      <View
+        style={[
+          s.historyEntry,
+          { borderTopColor: colors.border, backgroundColor: colors.card },
+          showBorderTop && { borderTopWidth: 1 },
+          isCurrent && { backgroundColor: "#F59E0B08" },
+        ]}
+      >
+        <View style={s.historyEntryHeader}>
+          <View style={[s.historyIndex, { backgroundColor: accentColor + "20" }]}>
+            <Feather name={isCurrent ? "bell" : "clock"} size={11} color={accentColor} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.historyTimestamp, { color: colors.foreground }]}>
+              {sc.phaseLabel}
+            </Text>
+            <Text style={[s.historyMetaChip, { color: colors.mutedForeground, marginTop: 1 }]}>
+              {fmtUpcomingTime(sc.scheduledAt)}
+            </Text>
+          </View>
+          <View style={[s.historyVerdictBadge, { backgroundColor: accentColor + "20" }]}>
+            <Text style={[s.historyVerdictText, { color: accentColor }]}>
+              {isCurrent ? "up next" : "upcoming"}
+            </Text>
+          </View>
+          {onRemovePlanned && (
+            <Pressable
+              onPress={() => onRemovePlanned(sc.phaseKey)}
+              hitSlop={10}
+              style={{ marginLeft: 6, padding: 3 }}
+            >
+              <Feather name="x" size={13} color={colors.mutedForeground} />
+            </Pressable>
+          )}
+        </View>
+        {isCurrent && (
+          <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: "#F59E0B", marginTop: 4, paddingHorizontal: 2 }}>
+            A reminder will fire at this time — swipe left to remove it.
+          </Text>
+        )}
+      </View>
+    </Swipeable>
+  );
+}
+
 export function CheckInHistory({ c, colors, effectivePro, isIdentityLinked, showPaywall, plannedCheckins = [], onRemovePlanned }: Props) {
   const history: any[] = Array.isArray((c as any).analysisHistory) ? (c as any).analysisHistory : [];
-  // Per spec, the Cook Coach blur applies to completed cooks only — during
-  // an active cook every check-in stays visible so free users can keep
-  // following the live coaching session. We only restrict the history once
-  // RC identity has resolved, so Pro users don't briefly lose entries on
-  // cold start while their entitlements are still loading.
   const reversed = [...history].reverse();
   const completed = c.status === "completed";
   const isLocked =
@@ -58,14 +158,9 @@ export function CheckInHistory({ c, colors, effectivePro, isIdentityLinked, show
   const visibleEntries = isLocked ? reversed.slice(0, 1) : reversed;
   const hiddenCount = isLocked ? reversed.length - 1 : 0;
 
+  const [currentCheckin, ...restCheckins] = plannedCheckins;
   const upcomingCount = plannedCheckins.length;
   if (history.length === 0 && upcomingCount === 0) return null;
-
-  const fmtUpcomingTime = (ms: number) => {
-    try {
-      return new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-    } catch { return ""; }
-  };
 
   const subLabel = (() => {
     if (history.length > 0 && upcomingCount > 0) {
@@ -92,6 +187,8 @@ export function CheckInHistory({ c, colors, effectivePro, isIdentityLinked, show
           </Text>
         </View>
       </View>
+
+      {/* Past entries */}
       {visibleEntries.map((entry, i) => {
         const topDecision = (entry.decisions ?? [])[0];
         const urgencyColor = topDecision
@@ -172,43 +269,32 @@ export function CheckInHistory({ c, colors, effectivePro, isIdentityLinked, show
           </View>
         );
       })}
-      {upcomingCount > 0 && (
+
+      {/* Current (next) planned check-in — highlighted as "up next" */}
+      {currentCheckin && (
         <View style={{ borderTopWidth: history.length > 0 ? 1 : 0, borderTopColor: colors.border }}>
-          {plannedCheckins.map((sc, i) => (
-            <View
+          <PlannedCheckinRow
+            sc={currentCheckin}
+            isCurrent
+            showBorderTop={false}
+            colors={colors}
+            onRemovePlanned={onRemovePlanned}
+          />
+        </View>
+      )}
+
+      {/* Remaining upcoming planned check-ins */}
+      {restCheckins.length > 0 && (
+        <View>
+          {restCheckins.map((sc, i) => (
+            <PlannedCheckinRow
               key={sc.phaseKey}
-              style={[
-                s.historyEntry,
-                { borderTopColor: colors.border, opacity: 0.75 },
-                (i > 0 || history.length > 0) && { borderTopWidth: 1 },
-              ]}
-            >
-              <View style={s.historyEntryHeader}>
-                <View style={[s.historyIndex, { backgroundColor: "#6C3BF520" }]}>
-                  <Feather name="bell" size={11} color="#6C3BF5" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[s.historyTimestamp, { color: colors.foreground }]}>
-                    {sc.phaseLabel}
-                  </Text>
-                  <Text style={[s.historyMetaChip, { color: colors.mutedForeground, marginTop: 1 }]}>
-                    {fmtUpcomingTime(sc.scheduledAt)}
-                  </Text>
-                </View>
-                <View style={[s.historyVerdictBadge, { backgroundColor: "#6C3BF520" }]}>
-                  <Text style={[s.historyVerdictText, { color: "#6C3BF5" }]}>upcoming</Text>
-                </View>
-                {onRemovePlanned && (
-                  <Pressable
-                    onPress={() => onRemovePlanned(sc.phaseKey)}
-                    hitSlop={10}
-                    style={{ marginLeft: 6, padding: 3 }}
-                  >
-                    <Feather name="x" size={13} color={colors.mutedForeground} />
-                  </Pressable>
-                )}
-              </View>
-            </View>
+              sc={sc}
+              isCurrent={false}
+              showBorderTop
+              colors={colors}
+              onRemovePlanned={onRemovePlanned}
+            />
           ))}
         </View>
       )}

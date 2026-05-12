@@ -14,6 +14,51 @@ import { customFetch } from "@workspace/api-client-react";
 import type { SequenceData } from "@/components/cook-detail/types";
 
 // ---------------------------------------------------------------------------
+// Storage key constants
+// ---------------------------------------------------------------------------
+
+const CHECKIN_PHASE_MAP_SUFFIX = "_phasemap";
+const CHECKIN_SCHEDULED_SUFFIX = "_scheduled";
+/** Keys of phases that the user has explicitly dismissed/removed. */
+const CHECKIN_REMOVED_SUFFIX = "_removed";
+
+// ---------------------------------------------------------------------------
+// Removed-phase persistence — source of truth for "user deleted this reminder"
+// ---------------------------------------------------------------------------
+
+/**
+ * Load the set of phase keys that the user has removed for a given cook.
+ * Returns an empty Set on failure or when nothing has been removed.
+ */
+export async function loadRemovedCheckinPhaseKeys(cookId: number): Promise<Set<string>> {
+  if (Platform.OS === "web") return new Set();
+  try {
+    const key = `${CHECKIN_NOTIF_IDS_KEY_PREFIX}${cookId}${CHECKIN_REMOVED_SUFFIX}`;
+    const stored = await AsyncStorage.getItem(key);
+    return stored ? new Set<string>(JSON.parse(stored)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Persist a phase key as "removed" for this cook so future scheduling passes
+ * can filter it out even after app restarts.
+ */
+async function persistRemovedCheckinPhaseKey(cookId: number, phaseKey: string): Promise<void> {
+  try {
+    const key = `${CHECKIN_NOTIF_IDS_KEY_PREFIX}${cookId}${CHECKIN_REMOVED_SUFFIX}`;
+    const stored = await AsyncStorage.getItem(key);
+    const current: string[] = stored ? JSON.parse(stored) : [];
+    if (!current.includes(phaseKey)) {
+      await AsyncStorage.setItem(key, JSON.stringify([...current, phaseKey]));
+    }
+  } catch (err) {
+    console.warn("[checkin] persistRemovedCheckinPhaseKey failed:", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Internal scheduling helpers
 // ---------------------------------------------------------------------------
 
@@ -36,9 +81,6 @@ export async function cancelStoredCheckinNotifications(cookId: number): Promise<
   }
 }
 
-const CHECKIN_PHASE_MAP_SUFFIX = "_phasemap";
-const CHECKIN_SCHEDULED_SUFFIX = "_scheduled";
-
 async function storeCheckinNotificationIds(
   cookId: number,
   ids: string[],
@@ -58,7 +100,8 @@ async function storeCheckinNotificationIds(
 
 /**
  * Cancel only the scheduled notification for a single phase key.
- * Removes the notification from the device and updates persisted state.
+ * Removes the notification from the device, updates persisted schedule state,
+ * and records the phaseKey as "removed" so future rescheduling passes skip it.
  */
 export async function cancelCheckinNotificationForPhase(
   cookId: number,
@@ -93,6 +136,9 @@ export async function cancelCheckinNotificationForPhase(
         [scheduledKey, JSON.stringify(updatedCheckins)],
       ]);
     }
+
+    // Persist the removal so future rescheduling passes never recreate this reminder.
+    await persistRemovedCheckinPhaseKey(cookId, phaseKey);
   } catch (err) {
     console.warn("[checkin] cancelCheckinNotificationForPhase error:", err);
   }
@@ -104,6 +150,12 @@ export async function scheduleCheckinNotifications(
   foodType: string | null | undefined,
   isCurrent: () => boolean,
 ): Promise<void> {
+  // Always filter out phases the user has explicitly removed before scheduling.
+  const removedKeys = await loadRemovedCheckinPhaseKeys(cookId);
+  const toSchedule = removedKeys.size > 0
+    ? checkins.filter((sc) => !removedKeys.has(sc.phaseKey))
+    : checkins;
+
   await cancelStoredCheckinNotifications(cookId);
   if (!isCurrent()) return;
 
@@ -117,7 +169,7 @@ export async function scheduleCheckinNotifications(
   const phaseMap: Record<string, string> = {};
   const label = foodType ?? "your cook";
 
-  for (const checkin of checkins) {
+  for (const checkin of toSchedule) {
     if (!isCurrent()) return;
     if (checkin.scheduledAt <= now) continue;
 
@@ -155,7 +207,7 @@ export async function scheduleCheckinNotifications(
     }
   }
 
-  if (isCurrent()) await storeCheckinNotificationIds(cookId, ids, phaseMap, checkins);
+  if (isCurrent()) await storeCheckinNotificationIds(cookId, ids, phaseMap, toSchedule.filter(sc => !isNaN(sc.scheduledAt)));
 }
 
 // ---------------------------------------------------------------------------
@@ -166,6 +218,7 @@ export async function scheduleCheckinNotifications(
  * After a check-in is saved, recompute the remaining notification schedule
  * based on actual vs expected temperature progress.  Cancels old notifications
  * and schedules adjusted ones in their place.
+ * Phases that the user has explicitly removed are never recreated.
  */
 export async function rescheduleCheckinNotifications(opts: {
   cookId: number;
@@ -195,6 +248,9 @@ export async function rescheduleCheckinNotifications(opts: {
 
   if (estimatedFinishAtMs <= meatOnAtMs) return;
 
+  // Load user-removed phase keys so they are never recreated on reschedule.
+  const removedKeys = await loadRemovedCheckinPhaseKeys(cookId);
+
   const anchor: CheckinSequenceAnchor = {
     meatOnAt,
     estimatedFinishAt,
@@ -217,7 +273,10 @@ export async function rescheduleCheckinNotifications(opts: {
   }
 
   const upcoming = adjustedSchedule.filter(
-    (sc) => !completedPhaseKeys.has(sc.phaseKey) && sc.scheduledAt > nowMs,
+    (sc) =>
+      !completedPhaseKeys.has(sc.phaseKey) &&
+      !removedKeys.has(sc.phaseKey) &&
+      sc.scheduledAt > nowMs,
   );
 
   let gen = 0;
@@ -271,6 +330,7 @@ export async function evaluateAutoDismiss(opts: {
 /**
  * Schedule smart check-in notifications anchored to the AI plan milestones.
  * Cancels and reschedules whenever the cook status or sequence data changes.
+ * Returns the scheduled checkins filtered by user-removed phases.
  */
 export function useCheckinNotifications(
   cookId: number | null | undefined,
@@ -324,6 +384,9 @@ export function useCheckinNotifications(
     (async () => {
       if (!isCurrent()) return;
 
+      // Load removed keys up-front so the UI never shows dismissed reminders.
+      const removedKeys = await loadRemovedCheckinPhaseKeys(cookId);
+
       let checkins: ScheduledCheckin[];
       try {
         const serverData = await customFetch<
@@ -362,7 +425,13 @@ export function useCheckinNotifications(
 
       if (!isCurrent()) return;
       await scheduleCheckinNotifications(cookId, checkins, foodType, isCurrent);
-      if (isCurrent()) setScheduledCheckins(checkins);
+      // Expose only the non-removed, still-future checkins to the UI.
+      const nowMs = Date.now();
+      if (isCurrent()) {
+        setScheduledCheckins(
+          checkins.filter((sc) => !removedKeys.has(sc.phaseKey) && sc.scheduledAt > nowMs),
+        );
+      }
     })().catch(() => {});
   }, [cookId, cookStatus, depKey]);
 
