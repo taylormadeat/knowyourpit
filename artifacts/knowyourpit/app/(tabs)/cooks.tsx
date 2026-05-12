@@ -743,7 +743,7 @@ export default function CooksScreen() {
             )}
           </View>
           <Text style={[s.meta, { color: colors.mutedForeground }]}>
-            {item.grillName || "No grill"}{item.targetTempF ? ` · internal target ${item.targetTempF}°F` : ""}
+            {item.grillName || "No grill"}
           </Text>
           {item.cookingMethod ? (
             <View style={{ flexDirection: "row", marginTop: 3 }}>
@@ -767,6 +767,24 @@ export default function CooksScreen() {
               </View>
             </View>
           ) : null}
+          {item.status === "completed" && (item.targetTempF != null || item.cookTempF != null) && (
+            <View style={{ flexDirection: "row", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+              {item.targetTempF != null && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#22c55e12", borderWidth: 1, borderColor: "#22c55e30" }}>
+                  <Feather name="thermometer" size={10} color="#22c55e" />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#22c55e" }}>{item.targetTempF}°F</Text>
+                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#22c55e99" }}>target</Text>
+                </View>
+              )}
+              {item.cookTempF != null && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#3b82f612", borderWidth: 1, borderColor: "#3b82f630" }}>
+                  <Feather name="wind" size={10} color="#3b82f6" />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#3b82f6" }}>{item.cookTempF}°F</Text>
+                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#3b82f699" }}>pit</Text>
+                </View>
+              )}
+            </View>
+          )}
           {(inSession || (isActive && bar !== null)) && (
             <View
               style={{
