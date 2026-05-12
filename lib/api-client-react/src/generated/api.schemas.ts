@@ -486,6 +486,11 @@ export interface Cook {
    * @nullable
    */
   healthScoreReason?: string | null;
+  /**
+   * Latest internal probe temperature reading for this cook (null when no readings exist)
+   * @nullable
+   */
+  currentTempF?: number | null;
   createdAt: string;
   updatedAt: string;
 }

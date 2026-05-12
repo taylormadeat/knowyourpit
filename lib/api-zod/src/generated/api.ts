@@ -636,6 +636,12 @@ export const ListCooksResponseItem = zod.object({
     .string()
     .nullish()
     .describe("One-line explanation of the health score"),
+  currentTempF: zod
+    .number()
+    .nullish()
+    .describe(
+      "Latest internal probe temperature reading for this cook (null when no readings exist)",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -941,6 +947,12 @@ export const GetCookResponse = zod.object({
     .string()
     .nullish()
     .describe("One-line explanation of the health score"),
+  currentTempF: zod
+    .number()
+    .nullish()
+    .describe(
+      "Latest internal probe temperature reading for this cook (null when no readings exist)",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1255,6 +1267,12 @@ export const UpdateCookResponse = zod.object({
     .string()
     .nullish()
     .describe("One-line explanation of the health score"),
+  currentTempF: zod
+    .number()
+    .nullish()
+    .describe(
+      "Latest internal probe temperature reading for this cook (null when no readings exist)",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2283,6 +2301,12 @@ export const GetRecentCooksResponseItem = zod.object({
     .string()
     .nullish()
     .describe("One-line explanation of the health score"),
+  currentTempF: zod
+    .number()
+    .nullish()
+    .describe(
+      "Latest internal probe temperature reading for this cook (null when no readings exist)",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

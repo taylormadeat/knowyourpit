@@ -1437,6 +1437,9 @@ components:
         healthScoreReason:
           type: ["string", "null"]
           description: One-line explanation of the health score
+        currentTempF:
+          type: ["number", "null"]
+          description: Latest internal probe temperature reading for this cook (null when no readings exist)
         createdAt:
           type: string
           format: date-time

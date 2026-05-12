@@ -109,7 +109,17 @@ router.get("/dashboard/recent-cooks", requireAuth, async (req: any, res): Promis
         .where(and(eq(grillsTable.id, cook.grillId), eq(grillsTable.userId, userId)));
       grillName = grill?.name ?? null;
     }
-    return { ...cook, grillName };
+    let currentTempF: number | null = null;
+    if (cook.status === "active") {
+      const [latest] = await db
+        .select({ tempF: temperatureReadingsTable.tempF })
+        .from(temperatureReadingsTable)
+        .where(eq(temperatureReadingsTable.cookId, cook.id))
+        .orderBy(desc(temperatureReadingsTable.recordedAt))
+        .limit(1);
+      currentTempF = latest?.tempF ?? null;
+    }
+    return { ...cook, grillName, currentTempF };
   }));
   res.json(result);
 });

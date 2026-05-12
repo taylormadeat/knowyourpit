@@ -389,7 +389,7 @@ export default function HomeScreen() {
                   ) : null}
 
                   {/* Temp chips */}
-                  {(activeCook.targetTempF != null || activeCook.cookTempF != null) && (
+                  {(activeCook.targetTempF != null || activeCook.cookTempF != null || activeCook.currentTempF != null) && (
                     <View style={{ flexDirection: "row", gap: 6, marginTop: 6, marginBottom: 2, flexWrap: "wrap" }}>
                       {activeCook.targetTempF != null && (
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#22c55e12", borderWidth: 1, borderColor: "#22c55e30" }}>
@@ -403,6 +403,13 @@ export default function HomeScreen() {
                           <Feather name="wind" size={10} color="#3b82f6" />
                           <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#3b82f6" }}>{activeCook.cookTempF}°F</Text>
                           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#3b82f699" }}>pit</Text>
+                        </View>
+                      )}
+                      {activeCook.currentTempF != null && (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#F59E0B12", borderWidth: 1, borderColor: "#F59E0B30" }}>
+                          <Feather name="activity" size={10} color="#F59E0B" />
+                          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#F59E0B" }}>{activeCook.currentTempF}°F</Text>
+                          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#F59E0B99" }}>probe</Text>
                         </View>
                       )}
                     </View>
