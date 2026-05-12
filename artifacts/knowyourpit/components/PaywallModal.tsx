@@ -11,13 +11,11 @@ import {
   Platform,
   Linking,
 } from "react-native";
-import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useColors } from "@/hooks/useColors";
 import { useSubscription, type PurchasePackageLike } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
-import { useGetRecentCooks, getGetRecentCooksQueryKey, type Cook } from "@workspace/api-client-react";
 import type { Feather as FeatherType } from "@expo/vector-icons";
 
 type FeatherIconName = React.ComponentProps<typeof FeatherType>["name"];
@@ -96,38 +94,22 @@ export type PaywallTrigger =
 interface PaywallModalProps {
   visible: boolean;
   onClose: () => void;
-  /**
-   * Called instead of `onClose` when the user taps "See what's included →".
-   * The caller (PaywallContext) temporarily hides the modal without clearing
-   * its state, then navigates to the Pro showcase screen. The modal is
-   * restored automatically when the user navigates back.
-   */
   onPause?: () => void;
   trigger?: PaywallTrigger | null;
-  /** Optional human-friendly subtitle override (e.g. server-supplied 402 message). */
   subtitle?: string | null;
-  /** Optional feature label for "pro_required" triggers (e.g. "Multi-Cook Sequencer"). */
   featureName?: string | null;
-  /** Optional food type (e.g. "brisket", "ribs") used to personalize the headline / sub-copy. */
   foodType?: string | null;
-  /** Optional contextual hint (e.g. "after first scan", "cook #4") shown as a secondary nudge under the subtitle. */
   featureContext?: string | null;
 }
 
-const FEATURES: ReadonlyArray<{ icon: FeatherIconName; title: string; desc: string }> = [
-  { icon: "zap", title: "Unlimited cooks", desc: "Log every brisket, butt, and rib without hitting a cap." },
-  { icon: "message-circle", title: "Unlimited PitMaster chat", desc: "Chat with PitMaster as much as you want — no daily message limits." },
-  { icon: "image", title: "Unlimited cook scans", desc: "Analyze every thermometer photo with no daily quota." },
-  { icon: "activity", title: "Live auto-grading with MEATER & ThermoWorks", desc: "PitMaster checks in every 30 minutes using live probe temps from your wireless thermometer." },
-  { icon: "layers", title: "Multi-Cook Sequencer", desc: "Plan brisket + ribs + sides on one timeline." },
-  { icon: "calendar", title: "Multiple active & planned cooks", desc: "Run more than one cook at a time and queue up future cooks." },
-  { icon: "bar-chart-2", title: "Cook Quality Analytics", desc: "See your tenderness, bark, and flavor trends over time." },
-  { icon: "wind", title: "Frozen-to-Table Planner", desc: "Full timeline from freezer to table — every thaw, rest, and smoke step timed perfectly." },
-  { icon: "award", title: "Competition Mode", desc: "Competition-ready plans with staggered turn-in times for Chicken, Ribs, Pork, and Brisket." },
-  { icon: "cloud", title: "Cook-Day Weather Forecast", desc: "See the forecast before you fire up so you can adjust smoke time for wind and cold." },
+const FEATURES: ReadonlyArray<{ icon: FeatherIconName; label: string }> = [
+  { icon: "zap",          label: "Unlimited cooks & cook history" },
+  { icon: "message-circle", label: "Unlimited PitMaster AI chat & scans" },
+  { icon: "activity",    label: "Live probe auto-grading (MEATER & ThermoWorks)" },
+  { icon: "layers",      label: "Multi-Cook Sequencer & Competition Mode" },
+  { icon: "bar-chart-2", label: "Cook Quality Analytics & Grill Fingerprint" },
 ];
 
-/** Lower-case the food noun for inline use ("brisket cook", not "Brisket cook"). */
 function normalizeFoodType(raw?: string | null): string | null {
   if (!raw) return null;
   const trimmed = raw.trim();
@@ -143,9 +125,7 @@ function triggerHeadline(
   const food = normalizeFoodType(foodType);
   switch (trigger) {
     case "cook_limit_reached":
-      return food
-        ? `Want to log this ${food} cook?`
-        : "You've hit your free cook limit";
+      return food ? `Want to log this ${food} cook?` : "You've hit your free cook limit";
     case "active_cook_limit_reached":
       return "You already have an active cook";
     case "planned_cook_limit_reached":
@@ -155,13 +135,9 @@ function triggerHeadline(
         ? `Out of free chats — and your ${food} is on the smoker`
         : "You've used your free AI chats today";
     case "ai_analyze_limit_reached":
-      return food
-        ? `Want PitMaster's tips on your ${food}?`
-        : "You've used your free AI scans today";
+      return food ? `Want PitMaster's tips on your ${food}?` : "You've used your free AI scans today";
     case "frozen_timeline_limit_reached":
-      return food
-        ? `Plan another frozen ${food} cook?`
-        : "You've used your free Frozen-to-Table plan";
+      return food ? `Plan another frozen ${food} cook?` : "You've used your free Frozen-to-Table plan";
     case "pro_required":
       if (featureName && food) return `${featureName} for your ${food} cook`;
       if (featureName) return `${featureName} is a Pro feature`;
@@ -179,55 +155,39 @@ function defaultSubtitle(
   switch (trigger) {
     case "cook_limit_reached":
       return food
-        ? `Your 3-cook journey is just beginning. Add this ${food} and keep building your history with Pro.`
-        : "Your 3-cook journey is just beginning. Keep building your history with Pro.";
+        ? `Add this ${food} and keep building your cook history with Pro.`
+        : "Keep building your cook history with Pro.";
     case "active_cook_limit_reached":
       return food
-        ? `Free plan only allows one active cook at a time — finish your current cook before starting this ${food}, or upgrade for unlimited parallel cooks.`
-        : "Free plan only allows one active cook at a time.";
+        ? `Free plan allows one active cook — upgrade to run this ${food} alongside your current cook.`
+        : "Free plan allows one active cook at a time.";
     case "planned_cook_limit_reached":
       return food
-        ? `Free plan only allows one planned cook at a time. Upgrade to plan this ${food} alongside your existing cook.`
-        : "Free plan only allows one planned cook at a time.";
+        ? `Upgrade to plan this ${food} alongside your existing cook.`
+        : "Free plan allows one planned cook at a time.";
     case "ai_message_limit_reached":
       return food
-        ? `You've used your 3 free messages today — and your ${food} deserves more coaching. Upgrade for unlimited AI chat.`
-        : "You've used your 3 free messages today. Upgrade to Pro for unlimited AI chat.";
+        ? `You've used your free messages today — your ${food} deserves more coaching.`
+        : "You've used your 3 free messages today.";
     case "ai_analyze_limit_reached":
       return food
-        ? `You've used your 1 free analysis today. Upgrade to Pro for unlimited scans on every ${food} cook.`
-        : "You've used your 1 free analysis today. Upgrade to Pro for unlimited scans.";
+        ? `Upgrade for unlimited scans on every ${food} cook.`
+        : "You've used your 1 free analysis today.";
     case "frozen_timeline_limit_reached":
       return food
-        ? `You've used your 1 free Frozen-to-Table timeline. Upgrade for unlimited frozen ${food} plans.`
-        : "You've used your 1 free Frozen-to-Table timeline. Upgrade to Pro for unlimited frozen cook plans.";
+        ? `Upgrade for unlimited frozen ${food} plans.`
+        : "You've used your 1 free Frozen-to-Table timeline.";
     case "pro_required":
-      return "Upgrade to Pro to unlock this and every other premium feature.";
+      return "Upgrade to unlock this and every other Pro feature.";
     default:
-      return "Get every feature, with no caps.";
+      return "Every feature, no limits.";
   }
 }
 
-/** Map a food type string to a small Feather icon for the journey cards. */
-function foodTypeIcon(foodType?: string | null): FeatherIconName {
-  const f = (foodType ?? "").toLowerCase();
-  if (f.includes("brisket") || f.includes("beef") || f.includes("steak")) return "award";
-  if (f.includes("rib")) return "git-branch";
-  if (f.includes("pork") || f.includes("butt") || f.includes("shoulder")) return "circle";
-  if (f.includes("chicken") || f.includes("turkey") || f.includes("poultry")) return "feather";
-  if (f.includes("fish") || f.includes("salmon")) return "anchor";
-  if (f.includes("sausage")) return "minus";
-  return "thermometer";
-}
-
-function formatJourneyDate(iso?: string | null): string {
-  if (!iso) return "";
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  } catch {
-    return "";
-  }
+function valueComparisonLine(hasTrial: boolean, preferAnnual: boolean): string {
+  if (hasTrial) return "Start free — less than a bag of charcoal to keep going after that.";
+  if (preferAnnual) return "Less than a bag of charcoal a month — and it makes every bag go further.";
+  return "About the price of a bag of pellets — for unlimited cooks all month.";
 }
 
 function periodLabel(p?: string | null): string {
@@ -238,9 +198,8 @@ function periodLabel(p?: string | null): string {
   return `/ ${p.replace(/^P/, "").toLowerCase()}`;
 }
 
-export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, featureName, foodType, featureContext }: PaywallModalProps) {
+export function PaywallModal({ visible, onClose, trigger, subtitle, featureName, foodType }: PaywallModalProps) {
   const colors = useColors();
-  const router = useRouter();
   const {
     isReady,
     isLoading,
@@ -257,41 +216,14 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
   } = useSubscription();
   const effectivePro = useEffectivePro();
 
-  // Cook #4 enhanced wall — fetch the user's recent cooks so we can render a
-  // "Your Journey" panel above the feature list. Only enabled for the
-  // cook_limit_reached trigger when the modal is visible to avoid wasted
-  // requests on every paywall open.
-  const isCookLimitWall = trigger === "cook_limit_reached";
-  const { data: recentCooksData } = useGetRecentCooks({
-    query: {
-      queryKey: getGetRecentCooksQueryKey(),
-      enabled: visible && isCookLimitWall && !effectivePro,
-    },
-  });
-  const journeyCooks = useMemo<Cook[]>(() => {
-    if (!isCookLimitWall) return [];
-    const list: Cook[] = recentCooksData ?? [];
-    // Spec: "Your 3-cook journey so far" surfaces ONLY completed cooks so
-    // ratings render correctly and the panel reflects finished work. If the
-    // user has fewer than 3 completed cooks the panel simply renders fewer
-    // cards (or hides if zero).
-    return list.filter((c) => c.status === "completed").slice(0, 3);
-  }, [isCookLimitWall, recentCooksData]);
-
   const annual = currentOffering?.annual ?? null;
   const monthly = currentOffering?.monthly ?? null;
 
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
-  // retryKey increments after every retry attempt that still leaves error state —
-  // this restarts the countdown useEffect even when showingError hasn't changed.
   const [retryKey, setRetryKey] = useState(0);
   const retryingRef = useRef(false);
 
-  // When the error screen is visible (modal open, no packages, RC ready, RC is
-  // available and offerings are flagged as failed), start a 15-second auto-retry
-  // countdown. Gating on `isRevenueCatAvailable && offeringsLoadFailed` avoids
-  // spurious retry loops when RC is simply not supported on this device.
   const showingError =
     visible && isReady && isRevenueCatAvailable && offeringsLoadFailed && !annual && !monthly;
 
@@ -305,14 +237,10 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
     } finally {
       retryingRef.current = false;
       setIsRetrying(false);
-      // Bump key so the countdown effect restarts even if showingError stays true.
       setRetryKey((k) => k + 1);
     }
   }, [retryOfferings]);
 
-  // Countdown + auto-retry effect: starts a 15s countdown each time the error
-  // screen appears or after each failed retry attempt (retryKey bump).
-  // Clears when offerings load successfully or modal closes.
   useEffect(() => {
     if (!showingError) {
       setRetryCountdown(null);
@@ -332,8 +260,6 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
       });
     }, 1000);
     return () => clearInterval(interval);
-  // retryKey is intentionally included: a new key value restarts the countdown
-  // after each retry attempt that still leaves the error screen visible.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showingError, retryKey]);
 
@@ -345,36 +271,14 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
     return getTrialInfo(annual);
   }, [annual, isAnnualTrialEligible, isAnnualTrialCheckComplete]);
 
-  /**
-   * Trial info for the monthly product, when RevenueCat exposes one. The
-   * iOS eligibility helper today only checks the annual product (since
-   * that's where we currently configure trials), so for monthly we lean on
-   * RC's product metadata directly. Android already strips ineligible
-   * offer phases so the metadata is reliable there too.
-   */
   const monthlyTrial = useMemo(() => getTrialInfo(monthly), [monthly]);
-
-  /**
-   * True when the user is eligible for *any* free trial on the current
-   * offering — drives the trial-aware headline / CTA copy across the modal.
-   * Either annual or monthly may carry the trial; whichever has it lights
-   * up the trial UI and headline.
-   */
   const isTrial = !!annualTrial || !!monthlyTrial;
 
-  /**
-   * Format a numeric amount as locale currency. Falls back to a plain
-   * `${code} ${amount}` string if Intl.NumberFormat throws (older RN
-   * runtimes / unrecognized currency codes).
-   */
   const formatMoney = useCallback((amount: number, currencyCode: string | undefined): string => {
     if (!Number.isFinite(amount)) return "";
     if (currencyCode) {
       try {
-        return new Intl.NumberFormat(undefined, {
-          style: "currency",
-          currency: currencyCode,
-        }).format(amount);
+        return new Intl.NumberFormat(undefined, { style: "currency", currency: currencyCode }).format(amount);
       } catch {
         // fall through
       }
@@ -390,16 +294,9 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
     const pct = Math.round((dollars / yearOfMonthly) * 100);
     if (pct <= 0) return null;
     const currencyCode = annual.product.currencyCode ?? monthly.product.currencyCode ?? undefined;
-    return {
-      pct,
-      // Whole-amount savings feel more tangible than a percentage. We
-      // pre-format using the offering's currency so non-USD locales see
-      // their own symbol (e.g. "€29", "£25", "A$45").
-      formatted: formatMoney(Math.round(dollars), currencyCode),
-    };
+    return { pct, formatted: formatMoney(Math.round(dollars), currencyCode) };
   }, [annual, monthly, formatMoney]);
 
-  /** Per-month breakdown shown below the annual price (locale-formatted). */
   const annualPerMonthFormatted = useMemo(() => {
     if (!annual) return null;
     const perMo = annual.product.price / 12;
@@ -426,10 +323,19 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
     }
   };
 
+  const headline = isTrial && !effectivePro
+    ? "Try Pro free for 7 days"
+    : triggerHeadline(trigger, featureName, foodType);
+  const sub = isTrial && !effectivePro
+    ? "Full access to everything. Cancel anytime."
+    : subtitle ?? defaultSubtitle(trigger, foodType);
+  const valueLine = valueComparisonLine(isTrial && !effectivePro, !!annual);
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+
           {/* ── Header ── */}
           <LinearGradient
             colors={["#2D1A0E", "#1C1C1F"]}
@@ -444,151 +350,41 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
               <Feather name="award" size={12} color="#E84520" />
               <Text style={styles.proBadgeText}>knowyourpit PRO</Text>
             </View>
-            <Text style={styles.headline}>
-              {isTrial && !effectivePro
-                ? "Try Pro free for 7 days"
-                : triggerHeadline(trigger, featureName, foodType)}
-            </Text>
-            <Text style={styles.subhead}>
-              {isTrial && !effectivePro
-                ? "Full access to everything. Cancel anytime."
-                : subtitle ?? defaultSubtitle(trigger, foodType)}
-            </Text>
-            {/* Trial-aware nudge — appended under the regular subtitle so the
-                paywall feels like an invitation rather than a wall when the
-                user is still trial-eligible. */}
-            {isTrial && !effectivePro && subtitle && (
-              <Text style={[styles.subhead, { marginTop: 6, opacity: 0.85 }]}>
-                Start a 7-day free trial to unlock unlimited access right now.
-              </Text>
-            )}
-            {featureContext ? (
-              <View style={styles.contextChip}>
-                <Feather name="info" size={11} color="#F59E0B" />
-                <Text style={styles.contextChipText}>{featureContext}</Text>
-              </View>
-            ) : null}
+            <Text style={styles.headline}>{headline}</Text>
+            <Text style={styles.subhead}>{sub}</Text>
             {!effectivePro && (
-              <Pressable
-                onPress={() => {
-                  onPause?.();
-                  router.push("/pro-features" as any);
-                }}
-                hitSlop={10}
-                style={styles.seeWhatsIncluded}
-              >
-                <Text style={styles.seeWhatsIncludedText}>See what's included →</Text>
-              </Pressable>
+              <View style={styles.valueRow}>
+                <Feather name="tag" size={12} color="#F59E0B" style={{ marginTop: 1 }} />
+                <Text style={styles.valueLine}>{valueLine}</Text>
+              </View>
             )}
           </LinearGradient>
 
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
-            {/* ── Cook #4 "Your Journey" enhanced wall ──
-                Only shown for the cook-limit trigger. Frames the upgrade as
-                a continuation of the user's existing 3-cook history rather
-                than a transactional upsell. */}
-            {isCookLimitWall && !effectivePro && (
-              <View style={[styles.journeyBlock, { borderBottomColor: colors.border }]}>
-                <Text style={[styles.journeyHeader, { color: colors.foreground }]}>
-                  Your 3-cook journey so far
-                </Text>
-                {journeyCooks.length > 0 ? (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ gap: 10, paddingVertical: 4 }}
-                  >
-                    {journeyCooks.map((cook: Cook, idx: number) => {
-                      const cookFood = cook?.foodType ?? "Cook";
-                      const dateStr = formatJourneyDate(
-                        cook?.actualEndAt ?? cook?.actualStartAt ?? cook?.createdAt,
-                      );
-                      const rating = typeof cook?.rating === "number" ? cook.rating : 0;
-                      return (
-                        <View
-                          key={cook?.id ?? idx}
-                          style={[
-                            styles.journeyCard,
-                            {
-                              backgroundColor: colors.card,
-                              borderColor: colors.border,
-                              borderRadius: colors.radius,
-                            },
-                          ]}
-                        >
-                          <View
-                            style={[styles.journeyIcon, { backgroundColor: "#E8452020" }]}
-                          >
-                            <Feather
-                              name={foodTypeIcon(cookFood)}
-                              size={16}
-                              color="#E84520"
-                            />
-                          </View>
-                          <Text
-                            numberOfLines={1}
-                            style={[styles.journeyTitle, { color: colors.foreground }]}
-                          >
-                            {cookFood}
-                          </Text>
-                          {dateStr ? (
-                            <Text style={[styles.journeyDate, { color: colors.mutedForeground }]}>
-                              {dateStr}
-                            </Text>
-                          ) : null}
-                          {rating > 0 ? (
-                            <View style={styles.journeyStars}>
-                              {[1, 2, 3, 4, 5].map((n) => (
-                                <Feather
-                                  key={n}
-                                  name="star"
-                                  size={9}
-                                  color={n <= rating ? "#FACC15" : colors.border}
-                                />
-                              ))}
-                            </View>
-                          ) : null}
-                        </View>
-                      );
-                    })}
-                  </ScrollView>
-                ) : (
-                  <Text style={[styles.journeyEmpty, { color: colors.mutedForeground }]}>
-                    Your past cooks will appear here as you log them.
-                  </Text>
-                )}
-                <Text style={[styles.journeyCopy, { color: colors.mutedForeground }]}>
-                  Keep going — your history, your scores, and your grill's fingerprint grow with every cook.
-                </Text>
-                <View style={styles.journeyReassureRow}>
-                  <Feather name="shield" size={12} color="#22C55E" />
-                  <Text style={[styles.journeyReassure, { color: colors.mutedForeground }]}>
-                    Your cooks are never deleted. Everything you've built stays with you.
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {/* ── Feature list ── */}
-            <View style={styles.featureList}>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingBottom: 28 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* ── Feature checklist ── */}
+            <View style={[styles.featureList, { borderBottomColor: colors.border }]}>
               {FEATURES.map((f) => (
-                <View key={f.title} style={[styles.featureRow, { borderBottomColor: colors.border }]}>
-                  <View style={[styles.featureIcon, { backgroundColor: "#E8452020" }]}>
-                    <Feather name={f.icon} size={16} color="#E84520" />
+                <View key={f.label} style={styles.featureRow}>
+                  <View style={[styles.featureIcon, { backgroundColor: "#E8452018" }]}>
+                    <Feather name={f.icon} size={15} color="#E84520" />
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.featureTitle, { color: colors.foreground }]}>{f.title}</Text>
-                    <Text style={[styles.featureDesc, { color: colors.mutedForeground }]}>{f.desc}</Text>
-                  </View>
+                  <Text style={[styles.featureLabel, { color: colors.foreground }]}>{f.label}</Text>
+                  <Feather name="check" size={14} color="#22C55E" />
                 </View>
               ))}
             </View>
 
-            {/* ── Plans ── */}
+            {/* ── Plans / status ── */}
             {!isReady ? (
               <View style={styles.statusBlock}>
                 <ActivityIndicator color="#E84520" />
-                <Text style={[styles.statusText, { color: colors.mutedForeground }]}>Loading subscription options…</Text>
+                <Text style={[styles.statusText, { color: colors.mutedForeground }]}>
+                  Loading subscription options…
+                </Text>
               </View>
             ) : effectivePro ? (
               <View style={styles.statusBlock}>
@@ -618,7 +414,7 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
                       Subscriptions aren't available yet
                     </Text>
                     <Text style={[styles.statusSub, { color: colors.mutedForeground }]}>
-                      Pro purchases will be enabled in the next app update. Pull to refresh after updating.
+                      Pro purchases will be enabled in the next app update.
                     </Text>
                   </>
                 )}
@@ -662,161 +458,114 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
               </View>
             ) : (
               <View style={styles.plansContainer}>
-                {/* Annual is rendered FIRST, regardless of RC ordering, and
-                    styled as the visually dominant choice. Monthly sits
-                    below as the smaller "pay as you go" option. */}
+                {/* Annual — featured */}
                 {annual && (
                   <Pressable
                     style={({ pressed }) => [
                       styles.planCard,
                       styles.planCardFeatured,
                       { borderRadius: colors.radius },
-                      pressed && { opacity: 0.85 },
+                      pressed && { opacity: 0.88 },
                       isLoading && { opacity: 0.6 },
                     ]}
                     onPress={() => handlePurchase(annual)}
                     disabled={isLoading}
                   >
-                    {/* "BEST VALUE" badge — always shown on annual when an
-                        offering with both plans is present, even when no
-                        savings can be computed (e.g. region without monthly). */}
-                    <View style={styles.bestBadge}>
-                      <Text style={styles.bestBadgeText}>
-                        {annualTrial
-                          ? `${annualTrial.label.toUpperCase()} FREE, THEN ${annual.product.priceString}${periodLabel(annual.product.subscriptionPeriod).toUpperCase()}`
-                          : "BEST VALUE"}
+                    <View style={styles.planCardTop}>
+                      <View>
+                        <Text style={styles.planTitle}>Annual · Best Value</Text>
+                        {annualTrial ? (
+                          <>
+                            <Text style={styles.planPrice}>Free</Text>
+                            <Text style={styles.planNote}>
+                              {`${annualTrial.label} free, then ${annual.product.priceString}${periodLabel(annual.product.subscriptionPeriod)}`}
+                            </Text>
+                          </>
+                        ) : (
+                          <>
+                            <Text style={styles.planPrice}>
+                              {annual.product.priceString}
+                              <Text style={styles.planPeriod}>{periodLabel(annual.product.subscriptionPeriod)}</Text>
+                            </Text>
+                            {annualPerMonthFormatted && (
+                              <Text style={styles.planNote}>
+                                Just {annualPerMonthFormatted}/mo billed annually
+                              </Text>
+                            )}
+                          </>
+                        )}
+                      </View>
+                      <View style={styles.bestBadge}>
+                        <Text style={styles.bestBadgeText}>
+                          {annualTrial
+                            ? `${annualTrial.label.toUpperCase()} FREE`
+                            : savings ? `SAVE ${savings.pct}%` : "BEST VALUE"}
+                        </Text>
+                      </View>
+                    </View>
+                    {savings && !annualTrial && (
+                      <Text style={styles.planSavings}>Save {savings.formatted}/year</Text>
+                    )}
+                    <View style={styles.planCta}>
+                      <Text style={styles.planCtaText}>
+                        {annualTrial ? "Start free trial →" : "Get Annual →"}
                       </Text>
                     </View>
-                    <Text style={styles.planTitle}>Annual · Best Value</Text>
-                    {annualTrial ? (
-                      <>
-                        <Text style={styles.planPrice}>Free</Text>
-                        <Text style={styles.planNote}>
-                          {`${annualTrial.label} free, then ${annual.product.priceString}${periodLabel(annual.product.subscriptionPeriod)}`}
-                        </Text>
-                        {annualPerMonthFormatted && (
-                          <Text style={styles.planSubNote}>
-                            Just {annualPerMonthFormatted}/mo billed annually
-                          </Text>
-                        )}
-                        {savings != null && (
-                          <Text style={styles.planSavings}>
-                            Save {savings.formatted}/year ({savings.pct}% off)
-                          </Text>
-                        )}
-                        <View style={styles.trialCta}>
-                          {/* Cook-limit trigger frames the CTA as continuation
-                              ("Keep cooking →") instead of a generic upsell. */}
-                          <Text style={styles.trialCtaText}>
-                            {isCookLimitWall ? "Keep cooking →" : "Start free trial →"}
-                          </Text>
-                        </View>
-                      </>
-                    ) : (
-                      <>
-                        <Text style={styles.planPrice}>
-                          {annual.product.priceString}
-                          <Text style={styles.planPeriod}>{periodLabel(annual.product.subscriptionPeriod)}</Text>
-                        </Text>
-                        {annualPerMonthFormatted && (
-                          <Text style={styles.planSubNote}>
-                            Just {annualPerMonthFormatted}/mo billed annually
-                          </Text>
-                        )}
-                        {savings != null && (
-                          <Text style={styles.planSavings}>
-                            Save {savings.formatted}/year ({savings.pct}% off)
-                          </Text>
-                        )}
-                        {isCookLimitWall && (
-                          <View style={styles.trialCta}>
-                            <Text style={styles.trialCtaText}>Keep cooking →</Text>
-                          </View>
-                        )}
-                      </>
-                    )}
                   </Pressable>
                 )}
 
+                {/* Monthly — secondary */}
                 {monthly && (
                   <Pressable
                     style={({ pressed }) => [
                       styles.planCardMonthly,
-                      { borderRadius: colors.radius, borderColor: colors.border, backgroundColor: colors.card },
+                      {
+                        borderRadius: colors.radius,
+                        borderColor: colors.border,
+                        backgroundColor: colors.card,
+                      },
                       pressed && { opacity: 0.85 },
                       isLoading && { opacity: 0.6 },
                     ]}
                     onPress={() => handlePurchase(monthly)}
                     disabled={isLoading}
                   >
-                    {/* Monthly trial badge — only renders when RC actually
-                        exposes a trial on the monthly product. Today this is
-                        rare (we configure trials on annual), but the UI must
-                        respect whichever package carries the trial. */}
-                    {monthlyTrial && (
-                      <View style={styles.bestBadge}>
-                        <Text style={styles.bestBadgeText}>
-                          {`${monthlyTrial.label.toUpperCase()} FREE, THEN ${monthly.product.priceString}${periodLabel(monthly.product.subscriptionPeriod).toUpperCase()}`}
+                    <View style={styles.planCardTop}>
+                      <View>
+                        <Text style={[styles.planTitleMonthly, { color: colors.mutedForeground }]}>
+                          Monthly · pay as you go
                         </Text>
-                      </View>
-                    )}
-                    <Text style={[styles.planTitleMonthly, { color: colors.mutedForeground }]}>
-                      Monthly · pay as you go
-                    </Text>
-                    {monthlyTrial ? (
-                      <>
-                        <Text style={[styles.planPriceMonthly, { color: colors.foreground }]}>Free</Text>
-                        <Text style={[styles.planNote, { color: colors.mutedForeground }]}>
-                          {`${monthlyTrial.label} free, then ${monthly.product.priceString}${periodLabel(monthly.product.subscriptionPeriod)}`}
-                        </Text>
-                        <View style={[styles.trialCta, styles.trialCtaMonthly]}>
-                          <Text style={[styles.trialCtaText, { color: colors.foreground }]}>
-                            {isCookLimitWall ? "Keep cooking →" : "Start free trial →"}
-                          </Text>
-                        </View>
-                      </>
-                    ) : (
-                      <>
-                        <Text style={[styles.planPriceMonthly, { color: colors.foreground }]}>
-                          {monthly.product.priceString}
-                          <Text style={[styles.planPeriod, { color: colors.mutedForeground }]}>
-                            {periodLabel(monthly.product.subscriptionPeriod)}
-                          </Text>
-                        </Text>
-                        <Text style={[styles.planNote, { color: colors.mutedForeground }]}>
-                          Cancel anytime
-                        </Text>
-                        {isCookLimitWall && (
-                          <View style={[styles.trialCta, styles.trialCtaMonthly]}>
-                            <Text style={[styles.trialCtaText, { color: colors.foreground }]}>
-                              Keep cooking →
+                        {monthlyTrial ? (
+                          <>
+                            <Text style={[styles.planPriceMonthly, { color: colors.foreground }]}>Free</Text>
+                            <Text style={[styles.planNote, { color: colors.mutedForeground }]}>
+                              {`${monthlyTrial.label} free, then ${monthly.product.priceString}${periodLabel(monthly.product.subscriptionPeriod)}`}
                             </Text>
-                          </View>
+                          </>
+                        ) : (
+                          <>
+                            <Text style={[styles.planPriceMonthly, { color: colors.foreground }]}>
+                              {monthly.product.priceString}
+                              <Text style={[styles.planPeriod, { color: colors.mutedForeground }]}>
+                                {periodLabel(monthly.product.subscriptionPeriod)}
+                              </Text>
+                            </Text>
+                            <Text style={[styles.planNote, { color: colors.mutedForeground }]}>
+                              Cancel anytime
+                            </Text>
+                          </>
                         )}
-                      </>
-                    )}
+                      </View>
+                    </View>
                   </Pressable>
                 )}
 
                 {isLoading && (
-                  <View style={{ alignItems: "center", marginTop: 8 }}>
+                  <View style={{ alignItems: "center", marginTop: 6 }}>
                     <ActivityIndicator color="#E84520" />
                   </View>
                 )}
 
-                {/* Social proof — single muted line under the plan cards.
-                    Standard conversion trust signal; copy stays vague
-                    until real subscriber data is wired in. */}
-                <View style={styles.socialProofRow}>
-                  <Feather name="users" size={12} color={colors.mutedForeground} />
-                  <Text style={[styles.socialProofText, { color: colors.mutedForeground }]}>
-                    Join thousands of pitmasters already on Pro
-                  </Text>
-                </View>
-
-                {/* "No commitment" reassurance line — sits below the plan
-                    cards so it reads as a guarantee on whichever plan the
-                    user picks. Copy shifts based on trial eligibility. */}
                 <Text style={[styles.noCommitText, { color: colors.mutedForeground }]}>
                   {isTrial
                     ? "No charge for 7 days · Cancel anytime in Settings"
@@ -825,7 +574,7 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
               </View>
             )}
 
-            {/* ── Footer actions ── */}
+            {/* ── Footer ── */}
             <View style={styles.footer}>
               <Pressable onPress={handleRestore} disabled={isLoading} hitSlop={8}>
                 <Text style={[styles.linkText, { color: colors.mutedForeground }]}>Restore purchases</Text>
@@ -853,7 +602,7 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
                     )
                   }
                 >
-                  Manage subscription in {Platform.OS === "ios" ? "App Store" : "Play Store"}
+                  Manage in {Platform.OS === "ios" ? "App Store" : "Play Store"}
                 </Text>
                 .
               </Text>
@@ -866,186 +615,73 @@ export function PaywallModal({ visible, onClose, onPause, trigger, subtitle, fea
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
-  sheet: { height: "92%", borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden" },
-  header: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 22 },
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "flex-end" },
+  sheet: { height: "82%", borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden" },
+
+  header: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 20 },
   closeBtn: { position: "absolute", top: 14, right: 14, padding: 6, zIndex: 2 },
   proBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
+    flexDirection: "row", alignItems: "center", gap: 6,
     backgroundColor: "rgba(232,69,32,0.18)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignSelf: "flex-start",
-    marginBottom: 14,
+    paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 12, alignSelf: "flex-start", marginBottom: 12,
   },
   proBadgeText: { color: "#E84520", fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 0.6 },
-  headline: { color: "#F0E8D5", fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 6, marginRight: 30 },
-  subhead: { color: "rgba(240,232,213,0.7)", fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
-  contextChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(245,158,11,0.15)",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    alignSelf: "flex-start",
-    marginTop: 12,
-  },
-  contextChipText: {
-    color: "#F59E0B",
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-  },
-  featureList: { paddingHorizontal: 20, paddingTop: 18 },
-  featureRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 14,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
+  headline: { color: "#F0E8D5", fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 6, marginRight: 30, lineHeight: 28 },
+  subhead: { color: "rgba(240,232,213,0.75)", fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  valueRow: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 10 },
+  valueLine: { color: "#F59E0B", fontSize: 13, fontFamily: "Inter_500Medium", lineHeight: 18, flex: 1 },
+
+  featureList: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 14, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  featureRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   featureIcon: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-  featureTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
-  featureDesc: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18 },
-  plansContainer: { paddingHorizontal: 20, paddingTop: 22, gap: 12 },
+  featureLabel: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium", lineHeight: 20 },
+
+  plansContainer: { paddingHorizontal: 16, paddingTop: 16, gap: 10 },
+
   planCard: {
-    paddingVertical: 20,
-    paddingHorizontal: 18,
-    borderWidth: 2,
+    backgroundColor: "#E84520", padding: 16, gap: 8,
+    borderWidth: 0,
   },
-  planCardFeatured: {
-    backgroundColor: "#E84520",
-    borderColor: "#E84520",
+  planCardFeatured: {},
+  planCardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  planTitle: { color: "rgba(255,255,255,0.8)", fontSize: 12, fontFamily: "Inter_600SemiBold", letterSpacing: 0.3, marginBottom: 2 },
+  planPrice: { color: "#fff", fontSize: 26, fontFamily: "Inter_700Bold" },
+  planPeriod: { fontSize: 14, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.75)" },
+  planNote: { color: "rgba(255,255,255,0.75)", fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  planSavings: { color: "rgba(255,255,255,0.85)", fontSize: 12, fontFamily: "Inter_500Medium" },
+  planCta: {
+    backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 8,
+    paddingVertical: 8, alignItems: "center", marginTop: 4,
   },
-  // Smaller, muted card for the "pay as you go" monthly option.
-  planCardMonthly: {
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderWidth: 1,
-  },
+  planCtaText: { color: "#fff", fontSize: 14, fontFamily: "Inter_700Bold" },
   bestBadge: {
-    position: "absolute",
-    top: -10,
-    right: 14,
-    backgroundColor: "#FACC15",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  bestBadgeText: { color: "#1C1C1F", fontSize: 10.5, fontFamily: "Inter_700Bold", letterSpacing: 0.6, textTransform: "uppercase" },
-  trialCta: {
-    marginTop: 10,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(255,255,255,0.2)", paddingHorizontal: 8, paddingVertical: 4,
     borderRadius: 8,
-    paddingVertical: 8,
-    alignItems: "center",
   },
-  trialCtaMonthly: {
-    backgroundColor: "rgba(255,255,255,0.06)",
-  },
-  trialCtaText: { color: "#fff", fontSize: 13, fontFamily: "Inter_700Bold", letterSpacing: 0.2 },
-  socialProofRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    marginTop: 16,
-  },
-  socialProofText: {
-    fontSize: 12.5,
-    fontFamily: "Inter_500Medium",
-    textAlign: "center",
-  },
-  noCommitText: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    textAlign: "center",
-    marginTop: 8,
-  },
-  planTitle: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#fff", marginBottom: 6, letterSpacing: 0.4, textTransform: "uppercase" },
-  planTitleMonthly: { fontSize: 12, fontFamily: "Inter_500Medium", marginBottom: 4, letterSpacing: 0.3 },
-  planPrice: { fontSize: 28, fontFamily: "Inter_700Bold", color: "#fff" },
-  planPriceMonthly: { fontSize: 22, fontFamily: "Inter_600SemiBold" },
-  planPeriod: { fontSize: 14, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.8)" },
-  planNote: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.85)", marginTop: 4 },
-  planSubNote: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    color: "rgba(255,255,255,0.85)",
-    marginTop: 2,
-  },
-  planSavings: {
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
-    color: "#FACC15",
-    marginTop: 6,
-    letterSpacing: 0.2,
-  },
-  statusBlock: {
-    paddingVertical: 32,
-    paddingHorizontal: 24,
-    alignItems: "center",
-    gap: 8,
-  },
-  statusText: { fontSize: 15, fontFamily: "Inter_600SemiBold", textAlign: "center" },
-  statusSub: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center" },
+  bestBadgeText: { color: "#fff", fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+
+  planCardMonthly: { padding: 14, borderWidth: 1 },
+  planTitleMonthly: { fontSize: 12, fontFamily: "Inter_600SemiBold", letterSpacing: 0.3, marginBottom: 2 },
+  planPriceMonthly: { fontSize: 22, fontFamily: "Inter_700Bold" },
+
+  noCommitText: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 4 },
+
+  statusBlock: { alignItems: "center", paddingHorizontal: 24, paddingTop: 28, paddingBottom: 8, gap: 10 },
+  statusText: { fontSize: 16, fontFamily: "Inter_600SemiBold", textAlign: "center" },
+  statusSub: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 19 },
+
   retryBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#E84520",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginTop: 8,
+    flexDirection: "row", alignItems: "center", gap: 7,
+    backgroundColor: "#E84520", paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10, marginTop: 6,
   },
   retryBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  footer: { paddingHorizontal: 20, paddingTop: 18, alignItems: "center", gap: 10 },
-  linkText: { fontSize: 13, fontFamily: "Inter_500Medium", textDecorationLine: "underline" },
-  policyRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  policyLink: { fontSize: 11, fontFamily: "Inter_400Regular", textDecorationLine: "underline" },
-  legalLink: { fontSize: 11, fontFamily: "Inter_400Regular", textDecorationLine: "underline" },
-  policySep: { fontSize: 11, fontFamily: "Inter_400Regular" },
-  legal: { fontSize: 11, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 16, paddingHorizontal: 8 },
-  seeWhatsIncluded: { marginTop: 14, alignSelf: "flex-start" },
-  seeWhatsIncludedText: { color: "rgba(240,232,213,0.75)", fontSize: 13, fontFamily: "Inter_500Medium", textDecorationLine: "underline" },
-  journeyBlock: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 10,
-  },
-  journeyHeader: {
-    fontSize: 15,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 0.2,
-  },
-  journeyCard: {
-    width: 120,
-    padding: 10,
-    borderWidth: 1,
-    gap: 4,
-  },
-  journeyIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 4,
-  },
-  journeyTitle: { fontSize: 12.5, fontFamily: "Inter_600SemiBold", textTransform: "capitalize" },
-  journeyDate: { fontSize: 11, fontFamily: "Inter_400Regular" },
-  journeyStars: { flexDirection: "row", gap: 1, marginTop: 2 },
-  journeyEmpty: { fontSize: 12.5, fontFamily: "Inter_400Regular", paddingVertical: 8 },
-  journeyCopy: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18, marginTop: 4 },
-  journeyReassureRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
-  journeyReassure: { fontSize: 11.5, fontFamily: "Inter_500Medium", flex: 1 },
-});
 
-export default PaywallModal;
+  footer: { paddingHorizontal: 20, paddingTop: 16, gap: 8, alignItems: "center" },
+  linkText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  policyRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  policyLink: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  policySep: { fontSize: 12 },
+  legal: { fontSize: 10, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 15, paddingHorizontal: 8 },
+  legalLink: { textDecorationLine: "underline" },
+});

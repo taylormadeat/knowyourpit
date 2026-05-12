@@ -19,27 +19,6 @@ import { useSubscription } from "@/contexts/SubscriptionContext";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { AppHeader } from "@/components/AppHeader";
 
-function periodLabel(p?: string | null): string {
-  if (!p) return "";
-  if (p === "P1Y") return "/ year";
-  if (p === "P1M") return "/ month";
-  if (p === "P1W") return "/ week";
-  return `/ ${p.replace(/^P/, "").toLowerCase()}`;
-}
-
-function formatMoney(amount: number, currencyCode: string | undefined): string {
-  if (!Number.isFinite(amount)) return "";
-  if (currencyCode) {
-    try {
-      return new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: currencyCode,
-      }).format(amount);
-    } catch {}
-  }
-  return `${currencyCode ? currencyCode + " " : ""}${amount.toFixed(2)}`;
-}
-
 function inferPlanType(expirationDate: Date | null): "Annual" | "Monthly" | null {
   if (!expirationDate) return null;
   const daysUntilExpiry = (expirationDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
@@ -301,25 +280,7 @@ export default function ProFeaturesScreen() {
   const insets = useSafeAreaInsets();
   const { showPaywall, resumePaywall, isPaywallPaused } = usePaywall();
   const effectivePro = useEffectivePro();
-  const { isPro, isInTrial, expirationDate, currentOffering } = useSubscription();
-
-  const annual = currentOffering?.annual ?? null;
-  const monthly = currentOffering?.monthly ?? null;
-
-  const annualPerMonthFormatted = useMemo(() => {
-    if (!annual) return null;
-    const perMo = annual.product.price / 12;
-    if (!Number.isFinite(perMo) || perMo <= 0) return null;
-    return formatMoney(perMo, annual.product.currencyCode);
-  }, [annual]);
-
-  const savings = useMemo(() => {
-    if (!annual || !monthly) return null;
-    const yearOfMonthly = monthly.product.price * 12;
-    if (yearOfMonthly <= 0 || annual.product.price <= 0) return null;
-    const pct = Math.round(((yearOfMonthly - annual.product.price) / yearOfMonthly) * 100);
-    return pct > 0 ? pct : null;
-  }, [annual, monthly]);
+  const { isPro, isInTrial, expirationDate } = useSubscription();
 
   const planType = useMemo(() => inferPlanType(expirationDate), [expirationDate]);
 
@@ -350,7 +311,7 @@ export default function ProFeaturesScreen() {
     }
   }, [router, showPaywall]);
 
-  const FOOTER_HEIGHT = effectivePro ? 88 : (annual && monthly ? 136 : annual || monthly ? 112 : 80);
+  const FOOTER_HEIGHT = effectivePro ? 88 : 72;
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
@@ -440,50 +401,14 @@ export default function ProFeaturesScreen() {
             </View>
           </View>
         ) : (
-          // ── Pricing + CTA for free users ──────────────────────────────
-          <View style={s.footerInner}>
-            {/* Plan pricing rows — annual always first, monthly below */}
-            <View style={s.plansRow}>
-              {annual && (
-                <View style={[s.planPill, s.planPillFeatured, { borderRadius: colors.radius }]}>
-                  <View style={s.planPillLeft}>
-                    <Text style={s.planPillLabel}>ANNUAL · BEST VALUE</Text>
-                    <Text style={s.planPillPrice}>
-                      {annualPerMonthFormatted ?? annual.product.priceString}
-                      <Text style={s.planPillPeriod}>{annualPerMonthFormatted ? "/mo" : periodLabel(annual.product.subscriptionPeriod)}</Text>
-                    </Text>
-                    {annualPerMonthFormatted && (
-                      <Text style={s.planPillNote}>{annual.product.priceString}{periodLabel(annual.product.subscriptionPeriod)}</Text>
-                    )}
-                  </View>
-                  {savings != null && (
-                    <View style={s.savingsBadge}>
-                      <Text style={s.savingsText}>Save {savings}%</Text>
-                    </View>
-                  )}
-                </View>
-              )}
-              {monthly && (
-                <View style={[s.planPill, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-                  <View style={s.planPillLeft}>
-                    <Text style={[s.planPillLabel, { color: colors.mutedForeground }]}>MONTHLY</Text>
-                    <Text style={[s.planPillPrice, { color: colors.foreground }]}>
-                      {monthly.product.priceString}
-                      <Text style={[s.planPillPeriod, { color: colors.mutedForeground }]}>{periodLabel(monthly.product.subscriptionPeriod)}</Text>
-                    </Text>
-                    <Text style={[s.planPillNote, { color: colors.mutedForeground }]}>Cancel anytime</Text>
-                  </View>
-                </View>
-              )}
-            </View>
-            <Pressable
-              style={({ pressed }) => [s.unlockBtn, { borderRadius: colors.radius }, pressed && { opacity: 0.85 }]}
-              onPress={handleUnlockPro}
-            >
-              <Feather name="zap" size={15} color="#fff" />
-              <Text style={s.unlockBtnText}>Unlock Pro</Text>
-            </Pressable>
-          </View>
+          // ── Single CTA for free users — pricing details are in the PaywallModal ──
+          <Pressable
+            style={({ pressed }) => [s.unlockBtn, { borderRadius: colors.radius }, pressed && { opacity: 0.85 }]}
+            onPress={handleUnlockPro}
+          >
+            <Feather name="zap" size={15} color="#fff" />
+            <Text style={s.unlockBtnText}>See pricing & unlock Pro →</Text>
+          </Pressable>
         )}
       </View>
     </View>
@@ -596,19 +521,6 @@ const s = StyleSheet.create({
     position: "absolute", bottom: 0, left: 0, right: 0,
     borderTopWidth: 1, paddingTop: 12, paddingHorizontal: 16,
   },
-  footerInner: { gap: 10 },
-
-  plansRow: { flexDirection: "row", gap: 8 },
-  planPill: { flex: 1, borderWidth: 1, padding: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  planPillFeatured: { backgroundColor: "#E84520", borderColor: "#E84520" },
-  planPillLeft: { flex: 1, gap: 1 },
-  planPillLabel: { fontSize: 9, fontFamily: "Inter_700Bold", color: "rgba(255,255,255,0.7)", letterSpacing: 0.7, textTransform: "uppercase" },
-  planPillPrice: { fontSize: 17, fontFamily: "Inter_700Bold", color: "#fff" },
-  planPillPeriod: { fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.8)" },
-  planPillNote: { fontSize: 10, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.7)" },
-  savingsBadge: { backgroundColor: "#22C55E", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6 },
-  savingsText: { color: "#fff", fontSize: 10, fontFamily: "Inter_700Bold" },
-
   unlockBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7,
     backgroundColor: "#E84520", paddingVertical: 13,
