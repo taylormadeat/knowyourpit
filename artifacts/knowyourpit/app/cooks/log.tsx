@@ -181,7 +181,6 @@ export default function LogCookScreen() {
   const [cookTempF, setCookTempF] = useState("");
   const [weightLbs, setWeightLbs] = useState("");
   const [cookNotes, setCookNotes] = useState("");
-  const [activeCookNoteTags, setActiveCookNoteTags] = useState<string[]>([]);
 
   // Quick-pick state for the scanner "describe the cook" section
   const [qpMethod, setQpMethod] = useState<QpCookMethod | null>(null);
@@ -636,7 +635,14 @@ export default function LogCookScreen() {
       const payload: any = {
         foodType: foodType.trim(),
         status: "completed",
-        notes: cookNotes.trim() || (scanNotes.trim() ? `Cook notes:\n${scanNotes.trim()}` : null),
+        notes: (() => {
+          const cn = cookNotes.trim();
+          const sn = scanNotes.trim();
+          if (cn && sn) return `${cn}\n\nTechnique: ${sn}`;
+          if (cn) return cn;
+          if (sn) return `Technique: ${sn}`;
+          return null;
+        })(),
       };
       if (selectedGrillId != null) payload.grillId = selectedGrillId;
       if (targetTempF.trim() && !isNaN(parseFloat(targetTempF))) payload.targetTempF = parseFloat(targetTempF);
@@ -1243,47 +1249,69 @@ export default function LogCookScreen() {
               </View>
             </View>
 
+            {/* ── Technique quick-picks ── */}
+            <View style={s.fieldWrap}>
+              <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Technique</Text>
+              <View
+                style={{
+                  borderRadius: colors.radius,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.card,
+                  paddingHorizontal: 12,
+                  overflow: "hidden",
+                }}
+              >
+                <SettingsRow
+                  label="Cooking Method"
+                  icon="thermometer"
+                  iconColor="#E84820"
+                  value={qpMethod}
+                  placeholder="Any"
+                  onPress={() => setActiveLogSheet("cookMethod")}
+                  colors={colors}
+                />
+                <SettingsRow
+                  label="Meat Starting Temp"
+                  icon="sun"
+                  value={qpStartTemp}
+                  placeholder="Any"
+                  onPress={() => setActiveLogSheet("meatStartTemp")}
+                  colors={colors}
+                />
+                <SettingsRow
+                  label="Injection"
+                  icon="droplet"
+                  iconColor="#6C3BF5"
+                  value={qpInjection}
+                  placeholder="Any"
+                  onPress={() => setActiveLogSheet("injection")}
+                  colors={colors}
+                />
+                <SettingsRow
+                  label="Spritz Frequency"
+                  icon="wind"
+                  iconColor="#0EA5E9"
+                  value={qpSpritz}
+                  placeholder="Any"
+                  onPress={() => setActiveLogSheet("spritz")}
+                  colors={colors}
+                />
+                <SettingsRow
+                  label="Wrap / Finish"
+                  icon="package"
+                  iconColor="#F59E0B"
+                  value={qpWrap}
+                  placeholder="Any"
+                  onPress={() => setActiveLogSheet("wrapFinish")}
+                  colors={colors}
+                  isLast
+                />
+              </View>
+            </View>
+
             <View style={s.fieldWrap}>
               <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Cook notes</Text>
-              {/* Quick-add wrap/finish tags */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={[qs.chipScroll, { marginBottom: 8 }]}
-              >
-                {QP_WRAP_FINISH_OPTIONS.map((tag) => {
-                  const active = activeCookNoteTags.includes(tag);
-                  return (
-                    <Pressable
-                      key={tag}
-                      onPress={() => {
-                        if (active) {
-                          setActiveCookNoteTags((prev) => prev.filter((t) => t !== tag));
-                          setCookNotes((prev) => {
-                            const parts = prev.split(" · ").map((p) => p.trim()).filter((p) => p !== tag && p !== "");
-                            return parts.join(" · ");
-                          });
-                        } else {
-                          setActiveCookNoteTags((prev) => [...prev, tag]);
-                          setCookNotes((prev) => (prev.trim() ? `${prev.trim()} · ${tag}` : tag));
-                        }
-                      }}
-                      style={[
-                        qs.chip,
-                        {
-                          borderColor: active ? colors.primary : colors.border,
-                          backgroundColor: active ? colors.primary + "20" : "transparent",
-                          borderRadius: colors.radius,
-                        },
-                      ]}
-                    >
-                      <Text style={[qs.chipText, { color: active ? colors.primary : colors.mutedForeground }]}>
-                        {tag}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
               <TextInput
                 style={[s.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius }]}
                 placeholder="Anything worth remembering — wood type, rubs, tweaks…"
@@ -1924,8 +1952,3 @@ const dp2 = StyleSheet.create({
   rowSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
 });
 
-const qs = StyleSheet.create({
-  chipScroll: { flexDirection: "row", gap: 7, paddingVertical: 2 },
-  chip: { paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1 },
-  chipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
-});
