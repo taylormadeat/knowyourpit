@@ -262,7 +262,7 @@ export default function Home() {
               transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
               className="flex justify-center md:flex-shrink-0"
             >
-              <div className="relative w-[min(260px,80vw)] sm:w-[280px] md:w-[300px] lg:w-[320px]">
+              <div className="relative w-[min(220px,80vw)] sm:w-[240px] md:w-[220px] lg:w-[240px]">
                 <div className="relative aspect-[35/76] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(221,107,32,0.45)] overflow-hidden">
                   <img
                     src={`${BASE}ss-live-cook.jpg`}
