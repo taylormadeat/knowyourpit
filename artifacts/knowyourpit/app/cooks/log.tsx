@@ -41,7 +41,6 @@ import {
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
 } from "@workspace/api-client-react";
-import { useMeaterReadings, type MeaterProbe } from "@/hooks/useMeaterReadings";
 import { MEAT_CATEGORIES, MEAT_CUTS, MEAT_CUTS_BY_CATEGORY, type MeatCut } from "@/constants/meatCuts";
 import {
   QP_COOK_METHODS,
@@ -217,7 +216,6 @@ export default function LogCookScreen() {
   // Used to surface a "Grading & saving…" label on the Save button so the
   // user knows what is happening during the (potentially slow) AI call.
   const [autoGrading, setAutoGrading] = useState(false);
-  const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
   const [meatPickerVisible, setMeatPickerVisible] = useState(false);
   const [meatCatTab, setMeatCatTab] = useState<string>(MEAT_CATEGORIES[0]);
   const [aiScanned, setAiScanned] = useState(false);
@@ -349,22 +347,7 @@ export default function LogCookScreen() {
     );
   }
 
-  const { data: meaterData } = useMeaterReadings();
-  const activeProbes: MeaterProbe[] = meaterData?.linked ? (meaterData.probes ?? []) : [];
 
-  const selectProbe = (probe: MeaterProbe) => {
-    if (selectedProbeId === probe.deviceId) {
-      setSelectedProbeId(null);
-      return;
-    }
-    setSelectedProbeId(probe.deviceId);
-    if (probe.targetMaxTempF != null && !targetTempF.trim()) {
-      setTargetTempF(String(probe.targetMaxTempF));
-    }
-    if (probe.cookName && !foodType.trim()) {
-      setFoodType(probe.cookName);
-    }
-  };
 
   const todayCal = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
   const calRows = useMemo(() => {
@@ -1024,81 +1007,6 @@ export default function LogCookScreen() {
           )}
         </View>
 
-        {/* ── Live MEATER probes ────────────────────── */}
-        {activeProbes.length > 0 && (
-          <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-            <View style={s.sectionHeader}>
-              <LinearGradient colors={["#E84820", "#FF6B2B"]} style={s.sectionIcon}>
-                <Feather name="thermometer" size={15} color="#fff" />
-              </LinearGradient>
-              <View style={{ flex: 1 }}>
-                <Text style={[s.sectionTitle, { color: colors.foreground }]}>Live MEATER Probes</Text>
-                <Text style={[s.sectionSub, { color: colors.mutedForeground }]}>
-                  Select a probe to auto-fill temperature from your active cook
-                </Text>
-              </View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#34C759" }} />
-                <Text style={{ fontSize: 10, color: "#34C759", fontFamily: "Inter_600SemiBold" }}>LIVE</Text>
-              </View>
-            </View>
-
-            {activeProbes.map((probe) => {
-              const isSelected = selectedProbeId === probe.deviceId;
-              return (
-                <Pressable
-                  key={probe.deviceId}
-                  onPress={() => selectProbe(probe)}
-                  style={({ pressed }) => [
-                    s.probePickRow,
-                    {
-                      borderColor: isSelected ? "#E84820" : colors.border,
-                      backgroundColor: isSelected ? "#E8482008" : "transparent",
-                      borderRadius: colors.radius,
-                    },
-                    pressed && { opacity: 0.75 },
-                  ]}
-                >
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={{ color: colors.foreground, fontSize: 14, fontFamily: "Inter_600SemiBold" }}>
-                      {probe.deviceName}
-                    </Text>
-                    {probe.cookName ? (
-                      <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular" }}>
-                        {probe.cookName}{probe.cookState ? ` · ${probe.cookState}` : ""}
-                      </Text>
-                    ) : null}
-                  </View>
-                  {probe.internalTempF != null && (
-                    <View style={[s.probeTempBadge, { backgroundColor: "#E84820" + "18" }]}>
-                      <Text style={{ color: "#E84820", fontSize: 15, fontFamily: "Inter_700Bold" }}>
-                        {probe.internalTempF}°F
-                      </Text>
-                    </View>
-                  )}
-                  <View style={[
-                    s.probeSelectCircle,
-                    {
-                      borderColor: isSelected ? "#E84820" : colors.border,
-                      backgroundColor: isSelected ? "#E84820" : "transparent",
-                    },
-                  ]}>
-                    {isSelected && <Feather name="check" size={12} color="#fff" />}
-                  </View>
-                </Pressable>
-              );
-            })}
-
-            {selectedProbeId && (
-              <View style={[s.probeLinkedBanner, { backgroundColor: "#E84820" + "10", borderColor: "#E84820" + "30", borderRadius: colors.radius }]}>
-                <Feather name="link" size={13} color="#E84820" />
-                <Text style={{ color: "#E84820", fontSize: 12, fontFamily: "Inter_500Medium", flex: 1 }}>
-                  Probe linked — temperature field has been auto-filled from your live cook
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
 
         {/* ── Manual entry form ─────────────────────── */}
         <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
