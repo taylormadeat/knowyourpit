@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
-import { db, cooksTable, grillsTable, alertsTable, cookCheckins } from "@workspace/db";
+import { eq, and, desc } from "drizzle-orm";
+import { db, cooksTable, grillsTable, alertsTable, cookCheckins, temperatureReadingsTable } from "@workspace/db";
 import {
   CreateCookBody,
   UpdateCookBody,
@@ -143,7 +143,17 @@ router.get("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => {
     const [grill] = await db.select({ name: grillsTable.name }).from(grillsTable).where(eq(grillsTable.id, cook.grillId));
     grillName = grill?.name ?? null;
   }
-  res.json({ ...cook, grillName });
+  let currentTempF: number | null = null;
+  if (cook.status === "active") {
+    const [latest] = await db
+      .select({ tempF: temperatureReadingsTable.tempF })
+      .from(temperatureReadingsTable)
+      .where(eq(temperatureReadingsTable.cookId, cook.id))
+      .orderBy(desc(temperatureReadingsTable.recordedAt))
+      .limit(1);
+    currentTempF = latest?.tempF ?? null;
+  }
+  res.json({ ...cook, grillName, currentTempF });
 });
 
 router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => {

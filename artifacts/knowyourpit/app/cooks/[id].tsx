@@ -1672,6 +1672,17 @@ export default function CookDetailScreen() {
     }, []),
   );
 
+  // Refresh the cook record (including currentTempF) every time the screen
+  // regains focus. Unlike refetchOnWindowFocus (which fires on app foregrounding),
+  // this fires on every Expo Router navigation back to this screen — covering the
+  // case where the user navigates away then returns while the app stays active.
+  const cookIdForFocus = Number(id);
+  useFocusEffect(
+    useCallback(() => {
+      qc.invalidateQueries({ queryKey: getGetCookQueryKey(cookIdForFocus) });
+    }, [cookIdForFocus, qc]),
+  );
+
   // Stable ref to analyze + the data the auto tick reads, so the timer
   // effect can have a small, stable dependency list.
   const autoTickRef = useRef<{
@@ -1932,6 +1943,37 @@ export default function CookDetailScreen() {
             </View>
           ) : null}
         </View>
+
+        {/* ── Live probe temperature chips (active cooks) ──────────────── */}
+        {cookStatus === "active" && (() => {
+          const liveProbeTemp = meaterProbes[0]?.internalTempF ?? thermoworksProbes[0]?.tempF ?? cook?.currentTempF ?? null;
+          if (c.targetTempF == null && c.cookTempF == null && liveProbeTemp == null) return null;
+          return (
+            <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+              {c.targetTempF != null && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: "#22c55e12", borderWidth: 1, borderColor: "#22c55e30" }}>
+                  <Feather name="thermometer" size={11} color="#22c55e" />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#22c55e" }}>{c.targetTempF}°F</Text>
+                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "#22c55e99" }}>target</Text>
+                </View>
+              )}
+              {c.cookTempF != null && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: "#3b82f612", borderWidth: 1, borderColor: "#3b82f630" }}>
+                  <Feather name="wind" size={11} color="#3b82f6" />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#3b82f6" }}>{c.cookTempF}°F</Text>
+                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "#3b82f699" }}>pit</Text>
+                </View>
+              )}
+              {liveProbeTemp != null && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: "#F59E0B12", borderWidth: 1, borderColor: "#F59E0B30" }}>
+                  <Feather name="activity" size={11} color="#F59E0B" />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#F59E0B" }}>{Math.round(liveProbeTemp)}°F</Text>
+                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "#F59E0B99" }}>probe</Text>
+                </View>
+              )}
+            </View>
+          );
+        })()}
 
         {/* ── Finish confidence window (active cooks with computed range) ─── */}
         {cookStatus === "active" && (() => {
