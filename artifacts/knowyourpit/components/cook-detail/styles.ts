@@ -18,10 +18,6 @@ export const s = StyleSheet.create({
   statusText: { fontSize: 13, fontFamily: "Inter_700Bold", letterSpacing: 1 },
 
   card: { borderWidth: 1 },
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 14 },
-  rowLabel: { fontSize: 14, fontFamily: "Inter_500Medium" },
-  rowValue: { fontSize: 14, fontFamily: "Inter_400Regular", maxWidth: "55%", textAlign: "right" },
-  notesLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginBottom: 6 },
   notesText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
 
   sectionHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderBottomWidth: 1 },
@@ -43,31 +39,13 @@ export const s = StyleSheet.create({
   detailsToggle: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderTopWidth: 1, paddingVertical: 12 },
   detailsToggleText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 
-  gradeCard: { borderWidth: 2, flexDirection: "row", alignItems: "center", padding: 16, gap: 16 },
-  gradeLeft: { alignItems: "center", minWidth: 52 },
-  gradeLetter: { fontSize: 44, fontFamily: "Inter_700Bold", lineHeight: 50 },
-  gradeNote: { fontSize: 11, fontFamily: "Inter_500Medium", textAlign: "center", marginTop: 2 },
-  gradeRight: { flex: 1, gap: 6 },
-  gradeTitle: { fontSize: 13, fontFamily: "Inter_700Bold" },
-  gradeBarTrack: { height: 6, borderRadius: 3, overflow: "hidden" },
   gradeBarFill: { height: 6, borderRadius: 3 },
-  gradeDeviation: { fontSize: 12, fontFamily: "Inter_400Regular" },
 
   logSection: { borderWidth: 1, padding: 16, gap: 14 },
   logHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   logIconWrap: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center", marginTop: 2 },
   logTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
   logSub: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17, marginTop: 3 },
-
-  photoBtns: { flexDirection: "row", gap: 10 },
-  photoBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderWidth: 1, paddingVertical: 10 },
-  photoBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-
-  thumbRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  thumb: { position: "relative" },
-  thumbImg: { width: 72, height: 72, borderRadius: 8 },
-  thumbDel: { position: "absolute", top: 3, right: 3, width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center" },
-  addMoreThumb: { width: 72, height: 72, alignItems: "center", justifyContent: "center", borderWidth: 1, borderStyle: "dashed" },
 
   notesInputLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginBottom: 6 },
   notesInput: { borderWidth: 1, padding: 12, fontSize: 14, fontFamily: "Inter_400Regular", minHeight: 80 },
@@ -229,19 +207,12 @@ export const s = StyleSheet.create({
   historySummary: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
   historyNotes: { fontSize: 11, fontFamily: "Inter_400Regular", fontStyle: "italic" },
 
-  metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, borderTopWidth: 1, paddingTop: 10 },
-  metaPill: { flexDirection: "row", alignItems: "center", gap: 5 },
-  metaText: { fontSize: 12, fontFamily: "Inter_400Regular" },
-
   actionBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, height: 52 },
   actionText: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: "#fff" },
   homeLink: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8 },
   homeLinkText: { fontSize: 13, fontFamily: "Inter_400Regular" },
 
   editBtn: { padding: 4 },
-  gradePrompt: { flexDirection: "row", alignItems: "flex-start", gap: 12, borderWidth: 1, padding: 14 },
-  gradePromptTitle: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: 3 },
-  gradePromptSub: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
 
   editHeader: { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingBottom: 16, gap: 10 },
   editFireBar: { height: 2 },
@@ -256,8 +227,6 @@ export const s = StyleSheet.create({
   editPickerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   editRow2: { flexDirection: "row", gap: 12 },
   editTextArea: { borderWidth: 1, padding: 12, fontSize: 14, fontFamily: "Inter_400Regular", minHeight: 100, lineHeight: 20 },
-  nowBtn: { borderWidth: 1, height: 44, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
-  nowBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   editPickerBtn: { flexDirection: "row", alignItems: "center", gap: 7 },
 
   timerRow: { flexDirection: "row", gap: 10, padding: 14, borderTopWidth: 1 },
