@@ -1672,6 +1672,27 @@ export default function CookDetailScreen() {
     });
   }, [showPaywall, cook]);
 
+  // estimatedFinishMs must live BEFORE the early returns so the hook count
+  // never changes between renders (Rules of Hooks). It null-guards cook
+  // internally so it is safe to call while cook is still undefined.
+  const estimatedFinishMs = useMemo(() => {
+    if (!cook) return null;
+    const _c = cook as any;
+    if (wrapAdjustedFinishMs != null) return wrapAdjustedFinishMs;
+    const lower = _c.finishTimeRangeLower;
+    const upper = _c.finishTimeRangeUpper;
+    if (lower && upper) {
+      const upperMs = new Date(upper).getTime();
+      if (upperMs > nowMs) {
+        return (new Date(lower).getTime() + upperMs) / 2;
+      }
+    }
+    const seqFinish = cookSeqData?.schedule?.[0]?.estimatedFinishAt;
+    if (seqFinish) return new Date(seqFinish).getTime();
+    if (_c.plannedEndAt) return new Date(_c.plannedEndAt).getTime();
+    return null;
+  }, [cook, wrapAdjustedFinishMs, cookSeqData, nowMs]);
+
   if (isLoading) {
     return (
       <View style={[s.center, { backgroundColor: colors.background }]}>
@@ -1701,28 +1722,6 @@ export default function CookDetailScreen() {
 
   // Live timer computed values
   const elapsedMs = c.actualStartAt ? nowMs - new Date(c.actualStartAt).getTime() : 0;
-
-  // Best-available finish estimate for the progress bar (priority order):
-  // 1. Wrap-temp-adjusted finish (set immediately on wrap confirmation — overrides
-  //    the stale AI window so the bar updates without waiting for the next check-in)
-  // 2. AI-refined confidence window midpoint (updated live by check-in analysis)
-  // 3. sequenceData estimatedFinishAt (AI plan, rippled when steps are confirmed)
-  // 4. plannedEndAt (user-set serve time — least accurate)
-  const estimatedFinishMs = useMemo(() => {
-    if (wrapAdjustedFinishMs != null) return wrapAdjustedFinishMs;
-    const lower = c.finishTimeRangeLower;
-    const upper = c.finishTimeRangeUpper;
-    if (lower && upper) {
-      const upperMs = new Date(upper).getTime();
-      if (upperMs > nowMs) {
-        return (new Date(lower).getTime() + upperMs) / 2;
-      }
-    }
-    const seqFinish = cookSeqData?.schedule?.[0]?.estimatedFinishAt;
-    if (seqFinish) return new Date(seqFinish).getTime();
-    if (c.plannedEndAt) return new Date(c.plannedEndAt).getTime();
-    return null;
-  }, [wrapAdjustedFinishMs, c.finishTimeRangeLower, c.finishTimeRangeUpper, cookSeqData, c.plannedEndAt, nowMs]);
 
   // Remaining time for the live banner — derived from estimatedFinishMs so it
   // stays in sync with the progress bar (including wrap-temp adjustments).
