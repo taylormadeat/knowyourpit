@@ -262,16 +262,19 @@ export default function Home() {
               transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
               className="flex justify-center md:flex-shrink-0"
             >
-              <div className="relative w-[min(220px,80vw)] sm:w-[240px] md:w-[220px] lg:w-[240px]">
-                <div className="relative aspect-[35/76] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(221,107,32,0.45)] overflow-hidden">
+              {/* Fixed-height phone frame: 180px wide → 390px tall on mobile/desktop.
+                  Using explicit h/w instead of aspect-ratio prevents the frame from
+                  overflowing the section on any viewport. */}
+              <div className="relative w-[160px] h-[347px] sm:w-[180px] sm:h-[390px] md:w-[170px] md:h-[369px] lg:w-[185px] lg:h-[402px]">
+                <div className="absolute inset-0 rounded-[2rem] md:rounded-[2.5rem] border-[8px] md:border-[8px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(221,107,32,0.45)] overflow-hidden">
                   <img
                     src={`${BASE}ss-live-cook.jpg`}
                     alt="Live cook screen showing elapsed timer, probe temperature, and AI verdict banner"
-                    className="absolute inset-0 w-full h-full object-cover object-top"
+                    className="w-full h-full object-cover object-top"
                   />
                 </div>
                 {/* Glow pulse effect */}
-                <div className="absolute inset-0 rounded-[2.5rem] md:rounded-[3rem] ring-1 ring-primary/20 animate-pulse pointer-events-none" />
+                <div className="absolute inset-0 rounded-[2rem] md:rounded-[2.5rem] ring-1 ring-primary/20 animate-pulse pointer-events-none" />
               </div>
             </motion.div>
           </div>
