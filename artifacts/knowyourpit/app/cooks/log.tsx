@@ -232,6 +232,7 @@ export default function LogCookScreen() {
   const [ccMinsPerLb, setCcMinsPerLb] = useState("");
   const [ccRestMins, setCcRestMins] = useState("");
   const [ccCookMethod, setCcCookMethod] = useState("");
+  const [ccCookMethodSheetOpen, setCcCookMethodSheetOpen] = useState(false);
 
   const { data: customCutsData } = useListCustomMeatCuts();
   const customCuts: any[] = Array.isArray(customCutsData) ? customCutsData : [];
@@ -1721,23 +1722,19 @@ export default function LogCookScreen() {
                 </View>
                 <View>
                   <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 6 }]}>Cook method</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                    {COOK_METHODS.map((m) => {
-                      const active = ccCookMethod === m;
-                      return (
-                        <Pressable
-                          key={m}
-                          onPress={() => setCcCookMethod(active ? "" : m)}
-                          style={[
-                            mp.catTab,
-                            { borderColor: active ? "#E84820" : colors.border, backgroundColor: active ? "#E84820" : "transparent" },
-                          ]}
-                        >
-                          <Text style={[mp.catTabText, { color: active ? "#fff" : colors.foreground }]}>{m}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
+                  <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.background, overflow: "hidden", paddingHorizontal: 12 }}>
+                    <SettingsRow
+                      label="Cook Method"
+                      icon="thermometer"
+                      iconColor="#E84820"
+                      value={ccCookMethod || null}
+                      placeholder="Not set"
+                      onPress={() => setCcCookMethodSheetOpen(true)}
+                      onClear={() => setCcCookMethod("")}
+                      colors={colors}
+                      isLast
+                    />
+                  </View>
                 </View>
               </View>
             </ScrollView>
@@ -1761,6 +1758,17 @@ export default function LogCookScreen() {
           </View>
         </View>
       </Modal>
+
+      <OptionBottomSheet
+        visible={ccCookMethodSheetOpen}
+        title="Cook Method"
+        options={COOK_METHODS}
+        selected={ccCookMethod || null}
+        onChange={(v) => setCcCookMethod(v ?? "")}
+        onClose={() => setCcCookMethodSheetOpen(false)}
+        colors={colors}
+        allowDeselect
+      />
 
       {/* Grill picker modal */}
       <Modal

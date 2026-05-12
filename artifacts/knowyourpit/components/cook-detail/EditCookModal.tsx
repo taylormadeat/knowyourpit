@@ -473,7 +473,7 @@ export function EditCookModal(p: Props) {
 
 const ecm = StyleSheet.create({
   card: {
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     overflow: "hidden",
     paddingHorizontal: 12,
   },
