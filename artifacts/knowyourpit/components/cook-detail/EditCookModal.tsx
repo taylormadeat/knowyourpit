@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   FlatList,
+  StyleSheet,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -23,6 +24,8 @@ import {
   QP_SPRITZ_FREQUENCIES,
   QP_WRAP_FINISH_OPTIONS,
 } from "@/constants/cookQuickPicks";
+import { SettingsRow } from "@/components/plan-screen/SettingsRow";
+import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
 
 type Insets = { top: number; bottom: number; left: number; right: number };
 type Colors = any;
@@ -73,51 +76,6 @@ interface Props {
   setEditWrapFinish: (v: string | null) => void;
 }
 
-function ChipRow({
-  label,
-  options,
-  selected,
-  onSelect,
-  colors,
-}: {
-  label: string;
-  options: readonly string[];
-  selected: string | null;
-  onSelect: (v: string | null) => void;
-  colors: Colors;
-}) {
-  return (
-    <View style={{ marginBottom: 4 }}>
-      <Text style={[{ fontSize: 12, fontFamily: "Inter_500Medium", marginBottom: 6 }, { color: colors.mutedForeground }]}>
-        {label}
-      </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingRight: 4 }}>
-        {options.map((opt) => {
-          const active = selected === opt;
-          return (
-            <Pressable
-              key={opt}
-              onPress={() => onSelect(active ? null : opt)}
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: active ? "#E84820" : colors.border,
-                backgroundColor: active ? "#E8482018" : colors.card,
-              }}
-            >
-              <Text style={{ fontSize: 12, fontFamily: active ? "Inter_600SemiBold" : "Inter_400Regular", color: active ? "#E84820" : colors.foreground }}>
-                {opt}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
-}
-
 export function EditCookModal(p: Props) {
   const {
     visible, onClose, colors, insets, saveEdit, editSaving,
@@ -137,6 +95,11 @@ export function EditCookModal(p: Props) {
     editSpritzFrequency, setEditSpritzFrequency,
     editWrapFinish, setEditWrapFinish,
   } = p;
+
+  const [cookMethodSheetOpen, setCookMethodSheetOpen] = useState(false);
+  const [injectionSheetOpen, setInjectionSheetOpen] = useState(false);
+  const [spritzSheetOpen, setSpritzSheetOpen] = useState(false);
+  const [wrapFinishSheetOpen, setWrapFinishSheetOpen] = useState(false);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -270,36 +233,47 @@ export function EditCookModal(p: Props) {
             </View>
           </View>
 
-          <View style={[s.editFieldWrap, { gap: 12 }]}>
+          <View style={s.editFieldWrap}>
             <Text style={[s.editLabel, { color: colors.mutedForeground }]}>Techniques</Text>
-            <ChipRow
-              label="Cooking Method"
-              options={QP_COOK_METHODS}
-              selected={editCookingMethod}
-              onSelect={setEditCookingMethod}
-              colors={colors}
-            />
-            <ChipRow
-              label="Injection"
-              options={QP_INJECTION_OPTIONS}
-              selected={editInjection}
-              onSelect={setEditInjection}
-              colors={colors}
-            />
-            <ChipRow
-              label="Spritz Frequency"
-              options={QP_SPRITZ_FREQUENCIES}
-              selected={editSpritzFrequency}
-              onSelect={setEditSpritzFrequency}
-              colors={colors}
-            />
-            <ChipRow
-              label="Wrap / Finish"
-              options={QP_WRAP_FINISH_OPTIONS}
-              selected={editWrapFinish}
-              onSelect={setEditWrapFinish}
-              colors={colors}
-            />
+            <View style={[ecm.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+              <SettingsRow
+                label="Cooking Method"
+                value={editCookingMethod}
+                placeholder="Not set"
+                icon="thermometer"
+                iconColor="#E84820"
+                onPress={() => setCookMethodSheetOpen(true)}
+                colors={colors}
+              />
+              <SettingsRow
+                label="Injection"
+                value={editInjection}
+                placeholder="Not set"
+                icon="droplet"
+                iconColor="#6C3BF5"
+                onPress={() => setInjectionSheetOpen(true)}
+                colors={colors}
+              />
+              <SettingsRow
+                label="Spritz Frequency"
+                value={editSpritzFrequency}
+                placeholder="Not set"
+                icon="wind"
+                iconColor="#0EA5E9"
+                onPress={() => setSpritzSheetOpen(true)}
+                colors={colors}
+              />
+              <SettingsRow
+                label="Wrap / Finish"
+                value={editWrapFinish}
+                placeholder="Not set"
+                icon="package"
+                iconColor="#F59E0B"
+                onPress={() => setWrapFinishSheetOpen(true)}
+                colors={colors}
+                isLast
+              />
+            </View>
           </View>
 
           <View style={s.editFieldWrap}>
@@ -318,6 +292,46 @@ export function EditCookModal(p: Props) {
 
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <OptionBottomSheet
+        visible={cookMethodSheetOpen}
+        title="Cooking Method"
+        options={QP_COOK_METHODS}
+        selected={editCookingMethod}
+        onChange={setEditCookingMethod}
+        onClose={() => setCookMethodSheetOpen(false)}
+        colors={colors}
+      />
+
+      <OptionBottomSheet
+        visible={injectionSheetOpen}
+        title="Injection"
+        options={QP_INJECTION_OPTIONS}
+        selected={editInjection}
+        onChange={setEditInjection}
+        onClose={() => setInjectionSheetOpen(false)}
+        colors={colors}
+      />
+
+      <OptionBottomSheet
+        visible={spritzSheetOpen}
+        title="Spritz Frequency"
+        options={QP_SPRITZ_FREQUENCIES}
+        selected={editSpritzFrequency}
+        onChange={setEditSpritzFrequency}
+        onClose={() => setSpritzSheetOpen(false)}
+        colors={colors}
+      />
+
+      <OptionBottomSheet
+        visible={wrapFinishSheetOpen}
+        title="Wrap / Finish"
+        options={QP_WRAP_FINISH_OPTIONS}
+        selected={editWrapFinish}
+        onChange={setEditWrapFinish}
+        onClose={() => setWrapFinishSheetOpen(false)}
+        colors={colors}
+      />
 
       <Modal visible={editStartDateOpen} animationType="slide" transparent onRequestClose={() => setEditStartDateOpen(false)}>
         <View style={edt.overlay}>
@@ -452,3 +466,11 @@ export function EditCookModal(p: Props) {
     </Modal>
   );
 }
+
+const ecm = StyleSheet.create({
+  card: {
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+    paddingHorizontal: 12,
+  },
+});
