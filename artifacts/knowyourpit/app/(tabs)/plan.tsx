@@ -1783,6 +1783,7 @@ export default function PlanScreen() {
                       value={qpCookMethod}
                       placeholder="Any"
                       onPress={() => setActiveSheet("cookMethod")}
+                      onClear={() => setQpCookMethod(null)}
                       colors={colors}
                     />
                     <SettingsRow
@@ -1791,6 +1792,7 @@ export default function PlanScreen() {
                       value={qpMeatStartTemp}
                       placeholder="Any"
                       onPress={() => setActiveSheet("meatStartTemp")}
+                      onClear={() => setQpMeatStartTemp(null)}
                       colors={colors}
                     />
                     <SettingsRow
@@ -1799,6 +1801,7 @@ export default function PlanScreen() {
                       value={qpInjection}
                       placeholder="Any"
                       onPress={() => setActiveSheet("injection")}
+                      onClear={() => setQpInjection(null)}
                       colors={colors}
                     />
                     <SettingsRow
@@ -1807,6 +1810,7 @@ export default function PlanScreen() {
                       value={qpSpritz}
                       placeholder="Any"
                       onPress={() => setActiveSheet("spritz")}
+                      onClear={() => setQpSpritz(null)}
                       colors={colors}
                     />
                     <SettingsRow
@@ -1815,6 +1819,7 @@ export default function PlanScreen() {
                       value={qpWrapFinish}
                       placeholder="Any"
                       onPress={() => setActiveSheet("wrapFinish")}
+                      onClear={() => setQpWrapFinish(null)}
                       colors={colors}
                       isLast
                     />
