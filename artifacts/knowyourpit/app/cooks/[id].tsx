@@ -114,9 +114,10 @@ import {
   rescheduleCheckinNotifications,
   cancelStoredCheckinNotifications,
   cancelCheckinNotificationForPhase,
+  useStoredScheduledCheckins,
 } from "@/hooks/useCheckinNotifications";
 import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
-import { getCheckinSchedule, generateCheckinSchedule } from "@/constants/checkinKnowledge";
+import { getCheckinSchedule } from "@/constants/checkinKnowledge";
 import type { CookCheckin } from "@workspace/api-client-react";
 import { SettingsRow } from "@/components/plan-screen/SettingsRow";
 import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
@@ -713,6 +714,7 @@ export default function CookDetailScreen() {
   );
   // Smart check-in notifications — fire at BBQ milestone points while cook is active.
   useCheckinNotifications(Number(id) || null, cookStatus, cookSeqData);
+  const storedScheduledCheckins = useStoredScheduledCheckins(cookStatus === "active" ? Number(id) || null : null);
   // Background / cross-screen deep link: consume pending check-in notification
   // placed by the _layout.tsx router handler when the user was NOT on this cook
   // screen at the time of the notification tap.
@@ -1982,10 +1984,7 @@ export default function CookDetailScreen() {
             colors={colors}
             cookStatus={cookStatus}
             checkinCount={(cookCheckins as CookCheckin[]).length}
-            lastDecision={cookStatus === "active" ? (() => {
-              const decisions: any[] = (c as any)?.analysisResult?.decisions ?? [];
-              return decisions.length > 0 ? decisions[0] : null;
-            })() : null}
+            lastDecision={cookStatus === "active" ? (c.analysisResult?.decisions?.[0] ?? null) : null}
           />
         )}
 
@@ -2077,18 +2076,19 @@ export default function CookDetailScreen() {
           setAlertMode={setAlertMode}
           activeCookAlerts={activeCookAlerts}
           nowMs={nowMs}
-          targetTempF={(c as any).targetTempF ?? null}
-          cookTempF={(c as any).cookTempF ?? null}
-          onViewDetails={() => setPlanSheetVisible(true)}
+          targetTempF={c.targetTempF ?? null}
+          cookTempF={c.cookTempF ?? null}
         />
-        <CookSummaryCard
-          c={c}
-          colors={colors}
-          cookStatus={cookStatus}
-          nowMs={nowMs}
-          planSheetVisible={planSheetVisible}
-          setPlanSheetVisible={setPlanSheetVisible}
-        />
+        {cookStatus !== "active" && (
+          <CookSummaryCard
+            c={c}
+            colors={colors}
+            cookStatus={cookStatus}
+            nowMs={nowMs}
+            planSheetVisible={planSheetVisible}
+            setPlanSheetVisible={setPlanSheetVisible}
+          />
+        )}
 
         {/* ── Start Cook CTA (planned cooks only, above the schedule) ── */}
         {cookStatus === "planned" && (
@@ -2141,7 +2141,7 @@ export default function CookDetailScreen() {
                     ))}
                   </View>
                 )}
-                <Feather name={techsExpanded ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} />
+                <Feather name={techsExpanded ? "chevron-down" : "chevron-right"} size={14} color={colors.mutedForeground} />
               </Pressable>
               {techsExpanded && (
                 <View style={{ paddingHorizontal: 14, paddingBottom: 4 }}>
@@ -2421,39 +2421,24 @@ export default function CookDetailScreen() {
         />
 
         {/* ── Check-in History (AI analysis history + upcoming planned) ────────── */}
-        {(() => {
-          const plannedCheckins: ScheduledCheckin[] = (() => {
-            if (cookStatus !== "active") return [];
-            const meatOnAt = (c as any).meatOnAt ?? c.actualStartAt;
-            const estimatedFinishAt = (c as any).estimatedFinishAt ?? c.plannedEndAt;
-            if (!meatOnAt || !estimatedFinishAt) return [];
-            const meatOnAtMs = new Date(meatOnAt).getTime();
-            const estimatedFinishAtMs = new Date(estimatedFinishAt).getTime();
-            if (estimatedFinishAtMs <= meatOnAtMs) return [];
-            const anchor = { meatOnAt, estimatedFinishAt, wrapAtMinutes: c.wrapAtMinutes ?? null };
-            const all = generateCheckinSchedule(c.foodType, meatOnAtMs, estimatedFinishAtMs, anchor, c.weightLbs ?? null);
-            const completedKeys = new Set<string>(
-              ((c as any).analysisHistory ?? []).map((e: any) => e.phaseKey).filter(Boolean),
-            );
-            return all.filter(
-              (sc) => !completedKeys.has(sc.phaseKey) && !removedPlannedKeys.has(sc.phaseKey) && sc.scheduledAt > nowMs,
-            );
-          })();
-          return (
-            <CheckInHistory
-              c={c}
-              colors={colors}
-              effectivePro={effectivePro}
-              isIdentityLinked={isIdentityLinked}
-              showPaywall={showPaywall}
-              plannedCheckins={plannedCheckins}
-              onRemovePlanned={(phaseKey) => {
-                setRemovedPlannedKeys((prev) => new Set([...prev, phaseKey]));
-                cancelCheckinNotificationForPhase(Number(id), phaseKey).catch(() => {});
-              }}
-            />
-          );
-        })()}
+        <CheckInHistory
+          c={c}
+          colors={colors}
+          effectivePro={effectivePro}
+          isIdentityLinked={isIdentityLinked}
+          showPaywall={showPaywall}
+          plannedCheckins={
+            cookStatus === "active"
+              ? storedScheduledCheckins.filter(
+                  (sc) => !removedPlannedKeys.has(sc.phaseKey) && sc.scheduledAt > nowMs,
+                )
+              : []
+          }
+          onRemovePlanned={(phaseKey) => {
+            setRemovedPlannedKeys((prev) => new Set([...prev, phaseKey]));
+            cancelCheckinNotificationForPhase(Number(id), phaseKey).catch(() => {});
+          }}
+        />
 
         {/* Status action button — hidden for planned (the prominent Start Cook CTA above handles that) */}
         {nextStatus && cookStatus !== "planned" && (

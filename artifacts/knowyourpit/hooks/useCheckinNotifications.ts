@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -37,16 +37,19 @@ export async function cancelStoredCheckinNotifications(cookId: number): Promise<
 }
 
 const CHECKIN_PHASE_MAP_SUFFIX = "_phasemap";
+const CHECKIN_SCHEDULED_SUFFIX = "_scheduled";
 
 async function storeCheckinNotificationIds(
   cookId: number,
   ids: string[],
   phaseMap: Record<string, string>,
+  checkins: ScheduledCheckin[],
 ): Promise<void> {
   try {
     await AsyncStorage.multiSet([
       [`${CHECKIN_NOTIF_IDS_KEY_PREFIX}${cookId}`, JSON.stringify(ids)],
       [`${CHECKIN_NOTIF_IDS_KEY_PREFIX}${cookId}${CHECKIN_PHASE_MAP_SUFFIX}`, JSON.stringify(phaseMap)],
+      [`${CHECKIN_NOTIF_IDS_KEY_PREFIX}${cookId}${CHECKIN_SCHEDULED_SUFFIX}`, JSON.stringify(checkins)],
     ]);
   } catch (err) {
     console.warn("[checkin] storeCheckinNotificationIds failed:", err);
@@ -73,6 +76,7 @@ export async function cancelCheckinNotificationForPhase(
     const phaseMap: Record<string, string> = mapStr ? JSON.parse(mapStr) : {};
     const ids: string[] = idsStr ? JSON.parse(idsStr) : [];
 
+    const scheduledKey = `${CHECKIN_NOTIF_IDS_KEY_PREFIX}${cookId}${CHECKIN_SCHEDULED_SUFFIX}`;
     const notifId = phaseMap[phaseKey];
     if (notifId) {
       await Notifications.cancelScheduledNotificationAsync(notifId).catch((err) => {
@@ -80,9 +84,13 @@ export async function cancelCheckinNotificationForPhase(
       });
       delete phaseMap[phaseKey];
       const updatedIds = ids.filter((id) => id !== notifId);
+      const [scheduledStr] = await AsyncStorage.multiGet([scheduledKey]).then((p) => p.map((x) => x[1]));
+      const storedCheckins: ScheduledCheckin[] = scheduledStr ? JSON.parse(scheduledStr) : [];
+      const updatedCheckins = storedCheckins.filter((sc) => sc.phaseKey !== phaseKey);
       await AsyncStorage.multiSet([
         [mapKey, JSON.stringify(phaseMap)],
         [idsKey, JSON.stringify(updatedIds)],
+        [scheduledKey, JSON.stringify(updatedCheckins)],
       ]);
     }
   } catch (err) {
@@ -147,7 +155,7 @@ export async function scheduleCheckinNotifications(
     }
   }
 
-  if (isCurrent()) await storeCheckinNotificationIds(cookId, ids, phaseMap);
+  if (isCurrent()) await storeCheckinNotificationIds(cookId, ids, phaseMap, checkins);
 }
 
 // ---------------------------------------------------------------------------
@@ -354,6 +362,34 @@ export function useCheckinNotifications(
       await scheduleCheckinNotifications(cookId, checkins, foodType, isCurrent);
     })().catch(() => {});
   }, [cookId, cookStatus, depKey]);
+}
+
+/**
+ * Returns the set of ScheduledCheckin items that are currently scheduled on
+ * this device for the given cook. Reads from AsyncStorage (persisted by
+ * scheduleCheckinNotifications) so the UI reflects the actual device state
+ * rather than a re-generated estimate. Returns an empty array on web or
+ * when no schedule has been persisted yet.
+ */
+export function useStoredScheduledCheckins(
+  cookId: number | null | undefined,
+): ScheduledCheckin[] {
+  const [checkins, setCheckins] = useState<ScheduledCheckin[]>([]);
+
+  useEffect(() => {
+    if (!cookId || Platform.OS === "web") {
+      setCheckins([]);
+      return;
+    }
+    const key = `${CHECKIN_NOTIF_IDS_KEY_PREFIX}${cookId}${CHECKIN_SCHEDULED_SUFFIX}`;
+    AsyncStorage.getItem(key)
+      .then((stored) => {
+        setCheckins(stored ? (JSON.parse(stored) as ScheduledCheckin[]) : []);
+      })
+      .catch(() => setCheckins([]));
+  }, [cookId]);
+
+  return checkins;
 }
 
 /**
