@@ -1820,10 +1820,6 @@ const s = StyleSheet.create({
   nowBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   pickerBtn: { flexDirection: "row", alignItems: "center", gap: 7 },
 
-  probePickRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12, paddingHorizontal: 10, borderWidth: 1, marginBottom: 8 },
-  probeTempBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  probeSelectCircle: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
-  probeLinkedBanner: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, borderWidth: 1, marginTop: 4 },
 });
 
 const gp = StyleSheet.create({
