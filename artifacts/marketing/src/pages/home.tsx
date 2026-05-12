@@ -281,6 +281,78 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ─── Multi-Cook Mode ─────────────────────────────────────────────── */}
+      <section className="py-16 md:py-24 bg-background border-b border-white/5">
+        <div className="container px-4">
+          <div className="flex flex-col md:flex-row md:items-center md:gap-16 lg:gap-24 max-w-5xl mx-auto">
+            {/* Text */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
+              className="flex flex-col items-center md:items-start text-center md:text-left md:flex-1 mb-10 md:mb-0"
+            >
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4">
+                <Layers className="w-3.5 h-3.5" />
+                Multi-Cook
+              </span>
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
+                Cook everything.<br />Finish at once.
+              </h2>
+              <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-6">
+                Running ribs, brisket, and wings across two grills? Add each item, pick your serve time, and PitMaster sequences every start time so everything hits the table together.
+              </p>
+              <ul className="space-y-3 text-sm md:text-base text-muted-foreground mb-8 text-left w-full max-w-sm md:max-w-none">
+                {[
+                  "Assign each item to whichever grill it belongs on",
+                  "AI calculates start times so every cut finishes at once",
+                  "Per-item step timeline — light, load, wrap, and pull times included",
+                ].map((point) => (
+                  <li key={point} className="flex items-start gap-3">
+                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
+              <AppStoreButton label="Plan your next cook" className="w-full sm:w-auto" />
+            </motion.div>
+
+            {/* Two phones — staggered */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
+              className="flex justify-center md:flex-shrink-0 gap-3 items-start"
+            >
+              {/* Phone 1 — setup screen, shifted down */}
+              <div className="relative w-[120px] h-[260px] sm:w-[130px] sm:h-[282px] md:w-[125px] md:h-[271px] lg:w-[138px] lg:h-[299px] mt-8">
+                <div className="absolute inset-0 rounded-[1.75rem] border-[7px] border-zinc-800 bg-black shadow-[0_20px_60px_-15px_rgba(221,107,32,0.3)] overflow-hidden">
+                  <img
+                    src={`${BASE}ss-multi-grill-assign.png`}
+                    alt="Multi-Cook setup screen with Spare Ribs, Oxtail, and Chicken Wings assigned to two different grills"
+                    className="w-full h-full object-cover object-top"
+                  />
+                </div>
+                <div className="absolute inset-0 rounded-[1.75rem] ring-1 ring-primary/15 pointer-events-none" />
+              </div>
+              {/* Phone 2 — sequence result */}
+              <div className="relative w-[120px] h-[260px] sm:w-[130px] sm:h-[282px] md:w-[125px] md:h-[271px] lg:w-[138px] lg:h-[299px]">
+                <div className="absolute inset-0 rounded-[1.75rem] border-[7px] border-zinc-800 bg-black shadow-[0_20px_60px_-15px_rgba(221,107,32,0.35)] overflow-hidden">
+                  <img
+                    src={`${BASE}ss-multi-sequence-result.png`}
+                    alt="Cook Sequence result showing everything ready by 6:00 PM with per-item start times"
+                    className="w-full h-full object-cover object-top"
+                  />
+                </div>
+                <div className="absolute inset-0 rounded-[1.75rem] ring-1 ring-primary/15 pointer-events-none" />
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* ─── Inside the app (carousel) ──────────────────────────────────── */}
       <section className="py-16 md:py-24 bg-background border-b border-white/5">
         <div className="container px-4">
