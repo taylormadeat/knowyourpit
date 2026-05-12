@@ -19,6 +19,19 @@ type Colors = Record<string, unknown> & {
   background: string;
 };
 
+const URGENCY_COLORS: Record<string, string> = {
+  now: "#EF4444",
+  soon: "#F59E0B",
+  when_ready: "#6C3BF5",
+};
+
+interface LastDecision {
+  action: string;
+  urgency: string;
+  instruction: string;
+  rationale?: string;
+}
+
 const GRADE_CONFIG: Record<string, { color: string; bgColor: string; label: string }> = {
   A: { color: "#22c55e", bgColor: "#22c55e20", label: "Excellent" },
   B: { color: "#84cc16", bgColor: "#84cc1620", label: "Good" },
@@ -34,9 +47,10 @@ interface Props {
   colors: Colors;
   cookStatus: string | undefined;
   checkinCount: number;
+  lastDecision?: LastDecision | null;
 }
 
-export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount }: Props) {
+export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, lastDecision }: Props) {
   const [breakdownVisible, setBreakdownVisible] = useState(false);
 
   const { data: health, isLoading } = useGetCookHealth(cookId, {
@@ -104,12 +118,52 @@ export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount }
         </View>
 
         {checkinCount === 0 && cookStatus === "active" && (
-          <View style={{ paddingHorizontal: 14, paddingBottom: 10 }}>
+          <View style={{ paddingHorizontal: 14, paddingBottom: lastDecision ? 0 : 10 }}>
             <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground as string }}>
               Score refines after your first check-in
             </Text>
           </View>
         )}
+
+        {lastDecision && cookStatus === "active" && (() => {
+          const color = lastDecision.action === "maintain"
+            ? "#22c55e"
+            : (URGENCY_COLORS[lastDecision.urgency] ?? "#6C3BF5");
+          const urgencyLabel = lastDecision.action === "maintain"
+            ? "HOLD STEADY"
+            : lastDecision.urgency === "now"
+            ? "ACTION NEEDED"
+            : lastDecision.urgency === "soon"
+            ? "DO THIS SOON"
+            : "WHEN READY";
+          return (
+            <View style={{
+              marginHorizontal: 12,
+              marginBottom: 12,
+              marginTop: checkinCount === 0 ? 6 : 0,
+              padding: 10,
+              borderRadius: 8,
+              backgroundColor: color + "12",
+              borderWidth: 1,
+              borderColor: color + "40",
+              gap: 5,
+            }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+                <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 5, backgroundColor: color }}>
+                  <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, color: "#fff", letterSpacing: 0.5 }}>
+                    {urgencyLabel}
+                  </Text>
+                </View>
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground as string }}>
+                  Last PitMaster guidance
+                </Text>
+              </View>
+              <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.foreground as string, lineHeight: 18 }}>
+                {lastDecision.instruction}
+              </Text>
+            </View>
+          );
+        })()}
       </Pressable>
 
       <Modal visible={breakdownVisible} transparent animationType="slide" onRequestClose={() => setBreakdownVisible(false)}>

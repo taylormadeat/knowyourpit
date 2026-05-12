@@ -61,8 +61,7 @@ export function AskPitMaster(p: Props) {
     if (cardInitializedRef.current) return;
     if (!c?.status) return;
     cardInitializedRef.current = true;
-    const hasTechs = !!(c?.cookingMethod || c?.injection || c?.spritzFrequency || c?.wrapFinish);
-    if (hasTechs) setCardExpanded(false);
+    setCardExpanded(false);
   }, [c]);
 
   if (c.status !== "active") return null;

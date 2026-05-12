@@ -132,7 +132,6 @@ import { AlertSheet } from "@/components/cook-detail/AlertSheet";
 import { CheckInHistory } from "@/components/cook-detail/CheckInHistory";
 import { CheckinModal } from "@/components/cook-detail/CheckinModal";
 import { CookCheckinTimeline, CookJourneyReplay } from "@/components/cook-detail/CookCheckinTimeline";
-import { LastDecisionBanner } from "@/components/cook-detail/LastDecisionBanner";
 import { LiveCookSection } from "@/components/cook-detail/LiveCookSection";
 import { CookSummaryCard } from "@/components/cook-detail/CookSummaryCard";
 import { SequenceSchedule } from "@/components/cook-detail/SequenceSchedule";
@@ -273,6 +272,8 @@ export default function CookDetailScreen() {
   const [techSpritzSheetOpen, setTechSpritzSheetOpen] = useState(false);
   const [techWrapFinishSheetOpen, setTechWrapFinishSheetOpen] = useState(false);
   const [seqScheduleExpanded, setSeqScheduleExpanded] = useState(false);
+  const [techsExpanded, setTechsExpanded] = useState(false);
+  const [planSheetVisible, setPlanSheetVisible] = useState(false);
   const [expandedStoredSections, setExpandedStoredSections] = useState<Set<string>>(new Set());
   const [expandedResultSections, setExpandedResultSections] = useState<Set<string>>(new Set());
 
@@ -1979,6 +1980,10 @@ export default function CookDetailScreen() {
             colors={colors}
             cookStatus={cookStatus}
             checkinCount={(cookCheckins as CookCheckin[]).length}
+            lastDecision={cookStatus === "active" ? (() => {
+              const decisions: any[] = (c as any)?.analysisResult?.decisions ?? [];
+              return decisions.length > 0 ? decisions[0] : null;
+            })() : null}
           />
         )}
 
@@ -2070,13 +2075,17 @@ export default function CookDetailScreen() {
           setAlertMode={setAlertMode}
           activeCookAlerts={activeCookAlerts}
           nowMs={nowMs}
+          targetTempF={(c as any).targetTempF ?? null}
+          cookTempF={(c as any).cookTempF ?? null}
+          onViewDetails={() => setPlanSheetVisible(true)}
         />
-        <LastDecisionBanner c={c} colors={colors} />
         <CookSummaryCard
           c={c}
           colors={colors}
           cookStatus={cookStatus}
           nowMs={nowMs}
+          planSheetVisible={planSheetVisible}
+          setPlanSheetVisible={setPlanSheetVisible}
         />
 
         {/* ── Start Cook CTA (planned cooks only, above the schedule) ── */}
@@ -2105,58 +2114,78 @@ export default function CookDetailScreen() {
           </Pressable>
         )}
 
-        {/* ── Techniques Used (SettingsRow card style — tappable inline edit) ── */}
+        {/* ── Techniques Used (collapsible) ── */}
         {(() => {
           const saveTechnique = async (data: UpdateCookBody) => {
             await updateCook.mutateAsync({ id: Number(id), data });
             await qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
           };
+          const hasTechValues = !!(c.cookingMethod || c.injection || c.spritzFrequency || c.wrapFinish);
           return (
-            <View style={{ backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14 }}>
-              <Text style={{ fontFamily: "Inter_700Bold", fontSize: 12, color: colors.mutedForeground, textTransform: "uppercase", letterSpacing: 0.8, paddingTop: 14, paddingBottom: 4 }}>
-                Techniques Used
-              </Text>
-              <SettingsRow
-                label="Cooking Method"
-                value={c.cookingMethod ?? null}
-                placeholder="Not set"
-                icon="thermometer"
-                iconColor="#E84820"
-                onPress={() => setTechMethodSheetOpen(true)}
-                onClear={() => saveTechnique({ cookingMethod: null })}
-                colors={colors}
-              />
-              <SettingsRow
-                label="Injection"
-                value={c.injection ?? null}
-                placeholder="Not set"
-                icon="droplet"
-                iconColor="#6C3BF5"
-                onPress={() => setTechInjectionSheetOpen(true)}
-                onClear={() => saveTechnique({ injection: null })}
-                colors={colors}
-              />
-              <SettingsRow
-                label="Spritz Frequency"
-                value={c.spritzFrequency ?? null}
-                placeholder="Not set"
-                icon="wind"
-                iconColor="#0EA5E9"
-                onPress={() => setTechSpritzSheetOpen(true)}
-                onClear={() => saveTechnique({ spritzFrequency: null })}
-                colors={colors}
-              />
-              <SettingsRow
-                label="Wrap / Finish"
-                value={c.wrapFinish ?? null}
-                placeholder="Not set"
-                icon="package"
-                iconColor="#F59E0B"
-                onPress={() => setTechWrapFinishSheetOpen(true)}
-                onClear={() => saveTechnique({ wrapFinish: null })}
-                colors={colors}
-                isLast
-              />
+            <View style={{ backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border }}>
+              <Pressable
+                onPress={() => setTechsExpanded((v) => !v)}
+                style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, gap: 8 }}
+              >
+                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 12, color: colors.mutedForeground, textTransform: "uppercase", letterSpacing: 0.8, flex: 1 }}>
+                  Techniques Used
+                </Text>
+                {hasTechValues && !techsExpanded && (
+                  <View style={{ flexDirection: "row", gap: 5 }}>
+                    {[c.cookingMethod, c.injection, c.spritzFrequency, c.wrapFinish].filter(Boolean).map((v: string, i: number) => (
+                      <View key={i} style={{ paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, backgroundColor: colors.muted }}>
+                        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: colors.mutedForeground }}>{v}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                <Feather name={techsExpanded ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} />
+              </Pressable>
+              {techsExpanded && (
+                <View style={{ paddingHorizontal: 14, paddingBottom: 4 }}>
+                  <SettingsRow
+                    label="Cooking Method"
+                    value={c.cookingMethod ?? null}
+                    placeholder="Not set"
+                    icon="thermometer"
+                    iconColor="#E84820"
+                    onPress={() => setTechMethodSheetOpen(true)}
+                    onClear={() => saveTechnique({ cookingMethod: null })}
+                    colors={colors}
+                  />
+                  <SettingsRow
+                    label="Injection"
+                    value={c.injection ?? null}
+                    placeholder="Not set"
+                    icon="droplet"
+                    iconColor="#6C3BF5"
+                    onPress={() => setTechInjectionSheetOpen(true)}
+                    onClear={() => saveTechnique({ injection: null })}
+                    colors={colors}
+                  />
+                  <SettingsRow
+                    label="Spritz Frequency"
+                    value={c.spritzFrequency ?? null}
+                    placeholder="Not set"
+                    icon="wind"
+                    iconColor="#0EA5E9"
+                    onPress={() => setTechSpritzSheetOpen(true)}
+                    onClear={() => saveTechnique({ spritzFrequency: null })}
+                    colors={colors}
+                  />
+                  <SettingsRow
+                    label="Wrap / Finish"
+                    value={c.wrapFinish ?? null}
+                    placeholder="Not set"
+                    icon="package"
+                    iconColor="#F59E0B"
+                    onPress={() => setTechWrapFinishSheetOpen(true)}
+                    onClear={() => saveTechnique({ wrapFinish: null })}
+                    colors={colors}
+                    isLast
+                  />
+                </View>
+              )}
             </View>
           );
         })()}

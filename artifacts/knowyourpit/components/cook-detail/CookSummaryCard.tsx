@@ -13,12 +13,16 @@ interface Props {
   colors: Colors;
   cookStatus: string | undefined;
   nowMs: number;
+  planSheetVisible?: boolean;
+  setPlanSheetVisible?: (v: boolean) => void;
 }
 
 export function CookSummaryCard(p: Props) {
-  const { c, colors, cookStatus, nowMs } = p;
+  const { c, colors, cookStatus, nowMs, planSheetVisible: externalVisible, setPlanSheetVisible: setExternalVisible } = p;
   const insets = useSafeAreaInsets();
-  const [planSheetVisible, setPlanSheetVisible] = useState(false);
+  const [internalVisible, setInternalVisible] = useState(false);
+  const planSheetVisible = externalVisible !== undefined ? externalVisible : internalVisible;
+  const setPlanSheetVisible = setExternalVisible ?? setInternalVisible;
 
   const wrapStr = (() => {
     const parts: string[] = [];
@@ -36,17 +40,6 @@ export function CookSummaryCard(p: Props) {
     ? new Date(c.actualEndAt).getTime() - new Date(c.actualStartAt).getTime()
     : c.actualStartAt && cookStatus === "active" ? nowMs - new Date(c.actualStartAt).getTime() : null;
   const planGrade = cookStatus === "completed" ? computePlanGrade(c) : null;
-
-  const statTiles: { icon: string; label: string; value: string; sub?: string }[] = [];
-  if (c.targetTempF) statTiles.push({ icon: "thermometer", label: "Internal Target", value: `${c.targetTempF}°F` });
-  if (c.cookTempF) statTiles.push({ icon: "wind", label: "Pit Temp", value: `${c.cookTempF}°F` });
-  if (plannedDurMs) statTiles.push({ icon: "clock", label: "Planned", value: fmtDuration(plannedDurMs) });
-  if (actualDurMs) statTiles.push({
-    icon: cookStatus === "active" ? "loader" : "check-circle",
-    label: cookStatus === "active" ? "Elapsed" : "Actual",
-    value: fmtDuration(actualDurMs),
-  });
-  if (!statTiles.length && c.weightLbs) statTiles.push({ icon: "package", label: "Weight", value: `${c.weightLbs} lbs` });
 
   const planDetailRows = [
     { label: "Food", value: c.foodType },
@@ -73,26 +66,150 @@ export function CookSummaryCard(p: Props) {
     { label: "Actual Duration", value: actualDurMs ? fmtDuration(actualDurMs) : null },
   ].filter((r) => r.value) : [];
 
+  const planModal = (
+    <Modal
+      visible={planSheetVisible}
+      animationType="slide"
+      transparent
+      onRequestClose={() => setPlanSheetVisible(false)}
+    >
+      <View style={s.planSheetOverlay}>
+        <Pressable style={{ flex: 1 }} onPress={() => setPlanSheetVisible(false)} />
+        <View style={[s.planSheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
+          <View style={[s.planSheetHandle, { backgroundColor: colors.border }]} />
+          <View style={[s.planSheetHeader, { borderBottomColor: colors.border }]}>
+            <View style={[s.sectionIconWrap, { backgroundColor: "#3b82f618" }]}>
+              <Feather name="clipboard" size={13} color="#3b82f6" />
+            </View>
+            <Text style={[s.planSheetTitle, { color: colors.foreground }]}>The Plan</Text>
+            <Pressable onPress={() => setPlanSheetVisible(false)} style={s.planSheetClose} hitSlop={10}>
+              <Feather name="x" size={18} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={s.planGrid}>
+              {planDetailRows.map((row, i) => {
+                const isLast = i === planDetailRows.length - 1;
+                const isOdd = planDetailRows.length % 2 !== 0;
+                const isLastSolo = isOdd && isLast;
+
+                if (isLastSolo) {
+                  return (
+                    <View
+                      key={row.label}
+                      style={[
+                        s.planGridCellFull,
+                        { borderTopColor: colors.border, borderBottomColor: colors.border },
+                      ]}
+                    >
+                      <Text style={[s.planGridCellLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
+                      <Text style={[s.planGridCellValue, { color: colors.foreground }]}>{row.value}</Text>
+                    </View>
+                  );
+                }
+
+                if (i % 2 === 1) return null;
+
+                const nextRow = planDetailRows[i + 1];
+                return (
+                  <View key={row.label} style={[s.planGridRow, { borderTopColor: colors.border }]}>
+                    <View style={[s.planGridCell, { borderRightColor: colors.border }]}>
+                      <Text style={[s.planGridCellLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
+                      <Text style={[s.planGridCellValue, { color: colors.foreground }]}>{row.value}</Text>
+                    </View>
+                    {nextRow ? (
+                      <View style={s.planGridCell}>
+                        <Text style={[s.planGridCellLabel, { color: colors.mutedForeground }]}>{nextRow.label}</Text>
+                        <Text style={[s.planGridCellValue, { color: colors.foreground }]}>{nextRow.value}</Text>
+                      </View>
+                    ) : (
+                      <View style={s.planGridCell} />
+                    )}
+                  </View>
+                );
+              })}
+
+              {planFullWidthRows.map((row) => (
+                <View
+                  key={row.label}
+                  style={[s.planGridCellFull, { borderTopColor: colors.border, borderBottomColor: colors.border }]}
+                >
+                  <Text style={[s.planGridCellLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
+                  <Text style={[s.notesText, { color: colors.foreground, marginTop: 4 }]}>{row.value}</Text>
+                </View>
+              ))}
+            </View>
+
+            {actualDetailRows.length > 0 && (
+              <>
+                <View style={[s.sectionHeaderRow, { borderBottomColor: colors.border, borderTopWidth: 1, borderTopColor: colors.border, marginTop: 8 }]}>
+                  <View style={[s.sectionIconWrap, { backgroundColor: "#22c55e18" }]}>
+                    <Feather name="bar-chart-2" size={13} color="#22c55e" />
+                  </View>
+                  <Text style={[s.sectionHeaderLabel, { color: "#22c55e" }]}>How It Went</Text>
+                </View>
+
+                <View style={s.planGrid}>
+                  {actualDetailRows.length >= 2 ? (
+                    <>
+                      {(() => {
+                        const rows = actualDetailRows;
+                        const pairs: React.JSX.Element[] = [];
+                        for (let i = 0; i < rows.length; i += 2) {
+                          const left = rows[i];
+                          const right = rows[i + 1];
+                          if (!right) {
+                            pairs.push(
+                              <View
+                                key={left.label}
+                                style={[s.planGridCellFull, { borderTopColor: colors.border, borderBottomColor: colors.border }]}
+                              >
+                                <Text style={[s.planGridCellLabel, { color: colors.mutedForeground }]}>{left.label}</Text>
+                                <Text style={[s.planGridCellValue, { color: colors.foreground }]}>{left.value}</Text>
+                              </View>
+                            );
+                          } else {
+                            pairs.push(
+                              <View key={left.label} style={[s.planGridRow, { borderTopColor: colors.border }]}>
+                                <View style={[s.planGridCell, { borderRightColor: colors.border }]}>
+                                  <Text style={[s.planGridCellLabel, { color: colors.mutedForeground }]}>{left.label}</Text>
+                                  <Text style={[s.planGridCellValue, { color: colors.foreground }]}>{left.value}</Text>
+                                </View>
+                                <View style={s.planGridCell}>
+                                  <Text style={[s.planGridCellLabel, { color: colors.mutedForeground }]}>{right.label}</Text>
+                                  <Text style={[s.planGridCellValue, { color: colors.foreground }]}>{right.value}</Text>
+                                </View>
+                              </View>
+                            );
+                          }
+                        }
+                        return pairs;
+                      })()}
+                    </>
+                  ) : (
+                    <View
+                      style={[s.planGridCellFull, { borderTopColor: colors.border, borderBottomColor: colors.border }]}
+                    >
+                      <Text style={[s.planGridCellLabel, { color: colors.mutedForeground }]}>{actualDetailRows[0].label}</Text>
+                      <Text style={[s.planGridCellValue, { color: colors.foreground }]}>{actualDetailRows[0].value}</Text>
+                    </View>
+                  )}
+                </View>
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  if (cookStatus === "active") {
+    return planModal;
+  }
+
   return (
     <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, overflow: "hidden" }]}>
-      {statTiles.length > 0 && (
-        <View style={[s.statTileRow, { borderBottomColor: colors.border }]}>
-          {statTiles.map((tile, i) => (
-            <View
-              key={tile.label}
-              style={[
-                s.statTile,
-                i < statTiles.length - 1 && { borderRightWidth: 1, borderRightColor: colors.border },
-              ]}
-            >
-              <Feather name={tile.icon as any} size={14} color={colors.mutedForeground} style={{ marginBottom: 4 }} />
-              <Text style={[s.statTileValue, { color: colors.foreground }]}>{tile.value}</Text>
-              <Text style={[s.statTileLabel, { color: colors.mutedForeground }]}>{tile.label}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
       {planGrade && (
         <View style={[s.inlineGradeRow, { borderBottomColor: colors.border }]}>
           <View style={[s.inlineGradeBadge, { backgroundColor: planGrade.color + "18", borderColor: planGrade.color + "40" }]}>
@@ -116,141 +233,7 @@ export function CookSummaryCard(p: Props) {
         <Feather name="chevron-down" size={14} color={colors.primary} />
       </Pressable>
 
-      <Modal
-        visible={planSheetVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setPlanSheetVisible(false)}
-      >
-        <View style={s.planSheetOverlay}>
-          <Pressable style={{ flex: 1 }} onPress={() => setPlanSheetVisible(false)} />
-          <View style={[s.planSheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
-            <View style={[s.planSheetHandle, { backgroundColor: colors.border }]} />
-            <View style={[s.planSheetHeader, { borderBottomColor: colors.border }]}>
-              <View style={[s.sectionIconWrap, { backgroundColor: "#3b82f618" }]}>
-                <Feather name="clipboard" size={13} color="#3b82f6" />
-              </View>
-              <Text style={[s.planSheetTitle, { color: colors.foreground }]}>The Plan</Text>
-              <Pressable onPress={() => setPlanSheetVisible(false)} style={s.planSheetClose} hitSlop={10}>
-                <Feather name="x" size={18} color={colors.mutedForeground} />
-              </Pressable>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={s.planGrid}>
-                {planDetailRows.map((row, i) => {
-                  const isLast = i === planDetailRows.length - 1;
-                  const isOdd = planDetailRows.length % 2 !== 0;
-                  const isLastSolo = isOdd && isLast;
-
-                  if (isLastSolo) {
-                    return (
-                      <View
-                        key={row.label}
-                        style={[
-                          s.planGridCellFull,
-                          { borderTopColor: colors.border, borderBottomColor: colors.border },
-                        ]}
-                      >
-                        <Text style={[s.planGridCellLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
-                        <Text style={[s.planGridCellValue, { color: colors.foreground }]}>{row.value}</Text>
-                      </View>
-                    );
-                  }
-
-                  if (i % 2 === 1) return null;
-
-                  const nextRow = planDetailRows[i + 1];
-                  return (
-                    <View key={row.label} style={[s.planGridRow, { borderTopColor: colors.border }]}>
-                      <View style={[s.planGridCell, { borderRightColor: colors.border }]}>
-                        <Text style={[s.planGridCellLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
-                        <Text style={[s.planGridCellValue, { color: colors.foreground }]}>{row.value}</Text>
-                      </View>
-                      {nextRow ? (
-                        <View style={s.planGridCell}>
-                          <Text style={[s.planGridCellLabel, { color: colors.mutedForeground }]}>{nextRow.label}</Text>
-                          <Text style={[s.planGridCellValue, { color: colors.foreground }]}>{nextRow.value}</Text>
-                        </View>
-                      ) : (
-                        <View style={s.planGridCell} />
-                      )}
-                    </View>
-                  );
-                })}
-
-                {planFullWidthRows.map((row) => (
-                  <View
-                    key={row.label}
-                    style={[s.planGridCellFull, { borderTopColor: colors.border, borderBottomColor: colors.border }]}
-                  >
-                    <Text style={[s.planGridCellLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
-                    <Text style={[s.notesText, { color: colors.foreground, marginTop: 4 }]}>{row.value}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {actualDetailRows.length > 0 && (
-                <>
-                  <View style={[s.sectionHeaderRow, { borderBottomColor: colors.border, borderTopWidth: 1, borderTopColor: colors.border, marginTop: 8 }]}>
-                    <View style={[s.sectionIconWrap, { backgroundColor: "#22c55e18" }]}>
-                      <Feather name="bar-chart-2" size={13} color="#22c55e" />
-                    </View>
-                    <Text style={[s.sectionHeaderLabel, { color: "#22c55e" }]}>How It Went</Text>
-                  </View>
-
-                  <View style={s.planGrid}>
-                    {actualDetailRows.length >= 2 ? (
-                      <>
-                        {(() => {
-                          const rows = actualDetailRows;
-                          const pairs: React.JSX.Element[] = [];
-                          for (let i = 0; i < rows.length; i += 2) {
-                            const left = rows[i];
-                            const right = rows[i + 1];
-                            if (!right) {
-                              pairs.push(
-                                <View
-                                  key={left.label}
-                                  style={[s.planGridCellFull, { borderTopColor: colors.border, borderBottomColor: colors.border }]}
-                                >
-                                  <Text style={[s.planGridCellLabel, { color: colors.mutedForeground }]}>{left.label}</Text>
-                                  <Text style={[s.planGridCellValue, { color: colors.foreground }]}>{left.value}</Text>
-                                </View>
-                              );
-                            } else {
-                              pairs.push(
-                                <View key={left.label} style={[s.planGridRow, { borderTopColor: colors.border }]}>
-                                  <View style={[s.planGridCell, { borderRightColor: colors.border }]}>
-                                    <Text style={[s.planGridCellLabel, { color: colors.mutedForeground }]}>{left.label}</Text>
-                                    <Text style={[s.planGridCellValue, { color: colors.foreground }]}>{left.value}</Text>
-                                  </View>
-                                  <View style={s.planGridCell}>
-                                    <Text style={[s.planGridCellLabel, { color: colors.mutedForeground }]}>{right.label}</Text>
-                                    <Text style={[s.planGridCellValue, { color: colors.foreground }]}>{right.value}</Text>
-                                  </View>
-                                </View>
-                              );
-                            }
-                          }
-                          return pairs;
-                        })()}
-                      </>
-                    ) : (
-                      <View
-                        style={[s.planGridCellFull, { borderTopColor: colors.border, borderBottomColor: colors.border }]}
-                      >
-                        <Text style={[s.planGridCellLabel, { color: colors.mutedForeground }]}>{actualDetailRows[0].label}</Text>
-                        <Text style={[s.planGridCellValue, { color: colors.foreground }]}>{actualDetailRows[0].value}</Text>
-                      </View>
-                    )}
-                  </View>
-                </>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      {planModal}
     </View>
   );
 }

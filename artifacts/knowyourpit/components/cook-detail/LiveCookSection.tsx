@@ -40,6 +40,9 @@ interface Props {
   setAlertMode: (m: "temp" | "timer") => void;
   activeCookAlerts: any[];
   nowMs?: number;
+  targetTempF?: number | null;
+  cookTempF?: number | null;
+  onViewDetails?: () => void;
 }
 
 export function LiveCookSection(p: Props) {
@@ -47,6 +50,7 @@ export function LiveCookSection(p: Props) {
     c, colors, weather, meaterLinked, meaterProbes, thermoworksLinked, thermoworksProbes,
     liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, estimatedFinishMs,
     userTempEdited, setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
+    targetTempF, cookTempF, onViewDetails,
   } = p;
 
   if (c.status !== "active") return null;
@@ -294,6 +298,25 @@ export function LiveCookSection(p: Props) {
         </View>
       )}
 
+      {(targetTempF != null || cookTempF != null) && (
+        <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingBottom: 12 }}>
+          {targetTempF != null && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#22c55e12", borderWidth: 1, borderColor: "#22c55e30" }}>
+              <Feather name="thermometer" size={12} color="#22c55e" />
+              <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: "#22c55e" }}>{targetTempF}°F</Text>
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "#22c55e99" }}>target</Text>
+            </View>
+          )}
+          {cookTempF != null && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#3b82f612", borderWidth: 1, borderColor: "#3b82f630" }}>
+              <Feather name="wind" size={12} color="#3b82f6" />
+              <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: "#3b82f6" }}>{cookTempF}°F</Text>
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "#3b82f699" }}>pit</Text>
+            </View>
+          )}
+        </View>
+      )}
+
       <View style={[s.alertBtnRow, { borderTopColor: colors.border }]}>
         <Pressable
           style={[s.setAlertBtn, { backgroundColor: "#EF444412", borderColor: "#EF444430", borderRadius: colors.radius }]}
@@ -307,6 +330,15 @@ export function LiveCookSection(p: Props) {
             </View>
           )}
         </Pressable>
+        {onViewDetails && (
+          <Pressable
+            style={[s.setAlertBtn, { backgroundColor: colors.primary + "12", borderColor: colors.primary + "30", borderRadius: colors.radius }]}
+            onPress={onViewDetails}
+          >
+            <Feather name="file-text" size={14} color={colors.primary} />
+            <Text style={[s.setAlertBtnText, { color: colors.primary }]}>View full details</Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );

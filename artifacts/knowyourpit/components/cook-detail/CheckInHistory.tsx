@@ -64,7 +64,7 @@ export function CheckInHistory({ c, colors, effectivePro, isIdentityLinked, show
         </LinearGradient>
         <View style={{ flex: 1 }}>
           <Text style={[s.logTitle, { color: colors.foreground }]}>
-            {c.status === "active" ? "Check-in History" : "Analysis History"}
+            Check-ins
           </Text>
           <Text style={[s.logSub, { color: colors.mutedForeground }]}>
             {history.length} {history.length === 1 ? "entry" : "entries"} · all feedback retained
