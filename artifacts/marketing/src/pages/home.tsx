@@ -278,63 +278,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── Multi-Cook Sequencing ──────────────────────────────────────── */}
-      <section className="py-16 md:py-24 bg-zinc-950/60 border-b border-white/5">
-        <div className="container px-4">
-          <div className="flex flex-col md:flex-row md:items-center md:gap-16 lg:gap-24 max-w-5xl mx-auto">
-            {/* Phone mockup — left on desktop, bottom on mobile */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7, ease: "easeOut" }}
-              className="flex justify-center md:flex-shrink-0 mt-10 md:mt-0 order-2 md:order-1"
-            >
-              <div className="relative w-[min(260px,80vw)] sm:w-[280px] md:w-[300px] lg:w-[320px] aspect-[35/76] rounded-[2.5rem] md:rounded-[3rem] border-[8px] md:border-[10px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(100,150,255,0.2)] overflow-hidden">
-                <img
-                  src={`${BASE}ss-cook-log.png`}
-                  alt="Cook log showing a multi-cook session with Spare Ribs, Prime Rib, and Chicken Thighs all sequenced to the same serve time"
-                  className="absolute inset-0 w-full h-full object-cover object-top"
-                />
-              </div>
-            </motion.div>
-
-            {/* Text — right on desktop, top on mobile */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
-              className="flex flex-col items-center md:items-start text-center md:text-left md:flex-1 order-1 md:order-2"
-            >
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-medium mb-4">
-                <Layers className="w-3.5 h-3.5" />
-                Multi-Cook Sequencing
-              </span>
-              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-                Six meats. One finish time. Zero guessing.
-              </h2>
-              <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-6">
-                Hosting a cookout or catering an event means every cut needs to land at the table at the same time. PitMaster sequences your entire cook backwards from your serve time — factoring in each cut's weight, your specific smoker, and your cook history — and tells you when to light every grill, when to put each piece on, and when to pull it.
-              </p>
-              <ul className="space-y-3 text-sm md:text-base text-muted-foreground mb-8 text-left w-full max-w-sm md:max-w-none">
-                {[
-                  "Add all your meats, set one serve time, get a staggered start schedule",
-                  "Per-item light, put-on, and pull times so nothing sits too long",
-                  "The feature that separates serious backyard cooks from the rest",
-                ].map((point) => (
-                  <li key={point} className="flex items-start gap-3">
-                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
-                    <span>{point}</span>
-                  </li>
-                ))}
-              </ul>
-              <AppStoreButton label="Plan your next cook" className="w-full sm:w-auto" />
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
       {/* ─── Competition Mode ───────────────────────────────────────────── */}
       <section className="relative py-16 md:py-24 border-b border-amber-500/10 overflow-hidden">
         {/* Gold background glow */}
