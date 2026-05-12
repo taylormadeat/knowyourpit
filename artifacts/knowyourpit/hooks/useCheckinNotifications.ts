@@ -276,8 +276,9 @@ export function useCheckinNotifications(
   cookId: number | null | undefined,
   cookStatus: string | undefined,
   cookSeqData: SequenceData | null | undefined,
-): void {
+): ScheduledCheckin[] {
   const generationRef = useRef(0);
+  const [scheduledCheckins, setScheduledCheckins] = useState<ScheduledCheckin[]>([]);
 
   const firstScheduleItem = cookSeqData?.schedule?.[0];
   const depKey = JSON.stringify({
@@ -298,6 +299,7 @@ export function useCheckinNotifications(
 
     if (cookStatus !== "active") {
       cancelStoredCheckinNotifications(cookId).catch(() => {});
+      setScheduledCheckins([]);
       return;
     }
 
@@ -360,8 +362,11 @@ export function useCheckinNotifications(
 
       if (!isCurrent()) return;
       await scheduleCheckinNotifications(cookId, checkins, foodType, isCurrent);
+      if (isCurrent()) setScheduledCheckins(checkins);
     })().catch(() => {});
   }, [cookId, cookStatus, depKey]);
+
+  return scheduledCheckins;
 }
 
 /**

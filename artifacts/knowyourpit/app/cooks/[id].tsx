@@ -114,7 +114,6 @@ import {
   rescheduleCheckinNotifications,
   cancelStoredCheckinNotifications,
   cancelCheckinNotificationForPhase,
-  useStoredScheduledCheckins,
 } from "@/hooks/useCheckinNotifications";
 import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
 import { getCheckinSchedule } from "@/constants/checkinKnowledge";
@@ -713,8 +712,7 @@ export default function CookDetailScreen() {
     (cook as any)?.plannedStartAt ?? null,
   );
   // Smart check-in notifications — fire at BBQ milestone points while cook is active.
-  useCheckinNotifications(Number(id) || null, cookStatus, cookSeqData);
-  const storedScheduledCheckins = useStoredScheduledCheckins(cookStatus === "active" ? Number(id) || null : null);
+  const storedScheduledCheckins = useCheckinNotifications(Number(id) || null, cookStatus, cookSeqData);
   // Background / cross-screen deep link: consume pending check-in notification
   // placed by the _layout.tsx router handler when the user was NOT on this cook
   // screen at the time of the notification tap.
@@ -2078,17 +2076,16 @@ export default function CookDetailScreen() {
           nowMs={nowMs}
           targetTempF={c.targetTempF ?? null}
           cookTempF={c.cookTempF ?? null}
+          onViewDetails={cookStatus === "active" ? () => setPlanSheetVisible(true) : undefined}
         />
-        {cookStatus !== "active" && (
-          <CookSummaryCard
-            c={c}
-            colors={colors}
-            cookStatus={cookStatus}
-            nowMs={nowMs}
-            planSheetVisible={planSheetVisible}
-            setPlanSheetVisible={setPlanSheetVisible}
-          />
-        )}
+        <CookSummaryCard
+          c={c}
+          colors={colors}
+          cookStatus={cookStatus}
+          nowMs={nowMs}
+          planSheetVisible={planSheetVisible}
+          setPlanSheetVisible={setPlanSheetVisible}
+        />
 
         {/* ── Start Cook CTA (planned cooks only, above the schedule) ── */}
         {cookStatus === "planned" && (
