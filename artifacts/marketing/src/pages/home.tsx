@@ -268,7 +268,7 @@ export default function Home() {
               <div className="relative w-[160px] h-[347px] sm:w-[180px] sm:h-[390px] md:w-[170px] md:h-[369px] lg:w-[185px] lg:h-[402px]">
                 <div className="absolute inset-0 rounded-[2rem] md:rounded-[2.5rem] border-[8px] md:border-[8px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(221,107,32,0.45)] overflow-hidden">
                   <img
-                    src={`${BASE}ss-live-cook.jpg`}
+                    src={`${BASE}ss-live-cook.png`}
                     alt="Live cook screen showing elapsed timer, probe temperature, and AI verdict banner"
                     className="w-full h-full object-cover object-top"
                   />
