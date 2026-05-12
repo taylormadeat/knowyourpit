@@ -87,6 +87,8 @@ import {
   getMeatPrep,
 } from "@/components/plan-screen/prepGuides";
 import { Label, StatCell, ScheduleRow } from "@/components/plan-screen/MiniRows";
+import { SettingsRow } from "@/components/plan-screen/SettingsRow";
+import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
 import { MeatPickerModal } from "@/components/plan-screen/MeatPickerModal";
 import { DatePickerModal, TimePickerModal } from "@/components/plan-screen/DateTimePickerModals";
 import { AiResultsModal } from "@/components/plan-screen/AiResultsModal";
@@ -285,6 +287,11 @@ export default function PlanScreen() {
   const [qpInjection, setQpInjection] = useState<QpInjectionOption | null>(null);
   const [qpSpritz, setQpSpritz] = useState<QpSpritzFrequency | null>(null);
   const [qpWrapFinish, setQpWrapFinish] = useState<QpWrapFinishOption | null>(null);
+
+  // ── Advanced Options bottom-sheet state ───────────────────────────────
+  type AdvSheet = "cookMethod" | "meatStartTemp" | "injection" | "spritz" | "wrapFinish" | "thawMethod" | "notes";
+  const [activeSheet, setActiveSheet] = useState<AdvSheet | null>(null);
+  const [notesSheetDraft, setNotesSheetDraft] = useState("");
 
   // ── Multi-cook state ──────────────────────────────────────────────────
   interface MultiItem { cut: MeatCut; weightLbs: string; grillId: number | null; }
@@ -1417,13 +1424,43 @@ export default function PlanScreen() {
                     marginBottom: 4,
                   }}
                 >
-                  {/* ── Cook Name ── */}
-                  <Label colors={colors}>Cook Name (optional)</Label>
-                  <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                  {/* ── Cook Name (compact inline row) ── */}
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      borderRadius: colors.radius,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      backgroundColor: colors.background,
+                      paddingHorizontal: 12,
+                      marginBottom: 10,
+                      minHeight: 44,
+                      gap: 10,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: 7,
+                        backgroundColor: colors.mutedForeground + "20",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Feather name="tag" size={14} color={colors.mutedForeground} />
+                    </View>
                     <TextInput
-                      style={[s.input, { color: colors.foreground }]}
-                      placeholder="e.g. Sunday Brisket Comp"
-                      placeholderTextColor={colors.mutedForeground}
+                      style={{
+                        flex: 1,
+                        height: 44,
+                        fontSize: 14,
+                        fontFamily: "Inter_400Regular",
+                        color: colors.foreground,
+                      }}
+                      placeholder="Cook name (optional)"
+                      placeholderTextColor={colors.mutedForeground + "80"}
                       value={cookName}
                       onChangeText={setCookName}
                     />
@@ -1472,63 +1509,46 @@ export default function PlanScreen() {
                     );
                   })()}
 
-                  {/* ── Frozen-to-Table Toggle ── */}
-                  <Pressable
-                    onPress={async () => {
-                      // Pro users — toggle freely.
-                      if (effectivePro) {
-                        setFrozenEnabled((prev) => !prev);
-                        Haptics.selectionAsync();
-                        return;
-                      }
-                      // Free users turning OFF — always allowed; lifetime counter is
-                      // not refunded but they can keep planning without it.
-                      if (frozenEnabled) {
-                        setFrozenEnabled(false);
-                        Haptics.selectionAsync();
-                        return;
-                      }
-                      // Free users turning ON — if we've already consumed for this cook
-                      // draft, the toggle works freely. Otherwise check + record one
-                      // lifetime use server-side.
-                      if (frozenConsumedThisCook) {
-                        setFrozenEnabled(true);
-                        Haptics.selectionAsync();
-                        return;
-                      }
-                      if (frozenConsumePending) return;
-                      // Pre-flight: if the cached usage already shows 0 remaining,
-                      // skip the network call and surface the paywall immediately.
-                      if (
-                        paywallUsage &&
-                        !paywallUsage.unlimited &&
-                        paywallUsage.remaining.frozenTimelineLifetime <= 0
-                      ) {
-                        showPaywall({
-                          trigger: "frozen_timeline_limit_reached",
-                          featureName: "Frozen-to-Table Timeline",
-                          foodType: selectedCut?.name ?? null,
-                        });
-                        return;
-                      }
-                      setFrozenConsumePending(true);
-                      try {
-                        const token = await getToken().catch(() => null);
-                        const headers: Record<string, string> = {
-                          "Content-Type": "application/json",
-                        };
-                        if (token) headers["Authorization"] = `Bearer ${token}`;
-                        const apiBase =
-                          process.env.EXPO_PUBLIC_API_URL ??
-                          (process.env.EXPO_PUBLIC_DOMAIN
-                            ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-                            : "");
-                        const res = await fetch(
-                          `${apiBase}/api/paywall/frozen-timeline/consume`,
-                          { method: "POST", headers },
-                        );
-                        if (res.status === 402) {
-                          // Already at lifetime cap — surface the upgrade paywall.
+                  {/* ── Frozen-to-Table Toggle + Thaw Method (compact grouped rows) ── */}
+                  <View
+                    style={{
+                      marginTop: 10,
+                      borderRadius: colors.radius,
+                      borderWidth: 1,
+                      borderColor: frozenEnabled ? "#3B82F660" : colors.border,
+                      backgroundColor: colors.background,
+                      paddingHorizontal: 12,
+                      overflow: "hidden",
+                    }}
+                  >
+                    {/* Frozen toggle compact row */}
+                    <Pressable
+                      onPress={async () => {
+                        // Pro users — toggle freely.
+                        if (effectivePro) {
+                          setFrozenEnabled((prev) => !prev);
+                          Haptics.selectionAsync();
+                          return;
+                        }
+                        // Free users turning OFF — always allowed.
+                        if (frozenEnabled) {
+                          setFrozenEnabled(false);
+                          Haptics.selectionAsync();
+                          return;
+                        }
+                        // Free users turning ON — if already consumed for this draft, toggle freely.
+                        if (frozenConsumedThisCook) {
+                          setFrozenEnabled(true);
+                          Haptics.selectionAsync();
+                          return;
+                        }
+                        if (frozenConsumePending) return;
+                        // Pre-flight: cached usage already shows 0 remaining → show paywall.
+                        if (
+                          paywallUsage &&
+                          !paywallUsage.unlimited &&
+                          paywallUsage.remaining.frozenTimelineLifetime <= 0
+                        ) {
                           showPaywall({
                             trigger: "frozen_timeline_limit_reached",
                             featureName: "Frozen-to-Table Timeline",
@@ -1536,137 +1556,92 @@ export default function PlanScreen() {
                           });
                           return;
                         }
-                        if (!res.ok) {
-                          Alert.alert(
-                            "Couldn't enable Frozen-to-Table",
-                            "Please try again in a moment.",
+                        setFrozenConsumePending(true);
+                        try {
+                          const token = await getToken().catch(() => null);
+                          const headers: Record<string, string> = { "Content-Type": "application/json" };
+                          if (token) headers["Authorization"] = `Bearer ${token}`;
+                          const apiBase =
+                            process.env.EXPO_PUBLIC_API_URL ??
+                            (process.env.EXPO_PUBLIC_DOMAIN
+                              ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+                              : "");
+                          const res = await fetch(
+                            `${apiBase}/api/paywall/frozen-timeline/consume`,
+                            { method: "POST", headers },
                           );
-                          return;
+                          if (res.status === 402) {
+                            showPaywall({
+                              trigger: "frozen_timeline_limit_reached",
+                              featureName: "Frozen-to-Table Timeline",
+                              foodType: selectedCut?.name ?? null,
+                            });
+                            return;
+                          }
+                          if (!res.ok) {
+                            Alert.alert("Couldn't enable Frozen-to-Table", "Please try again in a moment.");
+                            return;
+                          }
+                          setFrozenEnabled(true);
+                          setFrozenConsumedThisCook(true);
+                          Haptics.selectionAsync();
+                          qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
+                        } finally {
+                          setFrozenConsumePending(false);
                         }
-                        setFrozenEnabled(true);
-                        setFrozenConsumedThisCook(true);
-                        Haptics.selectionAsync();
-                        // Refresh the cached usage counters so other screens reflect
-                        // the new lifetime usage immediately.
-                        qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
-                      } finally {
-                        setFrozenConsumePending(false);
-                      }
-                    }}
-                    style={[
-                      s.frozenCard,
-                      {
-                        backgroundColor: colors.background,
-                        borderColor: frozenEnabled ? "#3B82F6" : colors.border,
-                        borderRadius: colors.radius,
-                        marginTop: 16,
-                        opacity: 1,
-                      },
-                    ]}
-                  >
-                    <View style={[s.frozenIconWrap, { backgroundColor: "#3B82F622" }]}>
-                      <Feather name="cloud-snow" size={16} color="#3B82F6" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <Text style={[s.frozenTitle, { color: colors.foreground }]}>
-                          Starting from frozen?
-                        </Text>
-                        {/* Free users get one lifetime trial — once consumed (or already
-                            at cap server-side), surface the PRO pill so they understand
-                            future toggles will require an upgrade. */}
-                        {!effectivePro &&
-                          (frozenConsumedThisCook ||
-                            (paywallUsage &&
-                              !paywallUsage.unlimited &&
-                              paywallUsage.remaining.frozenTimelineLifetime <= 0)) && (
-                            <View style={s.proPill}>
-                              <Feather name="star" size={9} color="#fff" />
-                              <Text style={s.proPillText}>PRO</Text>
-                            </View>
-                          )}
+                      }}
+                      style={({ pressed }) => [
+                        {
+                          flexDirection: "row",
+                          alignItems: "center",
+                          paddingVertical: 11,
+                          gap: 10,
+                          minHeight: 44,
+                          borderBottomWidth: frozenEnabled ? 0.5 : 0,
+                          borderBottomColor: colors.border,
+                        },
+                        pressed && { opacity: 0.65 },
+                      ]}
+                    >
+                      <View style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: "#3B82F620", alignItems: "center", justifyContent: "center" }}>
+                        <Feather name="cloud-snow" size={14} color="#3B82F6" />
                       </View>
-                      <Text style={[s.frozenSub, { color: colors.mutedForeground }]} numberOfLines={2}>
-                        {frozenEnabled
-                          ? "We'll add thaw + temper time to your full timeline."
-                          : effectivePro
-                            ? "Plan your cook from freezer to table."
-                            : frozenConsumedThisCook
-                              ? "Plan your cook from freezer to table."
-                              : paywallUsage &&
-                                  !paywallUsage.unlimited &&
-                                  paywallUsage.remaining.frozenTimelineLifetime > 0
-                                ? "Try it free once — full timeline from freezer to table."
-                                : "Plan your cook from freezer to table."}
+                      <Text style={{ flex: 1, fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground }}>
+                        Starting from frozen?
                       </Text>
-                    </View>
-                    {frozenConsumePending ? (
-                      <ActivityIndicator size="small" color="#3B82F6" />
-                    ) : (
-                      <View
-                        style={[
-                          s.toggleTrack,
-                          {
-                            backgroundColor: frozenEnabled ? "#3B82F6" : colors.muted,
-                            borderColor: frozenEnabled ? "#3B82F6" : colors.border,
-                          },
-                        ]}
-                      >
-                        <View
-                          style={[
-                            s.toggleThumb,
-                            {
-                              backgroundColor: "#fff",
-                              transform: [{ translateX: frozenEnabled ? 18 : 0 }],
-                            },
-                          ]}
-                        />
-                      </View>
-                    )}
-                  </Pressable>
+                      {/* PRO pill for free users who have used or exhausted their trial */}
+                      {!effectivePro &&
+                        (frozenConsumedThisCook ||
+                          (paywallUsage &&
+                            !paywallUsage.unlimited &&
+                            paywallUsage.remaining.frozenTimelineLifetime <= 0)) && (
+                          <View style={s.proPill}>
+                            <Feather name="star" size={9} color="#fff" />
+                            <Text style={s.proPillText}>PRO</Text>
+                          </View>
+                        )}
+                      {frozenConsumePending ? (
+                        <ActivityIndicator size="small" color="#3B82F6" />
+                      ) : (
+                        <View style={[s.toggleTrack, { backgroundColor: frozenEnabled ? "#3B82F6" : colors.muted, borderColor: frozenEnabled ? "#3B82F6" : colors.border }]}>
+                          <View style={[s.toggleThumb, { backgroundColor: "#fff", transform: [{ translateX: frozenEnabled ? 18 : 0 }] }]} />
+                        </View>
+                      )}
+                    </Pressable>
 
-                  {/* Thaw method picker — only shown when toggle on (Pro or free trial). */}
-                  {frozenEnabled && (
-                    <View style={[s.thawMethodRow, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
-                      {([
-                        { key: "fridge" as const, label: "Refrigerator", icon: "box" as const, sub: "~24h per 4–5 lbs" },
-                        { key: "cold_water" as const, label: "Cold Water", icon: "droplet" as const, sub: "~1h per lb" },
-                      ]).map((m) => {
-                        const active = thawMethod === m.key;
-                        return (
-                          <Pressable
-                            key={m.key}
-                            onPress={() => {
-                              setThawMethod(m.key);
-                              Haptics.selectionAsync();
-                            }}
-                            style={[
-                              s.thawMethodBtn,
-                              {
-                                backgroundColor: active ? "#3B82F6" : "transparent",
-                                borderRadius: colors.radius - 2,
-                              },
-                            ]}
-                          >
-                            <Feather name={m.icon} size={14} color={active ? "#fff" : colors.mutedForeground} />
-                            <View style={{ alignItems: "center" }}>
-                              <Text style={[s.thawMethodLabel, { color: active ? "#fff" : colors.foreground }]}>
-                                {m.label}
-                              </Text>
-                              <Text
-                                style={[
-                                  s.thawMethodSub,
-                                  { color: active ? "rgba(255,255,255,0.85)" : colors.mutedForeground },
-                                ]}
-                              >
-                                {m.sub}
-                              </Text>
-                            </View>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  )}
+                    {/* Thaw method row — shown when frozen is on */}
+                    {frozenEnabled && (
+                      <SettingsRow
+                        label="Thaw Method"
+                        icon="box"
+                        iconColor="#3B82F6"
+                        value={thawMethod === "fridge" ? "Refrigerator  (~24h / 4–5 lbs)" : "Cold Water  (~1h per lb)"}
+                        onPress={() => setActiveSheet("thawMethod")}
+                        colors={colors}
+                        isLast
+                      />
+                    )}
+                  </View>
 
                   {/* ── Live MEATER probes ── */}
                   {activeProbes.length > 0 && (
@@ -1751,71 +1726,202 @@ export default function PlanScreen() {
                     </View>
                   )}
 
-                  {/* ── Technique Quick-Picks ── */}
-                  {(() => {
-                    const chipRow = (
-                      label: string,
-                      options: readonly string[],
-                      selected: string | null,
-                      onSelect: (v: string | null) => void,
-                    ) => (
-                      <View style={{ marginBottom: 4 }}>
-                        <Text style={[s.label, { color: colors.mutedForeground, marginTop: 12, marginBottom: 6 }]}>
-                          {label}
-                        </Text>
-                        <ScrollView
-                          horizontal
-                          showsHorizontalScrollIndicator={false}
-                          contentContainerStyle={{ gap: 8 }}
-                        >
-                          {options.map((opt) => {
-                            const active = selected === opt;
-                            return (
-                              <Pressable
-                                key={opt}
-                                onPress={() => { onSelect(active ? null : opt); Haptics.selectionAsync(); }}
-                                style={[
-                                  s.grillChip,
-                                  {
-                                    backgroundColor: active ? colors.primary : colors.background,
-                                    borderColor: active ? colors.primary : colors.border,
-                                    borderRadius: colors.radius,
-                                  },
-                                ]}
-                              >
-                                <Text style={[s.chipText, { color: active ? "#fff" : colors.foreground }]}>
-                                  {opt}
-                                </Text>
-                              </Pressable>
-                            );
-                          })}
-                        </ScrollView>
-                      </View>
-                    );
-
-                    return (
-                      <View style={{ marginTop: 8 }}>
-                        {chipRow("Cooking Method", QP_COOK_METHODS, qpCookMethod, (v) => setQpCookMethod(v as QpCookMethod | null))}
-                        {chipRow("Meat Starting Temp", QP_MEAT_START_TEMPS, qpMeatStartTemp, (v) => setQpMeatStartTemp(v as QpMeatStartTemp | null))}
-                        {chipRow("Injection", QP_INJECTION_OPTIONS, qpInjection, (v) => setQpInjection(v as QpInjectionOption | null))}
-                        {chipRow("Spritz Frequency", QP_SPRITZ_FREQUENCIES, qpSpritz, (v) => setQpSpritz(v as QpSpritzFrequency | null))}
-                        {chipRow("Wrap / Finish", QP_WRAP_FINISH_OPTIONS, qpWrapFinish, (v) => setQpWrapFinish(v as QpWrapFinishOption | null))}
-                      </View>
-                    );
-                  })()}
-
-                  {/* ── Notes ── */}
-                  <Label colors={colors}>Notes</Label>
-                  <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius, height: 80 }]}>
-                    <TextInput
-                      style={[s.input, { color: colors.foreground, textAlignVertical: "top", paddingTop: 10 }]}
-                      placeholder="Rub recipe, wood choice, timing notes…"
-                      placeholderTextColor={colors.mutedForeground}
-                      value={notes}
-                      onChangeText={setNotes}
-                      multiline
+                  {/* ── Technique Quick-Picks (compact settings rows) ── */}
+                  <View
+                    style={{
+                      marginTop: 12,
+                      borderRadius: colors.radius,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      backgroundColor: colors.background,
+                      paddingHorizontal: 12,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <SettingsRow
+                      label="Cooking Method"
+                      icon="activity"
+                      value={qpCookMethod}
+                      placeholder="Any"
+                      onPress={() => setActiveSheet("cookMethod")}
+                      colors={colors}
+                    />
+                    <SettingsRow
+                      label="Meat Starting Temp"
+                      icon="thermometer"
+                      value={qpMeatStartTemp}
+                      placeholder="Any"
+                      onPress={() => setActiveSheet("meatStartTemp")}
+                      colors={colors}
+                    />
+                    <SettingsRow
+                      label="Injection"
+                      icon="droplet"
+                      value={qpInjection}
+                      placeholder="Any"
+                      onPress={() => setActiveSheet("injection")}
+                      colors={colors}
+                    />
+                    <SettingsRow
+                      label="Spritz Frequency"
+                      icon="wind"
+                      value={qpSpritz}
+                      placeholder="Any"
+                      onPress={() => setActiveSheet("spritz")}
+                      colors={colors}
+                    />
+                    <SettingsRow
+                      label="Wrap / Finish"
+                      icon="package"
+                      value={qpWrapFinish}
+                      placeholder="Any"
+                      onPress={() => setActiveSheet("wrapFinish")}
+                      colors={colors}
+                      isLast
                     />
                   </View>
+
+                  {/* ── Notes (compact row → bottom sheet) ── */}
+                  <View
+                    style={{
+                      marginTop: 10,
+                      borderRadius: colors.radius,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      backgroundColor: colors.background,
+                      paddingHorizontal: 12,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <SettingsRow
+                      label="Notes"
+                      icon="edit-3"
+                      value={notes.trim() || null}
+                      placeholder="Rub recipe, wood choice, timing notes…"
+                      onPress={() => {
+                        setNotesSheetDraft(notes);
+                        setActiveSheet("notes");
+                      }}
+                      colors={colors}
+                      isLast
+                    />
+                  </View>
+
+                  {/* ── Option bottom sheets ── */}
+                  <OptionBottomSheet
+                    visible={activeSheet === "cookMethod"}
+                    title="Cooking Method"
+                    options={QP_COOK_METHODS}
+                    selected={qpCookMethod}
+                    onChange={(v) => setQpCookMethod(v as QpCookMethod | null)}
+                    onClose={() => setActiveSheet(null)}
+                    colors={colors}
+                  />
+                  <OptionBottomSheet
+                    visible={activeSheet === "meatStartTemp"}
+                    title="Meat Starting Temp"
+                    options={QP_MEAT_START_TEMPS}
+                    selected={qpMeatStartTemp}
+                    onChange={(v) => setQpMeatStartTemp(v as QpMeatStartTemp | null)}
+                    onClose={() => setActiveSheet(null)}
+                    colors={colors}
+                  />
+                  <OptionBottomSheet
+                    visible={activeSheet === "injection"}
+                    title="Injection"
+                    options={QP_INJECTION_OPTIONS}
+                    selected={qpInjection}
+                    onChange={(v) => setQpInjection(v as QpInjectionOption | null)}
+                    onClose={() => setActiveSheet(null)}
+                    colors={colors}
+                  />
+                  <OptionBottomSheet
+                    visible={activeSheet === "spritz"}
+                    title="Spritz Frequency"
+                    options={QP_SPRITZ_FREQUENCIES}
+                    selected={qpSpritz}
+                    onChange={(v) => setQpSpritz(v as QpSpritzFrequency | null)}
+                    onClose={() => setActiveSheet(null)}
+                    colors={colors}
+                  />
+                  <OptionBottomSheet
+                    visible={activeSheet === "wrapFinish"}
+                    title="Wrap / Finish"
+                    options={QP_WRAP_FINISH_OPTIONS}
+                    selected={qpWrapFinish}
+                    onChange={(v) => setQpWrapFinish(v as QpWrapFinishOption | null)}
+                    onClose={() => setActiveSheet(null)}
+                    colors={colors}
+                  />
+                  <OptionBottomSheet
+                    visible={activeSheet === "thawMethod"}
+                    title="Thaw Method"
+                    options={[
+                      { label: "Refrigerator  (~24h per 4–5 lbs)", value: "fridge" },
+                      { label: "Cold Water  (~1h per lb)", value: "cold_water" },
+                    ]}
+                    selected={thawMethod}
+                    onChange={(v) => { if (v) setThawMethod(v as ThawMethod); }}
+                    onClose={() => setActiveSheet(null)}
+                    colors={colors}
+                    allowDeselect={false}
+                  />
+                  {/* Notes sheet */}
+                  <Modal
+                    visible={activeSheet === "notes"}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => { setNotes(notesSheetDraft); setActiveSheet(null); }}
+                  >
+                    <Pressable
+                      style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}
+                      onPress={() => { setNotes(notesSheetDraft); setActiveSheet(null); }}
+                    />
+                    <View
+                      style={{
+                        backgroundColor: colors.card,
+                        borderTopWidth: 1,
+                        borderTopColor: colors.border + "60",
+                        borderTopLeftRadius: 20,
+                        borderTopRightRadius: 20,
+                        paddingTop: 8,
+                        paddingHorizontal: 18,
+                        paddingBottom: 40,
+                        gap: 14,
+                      }}
+                    >
+                      <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.mutedForeground + "55", alignSelf: "center", marginBottom: 4 }} />
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                        <Text style={{ fontSize: 17, fontFamily: "Inter_700Bold", color: colors.foreground }}>Notes</Text>
+                        <Pressable
+                          onPress={() => { setNotes(notesSheetDraft); setActiveSheet(null); }}
+                          style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 7, borderRadius: 8 }}
+                        >
+                          <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#fff" }}>Done</Text>
+                        </Pressable>
+                      </View>
+                      <TextInput
+                        style={{
+                          backgroundColor: colors.background,
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                          borderRadius: colors.radius,
+                          color: colors.foreground,
+                          fontSize: 15,
+                          fontFamily: "Inter_400Regular",
+                          padding: 14,
+                          minHeight: 120,
+                          textAlignVertical: "top",
+                        }}
+                        placeholder="Rub recipe, wood choice, timing notes…"
+                        placeholderTextColor={colors.mutedForeground}
+                        value={notesSheetDraft}
+                        onChangeText={setNotesSheetDraft}
+                        multiline
+                        autoFocus
+                      />
+                    </View>
+                  </Modal>
                 </View>
               )}
             </>
