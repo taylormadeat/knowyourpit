@@ -57,6 +57,7 @@ import {
   useListGrills,
   type Cook,
   type Grill,
+  type UpdateCookBody,
   useGetMeaterReadings,
   useGetThermoworksReadings,
   useListAlerts,
@@ -117,6 +118,13 @@ import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
 import { getCheckinSchedule } from "@/constants/checkinKnowledge";
 import type { CookCheckin } from "@workspace/api-client-react";
 import { SettingsRow } from "@/components/plan-screen/SettingsRow";
+import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
+import {
+  QP_COOK_METHODS,
+  QP_INJECTION_OPTIONS,
+  QP_SPRITZ_FREQUENCIES,
+  QP_WRAP_FINISH_OPTIONS,
+} from "@/constants/cookQuickPicks";
 import { WrapTempSheet } from "@/components/cook-detail/WrapTempSheet";
 import { ActualVsPlannedRecap } from "@/components/cook-detail/ActualVsPlannedRecap";
 import { EditCookModal } from "@/components/cook-detail/EditCookModal";
@@ -259,6 +267,12 @@ export default function CookDetailScreen() {
   const [alertSaving, setAlertSaving] = useState(false);
   const [quickLogVisible, setQuickLogVisible] = useState(false);
   const [showCookDetails, setShowCookDetails] = useState(false);
+
+  // Technique picker sheet state (inline edit on cook detail)
+  const [techMethodSheetOpen, setTechMethodSheetOpen] = useState(false);
+  const [techInjectionSheetOpen, setTechInjectionSheetOpen] = useState(false);
+  const [techSpritzSheetOpen, setTechSpritzSheetOpen] = useState(false);
+  const [techWrapFinishSheetOpen, setTechWrapFinishSheetOpen] = useState(false);
   const [seqScheduleExpanded, setSeqScheduleExpanded] = useState(false);
   const [expandedStoredSections, setExpandedStoredSections] = useState<Set<string>>(new Set());
   const [expandedResultSections, setExpandedResultSections] = useState<Set<string>>(new Set());
@@ -2094,33 +2108,110 @@ export default function CookDetailScreen() {
           </Pressable>
         )}
 
-        {/* ── Techniques Used (SettingsRow card style) ── */}
-        {(c.cookingMethod || c.injection || c.spritzFrequency || c.wrapFinish) && (() => {
-          const techniques = [
-            { label: "Method", value: c.cookingMethod ?? null },
-            { label: "Injection", value: c.injection ?? null },
-            { label: "Spritz", value: c.spritzFrequency ?? null },
-            { label: "Wrap / Finish", value: c.wrapFinish ?? null },
-          ].filter(t => t.value);
+        {/* ── Techniques Used (SettingsRow card style — tappable inline edit) ── */}
+        {(() => {
+          const saveTechnique = async (data: UpdateCookBody) => {
+            await updateCook.mutateAsync({ id: Number(id), data });
+            await qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+          };
           return (
             <View style={{ backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14 }}>
               <Text style={{ fontFamily: "Inter_700Bold", fontSize: 12, color: colors.mutedForeground, textTransform: "uppercase", letterSpacing: 0.8, paddingTop: 14, paddingBottom: 4 }}>
                 Techniques Used
               </Text>
-              {techniques.map((t, idx) => (
-                <SettingsRow
-                  key={t.label}
-                  label={t.label}
-                  value={t.value}
-                  onPress={() => {}}
-                  colors={colors}
-                  disabled
-                  isLast={idx === techniques.length - 1}
-                />
-              ))}
+              <SettingsRow
+                label="Cooking Method"
+                value={c.cookingMethod ?? null}
+                placeholder="Not set"
+                icon="thermometer"
+                iconColor="#E84820"
+                onPress={() => setTechMethodSheetOpen(true)}
+                onClear={() => saveTechnique({ cookingMethod: null })}
+                colors={colors}
+              />
+              <SettingsRow
+                label="Injection"
+                value={c.injection ?? null}
+                placeholder="Not set"
+                icon="droplet"
+                iconColor="#6C3BF5"
+                onPress={() => setTechInjectionSheetOpen(true)}
+                onClear={() => saveTechnique({ injection: null })}
+                colors={colors}
+              />
+              <SettingsRow
+                label="Spritz Frequency"
+                value={c.spritzFrequency ?? null}
+                placeholder="Not set"
+                icon="wind"
+                iconColor="#0EA5E9"
+                onPress={() => setTechSpritzSheetOpen(true)}
+                onClear={() => saveTechnique({ spritzFrequency: null })}
+                colors={colors}
+              />
+              <SettingsRow
+                label="Wrap / Finish"
+                value={c.wrapFinish ?? null}
+                placeholder="Not set"
+                icon="package"
+                iconColor="#F59E0B"
+                onPress={() => setTechWrapFinishSheetOpen(true)}
+                onClear={() => saveTechnique({ wrapFinish: null })}
+                colors={colors}
+                isLast
+              />
             </View>
           );
         })()}
+
+        <OptionBottomSheet
+          visible={techMethodSheetOpen}
+          title="Cooking Method"
+          options={QP_COOK_METHODS}
+          selected={c.cookingMethod ?? null}
+          onChange={async (v) => {
+            await updateCook.mutateAsync({ id: Number(id), data: { cookingMethod: v } });
+            await qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+          }}
+          onClose={() => setTechMethodSheetOpen(false)}
+          colors={colors}
+        />
+        <OptionBottomSheet
+          visible={techInjectionSheetOpen}
+          title="Injection"
+          options={QP_INJECTION_OPTIONS}
+          selected={c.injection ?? null}
+          onChange={async (v) => {
+            await updateCook.mutateAsync({ id: Number(id), data: { injection: v } });
+            await qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+          }}
+          onClose={() => setTechInjectionSheetOpen(false)}
+          colors={colors}
+        />
+        <OptionBottomSheet
+          visible={techSpritzSheetOpen}
+          title="Spritz Frequency"
+          options={QP_SPRITZ_FREQUENCIES}
+          selected={c.spritzFrequency ?? null}
+          onChange={async (v) => {
+            await updateCook.mutateAsync({ id: Number(id), data: { spritzFrequency: v } });
+            await qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+          }}
+          onClose={() => setTechSpritzSheetOpen(false)}
+          colors={colors}
+        />
+        <OptionBottomSheet
+          visible={techWrapFinishSheetOpen}
+          title="Wrap / Finish"
+          options={QP_WRAP_FINISH_OPTIONS}
+          selected={c.wrapFinish ?? null}
+          onChange={async (v) => {
+            await updateCook.mutateAsync({ id: Number(id), data: { wrapFinish: v } });
+            await qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+          }}
+          onClose={() => setTechWrapFinishSheetOpen(false)}
+          colors={colors}
+        />
 
         <FrozenTimeline c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs} />
         <SequenceSchedule
