@@ -464,10 +464,23 @@ export default function HomeScreen() {
                       {fmtCountdown(new Date(upcomingCook.plannedStartAt).getTime())}
                     </Text>
                   </Text>
-                  {upcomingCook.cookTempF && (
-                    <Text style={[s.upcomingMeta, { color: colors.mutedForeground }]}>
-                      Pit target: {upcomingCook.cookTempF}°F
-                    </Text>
+                  {(upcomingCook.targetTempF != null || upcomingCook.cookTempF != null) && (
+                    <View style={{ flexDirection: "row", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                      {upcomingCook.targetTempF != null && (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#22c55e12", borderWidth: 1, borderColor: "#22c55e30" }}>
+                          <Feather name="thermometer" size={10} color="#22c55e" />
+                          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#22c55e" }}>{upcomingCook.targetTempF}°F</Text>
+                          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#22c55e99" }}>target</Text>
+                        </View>
+                      )}
+                      {upcomingCook.cookTempF != null && (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#3b82f612", borderWidth: 1, borderColor: "#3b82f630" }}>
+                          <Feather name="wind" size={10} color="#3b82f6" />
+                          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#3b82f6" }}>{upcomingCook.cookTempF}°F</Text>
+                          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#3b82f699" }}>pit</Text>
+                        </View>
+                      )}
+                    </View>
                   )}
                 </View>
               </View>
