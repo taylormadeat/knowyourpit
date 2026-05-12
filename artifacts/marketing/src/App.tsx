@@ -6,7 +6,6 @@ import NotFound from "@/pages/not-found";
 import { RootLayout } from "@/components/layout/RootLayout";
 import Home from "@/pages/home";
 import Features from "@/pages/features";
-import MarketingKit from "@/pages/marketing-kit";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
 import Support from "@/pages/support";
@@ -19,7 +18,6 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/features" component={Features} />
-        <Route path="/marketing-kit" component={MarketingKit} />
         <Route path="/privacy" component={Privacy} />
         <Route path="/terms" component={Terms} />
         <Route path="/support" component={Support} />
