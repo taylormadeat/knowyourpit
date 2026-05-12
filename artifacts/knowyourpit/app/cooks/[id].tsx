@@ -113,6 +113,7 @@ import {
   evaluateAutoDismiss,
   rescheduleCheckinNotifications,
   cancelStoredCheckinNotifications,
+  cancelCheckinNotificationForPhase,
 } from "@/hooks/useCheckinNotifications";
 import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
 import { getCheckinSchedule, generateCheckinSchedule } from "@/constants/checkinKnowledge";
@@ -2446,9 +2447,10 @@ export default function CookDetailScreen() {
               isIdentityLinked={isIdentityLinked}
               showPaywall={showPaywall}
               plannedCheckins={plannedCheckins}
-              onRemovePlanned={(phaseKey) =>
-                setRemovedPlannedKeys((prev) => new Set([...prev, phaseKey]))
-              }
+              onRemovePlanned={(phaseKey) => {
+                setRemovedPlannedKeys((prev) => new Set([...prev, phaseKey]));
+                cancelCheckinNotificationForPhase(Number(id), phaseKey).catch(() => {});
+              }}
             />
           );
         })()}

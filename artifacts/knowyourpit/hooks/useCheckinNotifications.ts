@@ -36,14 +36,57 @@ export async function cancelStoredCheckinNotifications(cookId: number): Promise<
   }
 }
 
-async function storeCheckinNotificationIds(cookId: number, ids: string[]): Promise<void> {
+const CHECKIN_PHASE_MAP_SUFFIX = "_phasemap";
+
+async function storeCheckinNotificationIds(
+  cookId: number,
+  ids: string[],
+  phaseMap: Record<string, string>,
+): Promise<void> {
   try {
-    await AsyncStorage.setItem(
-      `${CHECKIN_NOTIF_IDS_KEY_PREFIX}${cookId}`,
-      JSON.stringify(ids),
-    );
+    await AsyncStorage.multiSet([
+      [`${CHECKIN_NOTIF_IDS_KEY_PREFIX}${cookId}`, JSON.stringify(ids)],
+      [`${CHECKIN_NOTIF_IDS_KEY_PREFIX}${cookId}${CHECKIN_PHASE_MAP_SUFFIX}`, JSON.stringify(phaseMap)],
+    ]);
   } catch (err) {
     console.warn("[checkin] storeCheckinNotificationIds failed:", err);
+  }
+}
+
+/**
+ * Cancel only the scheduled notification for a single phase key.
+ * Removes the notification from the device and updates persisted state.
+ */
+export async function cancelCheckinNotificationForPhase(
+  cookId: number,
+  phaseKey: string,
+): Promise<void> {
+  if (Platform.OS === "web") return;
+  try {
+    const mapKey = `${CHECKIN_NOTIF_IDS_KEY_PREFIX}${cookId}${CHECKIN_PHASE_MAP_SUFFIX}`;
+    const idsKey = `${CHECKIN_NOTIF_IDS_KEY_PREFIX}${cookId}`;
+
+    const [mapStr, idsStr] = await AsyncStorage.multiGet([mapKey, idsKey]).then(
+      (pairs) => pairs.map((p) => p[1]),
+    );
+
+    const phaseMap: Record<string, string> = mapStr ? JSON.parse(mapStr) : {};
+    const ids: string[] = idsStr ? JSON.parse(idsStr) : [];
+
+    const notifId = phaseMap[phaseKey];
+    if (notifId) {
+      await Notifications.cancelScheduledNotificationAsync(notifId).catch((err) => {
+        console.warn("[checkin] cancelCheckinNotificationForPhase failed:", err);
+      });
+      delete phaseMap[phaseKey];
+      const updatedIds = ids.filter((id) => id !== notifId);
+      await AsyncStorage.multiSet([
+        [mapKey, JSON.stringify(phaseMap)],
+        [idsKey, JSON.stringify(updatedIds)],
+      ]);
+    }
+  } catch (err) {
+    console.warn("[checkin] cancelCheckinNotificationForPhase error:", err);
   }
 }
 
@@ -63,6 +106,7 @@ export async function scheduleCheckinNotifications(
 
   const now = Date.now();
   const ids: string[] = [];
+  const phaseMap: Record<string, string> = {};
   const label = foodType ?? "your cook";
 
   for (const checkin of checkins) {
@@ -89,8 +133,10 @@ export async function scheduleCheckinNotifications(
         },
       });
 
-      if (isCurrent()) ids.push(notifId);
-      else {
+      if (isCurrent()) {
+        ids.push(notifId);
+        phaseMap[checkin.phaseKey] = notifId;
+      } else {
         Notifications.cancelScheduledNotificationAsync(notifId).catch((err) => {
           console.warn("[checkin] cancel superseded notification failed:", err);
         });
@@ -101,7 +147,7 @@ export async function scheduleCheckinNotifications(
     }
   }
 
-  if (isCurrent()) await storeCheckinNotificationIds(cookId, ids);
+  if (isCurrent()) await storeCheckinNotificationIds(cookId, ids, phaseMap);
 }
 
 // ---------------------------------------------------------------------------
