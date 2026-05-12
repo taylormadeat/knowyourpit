@@ -93,6 +93,13 @@ export const COMPETITION_CATEGORY_FOOD_TYPE: Record<CompetitionCategory, string>
   brisket: "Brisket (Whole Packer)",
 };
 
+export const COMPETITION_CATEGORY_CUT_OPTIONS: Record<CompetitionCategory, string[]> = {
+  chicken: ["Chicken Thighs (Bone-In)", "Chicken Leg Quarters", "Chicken Drumsticks", "Chicken Wings"],
+  ribs: ["Spare Ribs (St. Louis)", "Baby Back Ribs", "Spare Ribs (Full)"],
+  pork: ["Pork Shoulder / Boston Butt", "Picnic Shoulder", "Pulled Pork (Competition)"],
+  brisket: ["Brisket (Whole Packer)", "Brisket (Flat)", "Brisket (Point)"],
+};
+
 export const COMPETITION_CATEGORY_DEFAULT_WEIGHT_LBS: Record<CompetitionCategory, number> = {
   chicken: 4,
   ribs: 4,

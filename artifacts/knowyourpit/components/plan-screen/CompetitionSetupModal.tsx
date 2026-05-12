@@ -18,6 +18,7 @@ import {
   COMPETITION_CATEGORY_LABEL,
   COMPETITION_CATEGORY_COLOR,
   COMPETITION_CATEGORY_FOOD_TYPE,
+  COMPETITION_CATEGORY_CUT_OPTIONS,
   COMPETITION_CATEGORY_DEFAULT_WEIGHT_LBS,
   COMPETITION_DEFAULT_TURN_INS,
   COMPETITION_WALK_TIME_DEFAULT_MINUTES,
@@ -106,6 +107,12 @@ export function CompetitionSetupModal({
     return o;
   });
   const [timePickerFor, setTimePickerFor] = useState<CompetitionCategory | null>(null);
+  const [selectedCuts, setSelectedCuts] = useState<Record<CompetitionCategory, string>>(() => {
+    const o: any = {};
+    for (const c of COMPETITION_CATEGORIES) o[c] = COMPETITION_CATEGORY_FOOD_TYPE[c];
+    return o;
+  });
+  const [cutPickerFor, setCutPickerFor] = useState<CompetitionCategory | null>(null);
   const [walkMinutes, setWalkMinutes] = useState<Record<CompetitionCategory, number>>(() => {
     const o: any = {};
     for (const c of COMPETITION_CATEGORIES) o[c] = COMPETITION_WALK_TIME_DEFAULT_MINUTES;
@@ -133,7 +140,7 @@ export function CompetitionSetupModal({
     const items: CompetitionItem[] = [];
     for (const c of COMPETITION_CATEGORIES) {
       if (!enabled[c]) continue;
-      const cutName = COMPETITION_CATEGORY_FOOD_TYPE[c];
+      const cutName = selectedCuts[c];
       const cut = MEAT_CUTS.find((m) => m.name === cutName);
       if (!cut) continue;
       items.push({
@@ -229,17 +236,40 @@ export function CompetitionSetupModal({
                     },
                   ]}
                 >
-                  <Pressable onPress={() => setEnabled((p) => ({ ...p, [c]: !p[c] }))} style={s.catRow}>
-                    <View style={[s.catSwatch, { backgroundColor: color + (isOn ? "" : "55") }]}>
-                      <Feather name={isOn ? "check" : "circle"} size={14} color="#fff" />
-                    </View>
-                    <View style={{ flex: 1 }}>
+                  <View style={s.catRow}>
+                    <Pressable
+                      onPress={() => setEnabled((p) => ({ ...p, [c]: !p[c] }))}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}
+                    >
+                      <View style={[s.catSwatch, { backgroundColor: color + (isOn ? "" : "55") }]}>
+                        <Feather name={isOn ? "check" : "circle"} size={14} color="#fff" />
+                      </View>
                       <Text style={[s.catName, { color: colors.foreground }]}>{COMPETITION_CATEGORY_LABEL[c]}</Text>
+                    </Pressable>
+                    {isOn ? (
+                      <Pressable
+                        onPress={() => setCutPickerFor(c)}
+                        style={[
+                          s.turnInPill,
+                          {
+                            backgroundColor: color + "22",
+                            borderColor: color,
+                            borderRadius: colors.radius - 2,
+                          },
+                        ]}
+                      >
+                        <Feather name="scissors" size={11} color={color} />
+                        <Text style={[s.turnInText, { color, maxWidth: 130 }]} numberOfLines={1}>
+                          {selectedCuts[c]}
+                        </Text>
+                        <Feather name="chevron-down" size={11} color={color} />
+                      </Pressable>
+                    ) : (
                       <Text style={[s.catSub, { color: colors.mutedForeground }]} numberOfLines={1}>
-                        {COMPETITION_CATEGORY_FOOD_TYPE[c]}
+                        {selectedCuts[c]}
                       </Text>
-                    </View>
-                  </Pressable>
+                    )}
+                  </View>
                   {isOn && (
                     <View style={s.catBody}>
                       <View style={s.catFieldRow}>
@@ -431,6 +461,54 @@ export function CompetitionSetupModal({
                     </Pressable>
                   );
                 })}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+        {/* ── Per-category cut picker sub-modal ── */}
+        <Modal
+          visible={cutPickerFor !== null}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setCutPickerFor(null)}
+        >
+          <View style={s.subOverlay}>
+            <Pressable style={s.backdrop} onPress={() => setCutPickerFor(null)} />
+            <View style={[s.subSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={s.handle} />
+              <View style={s.subHeader}>
+                <Text style={[s.title, { color: colors.foreground }]}>
+                  {cutPickerFor ? `${COMPETITION_CATEGORY_LABEL[cutPickerFor]} — Choose cut` : "Choose cut"}
+                </Text>
+                <Pressable onPress={() => setCutPickerFor(null)} hitSlop={8}>
+                  <Feather name="x" size={20} color={colors.mutedForeground} />
+                </Pressable>
+              </View>
+              <ScrollView style={{ maxHeight: 380 }}>
+                {cutPickerFor &&
+                  COMPETITION_CATEGORY_CUT_OPTIONS[cutPickerFor].map((name) => {
+                    const isSel = selectedCuts[cutPickerFor] === name;
+                    const catColor = COMPETITION_CATEGORY_COLOR[cutPickerFor];
+                    return (
+                      <Pressable
+                        key={name}
+                        onPress={() => {
+                          setSelectedCuts((p) => ({ ...p, [cutPickerFor]: name }));
+                          setCutPickerFor(null);
+                        }}
+                        style={[
+                          s.subRow,
+                          isSel && { backgroundColor: catColor + "22" },
+                          { borderRadius: colors.radius },
+                        ]}
+                      >
+                        <Text style={[s.subRowText, { color: isSel ? catColor : colors.foreground }]}>
+                          {name}
+                        </Text>
+                        {isSel && <Feather name="check" size={16} color={catColor} />}
+                      </Pressable>
+                    );
+                  })}
               </ScrollView>
             </View>
           </View>
