@@ -423,8 +423,6 @@ export default function MoreScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1 },
-  title: { fontSize: 24, fontFamily: "Inter_700Bold" },
   profileCard: {
     flexDirection: "row", alignItems: "center", gap: 14,
     marginHorizontal: 16, marginBottom: 20, padding: 16, borderWidth: 1,
