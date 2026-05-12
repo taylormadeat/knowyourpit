@@ -111,11 +111,6 @@ const PITMASTER_TITLES: { minScore: number; titles: string[] }[] = [
   },
 ];
 
-function getRandomTitle(score: number): string {
-  const tier = PITMASTER_TITLES.find((t) => score >= t.minScore) ?? PITMASTER_TITLES[PITMASTER_TITLES.length - 1];
-  return tier.titles[Math.floor(Math.random() * tier.titles.length)];
-}
-
 function fmtElapsed(ms: number): string {
   const totalMins = Math.floor(ms / 60000);
   const hrs = Math.floor(totalMins / 60);
@@ -1212,74 +1207,7 @@ const s = StyleSheet.create({
     marginBottom: 16,
     overflow: "hidden",
   },
-  blurOverlay: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    gap: 8,
-    backgroundColor: "rgba(0,0,0,0.42)",
-  },
-  blurLockCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 4,
-  },
-  blurUnlockTitle: {
-    fontSize: 15,
-    fontFamily: "Inter_700Bold",
-    color: "#fff",
-    textAlign: "center",
-  },
-  blurUnlockSub: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.65)",
-    textAlign: "center",
-    lineHeight: 17,
-  },
-  blurCta: {
-    marginTop: 4,
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "#E84820",
-  },
-  blurCtaText: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-    color: "#fff",
-  },
 
-  /* AI Badge */
-  aiBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  aiBadgeText: {
-    fontSize: 10,
-    fontFamily: "Inter_700Bold",
-    color: "#E84820",
-    letterSpacing: 0.5,
-  },
-
-  /* Tips Card (standalone, unused now but kept for reference) */
-  tipsCard: {
-    borderWidth: 1,
-    marginHorizontal: 20,
-    marginBottom: 8,
-    overflow: "hidden",
-  },
   /* Tips inside the grade card */
   tipsInCard: {
     marginTop: 16,
