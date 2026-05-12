@@ -20,7 +20,7 @@ import { useColors } from "@/hooks/useColors";
 import { useTopInset } from "@/hooks/useTopInset";
 import { useLayout } from "@/hooks/useLayout";
 import { LogoBackground } from "@/components/LogoBackground";
-import { useGetDashboardSummary, useGetRecentCooks } from "@workspace/api-client-react";
+import { useGetDashboardSummary, useGetRecentCooks, getGetRecentCooksQueryKey } from "@workspace/api-client-react";
 import { useHomeInsights } from "@/hooks/useHomeInsights";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
@@ -134,7 +134,26 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useUser();
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
-  const { data: recentCooks, isLoading: cooksLoading } = useGetRecentCooks();
+
+  // Track tab focus so we can poll while the user is watching the dashboard.
+  const [isFocused, setIsFocused] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      return () => setIsFocused(false);
+    }, [])
+  );
+
+  // Detect an active cook from the previous fetch result so we only enable the
+  // 30-second polling interval when there is actually something live to update.
+  const [hasActiveCook, setHasActiveCook] = useState(false);
+
+  const { data: recentCooks, isLoading: cooksLoading } = useGetRecentCooks({
+    query: {
+      queryKey: getGetRecentCooksQueryKey(),
+      refetchInterval: isFocused && hasActiveCook ? 30_000 : false,
+    },
+  });
   const { data: insights, isLoading: insightsLoading } = useHomeInsights();
   const { isPro, isIdentityLinked, isInTrial, expirationDate } = useSubscription();
 
@@ -207,6 +226,11 @@ export default function HomeScreen() {
 
   const allCooks = (recentCooks as any[]) || [];
   const activeCook = allCooks.find((c: any) => c.status === "active") ?? null;
+
+  // Keep hasActiveCook in sync so the refetchInterval gate stays accurate.
+  React.useEffect(() => {
+    setHasActiveCook(!!activeCook);
+  }, [!!activeCook]);
   const upcomingCook = !activeCook
     ? allCooks.find((c: any) => {
         if (c.status !== "planned") return false;
