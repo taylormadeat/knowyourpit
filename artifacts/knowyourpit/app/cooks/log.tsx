@@ -49,7 +49,14 @@ import {
   QP_INJECTION_OPTIONS,
   QP_SPRITZ_FREQUENCIES,
   QP_WRAP_FINISH_OPTIONS,
+  type QpCookMethod,
+  type QpMeatStartTemp,
+  type QpInjectionOption,
+  type QpSpritzFrequency,
+  type QpWrapFinishOption,
 } from "@/constants/cookQuickPicks";
+import { SettingsRow } from "@/components/plan-screen/SettingsRow";
+import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
 
 import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
@@ -133,48 +140,6 @@ type AnalysisResult = {
   assessment: Assessment | null;
 };
 
-function ChipRow({
-  label,
-  options,
-  selected,
-  onSelect,
-  colors,
-}: {
-  label: string;
-  options: readonly string[];
-  selected: string | null;
-  onSelect: (val: string | null) => void;
-  colors: any;
-}) {
-  return (
-    <View style={qs.chipGroup}>
-      <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>{label}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={qs.chipScroll}>
-        {options.map((opt) => {
-          const active = selected === opt;
-          return (
-            <Pressable
-              key={opt}
-              onPress={() => onSelect(active ? null : opt)}
-              style={[
-                qs.chip,
-                {
-                  borderColor: active ? colors.primary : colors.border,
-                  backgroundColor: active ? colors.primary + "20" : "transparent",
-                  borderRadius: colors.radius,
-                },
-              ]}
-            >
-              <Text style={[qs.chipText, { color: active ? colors.primary : colors.mutedForeground }]}>
-                {opt}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
-}
 
 function SummaryCell({ label, value, colors, highlight }: { label: string; value: string; colors: any; highlight?: boolean }) {
   return (
@@ -218,13 +183,17 @@ export default function LogCookScreen() {
   const [cookNotes, setCookNotes] = useState("");
   const [activeCookNoteTags, setActiveCookNoteTags] = useState<string[]>([]);
 
-  // Quick-pick chip state for the scanner "describe the cook" section
-  const [qpMethod, setQpMethod] = useState<string | null>(null);
-  const [qpStartTemp, setQpStartTemp] = useState<string | null>(null);
-  const [qpInjection, setQpInjection] = useState<string | null>(null);
-  const [qpSpritz, setQpSpritz] = useState<string | null>(null);
-  const [qpWrap, setQpWrap] = useState<string | null>(null);
+  // Quick-pick state for the scanner "describe the cook" section
+  const [qpMethod, setQpMethod] = useState<QpCookMethod | null>(null);
+  const [qpStartTemp, setQpStartTemp] = useState<QpMeatStartTemp | null>(null);
+  const [qpInjection, setQpInjection] = useState<QpInjectionOption | null>(null);
+  const [qpSpritz, setQpSpritz] = useState<QpSpritzFrequency | null>(null);
+  const [qpWrap, setQpWrap] = useState<QpWrapFinishOption | null>(null);
   const [qpOverflow, setQpOverflow] = useState("");
+
+  // Which technique bottom-sheet is open
+  type LogSheet = "cookMethod" | "meatStartTemp" | "injection" | "spritz" | "wrapFinish";
+  const [activeLogSheet, setActiveLogSheet] = useState<LogSheet | null>(null);
 
   // Serialise chip selections into a natural-language string sent to the AI
   const scanNotes = useMemo(() => {
@@ -797,41 +766,111 @@ export default function LogCookScreen() {
             <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>
               Describe the cook <Text style={{ fontWeight: "400" }}>(helps PitMaster analyse time and technique)</Text>
             </Text>
-            <ChipRow
-              label="Cooking Method"
+
+            {/* Compact technique settings rows — matches EditCookModal layout */}
+            <View
+              style={{
+                borderRadius: colors.radius,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.card,
+                paddingHorizontal: 12,
+                overflow: "hidden",
+              }}
+            >
+              <SettingsRow
+                label="Cooking Method"
+                icon="thermometer"
+                iconColor="#E84820"
+                value={qpMethod}
+                placeholder="Any"
+                onPress={() => setActiveLogSheet("cookMethod")}
+                colors={colors}
+              />
+              <SettingsRow
+                label="Meat Starting Temp"
+                icon="sun"
+                value={qpStartTemp}
+                placeholder="Any"
+                onPress={() => setActiveLogSheet("meatStartTemp")}
+                colors={colors}
+              />
+              <SettingsRow
+                label="Injection"
+                icon="droplet"
+                iconColor="#6C3BF5"
+                value={qpInjection}
+                placeholder="Any"
+                onPress={() => setActiveLogSheet("injection")}
+                colors={colors}
+              />
+              <SettingsRow
+                label="Spritz Frequency"
+                icon="wind"
+                iconColor="#0EA5E9"
+                value={qpSpritz}
+                placeholder="Any"
+                onPress={() => setActiveLogSheet("spritz")}
+                colors={colors}
+              />
+              <SettingsRow
+                label="Wrap / Finish"
+                icon="package"
+                iconColor="#F59E0B"
+                value={qpWrap}
+                placeholder="Any"
+                onPress={() => setActiveLogSheet("wrapFinish")}
+                colors={colors}
+                isLast
+              />
+            </View>
+
+            <OptionBottomSheet
+              visible={activeLogSheet === "cookMethod"}
+              title="Cooking Method"
               options={QP_COOK_METHODS}
               selected={qpMethod}
-              onSelect={setQpMethod}
+              onChange={(v) => setQpMethod(v as QpCookMethod | null)}
+              onClose={() => setActiveLogSheet(null)}
               colors={colors}
             />
-            <ChipRow
-              label="Meat Starting Temp"
+            <OptionBottomSheet
+              visible={activeLogSheet === "meatStartTemp"}
+              title="Meat Starting Temp"
               options={QP_MEAT_START_TEMPS}
               selected={qpStartTemp}
-              onSelect={setQpStartTemp}
+              onChange={(v) => setQpStartTemp(v as QpMeatStartTemp | null)}
+              onClose={() => setActiveLogSheet(null)}
               colors={colors}
             />
-            <ChipRow
-              label="Injection"
+            <OptionBottomSheet
+              visible={activeLogSheet === "injection"}
+              title="Injection"
               options={QP_INJECTION_OPTIONS}
               selected={qpInjection}
-              onSelect={setQpInjection}
+              onChange={(v) => setQpInjection(v as QpInjectionOption | null)}
+              onClose={() => setActiveLogSheet(null)}
               colors={colors}
             />
-            <ChipRow
-              label="Spritz Frequency"
+            <OptionBottomSheet
+              visible={activeLogSheet === "spritz"}
+              title="Spritz Frequency"
               options={QP_SPRITZ_FREQUENCIES}
               selected={qpSpritz}
-              onSelect={setQpSpritz}
+              onChange={(v) => setQpSpritz(v as QpSpritzFrequency | null)}
+              onClose={() => setActiveLogSheet(null)}
               colors={colors}
             />
-            <ChipRow
-              label="Wrap / Finish"
+            <OptionBottomSheet
+              visible={activeLogSheet === "wrapFinish"}
+              title="Wrap / Finish"
               options={QP_WRAP_FINISH_OPTIONS}
               selected={qpWrap}
-              onSelect={setQpWrap}
+              onChange={(v) => setQpWrap(v as QpWrapFinishOption | null)}
+              onClose={() => setActiveLogSheet(null)}
               colors={colors}
             />
+
             <View>
               <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 6 }]}>Anything else?</Text>
               <TextInput
@@ -1886,7 +1925,6 @@ const dp2 = StyleSheet.create({
 });
 
 const qs = StyleSheet.create({
-  chipGroup: { gap: 5 },
   chipScroll: { flexDirection: "row", gap: 7, paddingVertical: 2 },
   chip: { paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1 },
   chipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
