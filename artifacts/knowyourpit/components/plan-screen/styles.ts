@@ -304,16 +304,6 @@ export const planStyles = StyleSheet.create({
   weatherTempText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
 
   // Frozen-to-Table
-  frozenCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 1,
-    padding: 14,
-  },
-  frozenIconWrap: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  frozenTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  frozenSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
   proPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -326,23 +316,6 @@ export const planStyles = StyleSheet.create({
   proPillText: { fontSize: 9, fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: 0.5 },
   toggleTrack: { width: 40, height: 22, borderRadius: 12, borderWidth: 1, padding: 1, justifyContent: "center" },
   toggleThumb: { width: 18, height: 18, borderRadius: 9 },
-  thawMethodRow: {
-    flexDirection: "row",
-    borderWidth: 1,
-    padding: 4,
-    gap: 4,
-    marginTop: 8,
-  },
-  thawMethodBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 10,
-  },
-  thawMethodLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  thawMethodSub: { fontSize: 10, fontFamily: "Inter_400Regular", marginTop: 1 },
 
   // First-action hero (frozen mode)
   firstActionCard: { marginTop: 16, overflow: "hidden" },
