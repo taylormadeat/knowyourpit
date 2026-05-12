@@ -388,6 +388,26 @@ export default function HomeScreen() {
                     <Text style={s.activeGrill}>{activeCook.grillName}</Text>
                   ) : null}
 
+                  {/* Temp chips */}
+                  {(activeCook.targetTempF != null || activeCook.cookTempF != null) && (
+                    <View style={{ flexDirection: "row", gap: 6, marginTop: 6, marginBottom: 2, flexWrap: "wrap" }}>
+                      {activeCook.targetTempF != null && (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#22c55e12", borderWidth: 1, borderColor: "#22c55e30" }}>
+                          <Feather name="thermometer" size={10} color="#22c55e" />
+                          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#22c55e" }}>{activeCook.targetTempF}°F</Text>
+                          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#22c55e99" }}>target</Text>
+                        </View>
+                      )}
+                      {activeCook.cookTempF != null && (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#3b82f612", borderWidth: 1, borderColor: "#3b82f630" }}>
+                          <Feather name="wind" size={10} color="#3b82f6" />
+                          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#3b82f6" }}>{activeCook.cookTempF}°F</Text>
+                          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#3b82f699" }}>pit</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
                   {/* Last decision teaser */}
                   {topDecision ? (
                     <View style={[s.decisionTeaser, { backgroundColor: topDecisionColor! + "18", borderColor: topDecisionColor! + "40" }]}>
