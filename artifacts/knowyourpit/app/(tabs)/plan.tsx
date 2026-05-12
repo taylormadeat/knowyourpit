@@ -288,6 +288,36 @@ export default function PlanScreen() {
   const [qpSpritz, setQpSpritz] = useState<QpSpritzFrequency | null>(null);
   const [qpWrapFinish, setQpWrapFinish] = useState<QpWrapFinishOption | null>(null);
 
+  // On mount: restore the last-used technique quick-picks so the user's
+  // preferred options are already selected when they open the Plan screen.
+  // Each value is validated against its current option set so a stale entry
+  // from an older app version never injects an unknown option into state.
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem("plan_technique_qp")
+      .then((raw) => {
+        if (cancelled || !raw) return;
+        try {
+          const saved = JSON.parse(raw);
+          if (cancelled) return;
+          if (saved.cookMethod && (QP_COOK_METHODS as readonly string[]).includes(saved.cookMethod))
+            setQpCookMethod(saved.cookMethod as QpCookMethod);
+          if (saved.meatStartTemp && (QP_MEAT_START_TEMPS as readonly string[]).includes(saved.meatStartTemp))
+            setQpMeatStartTemp(saved.meatStartTemp as QpMeatStartTemp);
+          if (saved.injection && (QP_INJECTION_OPTIONS as readonly string[]).includes(saved.injection))
+            setQpInjection(saved.injection as QpInjectionOption);
+          if (saved.spritz && (QP_SPRITZ_FREQUENCIES as readonly string[]).includes(saved.spritz))
+            setQpSpritz(saved.spritz as QpSpritzFrequency);
+          if (saved.wrapFinish && (QP_WRAP_FINISH_OPTIONS as readonly string[]).includes(saved.wrapFinish))
+            setQpWrapFinish(saved.wrapFinish as QpWrapFinishOption);
+        } catch {
+          // corrupt storage — ignore
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   // ── Advanced Options bottom-sheet state ───────────────────────────────
   type AdvSheet = "cookMethod" | "meatStartTemp" | "injection" | "spritz" | "wrapFinish" | "thawMethod" | "notes";
   const [activeSheet, setActiveSheet] = useState<AdvSheet | null>(null);
@@ -775,6 +805,15 @@ export default function PlanScreen() {
       const usedCooksBefore = paywallUsage?.usage?.cooks ?? 0;
       const isFreeAccount = !!paywallUsage && !paywallUsage.unlimited;
       const plannedFood = selectedCut?.name ?? null;
+
+      // Persist the technique quick-picks so they pre-fill on the next visit.
+      AsyncStorage.setItem("plan_technique_qp", JSON.stringify({
+        cookMethod: qpCookMethod,
+        meatStartTemp: qpMeatStartTemp,
+        injection: qpInjection,
+        spritz: qpSpritz,
+        wrapFinish: qpWrapFinish,
+      })).catch(() => {});
 
       resetForm();
       // ── Inline soft tip card (NOT a blocking alert) ──
