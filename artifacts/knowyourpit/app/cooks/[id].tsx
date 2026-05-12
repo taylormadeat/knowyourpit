@@ -2290,15 +2290,10 @@ export default function CookDetailScreen() {
           cookNotes={cookNotes}
           setCookNotes={setCookNotes}
           qpMethod={qpMethod}
-          setQpMethod={setQpMethod}
           qpStartTemp={qpStartTemp}
-          setQpStartTemp={setQpStartTemp}
           qpInjection={qpInjection}
-          setQpInjection={setQpInjection}
           qpSpritz={qpSpritz}
-          setQpSpritz={setQpSpritz}
           qpWrap={qpWrap}
-          setQpWrap={setQpWrap}
           activeCookNoteTags={activeCookNoteTags}
           setActiveCookNoteTags={setActiveCookNoteTags}
           paywallUsage={paywallUsage}
