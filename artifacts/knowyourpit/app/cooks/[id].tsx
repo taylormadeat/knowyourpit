@@ -115,7 +115,7 @@ import {
   cancelStoredCheckinNotifications,
 } from "@/hooks/useCheckinNotifications";
 import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
-import { getCheckinSchedule } from "@/constants/checkinKnowledge";
+import { getCheckinSchedule, generateCheckinSchedule } from "@/constants/checkinKnowledge";
 import type { CookCheckin } from "@workspace/api-client-react";
 import { SettingsRow } from "@/components/plan-screen/SettingsRow";
 import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
@@ -274,6 +274,7 @@ export default function CookDetailScreen() {
   const [seqScheduleExpanded, setSeqScheduleExpanded] = useState(false);
   const [techsExpanded, setTechsExpanded] = useState(false);
   const [planSheetVisible, setPlanSheetVisible] = useState(false);
+  const [removedPlannedKeys, setRemovedPlannedKeys] = useState<Set<string>>(new Set());
   const [expandedStoredSections, setExpandedStoredSections] = useState<Set<string>>(new Set());
   const [expandedResultSections, setExpandedResultSections] = useState<Set<string>>(new Set());
 
@@ -2418,14 +2419,39 @@ export default function CookDetailScreen() {
           }).map((r, i) => ({ id: `probe-${i}`, tempF: r.tempF, timeMinutes: r.timeMinutes }))}
         />
 
-        {/* ── Check-in History (AI analysis history) ────────── */}
-        <CheckInHistory
-          c={c}
-          colors={colors}
-          effectivePro={effectivePro}
-          isIdentityLinked={isIdentityLinked}
-          showPaywall={showPaywall}
-        />
+        {/* ── Check-in History (AI analysis history + upcoming planned) ────────── */}
+        {(() => {
+          const plannedCheckins: ScheduledCheckin[] = (() => {
+            if (cookStatus !== "active") return [];
+            const meatOnAt = (c as any).meatOnAt ?? c.actualStartAt;
+            const estimatedFinishAt = (c as any).estimatedFinishAt ?? c.plannedEndAt;
+            if (!meatOnAt || !estimatedFinishAt) return [];
+            const meatOnAtMs = new Date(meatOnAt).getTime();
+            const estimatedFinishAtMs = new Date(estimatedFinishAt).getTime();
+            if (estimatedFinishAtMs <= meatOnAtMs) return [];
+            const anchor = { meatOnAt, estimatedFinishAt, wrapAtMinutes: c.wrapAtMinutes ?? null };
+            const all = generateCheckinSchedule(c.foodType, meatOnAtMs, estimatedFinishAtMs, anchor, c.weightLbs ?? null);
+            const completedKeys = new Set<string>(
+              ((c as any).analysisHistory ?? []).map((e: any) => e.phaseKey).filter(Boolean),
+            );
+            return all.filter(
+              (sc) => !completedKeys.has(sc.phaseKey) && !removedPlannedKeys.has(sc.phaseKey) && sc.scheduledAt > nowMs,
+            );
+          })();
+          return (
+            <CheckInHistory
+              c={c}
+              colors={colors}
+              effectivePro={effectivePro}
+              isIdentityLinked={isIdentityLinked}
+              showPaywall={showPaywall}
+              plannedCheckins={plannedCheckins}
+              onRemovePlanned={(phaseKey) =>
+                setRemovedPlannedKeys((prev) => new Set([...prev, phaseKey]))
+              }
+            />
+          );
+        })()}
 
         {/* Status action button — hidden for planned (the prominent Start Cook CTA above handles that) */}
         {nextStatus && cookStatus !== "planned" && (

@@ -53,16 +53,7 @@ export function AskPitMaster(p: Props) {
     result, renderDecisions, verdictCfg, assessment, onCardLayout,
   } = p;
 
-  // Card-level collapse. Reads directly from the cook record `c` on first load
-  // so the card is already collapsed on the first active-cook render with no flash.
-  const [cardExpanded, setCardExpanded] = React.useState(true);
-  const cardInitializedRef = React.useRef(false);
-  React.useEffect(() => {
-    if (cardInitializedRef.current) return;
-    if (!c?.status) return;
-    cardInitializedRef.current = true;
-    setCardExpanded(false);
-  }, [c]);
+  const [cardExpanded, setCardExpanded] = React.useState(false);
 
   if (c.status !== "active") return null;
 

@@ -1,10 +1,11 @@
 import React from "react";
-import { View, Text } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { s } from "./styles";
 import { BlurredProSection } from "@/components/BlurredProSection";
 import type { ShowOptions } from "@/contexts/PaywallContext";
+import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
 
 type Colors = any;
 
@@ -14,6 +15,8 @@ interface Props {
   effectivePro: boolean;
   isIdentityLinked: boolean;
   showPaywall: (opts?: ShowOptions) => void;
+  plannedCheckins?: ScheduledCheckin[];
+  onRemovePlanned?: (phaseKey: string) => void;
 }
 
 const URGENCY_COLORS: Record<string, string> = {
@@ -41,9 +44,8 @@ const fmtMins = (mins: number) => {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
-export function CheckInHistory({ c, colors, effectivePro, isIdentityLinked, showPaywall }: Props) {
+export function CheckInHistory({ c, colors, effectivePro, isIdentityLinked, showPaywall, plannedCheckins = [], onRemovePlanned }: Props) {
   const history: any[] = Array.isArray((c as any).analysisHistory) ? (c as any).analysisHistory : [];
-  if (history.length === 0) return null;
   // Per spec, the Cook Coach blur applies to completed cooks only — during
   // an active cook every check-in stays visible so free users can keep
   // following the live coaching session. We only restrict the history once
@@ -56,6 +58,25 @@ export function CheckInHistory({ c, colors, effectivePro, isIdentityLinked, show
   const visibleEntries = isLocked ? reversed.slice(0, 1) : reversed;
   const hiddenCount = isLocked ? reversed.length - 1 : 0;
 
+  const upcomingCount = plannedCheckins.length;
+  if (history.length === 0 && upcomingCount === 0) return null;
+
+  const fmtUpcomingTime = (ms: number) => {
+    try {
+      return new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    } catch { return ""; }
+  };
+
+  const subLabel = (() => {
+    if (history.length > 0 && upcomingCount > 0) {
+      return `${history.length} ${history.length === 1 ? "entry" : "entries"} · ${upcomingCount} upcoming`;
+    }
+    if (history.length > 0) {
+      return `${history.length} ${history.length === 1 ? "entry" : "entries"} · all feedback retained`;
+    }
+    return `${upcomingCount} upcoming`;
+  })();
+
   return (
     <View style={[s.historySection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
       <View style={s.logHeader}>
@@ -67,7 +88,7 @@ export function CheckInHistory({ c, colors, effectivePro, isIdentityLinked, show
             Check-ins
           </Text>
           <Text style={[s.logSub, { color: colors.mutedForeground }]}>
-            {history.length} {history.length === 1 ? "entry" : "entries"} · all feedback retained
+            {subLabel}
           </Text>
         </View>
       </View>
@@ -151,6 +172,47 @@ export function CheckInHistory({ c, colors, effectivePro, isIdentityLinked, show
           </View>
         );
       })}
+      {upcomingCount > 0 && (
+        <View style={{ borderTopWidth: history.length > 0 ? 1 : 0, borderTopColor: colors.border }}>
+          {plannedCheckins.map((sc, i) => (
+            <View
+              key={sc.phaseKey}
+              style={[
+                s.historyEntry,
+                { borderTopColor: colors.border, opacity: 0.75 },
+                (i > 0 || history.length > 0) && { borderTopWidth: 1 },
+              ]}
+            >
+              <View style={s.historyEntryHeader}>
+                <View style={[s.historyIndex, { backgroundColor: "#6C3BF520" }]}>
+                  <Feather name="bell" size={11} color="#6C3BF5" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.historyTimestamp, { color: colors.foreground }]}>
+                    {sc.phaseLabel}
+                  </Text>
+                  <Text style={[s.historyMetaChip, { color: colors.mutedForeground, marginTop: 1 }]}>
+                    {fmtUpcomingTime(sc.scheduledAt)}
+                  </Text>
+                </View>
+                <View style={[s.historyVerdictBadge, { backgroundColor: "#6C3BF520" }]}>
+                  <Text style={[s.historyVerdictText, { color: "#6C3BF5" }]}>upcoming</Text>
+                </View>
+                {onRemovePlanned && (
+                  <Pressable
+                    onPress={() => onRemovePlanned(sc.phaseKey)}
+                    hitSlop={10}
+                    style={{ marginLeft: 6, padding: 3 }}
+                  >
+                    <Feather name="x" size={13} color={colors.mutedForeground} />
+                  </Pressable>
+                )}
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
       {isLocked && (
         <BlurredProSection
           featureName="Cook Coach Report"
