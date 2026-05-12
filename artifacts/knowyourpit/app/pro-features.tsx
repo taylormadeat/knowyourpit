@@ -407,7 +407,7 @@ export default function ProFeaturesScreen() {
             onPress={handleUnlockPro}
           >
             <Feather name="zap" size={15} color="#fff" />
-            <Text style={s.unlockBtnText}>See pricing & unlock Pro →</Text>
+            <Text style={s.unlockBtnText}>Unlock Pro →</Text>
           </Pressable>
         )}
       </View>
