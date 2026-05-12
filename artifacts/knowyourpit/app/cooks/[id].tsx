@@ -116,6 +116,7 @@ import {
 import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
 import { getCheckinSchedule } from "@/constants/checkinKnowledge";
 import type { CookCheckin } from "@workspace/api-client-react";
+import { SettingsRow } from "@/components/plan-screen/SettingsRow";
 import { WrapTempSheet } from "@/components/cook-detail/WrapTempSheet";
 import { ActualVsPlannedRecap } from "@/components/cook-detail/ActualVsPlannedRecap";
 import { EditCookModal } from "@/components/cook-detail/EditCookModal";
@@ -2093,30 +2094,33 @@ export default function CookDetailScreen() {
           </Pressable>
         )}
 
-        {/* ── Technique chips (shown when any technique was saved on the cook) ── */}
-        {(c.cookingMethod || c.injection || c.spritzFrequency || c.wrapFinish) && (
-          <View style={{ backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border, padding: 14 }}>
-            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 12, color: colors.mutedForeground, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 10 }}>
-              Techniques Used
-            </Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              {[
-                { label: "Method", value: c.cookingMethod },
-                { label: "Injection", value: c.injection },
-                { label: "Spritz", value: c.spritzFrequency },
-                { label: "Wrap / Finish", value: c.wrapFinish },
-              ].filter(t => t.value).map(t => (
-                <View
+        {/* ── Techniques Used (SettingsRow card style) ── */}
+        {(c.cookingMethod || c.injection || c.spritzFrequency || c.wrapFinish) && (() => {
+          const techniques = [
+            { label: "Method", value: c.cookingMethod ?? null },
+            { label: "Injection", value: c.injection ?? null },
+            { label: "Spritz", value: c.spritzFrequency ?? null },
+            { label: "Wrap / Finish", value: c.wrapFinish ?? null },
+          ].filter(t => t.value);
+          return (
+            <View style={{ backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14 }}>
+              <Text style={{ fontFamily: "Inter_700Bold", fontSize: 12, color: colors.mutedForeground, textTransform: "uppercase", letterSpacing: 0.8, paddingTop: 14, paddingBottom: 4 }}>
+                Techniques Used
+              </Text>
+              {techniques.map((t, idx) => (
+                <SettingsRow
                   key={t.label}
-                  style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, backgroundColor: colors.primary + "15", borderWidth: 1, borderColor: colors.primary + "35" }}
-                >
-                  <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground }}>{t.label}:</Text>
-                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: colors.primary }}>{t.value}</Text>
-                </View>
+                  label={t.label}
+                  value={t.value}
+                  onPress={() => {}}
+                  colors={colors}
+                  disabled
+                  isLast={idx === techniques.length - 1}
+                />
               ))}
             </View>
-          </View>
-        )}
+          );
+        })()}
 
         <FrozenTimeline c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs} />
         <SequenceSchedule
