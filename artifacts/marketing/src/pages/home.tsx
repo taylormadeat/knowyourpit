@@ -120,7 +120,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.15, ease: "easeOut" }}
           >
-            Your temp curve, analyzed live. Your next move, always clear.
+            Live analysis while you cook. Know exactly what to do next.
           </motion.h2>
 
           <motion.p
@@ -129,7 +129,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           >
-            PitMaster reads your temperature curve the moment a session starts — detecting stalls, ranking your next moves, and updating your predicted finish time in real time. Running multiple cuts? Set one serve time and it sequences every start across every grill.
+            PitMaster analyzes your live probe and pit temperatures, diagnoses what's happening with your curve, and tells you your next move — with the reasoning, not just the recommendation. Planning ribs, brisket, and chicken for the same table? Set one serve time and it sequences the whole cook from start to finish.
           </motion.p>
 
           <motion.div
