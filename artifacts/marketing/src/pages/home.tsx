@@ -315,7 +315,6 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
-              <AppStoreButton label="Plan your next cook" className="w-full sm:w-auto" />
             </motion.div>
 
             {/* Two phones — staggered */}
@@ -327,7 +326,7 @@ export default function Home() {
               className="flex justify-center md:flex-shrink-0 gap-3 items-start"
             >
               {/* Phone 1 — setup screen, shifted down */}
-              <div className="relative w-[120px] h-[260px] sm:w-[130px] sm:h-[282px] md:w-[125px] md:h-[271px] lg:w-[138px] lg:h-[299px] mt-8">
+              <div className="relative w-[150px] h-[325px] sm:w-[165px] sm:h-[358px] md:w-[155px] md:h-[336px] lg:w-[175px] lg:h-[380px] mt-8">
                 <div className="absolute inset-0 rounded-[1.75rem] border-[7px] border-zinc-800 bg-black shadow-[0_20px_60px_-15px_rgba(221,107,32,0.3)] overflow-hidden">
                   <img
                     src={`${BASE}ss-multi-grill-assign.png`}
@@ -338,7 +337,7 @@ export default function Home() {
                 <div className="absolute inset-0 rounded-[1.75rem] ring-1 ring-primary/15 pointer-events-none" />
               </div>
               {/* Phone 2 — sequence result */}
-              <div className="relative w-[120px] h-[260px] sm:w-[130px] sm:h-[282px] md:w-[125px] md:h-[271px] lg:w-[138px] lg:h-[299px]">
+              <div className="relative w-[150px] h-[325px] sm:w-[165px] sm:h-[358px] md:w-[155px] md:h-[336px] lg:w-[175px] lg:h-[380px]">
                 <div className="absolute inset-0 rounded-[1.75rem] border-[7px] border-zinc-800 bg-black shadow-[0_20px_60px_-15px_rgba(221,107,32,0.35)] overflow-hidden">
                   <img
                     src={`${BASE}ss-multi-sequence-result.png`}
