@@ -14,14 +14,14 @@ const SHOTS = [
   },
   {
     src: "ss-plan-cook.png",
-    title: "A plan built for your pit",
-    caption: "Tell PitMaster what you're cooking and when you want to serve. It builds an hour-by-hour schedule around your specific smoker, your cook history, and today's outdoor temperature — not a generic timeline.",
+    title: "A plan built for your pit — or your whole spread",
+    caption: "Tell PitMaster what you're cooking and when you want to serve. It builds a step-by-step schedule tailored to your rig and history. Running multiple cuts across different grills? Switch to Multi-Cook and it sequences every start time so everything finishes at once.",
     alt: "Plan a Cook screen with Pulled Pork selected and a prep guide open",
   },
   {
     src: "ss-cook-detail.png",
-    title: "Decisions from your data",
-    caption: "PitMaster reads your live temperature curve and ranks your next moves — hold steady, wrap now, raise pit temp — with the reasoning behind each one. Not generic advice. Decisions from what's happening in your pit right now.",
+    title: "Live analysis. Ranked moves. Actual reasoning.",
+    caption: "PitMaster reads your temperature curve in real time, detects stalls and climbs, and gives you a ranked list of next moves — each with the reasoning behind it. Not a generic suggestion. A call from what's happening in your pit right now.",
     alt: "Cook detail screen showing PitMaster analysis and temperature graph",
   },
   {
@@ -100,7 +100,7 @@ export default function Home() {
         </div>
 
         <div className="container relative z-10 px-4 flex flex-col items-center text-center">
-          <h1 className="sr-only">knowyourpit — AI watching your cook in real time so you always know what to do next</h1>
+          <h1 className="sr-only">knowyourpit — live AI analysis of your temperature curve, stall detection, ranked next moves, and multi-cook sequencing for BBQ</h1>
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -120,7 +120,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.15, ease: "easeOut" }}
           >
-            Your pit, live. Your AI, always watching.
+            Your temp curve, analyzed live. Your next move, always clear.
           </motion.h2>
 
           <motion.p
@@ -129,7 +129,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           >
-            PitMaster reads your temperature curve, your cook history, and your plan — then tells you exactly what to do next. Not generic advice. Real decisions for your rig, your cook, right now.
+            PitMaster reads your temperature curve the moment a session starts — detecting stalls, ranking your next moves, and updating your predicted finish time in real time. Running multiple cuts? Set one serve time and it sequences every start across every grill.
           </motion.p>
 
           <motion.div
@@ -148,10 +148,10 @@ export default function Home() {
             className="mt-10 md:mt-14 flex flex-wrap justify-center gap-6 md:gap-10 text-sm text-muted-foreground"
           >
             {[
-              { icon: <Thermometer className="w-4 h-4" />, label: "Live probe monitoring" },
+              { icon: <Thermometer className="w-4 h-4" />, label: "Live temp curve analysis" },
               { icon: <Layers className="w-4 h-4" />, label: "Multi-cook sequencing" },
-              { icon: <Trophy className="w-4 h-4" />, label: "Competition mode" },
-              { icon: <Timer className="w-4 h-4" />, label: "Real-time AI decisions" },
+              { icon: <Timer className="w-4 h-4" />, label: "Stall & climb detection" },
+              { icon: <Trophy className="w-4 h-4" />, label: "Ranked next moves" },
             ].map(({ icon, label }) => (
               <div key={label} className="flex items-center gap-2">
                 <span className="text-primary">{icon}</span>
@@ -177,10 +177,10 @@ export default function Home() {
                 Meet PitMaster
               </span>
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-                PitMaster doesn't give generic advice. It reads your cook.
+                Watch it detect a stall and rank your next moves.
               </h2>
               <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
-                Here's what that looks like — from logging a session to getting live, data-driven decisions from an AI that knows your specific rig and history.
+                This is PitMaster live — reading a real temperature curve, identifying what's happening, and returning a ranked list of next moves with the reasoning behind each one. Your data in, decisions out.
               </p>
             </motion.div>
 
@@ -237,13 +237,13 @@ export default function Home() {
                 Never guess what to do next.
               </h2>
               <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-6">
-                While your meat is on the pit, PitMaster is watching the curve. It surfaces three things in real time: what's happening now, what to do next, and how long you have left. No checking forums. No second-guessing. Just clear calls from your actual cook data.
+                PitMaster reads your temperature curve the moment a session starts. It detects stalls and climbs, ranks what to do next, and keeps your predicted finish time updated as the cook evolves. No forums. No guessing. The call comes from your data.
               </p>
               <ul className="space-y-3 text-sm md:text-base text-muted-foreground mb-8 text-left w-full max-w-sm md:max-w-none">
                 {[
-                  "AI verdict on your current temp curve — stalling, climbing, or on track",
-                  "Ranked list of next moves with the reasoning behind each one",
-                  "Live elapsed timer and predicted finish, updated as the cook progresses",
+                  "Stall detected in real time — with a diagnosis and what to do about it",
+                  "Ranked next moves with the reasoning behind each, not just a recommendation",
+                  "Predicted finish time updates as your curve changes — no manual math",
                 ].map((point) => (
                   <li key={point} className="flex items-start gap-3">
                     <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
@@ -298,16 +298,16 @@ export default function Home() {
                 Multi-Cook
               </span>
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-                Cook everything.<br />Finish at once.
+                Multiple cuts. Multiple grills.<br />One serve time.
               </h2>
               <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-6">
-                Running ribs, brisket, and wings across two grills? Add each item, pick your serve time, and PitMaster sequences every start time so everything hits the table together.
+                Tell PitMaster when you want to serve. Add your cuts, assign each to its grill, and it works backwards to calculate every start time — so ribs, brisket, and wings all land on the table together.
               </p>
               <ul className="space-y-3 text-sm md:text-base text-muted-foreground mb-8 text-left w-full max-w-sm md:max-w-none">
                 {[
-                  "Assign each item to whichever grill it belongs on",
-                  "AI calculates start times so every cut finishes at once",
-                  "Per-item step timeline — light, load, wrap, and pull times included",
+                  "One serve time drives the whole plan — PitMaster sequences backwards from there",
+                  "Each cut gets its own step timeline: light, load, wrap, and pull",
+                  "Assign items across multiple grills and the sequence accounts for each one",
                 ].map((point) => (
                   <li key={point} className="flex items-start gap-3">
                     <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
