@@ -10,6 +10,12 @@ function extractAccessToken(settings: any): string | undefined {
 }
 
 async function getApiKey(): Promise<string> {
+  // Prefer the secret key when available — the Replit OAuth integration token
+  // lacks the customer_information:customers:read_write scope needed for
+  // grantCustomerEntitlement / revokeCustomerGrantedEntitlement.
+  const secretKey = process.env.REVENUECAT_SECRET_KEY;
+  if (secretKey) return secretKey;
+
   if (
     cachedSettings &&
     cachedSettings.settings?.expires_at &&
@@ -29,7 +35,7 @@ async function getApiKey(): Promise<string> {
 
   if (!hostname || !xReplitToken) {
     throw new Error(
-      "RevenueCat connection unavailable: missing REPLIT_CONNECTORS_HOSTNAME or REPL_IDENTITY/WEB_REPL_RENEWAL.",
+      "RevenueCat connection unavailable: missing REVENUECAT_SECRET_KEY and REPLIT_CONNECTORS_HOSTNAME or REPL_IDENTITY/WEB_REPL_RENEWAL.",
     );
   }
 
@@ -49,7 +55,7 @@ async function getApiKey(): Promise<string> {
 
   if (!accessToken) {
     throw new Error(
-      "RevenueCat is not connected. Connect the RevenueCat integration in Replit before running this script.",
+      "RevenueCat is not connected. Set REVENUECAT_SECRET_KEY or connect the RevenueCat integration in Replit.",
     );
   }
   return accessToken;
