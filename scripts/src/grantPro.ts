@@ -2,10 +2,11 @@
  * Grant the `pro` entitlement to a Clerk user (effectively lifetime).
  *
  * Usage:
- *   pnpm --filter @workspace/scripts run grant-pro -- <clerkUserId>
+ *   pnpm --filter @workspace/scripts run grant-pro -- <clerkUserId|email>
  *
  * Required env:
  *   REVENUECAT_PROJECT_ID  — printed by `seed-revenuecat`
+ *   CLERK_SECRET_KEY       — required when passing an email address
  *
  * The user does not need to have opened the app yet. RevenueCat creates the
  * customer record on grant if one doesn't exist, and the next
@@ -18,6 +19,7 @@
  */
 
 import { grantCustomerEntitlement, listEntitlements } from "@replit/revenuecat-sdk";
+import { resolveClerkUserId } from "./lib/clerk.js";
 import { asListItems, describeApiError, getRevenueCatClient } from "./lib/revenuecat.js";
 
 const ENTITLEMENT_LOOKUP_KEY = "pro";
@@ -39,9 +41,11 @@ async function resolveEntitlementId(client: any, projectId: string): Promise<str
 }
 
 async function main() {
-  const userId = process.argv[2];
-  if (!userId) {
-    console.error("Usage: pnpm --filter @workspace/scripts run grant-pro -- <clerkUserId>");
+  const emailOrId = process.argv[2];
+  if (!emailOrId) {
+    console.error(
+      "Usage: pnpm --filter @workspace/scripts run grant-pro -- <clerkUserId|email>",
+    );
     process.exit(2);
   }
 
@@ -50,6 +54,8 @@ async function main() {
     console.error("REVENUECAT_PROJECT_ID is not set. Run `seed-revenuecat` first.");
     process.exit(2);
   }
+
+  const userId = await resolveClerkUserId(emailOrId);
 
   const client = await getRevenueCatClient();
   const entitlementId = await resolveEntitlementId(client, projectId);

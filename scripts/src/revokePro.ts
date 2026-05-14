@@ -2,10 +2,11 @@
  * Revoke a previously-granted `pro` entitlement from a Clerk user.
  *
  * Usage:
- *   pnpm --filter @workspace/scripts run revoke-pro -- <clerkUserId>
+ *   pnpm --filter @workspace/scripts run revoke-pro -- <clerkUserId|email>
  *
  * Required env:
  *   REVENUECAT_PROJECT_ID  — printed by `seed-revenuecat`
+ *   CLERK_SECRET_KEY       — required when passing an email address
  *
  * Note: this only revokes entitlements granted via the API (i.e. via
  * `grant-pro`). Real subscriptions purchased through App Store / Play Store
@@ -23,6 +24,7 @@ import {
   listEntitlements,
   revokeCustomerGrantedEntitlement,
 } from "@replit/revenuecat-sdk";
+import { resolveClerkUserId } from "./lib/clerk.js";
 import { asListItems, describeApiError, getRevenueCatClient } from "./lib/revenuecat.js";
 
 const ENTITLEMENT_LOOKUP_KEY = "pro";
@@ -43,9 +45,11 @@ async function resolveEntitlementId(client: any, projectId: string): Promise<str
 }
 
 async function main() {
-  const userId = process.argv[2];
-  if (!userId) {
-    console.error("Usage: pnpm --filter @workspace/scripts run revoke-pro -- <clerkUserId>");
+  const emailOrId = process.argv[2];
+  if (!emailOrId) {
+    console.error(
+      "Usage: pnpm --filter @workspace/scripts run revoke-pro -- <clerkUserId|email>",
+    );
     process.exit(2);
   }
 
@@ -54,6 +58,8 @@ async function main() {
     console.error("REVENUECAT_PROJECT_ID is not set. Run `seed-revenuecat` first.");
     process.exit(2);
   }
+
+  const userId = await resolveClerkUserId(emailOrId);
 
   const client = await getRevenueCatClient();
   const proEntitlementId = await resolveEntitlementId(client, projectId);
