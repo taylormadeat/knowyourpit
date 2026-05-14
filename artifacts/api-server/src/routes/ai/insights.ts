@@ -25,7 +25,8 @@ interface HomeInsights {
 const homeInsightsCache = new Map<string, { data: HomeInsights; expiresAt: number }>();
 
 export function clearHomeInsightsCache(userId: string): void {
-  homeInsightsCache.delete(userId);
+  homeInsightsCache.delete(`${userId}:pro`);
+  homeInsightsCache.delete(`${userId}:free`);
 }
 
 function getPitMasterLabel(score: number): string {
@@ -48,17 +49,13 @@ router.get("/ai/smoker-profile", requireAuth, async (req: any, res): Promise<voi
 });
 
 router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void> => {
-  if (!(await userBypassesPaywall(req))) {
-    respondPaywall(res, {
-      code: "pro_required",
-      feature: "home_insights",
-      message: "AI Home Insights are a Pro feature. Upgrade to see your PitMaster Score and personalized tips.",
-    });
-    return;
-  }
+  // Score computation is free for everyone — it's pure math from their cook data.
+  // AI tips (OpenAI call) are Pro-only. isProUser gates that section below.
+  const isProUser = await userBypassesPaywall(req);
 
   try {
-    const cached = homeInsightsCache.get(req.userId);
+    const cacheKey = `${req.userId}:${isProUser ? "pro" : "free"}`;
+    const cached = homeInsightsCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       res.json(cached.data);
       return;
@@ -181,7 +178,7 @@ router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void
     const pitMasterScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
 
     let tips: string[] = [];
-    if (cookCount >= 2) {
+    if (cookCount >= 2 && isProUser) {
       const summaryLines = cooks.slice(0, 12).map((c) => {
         const parts = [c.foodType || "unknown"];
         if (c.rating) parts.push(`rated ${c.rating}/5`);
@@ -235,7 +232,7 @@ Respond ONLY with a JSON array of exactly 3 strings: ["tip1", "tip2", "tip3"]`;
       tipsGeneratedAt: new Date().toISOString(),
     };
 
-    homeInsightsCache.set(req.userId, {
+    homeInsightsCache.set(cacheKey, {
       data: result,
       expiresAt: Date.now() + 60 * 60 * 1000,
     });

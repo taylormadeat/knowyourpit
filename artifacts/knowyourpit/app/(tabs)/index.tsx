@@ -25,7 +25,6 @@ import { useHomeInsights } from "@/hooks/useHomeInsights";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePaywall } from "@/contexts/PaywallContext";
-import { BlurredProSection } from "@/components/BlurredProSection";
 import { getCookCardBar } from "@/utils/cookCardBar";
 import { AnimatedBarFill } from "@/components/cook-detail/CookProgressBar";
 
@@ -520,13 +519,13 @@ export default function HomeScreen() {
           </Pressable>
         )}
 
-        {/* ── PitMaster Score (Pro-only) ── */}
+        {/* ── PitMaster Score ── */}
         {/*
-          Three states:
-          1. !isIdentityLinked — RC hasn't confirmed this user's identity yet.
-             Show a neutral skeleton so Pro users never see a false paywall flash.
-          2. isIdentityLinked && !effectivePro — Confirmed free tier. Show blur.
-          3. isIdentityLinked && effectivePro — Confirmed Pro. Show real score.
+          Two states:
+          1. !isIdentityLinked — RC hasn't confirmed identity yet.
+             Show a neutral skeleton so users never see a false flash.
+          2. isIdentityLinked — Show real score to all users.
+             AI tips inside the card are Pro-only; free users see an upgrade nudge.
         */}
         {!isIdentityLinked ? (
           <View style={{ marginHorizontal: 16, marginBottom: 12 }}>
@@ -536,60 +535,7 @@ export default function HomeScreen() {
             </View>
             <View style={[{ height: 112, borderRadius: colors.radius, backgroundColor: colors.card, opacity: 0.45 }]} />
           </View>
-        ) : !effectivePro ? (
-          <>
-            <View style={s.sectionHeader}>
-              <View style={s.sectionAccent} />
-              <Text style={[s.sectionTitle, { color: colors.foreground }]}>PitMaster Score</Text>
-            </View>
-            <BlurredProSection
-              featureName="PitMaster Score"
-              teaser="See your real score, weekly insights, and AI tips from PitMaster."
-              onPress={() =>
-                showPaywall({ trigger: "pro_required", featureName: "PitMaster Score" })
-              }
-              style={[s.blurScoreWrap, { borderRadius: colors.radius }]}
-            >
-              {/* Static card rendered underneath the blur — no API call */}
-              <LinearGradient
-                colors={["#1C1C1F", "#2A1A10"]}
-                style={[s.gradeCard, { borderColor: "#F59E0B55", borderRadius: colors.radius }]}
-                pointerEvents="none"
-              >
-                <View style={s.gradeCardRow}>
-                  <View style={s.gradeLeft}>
-                    <View style={[s.gradeBubble, { borderColor: "#F59E0B", backgroundColor: "#F59E0B18" }]}>
-                      <Text style={[s.gradeLetter, { color: "#F59E0B" }]}>C</Text>
-                    </View>
-                  </View>
-                  <View style={s.gradeRight}>
-                    <Text style={s.gradeLabel}>Weekend Warrior</Text>
-                    <Text style={[s.gradeScore, { color: "#F59E0B" }]}>72 / 100</Text>
-                    <View style={[s.gradeBarTrack, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
-                      <View style={[s.gradeBarFill, { width: "72%", backgroundColor: "#F59E0B" }]} />
-                    </View>
-                    <View style={s.gradeChips}>
-                      <View style={[s.gradeChip, { backgroundColor: "#F59E0B18", borderColor: "#F59E0B35" }]}>
-                        <Feather name="star" size={10} color="#F59E0B" />
-                        <Text style={[s.gradeChipText, { color: "#F59E0B" }]}>4.1 rating</Text>
-                      </View>
-                      <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
-                        <Feather name="target" size={10} color="#96908A" />
-                        <Text style={[s.gradeChipText, { color: "#96908A" }]}>78% accuracy</Text>
-                      </View>
-                      <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
-                        <Feather name="layers" size={10} color="#96908A" />
-                        <Text style={[s.gradeChipText, { color: "#96908A" }]}>12 cooks</Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              </LinearGradient>
-            </BlurredProSection>
-          </>
-        ) : null}
-
-        {isIdentityLinked && effectivePro && (insights || insightsLoading) && (
+        ) : (insights || insightsLoading) ? (
           <>
             <View style={s.sectionHeader}>
               <View style={s.sectionAccent} />
@@ -604,11 +550,11 @@ export default function HomeScreen() {
               return (
                 <>
                   <Pressable
-                    onPress={() => {
+                    onPress={effectivePro ? () => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       toggleTips();
-                    }}
-                    style={({ pressed }) => [{ opacity: pressed ? 0.88 : 1 }]}
+                    } : undefined}
+                    style={({ pressed }) => [{ opacity: pressed && effectivePro ? 0.88 : 1 }]}
                   >
                     {/* LinearGradient IS the card — it's a View with a gradient background.
                         flexDirection:"column" (from gradeCard) stacks the score row then tips. */}
@@ -675,11 +621,22 @@ export default function HomeScreen() {
                             )}
                           </View>
 
-                          {/* Tap hint */}
-                          <View style={s.gradeHint}>
-                            <Feather name={tipsExpanded ? "chevron-up" : "chevron-down"} size={10} color={color + "99"} />
-                            <Text style={[s.gradeHintText, { color: color + "99" }]}>Tips from PitMaster</Text>
-                          </View>
+                          {/* Tap hint — Pro: expand tips; Free: upgrade nudge */}
+                          {effectivePro ? (
+                            <View style={s.gradeHint}>
+                              <Feather name={tipsExpanded ? "chevron-up" : "chevron-down"} size={10} color={color + "99"} />
+                              <Text style={[s.gradeHintText, { color: color + "99" }]}>Tips from PitMaster</Text>
+                            </View>
+                          ) : (
+                            <Pressable
+                              onPress={() => showPaywall({ trigger: "pro_required", featureName: "PitMaster Score" })}
+                              style={s.gradeHint}
+                            >
+                              <Feather name="lock" size={10} color="#F59E0B99" />
+                              <Text style={[s.gradeHintText, { color: "#F59E0B99" }]}>Unlock AI tips — Pro</Text>
+                              <Feather name="chevron-right" size={10} color="#F59E0B99" />
+                            </Pressable>
+                          )}
                         </View>
                       </View>
 
@@ -813,7 +770,7 @@ export default function HomeScreen() {
               );
             })()}
           </>
-        )}
+        ) : null}
 
         {/* ── Recent Cooks ── */}
         <View style={s.sectionHeader}>

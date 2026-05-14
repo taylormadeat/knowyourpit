@@ -16,10 +16,11 @@ export interface HomeInsights {
   tipsGeneratedAt: string;
 }
 
-// Pro-only by default; runs for free users when the kill switch is off.
+// Runs for all identified users. Score computation is free; AI tips are Pro-only
+// (the server skips the OpenAI call for free users and returns tips: []).
 export function useHomeInsights(enabled = true) {
   const { getToken } = useAuth();
-  const { isPro } = useSubscription();
+  const { isPro, isIdentityLinked } = useSubscription();
   const effectivePro = useEffectivePro();
 
   const baseUrl =
@@ -37,7 +38,7 @@ export function useHomeInsights(enabled = true) {
       if (!res.ok) throw new Error("Failed to fetch home insights");
       return res.json() as Promise<HomeInsights>;
     },
-    enabled: enabled && effectivePro,
+    enabled: enabled && !!isIdentityLinked,
     staleTime: 30 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   });
