@@ -265,7 +265,7 @@ export default function Home() {
               {/* Fixed-height phone frame: 180px wide → 390px tall on mobile/desktop.
                   Using explicit h/w instead of aspect-ratio prevents the frame from
                   overflowing the section on any viewport. */}
-              <div className="relative w-[160px] h-[347px] sm:w-[180px] sm:h-[390px] md:w-[170px] md:h-[369px] lg:w-[185px] lg:h-[402px]">
+              <div className="relative w-[220px] h-[477px] sm:w-[240px] sm:h-[520px] md:w-[170px] md:h-[369px] lg:w-[185px] lg:h-[402px]">
                 <div className="absolute inset-0 rounded-[2rem] md:rounded-[2.5rem] border-[8px] md:border-[8px] border-zinc-800 bg-black shadow-[0_30px_80px_-20px_rgba(221,107,32,0.45)] overflow-hidden">
                   <img
                     src={`${BASE}ss-live-cook.png`}
