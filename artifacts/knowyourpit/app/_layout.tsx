@@ -600,7 +600,15 @@ function SessionExpiredGuard() {
     let signedOut = false;
     const handle401 = (err: unknown) => {
       if (signedOut) return;
-      if ((err as any)?.status === 401) {
+      // Only sign out for genuine Clerk session expiries — the auth middleware
+      // always returns { error: "Unauthorized" } when the token is missing or
+      // revoked. Third-party credential failures (MEATER/ThermoWorks wrong
+      // password) also return 401 but with a different error body, and must
+      // NOT trigger a sign-out.
+      if (
+        (err as any)?.status === 401 &&
+        (err as any)?.data?.error === "Unauthorized"
+      ) {
         signedOut = true;
         client.clear();
         void signOut().catch(() => {});

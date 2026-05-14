@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
 } from "react-native";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -336,6 +337,16 @@ export default function DevicesScreen() {
                   onChangeText={setMeaterPassword}
                   secureTextEntry
                 />
+                <Text style={[s.oauthHint, { color: colors.mutedForeground }]}>
+                  {"Signed up with Google or Apple? You'll need to "}
+                  <Text
+                    style={[s.oauthHintLink, { color: colors.primary }]}
+                    onPress={() => Linking.openURL("https://www.meater.com")}
+                  >
+                    set a password on MEATER's website
+                  </Text>
+                  {" first."}
+                </Text>
                 <View style={s.linkFormActions}>
                   <Pressable
                     onPress={() => { setShowLinkForm(false); setMeaterEmail(""); setMeaterPassword(""); }}
@@ -521,6 +532,16 @@ export default function DevicesScreen() {
                   onChangeText={setThermoworksPassword}
                   secureTextEntry
                 />
+                <Text style={[s.oauthHint, { color: colors.mutedForeground }]}>
+                  {"Signed up with Google or Apple? You'll need to "}
+                  <Text
+                    style={[s.oauthHintLink, { color: colors.primary }]}
+                    onPress={() => Linking.openURL("https://cloud.thermoworks.com")}
+                  >
+                    set a password on ThermoWorks Cloud
+                  </Text>
+                  {" first."}
+                </Text>
                 <View style={s.linkFormActions}>
                   <Pressable
                     onPress={() => { setShowThermoworksLinkForm(false); setThermoworksEmail(""); setThermoworksPassword(""); }}
@@ -576,4 +597,6 @@ const s = StyleSheet.create({
   cancelBtn: { flex: 1, borderWidth: 1, borderRadius: 8, paddingVertical: 11, alignItems: "center" },
   cancelBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
   confirmLinkBtn: { flex: 1, borderRadius: 8, paddingVertical: 11, alignItems: "center" },
+  oauthHint: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
+  oauthHintLink: { fontSize: 12, fontFamily: "Inter_500Medium" },
 });
