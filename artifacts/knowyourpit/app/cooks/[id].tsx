@@ -354,17 +354,20 @@ export default function CookDetailScreen() {
   // the next AI check-in to update finishTimeRangeLower/Upper.
   const [wrapAdjustedFinishMs, setWrapAdjustedFinishMs] = useState<number | null>(null);
 
-  // Extract finishTimeRangeLower once so effects can track it cleanly without
-  // spreading casts into hooks or dependency arrays. The field exists on the
-  // server response but is not in the generated Cook type, so we use a narrow
-  // local shape rather than a broad `as any`.
-  type CookWithFinishWindow = {
+  // Extract server-response fields that exist on the GET /cooks/:id payload but
+  // are not reflected in the compiled generated Cook type (e.g. when dist/ is
+  // stale relative to the OpenAPI source). Using a narrow local shape keeps the
+  // cast auditable without reaching for a broad `as any`.
+  type CookWithServerExtras = {
     finishTimeRangeLower?: string | null;
     finishTimeRangeUpper?: string | null;
+    /** Latest internal probe temperature injected server-side (see routes/cooks.ts). */
+    currentTempF?: number | null;
   };
-  const cookWithFinishWindow = cook as CookWithFinishWindow | undefined;
+  const cookWithFinishWindow = cook as CookWithServerExtras | undefined;
   const cookFinishLower: string | null = cookWithFinishWindow?.finishTimeRangeLower ?? null;
   const cookFinishUpper: string | null = cookWithFinishWindow?.finishTimeRangeUpper ?? null;
+  const cookCurrentTempF: number | null = cookWithFinishWindow?.currentTempF ?? null;
 
   // Reset the local override whenever the cook changes identity (navigation to a
   // different cook screen) so stale state can't leak across cooks.
@@ -1946,7 +1949,7 @@ export default function CookDetailScreen() {
 
         {/* ── Live probe temperature chips (active cooks) ──────────────── */}
         {cookStatus === "active" && (() => {
-          const liveProbeTemp = meaterProbes[0]?.internalTempF ?? thermoworksProbes[0]?.tempF ?? cook?.currentTempF ?? null;
+          const liveProbeTemp = meaterProbes[0]?.internalTempF ?? thermoworksProbes[0]?.tempF ?? cookCurrentTempF;
           if (c.targetTempF == null && c.cookTempF == null && liveProbeTemp == null) return null;
           return (
             <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
