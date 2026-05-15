@@ -10,6 +10,7 @@
     "revoke-pro": "tsx ./src/revokePro.ts",
     "check-pro": "tsx ./src/checkPro.ts",
     "list-pro": "tsx ./src/listPro.ts",
+    "bulk-grant-pro": "tsx ./src/bulkGrantPro.ts",
     "db:backup": "tsx ./src/db-backup.ts",
     "db:backup:csv": "tsx ./src/db-export-csv.ts",
     "backfill-grill-types": "tsx ./src/backfillGrillTypes.ts",
