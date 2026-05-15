@@ -2,14 +2,27 @@
  * List all customers who currently hold the `pro` entitlement.
  *
  * Usage:
+ *   pnpm --filter @workspace/scripts run list-pro [options]
+ *
+ * Options:
+ *   --granted-after  <ISO date>   Only show grants made after this date (inclusive), e.g. 2026-01-01
+ *   --granted-before <ISO date>   Only show grants made before this date (inclusive), e.g. 2026-12-31
+ *
+ * Examples:
  *   pnpm --filter @workspace/scripts run list-pro
+ *   pnpm --filter @workspace/scripts run list-pro -- --granted-after 2026-05-01
+ *   pnpm --filter @workspace/scripts run list-pro -- --granted-after 2026-05-01 --granted-before 2026-05-31
  *
  * Required env:
  *   REVENUECAT_PROJECT_ID  — printed by `seed-revenuecat`
  *   CLERK_SECRET_KEY       — needed to resolve email addresses
  *
  * Output columns per Pro user:
- *   Clerk User ID | Email | Expires At | Source (subscription vs manual grant)
+ *   Clerk User ID | Email | Granted At | Expires At | Source (subscription vs manual grant)
+ *
+ * The "Source" column distinguishes:
+ *   - "manual grant"           — granted via grantPro / bulkGrantPro (product_identifier is null)
+ *   - "subscription (<id>)"    — active paid subscription
  */
 
 import { listCustomerActiveEntitlements, listCustomers, listEntitlements } from "@replit/revenuecat-sdk";
@@ -190,7 +203,54 @@ function formatSource(productIdentifier: string | null): string {
   return `subscription (${productIdentifier})`;
 }
 
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+interface ParsedDate {
+  ts: number;
+  dateOnly: boolean;
+}
+
+/**
+ * Parse --granted-after / --granted-before from argv.
+ * Accepts ISO date-only strings ("2026-05-01") or full ISO timestamps.
+ * Returns a ParsedDate (ts + dateOnly flag), or null if the flag is absent.
+ * Exits with an error message when the value is missing or invalid.
+ */
+function parseDateArg(flag: string, args: string[]): ParsedDate | null {
+  const idx = args.indexOf(flag);
+  if (idx === -1) return null;
+  const raw = args[idx + 1];
+  if (!raw || raw.startsWith("--")) {
+    console.error(`Error: ${flag} requires a date value (e.g. 2026-05-01).`);
+    process.exit(2);
+  }
+  const ts = Date.parse(raw);
+  if (Number.isNaN(ts)) {
+    console.error(`Error: ${flag} value "${raw}" is not a valid date. Use ISO format, e.g. 2026-05-01.`);
+    process.exit(2);
+  }
+  return { ts, dateOnly: DATE_ONLY_RE.test(raw) };
+}
+
 async function main() {
+  const args = process.argv.slice(2);
+
+  const parsedAfter = parseDateArg("--granted-after", args);
+  const parsedBefore = parseDateArg("--granted-before", args);
+
+  const grantedAfterMs = parsedAfter !== null ? parsedAfter.ts : null;
+  const grantedBeforeMs =
+    parsedBefore !== null
+      ? parsedBefore.dateOnly
+        ? parsedBefore.ts + 86_400_000 - 1
+        : parsedBefore.ts
+      : null;
+
+  if (grantedAfterMs !== null && grantedBeforeMs !== null && grantedAfterMs > grantedBeforeMs) {
+    console.error("Error: --granted-after must not be later than --granted-before.");
+    process.exit(2);
+  }
+
   const projectId = process.env.REVENUECAT_PROJECT_ID;
   if (!projectId) {
     console.error("REVENUECAT_PROJECT_ID is not set. Run `seed-revenuecat` first.");
@@ -207,7 +267,7 @@ async function main() {
   process.stdout.write(`  Found ${allCustomers.length} total customer(s).\n`);
 
   process.stdout.write("Checking entitlements…\n");
-  const proUsers: ProUser[] = [];
+  let proUsers: ProUser[] = [];
 
   for (let i = 0; i < allCustomers.length; i += ENTITLEMENT_CONCURRENCY) {
     const batch = allCustomers.slice(i, i + ENTITLEMENT_CONCURRENCY);
@@ -217,8 +277,34 @@ async function main() {
   }
   process.stdout.write("\n");
 
-  if (proUsers.length === 0) {
+  const totalPro = proUsers.length;
+
+  if (grantedAfterMs !== null) {
+    proUsers = proUsers.filter((u) => u.grantedAt !== null && u.grantedAt >= grantedAfterMs);
+  }
+  if (grantedBeforeMs !== null) {
+    const endOfDay = grantedBeforeMs + 86_400_000 - 1;
+    proUsers = proUsers.filter((u) => u.grantedAt !== null && u.grantedAt <= endOfDay);
+  }
+
+  const isFiltered = grantedAfterMs !== null || grantedBeforeMs !== null;
+
+  if (totalPro === 0) {
     console.log("\nNo users currently hold the pro entitlement.");
+    return;
+  }
+
+  const afterLabel = grantedAfterMs !== null ? new Date(grantedAfterMs).toISOString().slice(0, 10) : null;
+  const beforeLabel = grantedBeforeMs !== null ? new Date(grantedBeforeMs).toISOString().slice(0, 10) : null;
+
+  if (proUsers.length === 0) {
+    const rangeDesc = [
+      afterLabel !== null ? `after ${afterLabel}` : null,
+      beforeLabel !== null ? `before ${beforeLabel}` : null,
+    ]
+      .filter((s): s is string => s !== null)
+      .join(" and ");
+    console.log(`\nNo Pro grants found ${rangeDesc} (${totalPro} total Pro user(s) outside this range).`);
     return;
   }
 
@@ -231,8 +317,15 @@ async function main() {
   const colExpiry = 26;
   const lineWidth = colId + colEmail + colGranted + colExpiry + 20;
 
+  const rangeDesc = isFiltered
+    ? " | filter: " +
+      [afterLabel !== null ? `after ${afterLabel}` : null, beforeLabel !== null ? `before ${beforeLabel}` : null]
+        .filter((s): s is string => s !== null)
+        .join(", ")
+    : "";
+
   console.log(`\n${"─".repeat(lineWidth)}`);
-  console.log(`Pro users (${proUsers.length}):`);
+  console.log(`Pro users (${proUsers.length}${isFiltered ? ` of ${totalPro} total` : ""})${rangeDesc}:`);
   console.log(`${"─".repeat(lineWidth)}`);
 
   const header =
@@ -260,7 +353,7 @@ async function main() {
   }
 
   console.log("─".repeat(lineWidth));
-  console.log(`Total Pro users: ${proUsers.length}`);
+  console.log(`Total: ${proUsers.length}${isFiltered ? ` filtered (${totalPro} total Pro users)` : " Pro users"}`);
 }
 
 main().catch((err) => {
