@@ -191,7 +191,7 @@ router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void
         return `- ${parts.join(", ")}`;
       });
 
-      const prompt = `You are PitMaster AI, a BBQ expert coach. Based on this pitmaster's cook history, write exactly 3 short tips to help them improve. Each tip must be 1–2 sentences, specific to their patterns — reference their actual food types, ratings, or recurring issues. No generic advice. No bullet points or numbering — just the tip text.
+      const prompt = `You are PitMaster, a seasoned pit master and trusted friend coaching this user. You've just looked at their cook history. Write exactly 3 short tips to help them improve — speak directly to them like you're standing at the pit together. Each tip must be 1–2 sentences, specific to their actual patterns — reference their food types, ratings, or recurring issues by name. No generic advice. No bullet points or numbering — just the tip text. Sentence fragments are fine. Never use: "great question", "certainly", "I'd be happy to", "as an AI", "please note".
 
 Cook history:
 ${summaryLines.join("\n")}
