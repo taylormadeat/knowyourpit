@@ -146,6 +146,10 @@ export default function AIScreen() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
+  // Optimistic remaining count from the stream `done` event, updated immediately
+  // after each message completes so the counter reflects reality without waiting
+  // for the paywallUsage refetch round-trip.
+  const [streamingRemaining, setStreamingRemaining] = useState<number | null>(null);
 
   // History panel state
   const [showHistory, setShowHistory] = useState(false);
@@ -440,6 +444,9 @@ export default function AIScreen() {
               .filter((s: unknown): s is string => typeof s === "string" && s.trim().length > 0)
               .slice(0, 3);
           }
+          if (typeof evt.remaining === "number") {
+            setStreamingRemaining(evt.remaining);
+          }
           if (typeof evt.title === "string" && evt.title.trim()) {
             const smartTitle = evt.title.trim();
             setConversations((prev) =>
@@ -487,8 +494,10 @@ export default function AIScreen() {
       streamingIdRef.current = null;
       setLoading(false);
       // Refresh remaining-chats counter after every send (success or failure)
-      // so the badge updates without waiting for staleness.
-      refetchPaywall();
+      // so the badge updates without waiting for staleness. Once the server
+      // responds, clear the optimistic streamingRemaining so the authoritative
+      // paywallUsage value takes over and stale state can't linger.
+      refetchPaywall().then(() => setStreamingRemaining(null)).catch(() => {});
     }
   };
 
@@ -822,24 +831,31 @@ export default function AIScreen() {
             },
           ]}
         >
-          {/* Free-tier remaining-chats counter. Hidden for Pro / when paywall is disabled. */}
-          {paywallUsage && !paywallUsage.unlimited && (
-            <Text
-              style={{
-                fontSize: 11,
-                fontFamily: "Inter_500Medium",
-                color:
-                  paywallUsage.remaining.aiMessagesToday <= 1
-                    ? colors.primary
-                    : colors.mutedForeground,
-                paddingHorizontal: 4,
-                paddingBottom: 6,
-              }}
-            >
-              {paywallUsage.remaining.aiMessagesToday} of {paywallUsage.limits.aiChatPerDay} free
-              chats left today
-            </Text>
-          )}
+          {/* Remaining-messages counter. Shown near the limit for both free and Pro users. */}
+          {(() => {
+            const limit = paywallUsage?.limits.aiChatPerDay ?? null;
+            const remaining = streamingRemaining ?? paywallUsage?.remaining.aiMessagesToday ?? null;
+            if (limit === null || remaining === null) return null;
+            // Show at ≤5 remaining for high-cap tiers (Pro: 20/day), ≤1 for low-cap (free: 3/day).
+            // Derived from the server-reported limit so it stays correct even if entitlement
+            // state lags between the subscription hook and the paywall usage fetch.
+            const threshold = limit > 10 ? 5 : 1;
+            if (remaining > threshold) return null;
+            const urgent = remaining <= 1;
+            return (
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontFamily: "Inter_500Medium",
+                  color: urgent ? colors.primary : colors.mutedForeground,
+                  paddingHorizontal: 4,
+                  paddingBottom: 6,
+                }}
+              >
+                {remaining} of {limit} messages left today
+              </Text>
+            );
+          })()}
           <View
             style={[
               s.inputWrap,

@@ -12,6 +12,8 @@ import {
   countAiChatMessagesToday,
   startOfNextUtcDay,
   userBypassesPaywall,
+  FREE_AI_CHAT_DAILY_LIMIT,
+  PRO_AI_CHAT_DAILY_LIMIT,
 } from "../../lib/paywall";
 import { aiRateLimit, buildChatSystemPrompt, pickChatSuggestions } from "./shared";
 
@@ -126,16 +128,25 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
   const { message, context, sessionId: requestedSessionId } = parsed.data;
 
   const bypasses = await userBypassesPaywall(req);
+  const isPro = bypasses && isPaywallEnabled();
+  const usedBeforeThisMessage = await countAiChatMessagesToday(req.userId);
   const limitPaywall = checkAiChatDailyLimit(
-    /* isPro        */ bypasses && isPaywallEnabled(),
+    /* isPro        */ isPro,
     /* paywallEnabled */ isPaywallEnabled(),
-    /* used         */ await countAiChatMessagesToday(req.userId),
+    /* used         */ usedBeforeThisMessage,
     /* resetsAt     */ startOfNextUtcDay().toISOString(),
   );
   if (limitPaywall) {
     respondPaywall(res, limitPaywall);
     return;
   }
+  // Only include remaining when the paywall is actually enforced — when the
+  // kill-switch is off every request passes regardless of count, so emitting a
+  // "remaining" value would mislead the UI into showing a counter that has no
+  // real effect. When enabled, use the tier-correct cap.
+  const remainingAfterThisMessage = isPaywallEnabled()
+    ? Math.max(0, (isPro ? PRO_AI_CHAT_DAILY_LIMIT : FREE_AI_CHAT_DAILY_LIMIT) - (usedBeforeThisMessage + 1))
+    : null;
 
   const { id: resolvedSessionId, isNew } = await ensureSession(req.userId, message, requestedSessionId);
   await db.insert(messages).values({
@@ -199,7 +210,13 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
 
   const suggestions = pickChatSuggestions();
 
-  res.json({ reply, suggestions, sessionId: resolvedSessionId, ...(generatedTitle ? { title: generatedTitle } : {}) });
+  res.json({
+    reply,
+    suggestions,
+    sessionId: resolvedSessionId,
+    remaining: remainingAfterThisMessage,
+    ...(generatedTitle ? { title: generatedTitle } : {}),
+  });
 });
 
 router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
@@ -211,16 +228,23 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
   const { message, context, sessionId: requestedSessionId } = parsed.data;
 
   const bypasses = await userBypassesPaywall(req);
+  const streamIsPro = bypasses && isPaywallEnabled();
+  const streamUsedBefore = await countAiChatMessagesToday(req.userId);
   const limitPaywall = checkAiChatDailyLimit(
-    /* isPro        */ bypasses && isPaywallEnabled(),
+    /* isPro        */ streamIsPro,
     /* paywallEnabled */ isPaywallEnabled(),
-    /* used         */ await countAiChatMessagesToday(req.userId),
+    /* used         */ streamUsedBefore,
     /* resetsAt     */ startOfNextUtcDay().toISOString(),
   );
   if (limitPaywall) {
     respondPaywall(res, limitPaywall);
     return;
   }
+  // Omit remaining when kill-switch is off — no cap is enforced so the value
+  // would mislead the UI into showing a counter that has no real effect.
+  const streamRemainingAfter = isPaywallEnabled()
+    ? Math.max(0, (streamIsPro ? PRO_AI_CHAT_DAILY_LIMIT : FREE_AI_CHAT_DAILY_LIMIT) - (streamUsedBefore + 1))
+    : null;
 
   res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -327,7 +351,11 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
           .where(eq(conversations.id, resolvedSessionId));
       }
 
-      const doneEvent: Record<string, unknown> = { type: "done", suggestions: pickChatSuggestions() };
+      const doneEvent: Record<string, unknown> = {
+        type: "done",
+        suggestions: pickChatSuggestions(),
+        remaining: streamRemainingAfter,
+      };
       if (generatedTitle) doneEvent.title = generatedTitle;
       writeEvent(doneEvent);
     }

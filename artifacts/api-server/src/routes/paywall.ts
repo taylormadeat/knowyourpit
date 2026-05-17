@@ -3,6 +3,7 @@ import { requireAuth } from "../middlewares/requireAuth";
 import {
   FREE_COOK_LIMIT,
   FREE_AI_CHAT_DAILY_LIMIT,
+  PRO_AI_CHAT_DAILY_LIMIT,
   FREE_AI_ANALYZE_DAILY_LIMIT,
   FREE_FROZEN_TIMELINE_LIFETIME_LIMIT,
   countCooksForUser,
@@ -41,6 +42,7 @@ router.get("/paywall/usage", requireAuth, async (req: any, res): Promise<void> =
 
   const bypass = await userBypassesPaywall(req);
   const resetsAt = startOfNextUtcDay().toISOString();
+  const effectiveAiChatLimit = bypass ? PRO_AI_CHAT_DAILY_LIMIT : FREE_AI_CHAT_DAILY_LIMIT;
 
   res.json({
     paywallEnabled: isPaywallEnabled(),
@@ -48,7 +50,7 @@ router.get("/paywall/usage", requireAuth, async (req: any, res): Promise<void> =
     unlimited: bypass,
     limits: {
       cooks: FREE_COOK_LIMIT,
-      aiChatPerDay: FREE_AI_CHAT_DAILY_LIMIT,
+      aiChatPerDay: effectiveAiChatLimit,
       aiAnalyzePerDay: FREE_AI_ANALYZE_DAILY_LIMIT,
       frozenTimelineLifetime: FREE_FROZEN_TIMELINE_LIFETIME_LIMIT,
     },
@@ -64,7 +66,7 @@ router.get("/paywall/usage", requireAuth, async (req: any, res): Promise<void> =
       cooks: Math.max(0, FREE_COOK_LIMIT - cooks),
       activeCooks: Math.max(0, 1 - activeCooks),
       plannedCooks: Math.max(0, 1 - plannedCooks),
-      aiMessagesToday: Math.max(0, FREE_AI_CHAT_DAILY_LIMIT - aiMessagesToday),
+      aiMessagesToday: Math.max(0, effectiveAiChatLimit - aiMessagesToday),
       aiAnalyzesToday: Math.max(0, FREE_AI_ANALYZE_DAILY_LIMIT - aiAnalyzesToday),
       frozenTimelineLifetime: Math.max(
         0,
