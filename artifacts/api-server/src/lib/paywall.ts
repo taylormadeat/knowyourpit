@@ -20,8 +20,11 @@ export const FREE_COOK_LIMIT = 3;
 // Wave 2 (#329): tightened from 5→3 to cut the largest variable AI cost ~40%
 // while still leaving enough headroom for a meaningful conversation per day.
 export const FREE_AI_CHAT_DAILY_LIMIT = 3;
+// Pro users still get a generous daily cap (20 messages) to bound AI costs
+// without meaningfully impacting normal BBQ-session use.
+export const PRO_AI_CHAT_DAILY_LIMIT = 20;
 // Wave 2 (#329): tightened from 3→1. Free users realistically don't photograph
-// three cook situations per day; the prior cap was mostly theoretical.
+// three cook situations per day; the prior cap was mostly mathematical.
 export const FREE_AI_ANALYZE_DAILY_LIMIT = 1;
 // Wave 2 (#329): Frozen-to-Table is now a 1-lifetime free trial instead of a
 // pure Pro-gate. Free users get to plan one frozen cook end-to-end so they

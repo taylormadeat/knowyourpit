@@ -7,6 +7,8 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../../middlewares/requireAuth";
 import {
   FREE_AI_CHAT_DAILY_LIMIT,
+  PRO_AI_CHAT_DAILY_LIMIT,
+  isPaywallEnabled,
   respondPaywall,
   countAiChatMessagesToday,
   startOfNextUtcDay,
@@ -124,7 +126,8 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
   }
   const { message, context, sessionId: requestedSessionId } = parsed.data;
 
-  if (!(await userBypassesPaywall(req))) {
+  const bypasses = await userBypassesPaywall(req);
+  if (!bypasses) {
     const used = await countAiChatMessagesToday(req.userId);
     if (used >= FREE_AI_CHAT_DAILY_LIMIT) {
       respondPaywall(res, {
@@ -133,6 +136,20 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
         used,
         resetsAt: startOfNextUtcDay().toISOString(),
         message: `You've used your ${FREE_AI_CHAT_DAILY_LIMIT} free messages today. Upgrade to Pro for unlimited AI chat.`,
+      });
+      return;
+    }
+  } else if (isPaywallEnabled()) {
+    // Pro users are capped too — 20 messages/day keeps costs bounded without
+    // affecting normal use. Skipped when PAYWALL_ENABLED=false.
+    const used = await countAiChatMessagesToday(req.userId);
+    if (used >= PRO_AI_CHAT_DAILY_LIMIT) {
+      respondPaywall(res, {
+        code: "ai_message_limit_reached",
+        limit: PRO_AI_CHAT_DAILY_LIMIT,
+        used,
+        resetsAt: startOfNextUtcDay().toISOString(),
+        message: `You've reached your ${PRO_AI_CHAT_DAILY_LIMIT} daily messages. Your limit resets at midnight UTC.`,
       });
       return;
     }
@@ -211,7 +228,8 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
   }
   const { message, context, sessionId: requestedSessionId } = parsed.data;
 
-  if (!(await userBypassesPaywall(req))) {
+  const bypasses = await userBypassesPaywall(req);
+  if (!bypasses) {
     const used = await countAiChatMessagesToday(req.userId);
     if (used >= FREE_AI_CHAT_DAILY_LIMIT) {
       respondPaywall(res, {
@@ -220,6 +238,20 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
         used,
         resetsAt: startOfNextUtcDay().toISOString(),
         message: `You've used your ${FREE_AI_CHAT_DAILY_LIMIT} free messages today. Upgrade to Pro for unlimited AI chat.`,
+      });
+      return;
+    }
+  } else if (isPaywallEnabled()) {
+    // Pro users are capped too — 20 messages/day keeps costs bounded without
+    // affecting normal use. Skipped when PAYWALL_ENABLED=false.
+    const used = await countAiChatMessagesToday(req.userId);
+    if (used >= PRO_AI_CHAT_DAILY_LIMIT) {
+      respondPaywall(res, {
+        code: "ai_message_limit_reached",
+        limit: PRO_AI_CHAT_DAILY_LIMIT,
+        used,
+        resetsAt: startOfNextUtcDay().toISOString(),
+        message: `You've reached your ${PRO_AI_CHAT_DAILY_LIMIT} daily messages. Your limit resets at midnight UTC.`,
       });
       return;
     }

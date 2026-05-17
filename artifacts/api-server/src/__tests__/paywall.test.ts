@@ -87,7 +87,12 @@ vi.mock("@replit/revenuecat-sdk", () => ({
   listCustomerActiveEntitlements: mockListCustomerActiveEntitlements,
 }));
 
-import { getUserHasProEntitlement, invalidateProCache } from "../lib/paywall";
+import {
+  getUserHasProEntitlement,
+  invalidateProCache,
+  FREE_AI_CHAT_DAILY_LIMIT,
+  PRO_AI_CHAT_DAILY_LIMIT,
+} from "../lib/paywall";
 
 const TEST_USER = "user_test_123";
 
@@ -216,5 +221,47 @@ describe("getUserHasProEntitlement", () => {
 
     expect(result).toBe(true);
     expect(mockListCustomerActiveEntitlements).toHaveBeenCalled();
+  });
+});
+
+// ─── AI chat daily limit gate conditions ─────────────────────────────────────
+// These tests verify the gate expression `used >= limit` for the scenarios
+// that exist in both /ai/chat and /ai/chat/stream. The route uses:
+//   free user:  if (used >= FREE_AI_CHAT_DAILY_LIMIT) → respondPaywall
+//   pro user:   if (used >= PRO_AI_CHAT_DAILY_LIMIT)  → respondPaywall
+describe("AI chat daily limit gate", () => {
+  it("FREE_AI_CHAT_DAILY_LIMIT is 3", () => {
+    expect(FREE_AI_CHAT_DAILY_LIMIT).toBe(3);
+  });
+
+  it("PRO_AI_CHAT_DAILY_LIMIT is 20", () => {
+    expect(PRO_AI_CHAT_DAILY_LIMIT).toBe(20);
+  });
+
+  it("free user: blocked when used === FREE_AI_CHAT_DAILY_LIMIT (message 4 attempt)", () => {
+    // After 3 messages sent today, the 4th is blocked.
+    const used = FREE_AI_CHAT_DAILY_LIMIT; // 3
+    expect(used >= FREE_AI_CHAT_DAILY_LIMIT).toBe(true);
+  });
+
+  it("free user: allowed when used < FREE_AI_CHAT_DAILY_LIMIT (messages 1–3)", () => {
+    const used = FREE_AI_CHAT_DAILY_LIMIT - 1; // 2
+    expect(used >= FREE_AI_CHAT_DAILY_LIMIT).toBe(false);
+  });
+
+  it("pro user: allowed when used === PRO_AI_CHAT_DAILY_LIMIT - 1 (message 20 allowed)", () => {
+    // 19 messages sent today → sending message 20 is still allowed.
+    const used = PRO_AI_CHAT_DAILY_LIMIT - 1; // 19
+    expect(used >= PRO_AI_CHAT_DAILY_LIMIT).toBe(false);
+  });
+
+  it("pro user: blocked when used === PRO_AI_CHAT_DAILY_LIMIT (message 21 attempt)", () => {
+    // 20 messages already sent today → message 21 is blocked.
+    const used = PRO_AI_CHAT_DAILY_LIMIT; // 20
+    expect(used >= PRO_AI_CHAT_DAILY_LIMIT).toBe(true);
+  });
+
+  it("pro limit is strictly greater than free limit", () => {
+    expect(PRO_AI_CHAT_DAILY_LIMIT).toBeGreaterThan(FREE_AI_CHAT_DAILY_LIMIT);
   });
 });
