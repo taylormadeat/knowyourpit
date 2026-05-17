@@ -343,6 +343,44 @@ export async function countPlannedCooksForUser(userId: string, excludeCookId?: n
   return row?.c ?? 0;
 }
 
+/**
+ * Pure helper — builds the 402 paywall payload for an AI chat attempt, or
+ * returns null if the request should be allowed through.
+ *
+ * Encapsulates all daily-limit gate logic so it can be unit-tested without
+ * spinning up Express:
+ *   - `paywallEnabled=false` → always null (kill-switch).
+ *   - `isPro=false`  → free-tier cap (FREE_AI_CHAT_DAILY_LIMIT).
+ *   - `isPro=true`   → Pro cap (PRO_AI_CHAT_DAILY_LIMIT).
+ */
+export function checkAiChatDailyLimit(
+  isPro: boolean,
+  paywallEnabled: boolean,
+  used: number,
+  resetsAt: string,
+): PaywallResponseOptions | null {
+  if (!paywallEnabled) return null;
+  if (!isPro && used >= FREE_AI_CHAT_DAILY_LIMIT) {
+    return {
+      code: "ai_message_limit_reached",
+      limit: FREE_AI_CHAT_DAILY_LIMIT,
+      used,
+      resetsAt,
+      message: `You've used your ${FREE_AI_CHAT_DAILY_LIMIT} free messages today. Upgrade to Pro for unlimited AI chat.`,
+    };
+  }
+  if (isPro && used >= PRO_AI_CHAT_DAILY_LIMIT) {
+    return {
+      code: "ai_message_limit_reached",
+      limit: PRO_AI_CHAT_DAILY_LIMIT,
+      used,
+      resetsAt,
+      message: `You've reached your ${PRO_AI_CHAT_DAILY_LIMIT} daily messages. Your limit resets at midnight UTC.`,
+    };
+  }
+  return null;
+}
+
 /** AI chat messages (role=user) sent today by this user across all sessions. */
 export async function countAiChatMessagesToday(userId: string): Promise<number> {
   const [row] = await db

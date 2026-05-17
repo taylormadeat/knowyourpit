@@ -92,6 +92,7 @@ import {
   invalidateProCache,
   FREE_AI_CHAT_DAILY_LIMIT,
   PRO_AI_CHAT_DAILY_LIMIT,
+  checkAiChatDailyLimit,
 } from "../lib/paywall";
 
 const TEST_USER = "user_test_123";
@@ -224,12 +225,13 @@ describe("getUserHasProEntitlement", () => {
   });
 });
 
-// ─── AI chat daily limit gate conditions ─────────────────────────────────────
-// These tests verify the gate expression `used >= limit` for the scenarios
-// that exist in both /ai/chat and /ai/chat/stream. The route uses:
-//   free user:  if (used >= FREE_AI_CHAT_DAILY_LIMIT) → respondPaywall
-//   pro user:   if (used >= PRO_AI_CHAT_DAILY_LIMIT)  → respondPaywall
-describe("AI chat daily limit gate", () => {
+// ─── checkAiChatDailyLimit ────────────────────────────────────────────────────
+// Tests the pure gate helper used by both /ai/chat and /ai/chat/stream.
+// Asserts full 402 payload shape rather than just boolean gate expressions.
+const RESETS_AT = "2026-05-18T00:00:00.000Z";
+
+describe("checkAiChatDailyLimit", () => {
+  // ── constants ──────────────────────────────────────────────────────────────
   it("FREE_AI_CHAT_DAILY_LIMIT is 3", () => {
     expect(FREE_AI_CHAT_DAILY_LIMIT).toBe(3);
   });
@@ -238,30 +240,69 @@ describe("AI chat daily limit gate", () => {
     expect(PRO_AI_CHAT_DAILY_LIMIT).toBe(20);
   });
 
-  it("free user: blocked when used === FREE_AI_CHAT_DAILY_LIMIT (message 4 attempt)", () => {
-    // After 3 messages sent today, the 4th is blocked.
-    const used = FREE_AI_CHAT_DAILY_LIMIT; // 3
-    expect(used >= FREE_AI_CHAT_DAILY_LIMIT).toBe(true);
+  // ── kill-switch: PAYWALL_ENABLED=false ─────────────────────────────────────
+  it("returns null for free user when paywall disabled (kill-switch)", () => {
+    expect(
+      checkAiChatDailyLimit(false, false, FREE_AI_CHAT_DAILY_LIMIT, RESETS_AT),
+    ).toBeNull();
   });
 
-  it("free user: allowed when used < FREE_AI_CHAT_DAILY_LIMIT (messages 1–3)", () => {
-    const used = FREE_AI_CHAT_DAILY_LIMIT - 1; // 2
-    expect(used >= FREE_AI_CHAT_DAILY_LIMIT).toBe(false);
+  it("returns null for Pro user when paywall disabled (kill-switch)", () => {
+    expect(
+      checkAiChatDailyLimit(true, false, PRO_AI_CHAT_DAILY_LIMIT, RESETS_AT),
+    ).toBeNull();
   });
 
-  it("pro user: allowed when used === PRO_AI_CHAT_DAILY_LIMIT - 1 (message 20 allowed)", () => {
-    // 19 messages sent today → sending message 20 is still allowed.
-    const used = PRO_AI_CHAT_DAILY_LIMIT - 1; // 19
-    expect(used >= PRO_AI_CHAT_DAILY_LIMIT).toBe(false);
+  // ── free user paths ────────────────────────────────────────────────────────
+  it("returns null for free user when used < limit (messages 1–3 allowed)", () => {
+    expect(
+      checkAiChatDailyLimit(false, true, FREE_AI_CHAT_DAILY_LIMIT - 1, RESETS_AT),
+    ).toBeNull();
   });
 
-  it("pro user: blocked when used === PRO_AI_CHAT_DAILY_LIMIT (message 21 attempt)", () => {
-    // 20 messages already sent today → message 21 is blocked.
-    const used = PRO_AI_CHAT_DAILY_LIMIT; // 20
-    expect(used >= PRO_AI_CHAT_DAILY_LIMIT).toBe(true);
+  it("returns full 402 payload for free user when used === limit (4th message blocked)", () => {
+    const result = checkAiChatDailyLimit(
+      false,
+      true,
+      FREE_AI_CHAT_DAILY_LIMIT,
+      RESETS_AT,
+    );
+    expect(result).not.toBeNull();
+    expect(result).toMatchObject({
+      code: "ai_message_limit_reached",
+      limit: FREE_AI_CHAT_DAILY_LIMIT,
+      used: FREE_AI_CHAT_DAILY_LIMIT,
+      resetsAt: RESETS_AT,
+    });
+    expect(result?.message).toContain("Upgrade to Pro");
   });
 
-  it("pro limit is strictly greater than free limit", () => {
+  // ── Pro user paths ─────────────────────────────────────────────────────────
+  it("returns null for Pro user when used < limit (message 20 allowed, used=19)", () => {
+    expect(
+      checkAiChatDailyLimit(true, true, PRO_AI_CHAT_DAILY_LIMIT - 1, RESETS_AT),
+    ).toBeNull();
+  });
+
+  it("returns full 402 payload for Pro user when used === limit (21st message blocked)", () => {
+    const result = checkAiChatDailyLimit(
+      true,
+      true,
+      PRO_AI_CHAT_DAILY_LIMIT,
+      RESETS_AT,
+    );
+    expect(result).not.toBeNull();
+    expect(result).toMatchObject({
+      code: "ai_message_limit_reached",
+      limit: PRO_AI_CHAT_DAILY_LIMIT,
+      used: PRO_AI_CHAT_DAILY_LIMIT,
+      resetsAt: RESETS_AT,
+    });
+    expect(result?.message).toContain("resets at midnight UTC");
+    expect(result?.message).not.toContain("Upgrade to Pro");
+  });
+
+  it("Pro limit is strictly greater than free limit", () => {
     expect(PRO_AI_CHAT_DAILY_LIMIT).toBeGreaterThan(FREE_AI_CHAT_DAILY_LIMIT);
   });
 });
