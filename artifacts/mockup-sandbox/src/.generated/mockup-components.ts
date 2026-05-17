@@ -15,5 +15,8 @@ export const modules: ModuleMap = {
   "./components/mockups/watch-screens/WatchCookControl.tsx": () => import("../components/mockups/watch-screens/WatchCookControl.tsx"),
   "./components/mockups/watch-screens/WatchFuelTimer.tsx": () => import("../components/mockups/watch-screens/WatchFuelTimer.tsx"),
   "./components/mockups/watch-screens/WatchPitMaster.tsx": () => import("../components/mockups/watch-screens/WatchPitMaster.tsx"),
-  "./components/mockups/watch-screens/WatchStallAlert.tsx": () => import("../components/mockups/watch-screens/WatchStallAlert.tsx")
+  "./components/mockups/watch-screens/WatchStallAlert.tsx": () => import("../components/mockups/watch-screens/WatchStallAlert.tsx"),
+  "./components/mockups/onboarding/Slide1.tsx": () => import("../components/mockups/onboarding/Slide1.tsx"),
+  "./components/mockups/onboarding/Slide3.tsx": () => import("../components/mockups/onboarding/Slide3.tsx"),
+  "./components/mockups/onboarding/Slide5.tsx": () => import("../components/mockups/onboarding/Slide5.tsx")
 };
