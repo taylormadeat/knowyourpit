@@ -251,13 +251,25 @@ export default function OnboardingScreen() {
         <Text style={s.skipText}>Skip</Text>
       </Pressable>
 
-      {/* Logo watermark top-left */}
-      <Image
-        source={logoImg}
-        style={[s.watermark, { top: insets.top + 14 }]}
-        resizeMode="contain"
-        accessible={false}
-      />
+      {/* Top-left: close button in replay mode, logo watermark in first-run */}
+      {isReplay ? (
+        <Pressable
+          style={[s.closeBtn, { top: insets.top + 12 }]}
+          onPress={() => router.replace(MORE_HREF)}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Close walkthrough"
+        >
+          <Feather name="x" size={22} color="#6B6560" />
+        </Pressable>
+      ) : (
+        <Image
+          source={logoImg}
+          style={[s.watermark, { top: insets.top + 14 }]}
+          resizeMode="contain"
+          accessible={false}
+        />
+      )}
 
       {/* Slides */}
       <FlatList
@@ -332,6 +344,12 @@ const s = StyleSheet.create({
     zIndex: 10,
     paddingVertical: 6,
     paddingHorizontal: 4,
+  },
+  closeBtn: {
+    position: "absolute",
+    left: 20,
+    zIndex: 10,
+    padding: 6,
   },
   skipText: {
     fontSize: 15,
