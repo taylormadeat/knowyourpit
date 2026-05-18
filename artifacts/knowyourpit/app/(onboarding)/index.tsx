@@ -222,6 +222,13 @@ export default function OnboardingScreen() {
     setCurrentIndex(lastIdx);
   }
 
+  function goPrev() {
+    if (currentIndex === 0) return;
+    const prev = currentIndex - 1;
+    flatRef.current?.scrollToIndex({ index: prev, animated: true });
+    setCurrentIndex(prev);
+  }
+
   function goNext() {
     if (isLast) {
       finish();
@@ -302,25 +309,42 @@ export default function OnboardingScreen() {
           ))}
         </View>
 
-        {/* CTA button */}
-        <Pressable
-          style={({ pressed }) => [s.ctaBtn, pressed && { opacity: 0.85 }]}
-          onPress={goNext}
-          disabled={saving}
-          accessibilityRole="button"
-          accessibilityLabel={isLast ? "Let's go" : "Next slide"}
-        >
-          <LinearGradient
-            colors={["#E84820", "#C43018"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={s.ctaGradient}
+        {/* CTA row: back (replay only) + next */}
+        <View style={s.ctaRow}>
+          {isReplay && currentIndex > 0 ? (
+            <Pressable
+              style={({ pressed }) => [s.backBtn, pressed && { opacity: 0.7 }]}
+              onPress={goPrev}
+              accessibilityRole="button"
+              accessibilityLabel="Previous slide"
+            >
+              <Feather name="chevron-left" size={20} color="#F5EDE3" />
+              <Text style={s.backText}>Back</Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            style={({ pressed }) => [
+              s.ctaBtn,
+              isReplay && currentIndex > 0 ? s.ctaBtnFlex : s.ctaBtnFull,
+              pressed && { opacity: 0.85 },
+            ]}
+            onPress={goNext}
+            disabled={saving}
+            accessibilityRole="button"
+            accessibilityLabel={isLast ? "Let's go" : "Next slide"}
           >
-            <Text style={s.ctaText}>
-              {isLast ? "Let's go! 🔥" : "Next →"}
-            </Text>
-          </LinearGradient>
-        </Pressable>
+            <LinearGradient
+              colors={["#E84820", "#C43018"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={s.ctaGradient}
+            >
+              <Text style={s.ctaText}>
+                {isLast ? "Let's go! 🔥" : "Next →"}
+              </Text>
+            </LinearGradient>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -443,6 +467,27 @@ const s = StyleSheet.create({
     width: 7,
     backgroundColor: "#2A2420",
   },
+  ctaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    height: 54,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+  backText: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    color: "#F5EDE3",
+  },
   ctaBtn: {
     borderRadius: 16,
     overflow: "hidden",
@@ -451,6 +496,12 @@ const s = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 16,
     elevation: 8,
+  },
+  ctaBtnFull: {
+    flex: 1,
+  },
+  ctaBtnFlex: {
+    flex: 1,
   },
   ctaGradient: {
     height: 54,
