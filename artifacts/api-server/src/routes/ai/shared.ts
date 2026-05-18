@@ -38,6 +38,11 @@ export function getAssessment(analysisResult: unknown): StoredAssessment | null 
   return result.assessment ?? null;
 }
 
+// Maximum number of individual cook records included in the chat prompt.
+// Stats are always computed from up to 50 cooks; only the most recent
+// CHAT_HISTORY_DETAIL_LIMIT are listed in full to keep prompt tokens low.
+const CHAT_HISTORY_DETAIL_LIMIT = 10;
+
 export async function buildUserCookHistory(userId: string): Promise<string> {
   const cooks = await db.select().from(cooksTable)
     .where(eq(cooksTable.userId, userId))
@@ -57,7 +62,27 @@ export async function buildUserCookHistory(userId: string): Promise<string> {
     }
   }
 
-  const lines = cooks.map(c => {
+  const total = cooks.length;
+  const completed = cooks.filter(c => c.status === "completed").length;
+  const rated = cooks.filter(c => c.rating != null);
+  const avgRating = rated.length > 0 ? (rated.reduce((s, c) => s + c.rating!, 0) / rated.length).toFixed(1) : null;
+
+  // Top meat types by frequency
+  const meatCounts: Record<string, number> = {};
+  for (const c of cooks) {
+    const key = c.foodType.toLowerCase();
+    meatCounts[key] = (meatCounts[key] ?? 0) + 1;
+  }
+  const topMeats = Object.entries(meatCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([m, n]) => `${m} (${n}x)`)
+    .join(", ");
+
+  // Only include detail lines for the most recent cooks — stats above give
+  // the AI the big picture; the recent cooks give specific context.
+  const detailCooks = cooks.slice(0, CHAT_HISTORY_DETAIL_LIMIT);
+  const lines = detailCooks.map(c => {
     const parts: string[] = [];
     parts.push(c.foodType);
     if (c.weightLbs) parts.push(`${c.weightLbs} lbs`);
@@ -83,17 +108,40 @@ export async function buildUserCookHistory(userId: string): Promise<string> {
     return `- ${parts.join(" · ")}`;
   });
 
-  const total = cooks.length;
-  const completed = cooks.filter(c => c.status === "completed").length;
-  const rated = cooks.filter(c => c.rating != null);
-  const avgRating = rated.length > 0 ? (rated.reduce((s, c) => s + c.rating!, 0) / rated.length).toFixed(1) : null;
+  const olderNote = total > CHAT_HISTORY_DETAIL_LIMIT
+    ? `\n(${total - CHAT_HISTORY_DETAIL_LIMIT} older cook${total - CHAT_HISTORY_DETAIL_LIMIT === 1 ? "" : "s"} not shown — reference stats above)`
+    : "";
 
   const summary = [
-    `User's cook history (${total} total, ${completed} completed${avgRating ? `, avg rating ${avgRating}/5` : ""}):`,
+    `User's cook history — ${total} total, ${completed} completed${avgRating ? `, avg rating ${avgRating}/5` : ""}${topMeats ? `, most cooked: ${topMeats}` : ""}.`,
+    `Most recent ${detailCooks.length} cook${detailCooks.length === 1 ? "" : "s"}:`,
     ...lines,
-  ].join("\n");
+  ].join("\n") + olderNote;
 
   return summary;
+}
+
+// ─── Personal-query detection ───────────────────────────────────────────────
+// Returns true when the message is clearly about the user's own cook data.
+// General BBQ knowledge questions return false so the AI can skip loading
+// the full cook history, reducing prompt tokens and cost.
+// Errs on the side of inclusion — only skips when the question is clearly
+// not personal (no possessive references, no data-lookup intent).
+export function needsPersonalContext(message: string): boolean {
+  if (!message || message.trim().length === 0) return true;
+  const lower = message.toLowerCase();
+  const PERSONAL_SIGNALS = [
+    /\bmy (cook|cooks|grill|grills|pit|smoker|smokers|brisket|ribs|pork|chicken|turkey|history|data|log|logs|rating|ratings|record|records|stats|performance|results?)\b/,
+    /\b(my last|my previous|my recent|my best|my worst|my highest|my lowest|my average)\b/,
+    /\bhow (have i|am i doing|did i|do i typically|do i usually)\b/,
+    /\b(show|tell|give|list) me my\b/,
+    /\bbased on my\b/,
+    /\bfor my (grill|pit|smoker)\b/,
+    /\b(improve|improving|improvement|pattern|trend)s? (in my|with my|across my|from my)\b/,
+    /\bwhat (have i|did i|do i)\b/,
+    /\b(compare|comparing) (my|to my)\b/,
+  ];
+  return PERSONAL_SIGNALS.some((re) => re.test(lower));
 }
 
 export async function buildPerGrillFingerprintSection(userId: string): Promise<string> {
@@ -137,13 +185,27 @@ export async function buildPerGrillFingerprintSection(userId: string): Promise<s
   ].join("\n");
 }
 
-export async function buildChatSystemPrompt(userId: string, context: string | null | undefined): Promise<string> {
+export async function buildChatSystemPrompt(
+  userId: string,
+  context: string | null | undefined,
+  message?: string,
+): Promise<string> {
+  // For questions that clearly don't reference the user's personal data (e.g.
+  // "what temp for brisket?", "how do I push through the stall?"), skip the
+  // expensive cook-history fetch entirely — the AI can answer with general
+  // BBQ knowledge just as well and the prompt is significantly shorter.
+  const personal = !message || needsPersonalContext(message);
+
   const [cookHistory, smokerInsights, grillFingerprints] = await Promise.all([
-    buildUserCookHistory(userId),
-    computeSmokerInsights(userId),
-    buildPerGrillFingerprintSection(userId),
+    personal ? buildUserCookHistory(userId) : Promise.resolve(null),
+    personal ? computeSmokerInsights(userId) : Promise.resolve(null),
+    personal ? buildPerGrillFingerprintSection(userId) : Promise.resolve(""),
   ]);
-  const smokerProfile = formatSmokerProfile(smokerInsights);
+  const smokerProfile = smokerInsights ? formatSmokerProfile(smokerInsights) : null;
+
+  const dataSection = personal
+    ? `You have full access to this user's personal cook logs. Use this data to give personalized advice, reference their past cooks, and help them improve. When relevant, refer to their actual cook history by name and date.\n\n${cookHistory}${smokerProfile ? `\n\n${smokerProfile}` : ""}${grillFingerprints ? `\n\n${grillFingerprints}` : ""}`
+    : `This user has cook logs in their profile but this question doesn't need them — answer from general BBQ knowledge.`;
 
   return `You are PitMaster, the AI coach inside knowyourpit. You're a seasoned pit master — decades of low-and-slow behind you, competition wins on the wall, and an opinion on everything from wood selection to resting time. But you're not here to impress anyone. You're a friend standing next to the user at the pit, coaching them through the cook.
 
@@ -153,9 +215,7 @@ Never use: "I'd be happy to help", "certainly", "absolutely", "great question", 
 
 When someone is new to BBQ — give context, but don't talk down to them. When someone is experienced — skip the basics and get to the data. Read the cook history and respond to the actual person, not a generic user.
 
-You have full access to this user's personal cook logs. Use this data to give personalized advice, reference their past cooks, and help them improve. When relevant, refer to their actual cook history by name and date.
-
-${cookHistory}${smokerProfile ? `\n\n${smokerProfile}` : ""}${grillFingerprints ? `\n\n${grillFingerprints}` : ""}${context ? `\n\nAdditional context: ${context}` : ""}`;
+${dataSection}${context ? `\n\nAdditional context: ${context}` : ""}`;
 }
 
 export function pickChatSuggestions(): string[] {

@@ -234,7 +234,7 @@ Respond ONLY with a JSON array of exactly 3 strings: ["tip1", "tip2", "tip3"]`;
 
     homeInsightsCache.set(cacheKey, {
       data: result,
-      expiresAt: Date.now() + 60 * 60 * 1000,
+      expiresAt: Date.now() + 4 * 60 * 60 * 1000,
     });
 
     res.json(result);

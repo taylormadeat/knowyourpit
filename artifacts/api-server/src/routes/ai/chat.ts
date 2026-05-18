@@ -155,7 +155,7 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
     content: message,
   });
 
-  const systemPrompt = await buildChatSystemPrompt(req.userId, context);
+  const systemPrompt = await buildChatSystemPrompt(req.userId, context, message);
 
   const HISTORY_LIMIT = 20;
   const priorMessages = await db
@@ -281,7 +281,7 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
     });
     writeEvent({ type: "session", sessionId: resolvedSessionId });
 
-    const systemPrompt = await buildChatSystemPrompt(req.userId, context);
+    const systemPrompt = await buildChatSystemPrompt(req.userId, context, message);
 
     const HISTORY_LIMIT = 20;
     const priorMessages = await db
