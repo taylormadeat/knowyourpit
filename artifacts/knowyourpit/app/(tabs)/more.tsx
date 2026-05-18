@@ -377,6 +377,29 @@ export default function MoreScreen() {
               <Text style={[s.menuLabel, { color: colors.foreground }]}>Replay onboarding</Text>
               <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
             </Pressable>
+            <View style={[s.divider, { backgroundColor: colors.border }]} />
+            <Pressable
+              style={({ pressed }) => [s.menuItem, pressed && { opacity: 0.7 }]}
+              onPress={async () => {
+                const url = "mailto:support@knowyourpit.com";
+                const canOpen = await Linking.canOpenURL(url);
+                if (canOpen) {
+                  await Linking.openURL(url);
+                } else {
+                  Alert.alert(
+                    "Contact Support",
+                    "Email us at support@knowyourpit.com",
+                    [{ text: "OK" }],
+                  );
+                }
+              }}
+            >
+              <View style={[s.menuIcon, { backgroundColor: colors.primary + "20" }]}>
+                <Feather name="mail" size={16} color={colors.primary} />
+              </View>
+              <Text style={[s.menuLabel, { color: colors.foreground }]}>Contact support</Text>
+              <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+            </Pressable>
           </View>
         </View>
 
