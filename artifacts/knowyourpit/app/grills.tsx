@@ -28,7 +28,10 @@ import {
   useUpdateGrill,
   useDeleteGrill,
   getListGrillsQueryKey,
+  useGetGrillFingerprint,
+  getGetGrillFingerprintQueryKey,
 } from "@workspace/api-client-react";
+import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { GRILL_CATALOG, type GrillModel } from "@/constants/grillCatalog";
 import { GrillTypeIcon, classifyGrillType, grillGradientColors } from "@/components/GrillTypeIcon";
 
@@ -110,6 +113,229 @@ function buildBrandList(): BrandEntry[] {
 }
 
 const ALL_BRANDS = buildBrandList();
+
+const CONFIDENCE_LABEL: Record<string, string> = {
+  none: "No data yet",
+  building: "Learning",
+  developing: "Developing",
+  established: "Established",
+};
+
+function GrillFingerprintSection({
+  grillId,
+  completedCookCount,
+  colors,
+}: {
+  grillId: number;
+  completedCookCount: number;
+  colors: any;
+}) {
+  const effectivePro = useEffectivePro();
+  const { data, isLoading } = useGetGrillFingerprint(grillId, {
+    query: {
+      queryKey: getGetGrillFingerprintQueryKey(grillId),
+      enabled: effectivePro && completedCookCount > 0,
+      retry: false,
+      staleTime: 5 * 60 * 1000,
+    },
+  });
+
+  if (!effectivePro) {
+    return (
+      <View style={[fps.section, { borderTopColor: colors.border }]}>
+        <View style={fps.lockedRow}>
+          <Feather name="lock" size={10} color={colors.mutedForeground} />
+          <Text style={[fps.lockedText, { color: colors.mutedForeground }]}>
+            Grill fingerprint{" "}
+            <Text style={{ color: colors.primary, fontFamily: "Inter_500Medium" }}>
+              · Unlock with Pro
+            </Text>
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (completedCookCount === 0) {
+    return (
+      <View style={[fps.section, { borderTopColor: colors.border }]}>
+        <View style={fps.lockedRow}>
+          <Feather name="cpu" size={10} color={colors.mutedForeground} />
+          <Text style={[fps.lockedText, { color: colors.mutedForeground }]}>
+            Complete a cook to start learning this grill's pace
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (isLoading || !data) {
+    return (
+      <View style={[fps.section, { borderTopColor: colors.border }]}>
+        <ActivityIndicator size="small" color={colors.mutedForeground} style={{ alignSelf: "flex-start", transform: [{ scale: 0.7 }] }} />
+      </View>
+    );
+  }
+
+  const { confidenceLevel, cookCount, pitBiasF, overshootF, durationByMeat } = data;
+  const meatEntries = Object.entries(durationByMeat ?? {}).filter(([, p]) => p.sampleSize >= 1);
+  const hasBiasChip = pitBiasF != null;
+  const hasOvershootChip = overshootF != null && Math.abs(overshootF) >= 3;
+
+  return (
+    <View style={[fps.section, { borderTopColor: colors.border }]}>
+      <View style={fps.headerRow}>
+        <Feather name="cpu" size={10} color={colors.mutedForeground} />
+        <Text style={[fps.sectionLabel, { color: colors.mutedForeground }]}>Learned Pace</Text>
+        <View style={[fps.confidenceBadge, { backgroundColor: colors.muted }]}>
+          <Text style={[fps.confidenceText, { color: colors.mutedForeground }]}>
+            {CONFIDENCE_LABEL[confidenceLevel] ?? confidenceLevel} · {cookCount} cook{cookCount !== 1 ? "s" : ""}
+          </Text>
+        </View>
+      </View>
+
+      {(hasBiasChip || hasOvershootChip) && (
+        <View style={fps.chipRow}>
+          {hasBiasChip && (
+            Math.abs(pitBiasF!) >= 3 ? (
+              <View style={[fps.chip, { backgroundColor: (pitBiasF! > 0 ? "#E84820" : "#3B82F6") + "15", borderColor: (pitBiasF! > 0 ? "#E84820" : "#3B82F6") + "40" }]}>
+                <Text style={[fps.chipText, { color: pitBiasF! > 0 ? "#E84820" : "#3B82F6" }]}>
+                  Runs {pitBiasF! > 0 ? "HOT" : "COLD"} {Math.abs(Math.round(pitBiasF!))}°F
+                </Text>
+              </View>
+            ) : (
+              <View style={[fps.chip, { backgroundColor: "#22c55e15", borderColor: "#22c55e40" }]}>
+                <Text style={[fps.chipText, { color: "#22c55e" }]}>Accurate temp</Text>
+              </View>
+            )
+          )}
+          {hasOvershootChip && (
+            <View style={[fps.chip, { backgroundColor: colors.muted, borderColor: colors.border, borderWidth: 1 }]}>
+              <Text style={[fps.chipText, { color: colors.mutedForeground }]}>
+                {overshootF! > 0 ? "Overshoots" : "Undershoots"} {Math.abs(Math.round(overshootF!))}°F
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {meatEntries.length > 0 && (
+        <View style={fps.meatRows}>
+          {meatEntries.map(([meat, p]) => {
+            const label = meat.replace(/_/g, " ");
+            const pct = p.pctDiff;
+            const pctColor =
+              pct == null ? colors.mutedForeground
+              : pct > 10 ? "#E84820"
+              : pct < -10 ? "#3B82F6"
+              : "#22c55e";
+            const pctLabel =
+              pct == null ? null
+              : pct > 5 ? `+${pct}%`
+              : pct < -5 ? `${pct}%`
+              : "~baseline";
+            return (
+              <View key={meat} style={fps.meatRow}>
+                <Text style={[fps.meatLabel, { color: colors.foreground }]} numberOfLines={1}>
+                  {label.charAt(0).toUpperCase() + label.slice(1)}
+                </Text>
+                <Text style={[fps.meatPace, { color: colors.mutedForeground }]}>
+                  {p.actualMinsPerLb} min/lb
+                </Text>
+                {pctLabel != null && (
+                  <Text style={[fps.meatPct, { color: pctColor }]}>{pctLabel}</Text>
+                )}
+                <Text style={[fps.meatN, { color: colors.mutedForeground }]}>n={p.sampleSize}</Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
+const fps = StyleSheet.create({
+  section: {
+    marginTop: 9,
+    paddingTop: 9,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 6,
+  },
+  sectionLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  confidenceBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 2,
+  },
+  confidenceText: {
+    fontSize: 10,
+    fontFamily: "Inter_500Medium",
+  },
+  lockedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  lockedText: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+  },
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 5,
+    marginBottom: 6,
+  },
+  chip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  meatRows: {
+    gap: 3,
+  },
+  meatRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  meatLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    minWidth: 60,
+  },
+  meatPace: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+  },
+  meatPct: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  meatN: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+    opacity: 0.7,
+  },
+});
 
 export default function GrillsScreen() {
   const colors = useColors();
@@ -476,6 +702,11 @@ export default function GrillsScreen() {
                     );
                   })()}
                 </View>
+                <GrillFingerprintSection
+                  grillId={item.id}
+                  completedCookCount={item.completedCookCount ?? 0}
+                  colors={colors}
+                />
               </View>
               <View style={{ flexDirection: "column", gap: 6 }}>
                 <Pressable
