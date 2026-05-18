@@ -6,11 +6,17 @@ import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
+const ALLOWED_SOURCES = ["marketing-site", "in-app"] as const;
+type ContactSource = (typeof ALLOWED_SOURCES)[number];
+
 const contactBodySchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
   email: z.string().trim().email("Valid email is required").max(254),
   subject: z.string().trim().min(1, "Subject is required").max(200),
   message: z.string().trim().min(10, "Message must be at least 10 characters").max(5000),
+  // source is optional — defaults to "marketing-site" for backwards compat.
+  // Only trusted values are accepted; unknown values fall back to the default.
+  source: z.enum(ALLOWED_SOURCES).optional(),
   // Honeypot field — bots fill this in; humans never see it. Accept any
   // value so we can silently drop bot submissions instead of returning a
   // 400 (which would tell the bot to mutate the field and retry).
@@ -52,7 +58,7 @@ router.post("/contact", contactLimiter, async (req, res): Promise<void> => {
         email: parsed.data.email,
         subject: parsed.data.subject,
         message: parsed.data.message,
-        source: "marketing-site",
+        source: (parsed.data.source ?? "marketing-site") satisfies ContactSource,
         ipAddress: ip,
         userAgent,
       })

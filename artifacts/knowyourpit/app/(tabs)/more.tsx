@@ -21,6 +21,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
+import { SupportModal } from "@/components/SupportModal";
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -64,6 +65,7 @@ export default function MoreScreen() {
   const effectivePro = useEffectivePro();
   const { getToken } = useAuth();
   const [deleting, setDeleting] = React.useState(false);
+  const [supportModalVisible, setSupportModalVisible] = React.useState(false);
 
   const botPad = useBottomTabBarHeight();
   const { isTablet, contentMaxWidth } = useLayout();
@@ -380,19 +382,7 @@ export default function MoreScreen() {
             <View style={[s.divider, { backgroundColor: colors.border }]} />
             <Pressable
               style={({ pressed }) => [s.menuItem, pressed && { opacity: 0.7 }]}
-              onPress={async () => {
-                const url = "mailto:support@knowyourpit.com";
-                const canOpen = await Linking.canOpenURL(url);
-                if (canOpen) {
-                  await Linking.openURL(url);
-                } else {
-                  Alert.alert(
-                    "Contact Support",
-                    "Email us at support@knowyourpit.com",
-                    [{ text: "OK" }],
-                  );
-                }
-              }}
+              onPress={() => setSupportModalVisible(true)}
             >
               <View style={[s.menuIcon, { backgroundColor: colors.primary + "20" }]}>
                 <Feather name="mail" size={16} color={colors.primary} />
@@ -461,6 +451,18 @@ export default function MoreScreen() {
         </Pressable>
         </View>
       </ScrollView>
+
+      <SupportModal
+        visible={supportModalVisible}
+        onClose={() => setSupportModalVisible(false)}
+        prefillName={
+          (user?.unsafeMetadata?.displayName as string | undefined) ||
+          user?.fullName ||
+          user?.firstName ||
+          ""
+        }
+        prefillEmail={user?.emailAddresses?.[0]?.emailAddress || ""}
+      />
     </View>
   );
 }
