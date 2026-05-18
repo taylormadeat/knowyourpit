@@ -9,7 +9,7 @@ import { ClerkProvider, useAuth, useUser } from "@clerk/expo";
 import { safeTokenCache } from "@/lib/tokenCache";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QueryClient, QueryClientProvider, useQueryClient as useQueryClientInner } from "@tanstack/react-query";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { type Href, Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
 import React, { useEffect, useState } from "react";
@@ -179,6 +179,12 @@ function getAppMeta(user: { unsafeMetadata?: Record<string, unknown> } | null | 
 // are exempted so they are never interrupted when they update the app.
 const ONBOARDING_FEATURE_LAUNCH_MS = new Date("2026-05-18T00:00:00Z").getTime();
 
+// Typed route constant — avoids repeating `as any` at every call site.
+// Expo Router generates Href types from the file system at build time; because
+// the (onboarding) screen was added after the last generation we declare the
+// constant here with a single typed cast to Href (not `any`) so callers stay typed.
+const ONBOARDING_HREF = "/(onboarding)" as Href;
+
 function RootLayoutNav() {
   const { isSignedIn, isLoaded } = useAuth();
   const { user, isLoaded: userLoaded } = useUser();
@@ -226,14 +232,14 @@ function RootLayoutNav() {
       if (!hasUsername) {
         router.replace("/(auth)/set-username");
       } else if (!hasSeenOnboarding && isNewAccount) {
-        router.replace("/(onboarding)" as any);
+        router.replace(ONBOARDING_HREF);
       } else {
         router.replace("/(tabs)");
       }
     } else if (isSignedIn && onSetUsername && hasUsername) {
       // Just completed set-username
       if (!hasSeenOnboarding && isNewAccount) {
-        router.replace("/(onboarding)" as any);
+        router.replace(ONBOARDING_HREF);
       } else {
         router.replace("/(tabs)");
       }
@@ -244,7 +250,7 @@ function RootLayoutNav() {
       // before the guard's inAuthGroup branch could fire (e.g. SSO flows).
       // Existing users (accounts older than ONBOARDING_FEATURE_LAUNCH_MS) are
       // exempt, so they are never interrupted when they update the app.
-      router.replace("/(onboarding)" as any);
+      router.replace(ONBOARDING_HREF);
     }
   }, [isSignedIn, isLoaded, userLoaded, user?.username, user?.unsafeMetadata,
       user?.createdAt, segments, router, localOnboardingSeen]);

@@ -11,6 +11,8 @@ import {
   BackHandler,
   Dimensions,
   Image,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -43,40 +45,48 @@ interface Slide {
   emailLink?: boolean;
 }
 
+// All slides use the brand warm-orange palette: BRAND_ORANGE (#E84820) for the
+// primary accent and amber/orange tones for secondary slides so the flow feels
+// cohesive against the dark background.
+const ORANGE_BG: readonly [string, string] = ["#2A1810", "#1A1008"];
+const ORANGE_GLOW = "rgba(232,72,32,0.22)";
+const AMBER_BG: readonly [string, string] = ["#2A1E08", "#1A1205"];
+const AMBER_GLOW = "rgba(245,158,11,0.2)";
+
 const SLIDES: Slide[] = [
   {
     id: "welcome",
     icon: "activity",
     iconColor: BRAND_ORANGE,
-    iconBg: ["#2A1810", "#1A1008"],
-    iconGlow: "rgba(232,72,32,0.22)",
+    iconBg: ORANGE_BG,
+    iconGlow: ORANGE_GLOW,
     headline: "Your AI BBQ companion",
     body: "knowyourpit is built for pitmasters like you — and we're just getting started. Your cooks, your feedback, and your ideas are what make it better.",
   },
   {
     id: "plan",
     icon: "calendar",
-    iconColor: "#3B82F6",
-    iconBg: ["#0D1F3C", "#071428"],
-    iconGlow: "rgba(59,130,246,0.2)",
+    iconColor: "#F97316",
+    iconBg: ["#2A1808", "#1A1005"],
+    iconGlow: "rgba(249,115,22,0.22)",
     headline: "Plan every cook",
     body: "Log your meat, grill, and target temp and get an AI-powered cook timeline. Adjust on the fly as your pit does its thing.",
   },
   {
     id: "log",
     icon: "clipboard",
-    iconColor: "#22C55E",
-    iconBg: ["#0D2A1A", "#071810"],
-    iconGlow: "rgba(34,197,94,0.18)",
+    iconColor: "#FB923C",
+    iconBg: ["#2A1A08", "#1A1105"],
+    iconGlow: "rgba(251,146,60,0.2)",
     headline: "Track your progress",
     body: "Log your cooks and watch your technique improve. Every session builds a picture of what works on your pit.",
   },
   {
     id: "grills",
     icon: "wind",
-    iconColor: "#A855F7",
-    iconBg: ["#1C0F2E", "#130A20"],
-    iconGlow: "rgba(168,85,247,0.18)",
+    iconColor: "#FBBF24",
+    iconBg: AMBER_BG,
+    iconGlow: AMBER_GLOW,
     headline: "Know your grill",
     body: "Add each of your grills and knowyourpit learns how they run — hot spots, pace, and bias — so every plan fits your actual pit.",
   },
@@ -84,8 +94,8 @@ const SLIDES: Slide[] = [
     id: "ai",
     icon: "zap",
     iconColor: "#F59E0B",
-    iconBg: ["#2A1E08", "#1A1205"],
-    iconGlow: "rgba(245,158,11,0.2)",
+    iconBg: AMBER_BG,
+    iconGlow: AMBER_GLOW,
     headline: "PitMaster AI at your side",
     body: "Ask anything — wood pairings, stall strategies, temp troubleshooting. PitMaster knows BBQ and knows your pit.",
   },
@@ -93,8 +103,8 @@ const SLIDES: Slide[] = [
     id: "feedback",
     icon: "mail",
     iconColor: BRAND_ORANGE,
-    iconBg: ["#2A1810", "#1A1008"],
-    iconGlow: "rgba(232,72,32,0.22)",
+    iconBg: ORANGE_BG,
+    iconGlow: ORANGE_GLOW,
     headline: "You're one of our first",
     body: "That means your feedback matters most. Spotted something off? Have an idea? Send us a note — screenshots welcome.",
     emailLink: true,
@@ -210,7 +220,7 @@ export default function OnboardingScreen() {
     setCurrentIndex(next);
   }
 
-  function onMomentumScrollEnd(e: any) {
+  function onMomentumScrollEnd(e: NativeSyntheticEvent<NativeScrollEvent>) {
     const offset = e.nativeEvent.contentOffset.x;
     const idx = Math.round(offset / SCREEN_W);
     setCurrentIndex(idx);
