@@ -171,23 +171,27 @@ export default function OnboardingScreen() {
   async function markSeen() {
     if (saving) return;
     setSaving(true);
-    // Write local AsyncStorage flag immediately so the nav guard never bounces
-    // the user back into onboarding even if the Clerk metadata write is slow or fails.
-    await AsyncStorage.setItem(ONBOARDING_SEEN_KEY, "1").catch(() => {});
-    // Navigate first — the guard reads the AsyncStorage flag above, so no loop.
-    router.replace("/(tabs)");
-    // Update Clerk metadata in the background (best-effort; AsyncStorage is the authoritative local source).
+    // Write AsyncStorage immediately as a local fallback — guards against
+    // redirect loops if the app is killed or restarted before Clerk syncs.
+    AsyncStorage.setItem(ONBOARDING_SEEN_KEY, "1").catch(() => {});
+    // Await the Clerk metadata write so the flag persists across devices/installs.
+    // Proceed regardless of outcome — AsyncStorage prevents loops on this device.
     if (user) {
-      user
-        .update({
+      try {
+        await user.update({
           unsafeMetadata: {
-            ...(user.unsafeMetadata as object ?? {}),
+            ...(user.unsafeMetadata ?? {}),
             hasSeenOnboarding: true,
           },
-        })
-        .catch(() => {});
+        });
+      } catch {
+        // Network or Clerk error — local AsyncStorage flag still prevents the guard
+        // from re-routing on this device. The flag will sync on the next successful
+        // Clerk call (e.g., sign-in on a fresh install).
+      }
     }
     setSaving(false);
+    router.replace("/(tabs)");
   }
 
   function skipToEnd() {

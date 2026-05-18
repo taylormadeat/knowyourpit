@@ -162,6 +162,23 @@ async function requestNotificationPermissions() {
   }
 }
 
+// Typed shape of the custom fields stored in Clerk's unsafeMetadata.
+// Using a typed interface instead of `as any` so TypeScript catches typos.
+interface AppUserMeta {
+  username?: string;
+  hasSeenOnboarding?: boolean;
+  displayName?: string;
+  signInProvider?: string;
+}
+function getAppMeta(user: { unsafeMetadata?: Record<string, unknown> } | null | undefined): AppUserMeta {
+  return (user?.unsafeMetadata ?? {}) as AppUserMeta;
+}
+
+// Accounts created on or after this date are treated as "new users" who should
+// see the onboarding flow. Existing accounts (created before this feature shipped)
+// are exempted so they are never interrupted when they update the app.
+const ONBOARDING_FEATURE_LAUNCH_MS = new Date("2026-05-18T00:00:00Z").getTime();
+
 function RootLayoutNav() {
   const { isSignedIn, isLoaded } = useAuth();
   const { user, isLoaded: userLoaded } = useUser();
@@ -180,50 +197,57 @@ function RootLayoutNav() {
   }, []);
 
   // Global auth gate: keep signed-in users out of /(auth) and signed-out users out of /(tabs).
-  // Also enforces: username gate → onboarding gate → tabs. Order matters:
-  //   1. Not signed in                              → sign-in
-  //   2. Signed in, no username                     → set-username
-  //   3. Signed in, has username, no onboarding seen → onboarding (sign-in path only)
-  //   4. Otherwise                                  → tabs
+  // Gate order (checked in priority order):
+  //   1. Not signed in                                   → sign-in
+  //   2. Signed in, no username                          → set-username
+  //   3. Signed in, has username, no onboarding flag,
+  //      account created after feature launch date       → onboarding
+  //   4. Otherwise                                       → tabs (or stay put)
   //
-  // IMPORTANT: onboarding is only shown when arriving via the sign-in / set-username
-  // flow. Existing logged-in users who are already in tabs are never interrupted,
-  // even if their account predates the hasSeenOnboarding flag.
+  // The account-creation date check ensures existing users who update the app
+  // are never redirected to onboarding — only new sign-ups see the flow.
   useEffect(() => {
     if (!isLoaded || !userLoaded) return;
     const inAuthGroup = segments[0] === "(auth)";
     const onSetUsername = segments[1] === "set-username";
     const inOnboarding = (segments[0] as string) === "(onboarding)";
 
-    const hasUsername = !!((user?.unsafeMetadata as any)?.username || user?.username);
-    const hasSeenOnboarding =
-      !!(user?.unsafeMetadata as any)?.hasSeenOnboarding || localOnboardingSeen;
+    const meta = getAppMeta(user);
+    const hasUsername = !!(meta.username || user?.username);
+    const hasSeenOnboarding = !!meta.hasSeenOnboarding || localOnboardingSeen;
+    // Only show onboarding to accounts created on/after the feature launch date.
+    const createdMs = user?.createdAt?.getTime() ?? 0;
+    const isNewAccount = createdMs >= ONBOARDING_FEATURE_LAUNCH_MS;
 
     if (!isSignedIn && (onSetUsername || !inAuthGroup)) {
       router.replace("/(auth)/sign-in");
     } else if (isSignedIn && inAuthGroup && !onSetUsername) {
-      // Arrived from sign-in / sign-up
+      // Arrived from sign-in / sign-up screen
       if (!hasUsername) {
         router.replace("/(auth)/set-username");
-      } else if (!hasSeenOnboarding) {
+      } else if (!hasSeenOnboarding && isNewAccount) {
         router.replace("/(onboarding)" as any);
       } else {
         router.replace("/(tabs)");
       }
     } else if (isSignedIn && onSetUsername && hasUsername) {
       // Just completed set-username
-      if (!hasSeenOnboarding) {
+      if (!hasSeenOnboarding && isNewAccount) {
         router.replace("/(onboarding)" as any);
       } else {
         router.replace("/(tabs)");
       }
     } else if (isSignedIn && !inAuthGroup && !inOnboarding && !hasUsername) {
       router.replace("/(auth)/set-username");
+    } else if (isSignedIn && !inAuthGroup && !inOnboarding && hasUsername && !hasSeenOnboarding && isNewAccount) {
+      // Catch-all: new user whose sign-in screen navigated directly to /(tabs)
+      // before the guard's inAuthGroup branch could fire (e.g. SSO flows).
+      // Existing users (accounts older than ONBOARDING_FEATURE_LAUNCH_MS) are
+      // exempt, so they are never interrupted when they update the app.
+      router.replace("/(onboarding)" as any);
     }
-    // No catch-all for existing logged-in users without hasSeenOnboarding:
-    // they are already in tabs and should not be interrupted.
   }, [isSignedIn, isLoaded, userLoaded, user?.username, user?.unsafeMetadata,
-      segments, router, localOnboardingSeen]);
+      user?.createdAt, segments, router, localOnboardingSeen]);
 
   useEffect(() => {
     requestNotificationPermissions();
