@@ -12,12 +12,17 @@ import {
   Dimensions,
   Image,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+// Shared AsyncStorage key — also checked by the nav guard in _layout.tsx so a
+// failed Clerk write doesn't bounce the user back into onboarding on next launch.
+export const ONBOARDING_SEEN_KEY = "knowyourpit:hasSeenOnboarding";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const BRAND_ORANGE = "#E84820";
@@ -65,6 +70,15 @@ const SLIDES: Slide[] = [
     iconGlow: "rgba(34,197,94,0.18)",
     headline: "Track your progress",
     body: "Log your cooks and watch your technique improve. Every session builds a picture of what works on your pit.",
+  },
+  {
+    id: "grills",
+    icon: "wind",
+    iconColor: "#A855F7",
+    iconBg: ["#1C0F2E", "#130A20"],
+    iconGlow: "rgba(168,85,247,0.18)",
+    headline: "Know your grill",
+    body: "Add each of your grills and knowyourpit learns how they run — hot spots, pace, and bias — so every plan fits your actual pit.",
   },
   {
     id: "ai",
@@ -157,21 +171,29 @@ export default function OnboardingScreen() {
   async function markSeen() {
     if (saving) return;
     setSaving(true);
-    try {
-      if (user) {
-        await user.update({
+    // Write local AsyncStorage flag immediately so the nav guard never bounces
+    // the user back into onboarding even if the Clerk metadata write is slow or fails.
+    await AsyncStorage.setItem(ONBOARDING_SEEN_KEY, "1").catch(() => {});
+    // Navigate first — the guard reads the AsyncStorage flag above, so no loop.
+    router.replace("/(tabs)");
+    // Update Clerk metadata in the background (best-effort; AsyncStorage is the authoritative local source).
+    if (user) {
+      user
+        .update({
           unsafeMetadata: {
             ...(user.unsafeMetadata as object ?? {}),
             hasSeenOnboarding: true,
           },
-        });
-      }
-    } catch {
-      // Non-critical — proceed regardless
-    } finally {
-      setSaving(false);
-      router.replace("/(tabs)");
+        })
+        .catch(() => {});
     }
+    setSaving(false);
+  }
+
+  function skipToEnd() {
+    const lastIdx = SLIDES.length - 1;
+    flatRef.current?.scrollToIndex({ index: lastIdx, animated: true });
+    setCurrentIndex(lastIdx);
   }
 
   function goNext() {
@@ -192,13 +214,13 @@ export default function OnboardingScreen() {
 
   return (
     <View style={[s.root, { backgroundColor: "#0D0D10" }]}>
-      {/* Skip — top-right */}
+      {/* Skip — top-right (jumps to the last/feedback slide, not exits) */}
       <Pressable
         style={[s.skipBtn, { top: insets.top + 16 }]}
-        onPress={markSeen}
+        onPress={isLast ? markSeen : skipToEnd}
         hitSlop={12}
         accessibilityRole="button"
-        accessibilityLabel="Skip onboarding"
+        accessibilityLabel={isLast ? "Dismiss onboarding" : "Skip to last slide"}
       >
         <Text style={s.skipText}>Skip</Text>
       </Pressable>
