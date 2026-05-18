@@ -221,7 +221,8 @@ function GrillFingerprintSection({
               <View style={fps.meatRows}>
                 {meatEntries.map(([meat, p]) => {
                   const label = meat.replace(/_/g, " ");
-                  const pct = p.pctDiff;
+                  const pctRaw = p.pctDiff;
+                  const pct = pctRaw == null ? null : Math.round(pctRaw);
                   const pctColor =
                     pct == null ? colors.mutedForeground
                     : pct > 10 ? "#E84820"
@@ -231,7 +232,7 @@ function GrillFingerprintSection({
                     pct == null ? null
                     : pct > 5 ? `+${pct}% slower`
                     : pct < -5 ? `${pct}% faster`
-                    : "~avg";
+                    : "~baseline";
                   return (
                     <View key={meat} style={fps.meatRow}>
                       <Text style={[fps.meatLabel, { color: colors.foreground }]} numberOfLines={1}>
