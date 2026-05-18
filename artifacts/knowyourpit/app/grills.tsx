@@ -31,7 +31,6 @@ import {
   useGetGrillFingerprint,
   getGetGrillFingerprintQueryKey,
 } from "@workspace/api-client-react";
-import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { GRILL_CATALOG, type GrillModel } from "@/constants/grillCatalog";
 import { GrillTypeIcon, classifyGrillType, grillGradientColors } from "@/components/GrillTypeIcon";
 
@@ -114,11 +113,13 @@ function buildBrandList(): BrandEntry[] {
 
 const ALL_BRANDS = buildBrandList();
 
+// Maps the server's internal confidence enum to user-facing labels.
+// none (0-1 cooks) → Low, building (2-4) → Low, developing (5-9) → Medium, established (10+) → High
 const CONFIDENCE_LABEL: Record<string, string> = {
-  none: "No data yet",
-  building: "Learning",
-  developing: "Developing",
-  established: "Established",
+  none: "Low",
+  building: "Low",
+  developing: "Medium",
+  established: "High",
 };
 
 function GrillFingerprintSection({
@@ -130,127 +131,129 @@ function GrillFingerprintSection({
   completedCookCount: number;
   colors: any;
 }) {
-  const effectivePro = useEffectivePro();
+  const [expanded, setExpanded] = React.useState(false);
+
   const { data, isLoading } = useGetGrillFingerprint(grillId, {
     query: {
       queryKey: getGetGrillFingerprintQueryKey(grillId),
-      enabled: effectivePro && completedCookCount > 0,
+      enabled: completedCookCount > 0,
       retry: false,
       staleTime: 5 * 60 * 1000,
     },
   });
 
-  if (!effectivePro) {
-    return (
-      <View style={[fps.section, { borderTopColor: colors.border }]}>
-        <View style={fps.lockedRow}>
-          <Feather name="lock" size={10} color={colors.mutedForeground} />
-          <Text style={[fps.lockedText, { color: colors.mutedForeground }]}>
-            Grill fingerprint{" "}
-            <Text style={{ color: colors.primary, fontFamily: "Inter_500Medium" }}>
-              · Unlock with Pro
-            </Text>
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
+  // No completed cooks yet — show flat empty-state note, no expand control
   if (completedCookCount === 0) {
     return (
       <View style={[fps.section, { borderTopColor: colors.border }]}>
-        <View style={fps.lockedRow}>
-          <Feather name="cpu" size={10} color={colors.mutedForeground} />
-          <Text style={[fps.lockedText, { color: colors.mutedForeground }]}>
-            Complete a cook to start learning this grill's pace
-          </Text>
+        <View style={fps.headerRow}>
+          <Feather name="trending-up" size={10} color={colors.mutedForeground} />
+          <Text style={[fps.sectionLabel, { color: colors.mutedForeground }]}>Learned Pace</Text>
         </View>
+        <Text style={[fps.emptyNote, { color: colors.mutedForeground }]}>
+          Complete a cook on this grill to start learning its pace.
+        </Text>
       </View>
     );
   }
 
-  if (isLoading || !data) {
-    return (
-      <View style={[fps.section, { borderTopColor: colors.border }]}>
-        <ActivityIndicator size="small" color={colors.mutedForeground} style={{ alignSelf: "flex-start", transform: [{ scale: 0.7 }] }} />
-      </View>
-    );
-  }
-
-  const { confidenceLevel, cookCount, pitBiasF, overshootF, durationByMeat } = data;
-  const meatEntries = Object.entries(durationByMeat ?? {}).filter(([, p]) => p.sampleSize >= 1);
-  const hasBiasChip = pitBiasF != null;
-  const hasOvershootChip = overshootF != null && Math.abs(overshootF) >= 3;
+  // Collapsed header — always shown once there are cooks
+  const cookCount = data?.cookCount ?? completedCookCount;
+  const confidenceLevel = data?.confidenceLevel ?? "none";
+  const confidenceLabel = CONFIDENCE_LABEL[confidenceLevel] ?? "Low";
 
   return (
     <View style={[fps.section, { borderTopColor: colors.border }]}>
-      <View style={fps.headerRow}>
-        <Feather name="cpu" size={10} color={colors.mutedForeground} />
+      <Pressable
+        style={fps.headerRow}
+        onPress={() => setExpanded((v) => !v)}
+        hitSlop={8}
+      >
+        <Feather name="trending-up" size={10} color={colors.mutedForeground} />
         <Text style={[fps.sectionLabel, { color: colors.mutedForeground }]}>Learned Pace</Text>
-        <View style={[fps.confidenceBadge, { backgroundColor: colors.muted }]}>
-          <Text style={[fps.confidenceText, { color: colors.mutedForeground }]}>
-            {CONFIDENCE_LABEL[confidenceLevel] ?? confidenceLevel} · {cookCount} cook{cookCount !== 1 ? "s" : ""}
-          </Text>
-        </View>
-      </View>
+        {!isLoading && (
+          <View style={[fps.confidenceBadge, { backgroundColor: colors.muted }]}>
+            <Text style={[fps.confidenceText, { color: colors.mutedForeground }]}>
+              {confidenceLabel} confidence · {cookCount} cook{cookCount !== 1 ? "s" : ""}
+            </Text>
+          </View>
+        )}
+        {isLoading
+          ? <ActivityIndicator size="small" color={colors.mutedForeground} style={{ transform: [{ scale: 0.6 }] }} />
+          : <Feather name={expanded ? "chevron-up" : "chevron-down"} size={12} color={colors.mutedForeground} style={{ marginLeft: "auto" }} />
+        }
+      </Pressable>
 
-      {(hasBiasChip || hasOvershootChip) && (
-        <View style={fps.chipRow}>
-          {hasBiasChip && (
-            Math.abs(pitBiasF!) >= 3 ? (
-              <View style={[fps.chip, { backgroundColor: (pitBiasF! > 0 ? "#E84820" : "#3B82F6") + "15", borderColor: (pitBiasF! > 0 ? "#E84820" : "#3B82F6") + "40" }]}>
-                <Text style={[fps.chipText, { color: pitBiasF! > 0 ? "#E84820" : "#3B82F6" }]}>
-                  Runs {pitBiasF! > 0 ? "HOT" : "COLD"} {Math.abs(Math.round(pitBiasF!))}°F
-                </Text>
-              </View>
-            ) : (
-              <View style={[fps.chip, { backgroundColor: "#22c55e15", borderColor: "#22c55e40" }]}>
-                <Text style={[fps.chipText, { color: "#22c55e" }]}>Accurate temp</Text>
-              </View>
-            )
-          )}
-          {hasOvershootChip && (
-            <View style={[fps.chip, { backgroundColor: colors.muted, borderColor: colors.border, borderWidth: 1 }]}>
-              <Text style={[fps.chipText, { color: colors.mutedForeground }]}>
-                {overshootF! > 0 ? "Overshoots" : "Undershoots"} {Math.abs(Math.round(overshootF!))}°F
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
+      {expanded && data && (() => {
+        const { pitBiasF, overshootF, durationByMeat } = data;
+        const meatEntries = Object.entries(durationByMeat ?? {}).filter(([, p]) => p.sampleSize >= 1);
+        const hasBiasChip = pitBiasF != null;
+        const hasOvershootChip = overshootF != null && Math.abs(overshootF) >= 3;
 
-      {meatEntries.length > 0 && (
-        <View style={fps.meatRows}>
-          {meatEntries.map(([meat, p]) => {
-            const label = meat.replace(/_/g, " ");
-            const pct = p.pctDiff;
-            const pctColor =
-              pct == null ? colors.mutedForeground
-              : pct > 10 ? "#E84820"
-              : pct < -10 ? "#3B82F6"
-              : "#22c55e";
-            const pctLabel =
-              pct == null ? null
-              : pct > 5 ? `+${pct}%`
-              : pct < -5 ? `${pct}%`
-              : "~baseline";
-            return (
-              <View key={meat} style={fps.meatRow}>
-                <Text style={[fps.meatLabel, { color: colors.foreground }]} numberOfLines={1}>
-                  {label.charAt(0).toUpperCase() + label.slice(1)}
-                </Text>
-                <Text style={[fps.meatPace, { color: colors.mutedForeground }]}>
-                  {p.actualMinsPerLb} min/lb
-                </Text>
-                {pctLabel != null && (
-                  <Text style={[fps.meatPct, { color: pctColor }]}>{pctLabel}</Text>
+        return (
+          <>
+            {(hasBiasChip || hasOvershootChip) && (
+              <View style={fps.chipRow}>
+                {hasBiasChip && (
+                  Math.abs(pitBiasF!) >= 3 ? (
+                    <View style={[fps.chip, { backgroundColor: (pitBiasF! > 0 ? "#E84820" : "#3B82F6") + "15", borderColor: (pitBiasF! > 0 ? "#E84820" : "#3B82F6") + "40" }]}>
+                      <Text style={[fps.chipText, { color: pitBiasF! > 0 ? "#E84820" : "#3B82F6" }]}>
+                        Runs {pitBiasF! > 0 ? "HOT" : "COLD"} {Math.abs(Math.round(pitBiasF!))}°F
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={[fps.chip, { backgroundColor: "#22c55e15", borderColor: "#22c55e40" }]}>
+                      <Text style={[fps.chipText, { color: "#22c55e" }]}>Accurate temp</Text>
+                    </View>
+                  )
                 )}
-                <Text style={[fps.meatN, { color: colors.mutedForeground }]}>n={p.sampleSize}</Text>
+                {hasOvershootChip && (
+                  <View style={[fps.chip, { backgroundColor: colors.muted, borderColor: colors.border, borderWidth: 1 }]}>
+                    <Text style={[fps.chipText, { color: colors.mutedForeground }]}>
+                      {overshootF! > 0 ? "Overshoots" : "Undershoots"} {Math.abs(Math.round(overshootF!))}°F
+                    </Text>
+                  </View>
+                )}
               </View>
-            );
-          })}
-        </View>
-      )}
+            )}
+
+            {meatEntries.length > 0 && (
+              <View style={fps.meatRows}>
+                {meatEntries.map(([meat, p]) => {
+                  const label = meat.replace(/_/g, " ");
+                  const pct = p.pctDiff;
+                  const pctColor =
+                    pct == null ? colors.mutedForeground
+                    : pct > 10 ? "#E84820"
+                    : pct < -10 ? "#3B82F6"
+                    : "#22c55e";
+                  const pctLabel =
+                    pct == null ? null
+                    : pct > 5 ? `+${pct}% slower`
+                    : pct < -5 ? `${pct}% faster`
+                    : "~avg";
+                  return (
+                    <View key={meat} style={fps.meatRow}>
+                      <Text style={[fps.meatLabel, { color: colors.foreground }]} numberOfLines={1}>
+                        {label.charAt(0).toUpperCase() + label.slice(1)}
+                      </Text>
+                      <Text style={[fps.meatPace, { color: colors.mutedForeground }]}>
+                        {p.actualMinsPerLb} min/lb
+                      </Text>
+                      <Text style={[fps.meatN, { color: colors.mutedForeground }]}>
+                        · {p.sampleSize} cook{p.sampleSize !== 1 ? "s" : ""}
+                      </Text>
+                      {pctLabel != null && (
+                        <Text style={[fps.meatPct, { color: pctColor }]}>{pctLabel}</Text>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </>
+        );
+      })()}
     </View>
   );
 }
@@ -283,14 +286,11 @@ const fps = StyleSheet.create({
     fontSize: 10,
     fontFamily: "Inter_500Medium",
   },
-  lockedRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  lockedText: {
+  emptyNote: {
     fontSize: 11,
     fontFamily: "Inter_400Regular",
+    marginTop: 2,
+    lineHeight: 16,
   },
   chipRow: {
     flexDirection: "row",
