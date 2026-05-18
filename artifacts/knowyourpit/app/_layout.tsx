@@ -168,27 +168,45 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
   // Global auth gate: keep signed-in users out of /(auth) and signed-out users out of /(tabs).
-  // Also enforces the username gate: signed-in users without a username are redirected to
-  // /(auth)/set-username regardless of where they are in the app.
+  // Also enforces: username gate → onboarding gate → tabs. Order matters:
+  //   1. Not signed in                         → sign-in
+  //   2. Signed in, no username                → set-username
+  //   3. Signed in, has username, no onboarding → onboarding
+  //   4. Otherwise                             → tabs
   useEffect(() => {
     if (!isLoaded || !userLoaded) return;
     const inAuthGroup = segments[0] === "(auth)";
     const onSetUsername = segments[1] === "set-username";
+    const inOnboarding = (segments[0] as string) === "(onboarding)";
 
     const hasUsername = !!((user?.unsafeMetadata as any)?.username || user?.username);
+    const hasSeenOnboarding = !!(user?.unsafeMetadata as any)?.hasSeenOnboarding;
 
     if (!isSignedIn && (onSetUsername || !inAuthGroup)) {
       router.replace("/(auth)/sign-in");
     } else if (isSignedIn && inAuthGroup && !onSetUsername) {
-      if (hasUsername) {
-        router.replace("/(tabs)");
-      } else {
+      // Arrived from sign-in / sign-up
+      if (!hasUsername) {
         router.replace("/(auth)/set-username");
+      } else if (!hasSeenOnboarding) {
+        router.replace("/(onboarding)" as any);
+      } else {
+        router.replace("/(tabs)");
       }
     } else if (isSignedIn && onSetUsername && hasUsername) {
-      router.replace("/(tabs)");
-    } else if (isSignedIn && !inAuthGroup && !hasUsername) {
+      // Just completed set-username
+      if (!hasSeenOnboarding) {
+        router.replace("/(onboarding)" as any);
+      } else {
+        router.replace("/(tabs)");
+      }
+    } else if (isSignedIn && !inAuthGroup && !inOnboarding && !hasUsername) {
       router.replace("/(auth)/set-username");
+    } else if (isSignedIn && !inAuthGroup && !inOnboarding && hasUsername && !hasSeenOnboarding) {
+      // Signed-in user in tabs without having seen onboarding (e.g. existing users
+      // who installed before this feature shipped are exempt via hasSeenOnboarding
+      // defaulting to undefined/falsy — they get shown onboarding once on next launch).
+      router.replace("/(onboarding)" as any);
     }
   }, [isSignedIn, isLoaded, userLoaded, user?.username, user?.unsafeMetadata, segments, router]);
 
@@ -284,6 +302,7 @@ function RootLayoutNav() {
     <View style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(onboarding)" options={{ gestureEnabled: false }} />
         <Stack.Screen name="(auth)/sign-in" />
         <Stack.Screen name="(auth)/sign-up" />
         <Stack.Screen name="(auth)/set-username" options={{ gestureEnabled: false }} />
