@@ -28,8 +28,8 @@ import {
   useUpdateGrill,
   useDeleteGrill,
   getListGrillsQueryKey,
-  useGetGrillFingerprint,
-  getGetGrillFingerprintQueryKey,
+  useGetGrillInsights,
+  getGetGrillInsightsQueryKey,
 } from "@workspace/api-client-react";
 import { GRILL_CATALOG, type GrillModel } from "@/constants/grillCatalog";
 import { GrillTypeIcon, classifyGrillType, grillGradientColors } from "@/components/GrillTypeIcon";
@@ -133,9 +133,9 @@ function GrillFingerprintSection({
 }) {
   const [expanded, setExpanded] = React.useState(false);
 
-  const { data, isLoading } = useGetGrillFingerprint(grillId, {
+  const { data, isLoading } = useGetGrillInsights(grillId, {
     query: {
-      queryKey: getGetGrillFingerprintQueryKey(grillId),
+      queryKey: getGetGrillInsightsQueryKey(grillId),
       enabled: completedCookCount > 0,
       retry: false,
       staleTime: 5 * 60 * 1000,

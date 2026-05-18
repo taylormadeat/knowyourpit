@@ -39,6 +39,7 @@ import type {
   DashboardSummary,
   Grill,
   GrillFingerprint,
+  GrillInsights,
   GrillStats,
   GrillTemperatureHistory,
   HealthStatus,
@@ -1065,6 +1066,93 @@ export function useGetGrillFingerprint<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetGrillFingerprintQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get the learned per-grill calibration profile (available to all authenticated users)
+ */
+export const getGetGrillInsightsUrl = (id: number) => {
+  return `/api/grills/${id}/insights`;
+};
+
+export const getGrillInsights = async (
+  id: number,
+  options?: RequestInit,
+): Promise<GrillInsights> => {
+  return customFetch<GrillInsights>(getGetGrillInsightsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetGrillInsightsQueryKey = (id: number) => {
+  return [`/api/grills/${id}/insights`] as const;
+};
+
+export const getGetGrillInsightsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getGrillInsights>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGrillInsights>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetGrillInsightsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getGrillInsights>>
+  > = ({ signal }) => getGrillInsights(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getGrillInsights>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetGrillInsightsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getGrillInsights>>
+>;
+export type GetGrillInsightsQueryError = ErrorType<void>;
+
+/**
+ * @summary Get the learned per-grill calibration profile (available to all authenticated users)
+ */
+
+export function useGetGrillInsights<
+  TData = Awaited<ReturnType<typeof getGrillInsights>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGrillInsights>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetGrillInsightsQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

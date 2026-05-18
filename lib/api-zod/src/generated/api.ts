@@ -408,6 +408,54 @@ export const GetGrillFingerprintResponse = zod.object({
 });
 
 /**
+ * @summary Get the learned per-grill calibration profile (available to all authenticated users)
+ */
+export const GetGrillInsightsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetGrillInsightsResponse = zod
+  .object({
+    grillId: zod.number(),
+    cookCount: zod.number().describe("Number of completed cooks on this grill"),
+    confidenceLevel: zod.enum([
+      "none",
+      "building",
+      "developing",
+      "established",
+    ]),
+    pitBiasF: zod
+      .number()
+      .nullable()
+      .describe(
+        "Average pit temperature bias vs set point (positive = runs hot)",
+      ),
+    overshootF: zod
+      .number()
+      .nullable()
+      .describe(
+        "Average pull temperature overshoot vs target (positive = overshoots)",
+      ),
+    durationByMeat: zod.record(
+      zod.string(),
+      zod.object({
+        actualMinsPerLb: zod.number(),
+        baselineMinsPerLb: zod.number().nullable(),
+        sampleSize: zod.number(),
+        pctDiff: zod
+          .number()
+          .nullable()
+          .describe(
+            "Percent difference vs baseline (positive = slower than baseline)",
+          ),
+      }),
+    ),
+  })
+  .describe(
+    "Learned per-grill calibration data — available to all authenticated users",
+  );
+
+/**
  * @summary Get recent temperature readings grouped by cook for a specific grill
  */
 export const GetGrillTemperatureHistoryParams = zod.object({

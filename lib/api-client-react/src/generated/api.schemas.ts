@@ -227,6 +227,41 @@ export interface GrillFingerprint {
   runShort: boolean | null;
 }
 
+export type GrillInsightsConfidenceLevel =
+  (typeof GrillInsightsConfidenceLevel)[keyof typeof GrillInsightsConfidenceLevel];
+
+export const GrillInsightsConfidenceLevel = {
+  none: "none",
+  building: "building",
+  developing: "developing",
+  established: "established",
+} as const;
+
+export type GrillInsightsDurationByMeat = {
+  [key: string]: GrillFingerprintDurationPattern;
+};
+
+/**
+ * Learned per-grill calibration data — available to all authenticated users
+ */
+export interface GrillInsights {
+  grillId: number;
+  /** Number of completed cooks on this grill */
+  cookCount: number;
+  confidenceLevel: GrillInsightsConfidenceLevel;
+  /**
+   * Average pit temperature bias vs set point (positive = runs hot)
+   * @nullable
+   */
+  pitBiasF: number | null;
+  /**
+   * Average pull temperature overshoot vs target (positive = overshoots)
+   * @nullable
+   */
+  overshootF: number | null;
+  durationByMeat: GrillInsightsDurationByMeat;
+}
+
 export interface GrillTempReading {
   id: number;
   /** @nullable */
