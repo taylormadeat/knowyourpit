@@ -10,7 +10,7 @@ import {
   Linking,
 } from "react-native";
 import { fetch as expoFetch } from "expo/fetch";
-import { useRouter } from "expo-router";
+import { type Href, useRouter } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { useUser, useClerk, useAuth } from "@clerk/expo";
@@ -25,6 +25,11 @@ import { useEffectivePro } from "@/hooks/useEffectivePro";
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
   (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
+
+// Typed route constant — string form with query param because the Expo Router-
+// generated Href union only covers leaf segment names; grouped segments like
+// "(onboarding)" must be cast to Href (same pattern as ONBOARDING_HREF in _layout.tsx).
+const ONBOARDING_REPLAY_HREF = "/(onboarding)?replay=1" as Href;
 
 const MENU_SECTIONS = [
   {
@@ -358,6 +363,22 @@ export default function MoreScreen() {
             </View>
           </View>
         ))}
+
+        <View style={s.section}>
+          <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>Help</Text>
+          <View style={[s.sectionCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            <Pressable
+              style={({ pressed }) => [s.menuItem, pressed && { opacity: 0.7 }]}
+              onPress={() => router.push(ONBOARDING_REPLAY_HREF)}
+            >
+              <View style={[s.menuIcon, { backgroundColor: colors.primary + "20" }]}>
+                <Feather name="play-circle" size={16} color={colors.primary} />
+              </View>
+              <Text style={[s.menuLabel, { color: colors.foreground }]}>Replay onboarding</Text>
+              <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+        </View>
 
         <View style={s.section}>
           <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>Legal</Text>

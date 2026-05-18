@@ -18,13 +18,16 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
-import { useRouter } from "expo-router";
-import { useFocusEffect } from "expo-router";
+import { type Href, useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Shared AsyncStorage key — also checked by the nav guard in _layout.tsx so a
 // failed Clerk write doesn't bounce the user back into onboarding on next launch.
 export const ONBOARDING_SEEN_KEY = "knowyourpit:hasSeenOnboarding";
+
+// Typed route constant — Expo Router generates Href types from the file system
+// at build time; we cast once here so every call site stays typed.
+const MORE_HREF = "/(tabs)/more" as Href;
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const BRAND_ORANGE = "#E84820";
@@ -163,23 +166,32 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useUser();
+  const { replay } = useLocalSearchParams<{ replay?: string }>();
+  const isReplay = replay === "1";
   const flatRef = useRef<FlatList<Slide>>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [saving, setSaving] = useState(false);
 
   const isLast = currentIndex === SLIDES.length - 1;
 
-  // Block Android hardware back button — users must complete or skip
+  // Block Android hardware back button in first-run mode — users must complete
+  // or skip. In replay mode, allow the hardware back button to go back naturally.
   useFocusEffect(
     useCallback(() => {
-      if (Platform.OS !== "android") return;
+      if (Platform.OS !== "android" || isReplay) return;
       const sub = BackHandler.addEventListener("hardwareBackPress", () => true);
       return () => sub.remove();
-    }, [])
+    }, [isReplay])
   );
 
-  async function markSeen() {
+  async function finish() {
     if (saving) return;
+    if (isReplay) {
+      // Replay mode: don't touch the hasSeenOnboarding flag — the user already
+      // completed onboarding. Just go back to the More tab.
+      router.replace(MORE_HREF);
+      return;
+    }
     setSaving(true);
     // Write AsyncStorage immediately as a local fallback — guards against
     // redirect loops if the app is killed or restarted before Clerk syncs.
@@ -212,7 +224,7 @@ export default function OnboardingScreen() {
 
   function goNext() {
     if (isLast) {
-      markSeen();
+      finish();
       return;
     }
     const next = currentIndex + 1;
@@ -231,7 +243,7 @@ export default function OnboardingScreen() {
       {/* Skip — top-right (jumps to the last/feedback slide, not exits) */}
       <Pressable
         style={[s.skipBtn, { top: insets.top + 16 }]}
-        onPress={isLast ? markSeen : skipToEnd}
+        onPress={isLast ? finish : skipToEnd}
         hitSlop={12}
         accessibilityRole="button"
         accessibilityLabel={isLast ? "Dismiss onboarding" : "Skip to last slide"}
