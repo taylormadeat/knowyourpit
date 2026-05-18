@@ -4,11 +4,13 @@ import { Tabs } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
-import React from "react";
+import { useAuth } from "@clerk/expo";
+import React, { useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 import { GrillIcon } from "@/components/GrillIcon";
+import { BetaWelcomeModal } from "@/components/BetaWelcomeModal";
 
 function NativeTabLayout() {
   return (
@@ -139,5 +141,18 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
-  return <ClassicTabLayout />;
+  const { isSignedIn } = useAuth();
+  const [modalVisible, setModalVisible] = useState(true);
+
+  return (
+    <>
+      <ClassicTabLayout />
+      {isSignedIn && (
+        <BetaWelcomeModal
+          visible={modalVisible}
+          onDismiss={() => setModalVisible(false)}
+        />
+      )}
+    </>
+  );
 }
