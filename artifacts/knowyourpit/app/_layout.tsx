@@ -196,10 +196,14 @@ function RootLayoutNav() {
   // prevents the nav guard from bouncing the user back into onboarding on the
   // next in-session navigation. Initialised once on mount.
   const [localOnboardingSeen, setLocalOnboardingSeen] = useState(false);
+  // Tracks whether the AsyncStorage read has completed. The guard waits for this
+  // so it never routes based on a stale false before the flag has been checked.
+  const [localFlagLoaded, setLocalFlagLoaded] = useState(false);
   useEffect(() => {
     AsyncStorage.getItem("knowyourpit:hasSeenOnboarding")
       .then((v) => { if (v === "1") setLocalOnboardingSeen(true); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLocalFlagLoaded(true));
   }, []);
 
   // Global auth gate: keep signed-in users out of /(auth) and signed-out users out of /(tabs).
@@ -213,7 +217,7 @@ function RootLayoutNav() {
   // The account-creation date check ensures existing users who update the app
   // are never redirected to onboarding — only new sign-ups see the flow.
   useEffect(() => {
-    if (!isLoaded || !userLoaded) return;
+    if (!isLoaded || !userLoaded || !localFlagLoaded) return;
     const inAuthGroup = segments[0] === "(auth)";
     const onSetUsername = segments[1] === "set-username";
     const inOnboarding = (segments[0] as string) === "(onboarding)";
@@ -252,8 +256,8 @@ function RootLayoutNav() {
       // exempt, so they are never interrupted when they update the app.
       router.replace(ONBOARDING_HREF);
     }
-  }, [isSignedIn, isLoaded, userLoaded, user?.username, user?.unsafeMetadata,
-      user?.createdAt, segments, router, localOnboardingSeen]);
+  }, [isSignedIn, isLoaded, userLoaded, localFlagLoaded, user?.username,
+      user?.unsafeMetadata, user?.createdAt, segments, router, localOnboardingSeen]);
 
   useEffect(() => {
     requestNotificationPermissions();
