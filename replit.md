@@ -91,6 +91,8 @@ Always run the dry-run first to review the list before passing `--confirm`. The 
 
 ## Ops Log
 
+- **2026-05-18 — Build #93 queued to TestFlight**: EAS build id `3afad68c-8c1c-44a5-8271-dbbe1c02c784`. Features: first-launch onboarding walkthrough (#684 — 6 slides, brand-orange palette, Skip→last slide, AsyncStorage+Clerk completion persistence, account-age gate so existing users never see it); onboarding replay from More → Help (#695); BetaWelcomeModal deleted (#696); Contact support row opens in-app support modal (#697, #700 — posts to `/api/contact` with source field); close button + back button in replay mode (#698, #701). Note: EAS_NO_VCS=1 required.
+
 - **2026-05-11 — Build #89 queued to TestFlight (email verification fix)**: Root cause of email/password sign-up failure in prod: Clerk's production instance requires email address verification before an account can be finalized; the sign-up screen was skipping this step and trying to set the username immediately, which Clerk rejected. Fix: added a verification code step — after `signUp.create()`, if `unverifiedFields` includes `email_address`, calls `prepareEmailAddressVerification({ strategy: "email_code" })` and switches to a dedicated "Check your email" view with a large centered OTP input (number-pad, autoComplete one-time-code, auto-focus). `handleVerify` calls `attemptEmailAddressVerification`, then handles any remaining `missing_requirements` (username auto-set), then `setActive` + navigate. Resend and back button included. Sign-in flow unaffected — verification fires once at account creation only; existing users unaffected. EAS build id `4999ea3c-b4e3-46d9-a71d-bd0989a9a18d`. Note: EAS_NO_VCS=1 required.
 
 - **2026-05-11 — IAP MISSING_METADATA fixed (task #594, no new build needed)**:
