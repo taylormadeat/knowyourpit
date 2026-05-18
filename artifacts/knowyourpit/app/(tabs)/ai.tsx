@@ -56,10 +56,10 @@ interface ConversationGroup {
 const HISTORY_LIMIT = 20;
 
 const SUGGESTED = [
-  "Best wood for brisket?",
+  "Brisket hit the stall — now what?",
   "How long per lb for pork butt?",
-  "Stall explained",
-  "Bark tips",
+  "How do I get better bark?",
+  "Best wood for beef ribs?",
 ];
 
 const INPUT_BAR_GAP_ABOVE_TABS = 10;
@@ -163,6 +163,7 @@ export default function AIScreen() {
   const [renaming, setRenaming] = useState(false);
 
   const streamingIdRef = useRef<string | null>(null);
+  const introInjectedRef = useRef(false);
 
   // ─── Auth header helper ─────────────────────────────────────────────────
   const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
@@ -171,6 +172,34 @@ export default function AIScreen() {
     if (token) h["Authorization"] = `Bearer ${token}`;
     return h;
   }, [getToken]);
+
+  // ─── First-time intro injection (task #689) ─────────────────────────────
+  // On mount, if the user has zero past conversations, inject a local
+  // PitMaster greeting as the first assistant message. It's purely client-side
+  // and is never stored or counted against any message limit.
+  useEffect(() => {
+    if (!isSignedIn || introInjectedRef.current || !API_BASE_URL) return;
+    introInjectedRef.current = true;
+    (async () => {
+      try {
+        const headers = await authHeaders();
+        const res = await expoFetch(`${API_BASE_URL}/api/ai/chats`, { headers });
+        if (!res.ok) return;
+        const data = await res.json() as { conversations: Conversation[] };
+        const convs = data.conversations ?? [];
+        setConversations(convs);
+        if (convs.length === 0) {
+          setMessages([{
+            id: "pm-intro",
+            role: "assistant",
+            content: "Hey. I'm PitMaster — your cook coach.\n\nTell me what you're throwing on today and I'll help you nail it.",
+          }]);
+        }
+      } catch {
+        // silently ignore — intro is non-critical
+      }
+    })();
+  }, [isSignedIn, authHeaders]);
 
   // ─── Fetch conversation list ────────────────────────────────────────────
   const fetchConversations = useCallback(async () => {
@@ -480,7 +509,7 @@ export default function AIScreen() {
       } else if (!sawAnyDelta) {
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantId ? { ...m, content: "Sorry, I couldn't get a response." } : m
+            m.id === assistantId ? { ...m, content: "No response came through. Check your connection and try again." } : m
           )
         );
       } else if (!sawDone) {
@@ -610,7 +639,7 @@ export default function AIScreen() {
 
           {!historyLoading && conversations.length === 0 && (
             <Text style={[s.emptyHistory, { color: colors.mutedForeground }]}>
-              No past chats yet. Start a conversation!
+              No past chats. Fire one up.
             </Text>
           )}
 
@@ -774,7 +803,7 @@ export default function AIScreen() {
       >
         {messages.length === 0 && !loading && (
           <View style={s.welcome}>
-            <Text style={[s.welcomeTitle, { color: colors.foreground }]}>Ask me anything BBQ</Text>
+            <Text style={[s.welcomeTitle, { color: colors.foreground }]}>What are you throwing on?</Text>
             <View style={s.suggestions}>
               {SUGGESTED.map((q) => (
                 <Pressable
@@ -864,7 +893,7 @@ export default function AIScreen() {
           >
             <TextInput
               style={[s.textInput, { color: colors.foreground }]}
-              placeholder="Ask about temperatures, timing, wood..."
+              placeholder="What's going on at the pit?"
               placeholderTextColor={colors.mutedForeground}
               value={input}
               onChangeText={setInput}

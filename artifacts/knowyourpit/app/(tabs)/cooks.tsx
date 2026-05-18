@@ -1955,7 +1955,7 @@ export default function CooksScreen() {
                       ? "Try a different meat type or tap the pill to clear"
                       : techniqueFilter
                         ? "Try a different technique or tap the pill to clear"
-                        : "Tap + in the top right to log a past cook"}
+                        : "Hit + to log your first cook. Your data starts here."}
               </Text>
             </View>
           }

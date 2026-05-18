@@ -178,7 +178,7 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
     ],
   });
 
-  const reply = response.choices[0]?.message?.content ?? "I'm sorry, I couldn't process that request.";
+  const reply = response.choices[0]?.message?.content ?? "Something went sideways on my end. Try again.";
 
   await db.insert(messages).values({
     conversationId: resolvedSessionId,
@@ -319,7 +319,7 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
 
     if (!aborted) {
       if (!anyContent) {
-        const fallback = "I'm sorry, I couldn't process that request.";
+        const fallback = "Something went sideways on my end. Try again.";
         fullReply = fallback;
         writeEvent({ type: "delta", text: fallback });
       }
