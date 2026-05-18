@@ -16,6 +16,7 @@ import {
   PRO_AI_CHAT_DAILY_LIMIT,
 } from "../../lib/paywall";
 import { aiRateLimit, buildChatSystemPrompt, pickChatSuggestions } from "./shared";
+import { lookupKnowledge } from "./bbqKnowledge";
 
 const router: IRouter = Router();
 
@@ -155,9 +156,25 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
     content: message,
   });
 
-  const systemPrompt = await buildChatSystemPrompt(req.userId, context, message);
+  // Static knowledge base — zero-cost answers for common factual questions.
+  const kbAnswer = lookupKnowledge(message);
+  if (kbAnswer != null) {
+    await db.insert(messages).values({ conversationId: resolvedSessionId, role: "assistant", content: kbAnswer });
+    let kbTitle: string | undefined;
+    if (isNew) {
+      const t = await generateChatTitle(message, kbAnswer);
+      if (t) { kbTitle = t; await db.update(conversations).set({ title: t, updatedAt: new Date() }).where(eq(conversations.id, resolvedSessionId)); }
+      else { await db.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, resolvedSessionId)); }
+    } else {
+      await db.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, resolvedSessionId));
+    }
+    res.json({ reply: kbAnswer, suggestions: pickChatSuggestions(), sessionId: resolvedSessionId, remaining: remainingAfterThisMessage, ...(kbTitle ? { title: kbTitle } : {}) });
+    return;
+  }
 
-  const HISTORY_LIMIT = 20;
+  const systemPrompt = await buildChatSystemPrompt(req.userId, context, message, resolvedSessionId);
+
+  const HISTORY_LIMIT = 10;
   const priorMessages = await db
     .select({ role: messages.role, content: messages.content })
     .from(messages)
@@ -281,9 +298,28 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
     });
     writeEvent({ type: "session", sessionId: resolvedSessionId });
 
-    const systemPrompt = await buildChatSystemPrompt(req.userId, context, message);
+    // Static knowledge base — zero-cost answers for common factual questions.
+    const kbAnswer = lookupKnowledge(message);
+    if (kbAnswer != null) {
+      writeEvent({ type: "delta", text: kbAnswer });
+      await db.insert(messages).values({ conversationId: resolvedSessionId, role: "assistant", content: kbAnswer });
+      let kbTitle: string | undefined;
+      if (isNewSession) {
+        const t = await generateChatTitle(message, kbAnswer);
+        if (t) { kbTitle = t; await db.update(conversations).set({ title: t, updatedAt: new Date() }).where(eq(conversations.id, resolvedSessionId)); }
+        else { await db.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, resolvedSessionId)); }
+      } else {
+        await db.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, resolvedSessionId));
+      }
+      const doneEvt: Record<string, unknown> = { type: "done", suggestions: pickChatSuggestions(), remaining: streamRemainingAfter };
+      if (kbTitle) doneEvt.title = kbTitle;
+      writeEvent(doneEvt);
+      return;
+    }
 
-    const HISTORY_LIMIT = 20;
+    const systemPrompt = await buildChatSystemPrompt(req.userId, context, message, resolvedSessionId);
+
+    const HISTORY_LIMIT = 10;
     const priorMessages = await db
       .select({ role: messages.role, content: messages.content })
       .from(messages)

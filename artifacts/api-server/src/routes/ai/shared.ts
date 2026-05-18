@@ -152,44 +152,59 @@ export async function buildPerGrillFingerprintSection(userId: string): Promise<s
     .limit(20);
   if (userGrills.length === 0) return "";
 
-  const sections: string[] = [];
+  // One compact line per grill — same data, ~85% fewer tokens than the old
+  // multi-line format. Example: "Weber Kettle (charcoal, 5 cooks, med) — runs
+  // HOT 12°F — brisket 45min/lb n=3 +12% · pork 38min/lb n=2 ~baseline"
+  const parts: string[] = [];
   for (const g of userGrills) {
     const ins = await computeSmokerInsights(userId, g.id);
     if (ins.cookCount < 1) continue;
-    const lines: string[] = [];
     const label = g.brand ? `${g.brand} ${g.name}` : g.name;
-    lines.push(`• ${label}${g.type ? ` (${g.type})` : ""} — ${ins.cookCount} cook${ins.cookCount === 1 ? "" : "s"}, confidence: ${ins.confidenceLevel}`);
+    const tokens: string[] = [
+      `${label}${g.type ? ` (${g.type})` : ""}, ${ins.cookCount} cook${ins.cookCount === 1 ? "" : "s"}, ${ins.confidenceLevel}`,
+    ];
     if (ins.pitBiasF != null && Math.abs(ins.pitBiasF) >= 3) {
-      lines.push(`    runs ${ins.pitBiasF > 0 ? "HOT" : "COLD"} by ~${Math.abs(ins.pitBiasF)}°F vs set point`);
+      tokens.push(`runs ${ins.pitBiasF > 0 ? "HOT" : "COLD"} ${Math.abs(ins.pitBiasF)}°F`);
     }
     if (ins.overshootF != null && Math.abs(ins.overshootF) >= 3) {
-      lines.push(`    pull-temp ${ins.overshootF > 0 ? "overshoots" : "undershoots"} target by ~${Math.abs(ins.overshootF)}°F`);
+      tokens.push(`${ins.overshootF > 0 ? "overshoots" : "undershoots"} ${Math.abs(ins.overshootF)}°F`);
     }
+    const meatParts: string[] = [];
     for (const [meatKey, p] of Object.entries(ins.durationByMeat)) {
       if (p.sampleSize < 1) continue;
-      const dir = p.pctDiff == null
-        ? null
-        : p.pctDiff > 5 ? `${p.pctDiff}% slower than baseline`
-        : p.pctDiff < -5 ? `${Math.abs(p.pctDiff)}% faster than baseline`
-        : "right at baseline";
-      lines.push(`    ${meatKey.replace(/_/g, " ")}: ${p.actualMinsPerLb} min/lb (n=${p.sampleSize}${dir ? `, ${dir}` : ""})`);
+      const dir = p.pctDiff == null ? "" : p.pctDiff > 5 ? ` +${p.pctDiff}%` : p.pctDiff < -5 ? ` ${p.pctDiff}%` : " ~base";
+      meatParts.push(`${meatKey.replace(/_/g, " ")} ${p.actualMinsPerLb}min/lb n=${p.sampleSize}${dir}`);
     }
-    if (lines.length > 1) sections.push(lines.join("\n"));
+    if (meatParts.length > 0) tokens.push(meatParts.join(" · "));
+    if (tokens.length > 1) parts.push(tokens.join(" — "));
   }
 
-  if (sections.length === 0) return "";
-  return [
-    "=== PER-GRILL FINGERPRINTS (compare grills to each other and to baseline) ===",
-    "Use these to answer any grill-specific comparison questions (e.g. 'how does my X compare to normal?').",
-    ...sections,
-  ].join("\n");
+  if (parts.length === 0) return "";
+  return `Grill fingerprints: ${parts.join(" | ")}`;
 }
+
+// Session-scoped cache for system prompts. Multi-turn conversations re-use the
+// same prompt within a 5-minute window, skipping the 3 DB queries needed to
+// rebuild cook history / smoker profile / grill fingerprints on every turn.
+const sessionPromptCache = new Map<string, { prompt: string; expiresAt: number }>();
+const SESSION_PROMPT_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export async function buildChatSystemPrompt(
   userId: string,
   context: string | null | undefined,
   message?: string,
+  sessionId?: number,
 ): Promise<string> {
+  // Serve from cache for known sessions — avoids rebuilding the prompt (and
+  // re-querying cook history) on every turn of a multi-turn conversation.
+  if (sessionId != null) {
+    const cacheKey = `${userId}:${sessionId}`;
+    const cached = sessionPromptCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.prompt;
+    }
+  }
+
   // For questions that clearly don't reference the user's personal data (e.g.
   // "what temp for brisket?", "how do I push through the stall?"), skip the
   // expensive cook-history fetch entirely — the AI can answer with general
@@ -207,7 +222,7 @@ export async function buildChatSystemPrompt(
     ? `You have full access to this user's personal cook logs. Use this data to give personalized advice, reference their past cooks, and help them improve. When relevant, refer to their actual cook history by name and date.\n\n${cookHistory}${smokerProfile ? `\n\n${smokerProfile}` : ""}${grillFingerprints ? `\n\n${grillFingerprints}` : ""}`
     : `This user has cook logs in their profile but this question doesn't need them — answer from general BBQ knowledge.`;
 
-  return `You are PitMaster, the AI coach inside knowyourpit. You're a seasoned pit master — decades of low-and-slow behind you, competition wins on the wall, and an opinion on everything from wood selection to resting time. But you're not here to impress anyone. You're a friend standing next to the user at the pit, coaching them through the cook.
+  const prompt = `You are PitMaster, the AI coach inside knowyourpit. You're a seasoned pit master — decades of low-and-slow behind you, competition wins on the wall, and an opinion on everything from wood selection to resting time. But you're not here to impress anyone. You're a friend standing next to the user at the pit, coaching them through the cook.
 
 Talk like a pitmaster, not a chatbot. Use real BBQ vocabulary naturally — bark, stall, probe tender, Texas crutch, fire management, bend test, carryover. Give a recommendation and the reason in one breath, then trust the user to make the call. Sentence fragments are fine. Celebrate wins. Call things out gently when something might go wrong. Never over-explain.
 
@@ -216,6 +231,15 @@ Never use: "I'd be happy to help", "certainly", "absolutely", "great question", 
 When someone is new to BBQ — give context, but don't talk down to them. When someone is experienced — skip the basics and get to the data. Read the cook history and respond to the actual person, not a generic user.
 
 ${dataSection}${context ? `\n\nAdditional context: ${context}` : ""}`;
+
+  if (sessionId != null) {
+    sessionPromptCache.set(`${userId}:${sessionId}`, {
+      prompt,
+      expiresAt: Date.now() + SESSION_PROMPT_TTL_MS,
+    });
+  }
+
+  return prompt;
 }
 
 export function pickChatSuggestions(): string[] {

@@ -10,6 +10,45 @@ import { getMeatBaseline } from "./meatBaselines";
 
 const router: IRouter = Router();
 
+// ── Prediction AI-call cache ──────────────────────────────────────────────────
+// The prediction AI call (gpt-4.1-mini) is the most expensive single call in
+// the app. When a user opens the Plan tab multiple times without changing any
+// cook parameters the inputs are identical and the AI output would be the same.
+// Cache the raw AI prediction object for 30 minutes keyed by all input params +
+// userId. The DB queries (fingerprint calibration, grill data) still run fresh
+// on every request so calibration stays up-to-date; only the LLM call is skipped.
+type PredictionAiOutput = {
+  estimatedDurationMinutes: number;
+  confidence: string;
+  rationale: string;
+  tips: string[];
+  wrap: { wrapAtMinutes: number; method: string; wrapTempF: number | null; reason: string; restMinutes: number };
+  recommendedServeAt: string | null;
+  recommendedServeReason: string | null;
+};
+const predictionAiCache = new Map<string, { output: PredictionAiOutput; cachedAt: number }>();
+const PREDICTION_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+function makePredictCacheKey(userId: string, p: ReturnType<typeof AiPredictBody.parse>): string {
+  return JSON.stringify({
+    u: userId,
+    f: p.foodType,
+    w: p.weightLbs ?? null,
+    ct: p.cookTempF ?? null,
+    tt: p.targetTempF ?? null,
+    g: p.grillId ?? null,
+    fr: p.fromFrozen ?? false,
+    th: p.thawMethod ?? null,
+    cm: p.cookingMethod ?? null,
+    inj: p.injection ?? null,
+    sp: p.spritzFrequency ?? null,
+    wf: p.wrapFinish ?? null,
+    ms: p.meatStartTemp ?? null,
+    ot: p.outdoorTempF ?? null,
+    n: p.notes ?? null,
+    df: p.desiredFinishAt ?? null,
+  });
+}
 
 router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
   const parsed = AiPredictBody.safeParse(req.body);
@@ -339,39 +378,61 @@ ${grillTempContext}
 ${baselineSection}
 ${userHistorySection}${fingerprintGuidance}`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4.1-mini",
-    max_completion_tokens: 1024,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-  });
-
-  const content = response.choices[0]?.message?.content ?? "{}";
-  const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+  // Check prediction cache before making the expensive AI call.
+  const cacheKey = makePredictCacheKey(req.userId, parsed.data);
+  const cached = predictionAiCache.get(cacheKey);
 
   type WrapRec = { wrapAtMinutes: number; method: string; wrapTempF: number | null; reason: string; restMinutes: number };
   let prediction: { estimatedDurationMinutes: number; confidence: string; rationale: string; tips: string[]; wrap: WrapRec; recommendedServeAt?: string | null; recommendedServeReason?: string | null };
 
-  try {
-    prediction = JSON.parse(cleaned);
-  } catch {
-    prediction = {
-      estimatedDurationMinutes: 240,
-      confidence: "low",
-      rationale: "Could not parse prediction, using default estimate.",
-      tips: ["Monitor internal temperature closely", "Use a reliable meat thermometer", "Rest meat after cooking"],
-      wrap: {
-        wrapAtMinutes: 180,
-        method: "foil",
-        wrapTempF: 165,
-        reason: "Wrap in foil at around 165°F internal temp to push through the stall faster and keep moisture in. Add a splash of apple juice or beef tallow before sealing.",
-        restMinutes: 60,
+  if (cached && Date.now() - cached.cachedAt < PREDICTION_CACHE_TTL_MS) {
+    prediction = cached.output as typeof prediction;
+  } else {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      max_completion_tokens: 1024,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    });
+
+    const content = response.choices[0]?.message?.content ?? "{}";
+    const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+
+    try {
+      prediction = JSON.parse(cleaned);
+    } catch {
+      prediction = {
+        estimatedDurationMinutes: 240,
+        confidence: "low",
+        rationale: "Could not parse prediction, using default estimate.",
+        tips: ["Monitor internal temperature closely", "Use a reliable meat thermometer", "Rest meat after cooking"],
+        wrap: {
+          wrapAtMinutes: 180,
+          method: "foil",
+          wrapTempF: 165,
+          reason: "Wrap in foil at around 165°F internal temp to push through the stall faster and keep moisture in. Add a splash of apple juice or beef tallow before sealing.",
+          restMinutes: 60,
+        },
+        recommendedServeAt: null,
+        recommendedServeReason: null,
+      };
+    }
+
+    // Store in cache for subsequent identical requests.
+    predictionAiCache.set(cacheKey, {
+      output: {
+        estimatedDurationMinutes: prediction.estimatedDurationMinutes,
+        confidence: prediction.confidence,
+        rationale: prediction.rationale,
+        tips: prediction.tips,
+        wrap: prediction.wrap,
+        recommendedServeAt: prediction.recommendedServeAt ?? null,
+        recommendedServeReason: prediction.recommendedServeReason ?? null,
       },
-      recommendedServeAt: null,
-      recommendedServeReason: null,
-    };
+      cachedAt: Date.now(),
+    });
   }
 
   const wrap = prediction.wrap ?? {
