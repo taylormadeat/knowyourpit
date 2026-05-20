@@ -58,15 +58,6 @@ const AMBER_GLOW = "rgba(245,158,11,0.2)";
 
 const SLIDES: Slide[] = [
   {
-    id: "welcome",
-    icon: "activity",
-    iconColor: BRAND_ORANGE,
-    iconBg: ORANGE_BG,
-    iconGlow: ORANGE_GLOW,
-    headline: "Your AI BBQ companion",
-    body: "knowyourpit is built for pitmasters like you — and we're just getting started. Your cooks, your feedback, and your ideas are what make it better.",
-  },
-  {
     id: "plan",
     icon: "calendar",
     iconColor: "#F97316",
