@@ -21,12 +21,8 @@ import { useUser } from "@clerk/expo";
 import { type Href, useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// Shared AsyncStorage key — also checked by the nav guard in _layout.tsx so a
-// failed Clerk write doesn't bounce the user back into onboarding on next launch.
 export const ONBOARDING_SEEN_KEY = "knowyourpit:hasSeenOnboarding";
 
-// Typed route constant — Expo Router generates Href types from the file system
-// at build time; we cast once here so every call site stays typed.
 const MORE_HREF = "/(tabs)/more" as Href;
 
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -48,21 +44,28 @@ interface Slide {
   emailLink?: boolean;
 }
 
-// All slides use the brand warm-orange palette: BRAND_ORANGE (#E84820) for the
-// primary accent and amber/orange tones for secondary slides so the flow feels
-// cohesive against the dark background.
+// Icon box backgrounds — dark so they pop against the warm orange gradient bg.
 const ORANGE_BG: readonly [string, string] = ["#2A1810", "#1A1008"];
-const ORANGE_GLOW = "rgba(232,72,32,0.22)";
+const ORANGE_GLOW = "rgba(232,72,32,0.35)";
 const AMBER_BG: readonly [string, string] = ["#2A1E08", "#1A1205"];
-const AMBER_GLOW = "rgba(245,158,11,0.2)";
+const AMBER_GLOW = "rgba(245,158,11,0.3)";
 
 const SLIDES: Slide[] = [
+  {
+    id: "welcome",
+    icon: "sun",
+    iconColor: "#FCD34D",
+    iconBg: ["#2A1C04", "#1A1002"],
+    iconGlow: "rgba(252,211,77,0.35)",
+    headline: "Welcome, Pitmaster.",
+    body: "You've got the pit. We've got the plan. Let's make every cook your best one yet.",
+  },
   {
     id: "plan",
     icon: "calendar",
     iconColor: "#F97316",
     iconBg: ["#2A1808", "#1A1005"],
-    iconGlow: "rgba(249,115,22,0.22)",
+    iconGlow: "rgba(249,115,22,0.35)",
     headline: "Plan every cook",
     body: "Log your meat, grill, and target temp and get an AI-powered cook timeline. Adjust on the fly as your pit does its thing.",
   },
@@ -71,7 +74,7 @@ const SLIDES: Slide[] = [
     icon: "clipboard",
     iconColor: "#FB923C",
     iconBg: ["#2A1A08", "#1A1105"],
-    iconGlow: "rgba(251,146,60,0.2)",
+    iconGlow: "rgba(251,146,60,0.3)",
     headline: "Track your progress",
     body: "Log your cooks and watch your technique improve. Every session builds a picture of what works on your pit.",
   },
@@ -141,7 +144,7 @@ function SlideView({ slide, isLast }: { slide: Slide; isLast: boolean }) {
           accessibilityRole="link"
           accessibilityLabel={`Send feedback to ${SUPPORT_EMAIL}`}
         >
-          <Feather name="mail" size={14} color={BRAND_ORANGE} />
+          <Feather name="mail" size={14} color="#FFFFFF" />
           <Text style={s.emailText}>{SUPPORT_EMAIL}</Text>
         </Pressable>
       )}
@@ -165,8 +168,6 @@ export default function OnboardingScreen() {
 
   const isLast = currentIndex === SLIDES.length - 1;
 
-  // Block Android hardware back button in first-run mode — users must complete
-  // or skip. In replay mode, allow the hardware back button to go back naturally.
   useFocusEffect(
     useCallback(() => {
       if (Platform.OS !== "android" || isReplay) return;
@@ -178,17 +179,11 @@ export default function OnboardingScreen() {
   async function finish() {
     if (saving) return;
     if (isReplay) {
-      // Replay mode: don't touch the hasSeenOnboarding flag — the user already
-      // completed onboarding. Just go back to the More tab.
       router.replace(MORE_HREF);
       return;
     }
     setSaving(true);
-    // Write AsyncStorage immediately as a local fallback — guards against
-    // redirect loops if the app is killed or restarted before Clerk syncs.
     AsyncStorage.setItem(ONBOARDING_SEEN_KEY, "1").catch(() => {});
-    // Await the Clerk metadata write so the flag persists across devices/installs.
-    // Proceed regardless of outcome — AsyncStorage prevents loops on this device.
     if (user) {
       try {
         await user.update({
@@ -198,9 +193,7 @@ export default function OnboardingScreen() {
           },
         });
       } catch {
-        // Network or Clerk error — local AsyncStorage flag still prevents the guard
-        // from re-routing on this device. The flag will sync on the next successful
-        // Clerk call (e.g., sign-in on a fresh install).
+        // local AsyncStorage flag still prevents redirect loops
       }
     }
     setSaving(false);
@@ -237,8 +230,12 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <View style={[s.root, { backgroundColor: "#0D0D10" }]}>
-      {/* Skip — top-right (jumps to the last/feedback slide, not exits) */}
+    <LinearGradient
+      colors={["#E84820", "#B83018", "#7A1E08", "#1A0A04", "#0D0D10"]}
+      locations={[0, 0.18, 0.38, 0.62, 1.0]}
+      style={s.root}
+    >
+      {/* Skip — top-right */}
       <Pressable
         style={[s.skipBtn, { top: insets.top + 16 }]}
         onPress={isLast ? finish : skipToEnd}
@@ -249,7 +246,7 @@ export default function OnboardingScreen() {
         <Text style={s.skipText}>Skip</Text>
       </Pressable>
 
-      {/* Top-left: close button in replay mode, logo watermark in first-run */}
+      {/* Top-left: close in replay, logo in first-run */}
       {isReplay ? (
         <Pressable
           style={[s.closeBtn, { top: insets.top + 12 }]}
@@ -258,7 +255,7 @@ export default function OnboardingScreen() {
           accessibilityRole="button"
           accessibilityLabel="Close walkthrough"
         >
-          <Feather name="x" size={22} color="#6B6560" />
+          <Feather name="x" size={22} color="rgba(255,255,255,0.6)" />
         </Pressable>
       ) : (
         <Image
@@ -300,7 +297,7 @@ export default function OnboardingScreen() {
           ))}
         </View>
 
-        {/* CTA row: back (replay only) + next */}
+        {/* CTA row */}
         <View style={s.ctaRow}>
           {isReplay && currentIndex > 0 ? (
             <Pressable
@@ -309,7 +306,7 @@ export default function OnboardingScreen() {
               accessibilityRole="button"
               accessibilityLabel="Previous slide"
             >
-              <Feather name="chevron-left" size={20} color="#F5EDE3" />
+              <Feather name="chevron-left" size={20} color="#FFFFFF" />
               <Text style={s.backText}>Back</Text>
             </Pressable>
           ) : null}
@@ -317,27 +314,22 @@ export default function OnboardingScreen() {
             style={({ pressed }) => [
               s.ctaBtn,
               isReplay && currentIndex > 0 ? s.ctaBtnFlex : s.ctaBtnFull,
-              pressed && { opacity: 0.85 },
+              pressed && { opacity: 0.88 },
             ]}
             onPress={goNext}
             disabled={saving}
             accessibilityRole="button"
             accessibilityLabel={isLast ? "Let's go" : "Next slide"}
           >
-            <LinearGradient
-              colors={["#E84820", "#C43018"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={s.ctaGradient}
-            >
+            <View style={s.ctaInner}>
               <Text style={s.ctaText}>
                 {isLast ? "Let's go! 🔥" : "Next →"}
               </Text>
-            </LinearGradient>
+            </View>
           </Pressable>
         </View>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -350,8 +342,8 @@ const s = StyleSheet.create({
     left: 24,
     width: 80,
     height: 28,
-    opacity: 0.55,
-    tintColor: "#F5EDE3",
+    opacity: 0.85,
+    tintColor: "#FFFFFF",
   },
   skipBtn: {
     position: "absolute",
@@ -369,7 +361,7 @@ const s = StyleSheet.create({
   skipText: {
     fontSize: 15,
     fontFamily: "Inter_500Medium",
-    color: "#6B6560",
+    color: "rgba(255,255,255,0.6)",
   },
   pager: {
     flex: 1,
@@ -390,16 +382,16 @@ const s = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 36,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(255,255,255,0.10)",
     shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 40,
+    shadowRadius: 48,
     shadowOpacity: 1,
-    elevation: 12,
+    elevation: 16,
   },
   headline: {
     fontSize: 30,
     fontFamily: "Inter_700Bold",
-    color: "#F5EDE3",
+    color: "#FFFFFF",
     textAlign: "center",
     lineHeight: 36,
     letterSpacing: -0.4,
@@ -408,7 +400,7 @@ const s = StyleSheet.create({
   body: {
     fontSize: 16,
     fontFamily: "Inter_400Regular",
-    color: "#7A6E68",
+    color: "rgba(255,255,255,0.72)",
     textAlign: "center",
     lineHeight: 24,
     maxWidth: 300,
@@ -422,19 +414,19 @@ const s = StyleSheet.create({
     paddingHorizontal: 18,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: BRAND_ORANGE + "60",
-    backgroundColor: BRAND_ORANGE + "10",
+    borderColor: "rgba(255,255,255,0.35)",
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
   emailText: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
-    color: BRAND_ORANGE,
+    color: "#FFFFFF",
   },
   emailHint: {
     marginTop: 10,
     fontSize: 13,
     fontFamily: "Inter_400Regular",
-    color: "#4A4038",
+    color: "rgba(255,255,255,0.4)",
   },
   bottom: {
     paddingHorizontal: 28,
@@ -452,11 +444,11 @@ const s = StyleSheet.create({
   },
   dotActive: {
     width: 22,
-    backgroundColor: BRAND_ORANGE,
+    backgroundColor: "#FFFFFF",
   },
   dotInactive: {
     width: 7,
-    backgroundColor: "#2A2420",
+    backgroundColor: "rgba(255,255,255,0.28)",
   },
   ctaRow: {
     flexDirection: "row",
@@ -471,21 +463,21 @@ const s = StyleSheet.create({
     paddingHorizontal: 18,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    backgroundColor: "rgba(255,255,255,0.05)",
+    borderColor: "rgba(255,255,255,0.3)",
+    backgroundColor: "rgba(255,255,255,0.1)",
   },
   backText: {
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
-    color: "#F5EDE3",
+    color: "#FFFFFF",
   },
   ctaBtn: {
     borderRadius: 16,
     overflow: "hidden",
-    shadowColor: BRAND_ORANGE,
+    shadowColor: "#000000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
     elevation: 8,
   },
   ctaBtnFull: {
@@ -494,16 +486,17 @@ const s = StyleSheet.create({
   ctaBtnFlex: {
     flex: 1,
   },
-  ctaGradient: {
+  ctaInner: {
     height: 54,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 16,
+    backgroundColor: "#FFFFFF",
   },
   ctaText: {
     fontSize: 17,
     fontFamily: "Inter_700Bold",
-    color: "#fff",
+    color: BRAND_ORANGE,
     letterSpacing: 0.2,
   },
 });
