@@ -179,6 +179,10 @@ function getAppMeta(user: { unsafeMetadata?: Record<string, unknown> } | null | 
 // are exempted so they are never interrupted when they update the app.
 const ONBOARDING_FEATURE_LAUNCH_MS = new Date("2026-05-18T00:00:00Z").getTime();
 
+// BETA MODE: set to true to show the tutorial on every launch for all users.
+// Flip to false when beta testing is complete to revert to first-login-only.
+const ONBOARDING_ALWAYS_SHOW = true;
+
 // Typed route constant — avoids repeating `as any` at every call site.
 // Expo Router generates Href types from the file system at build time; because
 // the (onboarding) screen was added after the last generation we declare the
@@ -224,10 +228,15 @@ function RootLayoutNav() {
 
     const meta = getAppMeta(user);
     const hasUsername = !!(meta.username || user?.username);
-    const hasSeenOnboarding = !!meta.hasSeenOnboarding || localOnboardingSeen;
+    const hasSeenOnboarding = ONBOARDING_ALWAYS_SHOW
+      ? false
+      : !!meta.hasSeenOnboarding || localOnboardingSeen;
     // Only show onboarding to accounts created on/after the feature launch date.
+    // In beta mode this is bypassed so all accounts see the tutorial every launch.
     const createdMs = user?.createdAt?.getTime() ?? 0;
-    const isNewAccount = createdMs >= ONBOARDING_FEATURE_LAUNCH_MS;
+    const isNewAccount = ONBOARDING_ALWAYS_SHOW
+      ? true
+      : createdMs >= ONBOARDING_FEATURE_LAUNCH_MS;
 
     if (!isSignedIn && (onSetUsername || !inAuthGroup)) {
       router.replace("/(auth)/sign-in");
