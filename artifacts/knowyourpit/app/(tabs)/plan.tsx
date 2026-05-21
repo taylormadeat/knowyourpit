@@ -101,6 +101,24 @@ import {
 } from "@/constants/competitionKnowledge";
 import { MultiCookAddItemModal } from "@/components/plan-screen/MultiCookAddItemModal";
 
+const COOK_METHOD_STORAGE_PREFIX = "@knowyourpit:cookMethod:";
+
+async function loadLastCookMethod(cutName: string): Promise<QpCookMethod | null> {
+  try {
+    const stored = await AsyncStorage.getItem(COOK_METHOD_STORAGE_PREFIX + cutName);
+    if (stored && (QP_COOK_METHODS as readonly string[]).includes(stored)) {
+      return stored as QpCookMethod;
+    }
+  } catch {}
+  return null;
+}
+
+async function saveLastCookMethod(cutName: string, method: QpCookMethod): Promise<void> {
+  try {
+    await AsyncStorage.setItem(COOK_METHOD_STORAGE_PREFIX + cutName, method);
+  } catch {}
+}
+
 export default function PlanScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -429,13 +447,17 @@ export default function PlanScreen() {
 
   const weightInputRef = useRef<TextInput>(null);
 
-  // When user picks a meat cut, auto-fill temps
+  // When user picks a meat cut, auto-fill temps and restore last cook method
   const handlePickCut = (cut: MeatCut) => {
     setSelectedCut(cut);
     setTargetTempF(String(cut.targetTempF));
     setCookTempF(String(cut.cookTempF));
     setMeatPickerOpen(false);
     setPrepGuideOpen(false);
+    // Load the last-used cook method for this cut and pre-select it.
+    loadLastCookMethod(cut.name).then(method => {
+      setQpCookMethod(method);
+    });
     // Wait for the modal slide-out animation to finish before focusing the
     // weight field so KeyboardAwareScrollView can scroll it into view.
     setTimeout(() => weightInputRef.current?.focus(), 420);
@@ -820,6 +842,12 @@ export default function PlanScreen() {
         spritz: qpSpritz,
         wrapFinish: qpWrapFinish,
       })).catch(() => {});
+
+      // Persist the cook method per cut so it pre-selects next time the same
+      // cut is picked — matching the behaviour in MultiCookAddItemModal.
+      if (selectedCut && qpCookMethod) {
+        saveLastCookMethod(selectedCut.name, qpCookMethod);
+      }
 
       resetForm();
       // ── Inline soft tip card (NOT a blocking alert) ──
