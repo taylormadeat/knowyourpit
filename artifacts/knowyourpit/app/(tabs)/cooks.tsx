@@ -815,26 +815,48 @@ export default function CooksScreen() {
           <Text style={[s.meta, { color: colors.mutedForeground }]}>
             {item.grillName || "No grill"}
           </Text>
-          {item.cookingMethod ? (
-            <View style={{ flexDirection: "row", marginTop: 3 }}>
-              <View
-                style={{
-                  paddingHorizontal: 6,
-                  paddingVertical: 2,
-                  borderRadius: 4,
-                  backgroundColor: "#6366f122",
-                  borderWidth: 1,
-                  borderColor: "#6366f155",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 3,
-                }}
-              >
-                <Feather name="wind" size={9} color="#818cf8" />
-                <Text style={{ color: "#818cf8", fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 0.2 }}>
-                  {item.cookingMethod}
-                </Text>
-              </View>
+          {(item.cookingMethod || item.spritzFrequency) ? (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 3 }}>
+              {item.cookingMethod ? (
+                <View
+                  style={{
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                    backgroundColor: "#6366f122",
+                    borderWidth: 1,
+                    borderColor: "#6366f155",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 3,
+                  }}
+                >
+                  <Feather name="wind" size={9} color="#818cf8" />
+                  <Text style={{ color: "#818cf8", fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 0.2 }}>
+                    {item.cookingMethod}
+                  </Text>
+                </View>
+              ) : null}
+              {item.spritzFrequency ? (
+                <View
+                  style={{
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                    backgroundColor: "#14b8a622",
+                    borderWidth: 1,
+                    borderColor: "#14b8a655",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 3,
+                  }}
+                >
+                  <Feather name="droplet" size={9} color="#2dd4bf" />
+                  <Text style={{ color: "#2dd4bf", fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 0.2 }}>
+                    {item.spritzFrequency}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           ) : null}
           {item.status === "completed" && (item.targetTempF != null || item.cookTempF != null) && (
