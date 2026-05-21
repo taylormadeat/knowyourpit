@@ -61,6 +61,10 @@ import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
 
 const COOK_METHOD_STORAGE_PREFIX = "@knowyourpit:cookMethod:";
+const MEAT_START_TEMP_STORAGE_PREFIX = "@knowyourpit:meatStartTemp:";
+const INJECTION_STORAGE_PREFIX = "@knowyourpit:injection:";
+const SPRITZ_STORAGE_PREFIX = "@knowyourpit:spritz:";
+const WRAP_FINISH_STORAGE_PREFIX = "@knowyourpit:wrapFinish:";
 
 async function loadLastCookMethod(cutName: string): Promise<QpCookMethod | null> {
   try {
@@ -76,6 +80,50 @@ async function saveLastCookMethod(cutName: string, method: QpCookMethod): Promis
   try {
     await AsyncStorage.setItem(COOK_METHOD_STORAGE_PREFIX + cutName, method);
   } catch {}
+}
+
+async function loadLastMeatStartTemp(cutName: string): Promise<QpMeatStartTemp | null> {
+  try {
+    const stored = await AsyncStorage.getItem(MEAT_START_TEMP_STORAGE_PREFIX + cutName);
+    if (stored && (QP_MEAT_START_TEMPS as readonly string[]).includes(stored)) return stored as QpMeatStartTemp;
+  } catch {}
+  return null;
+}
+async function saveLastMeatStartTemp(cutName: string, v: QpMeatStartTemp): Promise<void> {
+  try { await AsyncStorage.setItem(MEAT_START_TEMP_STORAGE_PREFIX + cutName, v); } catch {}
+}
+
+async function loadLastInjection(cutName: string): Promise<QpInjectionOption | null> {
+  try {
+    const stored = await AsyncStorage.getItem(INJECTION_STORAGE_PREFIX + cutName);
+    if (stored && (QP_INJECTION_OPTIONS as readonly string[]).includes(stored)) return stored as QpInjectionOption;
+  } catch {}
+  return null;
+}
+async function saveLastInjection(cutName: string, v: QpInjectionOption): Promise<void> {
+  try { await AsyncStorage.setItem(INJECTION_STORAGE_PREFIX + cutName, v); } catch {}
+}
+
+async function loadLastSpritz(cutName: string): Promise<QpSpritzFrequency | null> {
+  try {
+    const stored = await AsyncStorage.getItem(SPRITZ_STORAGE_PREFIX + cutName);
+    if (stored && (QP_SPRITZ_FREQUENCIES as readonly string[]).includes(stored)) return stored as QpSpritzFrequency;
+  } catch {}
+  return null;
+}
+async function saveLastSpritz(cutName: string, v: QpSpritzFrequency): Promise<void> {
+  try { await AsyncStorage.setItem(SPRITZ_STORAGE_PREFIX + cutName, v); } catch {}
+}
+
+async function loadLastWrapFinish(cutName: string): Promise<QpWrapFinishOption | null> {
+  try {
+    const stored = await AsyncStorage.getItem(WRAP_FINISH_STORAGE_PREFIX + cutName);
+    if (stored && (QP_WRAP_FINISH_OPTIONS as readonly string[]).includes(stored)) return stored as QpWrapFinishOption;
+  } catch {}
+  return null;
+}
+async function saveLastWrapFinish(cutName: string, v: QpWrapFinishOption): Promise<void> {
+  try { await AsyncStorage.setItem(WRAP_FINISH_STORAGE_PREFIX + cutName, v); } catch {}
 }
 
 type PickerCut = MeatCut & { isCustom?: boolean; customId?: number };
@@ -203,9 +251,13 @@ export default function LogCookScreen() {
   const [qpMethod, setQpMethod] = useState<QpCookMethod | null>(null);
   const [lastUsedLogMethod, setLastUsedLogMethod] = useState<QpCookMethod | null>(null);
   const [qpStartTemp, setQpStartTemp] = useState<QpMeatStartTemp | null>(null);
+  const [lastUsedLogStartTemp, setLastUsedLogStartTemp] = useState<QpMeatStartTemp | null>(null);
   const [qpInjection, setQpInjection] = useState<QpInjectionOption | null>(null);
+  const [lastUsedLogInjection, setLastUsedLogInjection] = useState<QpInjectionOption | null>(null);
   const [qpSpritz, setQpSpritz] = useState<QpSpritzFrequency | null>(null);
+  const [lastUsedLogSpritz, setLastUsedLogSpritz] = useState<QpSpritzFrequency | null>(null);
   const [qpWrap, setQpWrap] = useState<QpWrapFinishOption | null>(null);
+  const [lastUsedLogWrap, setLastUsedLogWrap] = useState<QpWrapFinishOption | null>(null);
   const [qpOverflow, setQpOverflow] = useState("");
 
   // Which technique bottom-sheet is open
@@ -852,7 +904,13 @@ export default function LogCookScreen() {
               title="Meat Starting Temp"
               options={QP_MEAT_START_TEMPS}
               selected={qpStartTemp}
-              onChange={(v) => setQpStartTemp(v as QpMeatStartTemp | null)}
+              lastUsed={lastUsedLogStartTemp}
+              onChange={(v) => {
+                const val = v as QpMeatStartTemp | null;
+                setQpStartTemp(val);
+                setLastUsedLogStartTemp(null);
+                if (foodType && val) saveLastMeatStartTemp(foodType, val);
+              }}
               onClose={() => setActiveLogSheet(null)}
               colors={colors}
             />
@@ -861,7 +919,13 @@ export default function LogCookScreen() {
               title="Injection"
               options={QP_INJECTION_OPTIONS}
               selected={qpInjection}
-              onChange={(v) => setQpInjection(v as QpInjectionOption | null)}
+              lastUsed={lastUsedLogInjection}
+              onChange={(v) => {
+                const val = v as QpInjectionOption | null;
+                setQpInjection(val);
+                setLastUsedLogInjection(null);
+                if (foodType && val) saveLastInjection(foodType, val);
+              }}
               onClose={() => setActiveLogSheet(null)}
               colors={colors}
             />
@@ -870,7 +934,13 @@ export default function LogCookScreen() {
               title="Spritz Frequency"
               options={QP_SPRITZ_FREQUENCIES}
               selected={qpSpritz}
-              onChange={(v) => setQpSpritz(v as QpSpritzFrequency | null)}
+              lastUsed={lastUsedLogSpritz}
+              onChange={(v) => {
+                const val = v as QpSpritzFrequency | null;
+                setQpSpritz(val);
+                setLastUsedLogSpritz(null);
+                if (foodType && val) saveLastSpritz(foodType, val);
+              }}
               onClose={() => setActiveLogSheet(null)}
               colors={colors}
             />
@@ -879,7 +949,13 @@ export default function LogCookScreen() {
               title="Wrap / Finish"
               options={QP_WRAP_FINISH_OPTIONS}
               selected={qpWrap}
-              onChange={(v) => setQpWrap(v as QpWrapFinishOption | null)}
+              lastUsed={lastUsedLogWrap}
+              onChange={(v) => {
+                const val = v as QpWrapFinishOption | null;
+                setQpWrap(val);
+                setLastUsedLogWrap(null);
+                if (foodType && val) saveLastWrapFinish(foodType, val);
+              }}
               onClose={() => setActiveLogSheet(null)}
               colors={colors}
             />
@@ -1498,6 +1574,10 @@ export default function LogCookScreen() {
                       setQpMethod(method);
                       setLastUsedLogMethod(method);
                     });
+                    loadLastMeatStartTemp(item.name).then(v => { setQpStartTemp(v); setLastUsedLogStartTemp(v); });
+                    loadLastInjection(item.name).then(v => { setQpInjection(v); setLastUsedLogInjection(v); });
+                    loadLastSpritz(item.name).then(v => { setQpSpritz(v); setLastUsedLogSpritz(v); });
+                    loadLastWrapFinish(item.name).then(v => { setQpWrap(v); setLastUsedLogWrap(v); });
                   }}
                 >
                   <View style={gp.rowText}>

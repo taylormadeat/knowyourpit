@@ -351,9 +351,13 @@ export default function PlanScreen() {
   const [qpCookMethod, setQpCookMethod] = useState<QpCookMethod | null>(null);
   const [lastUsedCookMethod, setLastUsedCookMethod] = useState<QpCookMethod | null>(null);
   const [qpMeatStartTemp, setQpMeatStartTemp] = useState<QpMeatStartTemp | null>(null);
+  const [lastUsedMeatStartTemp, setLastUsedMeatStartTemp] = useState<QpMeatStartTemp | null>(null);
   const [qpInjection, setQpInjection] = useState<QpInjectionOption | null>(null);
+  const [lastUsedInjection, setLastUsedInjection] = useState<QpInjectionOption | null>(null);
   const [qpSpritz, setQpSpritz] = useState<QpSpritzFrequency | null>(null);
+  const [lastUsedSpritz, setLastUsedSpritz] = useState<QpSpritzFrequency | null>(null);
   const [qpWrapFinish, setQpWrapFinish] = useState<QpWrapFinishOption | null>(null);
+  const [lastUsedWrapFinish, setLastUsedWrapFinish] = useState<QpWrapFinishOption | null>(null);
 
   // On mount: restore the last-used technique quick-picks so the user's
   // preferred options are already selected when they open the Plan screen.
@@ -507,10 +511,10 @@ export default function PlanScreen() {
       setQpCookMethod(method);
       setLastUsedCookMethod(method);
     });
-    loadLastMeatStartTemp(cut.name).then(v => setQpMeatStartTemp(v));
-    loadLastInjection(cut.name).then(v => setQpInjection(v));
-    loadLastSpritz(cut.name).then(v => setQpSpritz(v));
-    loadLastWrapFinish(cut.name).then(v => setQpWrapFinish(v));
+    loadLastMeatStartTemp(cut.name).then(v => { setQpMeatStartTemp(v); setLastUsedMeatStartTemp(v); });
+    loadLastInjection(cut.name).then(v => { setQpInjection(v); setLastUsedInjection(v); });
+    loadLastSpritz(cut.name).then(v => { setQpSpritz(v); setLastUsedSpritz(v); });
+    loadLastWrapFinish(cut.name).then(v => { setQpWrapFinish(v); setLastUsedWrapFinish(v); });
     // Wait for the modal slide-out animation to finish before focusing the
     // weight field so KeyboardAwareScrollView can scroll it into view.
     setTimeout(() => weightInputRef.current?.focus(), 420);
@@ -1962,9 +1966,11 @@ export default function PlanScreen() {
                     title="Meat Starting Temp"
                     options={QP_MEAT_START_TEMPS}
                     selected={qpMeatStartTemp}
+                    lastUsed={lastUsedMeatStartTemp}
                     onChange={(v) => {
                       const val = v as QpMeatStartTemp | null;
                       setQpMeatStartTemp(val);
+                      setLastUsedMeatStartTemp(null);
                       if (selectedCut && val) saveLastMeatStartTemp(selectedCut.name, val);
                     }}
                     onClose={() => setActiveSheet(null)}
@@ -1975,9 +1981,11 @@ export default function PlanScreen() {
                     title="Injection"
                     options={QP_INJECTION_OPTIONS}
                     selected={qpInjection}
+                    lastUsed={lastUsedInjection}
                     onChange={(v) => {
                       const val = v as QpInjectionOption | null;
                       setQpInjection(val);
+                      setLastUsedInjection(null);
                       if (selectedCut && val) saveLastInjection(selectedCut.name, val);
                     }}
                     onClose={() => setActiveSheet(null)}
@@ -1988,9 +1996,11 @@ export default function PlanScreen() {
                     title="Spritz Frequency"
                     options={QP_SPRITZ_FREQUENCIES}
                     selected={qpSpritz}
+                    lastUsed={lastUsedSpritz}
                     onChange={(v) => {
                       const val = v as QpSpritzFrequency | null;
                       setQpSpritz(val);
+                      setLastUsedSpritz(null);
                       if (selectedCut && val) saveLastSpritz(selectedCut.name, val);
                     }}
                     onClose={() => setActiveSheet(null)}
@@ -2001,9 +2011,11 @@ export default function PlanScreen() {
                     title="Wrap / Finish"
                     options={QP_WRAP_FINISH_OPTIONS}
                     selected={qpWrapFinish}
+                    lastUsed={lastUsedWrapFinish}
                     onChange={(v) => {
                       const val = v as QpWrapFinishOption | null;
                       setQpWrapFinish(val);
+                      setLastUsedWrapFinish(null);
                       if (selectedCut && val) saveLastWrapFinish(selectedCut.name, val);
                     }}
                     onClose={() => setActiveSheet(null)}
