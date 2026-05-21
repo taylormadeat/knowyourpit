@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Modal, Pressable, FlatList, TextInput } from "react-native";
+import { View, Text, Modal, Pressable, FlatList, TextInput, KeyboardAvoidingView, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { planStyles as s } from "./styles";
@@ -34,7 +34,10 @@ export function MultiCookAddItemModal(p: Props) {
       transparent
       onRequestClose={onClose}
     >
-      <View style={s.modalOverlay}>
+      <KeyboardAvoidingView
+        style={s.modalOverlay}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
         <View style={[s.modalSheet, { backgroundColor: colors.card }]}>
           <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
           <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
@@ -55,8 +58,10 @@ export function MultiCookAddItemModal(p: Props) {
             ))}
           </View>
           <FlatList
+            style={{ flex: 1 }}
             data={MEAT_CUTS_BY_CATEGORY[multiAddCat] ?? []}
             keyExtractor={item => item.name}
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 20 }}
             ItemSeparatorComponent={() => <View style={[s.cutSep, { backgroundColor: colors.border }]} />}
             renderItem={({ item }) => (
@@ -108,7 +113,7 @@ export function MultiCookAddItemModal(p: Props) {
             </View>
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

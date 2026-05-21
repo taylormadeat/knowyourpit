@@ -427,6 +427,8 @@ export default function PlanScreen() {
   const frozenStartInPast =
     !!schedule?.frozen && schedule.frozen.thawStartAt.getTime() < Date.now();
 
+  const weightInputRef = useRef<TextInput>(null);
+
   // When user picks a meat cut, auto-fill temps
   const handlePickCut = (cut: MeatCut) => {
     setSelectedCut(cut);
@@ -434,6 +436,9 @@ export default function PlanScreen() {
     setCookTempF(String(cut.cookTempF));
     setMeatPickerOpen(false);
     setPrepGuideOpen(false);
+    // Wait for the modal slide-out animation to finish before focusing the
+    // weight field so KeyboardAwareScrollView can scroll it into view.
+    setTimeout(() => weightInputRef.current?.focus(), 420);
   };
 
   // ── AI Plan ──────────────────────────────────────────────────────────
@@ -1208,6 +1213,7 @@ export default function PlanScreen() {
         <Label colors={colors}>Weight (lbs) *</Label>
         <View style={[s.inputWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           <TextInput
+            ref={weightInputRef}
             style={[s.input, { color: colors.foreground }]}
             placeholder="e.g. 12.5"
             placeholderTextColor={colors.mutedForeground}
