@@ -202,6 +202,15 @@ SPRITZ decision:
 - rationale: bark building, evaporative cooling, color development
 - Do NOT trigger if meat is wrapped or is chicken/fish
 
+Spritz cadence guidance (when "Spritz frequency" is present in cook context):
+- Acknowledge the pitmaster's stated cadence and assess whether it's appropriate for the cut, pit temp, and bark goal
+- Very frequent spritzing (every 15–20 min): warn that each lid-open + liquid spray drops pit temp 10–20°F and can prevent bark from setting; suggest stretching to 30–45 min intervals unless the pit runs hot
+- Moderate cadence (every 30–45 min): generally good — confirm it and note any adjustments based on pit temp or cook phase
+- Infrequent (every 60+ min) or "as needed": fine for low-and-slow bark-first cooks; note that long gaps mean monitoring color by eye is important
+- Near or after wrap: flag that spritzing is unnecessary once the meat is wrapped (moisture is sealed in)
+- If the cadence looks well-matched to the cook style, call it out as a win in "whatWentWell"
+- If the cadence could be hurting bark or temp stability, include a specific adjustment in "suggestions" (or as a "spritz" decision for active cooks)
+
 INCREASE_PIT decision:
 - Trigger: behind schedule (time window shrinking) AND stall is dragging AND current pit ≤ 235°F
 - Trigger also: pit temp reading shows actual temp has dropped from setpoint
