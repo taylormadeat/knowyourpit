@@ -1892,7 +1892,13 @@ export default function PlanScreen() {
                     title="Cooking Method"
                     options={QP_COOK_METHODS}
                     selected={qpCookMethod}
-                    onChange={(v) => setQpCookMethod(v as QpCookMethod | null)}
+                    onChange={(v) => {
+                      const method = v as QpCookMethod | null;
+                      setQpCookMethod(method);
+                      if (selectedCut && method) {
+                        saveLastCookMethod(selectedCut.name, method);
+                      }
+                    }}
                     onClose={() => setActiveSheet(null)}
                     colors={colors}
                   />

@@ -143,8 +143,12 @@ export function MultiCookAddItemModal(p: Props) {
                         <Pressable
                           key={method}
                           onPress={() => {
-                            setSelectedCookMethod(active ? null : method);
+                            const next = active ? null : method;
+                            setSelectedCookMethod(next);
                             setLastUsedMethod(null);
+                            if (multiPickedCut && next) {
+                              saveLastCookMethod(multiPickedCut.name, next);
+                            }
                             Haptics.selectionAsync();
                           }}
                           style={{
