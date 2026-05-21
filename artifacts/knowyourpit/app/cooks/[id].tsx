@@ -37,6 +37,7 @@ import {
   useFrozenStageNotifications,
   cancelStoredFrozenNotifications,
 } from "@/hooks/useFrozenStageNotifications";
+import { useSpritzNotifications } from "@/hooks/useSpritzNotifications";
 import { setCookDetailVisible, setCurrentCookId } from "@/hooks/cookDetailVisibility";
 import { consumePendingCheckin } from "@/lib/pendingCheckinNotif";
 import { useCookLiveActivity } from "@/hooks/useCookLiveActivity";
@@ -745,6 +746,15 @@ export default function CookDetailScreen() {
     cookStatus,
     cookSeqData,
     (cook as any)?.plannedStartAt ?? null,
+  );
+  // Spritz reminders — fire at the user's chosen spritz interval throughout the
+  // active cook so they're nudged to spritz even when the app is backgrounded.
+  useSpritzNotifications(
+    Number(id),
+    cookStatus,
+    (cook as any)?.spritzFrequency ?? null,
+    (cook as any)?.foodType ?? null,
+    cookSeqData,
   );
   // Smart check-in notifications — fire at BBQ milestone points while cook is active.
   const storedScheduledCheckins = useCheckinNotifications(Number(id) || null, cookStatus, cookSeqData);

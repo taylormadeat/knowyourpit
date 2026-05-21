@@ -49,6 +49,7 @@ import { getCookCardBar, type CookCardBar } from "@/utils/cookCardBar";
 import { fmtRemaining, barColor, clamp, AnimatedBarFill } from "@/components/cook-detail/CookProgressBar";
 import { cancelStoredFrozenNotifications } from "@/hooks/useFrozenStageNotifications";
 import { cancelStoredCheckinNotifications } from "@/hooks/useCheckinNotifications";
+import { cancelStoredSpritzNotifications } from "@/hooks/useSpritzNotifications";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
@@ -620,6 +621,7 @@ export default function CooksScreen() {
                 await deleteCook.mutateAsync({ id: cook.id });
                 await cancelStoredFrozenNotifications(cook.id).catch(() => {});
                 await cancelStoredCheckinNotifications(cook.id).catch(() => {});
+                await cancelStoredSpritzNotifications(cook.id).catch(() => {});
               }),
             );
           } catch (e: unknown) {
@@ -666,6 +668,7 @@ export default function CooksScreen() {
           await deleteCook.mutateAsync({ id: cook.id });
           await cancelStoredFrozenNotifications(cook.id).catch(() => {});
           await cancelStoredCheckinNotifications(cook.id).catch(() => {});
+          await cancelStoredSpritzNotifications(cook.id).catch(() => {});
         }),
       );
     } catch (e: unknown) {
@@ -718,6 +721,7 @@ export default function CooksScreen() {
               await deleteCook.mutateAsync({ id: cookId });
               await cancelStoredFrozenNotifications(cookId).catch(() => {});
               await cancelStoredCheckinNotifications(cookId).catch(() => {});
+              await cancelStoredSpritzNotifications(cookId).catch(() => {});
               qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
             } catch (e: unknown) {
               const msg = e instanceof Error ? e.message : "Could not delete this cook. Please try again.";
