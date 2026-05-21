@@ -98,6 +98,10 @@ export async function buildUserCookHistory(userId: string): Promise<string> {
     if (c.ratingTenderness) parts.push(`tenderness ${c.ratingTenderness}/5`);
     if (c.ratingBark) parts.push(`bark ${c.ratingBark}/5`);
     if (c.ratingFlavor) parts.push(`flavor ${c.ratingFlavor}/5`);
+    if (c.cookingMethod) parts.push(`method: ${c.cookingMethod}`);
+    if (c.injection && c.injection !== "Not Injected") parts.push(`injection: ${c.injection}`);
+    if (c.spritzFrequency && c.spritzFrequency !== "No Spritz") parts.push(`spritz: ${c.spritzFrequency}`);
+    if (c.wrapFinish) parts.push(`finish: ${c.wrapFinish}`);
     if (c.wrapMethod && c.wrapMethod !== "none") parts.push(`wrapped: ${c.wrapMethod}`);
     if (c.notes) parts.push(`notes: "${c.notes}"`);
     const date = c.actualStartAt ? new Date(c.actualStartAt).toLocaleDateString() : (c.createdAt ? new Date(c.createdAt).toLocaleDateString() : null);
