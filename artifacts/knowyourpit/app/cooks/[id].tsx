@@ -1801,6 +1801,35 @@ export default function CookDetailScreen() {
     return null;
   }, [cook, wrapAdjustedFinishMs, cookSeqData, nowMs]);
 
+  // Next scheduled spritz time — only defined for active cooks with a timed
+  // spritz frequency ("Every 30 min", "Every Hour", "Every 2 Hours").
+  // Must live BEFORE the early returns alongside the haptic hook (Rules of Hooks).
+  const nextSpritzMs = cookStatus === "active"
+    ? computeNextSpritzMs((cook as any)?.spritzFrequency ?? null, cookSeqData, nowMs)
+    : null;
+
+  // Haptic nudge when a spritz slot is reached — fires once per interval.
+  // Must live BEFORE the early returns so hook count is stable (Rules of Hooks).
+  //
+  // computeNextSpritzMs always returns a FUTURE absolute timestamp (skips past
+  // slots). The crossing moment is detected by watching for a slot change:
+  // when nextSpritzMs transitions to a new value (next slot or null), it means
+  // nowMs just overtook the previous slot → nudge the pitmaster.
+  const prevNextSpritzMsRef = useRef<number | null>(null);
+  useEffect(() => {
+    const prev = prevNextSpritzMsRef.current;
+    prevNextSpritzMsRef.current = nextSpritzMs;
+
+    // Same slot — still counting down, nothing to do.
+    if (nextSpritzMs === prev) return;
+
+    // A previous slot existed and we've now moved past it (to the next slot or
+    // to null when the cook window ends). The spritz moment just passed.
+    if (prev != null) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
+  }, [nextSpritzMs]);
+
   if (isLoading) {
     return (
       <View style={[s.center, { backgroundColor: colors.background }]}>
@@ -1834,12 +1863,6 @@ export default function CookDetailScreen() {
   // Remaining time for the live banner — derived from estimatedFinishMs so it
   // stays in sync with the progress bar (including wrap-temp adjustments).
   const remainingMs = estimatedFinishMs != null ? estimatedFinishMs - nowMs : null;
-
-  // Next scheduled spritz time — only defined for active cooks with a timed
-  // spritz frequency ("Every 30 min", "Every Hour", "Every 2 Hours").
-  const nextSpritzMs = cookStatus === "active"
-    ? computeNextSpritzMs(c.spritzFrequency ?? null, cookSeqData, nowMs)
-    : null;
 
   // Live graph from accumulated MEATER readings
   const liveGraphProbes = liveReadings.length >= 2
