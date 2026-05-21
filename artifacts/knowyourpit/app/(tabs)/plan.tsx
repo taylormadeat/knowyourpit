@@ -301,6 +301,7 @@ export default function PlanScreen() {
 
   // ── Technique quick-picks (carried into AI prediction) ────────────────
   const [qpCookMethod, setQpCookMethod] = useState<QpCookMethod | null>(null);
+  const [lastUsedCookMethod, setLastUsedCookMethod] = useState<QpCookMethod | null>(null);
   const [qpMeatStartTemp, setQpMeatStartTemp] = useState<QpMeatStartTemp | null>(null);
   const [qpInjection, setQpInjection] = useState<QpInjectionOption | null>(null);
   const [qpSpritz, setQpSpritz] = useState<QpSpritzFrequency | null>(null);
@@ -457,6 +458,7 @@ export default function PlanScreen() {
     // Load the last-used cook method for this cut and pre-select it.
     loadLastCookMethod(cut.name).then(method => {
       setQpCookMethod(method);
+      setLastUsedCookMethod(method);
     });
     // Wait for the modal slide-out animation to finish before focusing the
     // weight field so KeyboardAwareScrollView can scroll it into view.
@@ -1892,9 +1894,11 @@ export default function PlanScreen() {
                     title="Cooking Method"
                     options={QP_COOK_METHODS}
                     selected={qpCookMethod}
+                    lastUsed={lastUsedCookMethod}
                     onChange={(v) => {
                       const method = v as QpCookMethod | null;
                       setQpCookMethod(method);
+                      setLastUsedCookMethod(null);
                       if (selectedCut && method) {
                         saveLastCookMethod(selectedCut.name, method);
                       }

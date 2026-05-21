@@ -24,6 +24,7 @@ interface OptionBottomSheetProps {
   onClose: () => void;
   colors: any;
   allowDeselect?: boolean;
+  lastUsed?: string | null;
 }
 
 function isOptionItem(o: string | OptionItem): o is OptionItem {
@@ -39,6 +40,7 @@ export function OptionBottomSheet({
   onClose,
   colors,
   allowDeselect = true,
+  lastUsed,
 }: OptionBottomSheetProps) {
   const handleSelect = (value: string) => {
     if (allowDeselect && selected === value) {
@@ -82,6 +84,7 @@ export function OptionBottomSheet({
             const label = isOptionItem(opt) ? opt.label : opt;
             const value = isOptionItem(opt) ? opt.value : opt;
             const active = selected === value;
+            const showLastUsed = lastUsed === value && active;
             return (
               <Pressable
                 key={value}
@@ -92,20 +95,28 @@ export function OptionBottomSheet({
                     backgroundColor: active ? colors.primary : colors.background,
                     borderColor: active ? colors.primary : colors.border,
                     borderRadius: colors.radius,
+                    paddingVertical: showLastUsed ? 5 : 9,
                   },
                 ]}
               >
                 {active && (
                   <Feather name="check" size={12} color="#fff" />
                 )}
-                <Text
-                  style={[
-                    obs.chipText,
-                    { color: active ? "#fff" : colors.foreground },
-                  ]}
-                >
-                  {label}
-                </Text>
+                <View style={{ alignItems: "center" }}>
+                  <Text
+                    style={[
+                      obs.chipText,
+                      { color: active ? "#fff" : colors.foreground },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                  {showLastUsed && (
+                    <Text style={{ fontSize: 9, fontFamily: "Inter_500Medium", color: "#fff", opacity: 0.8, marginTop: 1 }}>
+                      Last used
+                    </Text>
+                  )}
+                </View>
               </Pressable>
             );
           })}

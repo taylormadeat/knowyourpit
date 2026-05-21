@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
@@ -56,9 +57,26 @@ import {
 } from "@/constants/cookQuickPicks";
 import { SettingsRow } from "@/components/plan-screen/SettingsRow";
 import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
-
 import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
+
+const COOK_METHOD_STORAGE_PREFIX = "@knowyourpit:cookMethod:";
+
+async function loadLastCookMethod(cutName: string): Promise<QpCookMethod | null> {
+  try {
+    const stored = await AsyncStorage.getItem(COOK_METHOD_STORAGE_PREFIX + cutName);
+    if (stored && (QP_COOK_METHODS as readonly string[]).includes(stored)) {
+      return stored as QpCookMethod;
+    }
+  } catch {}
+  return null;
+}
+
+async function saveLastCookMethod(cutName: string, method: QpCookMethod): Promise<void> {
+  try {
+    await AsyncStorage.setItem(COOK_METHOD_STORAGE_PREFIX + cutName, method);
+  } catch {}
+}
 
 type PickerCut = MeatCut & { isCustom?: boolean; customId?: number };
 const COOK_METHODS = ["Low & Slow", "Indirect", "Reverse Sear", "Direct Heat"];
@@ -183,6 +201,7 @@ export default function LogCookScreen() {
 
   // Quick-pick state for the scanner "describe the cook" section
   const [qpMethod, setQpMethod] = useState<QpCookMethod | null>(null);
+  const [lastUsedLogMethod, setLastUsedLogMethod] = useState<QpCookMethod | null>(null);
   const [qpStartTemp, setQpStartTemp] = useState<QpMeatStartTemp | null>(null);
   const [qpInjection, setQpInjection] = useState<QpInjectionOption | null>(null);
   const [qpSpritz, setQpSpritz] = useState<QpSpritzFrequency | null>(null);
@@ -657,6 +676,9 @@ export default function LogCookScreen() {
       }
 
       const cook = await createCook.mutateAsync({ data: payload });
+      if (qpMethod && foodType.trim()) {
+        saveLastCookMethod(foodType.trim(), qpMethod);
+      }
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
       qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
@@ -820,7 +842,8 @@ export default function LogCookScreen() {
               title="Cooking Method"
               options={QP_COOK_METHODS}
               selected={qpMethod}
-              onChange={(v) => setQpMethod(v as QpCookMethod | null)}
+              lastUsed={lastUsedLogMethod}
+              onChange={(v) => { setQpMethod(v as QpCookMethod | null); setLastUsedLogMethod(null); }}
               onClose={() => setActiveLogSheet(null)}
               colors={colors}
             />
@@ -1471,6 +1494,10 @@ export default function LogCookScreen() {
                     if (!targetTempF.trim()) setTargetTempF(String(item.targetTempF));
                     if (!cookTempF.trim()) setCookTempF(String(item.cookTempF));
                     setMeatPickerVisible(false);
+                    loadLastCookMethod(item.name).then(method => {
+                      setQpMethod(method);
+                      setLastUsedLogMethod(method);
+                    });
                   }}
                 >
                   <View style={gp.rowText}>
