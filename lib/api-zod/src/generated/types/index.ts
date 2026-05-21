@@ -32,6 +32,8 @@ export * from "./cookHealthScoreGrade";
 export * from "./cookLogEvent";
 export * from "./cookLogEventEventType";
 export * from "./cookLogEventMetadata";
+export * from "./cookPhoto";
+export * from "./cookPhotoUpload";
 export * from "./cookStatus";
 export * from "./cookThawMethod";
 export * from "./cookWrapMethod";

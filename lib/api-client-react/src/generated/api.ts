@@ -29,6 +29,8 @@ import type {
   CookCheckin,
   CookHealthScore,
   CookLogEvent,
+  CookPhoto,
+  CookPhotoUpload,
   CreateAlertBody,
   CreateCookBody,
   CreateCookCheckinBody,
@@ -2201,6 +2203,270 @@ export const useDeleteCookEvent = <
   TContext
 > => {
   return useMutation(getDeleteCookEventMutationOptions(options));
+};
+
+/**
+ * @summary List all photos attached to a cook
+ */
+export const getListCookPhotosUrl = (id: number) => {
+  return `/api/cooks/${id}/photos`;
+};
+
+export const listCookPhotos = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CookPhoto[]> => {
+  return customFetch<CookPhoto[]>(getListCookPhotosUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCookPhotosQueryKey = (id: number) => {
+  return [`/api/cooks/${id}/photos`] as const;
+};
+
+export const getListCookPhotosQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCookPhotos>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCookPhotos>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCookPhotosQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCookPhotos>>> = ({
+    signal,
+  }) => listCookPhotos(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCookPhotos>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCookPhotosQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCookPhotos>>
+>;
+export type ListCookPhotosQueryError = ErrorType<void>;
+
+/**
+ * @summary List all photos attached to a cook
+ */
+
+export function useListCookPhotos<
+  TData = Awaited<ReturnType<typeof listCookPhotos>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCookPhotos>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCookPhotosQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Upload a photo and attach it to a cook (multipart/form-data, max 10 MB, up to 10 photos per cook)
+ */
+export const getUploadCookPhotoUrl = (id: number) => {
+  return `/api/cooks/${id}/photos`;
+};
+
+export const uploadCookPhoto = async (
+  id: number,
+  cookPhotoUpload: CookPhotoUpload,
+  options?: RequestInit,
+): Promise<CookPhoto> => {
+  const formData = new FormData();
+  formData.append(`photo`, cookPhotoUpload.photo);
+  if (cookPhotoUpload.takenAt !== undefined) {
+    formData.append(`takenAt`, cookPhotoUpload.takenAt);
+  }
+
+  return customFetch<CookPhoto>(getUploadCookPhotoUrl(id), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getUploadCookPhotoMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadCookPhoto>>,
+    TError,
+    { id: number; data: BodyType<CookPhotoUpload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadCookPhoto>>,
+  TError,
+  { id: number; data: BodyType<CookPhotoUpload> },
+  TContext
+> => {
+  const mutationKey = ["uploadCookPhoto"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadCookPhoto>>,
+    { id: number; data: BodyType<CookPhotoUpload> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return uploadCookPhoto(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadCookPhotoMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadCookPhoto>>
+>;
+export type UploadCookPhotoMutationBody = BodyType<CookPhotoUpload>;
+export type UploadCookPhotoMutationError = ErrorType<void>;
+
+/**
+ * @summary Upload a photo and attach it to a cook (multipart/form-data, max 10 MB, up to 10 photos per cook)
+ */
+export const useUploadCookPhoto = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadCookPhoto>>,
+    TError,
+    { id: number; data: BodyType<CookPhotoUpload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof uploadCookPhoto>>,
+  TError,
+  { id: number; data: BodyType<CookPhotoUpload> },
+  TContext
+> => {
+  return useMutation(getUploadCookPhotoMutationOptions(options));
+};
+
+/**
+ * @summary Delete a photo from a cook
+ */
+export const getDeleteCookPhotoUrl = (id: number, photoId: number) => {
+  return `/api/cooks/${id}/photos/${photoId}`;
+};
+
+export const deleteCookPhoto = async (
+  id: number,
+  photoId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteCookPhotoUrl(id, photoId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCookPhotoMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCookPhoto>>,
+    TError,
+    { id: number; photoId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCookPhoto>>,
+  TError,
+  { id: number; photoId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteCookPhoto"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCookPhoto>>,
+    { id: number; photoId: number }
+  > = (props) => {
+    const { id, photoId } = props ?? {};
+
+    return deleteCookPhoto(id, photoId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCookPhotoMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCookPhoto>>
+>;
+
+export type DeleteCookPhotoMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a photo from a cook
+ */
+export const useDeleteCookPhoto = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCookPhoto>>,
+    TError,
+    { id: number; photoId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCookPhoto>>,
+  TError,
+  { id: number; photoId: number },
+  TContext
+> => {
+  return useMutation(getDeleteCookPhotoMutationOptions(options));
 };
 
 /**

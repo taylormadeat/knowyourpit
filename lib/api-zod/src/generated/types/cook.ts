@@ -198,6 +198,8 @@ export interface Cook {
    * @nullable
    */
   currentTempF?: number | null;
+  /** Number of photos attached to this cook */
+  photoCount?: number;
   createdAt: Date;
   updatedAt: Date;
 }

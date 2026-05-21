@@ -985,6 +985,12 @@ export default function CooksScreen() {
               </View>
             );
           })()}
+          {(item.photoCount ?? 0) > 0 && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: 5, paddingVertical: 3, borderRadius: 8, backgroundColor: "#3b82f615", borderWidth: 1, borderColor: "#3b82f630" }}>
+              <Feather name="camera" size={10} color="#3b82f6" />
+              <Text style={{ color: "#3b82f6", fontFamily: "Inter_700Bold", fontSize: 10 }}>{item.photoCount}</Text>
+            </View>
+          )}
           <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
         </View>
         </View>

@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc } from "drizzle-orm";
-import { db, cooksTable, grillsTable, alertsTable, cookCheckins, temperatureReadingsTable } from "@workspace/db";
+import { eq, and, desc, count } from "drizzle-orm";
+import { db, cooksTable, grillsTable, alertsTable, cookCheckins, temperatureReadingsTable, cookPhotosTable } from "@workspace/db";
+import { deleteFromStorage } from "./cookPhotos";
 import {
   CreateCookBody,
   UpdateCookBody,
@@ -47,7 +48,11 @@ router.get("/cooks", requireAuth, async (req: any, res): Promise<void> => {
       const [grill] = await db.select({ name: grillsTable.name }).from(grillsTable).where(eq(grillsTable.id, cook.grillId));
       grillName = grill?.name ?? null;
     }
-    return { ...cook, grillName };
+    const [{ photoCount }] = await db
+      .select({ photoCount: count() })
+      .from(cookPhotosTable)
+      .where(and(eq(cookPhotosTable.cookId, cook.id), eq(cookPhotosTable.userId, req.userId)));
+    return { ...cook, grillName, photoCount: Number(photoCount) };
   }));
   res.json(result);
 });
@@ -356,6 +361,11 @@ router.delete("/sessions/:sessionId", requireAuth, async (req: any, res): Promis
     return;
   }
   for (const cook of cooks) {
+    const cookPhotoRows = await db.select().from(cookPhotosTable).where(eq(cookPhotosTable.cookId, cook.id));
+    for (const p of cookPhotoRows) {
+      await deleteFromStorage(p.storageKey).catch(() => {});
+    }
+    await db.delete(cookPhotosTable).where(eq(cookPhotosTable.cookId, cook.id));
     await db.delete(cookCheckins).where(eq(cookCheckins.cookId, cook.id));
     await db.delete(alertsTable).where(eq(alertsTable.cookId, cook.id));
   }
@@ -376,6 +386,11 @@ router.delete("/cooks/:id", requireAuth, async (req: any, res): Promise<void> =>
     res.status(404).json({ error: "Cook not found" });
     return;
   }
+  const cookPhotoRows = await db.select().from(cookPhotosTable).where(eq(cookPhotosTable.cookId, params.data.id));
+  for (const p of cookPhotoRows) {
+    await deleteFromStorage(p.storageKey).catch(() => {});
+  }
+  await db.delete(cookPhotosTable).where(eq(cookPhotosTable.cookId, params.data.id));
   await db.delete(cookCheckins).where(eq(cookCheckins.cookId, params.data.id));
   await db.delete(alertsTable).where(eq(alertsTable.cookId, params.data.id));
   await db.delete(cooksTable).where(eq(cooksTable.id, params.data.id));

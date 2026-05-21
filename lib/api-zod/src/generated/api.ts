@@ -690,6 +690,10 @@ export const ListCooksResponseItem = zod.object({
     .describe(
       "Latest internal probe temperature reading for this cook (null when no readings exist)",
     ),
+  photoCount: zod
+    .number()
+    .optional()
+    .describe("Number of photos attached to this cook"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1001,6 +1005,10 @@ export const GetCookResponse = zod.object({
     .describe(
       "Latest internal probe temperature reading for this cook (null when no readings exist)",
     ),
+  photoCount: zod
+    .number()
+    .optional()
+    .describe("Number of photos attached to this cook"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1321,6 +1329,10 @@ export const UpdateCookResponse = zod.object({
     .describe(
       "Latest internal probe temperature reading for this cook (null when no readings exist)",
     ),
+  photoCount: zod
+    .number()
+    .optional()
+    .describe("Number of photos attached to this cook"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1467,6 +1479,52 @@ export const CreateCookEventBody = zod.object({
 export const DeleteCookEventParams = zod.object({
   id: zod.coerce.number(),
   eventId: zod.coerce.number(),
+});
+
+/**
+ * @summary List all photos attached to a cook
+ */
+export const ListCookPhotosParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListCookPhotosResponseItem = zod.object({
+  id: zod.number(),
+  cookId: zod.number(),
+  userId: zod.string(),
+  storageKey: zod.string(),
+  signedUrl: zod
+    .string()
+    .nullable()
+    .describe("Signed URL valid for 1 hour to fetch the photo"),
+  takenAt: zod.coerce.date().nullable(),
+  createdAt: zod.coerce.date(),
+});
+export const ListCookPhotosResponse = zod.array(ListCookPhotosResponseItem);
+
+/**
+ * @summary Upload a photo and attach it to a cook (multipart/form-data, max 10 MB, up to 10 photos per cook)
+ */
+export const UploadCookPhotoParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UploadCookPhotoBody = zod.object({
+  photo: zod
+    .instanceof(File)
+    .describe("Image file (JPEG, PNG, or WebP, max 10 MB)"),
+  takenAt: zod.coerce
+    .date()
+    .optional()
+    .describe("Optional timestamp when the photo was taken"),
+});
+
+/**
+ * @summary Delete a photo from a cook
+ */
+export const DeleteCookPhotoParams = zod.object({
+  id: zod.coerce.number(),
+  photoId: zod.coerce.number(),
 });
 
 /**
@@ -2361,6 +2419,10 @@ export const GetRecentCooksResponseItem = zod.object({
     .describe(
       "Latest internal probe temperature reading for this cook (null when no readings exist)",
     ),
+  photoCount: zod
+    .number()
+    .optional()
+    .describe("Number of photos attached to this cook"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

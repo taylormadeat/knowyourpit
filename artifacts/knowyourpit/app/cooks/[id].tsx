@@ -148,6 +148,7 @@ import { NextUpBanner } from "@/components/NextUpBanner";
 import { QuickLogSheet } from "@/components/cook-detail/QuickLogSheet";
 import { CookHealthScoreCard } from "@/components/cook-detail/CookHealthScoreCard";
 import { PitJournalFeed } from "@/components/cook-detail/PitJournalFeed";
+import { CookPhotosSection } from "@/components/cook-detail/CookPhotosSection";
 import { useProactiveAlerts } from "@/hooks/useProactiveAlerts";
 import { getListCookEventsQueryKey } from "@workspace/api-client-react";
 
@@ -2503,6 +2504,9 @@ export default function CookDetailScreen() {
           rateSaving={rateSaving}
           saveRatings={saveRatings}
         />
+
+        {/* ── Cook Photos ──────────────────────────────────────── */}
+        <CookPhotosSection cookId={Number(id)} colors={colors} />
 
         {/* ── Share Cook (completed cooks only) ───────────────── */}
         <ShareCookButton cook={c} colors={colors} />
