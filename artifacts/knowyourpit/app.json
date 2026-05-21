@@ -2,7 +2,7 @@
   "expo": {
     "name": "knowyourpit",
     "slug": "knowyourpit",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -17,20 +17,20 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.knowyourpit.app",
-      "buildNumber": "94",
+      "buildNumber": "95",
       "appleTeamId": "W8AY23XJTF",
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "knowyourpit uses your location to show the current outdoor temperature during live cook sessions.",
-        "NSPhotoLibraryUsageDescription": "knowyourpit accesses your photo library so you can scan cook progress images for AI temperature analysis.",
-        "NSCameraUsageDescription": "knowyourpit uses your camera to capture cook progress images for AI temperature analysis.",
+        "NSPhotoLibraryUsageDescription": "knowyourpit accesses your photo library to attach photos to your cook logs and scan images for AI temperature analysis.",
+        "NSCameraUsageDescription": "knowyourpit uses your camera to take cook photos and capture progress images for AI temperature analysis.",
         "NSUserNotificationUsageDescription": "knowyourpit sends you alerts when your probe hits the target temperature and reminders to add fuel during long cooks.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.knowyourpit.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#FFFFFF"
@@ -81,8 +81,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "knowyourpit accesses your photo library so you can scan cook progress images for AI temperature analysis.",
-          "cameraPermission": "knowyourpit uses your camera to capture cook progress images for AI temperature analysis."
+          "photosPermission": "knowyourpit accesses your photo library to attach photos to your cook logs and scan images for AI temperature analysis.",
+          "cameraPermission": "knowyourpit uses your camera to take cook photos and capture progress images for AI temperature analysis."
         }
       ]
     ],
