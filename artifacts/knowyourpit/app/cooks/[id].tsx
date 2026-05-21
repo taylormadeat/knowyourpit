@@ -66,6 +66,7 @@ import {
   useListCooks,
   useListCookCheckins,
   useCreateCookCheckin,
+  useListCookPhotos,
   getListCooksQueryKey,
   getGetCookQueryKey,
   getGetDashboardSummaryQueryKey,
@@ -184,6 +185,9 @@ export default function CookDetailScreen() {
   // user reopening the app for the first time after install would see the
   // paywall blur flash for ~1s before isPro flips to true.
   const { isIdentityLinked } = useSubscription();
+
+  const { data: cookPhotos = [] } = useListCookPhotos(Number(id));
+  const cookPhotoCount = Array.isArray(cookPhotos) ? cookPhotos.length : 0;
 
   const [images, setImages] = useState<PickedImage[]>([]);
   const [cookNotes, setCookNotes] = useState("");
@@ -2476,6 +2480,7 @@ export default function CookDetailScreen() {
           verdictCfg={verdictCfg}
           assessment={assessment}
           onCardLayout={onCardLayout}
+          cookPhotoCount={cookPhotoCount}
         />
 
         {/* ── Soft "you're 1 cook from the wall" nudge ──────────

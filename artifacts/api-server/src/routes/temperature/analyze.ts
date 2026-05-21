@@ -1,8 +1,9 @@
 import { Router, type IRouter, type Request } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../../middlewares/requireAuth";
-import { db, cookEvents, cooksTable } from "@workspace/db";
+import { db, cookEvents, cooksTable, cookPhotosTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
+import { objectStorageClient } from "../../lib/objectStorage";
 import { computeSmokerInsights, formatSmokerProfile } from "../../lib/smokerCalibration";
 import {
   FREE_AI_ANALYZE_DAILY_LIMIT,
@@ -131,6 +132,63 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
       },
     };
   });
+
+  // ── Fetch cook log photos and append them to the analysis ────────────────
+  // When a cookId is provided we pull the user's stored cook photos from
+  // object storage (up to 5, prioritising the most recent) and send them
+  // alongside any thermometer screenshots the client uploaded.  This lets
+  // the AI comment on bark colour, smoke ring, moisture, probe placement,
+  // char, and overall finished appearance without the user having to
+  // re-upload anything.
+  let cookPhotosIncluded = 0;
+  const cookPhotoImageParts: Array<{ type: "image_url"; image_url: { url: string; detail: "high" } }> = [];
+
+  if (typeof cookId === "number" && isFinite(cookId)) {
+    const userId = (req as AuthedRequest).userId;
+    // Leave headroom so user-uploaded images are never pushed out
+    const maxCookPhotos = Math.max(0, 10 - imageContentParts.length);
+    if (maxCookPhotos > 0) {
+      try {
+        const photos = await db
+          .select()
+          .from(cookPhotosTable)
+          .where(and(eq(cookPhotosTable.cookId, cookId), eq(cookPhotosTable.userId, userId)))
+          .orderBy(cookPhotosTable.createdAt)
+          .limit(maxCookPhotos);
+
+        const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
+        if (bucketId && photos.length > 0) {
+          await Promise.all(
+            photos.map(async (photo) => {
+              try {
+                const bucket = objectStorageClient.bucket(bucketId);
+                const [contents] = await bucket.file(photo.storageKey).download();
+                const base64 = (contents as Buffer).toString("base64");
+                const detected = detectImageMime(base64);
+                const mime =
+                  detected && ALLOWED_MIME_TYPES.has(detected) ? detected : "image/jpeg";
+                cookPhotoImageParts.push({
+                  type: "image_url" as const,
+                  image_url: { url: `data:${mime};base64,${base64}`, detail: "high" as const },
+                });
+                cookPhotosIncluded++;
+              } catch (photoErr: any) {
+                req.log.warn(
+                  { err: photoErr?.message, storageKey: photo.storageKey },
+                  "Skipping cook photo for analysis — download failed",
+                );
+              }
+            }),
+          );
+        }
+      } catch (dbErr: any) {
+        req.log.warn({ err: dbErr?.message }, "Failed to query cook photos for analysis");
+      }
+    }
+  }
+
+  // Combine: user-uploaded images first, cook log photos appended after
+  const allImageParts = [...imageContentParts, ...cookPhotoImageParts];
 
   // Build cook context section for the prompt
   const contextLines: string[] = [];
@@ -301,9 +359,21 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
   };
 
   const notesBlock = cookNotes ? `\n\nPitmaster notes about this cook:\n${cookNotes}` : "";
-  const imageDesc = imageList.length > 0
-    ? `Analyse these ${imageList.length} BBQ cook image${imageList.length > 1 ? "s" : ""}.`
-    : "No images provided — assess using the cook context and notes below.";
+
+  const imageDesc = (() => {
+    if (allImageParts.length === 0) {
+      return "No images provided — assess using the cook context and notes below.";
+    }
+    const userImgCount = imageContentParts.length;
+    if (cookPhotosIncluded === 0) {
+      return `Analyse these ${userImgCount} BBQ cook image${userImgCount > 1 ? "s" : ""}.`;
+    }
+    if (userImgCount === 0) {
+      return `Analyse these ${cookPhotosIncluded} cook log photo${cookPhotosIncluded > 1 ? "s" : ""} taken during this cook session. Look for visual cues like bark colour and texture, smoke ring, moisture levels, probe placement, char or crust development, and overall finished appearance.`;
+    }
+    return `Analyse these ${allImageParts.length} BBQ images: ${userImgCount} thermometer screenshot${userImgCount > 1 ? "s" : ""} plus ${cookPhotosIncluded} cook log photo${cookPhotosIncluded > 1 ? "s" : ""} from this session. For the cook photos look for visual cues like bark colour and texture, smoke ring, moisture, probe placement, char or crust development, and overall finished appearance.`;
+  })();
+
   const userText = `${imageDesc}${contextBlock}${notesBlock}\n\nReturn structured JSON as instructed.`;
 
   try {
@@ -315,7 +385,7 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
         {
           role: "user",
           content: [
-            ...imageContentParts,
+            ...allImageParts,
             { type: "text" as const, text: userText },
           ],
         },
@@ -512,6 +582,7 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
       detectedRub: safeStr(result.detectedRub),
       assessment: safeAssessment,
       phasePrediction: safePhasePrediction,
+      cookPhotosIncluded,
       decisions: safeDecisions,
     });
   } catch (err) {

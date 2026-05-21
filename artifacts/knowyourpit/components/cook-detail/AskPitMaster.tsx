@@ -32,6 +32,7 @@ interface Props {
   onUpgradeAutoGradePress: () => void;
   analyzing: boolean;
   analyze: () => void;
+  cookPhotoCount?: number;
   lastAnalyzedAtMs: number | null;
   nowMs: number;
   result: any;
@@ -51,6 +52,7 @@ export function AskPitMaster(p: Props) {
     paywallUsage, autoGradePaused, onUpgradeAutoGradePress,
     analyzing, analyze, lastAnalyzedAtMs, nowMs,
     result, renderDecisions, verdictCfg, assessment, onCardLayout,
+    cookPhotoCount = 0,
   } = p;
 
   const [cardExpanded, setCardExpanded] = React.useState(false);
@@ -248,6 +250,35 @@ export function AskPitMaster(p: Props) {
               </Text>
               <Feather name="chevron-right" size={16} color="#E84820" />
             </Pressable>
+          )}
+
+          {cookPhotoCount > 0 && (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 6,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 8,
+                backgroundColor: "#6C3BF512",
+                borderWidth: 1,
+                borderColor: "#6C3BF530",
+                marginBottom: 4,
+              }}
+            >
+              <Feather name="camera" size={12} color="#A855F7" />
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontFamily: "Inter_500Medium",
+                  color: "#A855F7",
+                  flex: 1,
+                }}
+              >
+                Using your {cookPhotoCount} cook photo{cookPhotoCount > 1 ? "s" : ""} for visual analysis
+              </Text>
+            </View>
           )}
 
           <Pressable
