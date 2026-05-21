@@ -1559,6 +1559,9 @@ components:
         spritzFrequency:
           type: ["string", "null"]
           description: How often the cook was spritzed (e.g. Every Hour, No Spritz)
+        spritzLiquid:
+          type: ["string", "null"]
+          description: The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)
         wrapFinish:
           type: ["string", "null"]
           description: Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
@@ -1767,6 +1770,9 @@ components:
         spritzFrequency:
           type: ["string", "null"]
           description: How often the cook was spritzed (e.g. Every Hour, No Spritz)
+        spritzLiquid:
+          type: ["string", "null"]
+          description: The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)
         wrapFinish:
           type: ["string", "null"]
           description: Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
@@ -1878,6 +1884,9 @@ components:
         spritzFrequency:
           type: ["string", "null"]
           description: How often the cook was spritzed (e.g. Every Hour, No Spritz)
+        spritzLiquid:
+          type: ["string", "null"]
+          description: The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)
         wrapFinish:
           type: ["string", "null"]
           description: Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
@@ -2219,6 +2228,9 @@ components:
         spritzFrequency:
           type: ["string", "null"]
           description: How often the user plans to spritz the meat during the cook (e.g. "No Spritz", "Every 30 min", "Every Hour", "Once at Stall"). Affects bark development and moisture retention.
+        spritzLiquid:
+          type: ["string", "null"]
+          description: The liquid the pitmaster uses to spritz (e.g. "Apple Juice", "Apple Cider Vinegar", "Water", "Butter", "Beer"). PitMaster uses this to give liquid-specific advice on color development, bark formation, and flavor.
         wrapFinish:
           type: ["string", "null"]
           description: User's intended wrap or finish method (e.g. "No Wrap", "Butcher Paper at Stall", "Foil at Stall (Texas Crutch)", "Foil Boat"). PitMaster should align wrap recommendation with this preference.

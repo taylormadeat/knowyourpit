@@ -60,6 +60,11 @@ export interface AiPredictBody {
    */
   spritzFrequency?: string | null;
   /**
+   * The liquid the pitmaster uses to spritz (e.g. "Apple Juice", "Apple Cider Vinegar", "Water", "Butter", "Beer"). PitMaster uses this to give liquid-specific advice on color development, bark formation, and flavor.
+   * @nullable
+   */
+  spritzLiquid?: string | null;
+  /**
    * User's intended wrap or finish method (e.g. "No Wrap", "Butcher Paper at Stall", "Foil at Stall (Texas Crutch)", "Foil Boat"). PitMaster should align wrap recommendation with this preference.
    * @nullable
    */

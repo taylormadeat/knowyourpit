@@ -497,6 +497,11 @@ export interface Cook {
    */
   spritzFrequency?: string | null;
   /**
+   * The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)
+   * @nullable
+   */
+  spritzLiquid?: string | null;
+  /**
    * Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
    * @nullable
    */
@@ -710,6 +715,11 @@ export interface CreateCookBody {
    */
   spritzFrequency?: string | null;
   /**
+   * The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)
+   * @nullable
+   */
+  spritzLiquid?: string | null;
+  /**
    * Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
    * @nullable
    */
@@ -894,6 +904,11 @@ export interface UpdateCookBody {
    * @nullable
    */
   spritzFrequency?: string | null;
+  /**
+   * The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)
+   * @nullable
+   */
+  spritzLiquid?: string | null;
   /**
    * Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
    * @nullable
@@ -1140,6 +1155,11 @@ export interface AiPredictBody {
    * @nullable
    */
   spritzFrequency?: string | null;
+  /**
+   * The liquid the pitmaster uses to spritz (e.g. "Apple Juice", "Apple Cider Vinegar", "Water", "Butter", "Beer"). PitMaster uses this to give liquid-specific advice on color development, bark formation, and flavor.
+   * @nullable
+   */
+  spritzLiquid?: string | null;
   /**
    * User's intended wrap or finish method (e.g. "No Wrap", "Butcher Paper at Stall", "Foil at Stall (Texas Crutch)", "Foil Boat"). PitMaster should align wrap recommendation with this preference.
    * @nullable

@@ -49,6 +49,7 @@ export const cooksTable = pgTable("cooks", {
   cookingMethod: text("cooking_method"),
   injection: text("injection"),
   spritzFrequency: text("spritz_frequency"),
+  spritzLiquid: text("spritz_liquid"),
   wrapFinish: text("wrap_finish"),
   finishTimeRangeLower: timestamp("finish_time_range_lower", { withTimezone: true }),
   finishTimeRangeUpper: timestamp("finish_time_range_upper", { withTimezone: true }),

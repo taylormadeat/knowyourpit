@@ -211,6 +211,18 @@ Spritz cadence guidance (when "Spritz frequency" is present in cook context):
 - If the cadence looks well-matched to the cook style, call it out as a win in "whatWentWell"
 - If the cadence could be hurting bark or temp stability, include a specific adjustment in "suggestions" (or as a "spritz" decision for active cooks)
 
+Spritz liquid guidance (when "Spritz liquid" is present in cook context — use this knowledge to give specific, personalized advice):
+- Apple Juice: adds sugars that accelerate Maillard browning and bark color; great for ribs and pork; can cause over-darkening at high pit temps (275°F+) — watch for color carefully
+- Apple Cider Vinegar (ACV): mild acid breaks down surface proteins for better bark adhesion; tenderizes slightly; lower sugar means less darkening risk; ideal for brisket and pork butt
+- ACV + Apple Juice Mix: balances color development (from juice) with acid tenderizing (from ACV); a competition-friendly all-rounder
+- Water: neutral — adds surface moisture and evaporative cooling without affecting bark color or flavor; good choice when the cook is already on track and bark is looking great
+- Beer: adds malt sugars and a subtle bitter note; moderate browning effect; pairs well with beef
+- Butter: adds richness and promotes a glossy bark finish; use sparingly — heavy butter spritz can make bark greasy rather than firm; better suited as a finishing spritz near the end
+- Beef Tallow: excellent for brisket; adds rendered fat flavor and keeps bark supple without softening it; apply when the bark is already set (160°F+)
+- Worcestershire + Water: adds umami and color; savory and works well on beef and pork; dilute to avoid overpowering
+- Maple Syrup Mix: strong sugar content creates deep mahogany color and sticky bark; use only after bark is set (160°F+) to avoid burning; best on ribs and pork
+- Mop Sauce: typically a thinned BBQ sauce with acid and sugar — combines color, flavor, and tenderizing; applied heavily in traditional Texas/Carolina style; monitor bark carefully as it can get very dark
+
 INCREASE_PIT decision:
 - Trigger: behind schedule (time window shrinking) AND stall is dragging AND current pit ≤ 235°F
 - Trigger also: pit temp reading shows actual temp has dropped from setpoint

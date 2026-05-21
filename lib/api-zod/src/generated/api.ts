@@ -685,6 +685,12 @@ export const ListCooksResponseItem = zod.object({
     .string()
     .nullish()
     .describe("How often the cook was spritzed (e.g. Every Hour, No Spritz)"),
+  spritzLiquid: zod
+    .string()
+    .nullish()
+    .describe(
+      "The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)",
+    ),
   wrapFinish: zod
     .string()
     .nullish()
@@ -826,6 +832,12 @@ export const CreateCookBody = zod.object({
     .string()
     .nullish()
     .describe("How often the cook was spritzed (e.g. Every Hour, No Spritz)"),
+  spritzLiquid: zod
+    .string()
+    .nullish()
+    .describe(
+      "The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)",
+    ),
   wrapFinish: zod
     .string()
     .nullish()
@@ -1000,6 +1012,12 @@ export const GetCookResponse = zod.object({
     .string()
     .nullish()
     .describe("How often the cook was spritzed (e.g. Every Hour, No Spritz)"),
+  spritzLiquid: zod
+    .string()
+    .nullish()
+    .describe(
+      "The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)",
+    ),
   wrapFinish: zod
     .string()
     .nullish()
@@ -1157,6 +1175,12 @@ export const UpdateCookBody = zod.object({
     .string()
     .nullish()
     .describe("How often the cook was spritzed (e.g. Every Hour, No Spritz)"),
+  spritzLiquid: zod
+    .string()
+    .nullish()
+    .describe(
+      "The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)",
+    ),
   wrapFinish: zod
     .string()
     .nullish()
@@ -1324,6 +1348,12 @@ export const UpdateCookResponse = zod.object({
     .string()
     .nullish()
     .describe("How often the cook was spritzed (e.g. Every Hour, No Spritz)"),
+  spritzLiquid: zod
+    .string()
+    .nullish()
+    .describe(
+      "The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)",
+    ),
   wrapFinish: zod
     .string()
     .nullish()
@@ -1873,6 +1903,12 @@ export const AiPredictBody = zod.object({
     .describe(
       'How often the user plans to spritz the meat during the cook (e.g. \"No Spritz\", \"Every 30 min\", \"Every Hour\", \"Once at Stall\"). Affects bark development and moisture retention.',
     ),
+  spritzLiquid: zod
+    .string()
+    .nullish()
+    .describe(
+      'The liquid the pitmaster uses to spritz (e.g. \"Apple Juice\", \"Apple Cider Vinegar\", \"Water\", \"Butter\", \"Beer\"). PitMaster uses this to give liquid-specific advice on color development, bark formation, and flavor.',
+    ),
   wrapFinish: zod
     .string()
     .nullish()
@@ -2414,6 +2450,12 @@ export const GetRecentCooksResponseItem = zod.object({
     .string()
     .nullish()
     .describe("How often the cook was spritzed (e.g. Every Hour, No Spritz)"),
+  spritzLiquid: zod
+    .string()
+    .nullish()
+    .describe(
+      "The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)",
+    ),
   wrapFinish: zod
     .string()
     .nullish()

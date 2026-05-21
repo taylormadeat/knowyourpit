@@ -322,6 +322,7 @@ export default function SessionDetailScreen() {
   const [cookEditCookingMethod, setCookEditCookingMethod] = useState<string | null>(null);
   const [cookEditInjection, setCookEditInjection] = useState<string | null>(null);
   const [cookEditSpritzFrequency, setCookEditSpritzFrequency] = useState<string | null>(null);
+  const [cookEditSpritzLiquid, setCookEditSpritzLiquid] = useState<string | null>(null);
   const [cookEditWrapFinish, setCookEditWrapFinish] = useState<string | null>(null);
   const [cookEditSaving, setCookEditSaving] = useState(false);
 
@@ -347,6 +348,7 @@ export default function SessionDetailScreen() {
     setCookEditCookingMethod(c?.cookingMethod ?? null);
     setCookEditInjection(c?.injection ?? null);
     setCookEditSpritzFrequency(c?.spritzFrequency ?? null);
+    setCookEditSpritzLiquid(c?.spritzLiquid ?? null);
     setCookEditWrapFinish(c?.wrapFinish ?? null);
     setCookEditVisible(true);
   }, []);
@@ -372,6 +374,7 @@ export default function SessionDetailScreen() {
       payload.cookingMethod = cookEditCookingMethod;
       payload.injection = cookEditInjection;
       payload.spritzFrequency = cookEditSpritzFrequency;
+      payload.spritzLiquid = cookEditSpritzLiquid;
       payload.wrapFinish = cookEditWrapFinish;
       await updateCook.mutateAsync({ id: cookEditCook.id, data: payload });
       if (sessionId) {
@@ -1708,6 +1711,8 @@ export default function SessionDetailScreen() {
         setEditInjection={setCookEditInjection}
         editSpritzFrequency={cookEditSpritzFrequency}
         setEditSpritzFrequency={setCookEditSpritzFrequency}
+        editSpritzLiquid={cookEditSpritzLiquid}
+        setEditSpritzLiquid={setCookEditSpritzLiquid}
         editWrapFinish={cookEditWrapFinish}
         setEditWrapFinish={setCookEditWrapFinish}
       />

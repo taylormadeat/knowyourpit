@@ -28,6 +28,19 @@ export const QP_SPRITZ_FREQUENCIES = [
   "As Needed",
 ] as const;
 
+export const QP_SPRITZ_LIQUIDS = [
+  "Apple Juice",
+  "Apple Cider Vinegar",
+  "ACV + Apple Juice Mix",
+  "Water",
+  "Beer",
+  "Butter",
+  "Beef Tallow",
+  "Worcestershire + Water",
+  "Maple Syrup Mix",
+  "Mop Sauce",
+] as const;
+
 export const QP_WRAP_FINISH_OPTIONS = [
   "No Wrap",
   "Butcher Paper at Stall",
@@ -42,4 +55,5 @@ export type QpCookMethod = (typeof QP_COOK_METHODS)[number];
 export type QpMeatStartTemp = (typeof QP_MEAT_START_TEMPS)[number];
 export type QpInjectionOption = (typeof QP_INJECTION_OPTIONS)[number];
 export type QpSpritzFrequency = (typeof QP_SPRITZ_FREQUENCIES)[number];
+export type QpSpritzLiquid = (typeof QP_SPRITZ_LIQUIDS)[number];
 export type QpWrapFinishOption = (typeof QP_WRAP_FINISH_OPTIONS)[number];
