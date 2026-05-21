@@ -11,7 +11,7 @@ const STORAGE_KEY_PREFIX = "spritz_notif_ids_cook_";
  * the frequency cannot be expressed as a fixed repeating interval (e.g.
  * "As Needed", "Once at Stall", "No Spritz").
  */
-function parseIntervalMinutes(freq: string): number | null {
+export function parseIntervalMinutes(freq: string): number | null {
   switch (freq as QpSpritzFrequency) {
     case "Every 30 min":
       return 30;
@@ -199,6 +199,51 @@ export function useSpritzNotifications(
       () => {},
     );
   }, [cookId, cookStatus, spritzFrequency, cookFoodType, scheduleKey]);
+}
+
+/**
+ * Given a cook's spritz frequency and sequence data, computes the timestamp
+ * (in ms) of the next upcoming spritz reminder relative to `nowMs`.
+ * Returns null when:
+ * - the frequency has no fixed interval (No Spritz / As Needed / Once at Stall)
+ * - there is no valid cook window to schedule within
+ * - there are no future spritz times before the estimated finish
+ */
+export function computeNextSpritzMs(
+  spritzFrequency: string | null | undefined,
+  cookSeqData: SpritzScheduleData | null | undefined,
+  nowMs: number,
+): number | null {
+  if (!spritzFrequency) return null;
+  const intervalMinutes = parseIntervalMinutes(spritzFrequency);
+  if (!intervalMinutes) return null;
+
+  const schedule = cookSeqData?.schedule ?? [];
+  let windowStartMs: number | null = null;
+  let windowEndMs: number | null = null;
+
+  for (const item of schedule) {
+    if (item.meatOnAt) {
+      const ms = new Date(item.meatOnAt).getTime();
+      if (windowStartMs === null || ms < windowStartMs) windowStartMs = ms;
+    }
+    if (item.estimatedFinishAt) {
+      const ms = new Date(item.estimatedFinishAt).getTime();
+      if (windowEndMs === null || ms > windowEndMs) windowEndMs = ms;
+    }
+  }
+
+  if (!windowStartMs || !windowEndMs || windowEndMs <= windowStartMs) return null;
+
+  const intervalMs = intervalMinutes * 60_000;
+  // Walk forward from windowStartMs + 1 interval to find the next future spritz.
+  let candidateMs = windowStartMs + intervalMs;
+  while (candidateMs < windowEndMs) {
+    if (candidateMs > nowMs) return candidateMs;
+    candidateMs += intervalMs;
+  }
+
+  return null;
 }
 
 export { cancelStoredSpritzNotifications };

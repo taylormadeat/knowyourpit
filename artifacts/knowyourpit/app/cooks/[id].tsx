@@ -37,7 +37,7 @@ import {
   useFrozenStageNotifications,
   cancelStoredFrozenNotifications,
 } from "@/hooks/useFrozenStageNotifications";
-import { useSpritzNotifications } from "@/hooks/useSpritzNotifications";
+import { useSpritzNotifications, computeNextSpritzMs } from "@/hooks/useSpritzNotifications";
 import { setCookDetailVisible, setCurrentCookId } from "@/hooks/cookDetailVisibility";
 import { consumePendingCheckin } from "@/lib/pendingCheckinNotif";
 import { useCookLiveActivity } from "@/hooks/useCookLiveActivity";
@@ -1835,6 +1835,12 @@ export default function CookDetailScreen() {
   // stays in sync with the progress bar (including wrap-temp adjustments).
   const remainingMs = estimatedFinishMs != null ? estimatedFinishMs - nowMs : null;
 
+  // Next scheduled spritz time — only defined for active cooks with a timed
+  // spritz frequency ("Every 30 min", "Every Hour", "Every 2 Hours").
+  const nextSpritzMs = cookStatus === "active"
+    ? computeNextSpritzMs(c.spritzFrequency ?? null, cookSeqData, nowMs)
+    : null;
+
   // Live graph from accumulated MEATER readings
   const liveGraphProbes = liveReadings.length >= 2
     ? [{ probeName: meaterProbes[0]?.deviceName ?? "Probe 1", timeSeries: liveReadings, finishingTempF: liveReadings[liveReadings.length - 1].tempF }]
@@ -2198,6 +2204,7 @@ export default function CookDetailScreen() {
           nowMs={nowMs}
           targetTempF={c.targetTempF ?? null}
           cookTempF={c.cookTempF ?? null}
+          nextSpritzMs={nextSpritzMs}
           onViewDetails={cookStatus === "active" ? () => setPlanSheetVisible(true) : undefined}
         />
         <CookSummaryCard

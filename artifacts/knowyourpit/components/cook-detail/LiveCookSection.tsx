@@ -42,7 +42,17 @@ interface Props {
   nowMs?: number;
   targetTempF?: number | null;
   cookTempF?: number | null;
+  nextSpritzMs?: number | null;
   onViewDetails?: () => void;
+}
+
+function fmtSpritzCountdown(diffMs: number): string {
+  const totalMins = Math.ceil(diffMs / 60000);
+  if (totalMins <= 0) return "now";
+  if (totalMins < 60) return `in ${totalMins} min`;
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  return m > 0 ? `in ${h}h ${m}m` : `in ${h}h`;
 }
 
 export function LiveCookSection(p: Props) {
@@ -50,7 +60,7 @@ export function LiveCookSection(p: Props) {
     c, colors, weather, meaterLinked, meaterProbes, thermoworksLinked, thermoworksProbes,
     liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, estimatedFinishMs,
     userTempEdited, setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
-    targetTempF, cookTempF, onViewDetails,
+    targetTempF, cookTempF, nextSpritzMs, onViewDetails,
   } = p;
 
   if (c.status !== "active") return null;
@@ -113,6 +123,33 @@ export function LiveCookSection(p: Props) {
       </View>
 
       {turnInBadge}
+
+      {nextSpritzMs != null && (() => {
+        const now = nowMs ?? Date.now();
+        const diffMs = nextSpritzMs - now;
+        const accent = "#0EA5E9";
+        return (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              marginHorizontal: 14,
+              marginTop: 10,
+              padding: 10,
+              borderRadius: 8,
+              backgroundColor: accent + "18",
+              borderWidth: 1,
+              borderColor: accent + "55",
+            }}
+          >
+            <Feather name="cloud-rain" size={14} color={accent} />
+            <Text style={{ color: accent, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+              Next spritz {fmtSpritzCountdown(diffMs)}
+            </Text>
+          </View>
+        );
+      })()}
 
       <CookProgressBar
         startMs={c.actualStartAt ? new Date(c.actualStartAt).getTime() : 0}
