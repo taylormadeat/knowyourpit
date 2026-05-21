@@ -738,8 +738,9 @@ export default function SessionDetailScreen() {
             </View>
           )}
           {!isLoading && !isError && (
-            <Pressable onPress={() => setEditVisible(true)} hitSlop={8} style={s.editBtn}>
-              <Feather name="edit-2" size={18} color={colors.foreground} />
+            <Pressable onPress={() => setEditVisible(true)} hitSlop={8} style={[s.editBtn, { flexDirection: "row", alignItems: "center", gap: 4 }]}>
+              <Feather name="file-text" size={16} color={colors.foreground} />
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>Session</Text>
             </Pressable>
           )}
         </View>
@@ -971,6 +972,18 @@ export default function SessionDetailScreen() {
                             {cook.targetTempF ? ` · internal target ${cook.targetTempF}°F` : ""}
                           </Text>
                         ) : null}
+                        {(() => {
+                          const parts: string[] = [];
+                          if ((cook as any).cookingMethod) parts.push((cook as any).cookingMethod);
+                          if ((cook as any).weightLbs != null) parts.push(`${(cook as any).weightLbs} lbs`);
+                          if ((cook as any).cookTempF != null) parts.push(`${(cook as any).cookTempF}°F pit`);
+                          if (parts.length === 0) return null;
+                          return (
+                            <Text style={[s.cookGrill, { color: colors.mutedForeground, fontSize: 11 }]}>
+                              {parts.join(" · ")}
+                            </Text>
+                          );
+                        })()}
                         <View style={s.timesRow}>
                           {meatOnTime && (
                             <View style={s.timeChip}>
@@ -1060,6 +1073,13 @@ export default function SessionDetailScreen() {
                             {cook.status}
                           </Text>
                         </View>
+                        <Pressable
+                          onPress={(e) => { e.stopPropagation(); openCookEdit(cook); }}
+                          hitSlop={8}
+                          style={{ padding: 4 }}
+                        >
+                          <Feather name="edit-2" size={15} color="#E84820" />
+                        </Pressable>
                         <Feather
                           name={isExpanded ? "chevron-up" : "chevron-down"}
                           size={16}
@@ -1355,7 +1375,7 @@ export default function SessionDetailScreen() {
             <View style={s.modalHandle} />
 
             <View style={s.modalHeader}>
-              <Text style={[s.modalTitle, { color: colors.foreground }]}>Edit Session</Text>
+              <Text style={[s.modalTitle, { color: colors.foreground }]}>Session Details</Text>
               <Pressable onPress={() => setEditVisible(false)} hitSlop={8}>
                 <Feather name="x" size={20} color={colors.mutedForeground} />
               </Pressable>
