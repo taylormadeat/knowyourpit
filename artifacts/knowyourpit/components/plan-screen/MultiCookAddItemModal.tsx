@@ -49,19 +49,23 @@ export function MultiCookAddItemModal(p: Props) {
   } = p;
 
   const [selectedCookMethod, setSelectedCookMethod] = useState<QpCookMethod | null>(null);
+  const [lastUsedMethod, setLastUsedMethod] = useState<QpCookMethod | null>(null);
 
   useEffect(() => {
     if (!multiPickedCut) {
       setSelectedCookMethod(null);
+      setLastUsedMethod(null);
       return;
     }
     loadLastCookMethod(multiPickedCut.name).then(method => {
       setSelectedCookMethod(method);
+      setLastUsedMethod(method);
     });
   }, [multiPickedCut?.name]);
 
   const handleClose = () => {
     setSelectedCookMethod(null);
+    setLastUsedMethod(null);
     onClose();
   };
 
@@ -134,25 +138,33 @@ export function MultiCookAddItemModal(p: Props) {
                   <View style={{ flexDirection: "row", gap: 8 }}>
                     {QP_COOK_METHODS.map(method => {
                       const active = selectedCookMethod === method;
+                      const showLastUsed = lastUsedMethod === method && active;
                       return (
                         <Pressable
                           key={method}
                           onPress={() => {
                             setSelectedCookMethod(active ? null : method);
+                            setLastUsedMethod(null);
                             Haptics.selectionAsync();
                           }}
                           style={{
                             paddingHorizontal: 12,
-                            paddingVertical: 7,
+                            paddingVertical: showLastUsed ? 5 : 7,
                             borderRadius: 20,
                             borderWidth: 1,
                             borderColor: active ? colors.primary : colors.border,
                             backgroundColor: active ? colors.primary + "18" : colors.muted,
+                            alignItems: "center",
                           }}
                         >
                           <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
                             {method}
                           </Text>
+                          {showLastUsed && (
+                            <Text style={{ fontSize: 9, fontFamily: "Inter_500Medium", color: colors.primary, opacity: 0.75, marginTop: 1 }}>
+                              Last used
+                            </Text>
+                          )}
                         </Pressable>
                       );
                     })}
