@@ -41,6 +41,7 @@ interface MultiItem {
   cut: MeatCut;
   weightLbs: string;
   grillId: number | null;
+  cookMethod: import("@/constants/cookQuickPicks").QpCookMethod | null;
 }
 
 interface Props {

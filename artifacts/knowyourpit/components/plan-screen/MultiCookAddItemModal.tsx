@@ -1,10 +1,29 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, Modal, Pressable, FlatList, TextInput, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { planStyles as s } from "./styles";
 import { MEAT_CATEGORIES, MEAT_CUTS_BY_CATEGORY, type MeatCut } from "@/constants/meatCuts";
 import { QP_COOK_METHODS, type QpCookMethod } from "@/constants/cookQuickPicks";
+
+const COOK_METHOD_STORAGE_PREFIX = "@knowyourpit:cookMethod:";
+
+async function loadLastCookMethod(cutName: string): Promise<QpCookMethod | null> {
+  try {
+    const stored = await AsyncStorage.getItem(COOK_METHOD_STORAGE_PREFIX + cutName);
+    if (stored && (QP_COOK_METHODS as readonly string[]).includes(stored)) {
+      return stored as QpCookMethod;
+    }
+  } catch {}
+  return null;
+}
+
+async function saveLastCookMethod(cutName: string, method: QpCookMethod): Promise<void> {
+  try {
+    await AsyncStorage.setItem(COOK_METHOD_STORAGE_PREFIX + cutName, method);
+  } catch {}
+}
 
 type Colors = any;
 
@@ -30,6 +49,16 @@ export function MultiCookAddItemModal(p: Props) {
   } = p;
 
   const [selectedCookMethod, setSelectedCookMethod] = useState<QpCookMethod | null>(null);
+
+  useEffect(() => {
+    if (!multiPickedCut) {
+      setSelectedCookMethod(null);
+      return;
+    }
+    loadLastCookMethod(multiPickedCut.name).then(method => {
+      setSelectedCookMethod(method);
+    });
+  }, [multiPickedCut?.name]);
 
   const handleClose = () => {
     setSelectedCookMethod(null);
@@ -143,6 +172,9 @@ export function MultiCookAddItemModal(p: Props) {
               </View>
               <Pressable
                 onPress={() => {
+                  if (selectedCookMethod) {
+                    saveLastCookMethod(multiPickedCut.name, selectedCookMethod);
+                  }
                   setMultiItems(prev => [...prev, { cut: multiPickedCut, weightLbs: multiAddWeightInput, grillId: null, cookMethod: selectedCookMethod }]);
                   setSelectedCookMethod(null);
                   onClose();
