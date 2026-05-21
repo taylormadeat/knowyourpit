@@ -56,6 +56,7 @@ import type {
   MultiCookResponse,
   PatchAlertBody,
   RegisterLiveActivityBody,
+  TechniqueStatsItem,
   TemperatureHistorySummary,
   TemperatureReading,
   TemperatureScanImageBody,
@@ -1247,6 +1248,82 @@ export function useGetGrillTemperatureHistory<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetGrillTemperatureHistoryQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns per-cooking-technique aggregates (avg rating, cook count, top meat type) for techniques with at least 2 completed, rated cooks.
+ * @summary Get per-technique performance stats
+ */
+export const getGetCookTechniqueStatsUrl = () => {
+  return `/api/cooks/technique-stats`;
+};
+
+export const getCookTechniqueStats = async (
+  options?: RequestInit,
+): Promise<TechniqueStatsItem[]> => {
+  return customFetch<TechniqueStatsItem[]>(getGetCookTechniqueStatsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCookTechniqueStatsQueryKey = () => {
+  return [`/api/cooks/technique-stats`] as const;
+};
+
+export const getGetCookTechniqueStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCookTechniqueStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCookTechniqueStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCookTechniqueStatsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCookTechniqueStats>>
+  > = ({ signal }) => getCookTechniqueStats({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCookTechniqueStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCookTechniqueStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCookTechniqueStats>>
+>;
+export type GetCookTechniqueStatsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get per-technique performance stats
+ */
+
+export function useGetCookTechniqueStats<
+  TData = Awaited<ReturnType<typeof getCookTechniqueStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCookTechniqueStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCookTechniqueStatsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

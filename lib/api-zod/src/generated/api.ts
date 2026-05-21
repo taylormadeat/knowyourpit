@@ -488,6 +488,29 @@ export const GetGrillTemperatureHistoryResponse = zod.object({
 });
 
 /**
+ * Returns per-cooking-technique aggregates (avg rating, cook count, top meat type) for techniques with at least 2 completed, rated cooks.
+ * @summary Get per-technique performance stats
+ */
+export const GetCookTechniqueStatsResponseItem = zod.object({
+  technique: zod
+    .string()
+    .describe("Cooking technique name (e.g. Low & Slow, Hot & Fast)"),
+  cookCount: zod
+    .number()
+    .describe("Number of completed, rated cooks using this technique"),
+  avgRating: zod
+    .number()
+    .describe("Average overall rating (1–5) across those cooks"),
+  topMeatType: zod
+    .string()
+    .nullable()
+    .describe("Most frequently cooked meat type for this technique"),
+});
+export const GetCookTechniqueStatsResponse = zod.array(
+  GetCookTechniqueStatsResponseItem,
+);
+
+/**
  * @summary List all cook sessions
  */
 export const ListCooksQueryParams = zod.object({

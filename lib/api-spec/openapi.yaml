@@ -285,6 +285,22 @@ paths:
               schema:
                 $ref: "#/components/schemas/GrillTemperatureHistory"
 
+  /cooks/technique-stats:
+    get:
+      operationId: getCookTechniqueStats
+      tags: [cooks]
+      summary: Get per-technique performance stats
+      description: Returns per-cooking-technique aggregates (avg rating, cook count, top meat type) for techniques with at least 2 completed, rated cooks.
+      responses:
+        "200":
+          description: Technique performance stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TechniqueStatsItem"
+
   /cooks:
     get:
       operationId: listCooks
@@ -2535,6 +2551,27 @@ components:
           type: boolean
         scheduledNotificationId:
           type: ["string", "null"]
+
+    TechniqueStatsItem:
+      type: object
+      properties:
+        technique:
+          type: string
+          description: Cooking technique name (e.g. Low & Slow, Hot & Fast)
+        cookCount:
+          type: integer
+          description: Number of completed, rated cooks using this technique
+        avgRating:
+          type: number
+          description: Average overall rating (1–5) across those cooks
+        topMeatType:
+          type: ["string", "null"]
+          description: Most frequently cooked meat type for this technique
+      required:
+        - technique
+        - cookCount
+        - avgRating
+        - topMeatType
 
     DashboardSummary:
       type: object

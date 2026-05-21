@@ -1508,6 +1508,20 @@ export interface PatchAlertBody {
   scheduledNotificationId?: string | null;
 }
 
+export interface TechniqueStatsItem {
+  /** Cooking technique name (e.g. Low & Slow, Hot & Fast) */
+  technique: string;
+  /** Number of completed, rated cooks using this technique */
+  cookCount: number;
+  /** Average overall rating (1–5) across those cooks */
+  avgRating: number;
+  /**
+   * Most frequently cooked meat type for this technique
+   * @nullable
+   */
+  topMeatType: string | null;
+}
+
 export interface DashboardSummary {
   totalCooks: number;
   totalGrills: number;

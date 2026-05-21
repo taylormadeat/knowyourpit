@@ -89,6 +89,7 @@ export * from "./patchAlertBody";
 export * from "./probeTimePoint";
 export * from "./registerLiveActivityBody";
 export * from "./scannedReading";
+export * from "./techniqueStatsItem";
 export * from "./temperatureHistorySummary";
 export * from "./temperatureReading";
 export * from "./temperatureReadingInput";

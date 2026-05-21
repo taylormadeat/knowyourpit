@@ -32,7 +32,9 @@ import {
   useUpdateSession,
   useDeleteCook,
   getListCooksQueryKey,
+  useGetCookTechniqueStats,
 } from "@workspace/api-client-react";
+import type { TechniqueStatsItem } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -271,6 +273,69 @@ interface SessionGroup {
   sequenceData: SequenceData | null;
 }
 
+function starString(rating: number): string {
+  const full = Math.round(rating);
+  return "★".repeat(Math.max(0, Math.min(5, full))) + "☆".repeat(Math.max(0, 5 - Math.min(5, full)));
+}
+
+interface TechniquePerformanceSectionProps {
+  stats: TechniqueStatsItem[];
+  activeFilter: string | null;
+  onSelect: (technique: string) => void;
+  colors: ReturnType<typeof useColors>;
+}
+
+function TechniquePerformanceSection({ stats, activeFilter, onSelect, colors }: TechniquePerformanceSectionProps) {
+  return (
+    <View style={{ marginBottom: 8 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+        <Feather name="bar-chart-2" size={13} color={colors.mutedForeground} />
+        <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, letterSpacing: 0.4, textTransform: "uppercase" }}>
+          Technique Performance
+        </Text>
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+      >
+        {stats.map((item) => {
+          const isActive = activeFilter === item.technique;
+          return (
+            <Pressable
+              key={item.technique}
+              onPress={() => onSelect(item.technique)}
+              style={({ pressed }) => [
+                {
+                  minWidth: 130,
+                  borderRadius: colors.radius,
+                  borderWidth: 1,
+                  padding: 12,
+                  gap: 4,
+                  backgroundColor: isActive ? colors.primary + "18" : colors.card,
+                  borderColor: isActive ? colors.primary : colors.border,
+                  opacity: pressed ? 0.75 : 1,
+                },
+              ]}
+            >
+              <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.foreground }} numberOfLines={1}>
+                {item.technique}
+              </Text>
+              <Text style={{ fontSize: 12, color: "#eab308", fontFamily: "Inter_600SemiBold", letterSpacing: 0.3 }}>
+                {starString(item.avgRating)}
+              </Text>
+              <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
+                {item.cookCount} cook{item.cookCount !== 1 ? "s" : ""}
+                {item.topMeatType ? ` · ${item.topMeatType}` : ""}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
 export default function CooksScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -297,6 +362,7 @@ export default function CooksScreen() {
   const [seqItemOffsets, setSeqItemOffsets] = useState<Record<number, number>>({});
   const [seqSaveError, setSeqSaveError] = useState<string | null>(null);
   const { data: cooks, isLoading, refetch } = useListCooks();
+  const { data: techniqueStats } = useGetCookTechniqueStats();
   const updateSession = useUpdateSession();
   const deleteCook = useDeleteCook();
   const qc = useQueryClient();
@@ -1931,6 +1997,16 @@ export default function CooksScreen() {
           }}
           showsVerticalScrollIndicator={false}
           scrollEnabled
+          ListHeaderComponent={
+            techniqueStats && techniqueStats.length > 0 ? (
+              <TechniquePerformanceSection
+                stats={techniqueStats}
+                activeFilter={techniqueFilter}
+                onSelect={(technique) => setTechniqueFilter((prev) => prev === technique ? null : technique)}
+                colors={colors}
+              />
+            ) : null
+          }
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

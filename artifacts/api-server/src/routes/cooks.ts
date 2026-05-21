@@ -27,6 +27,79 @@ import {
 
 const router: IRouter = Router();
 
+router.get("/cooks/technique-stats", requireAuth, async (req: any, res): Promise<void> => {
+  const userId = req.userId as string;
+
+  const completedCooks = await db
+    .select({
+      cookingMethod: cooksTable.cookingMethod,
+      foodType: cooksTable.foodType,
+      rating: cooksTable.rating,
+      ratingTenderness: cooksTable.ratingTenderness,
+      ratingBark: cooksTable.ratingBark,
+      ratingFlavor: cooksTable.ratingFlavor,
+    })
+    .from(cooksTable)
+    .where(and(eq(cooksTable.userId, userId), eq(cooksTable.status, "completed")));
+
+  function cookAvgRating(c: {
+    rating: number | null;
+    ratingTenderness: number | null;
+    ratingBark: number | null;
+    ratingFlavor: number | null;
+  }): number | null {
+    const subs = [c.ratingTenderness, c.ratingBark, c.ratingFlavor].filter(
+      (v): v is number => typeof v === "number" && v > 0,
+    );
+    if (subs.length > 0) return subs.reduce((a, b) => a + b, 0) / subs.length;
+    if (typeof c.rating === "number" && c.rating > 0) return c.rating;
+    return null;
+  }
+
+  const byTechnique = new Map<
+    string,
+    { ratings: number[]; meatCounts: Map<string, number> }
+  >();
+
+  for (const cook of completedCooks) {
+    if (!cook.cookingMethod) continue;
+    const r = cookAvgRating(cook);
+    if (r === null) continue;
+
+    if (!byTechnique.has(cook.cookingMethod)) {
+      byTechnique.set(cook.cookingMethod, { ratings: [], meatCounts: new Map() });
+    }
+    const bucket = byTechnique.get(cook.cookingMethod)!;
+    bucket.ratings.push(r);
+    const meat = cook.foodType || "Unknown";
+    bucket.meatCounts.set(meat, (bucket.meatCounts.get(meat) ?? 0) + 1);
+  }
+
+  const result: {
+    technique: string;
+    cookCount: number;
+    avgRating: number;
+    topMeatType: string | null;
+  }[] = [];
+
+  for (const [technique, { ratings, meatCounts }] of byTechnique.entries()) {
+    if (ratings.length < 2) continue;
+    const avgRating = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+    let topMeatType: string | null = null;
+    let topCount = 0;
+    for (const [meat, cnt] of meatCounts.entries()) {
+      if (cnt > topCount) {
+        topCount = cnt;
+        topMeatType = meat;
+      }
+    }
+    result.push({ technique, cookCount: ratings.length, avgRating, topMeatType });
+  }
+
+  result.sort((a, b) => b.avgRating - a.avgRating);
+  res.json(result);
+});
+
 router.get("/cooks", requireAuth, async (req: any, res): Promise<void> => {
   const parsed = ListCooksQueryParams.safeParse(req.query);
   if (!parsed.success) {
