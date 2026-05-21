@@ -92,6 +92,7 @@ router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): P
       item.cookTempF ? `cook at ${item.cookTempF}°F` : "cook temp unknown",
       item.targetTempF ? `target internal ${item.targetTempF}°F` : "",
       `preheat ${preheat} min`,
+      item.cookingMethod ? `cooking method: ${item.cookingMethod}` : "",
       item.category ? `Competition category: ${item.category}` : "",
       item.turnInAt ? `turn-in: ${new Date(item.turnInAt).toLocaleString()}` : "",
     ].filter(Boolean);

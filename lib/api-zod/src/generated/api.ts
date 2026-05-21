@@ -1938,6 +1938,12 @@ export const AiMultiCookBody = zod.object({
           .describe(
             "Minutes needed to walk the turn-in box to the judges' table. Used to schedule walk-to-turn-in notifications and display on the plan timeline.",
           ),
+        cookingMethod: zod
+          .string()
+          .nullish()
+          .describe(
+            'Cooking technique selected by the user (e.g. \"Low & Slow\", \"Hot & Fast\", \"Rotisserie\"). When provided the AI should factor it into duration estimates, wrap recommendations, and notes.',
+          ),
       }),
     )
     .min(1)

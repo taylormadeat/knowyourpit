@@ -324,7 +324,7 @@ export default function PlanScreen() {
   const [notesSheetDraft, setNotesSheetDraft] = useState("");
 
   // ── Multi-cook state ──────────────────────────────────────────────────
-  interface MultiItem { cut: MeatCut; weightLbs: string; grillId: number | null; }
+  interface MultiItem { cut: MeatCut; weightLbs: string; grillId: number | null; cookMethod: import("@/constants/cookQuickPicks").QpCookMethod | null; }
   const aiMultiCook = useAiMultiCook();
 
   // Mount-time gate: if the user has hit the total cook cap, fire the paywall
@@ -505,6 +505,7 @@ export default function PlanScreen() {
               targetTempF: item.cut.targetTempF,
               grillId: item.grillId ?? grillId ?? undefined,
               preheatMinutes: preheatMinsForGrill(itemGrill),
+              cookingMethod: item.cookMethod ?? undefined,
             };
           }),
           serveAt: (serveAt ?? defaultServeAt).toISOString(),
@@ -2325,7 +2326,14 @@ export default function PlanScreen() {
                 {idx > 0 && <View style={[s.multiItemSep, { backgroundColor: colors.border }]} />}
                 <View style={[s.multiItemRow, { alignItems: "flex-start" }]}>
                   <View style={s.multiItemInfo}>
-                    <Text style={[s.multiItemName, { color: colors.foreground }]}>{item.cut.name}</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <Text style={[s.multiItemName, { color: colors.foreground }]}>{item.cut.name}</Text>
+                      {item.cookMethod && (
+                        <View style={{ backgroundColor: colors.primary + "18", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.primary }}>{item.cookMethod}</Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={[s.multiItemMeta, { color: colors.mutedForeground }]}>
                       {parseFloat(item.weightLbs) > 0 ? `${item.weightLbs} lbs` : "weight not set"}
                       {" · "}Pit: {item.cut.cookTempF}°F · Internal target: {item.cut.targetTempF}°F

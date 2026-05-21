@@ -1,13 +1,14 @@
-import React from "react";
-import { View, Text, Modal, Pressable, FlatList, TextInput, KeyboardAvoidingView, Platform } from "react-native";
+import React, { useState } from "react";
+import { View, Text, Modal, Pressable, FlatList, TextInput, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { planStyles as s } from "./styles";
 import { MEAT_CATEGORIES, MEAT_CUTS_BY_CATEGORY, type MeatCut } from "@/constants/meatCuts";
+import { QP_COOK_METHODS, type QpCookMethod } from "@/constants/cookQuickPicks";
 
 type Colors = any;
 
-interface MultiItem { cut: MeatCut; weightLbs: string; grillId: number | null; }
+interface MultiItem { cut: MeatCut; weightLbs: string; grillId: number | null; cookMethod: QpCookMethod | null; }
 
 interface Props {
   visible: boolean;
@@ -27,12 +28,20 @@ export function MultiCookAddItemModal(p: Props) {
     visible, onClose, colors, multiAddCat, setMultiAddCat,
     multiPickedCut, setMultiPickedCut, multiAddWeightInput, setMultiAddWeightInput, setMultiItems,
   } = p;
+
+  const [selectedCookMethod, setSelectedCookMethod] = useState<QpCookMethod | null>(null);
+
+  const handleClose = () => {
+    setSelectedCookMethod(null);
+    onClose();
+  };
+
   return (
     <Modal
       visible={visible}
       animationType="slide"
       transparent
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
         style={s.modalOverlay}
@@ -42,7 +51,7 @@ export function MultiCookAddItemModal(p: Props) {
           <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
           <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
             <Text style={[s.modalTitle, { color: colors.foreground }]}>Add Item</Text>
-            <Pressable onPress={onClose} hitSlop={10}>
+            <Pressable onPress={handleClose} hitSlop={10}>
               <Feather name="x" size={22} color={colors.mutedForeground} />
             </Pressable>
           </View>
@@ -87,6 +96,41 @@ export function MultiCookAddItemModal(p: Props) {
           />
           {multiPickedCut && (
             <View style={{ padding: 14, borderTopWidth: 1, borderTopColor: colors.border, gap: 12 }}>
+              {/* Cooking method chips */}
+              <View>
+                <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  Cooking Method
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    {QP_COOK_METHODS.map(method => {
+                      const active = selectedCookMethod === method;
+                      return (
+                        <Pressable
+                          key={method}
+                          onPress={() => {
+                            setSelectedCookMethod(active ? null : method);
+                            Haptics.selectionAsync();
+                          }}
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 7,
+                            borderRadius: 20,
+                            borderWidth: 1,
+                            borderColor: active ? colors.primary : colors.border,
+                            backgroundColor: active ? colors.primary + "18" : colors.muted,
+                          }}
+                        >
+                          <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
+                            {method}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              </View>
+
               <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
                 <TextInput
                   style={[s.input, { color: colors.foreground }]}
@@ -99,7 +143,8 @@ export function MultiCookAddItemModal(p: Props) {
               </View>
               <Pressable
                 onPress={() => {
-                  setMultiItems(prev => [...prev, { cut: multiPickedCut, weightLbs: multiAddWeightInput, grillId: null }]);
+                  setMultiItems(prev => [...prev, { cut: multiPickedCut, weightLbs: multiAddWeightInput, grillId: null, cookMethod: selectedCookMethod }]);
+                  setSelectedCookMethod(null);
                   onClose();
                   setMultiPickedCut(null);
                   setMultiAddWeightInput("");

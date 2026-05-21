@@ -2218,6 +2218,9 @@ components:
         walkMinutes:
           type: ["integer", "null"]
           description: Minutes needed to walk the turn-in box to the judges' table. Used to schedule walk-to-turn-in notifications and display on the plan timeline.
+        cookingMethod:
+          type: ["string", "null"]
+          description: Cooking technique selected by the user (e.g. "Low & Slow", "Hot & Fast", "Rotisserie"). When provided the AI should factor it into duration estimates, wrap recommendations, and notes.
       required:
         - foodType
 

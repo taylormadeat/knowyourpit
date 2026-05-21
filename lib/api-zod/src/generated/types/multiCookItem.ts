@@ -37,4 +37,9 @@ export interface MultiCookItem {
    * @nullable
    */
   walkMinutes?: number | null;
+  /**
+   * Cooking technique selected by the user (e.g. "Low & Slow", "Hot & Fast", "Rotisserie"). When provided the AI should factor it into duration estimates, wrap recommendations, and notes.
+   * @nullable
+   */
+  cookingMethod?: string | null;
 }
