@@ -42,6 +42,10 @@ interface MultiItem {
   weightLbs: string;
   grillId: number | null;
   cookMethod: import("@/constants/cookQuickPicks").QpCookMethod | null;
+  meatStartTemp: import("@/constants/cookQuickPicks").QpMeatStartTemp | null;
+  injection: import("@/constants/cookQuickPicks").QpInjectionOption | null;
+  spritz: import("@/constants/cookQuickPicks").QpSpritzFrequency | null;
+  wrapFinish: import("@/constants/cookQuickPicks").QpWrapFinishOption | null;
 }
 
 interface Props {
