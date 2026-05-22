@@ -102,6 +102,7 @@ import {
   type CompetitionCategory,
 } from "@/constants/competitionKnowledge";
 import { MultiCookAddItemModal, type MultiItem } from "@/components/plan-screen/MultiCookAddItemModal";
+import { ThawStatusBanner } from "@/components/cook-detail/ThawStatusBanner";
 
 const COOK_METHOD_STORAGE_PREFIX = "@knowyourpit:cookMethod:";
 const MEAT_START_TEMP_STORAGE_PREFIX = "@knowyourpit:meatStartTemp:";
@@ -249,6 +250,13 @@ export default function PlanScreen() {
   const activeElapsedMs = activeCook?.actualStartAt
     ? bannerNowMs - new Date(activeCook.actualStartAt).getTime()
     : 0;
+
+  const activeCookMeatOnMs = useMemo(() => {
+    const meatOnAt = activeSeqData?.schedule?.[0]?.meatOnAt;
+    return meatOnAt ? new Date(meatOnAt as string).getTime() : null;
+  }, [activeSeqData]);
+
+  const activeCookIsMeatOn = activeCookMeatOnMs == null || activeCookMeatOnMs <= bannerNowMs;
 
   const activeCookRemainingLabel = useMemo(() => {
     const seqFinish = activeSeqData?.schedule?.[0]?.estimatedFinishAt;
@@ -1029,6 +1037,20 @@ export default function PlanScreen() {
             nowMs={bannerNowMs}
             onPress={() => router.push(`/cooks/${activeCook.id}` as any)}
           />
+          {!activeCookIsMeatOn && (
+            <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 }}>
+              <ThawStatusBanner
+                cookStatus={activeCook.status}
+                isMeatOn={activeCookIsMeatOn}
+                cookSeqData={activeSeqData}
+                meatOnMs={activeCookMeatOnMs}
+                nowMs={bannerNowMs}
+                thawMethod={(activeCook as any).thawMethod ?? null}
+                onPress={() => router.push(`/cooks/${activeCook.id}` as any)}
+                colors={colors}
+              />
+            </View>
+          )}
         </>
       )}
 
