@@ -216,6 +216,7 @@ export const planStyles = StyleSheet.create({
   modalSheet: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    minHeight: "65%",
     maxHeight: "85%",
   },
   modalSheetSm: {
