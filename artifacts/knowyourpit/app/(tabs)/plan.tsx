@@ -351,6 +351,10 @@ export default function PlanScreen() {
   const [aiCookMins, setAiCookMins] = useState<number | null>(null);
   const [aiPreheatMins, setAiPreheatMins] = useState<number | null>(null);
   const clearAiScheduleOverride = () => { setAiCookMins(null); setAiPreheatMins(null); };
+  // Use this for all user-initiated serve-time changes (date/time picker, clear
+  // button, Cook-Now toggle). The AI apply path uses raw setServeAt directly so
+  // it does not clear the overrides it just set.
+  const setServeAtManual = (d: Date | null) => { clearAiScheduleOverride(); setServeAt(d); };
 
   // ── Technique quick-picks (carried into AI prediction) ────────────────
   const [qpCookMethod, setQpCookMethod] = useState<QpCookMethod | null>(null);
@@ -433,6 +437,7 @@ export default function PlanScreen() {
     setTargetTempF("");
     setCookTempF("");
     setServeAt(null);
+    clearAiScheduleOverride();
     setCookNowMode("now");
     setAiResult(null);
     setAiResultOpen(false);
@@ -1256,7 +1261,7 @@ export default function PlanScreen() {
               cookNowMode === "now" && { backgroundColor: "#22c55e" },
               { borderRadius: colors.radius - 2 },
             ]}
-            onPress={() => { setCookNowMode("now"); setServeAt(null); Haptics.selectionAsync(); }}
+            onPress={() => { setCookNowMode("now"); setServeAtManual(null); Haptics.selectionAsync(); }}
           >
             <Feather name="play" size={14} color={cookNowMode === "now" ? "#fff" : colors.mutedForeground} />
             <Text style={[s.modeToggleText, { color: cookNowMode === "now" ? "#fff" : colors.mutedForeground }]}>Cook Now</Text>
@@ -1365,7 +1370,7 @@ export default function PlanScreen() {
                   </View>
                   <View style={[s.serveByDivider, { backgroundColor: colors.border }]} />
                   <Pressable
-                    onPress={() => setServeAt(null)}
+                    onPress={() => setServeAtManual(null)}
                     style={s.serveByRow}
                   >
                     <Feather name="x-circle" size={16} color={colors.mutedForeground} />
@@ -2652,7 +2657,7 @@ export default function PlanScreen() {
         onClose={() => setDatePickerOpen(false)}
         colors={colors}
         serveAt={serveAt ?? defaultServeAt}
-        setServeAt={setServeAt}
+        setServeAt={setServeAtManual}
         upcomingDates={upcomingDates}
       />
 
@@ -2662,7 +2667,7 @@ export default function PlanScreen() {
         onClose={() => setTimePickerOpen(false)}
         colors={colors}
         serveAt={serveAt ?? defaultServeAt}
-        setServeAt={setServeAt}
+        setServeAt={setServeAtManual}
       />
 
       {/* ════ AI RESULTS MODAL ════ */}
