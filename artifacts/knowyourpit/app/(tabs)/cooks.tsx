@@ -760,7 +760,20 @@ export default function CooksScreen() {
     const plannedStartMs = isPlanned && item.plannedStartAt
       ? new Date(item.plannedStartAt).getTime()
       : null;
-    const isSoon = plannedStartMs !== null && plannedStartMs - nowMs < 48 * 60 * 60 * 1000;
+    // For frozen planned cooks, count down to thawStartAt (the first action the
+    // user must take) while the thaw hasn't started yet. Once now > thawStartAt,
+    // fall back to the normal grill-light (plannedStartAt) countdown.
+    const thawStartMs: number | null = (() => {
+      if (!isPlanned) return null;
+      const seqData = item.sequenceData as import("@/components/cook-detail/types").SequenceData | null | undefined;
+      const raw = seqData?.frozen?.thawStartAt;
+      if (!raw) return null;
+      const ms = new Date(raw).getTime();
+      return ms > nowMs ? ms : null; // only use while still in the future
+    })();
+    // Effective countdown target: thaw start (if still upcoming) or grill light.
+    const countdownMs = thawStartMs ?? plannedStartMs;
+    const isSoon = countdownMs !== null && countdownMs - nowMs < 48 * 60 * 60 * 1000;
     const bar = getCookCardBar(item, nowMs);
 
     return (
@@ -917,12 +930,32 @@ export default function CooksScreen() {
               />
             );
           })()}
-          {isPlanned && plannedStartMs !== null && (
-            <Text style={[s.date, { color: isSoon ? "#3b82f6" : colors.mutedForeground }]}>
-              {isSoon
-                ? fmtCountdown(plannedStartMs)
-                : new Date(item.plannedStartAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-            </Text>
+          {isPlanned && countdownMs !== null && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 1 }}>
+              {thawStartMs !== null && (
+                <View style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 3,
+                  paddingHorizontal: 5,
+                  paddingVertical: 2,
+                  borderRadius: 4,
+                  backgroundColor: "#3b82f615",
+                  borderWidth: 1,
+                  borderColor: "#3b82f640",
+                }}>
+                  <Feather name="cloud-snow" size={9} color="#3b82f6" />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 9, color: "#3b82f6", letterSpacing: 0.3 }}>
+                    START THAW
+                  </Text>
+                </View>
+              )}
+              <Text style={[s.date, { color: isSoon ? "#3b82f6" : colors.mutedForeground }]}>
+                {isSoon
+                  ? fmtCountdown(countdownMs)
+                  : new Date(thawStartMs != null ? thawStartMs : item.plannedStartAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+              </Text>
+            </View>
           )}
           {!isActive && !isPlanned && item.plannedStartAt && (
             <Text style={[s.date, { color: colors.mutedForeground }]}>
