@@ -53,7 +53,7 @@ export function AlertSheet(p: Props) {
         onPress={onClose}
       />
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ justifyContent: "flex-end" }}
       >
         <View style={[s.alertSheet, { backgroundColor: colors.card }]}>

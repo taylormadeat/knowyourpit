@@ -1648,7 +1648,7 @@ export default function LogCookScreen() {
         animationType="slide"
         onRequestClose={() => setCustomCutEditorVisible(false)}
       >
-        <View style={gp.modalWrap}>
+        <KeyboardAvoidingView style={gp.modalWrap} behavior={Platform.OS === "ios" ? "padding" : "height"}>
           <Pressable style={gp.backdrop} onPress={() => setCustomCutEditorVisible(false)} />
           <View style={[gp.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16, maxHeight: "90%" }]}>
             <View style={[gp.handle, { backgroundColor: colors.border }]} />
@@ -1771,7 +1771,7 @@ export default function LogCookScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <OptionBottomSheet

@@ -108,7 +108,7 @@ export function QuickLogSheet({ visible, onClose, cookId, colors, onEventLogged,
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <Pressable style={{ flex: 1, backgroundColor: "#00000060" }} onPress={handleClose} />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <View
           style={{
             backgroundColor: colors.card,
