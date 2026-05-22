@@ -229,17 +229,19 @@ export function SequenceSchedule(p: Props) {
                           const spritzIntervalMin = parseIntervalMinutes((c.spritzFrequency as string | null | undefined) ?? "");
                           if (!spritzIntervalMin || !item.meatOnAt) return null;
                           const meatOnMs = new Date(item.meatOnAt).getTime();
-                          // Mirror the same wrap-time derivation used in the Wrap step below.
-                          // Spritz rows stop at the wrap (when clock-based) or pull-off,
-                          // whichever comes first.
+                          // Mirror the exact wrap-time derivation used in the Wrap step below.
+                          // wrapMode is "temp" only when explicitWrapMin is absent AND wrapTempF is set;
+                          // in every other case (including both fields present) it is "clock".
+                          // Spritz rows stop at the clock-based wrap time or pull-off, whichever is earlier.
                           const hasWrap = item.wrapMethod && item.wrapMethod !== "none";
                           let wrapCutoffMs: number | null = null;
-                          if (hasWrap && item.wrapTempF == null) {
+                          if (hasWrap) {
                             const explicitWrapMin = (item.wrapAtMinutes ?? 0) > 0 ? Math.round(item.wrapAtMinutes) : null;
                             const cookMin = typeof item.estimatedDurationMinutes === "number" && item.estimatedDurationMinutes > 0
                               ? item.estimatedDurationMinutes : null;
                             const inferredWrapMin = cookMin != null ? Math.max(30, Math.round(cookMin * 0.55)) : null;
-                            const wrapAtMin = explicitWrapMin ?? inferredWrapMin;
+                            const wrapMode = (explicitWrapMin == null && item.wrapTempF != null) ? "temp" : "clock";
+                            const wrapAtMin = wrapMode === "clock" ? (explicitWrapMin ?? inferredWrapMin) : null;
                             if (wrapAtMin != null) wrapCutoffMs = meatOnMs + wrapAtMin * 60_000;
                           }
                           const pullOffMs = item.estimatedFinishAt
