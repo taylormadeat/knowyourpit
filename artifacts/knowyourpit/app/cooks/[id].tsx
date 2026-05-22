@@ -639,10 +639,42 @@ export default function CookDetailScreen() {
     if (!cook?.id) return;
     setMarkingThaw(true);
     try {
+      const actualNow = new Date().toISOString();
       await updateCook.mutateAsync({
         id: cook.id,
-        data: { actualThawStartAt: new Date().toISOString() as any },
+        data: { actualThawStartAt: actualNow as any },
       });
+
+      // If the actual thaw start differs from the planned start by more than 5
+      // minutes, shift thawEndAt in sequenceData by the same delta so that
+      // downstream countdowns (ThawStatusBanner, FrozenTimeline) stay accurate.
+      const currentSeqData = (cook as any)?.sequenceData as SequenceData | null | undefined;
+      const frozen = currentSeqData?.frozen;
+      if (frozen?.thawStartAt && frozen.thawEndAt) {
+        const plannedStartMs = new Date(frozen.thawStartAt as string).getTime();
+        const actualStartMs = new Date(actualNow).getTime();
+        const diffMs = actualStartMs - plannedStartMs;
+        if (Math.abs(diffMs) > 5 * 60_000) {
+          const originalDurationMs =
+            new Date(frozen.thawEndAt as string).getTime() - plannedStartMs;
+          const adjustedThawEndAt = new Date(
+            actualStartMs + originalDurationMs,
+          ).toISOString();
+          const updatedSeqData: SequenceData = {
+            ...currentSeqData,
+            schedule: currentSeqData?.schedule ?? [],
+            frozen: {
+              ...frozen,
+              thawEndAt: adjustedThawEndAt,
+            },
+          };
+          await updateCook.mutateAsync({
+            id: cook.id,
+            data: { sequenceData: updatedSeqData } as any,
+          });
+        }
+      }
+
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: getGetCookQueryKey(cook.id) });
     } catch {
@@ -650,7 +682,7 @@ export default function CookDetailScreen() {
     } finally {
       setMarkingThaw(false);
     }
-  }, [cook?.id, updateCook, qc]);
+  }, [cook, updateCook, qc]);
 
   // Check-in history for this cook (active, completed, and planned cooks)
   const { data: cookCheckins = [], isLoading: checkinsLoading } = useListCookCheckins(

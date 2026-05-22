@@ -58,6 +58,11 @@ export function FrozenTimeline({ c, colors, cookStatus, nowMs }: Props) {
       ? Math.round((actualThawStartMs! - plannedThawStartMs) / 60_000)
       : null;
 
+  const scheduleAdjusted =
+    hasActualThawStart &&
+    plannedThawStartMs != null &&
+    Math.abs(actualThawStartMs! - plannedThawStartMs) > 5 * 60_000;
+
   const rows: Array<{
     key: string;
     color: string;
@@ -119,7 +124,8 @@ export function FrozenTimeline({ c, colors, cookStatus, nowMs }: Props) {
 
   const headerSub =
     methodLabel +
-    (thawStartMs != null ? ` · ${hasActualThawStart ? "actual" : "planned"} start ${fmtTime(thawStartMs)}` : "");
+    (thawStartMs != null ? ` · ${hasActualThawStart ? "actual" : "planned"} start ${fmtTime(thawStartMs)}` : "") +
+    (scheduleAdjusted ? " · schedule adjusted" : "");
 
   return (
     <View
