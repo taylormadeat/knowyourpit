@@ -346,6 +346,11 @@ export default function PlanScreen() {
   const aiPredict = useAiPredict();
   const [aiResult, setAiResult] = useState<any | null>(null);
   const [aiResultOpen, setAiResultOpen] = useState(false);
+  // AI schedule overrides: set when the user applies a PitMaster plan,
+  // cleared when they change the cut, weight, or grill.
+  const [aiCookMins, setAiCookMins] = useState<number | null>(null);
+  const [aiPreheatMins, setAiPreheatMins] = useState<number | null>(null);
+  const clearAiScheduleOverride = () => { setAiCookMins(null); setAiPreheatMins(null); };
 
   // ── Technique quick-picks (carried into AI prediction) ────────────────
   const [qpCookMethod, setQpCookMethod] = useState<QpCookMethod | null>(null);
@@ -466,6 +471,10 @@ export default function PlanScreen() {
     [grills, grillId]
   );
 
+  // Clear AI schedule overrides when the user picks a different grill,
+  // since preheat time and cook calibration are grill-specific.
+  useEffect(() => { clearAiScheduleOverride(); }, [grillId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Pre-compute per-schedule-item grill labels using a consume-splice pattern
   // so duplicate food types each resolve to their own distinct grill.
   // Falls back to the screen-level default grillId (same logic as handleSaveMultiCooks).
@@ -486,11 +495,18 @@ export default function PlanScreen() {
   const parsedWeight = parseFloat(weightLbs) || 0;
   const schedule = useMemo(() => {
     if (!selectedCut || parsedWeight <= 0 || !serveAt) return null;
-    return calcSchedule(serveAt, selectedCut, parsedWeight, selectedGrill, {
-      enabled: frozenEnabled,
-      method: thawMethod,
-    });
-  }, [selectedCut, parsedWeight, serveAt, selectedGrill, frozenEnabled, thawMethod]);
+    return calcSchedule(
+      serveAt,
+      selectedCut,
+      parsedWeight,
+      selectedGrill,
+      { enabled: frozenEnabled, method: thawMethod },
+      {
+        cookMinsOverride: aiCookMins ?? undefined,
+        preheatMinsOverride: aiPreheatMins ?? undefined,
+      },
+    );
+  }, [selectedCut, parsedWeight, serveAt, selectedGrill, frozenEnabled, thawMethod, aiCookMins, aiPreheatMins]);
 
   // Edge case: if frozen toggle is on and the calculated thaw start is in the
   // past, the serve time is too soon for a full thaw. We surface a warning
@@ -505,6 +521,7 @@ export default function PlanScreen() {
     setSelectedCut(cut);
     setTargetTempF(String(cut.targetTempF));
     setCookTempF(String(cut.cookTempF));
+    clearAiScheduleOverride();
     setMeatPickerOpen(false);
     setPrepGuideOpen(false);
     // Load the last-used quick-pick settings for this cut and pre-select them.
@@ -760,8 +777,13 @@ export default function PlanScreen() {
 
   const applyAiPlan = () => {
     if (!aiResult) return;
-    // Update serve time and recalculate schedule from AI's serve time
     if (aiResult.serveAt) setServeAt(new Date(aiResult.serveAt));
+    if (typeof aiResult.estimatedDurationMinutes === "number") {
+      setAiCookMins(aiResult.estimatedDurationMinutes);
+    }
+    if (typeof aiResult.preheatMinutes === "number") {
+      setAiPreheatMins(aiResult.preheatMinutes);
+    }
     setAiResultOpen(false);
   };
 
@@ -1305,7 +1327,7 @@ export default function PlanScreen() {
             placeholder="e.g. 12.5"
             placeholderTextColor={colors.mutedForeground}
             value={weightLbs}
-            onChangeText={setWeightLbs}
+            onChangeText={(v) => { setWeightLbs(v); clearAiScheduleOverride(); }}
             keyboardType="decimal-pad"
           />
           <Text style={[s.inputUnit, { color: colors.mutedForeground }]}>lbs</Text>

@@ -65,15 +65,21 @@ export function cutHasStall(cut: MeatCut): boolean {
   return false;
 }
 
+export interface CalcScheduleOverrides {
+  cookMinsOverride?: number;
+  preheatMinsOverride?: number;
+}
+
 export function calcSchedule(
   serveAt: Date,
   cut: MeatCut,
   weightLbs: number,
   grill: any | null,
   frozenOptions?: FrozenOptions,
+  overrides?: CalcScheduleOverrides,
 ): CookSchedule {
-  const preheatMins = preheatMinsForGrill(grill);
-  const cookMins = Math.round(cut.minsPerLb * weightLbs);
+  const preheatMins = overrides?.preheatMinsOverride ?? preheatMinsForGrill(grill);
+  const cookMins = overrides?.cookMinsOverride ?? Math.round(cut.minsPerLb * weightLbs);
   const restMins = cut.restMins;
   const totalMins = preheatMins + cookMins + restMins;
   const startAt = new Date(serveAt.getTime() - totalMins * 60 * 1000);
