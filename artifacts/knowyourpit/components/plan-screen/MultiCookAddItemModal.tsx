@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Modal, Pressable, FlatList, TextInput, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { View, Text, Modal, Pressable, FlatList, TextInput, ScrollView } from "react-native";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -251,10 +252,7 @@ export function MultiCookAddItemModal(p: Props) {
       transparent
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView
-        style={s.modalOverlay}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
+      <AppKeyboardAvoidingView style={s.modalOverlay}>
         <View style={[s.modalSheet, { backgroundColor: colors.card }]}>
           <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
           <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
@@ -423,7 +421,7 @@ export function MultiCookAddItemModal(p: Props) {
             </View>
           )}
         </View>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     </Modal>
   );
 }

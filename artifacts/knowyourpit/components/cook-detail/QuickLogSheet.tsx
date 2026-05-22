@@ -5,12 +5,11 @@ import {
   Modal,
   Pressable,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
   Alert,
 } from "react-native";
 import type { ComponentProps } from "react";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -108,7 +107,7 @@ export function QuickLogSheet({ visible, onClose, cookId, colors, onEventLogged,
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <Pressable style={{ flex: 1, backgroundColor: "#00000060" }} onPress={handleClose} />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <AppKeyboardAvoidingView>
         <View
           style={{
             backgroundColor: colors.card,
@@ -299,7 +298,7 @@ export function QuickLogSheet({ visible, onClose, cookId, colors, onEventLogged,
             )}
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     </Modal>
   );
 }

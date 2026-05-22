@@ -6,9 +6,8 @@ import {
   TextInput,
   Pressable,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { Feather } from "@expo/vector-icons";
 
 interface Props {
@@ -41,10 +40,7 @@ export function WrapTempSheet({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onSkip}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
+      <AppKeyboardAvoidingView style={{ flex: 1 }}>
         <Pressable style={ws.overlay} onPress={onSkip} />
         <View
           style={[
@@ -107,7 +103,7 @@ export function WrapTempSheet({
             </Pressable>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     </Modal>
   );
 }

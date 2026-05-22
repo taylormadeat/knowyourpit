@@ -8,9 +8,9 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -421,10 +421,7 @@ export function CheckinModal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1, backgroundColor: colors.background }}
-      >
+      <AppKeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }}>
         <LinearGradient
           colors={["#1C1C1F", "#2D1A0E"]}
           style={{ paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16, flexDirection: "row", alignItems: "center" }}
@@ -764,7 +761,7 @@ export function CheckinModal({
             </LinearGradient>
           </Pressable>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     </Modal>
   );
 }

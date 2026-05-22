@@ -6,11 +6,10 @@ import {
   Pressable,
   TextInput,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
 } from "react-native";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { Feather } from "@expo/vector-icons";
 import { fetch as expoFetch } from "expo/fetch";
 import { useColors } from "@/hooks/useColors";
@@ -111,11 +110,7 @@ export function SupportModal({ visible, onClose, prefillName = "", prefillEmail 
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView
-        style={[s.root, { backgroundColor: colors.background }]}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
-      >
+      <AppKeyboardAvoidingView style={[s.root, { backgroundColor: colors.background }]}>
         <View style={[s.header, { borderBottomColor: colors.border }]}>
           <Text style={[s.headerTitle, { color: colors.foreground }]}>Contact Support</Text>
           <Pressable onPress={handleClose} style={({ pressed }) => [s.closeBtn, pressed && { opacity: 0.6 }]}>
@@ -222,7 +217,7 @@ export function SupportModal({ visible, onClose, prefillName = "", prefillEmail 
             </Pressable>
           </ScrollView>
         )}
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     </Modal>
   );
 }

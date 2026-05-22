@@ -6,9 +6,8 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -53,10 +52,7 @@ export function BoxPresentationChecklist({ visible, onClose, category, colors }:
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <KeyboardAvoidingView
-        style={s.overlay}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
+      <AppKeyboardAvoidingView style={s.overlay}>
         <Pressable style={s.backdrop} onPress={handleClose} />
         <View style={[s.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={s.handle} />
@@ -164,7 +160,7 @@ export function BoxPresentationChecklist({ visible, onClose, category, colors }:
             </Text>
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     </Modal>
   );
 }

@@ -8,9 +8,8 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Platform,
-  KeyboardAvoidingView,
 } from "react-native";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -162,7 +161,7 @@ export function CompetitionSetupModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={s.overlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <AppKeyboardAvoidingView style={s.overlay}>
         <Pressable style={s.backdrop} onPress={onClose} />
         <View style={[s.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={s.handle} />
@@ -513,7 +512,7 @@ export function CompetitionSetupModal({
             </View>
           </View>
         </Modal>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     </Modal>
   );
 }

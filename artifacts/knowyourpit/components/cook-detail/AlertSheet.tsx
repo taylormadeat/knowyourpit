@@ -6,9 +6,8 @@ import {
   Pressable,
   TextInput,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { Feather } from "@expo/vector-icons";
 import { s } from "./styles";
 
@@ -52,10 +51,7 @@ export function AlertSheet(p: Props) {
         style={s.grillOverlay}
         onPress={onClose}
       />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ justifyContent: "flex-end" }}
-      >
+      <AppKeyboardAvoidingView style={{ justifyContent: "flex-end" }}>
         <View style={[s.alertSheet, { backgroundColor: colors.card }]}>
           <View style={[s.grillSheetHandle, { backgroundColor: colors.border }]} />
           <View style={[s.alertSheetHeader, { borderBottomColor: colors.border }]}>
@@ -194,7 +190,7 @@ export function AlertSheet(p: Props) {
             </View>
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     </Modal>
   );
 }

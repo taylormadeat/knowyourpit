@@ -8,11 +8,10 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   FlatList,
   StyleSheet,
 } from "react-native";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { s, edt } from "./styles";
@@ -108,7 +107,7 @@ export function EditCookModal(p: Props) {
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <AppKeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }}>
         <LinearGradient colors={["#1C1C1F", "#2D1A0E"]} style={[s.editHeader, { paddingTop: insets.top + 16 }]}>
           <Pressable onPress={onClose} style={s.editCancelBtn}>
             <Text style={s.editCancelText}>Cancel</Text>
@@ -310,7 +309,7 @@ export function EditCookModal(p: Props) {
           </View>
 
         </ScrollView>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
 
       <OptionBottomSheet
         visible={cookMethodSheetOpen}

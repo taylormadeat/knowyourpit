@@ -9,6 +9,23 @@ knowyourpit is an AI-powered BBQ planning and management application. It offers 
 - All `eas` and `expo` commands must be run from `artifacts/knowyourpit/`, never from the workspace root.
 - Do not delete the disabled Apple Watch companion app code; it is the starting point for future modernization work.
 
+## Mobile UI Conventions
+
+### Keyboard-safe modals
+Every modal or bottom sheet that contains a `TextInput` **must** use `AppKeyboardAvoidingView` instead of the raw React Native `KeyboardAvoidingView`. The component lives at `artifacts/knowyourpit/components/AppKeyboardAvoidingView.tsx` and has the correct cross-platform behavior baked in (`"padding"` on iOS, `"height"` on Android).
+
+```tsx
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
+
+<Modal ...>
+  <AppKeyboardAvoidingView style={{ flex: 1 }}>
+    {/* modal content with TextInput */}
+  </AppKeyboardAvoidingView>
+</Modal>
+```
+
+Do **not** write `<KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>` inline in new modals — use the wrapper so the behavior stays consistent and reviewable in one place.
+
 ## System Architecture
 
 The project uses a monorepo structure managed by pnpm workspaces. It is built with Node.js 24 and TypeScript 5.9.
