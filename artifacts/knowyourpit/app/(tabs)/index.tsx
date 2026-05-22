@@ -27,6 +27,7 @@ import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { getCookCardBar } from "@/utils/cookCardBar";
 import { AnimatedBarFill } from "@/components/cook-detail/CookProgressBar";
+import { ThawStatusBanner } from "@/components/cook-detail/ThawStatusBanner";
 
 const logoImg = require("@/assets/images/logo.png");
 
@@ -426,6 +427,23 @@ export default function HomeScreen() {
                   {activeCook.grillName ? (
                     <Text style={s.activeGrill}>{activeCook.grillName}</Text>
                   ) : null}
+
+                  {/* Thaw status banner — shown when meat is not yet on the grill */}
+                  {!isMeatOn && (
+                    <View style={{ marginTop: 10 }}>
+                      <ThawStatusBanner
+                        cookStatus={(activeCook as any).status}
+                        isMeatOn={isMeatOn}
+                        actualStartAt={(activeCook as any).actualStartAt}
+                        cookSeqData={(activeCook as any).sequenceData}
+                        meatOnMs={seqMeatOnMs}
+                        nowMs={nowMs}
+                        thawMethod={(activeCook as any).thawMethod}
+                        actualThawStartAt={(activeCook as any).actualThawStartAt}
+                        colors={colors}
+                      />
+                    </View>
+                  )}
 
                   {/* Temp chips */}
                   {(activeCook.targetTempF != null || activeCook.cookTempF != null || activeCook.currentTempF != null) && (
