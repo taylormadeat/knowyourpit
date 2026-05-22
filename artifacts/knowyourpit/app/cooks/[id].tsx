@@ -2100,6 +2100,7 @@ export default function CookDetailScreen() {
         <ThawStatusBanner
           cookStatus={cookStatus}
           isMeatOn={isMeatOn}
+          actualStartAt={(c as any).actualStartAt ? new Date((c as any).actualStartAt).toISOString() : null}
           cookSeqData={cookSeqData}
           meatOnMs={effectiveMeatOnMs}
           nowMs={nowMs}

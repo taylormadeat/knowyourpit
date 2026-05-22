@@ -10,6 +10,8 @@ type ThawStage = "thawing" | "tempering" | "ready" | null;
 interface Props {
   cookStatus: string | undefined;
   isMeatOn: boolean;
+  /** ISO string set when the pitmaster taps Start Cook / meat is confirmed on */
+  actualStartAt?: string | null;
   cookSeqData: SequenceData | null;
   meatOnMs: number | null;
   nowMs: number;
@@ -97,6 +99,7 @@ function fmtElapsed(elapsedMs: number): string {
 export function ThawStatusBanner({
   cookStatus,
   isMeatOn,
+  actualStartAt,
   cookSeqData,
   meatOnMs,
   nowMs,
@@ -107,7 +110,9 @@ export function ThawStatusBanner({
   markingThaw,
   colors,
 }: Props) {
-  if (cookStatus !== "active" || isMeatOn) return null;
+  // Once the pitmaster has confirmed meat is on (actualStartAt set), hide the
+  // banner regardless of whether sequenceData is present.
+  if (cookStatus !== "active" || isMeatOn || !!actualStartAt) return null;
 
   const frozen = cookSeqData?.frozen;
   if (!frozen?.thawStartAt) return null;
