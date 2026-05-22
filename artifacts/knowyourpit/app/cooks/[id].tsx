@@ -736,6 +736,14 @@ export default function CookDetailScreen() {
   // JSON field, so we narrow the cast to only what we actually use here.
   const cookSeqData = (cook as { sequenceData?: SequenceData | null } | null | undefined)?.sequenceData ?? null;
 
+  // For frozen cooks the cook enters "active" during the thaw window.
+  // Gate live-only widgets (health score, AI check-ins) on whether
+  // meatOnAt has actually passed.
+  const cookSeqMeatOnMs: number | null = cookSeqData?.schedule?.[0]?.meatOnAt
+    ? new Date(cookSeqData.schedule[0].meatOnAt as string).getTime()
+    : null;
+  const isMeatOn = cookSeqMeatOnMs == null || cookSeqMeatOnMs <= nowMs;
+
   // Schedule local notifications for each upcoming schedule step so the
   // pitmaster is alerted even when the app is backgrounded or the phone is
   // locked.  The in-app haptic/banner still fires when foregrounded (see
@@ -2184,8 +2192,8 @@ export default function CookDetailScreen() {
           </View>
         )}
 
-        {/* ── Cook Health Score (active / completed) ──────────── */}
-        {(cookStatus === "active" || cookStatus === "completed") && (
+        {/* ── Cook Health Score (active / completed, and only once meat is on) ── */}
+        {(cookStatus === "active" || cookStatus === "completed") && (cookStatus !== "active" || isMeatOn) && (
           <CookHealthScoreCard
             cookId={Number(id)}
             colors={colors}
@@ -2566,8 +2574,8 @@ export default function CookDetailScreen() {
           />
         )}
 
-        {/* ── Stored AI analysis ──────────────────────────────── */}
-        <StoredAiAnalysis
+        {/* ── Stored AI analysis (hidden for active cooks until meat is on) ── */}
+        {(cookStatus !== "active" || isMeatOn) && <StoredAiAnalysis
           c={c}
           colors={colors}
           storedAnalysis={storedAnalysis}
@@ -2582,7 +2590,7 @@ export default function CookDetailScreen() {
           toggleStoredSection={toggleStoredSection}
           showPaywall={showPaywall}
           onCardLayout={onCardLayout}
-        />
+        />}
 
         {/* ── Ask PitMaster (active cooks only) ───────────────── */}
         <AskPitMaster

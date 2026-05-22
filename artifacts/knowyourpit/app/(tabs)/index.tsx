@@ -244,12 +244,6 @@ export default function HomeScreen() {
     ? URGENCY_COLOR[topDecision.urgency] ?? "#6C3BF5"
     : null;
 
-  const heroSub = activeCook
-    ? `${activeCook.foodType || "Your cook"} is on the smoker right now`
-    : upcomingCook
-    ? `${upcomingCook.foodType || "Your cook"} is coming up — time to prep`
-    : "Ready to fire it up?";
-
   // Ticking clock — updates every minute while the tab is focused so elapsed
   // timers on the active cook widget stay live without extra API calls.
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -260,6 +254,20 @@ export default function HomeScreen() {
       return () => clearInterval(id);
     }, [])
   );
+
+  // For frozen cooks the cook is "active" during the thaw window — gate live
+  // indicators on whether meatOnAt has actually passed.
+  const seqMeatOnAt = (activeCook as any)?.sequenceData?.schedule?.[0]?.meatOnAt ?? null;
+  const seqMeatOnMs: number | null = seqMeatOnAt ? new Date(seqMeatOnAt as string).getTime() : null;
+  const isMeatOn = seqMeatOnMs == null || seqMeatOnMs <= nowMs;
+
+  const heroSub = activeCook
+    ? isMeatOn
+      ? `${(activeCook as any).foodType || "Your cook"} is on the smoker right now`
+      : `${(activeCook as any).foodType || "Your cook"} is thawing right now`
+    : upcomingCook
+    ? `${(upcomingCook as any).foodType || "Your cook"} is coming up — time to prep`
+    : "Ready to fire it up?";
 
   // New title every time the home screen is focused (login, tab switch, app foreground)
   const [titleSeed, setTitleSeed] = useState(() => Math.random());
@@ -394,13 +402,21 @@ export default function HomeScreen() {
                 >
                   {/* Live indicator row */}
                   <View style={s.activeLiveRow}>
-                    <View style={s.liveDot} />
-                    <Text style={s.liveLabel}>LIVE ON THE SMOKER</Text>
-                    {activeCook.actualStartAt && (
-                      <Text style={s.elapsedBadge}>
-                        {fmtElapsed(nowMs - new Date(activeCook.actualStartAt).getTime())} in
+                    <View style={[s.liveDot, !isMeatOn && { backgroundColor: "#38bdf8" }]} />
+                    <Text style={[s.liveLabel, !isMeatOn && { color: "#38bdf8" }]}>
+                      {isMeatOn ? "LIVE ON THE SMOKER" : "THAWING"}
+                    </Text>
+                    {isMeatOn ? (
+                      (seqMeatOnMs != null || (activeCook as any).actualStartAt) && (
+                        <Text style={s.elapsedBadge}>
+                          {fmtElapsed(nowMs - (seqMeatOnMs ?? new Date((activeCook as any).actualStartAt).getTime()))} in
+                        </Text>
+                      )
+                    ) : seqMeatOnMs != null ? (
+                      <Text style={[s.elapsedBadge, { color: "#38bdf8" }]}>
+                        meat on in {fmtCountdown(seqMeatOnMs)}
                       </Text>
-                    )}
+                    ) : null}
                   </View>
 
                   {/* Food type */}
@@ -813,11 +829,17 @@ export default function HomeScreen() {
                 <Text style={[s.cookMeta, { color: colors.mutedForeground }]}>
                   {cook.grillName || "No grill selected"}
                 </Text>
-                {cook.status === "active" && cook.actualStartAt && (
-                  <Text style={[s.cookElapsed, { color: "#E84820" }]}>
-                    {fmtElapsed(nowMs - new Date(cook.actualStartAt).getTime())} elapsed
-                  </Text>
-                )}
+                {cook.status === "active" && cook.actualStartAt && (() => {
+                  const cookMeatOnMs = (cook as any).sequenceData?.schedule?.[0]?.meatOnAt
+                    ? new Date((cook as any).sequenceData.schedule[0].meatOnAt).getTime()
+                    : null;
+                  if (cookMeatOnMs != null && cookMeatOnMs > nowMs) return null;
+                  return (
+                    <Text style={[s.cookElapsed, { color: "#E84820" }]}>
+                      {fmtElapsed(nowMs - new Date(cook.actualStartAt).getTime())} elapsed
+                    </Text>
+                  );
+                })()}
               </View>
               <View style={[s.statusPill, { backgroundColor: (STATUS_COLOR[cook.status] || colors.mutedForeground) + "22" }]}>
                 <Text style={[s.statusText, { color: STATUS_COLOR[cook.status] || colors.mutedForeground }]}>

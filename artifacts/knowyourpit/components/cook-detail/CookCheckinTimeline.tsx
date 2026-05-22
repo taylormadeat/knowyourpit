@@ -96,6 +96,11 @@ export function CookCheckinTimeline({
     (c?.actualStartAt as string | null | undefined) ??
     (c?.plannedStartAt as string | null | undefined) ??
     null;
+
+  // For frozen cooks the cook enters "active" during the thaw window.
+  // Gate check-ins on whether meatOnAt has actually passed.
+  const meatOnAtMs = meatOnAt ? new Date(meatOnAt).getTime() : null;
+  const isMeatOnYet = meatOnAtMs == null || meatOnAtMs <= nowMs;
   const estimatedFinishAt =
     firstItem?.estimatedFinishAt ??
     (c?.plannedEndAt as string | null | undefined) ??
@@ -174,6 +179,16 @@ export function CookCheckinTimeline({
           {checkinsLoading ? (
             <View style={{ padding: 20, alignItems: "center" }}>
               <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : isActive && !isMeatOnYet ? (
+            <View style={{ padding: 16, flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Feather name="clock" size={14} color={colors.mutedForeground as string} />
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground as string, flex: 1 }}>
+                Check-ins begin when meat goes on
+                {meatOnAtMs
+                  ? ` at ${new Date(meatOnAtMs).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
+                  : ""}
+              </Text>
             </View>
           ) : (
             <View style={{ padding: 14, gap: 0 }}>
