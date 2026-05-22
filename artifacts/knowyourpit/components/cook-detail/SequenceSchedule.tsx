@@ -6,6 +6,7 @@ import { s } from "./styles";
 import { fmtMinutes } from "@/utils/duration";
 import { relCountdown } from "./utils";
 import type { NextStep } from "./types";
+import { parseIntervalMinutes } from "@/hooks/useSpritzNotifications";
 
 type Colors = any;
 
@@ -223,6 +224,79 @@ export function SequenceSchedule(p: Props) {
                           </View>
                         </View>
 
+                        {/* ── Spritz sub-rows ── */}
+                        {(() => {
+                          const spritzIntervalMin = parseIntervalMinutes((c.spritzFrequency as string | null | undefined) ?? "");
+                          if (!spritzIntervalMin || !item.meatOnAt) return null;
+                          const meatOnMs = new Date(item.meatOnAt).getTime();
+                          // Stop spritzing at wrap time (if planned) or pull-off.
+                          const hasWrap = item.wrapMethod && item.wrapMethod !== "none" && (item.wrapAtMinutes ?? 0) > 0;
+                          const wrapCutoffMs = hasWrap
+                            ? meatOnMs + Math.round(item.wrapAtMinutes) * 60_000
+                            : null;
+                          const pullOffMs = item.estimatedFinishAt
+                            ? new Date(item.estimatedFinishAt).getTime()
+                            : null;
+                          const endMs = wrapCutoffMs ?? pullOffMs;
+                          if (!endMs) return null;
+                          // Generate spritz timestamps (cap at 12).
+                          const spritzTimes: number[] = [];
+                          let t = meatOnMs + spritzIntervalMin * 60_000;
+                          while (t < endMs && spritzTimes.length < 12) {
+                            spritzTimes.push(t);
+                            t += spritzIntervalMin * 60_000;
+                          }
+                          if (spritzTimes.length === 0) return null;
+                          const spritzColor = "#14b8a6";
+                          return (
+                            <>
+                              {spritzTimes.map((spritzMs, i) => {
+                                const isDone = isActive && spritzMs < nowMs;
+                                const isFuture = (cookStatus === "active" || cookStatus === "planned") && spritzMs > nowMs;
+                                return (
+                                  <View
+                                    key={i}
+                                    style={[
+                                      s.seqTlRow,
+                                      { marginLeft: 4, marginBottom: 6, opacity: isDone ? 0.45 : 1 },
+                                    ]}
+                                  >
+                                    <View
+                                      style={[
+                                        s.seqTlDot,
+                                        {
+                                          width: 7,
+                                          height: 7,
+                                          borderRadius: 4,
+                                          marginTop: 5,
+                                          backgroundColor: isDone ? colors.mutedForeground : spritzColor,
+                                        },
+                                      ]}
+                                    />
+                                    <View style={[s.seqTlConnector, { borderColor: spritzColor + "33" }]} />
+                                    <View style={{ flex: 1 }}>
+                                      <View style={s.seqTlLabelRow}>
+                                        <Feather name="droplet" size={9} color={isDone ? colors.mutedForeground : spritzColor} style={{ marginRight: 2 }} />
+                                        <Text style={[s.seqTlLabel, { color: isDone ? colors.mutedForeground : spritzColor, fontSize: 9 }]}>
+                                          Spritz #{i + 1}
+                                        </Text>
+                                      </View>
+                                      <Text style={[s.seqTlMeta, { color: isDone ? colors.mutedForeground : colors.foreground, fontSize: 12, fontFamily: "Inter_600SemiBold" }]}>
+                                        {new Date(spritzMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                        {isFuture && (
+                                          <Text style={[s.seqTlMeta, { color: spritzColor }]}>
+                                            {" "}· {relCountdown(spritzMs, nowMs)}
+                                          </Text>
+                                        )}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                );
+                              })}
+                            </>
+                          );
+                        })()}
+
                         {/* ── Stall zone (brisket / pork shoulder / chuck — active cooks only) ── */}
                         {isActive && stallProne && (
                           <View style={[s.seqTlRow, { marginLeft: 4 }]}>
@@ -342,6 +416,11 @@ export function SequenceSchedule(p: Props) {
                                 )}
                                 {item.wrapReason ? (
                                   <Text style={[s.seqTlMeta, { color: colors.mutedForeground, marginTop: 2, lineHeight: 16 }]}>{item.wrapReason}</Text>
+                                ) : null}
+                                {c.wrapFinish ? (
+                                  <Text style={[s.seqTlMeta, { color: colors.mutedForeground, marginTop: 2, lineHeight: 16, fontStyle: "italic" }]}>
+                                    {c.wrapFinish}
+                                  </Text>
                                 ) : null}
                               </View>
                             </View>
