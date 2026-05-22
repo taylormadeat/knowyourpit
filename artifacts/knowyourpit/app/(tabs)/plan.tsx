@@ -2391,11 +2391,42 @@ export default function PlanScreen() {
             <ActivityIndicator color="#fff" />
           ) : (
             <>
-              <Feather name={cookNowMode === "now" ? "play" : "zap"} size={18} color="#fff" />
-              <Text style={s.submitText}>{cookNowMode === "now" ? "Start Cooking Now" : "Save Cook Plan"}</Text>
+              <Feather name={frozenEnabled && cookNowMode === "now" ? "thermometer" : cookNowMode === "now" ? "play" : "zap"} size={18} color="#fff" />
+              <Text style={s.submitText}>{frozenEnabled && cookNowMode === "now" ? "Begin Thawing Now" : cookNowMode === "now" ? "Start Cooking Now" : "Save Cook Plan"}</Text>
             </>
           )}
         </Pressable>
+
+        {/* ── Frozen-thaw informational callout (Cook Now + frozen mode only) ── */}
+        {frozenEnabled && cookNowMode === "now" && (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-start",
+              gap: 8,
+              marginTop: 8,
+              backgroundColor: "#3B82F615",
+              borderWidth: 1,
+              borderColor: "#3B82F640",
+              borderRadius: colors.radius,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+            }}
+          >
+            <Feather name="info" size={13} color="#3B82F6" style={{ marginTop: 1 }} />
+            <Text
+              style={{
+                fontSize: 12,
+                fontFamily: "Inter_400Regular",
+                color: colors.foreground,
+                flex: 1,
+                lineHeight: 17,
+              }}
+            >
+              Starting this plan begins your thaw countdown. Notifications will fire when it&apos;s time to move the meat to the counter, then to the grill.
+            </Text>
+          </View>
+        )}
 
         </>)}{/* end planMode === "single" */}
 

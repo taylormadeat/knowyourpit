@@ -1873,6 +1873,55 @@ export default function CookDetailScreen() {
   // stays in sync with the progress bar (including wrap-temp adjustments).
   const remainingMs = estimatedFinishMs != null ? estimatedFinishMs - nowMs : null;
 
+  // ── Start Cook CTA — phase-aware label + caption ──────────────────────────
+  // For frozen cooks, the "Start Cook" button reflects which part of the
+  // frozen → table journey the user is about to kick off.
+  // Frozen timestamps are persisted inside sequenceData.frozen (not as top-level
+  // cook columns), so we read from cookSeqData?.frozen which is the same object.
+  const startCookPhase: "thawing" | "tempering" | "ready" | null = (() => {
+    const frozenInfo = cookSeqData?.frozen;
+    if (!c.fromFrozen || !frozenInfo?.thawStartAt) return null;
+    const thawEndMs = frozenInfo.thawEndAt ? new Date(frozenInfo.thawEndAt).getTime() : null;
+    const preheatStartMs = c.plannedStartAt ? new Date(c.plannedStartAt).getTime() : null;
+    if (thawEndMs != null && nowMs < thawEndMs) return "thawing";
+    if (preheatStartMs != null && nowMs < preheatStartMs) return "tempering";
+    return "ready";
+  })();
+
+  const startCookLabel =
+    startCookPhase === "thawing" ? "Begin Thawing" :
+    startCookPhase === "tempering" ? "Meat is Thawed — Start Preheat" :
+    "Start Cook";
+
+  const startCookIcon =
+    startCookPhase === "thawing" ? "thermometer" :
+    startCookPhase === "tempering" ? "wind" :
+    "play";
+
+  const startCookCaption = (() => {
+    if (startCookPhase === "thawing") {
+      const grillTimeStr = c.plannedStartAt
+        ? new Date(c.plannedStartAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+        : null;
+      return grillTimeStr
+        ? `Marks the start of your thaw timer. The grill goes on at ${grillTimeStr}.`
+        : "Marks the start of your thaw timer.";
+    }
+    if (startCookPhase === "tempering") {
+      return "Meat is thawed — let it temper before lighting the grill.";
+    }
+    if (startCookPhase === "ready") {
+      return null;
+    }
+    // Fresh / non-frozen cook
+    const meatOnAt = cookSeqData?.schedule?.[0]?.meatOnAt;
+    if (meatOnAt) {
+      const meatOnTime = new Date(meatOnAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      return `Starts your preheat timer. Meat on at ${meatOnTime}.`;
+    }
+    return "Marks this cook as active and starts your session timer.";
+  })();
+
   // Live graph from accumulated MEATER readings
   const liveGraphProbes = liveReadings.length >= 2
     ? [{ probeName: meaterProbes[0]?.deviceName ?? "Probe 1", timeSeries: liveReadings, finishingTempF: liveReadings[liveReadings.length - 1].tempF }]
@@ -2250,28 +2299,45 @@ export default function CookDetailScreen() {
 
         {/* ── Start Cook CTA (planned cooks only, above the schedule) ── */}
         {cookStatus === "planned" && (
-          <Pressable
-            style={({ pressed }) => [
-              s.actionBtn,
-              {
-                backgroundColor: STATUS_COLORS["active"] || colors.primary,
-                borderRadius: colors.radius,
-                marginTop: 4,
-              },
-              (updateCook.isPending || pressed) && { opacity: 0.7 },
-            ]}
-            onPress={() => handleStatusUpdate("active")}
-            disabled={updateCook.isPending}
-          >
-            {updateCook.isPending ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Feather name="play" size={18} color="#fff" />
-                <Text style={s.actionText}>Start Cook</Text>
-              </>
+          <>
+            <Pressable
+              style={({ pressed }) => [
+                s.actionBtn,
+                {
+                  backgroundColor: STATUS_COLORS["active"] || colors.primary,
+                  borderRadius: colors.radius,
+                  marginTop: 4,
+                },
+                (updateCook.isPending || pressed) && { opacity: 0.7 },
+              ]}
+              onPress={() => handleStatusUpdate("active")}
+              disabled={updateCook.isPending}
+            >
+              {updateCook.isPending ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Feather name={startCookIcon as any} size={18} color="#fff" />
+                  <Text style={s.actionText}>{startCookLabel}</Text>
+                </>
+              )}
+            </Pressable>
+            {startCookCaption && (
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontFamily: "Inter_400Regular",
+                  color: colors.mutedForeground,
+                  textAlign: "center",
+                  marginTop: 6,
+                  paddingHorizontal: 8,
+                  lineHeight: 17,
+                }}
+              >
+                {startCookCaption}
+              </Text>
             )}
-          </Pressable>
+          </>
         )}
 
         {/* ── Add to Planned Cook (multi-cook session from a solo planned cook) ── */}
