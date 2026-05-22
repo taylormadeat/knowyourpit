@@ -429,6 +429,11 @@ export interface Cook {
    * @nullable
    */
   thawMethod: CookThawMethod;
+  /**
+   * The actual timestamp when the pitmaster moved the meat to begin thawing. Null until the pitmaster taps "Mark Thaw Started".
+   * @nullable
+   */
+  actualThawStartAt?: string | null;
   /** True when this cook is part of a sanctioned competition (KCBS Competition Mode) */
   isCompetition: boolean;
   /**
@@ -844,6 +849,11 @@ export interface UpdateCookBody {
    * @nullable
    */
   thawMethod?: UpdateCookBodyThawMethod;
+  /**
+   * The actual timestamp when the pitmaster moved the meat to begin thawing. Set by tapping "Mark Thaw Started" on the banner.
+   * @nullable
+   */
+  actualThawStartAt?: string | null;
   /**
    * Map of step keys to ISO timestamps of when the user confirmed each step
    * @nullable

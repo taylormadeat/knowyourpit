@@ -1516,6 +1516,10 @@ components:
           type: ["string", "null"]
           enum: [fridge, cold_water, null]
           description: Selected thaw method when fromFrozen is true
+        actualThawStartAt:
+          type: ["string", "null"]
+          format: date-time
+          description: The actual timestamp when the pitmaster moved the meat to begin thawing. Null until the pitmaster taps "Mark Thaw Started".
         isCompetition:
           type: boolean
           description: True when this cook is part of a sanctioned competition (KCBS Competition Mode)
@@ -1840,6 +1844,10 @@ components:
           type: ["string", "null"]
           enum: [fridge, cold_water, null]
           description: Selected thaw method when fromFrozen is true
+        actualThawStartAt:
+          type: ["string", "null"]
+          format: date-time
+          description: The actual timestamp when the pitmaster moved the meat to begin thawing. Set by tapping "Mark Thaw Started" on the banner.
         confirmedSteps:
           type: ["object", "null"]
           additionalProperties:

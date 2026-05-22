@@ -27,7 +27,7 @@ export function FrozenTimeline({ c, colors, cookStatus, nowMs }: Props) {
 
   const seq = (c.sequenceData as SequenceData | null | undefined) ?? null;
   const frozen = seq?.frozen ?? null;
-  const thawStartMs = frozen?.thawStartAt ? new Date(frozen.thawStartAt).getTime() : null;
+  const plannedThawStartMs = frozen?.thawStartAt ? new Date(frozen.thawStartAt).getTime() : null;
   const thawEndMs = frozen?.thawEndAt ? new Date(frozen.thawEndAt).getTime() : null;
   const preheatMs = c?.plannedStartAt ? new Date(c.plannedStartAt).getTime() : null;
   const cookMs = preheatMs != null && c?.preheatMinutes != null
@@ -40,6 +40,10 @@ export function FrozenTimeline({ c, colors, cookStatus, nowMs }: Props) {
       : null;
   const serveMs = c?.plannedEndAt ? new Date(c.plannedEndAt).getTime() : null;
 
+  const actualThawStartMs: number | null = c?.actualThawStartAt
+    ? new Date(c.actualThawStartAt).getTime()
+    : null;
+
   const method: "fridge" | "cold_water" | null =
     (c?.thawMethod as "fridge" | "cold_water" | null | undefined) ??
     frozen?.method ??
@@ -47,12 +51,20 @@ export function FrozenTimeline({ c, colors, cookStatus, nowMs }: Props) {
   const methodLabel =
     method === "cold_water" ? "Cold-water thaw" : method === "fridge" ? "Fridge thaw" : "Thaw";
 
+  const thawStartMs = actualThawStartMs ?? plannedThawStartMs;
+  const hasActualThawStart = actualThawStartMs != null;
+  const actualDiffMin =
+    hasActualThawStart && plannedThawStartMs != null
+      ? Math.round((actualThawStartMs! - plannedThawStartMs) / 60_000)
+      : null;
+
   const rows: Array<{
     key: string;
     color: string;
     label: string;
     time: number | null;
     sub?: string | null;
+    badge?: string | null;
   }> = [
     {
       key: "thaw_start",
@@ -60,6 +72,13 @@ export function FrozenTimeline({ c, colors, cookStatus, nowMs }: Props) {
       label: `Move to ${method === "cold_water" ? "cold water" : "fridge"}`,
       time: thawStartMs,
       sub: methodLabel,
+      badge: hasActualThawStart
+        ? actualDiffMin == null || actualDiffMin === 0
+          ? "On time"
+          : actualDiffMin > 0
+          ? `+${actualDiffMin}m late`
+          : `${Math.abs(actualDiffMin)}m early`
+        : null,
     },
     {
       key: "thaw_end",
@@ -98,6 +117,10 @@ export function FrozenTimeline({ c, colors, cookStatus, nowMs }: Props) {
     },
   ];
 
+  const headerSub =
+    methodLabel +
+    (thawStartMs != null ? ` · ${hasActualThawStart ? "actual" : "planned"} start ${fmtTime(thawStartMs)}` : "");
+
   return (
     <View
       style={[
@@ -125,8 +148,7 @@ export function FrozenTimeline({ c, colors, cookStatus, nowMs }: Props) {
             Frozen-to-Table Timeline
           </Text>
           <Text style={[s.seqScheduleSub, { color: colors.mutedForeground }]}>
-            {methodLabel}
-            {thawStartMs != null ? ` · starts ${fmtTime(thawStartMs)}` : ""}
+            {headerSub}
           </Text>
         </View>
         <Feather
@@ -142,6 +164,15 @@ export function FrozenTimeline({ c, colors, cookStatus, nowMs }: Props) {
             const isDone =
               r.time != null && (cookStatus === "active" || cookStatus === "completed") && r.time < nowMs;
             const isLast = i === rows.length - 1;
+            const isThawStartRow = r.key === "thaw_start";
+            const badgeColor = r.badge
+              ? r.badge.includes("late")
+                ? "#f59e0b"
+                : r.badge.includes("early")
+                ? "#38bdf8"
+                : "#22c55e"
+              : null;
+
             return (
               <View
                 key={r.key}
@@ -164,6 +195,32 @@ export function FrozenTimeline({ c, colors, cookStatus, nowMs }: Props) {
                     >
                       {r.label}
                     </Text>
+                    {isThawStartRow && hasActualThawStart && (
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 3,
+                          backgroundColor: "#3B82F615",
+                          borderRadius: 4,
+                          paddingHorizontal: 5,
+                          paddingVertical: 2,
+                          marginLeft: 6,
+                        }}
+                      >
+                        <Feather name="check-circle" size={9} color="#3B82F6" />
+                        <Text
+                          style={{
+                            fontFamily: "Inter_600SemiBold",
+                            fontSize: 9,
+                            color: "#3B82F6",
+                            letterSpacing: 0.3,
+                          }}
+                        >
+                          ACTUAL
+                        </Text>
+                      </View>
+                    )}
                   </View>
                   <Text
                     style={[
@@ -186,6 +243,29 @@ export function FrozenTimeline({ c, colors, cookStatus, nowMs }: Props) {
                       </Text>
                     ) : null}
                   </Text>
+                  {/* Planned vs actual offset note */}
+                  {isThawStartRow && r.badge && badgeColor && (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 4,
+                        marginTop: 2,
+                      }}
+                    >
+                      <Feather name="clock" size={10} color={badgeColor} />
+                      <Text
+                        style={{
+                          fontFamily: "Inter_500Medium",
+                          fontSize: 10,
+                          color: badgeColor,
+                        }}
+                      >
+                        {r.badge}
+                        {plannedThawStartMs != null && actualThawStartMs != null && ` vs planned ${fmtTime(plannedThawStartMs)}`}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             );

@@ -70,6 +70,11 @@ export interface UpdateCookBody {
    */
   thawMethod?: UpdateCookBodyThawMethod;
   /**
+   * The actual timestamp when the pitmaster moved the meat to begin thawing. Set by tapping "Mark Thaw Started" on the banner.
+   * @nullable
+   */
+  actualThawStartAt?: Date | null;
+  /**
    * Map of step keys to ISO timestamps of when the user confirmed each step
    * @nullable
    */

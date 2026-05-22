@@ -35,6 +35,7 @@ export const cooksTable = pgTable("cooks", {
   analysisHistory: jsonb("analysis_history"),
   fromFrozen: boolean("from_frozen").notNull().default(false),
   thawMethod: text("thaw_method"),
+  actualThawStartAt: timestamp("actual_thaw_start_at", { withTimezone: true }),
   isCompetition: boolean("is_competition").notNull().default(false),
   competitionName: text("competition_name"),
   competitionCategory: text("competition_category"),

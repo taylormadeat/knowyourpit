@@ -612,6 +612,12 @@ export const ListCooksResponseItem = zod.object({
     ])
     .nullable()
     .describe("Selected thaw method when fromFrozen is true"),
+  actualThawStartAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      'The actual timestamp when the pitmaster moved the meat to begin thawing. Null until the pitmaster taps \"Mark Thaw Started\".',
+    ),
   isCompetition: zod
     .boolean()
     .describe(
@@ -939,6 +945,12 @@ export const GetCookResponse = zod.object({
     ])
     .nullable()
     .describe("Selected thaw method when fromFrozen is true"),
+  actualThawStartAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      'The actual timestamp when the pitmaster moved the meat to begin thawing. Null until the pitmaster taps \"Mark Thaw Started\".',
+    ),
   isCompetition: zod
     .boolean()
     .describe(
@@ -1116,6 +1128,12 @@ export const UpdateCookBody = zod.object({
     ])
     .nullish()
     .describe("Selected thaw method when fromFrozen is true"),
+  actualThawStartAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      'The actual timestamp when the pitmaster moved the meat to begin thawing. Set by tapping \"Mark Thaw Started\" on the banner.',
+    ),
   confirmedSteps: zod
     .record(zod.string(), zod.string())
     .nullish()
@@ -1275,6 +1293,12 @@ export const UpdateCookResponse = zod.object({
     ])
     .nullable()
     .describe("Selected thaw method when fromFrozen is true"),
+  actualThawStartAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      'The actual timestamp when the pitmaster moved the meat to begin thawing. Null until the pitmaster taps \"Mark Thaw Started\".',
+    ),
   isCompetition: zod
     .boolean()
     .describe(
@@ -2393,6 +2417,12 @@ export const GetRecentCooksResponseItem = zod.object({
     ])
     .nullable()
     .describe("Selected thaw method when fromFrozen is true"),
+  actualThawStartAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      'The actual timestamp when the pitmaster moved the meat to begin thawing. Null until the pitmaster taps \"Mark Thaw Started\".',
+    ),
   isCompetition: zod
     .boolean()
     .describe(

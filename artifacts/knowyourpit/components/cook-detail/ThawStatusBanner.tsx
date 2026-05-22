@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { relCountdown } from "./utils";
@@ -14,7 +14,10 @@ interface Props {
   meatOnMs: number | null;
   nowMs: number;
   thawMethod?: string | null;
+  actualThawStartAt?: string | null;
   onPress?: () => void;
+  onMarkThawStarted?: () => void;
+  markingThaw?: boolean;
   colors: any;
 }
 
@@ -75,15 +78,20 @@ function computeThawStage(
 
   if (thawEndMs != null && nowMs < thawEndMs) return "thawing";
 
-  // Tempering window: thawed but grill not yet lit.
-  // The preheat/grill-light start is stored in schedule[0].grillLightAt —
-  // that is the standard field populated by the AI sequencer.
   const grillLightAt = cookSeqData?.schedule?.[0]?.grillLightAt ?? null;
   const grillLightMs = grillLightAt ? new Date(grillLightAt as string).getTime() : null;
 
   if (grillLightMs != null && nowMs < grillLightMs) return "tempering";
 
   return "ready";
+}
+
+function fmtElapsed(elapsedMs: number): string {
+  const totalMin = Math.floor(elapsedMs / 60_000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
 }
 
 export function ThawStatusBanner({
@@ -93,7 +101,10 @@ export function ThawStatusBanner({
   meatOnMs,
   nowMs,
   thawMethod,
+  actualThawStartAt,
   onPress,
+  onMarkThawStarted,
+  markingThaw,
   colors,
 }: Props) {
   if (cookStatus !== "active" || isMeatOn) return null;
@@ -116,6 +127,11 @@ export function ThawStatusBanner({
 
   const countdown = meatOnMs != null && meatOnMs > nowMs ? relCountdown(meatOnMs, nowMs) : null;
 
+  const actualThawMs = actualThawStartAt ? new Date(actualThawStartAt).getTime() : null;
+  const elapsedMs = actualThawMs != null ? nowMs - actualThawMs : null;
+  const isThawingStage = stage === "thawing";
+  const showMarkButton = isThawingStage && actualThawMs == null && !!onMarkThawStarted;
+
   return (
     <Pressable
       onPress={onPress}
@@ -133,104 +149,192 @@ export function ThawStatusBanner({
         <LinearGradient
           colors={cfg.gradientColors}
           style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
             padding: 14,
+            gap: 10,
           }}
         >
-          {/* Icon bubble */}
-          <View
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 12,
-              backgroundColor: cfg.color + "22",
-              borderWidth: 1.5,
-              borderColor: cfg.color + "55",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <Feather name={cfg.icon as any} size={18} color={cfg.color} />
-          </View>
-
-          {/* Text block */}
-          <View style={{ flex: 1, gap: 2 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <View
-                style={{
-                  backgroundColor: cfg.color + "22",
-                  borderRadius: 5,
-                  paddingHorizontal: 7,
-                  paddingVertical: 3,
-                }}
-              >
-                <Text
-                  style={{
-                    fontFamily: "Inter_700Bold",
-                    fontSize: 10,
-                    color: cfg.color,
-                    letterSpacing: 0.8,
-                  }}
-                >
-                  {cfg.label}
-                </Text>
-              </View>
-              <Text
-                style={{
-                  fontFamily: "Inter_400Regular",
-                  fontSize: 11,
-                  color: colors.mutedForeground,
-                }}
-              >
-                {methodLabel}
-              </Text>
-            </View>
-
-            <Text
+          {/* Main row: icon + text + chevron */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            {/* Icon bubble */}
+            <View
               style={{
-                fontFamily: "Inter_500Medium",
-                fontSize: 13,
-                color: colors.foreground,
-                lineHeight: 18,
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: cfg.color + "22",
+                borderWidth: 1.5,
+                borderColor: cfg.color + "55",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
               }}
             >
-              {cfg.sub}
-            </Text>
+              <Feather name={cfg.icon as any} size={18} color={cfg.color} />
+            </View>
 
-            {/* Countdown / target time row */}
-            {(countdown != null || meatOnTimeStr != null) && (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
-                <Feather name="clock" size={11} color={cfg.color} />
-                <Text
+            {/* Text block */}
+            <View style={{ flex: 1, gap: 2 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <View
                   style={{
-                    fontFamily: "Inter_600SemiBold",
-                    fontSize: 12,
-                    color: cfg.color,
+                    backgroundColor: cfg.color + "22",
+                    borderRadius: 5,
+                    paddingHorizontal: 7,
+                    paddingVertical: 3,
                   }}
                 >
-                  {countdown != null ? `Meat on in ${countdown}` : `Meat on at ${meatOnTimeStr}`}
-                </Text>
-                {countdown != null && meatOnTimeStr != null && (
                   <Text
                     style={{
-                      fontFamily: "Inter_400Regular",
-                      fontSize: 11,
-                      color: colors.mutedForeground,
+                      fontFamily: "Inter_700Bold",
+                      fontSize: 10,
+                      color: cfg.color,
+                      letterSpacing: 0.8,
                     }}
                   >
-                    · {meatOnTimeStr}
+                    {cfg.label}
                   </Text>
-                )}
+                </View>
+                <Text
+                  style={{
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 11,
+                    color: colors.mutedForeground,
+                  }}
+                >
+                  {methodLabel}
+                </Text>
               </View>
+
+              {/* Sub-line: actual elapsed when thaw started, else planned sub */}
+              {elapsedMs != null && isThawingStage ? (
+                <Text
+                  style={{
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 13,
+                    color: colors.foreground,
+                    lineHeight: 18,
+                  }}
+                >
+                  Thawing for{" "}
+                  <Text style={{ fontFamily: "Inter_700Bold", color: cfg.color }}>
+                    {fmtElapsed(elapsedMs)}
+                  </Text>
+                </Text>
+              ) : (
+                <Text
+                  style={{
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 13,
+                    color: colors.foreground,
+                    lineHeight: 18,
+                  }}
+                >
+                  {cfg.sub}
+                </Text>
+              )}
+
+              {/* Countdown / target time row */}
+              {(countdown != null || meatOnTimeStr != null) && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+                  <Feather name="clock" size={11} color={cfg.color} />
+                  <Text
+                    style={{
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 12,
+                      color: cfg.color,
+                    }}
+                  >
+                    {countdown != null ? `Meat on in ${countdown}` : `Meat on at ${meatOnTimeStr}`}
+                  </Text>
+                  {countdown != null && meatOnTimeStr != null && (
+                    <Text
+                      style={{
+                        fontFamily: "Inter_400Regular",
+                        fontSize: 11,
+                        color: colors.mutedForeground,
+                      }}
+                    >
+                      · {meatOnTimeStr}
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+
+            {/* Chevron hint if tappable */}
+            {onPress && (
+              <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
             )}
           </View>
 
-          {/* Chevron hint if tappable */}
-          {onPress && (
-            <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+          {/* Mark Thaw Started button — only in thawing stage before thaw is confirmed */}
+          {showMarkButton && (
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation?.();
+                onMarkThawStarted();
+              }}
+              disabled={markingThaw}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                paddingVertical: 10,
+                paddingHorizontal: 16,
+                borderRadius: 10,
+                backgroundColor: cfg.color + "22",
+                borderWidth: 1.5,
+                borderColor: cfg.color + "55",
+                opacity: pressed || markingThaw ? 0.7 : 1,
+              })}
+            >
+              {markingThaw ? (
+                <ActivityIndicator size="small" color={cfg.color} />
+              ) : (
+                <Feather name="check-square" size={15} color={cfg.color} />
+              )}
+              <Text
+                style={{
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 13,
+                  color: cfg.color,
+                }}
+              >
+                {markingThaw ? "Saving…" : "Mark Thaw Started"}
+              </Text>
+            </Pressable>
+          )}
+
+          {/* Actual thaw started confirmation chip */}
+          {isThawingStage && actualThawMs != null && (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 6,
+                paddingVertical: 6,
+                paddingHorizontal: 10,
+                borderRadius: 8,
+                backgroundColor: cfg.color + "15",
+                alignSelf: "flex-start",
+              }}
+            >
+              <Feather name="check-circle" size={12} color={cfg.color} />
+              <Text
+                style={{
+                  fontFamily: "Inter_500Medium",
+                  fontSize: 11,
+                  color: cfg.color,
+                }}
+              >
+                Thaw started at{" "}
+                {new Date(actualThawMs).toLocaleTimeString([], {
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </Text>
+            </View>
           )}
         </LinearGradient>
       </View>
