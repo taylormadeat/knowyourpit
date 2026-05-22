@@ -1,0 +1,239 @@
+import React from "react";
+import { View, Text, Pressable } from "react-native";
+import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { relCountdown } from "./utils";
+import type { SequenceData } from "./types";
+
+type ThawStage = "thawing" | "tempering" | "ready" | null;
+
+interface Props {
+  cookStatus: string | undefined;
+  isMeatOn: boolean;
+  cookSeqData: SequenceData | null;
+  meatOnMs: number | null;
+  nowMs: number;
+  thawMethod?: string | null;
+  onPress?: () => void;
+  colors: any;
+}
+
+const METHOD_LABEL: Record<string, string> = {
+  fridge: "Fridge thaw",
+  cold_water: "Cold-water thaw",
+  microwave: "Microwave thaw",
+  counter: "Counter thaw",
+  cook_from_frozen: "Cook from frozen",
+};
+
+function getMethodLabel(method: string | null | undefined): string {
+  if (!method) return "Thawing";
+  return METHOD_LABEL[method] ?? "Thawing";
+}
+
+const STAGE_CONFIG: Record<
+  NonNullable<ThawStage>,
+  { label: string; icon: string; color: string; gradientColors: [string, string]; sub: string }
+> = {
+  thawing: {
+    label: "THAWING",
+    icon: "cloud-snow",
+    color: "#38bdf8",
+    gradientColors: ["#0ea5e910", "#06b6d410"],
+    sub: "Meat is in the thaw window",
+  },
+  tempering: {
+    label: "TEMPERING",
+    icon: "wind",
+    color: "#a78bfa",
+    gradientColors: ["#7c3aed10", "#a78bfa10"],
+    sub: "Thawed — letting it come up to room temp",
+  },
+  ready: {
+    label: "READY TO COOK",
+    icon: "check-circle",
+    color: "#22c55e",
+    gradientColors: ["#22c55e10", "#16a34a10"],
+    sub: "Ready to go on the grill",
+  },
+};
+
+function computeThawStage(
+  cookSeqData: SequenceData | null,
+  nowMs: number,
+  thawMethod: string | null | undefined,
+): ThawStage {
+  const frozen = cookSeqData?.frozen;
+  if (!frozen?.thawStartAt) return null;
+
+  const frozenMethod = frozen.method as string | null | undefined;
+  const method = thawMethod ?? frozenMethod ?? null;
+
+  if (method === "cook_from_frozen") return "thawing";
+
+  const thawEndMs = frozen.thawEndAt ? new Date(frozen.thawEndAt as string).getTime() : null;
+
+  if (thawEndMs != null && nowMs < thawEndMs) return "thawing";
+
+  // Tempering window: thawed but grill not yet lit.
+  // The preheat/grill-light start is stored in schedule[0].grillLightAt —
+  // that is the standard field populated by the AI sequencer.
+  const grillLightAt = cookSeqData?.schedule?.[0]?.grillLightAt ?? null;
+  const grillLightMs = grillLightAt ? new Date(grillLightAt as string).getTime() : null;
+
+  if (grillLightMs != null && nowMs < grillLightMs) return "tempering";
+
+  return "ready";
+}
+
+export function ThawStatusBanner({
+  cookStatus,
+  isMeatOn,
+  cookSeqData,
+  meatOnMs,
+  nowMs,
+  thawMethod,
+  onPress,
+  colors,
+}: Props) {
+  if (cookStatus !== "active" || isMeatOn) return null;
+
+  const frozen = cookSeqData?.frozen;
+  if (!frozen?.thawStartAt) return null;
+
+  const stage = computeThawStage(cookSeqData, nowMs, thawMethod);
+  if (!stage) return null;
+
+  const cfg = STAGE_CONFIG[stage];
+  const frozenMethod = (frozen as any).method as string | null | undefined;
+  const method = thawMethod ?? frozenMethod ?? null;
+  const methodLabel = getMethodLabel(method);
+
+  const meatOnTimeStr =
+    meatOnMs != null
+      ? new Date(meatOnMs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+      : null;
+
+  const countdown = meatOnMs != null && meatOnMs > nowMs ? relCountdown(meatOnMs, nowMs) : null;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [{ opacity: pressed && onPress ? 0.88 : 1 }]}
+      disabled={!onPress}
+    >
+      <View
+        style={{
+          borderRadius: colors.radius,
+          borderWidth: 1.5,
+          borderColor: cfg.color + "55",
+          overflow: "hidden",
+        }}
+      >
+        <LinearGradient
+          colors={cfg.gradientColors}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            padding: 14,
+          }}
+        >
+          {/* Icon bubble */}
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              backgroundColor: cfg.color + "22",
+              borderWidth: 1.5,
+              borderColor: cfg.color + "55",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Feather name={cfg.icon as any} size={18} color={cfg.color} />
+          </View>
+
+          {/* Text block */}
+          <View style={{ flex: 1, gap: 2 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <View
+                style={{
+                  backgroundColor: cfg.color + "22",
+                  borderRadius: 5,
+                  paddingHorizontal: 7,
+                  paddingVertical: 3,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: "Inter_700Bold",
+                    fontSize: 10,
+                    color: cfg.color,
+                    letterSpacing: 0.8,
+                  }}
+                >
+                  {cfg.label}
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 11,
+                  color: colors.mutedForeground,
+                }}
+              >
+                {methodLabel}
+              </Text>
+            </View>
+
+            <Text
+              style={{
+                fontFamily: "Inter_500Medium",
+                fontSize: 13,
+                color: colors.foreground,
+                lineHeight: 18,
+              }}
+            >
+              {cfg.sub}
+            </Text>
+
+            {/* Countdown / target time row */}
+            {(countdown != null || meatOnTimeStr != null) && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+                <Feather name="clock" size={11} color={cfg.color} />
+                <Text
+                  style={{
+                    fontFamily: "Inter_600SemiBold",
+                    fontSize: 12,
+                    color: cfg.color,
+                  }}
+                >
+                  {countdown != null ? `Meat on in ${countdown}` : `Meat on at ${meatOnTimeStr}`}
+                </Text>
+                {countdown != null && meatOnTimeStr != null && (
+                  <Text
+                    style={{
+                      fontFamily: "Inter_400Regular",
+                      fontSize: 11,
+                      color: colors.mutedForeground,
+                    }}
+                  >
+                    · {meatOnTimeStr}
+                  </Text>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* Chevron hint if tappable */}
+          {onPress && (
+            <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+          )}
+        </LinearGradient>
+      </View>
+    </Pressable>
+  );
+}

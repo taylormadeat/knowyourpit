@@ -143,6 +143,7 @@ import { LiveCookSection } from "@/components/cook-detail/LiveCookSection";
 import { CookSummaryCard } from "@/components/cook-detail/CookSummaryCard";
 import { SequenceSchedule } from "@/components/cook-detail/SequenceSchedule";
 import { FrozenTimeline } from "@/components/cook-detail/FrozenTimeline";
+import { ThawStatusBanner } from "@/components/cook-detail/ThawStatusBanner";
 import { StoredAiAnalysis } from "@/components/cook-detail/StoredAiAnalysis";
 import { AskPitMaster } from "@/components/cook-detail/AskPitMaster";
 import { RateThisCook } from "@/components/cook-detail/RateThisCook";
@@ -2058,6 +2059,18 @@ export default function CookDetailScreen() {
             </View>
           ) : null}
         </View>
+
+        {/* ── Thaw status banner (active frozen cooks before meat is on) ── */}
+        <ThawStatusBanner
+          cookStatus={cookStatus}
+          isMeatOn={isMeatOn}
+          cookSeqData={cookSeqData}
+          meatOnMs={cookSeqMeatOnMs}
+          nowMs={nowMs}
+          thawMethod={(c as any).thawMethod ?? null}
+          onPress={() => setPlanSheetVisible(true)}
+          colors={colors}
+        />
 
         {/* ── Live probe temperature chips (active cooks) ──────────────── */}
         {cookStatus === "active" && (() => {
