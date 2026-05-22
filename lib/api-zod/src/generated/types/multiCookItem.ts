@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { MultiCookItemCategory } from "./multiCookItemCategory";
+import type { MultiCookItemThawMethod } from "./multiCookItemThawMethod";
 
 export interface MultiCookItem {
   foodType: string;
@@ -42,4 +43,14 @@ export interface MultiCookItem {
    * @nullable
    */
   cookingMethod?: string | null;
+  /**
+   * True when this item is starting from a fully frozen state. PitMaster will factor in thaw lead-time when scheduling backwards from the serve time.
+   * @nullable
+   */
+  fromFrozen?: boolean | null;
+  /**
+   * Chosen thaw method when fromFrozen is true. "fridge" is slow and safest (~24h / 4–5 lbs); "cold_water" is faster (~1h per lb).
+   * @nullable
+   */
+  thawMethod?: MultiCookItemThawMethod;
 }

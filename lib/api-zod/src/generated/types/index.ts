@@ -81,6 +81,7 @@ export * from "./multiCookCompetition";
 export * from "./multiCookCompetitionCategoriesItem";
 export * from "./multiCookItem";
 export * from "./multiCookItemCategory";
+export * from "./multiCookItemThawMethod";
 export * from "./multiCookResponse";
 export * from "./multiCookScheduleItem";
 export * from "./multiCookScheduleItemCategory";

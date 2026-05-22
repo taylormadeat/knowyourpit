@@ -620,6 +620,8 @@ export default function PlanScreen() {
               grillId: item.grillId ?? grillId ?? undefined,
               preheatMinutes: preheatMinsForGrill(itemGrill),
               cookingMethod: item.cookMethod ?? undefined,
+              fromFrozen: item.isFrozen || undefined,
+              thawMethod: item.isFrozen ? item.thawMethod : undefined,
             };
           }),
           serveAt: (serveAt ?? defaultServeAt).toISOString(),
@@ -709,6 +711,7 @@ export default function PlanScreen() {
         let inputWeightLbs: number | undefined;
         let resolvedGrillId: number | undefined;
         let compItem: typeof remainingCompItems[number] | undefined;
+        let inputItem: MultiItem | undefined;
         if (isComp) {
           const idx = remainingCompItems.findIndex(
             (m) => m.cut.name.toLowerCase() === item.foodType.toLowerCase(),
@@ -718,7 +721,7 @@ export default function PlanScreen() {
           resolvedGrillId = compItem?.grillId ?? grillId ?? undefined;
         } else {
           const inputIdx = remainingItems.findIndex(m => m.cut.name.toLowerCase() === item.foodType.toLowerCase());
-          const inputItem = inputIdx >= 0 ? remainingItems.splice(inputIdx, 1)[0] : undefined;
+          inputItem = inputIdx >= 0 ? remainingItems.splice(inputIdx, 1)[0] : undefined;
           inputWeightLbs = inputItem ? parseFloat(inputItem.weightLbs) || undefined : undefined;
           resolvedGrillId = inputItem?.grillId ?? grillId ?? undefined;
         }
@@ -757,6 +760,7 @@ export default function PlanScreen() {
             ...(item.wrapAtMinutes && item.wrapAtMinutes > 0 && { wrapAtMinutes: Math.round(item.wrapAtMinutes) }),
             ...(item.wrapTempF && { wrapTempF: Math.round(item.wrapTempF) }),
             ...(item.wrapReason && { wrapReason: item.wrapReason }),
+            ...(inputItem?.isFrozen && { fromFrozen: true, thawMethod: inputItem.thawMethod }),
             ...(isComp && {
               isCompetition: true,
               competitionName: competition!.competitionName,
@@ -2778,6 +2782,9 @@ export default function PlanScreen() {
         setMultiItems={setMultiItems}
         editItem={editingItemIdx != null ? multiItems[editingItemIdx] : null}
         editIndex={editingItemIdx}
+        effectivePro={effectivePro}
+        frozenTrialAvailable={effectivePro || ((paywallUsage?.remaining?.frozenTimelineLifetime ?? 0) > 0)}
+        showPaywall={showPaywall}
       />
 
       {/* ════ COMPETITION SETUP MODAL ════ */}

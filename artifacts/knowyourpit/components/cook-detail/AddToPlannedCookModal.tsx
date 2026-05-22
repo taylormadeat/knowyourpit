@@ -46,6 +46,8 @@ interface MultiItem {
   injection: import("@/constants/cookQuickPicks").QpInjectionOption | null;
   spritz: import("@/constants/cookQuickPicks").QpSpritzFrequency | null;
   wrapFinish: import("@/constants/cookQuickPicks").QpWrapFinishOption | null;
+  isFrozen: boolean;
+  thawMethod: import("@/components/plan-screen/frozenSchedule").ThawMethod;
 }
 
 interface Props {

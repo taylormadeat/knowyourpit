@@ -1296,6 +1296,19 @@ export const MultiCookItemCategory = {
   brisket: "brisket",
 } as const;
 
+/**
+ * Chosen thaw method when fromFrozen is true. "fridge" is slow and safest (~24h / 4–5 lbs); "cold_water" is faster (~1h per lb).
+ * @nullable
+ */
+export type MultiCookItemThawMethod =
+  | (typeof MultiCookItemThawMethod)[keyof typeof MultiCookItemThawMethod]
+  | null;
+
+export const MultiCookItemThawMethod = {
+  fridge: "fridge",
+  cold_water: "cold_water",
+} as const;
+
 export interface MultiCookItem {
   foodType: string;
   /** @nullable */
@@ -1331,6 +1344,16 @@ export interface MultiCookItem {
    * @nullable
    */
   cookingMethod?: string | null;
+  /**
+   * True when this item is starting from a fully frozen state. PitMaster will factor in thaw lead-time when scheduling backwards from the serve time.
+   * @nullable
+   */
+  fromFrozen?: boolean | null;
+  /**
+   * Chosen thaw method when fromFrozen is true. "fridge" is slow and safest (~24h / 4–5 lbs); "cold_water" is faster (~1h per lb).
+   * @nullable
+   */
+  thawMethod?: MultiCookItemThawMethod;
 }
 
 export type MultiCookCompetitionCategoriesItem =

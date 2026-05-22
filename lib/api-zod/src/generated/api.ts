@@ -2061,6 +2061,22 @@ export const AiMultiCookBody = zod.object({
           .describe(
             'Cooking technique selected by the user (e.g. \"Low & Slow\", \"Hot & Fast\", \"Rotisserie\"). When provided the AI should factor it into duration estimates, wrap recommendations, and notes.',
           ),
+        fromFrozen: zod
+          .boolean()
+          .nullish()
+          .describe(
+            "True when this item is starting from a fully frozen state. PitMaster will factor in thaw lead-time when scheduling backwards from the serve time.",
+          ),
+        thawMethod: zod
+          .union([
+            zod.literal("fridge"),
+            zod.literal("cold_water"),
+            zod.literal(null),
+          ])
+          .nullish()
+          .describe(
+            'Chosen thaw method when fromFrozen is true. \"fridge\" is slow and safest (~24h \/ 4–5 lbs); \"cold_water\" is faster (~1h per lb).',
+          ),
       }),
     )
     .min(1)

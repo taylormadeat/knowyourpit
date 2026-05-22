@@ -13,6 +13,7 @@ import {
   QP_SPRITZ_FREQUENCIES, type QpSpritzFrequency,
   QP_WRAP_FINISH_OPTIONS, type QpWrapFinishOption,
 } from "@/constants/cookQuickPicks";
+import { type ThawMethod } from "@/components/plan-screen/frozenSchedule";
 
 const COOK_METHOD_STORAGE_PREFIX = "@knowyourpit:cookMethod:";
 const MEAT_START_TEMP_STORAGE_PREFIX = "@knowyourpit:meatStartTemp:";
@@ -86,6 +87,8 @@ export interface MultiItem {
   injection: QpInjectionOption | null;
   spritz: QpSpritzFrequency | null;
   wrapFinish: QpWrapFinishOption | null;
+  isFrozen: boolean;
+  thawMethod: ThawMethod;
 }
 
 interface Props {
@@ -101,6 +104,9 @@ interface Props {
   setMultiItems: (updater: (prev: MultiItem[]) => MultiItem[]) => void;
   editItem?: MultiItem | null;
   editIndex?: number | null;
+  effectivePro?: boolean;
+  frozenTrialAvailable?: boolean;
+  showPaywall?: (opts: any) => void;
 }
 
 function ChipRow<T extends string>({
@@ -158,6 +164,9 @@ export function MultiCookAddItemModal(p: Props) {
     visible, onClose, colors, multiAddCat, setMultiAddCat,
     multiPickedCut, setMultiPickedCut, multiAddWeightInput, setMultiAddWeightInput, setMultiItems,
     editItem, editIndex,
+    effectivePro = false,
+    frozenTrialAvailable = false,
+    showPaywall = () => {},
   } = p;
 
   const isEditMode = editIndex != null && editItem != null;
@@ -168,6 +177,8 @@ export function MultiCookAddItemModal(p: Props) {
   const [selectedInjection, setSelectedInjection] = useState<QpInjectionOption | null>(null);
   const [selectedSpritz, setSelectedSpritz] = useState<QpSpritzFrequency | null>(null);
   const [selectedWrapFinish, setSelectedWrapFinish] = useState<QpWrapFinishOption | null>(null);
+  const [isFrozen, setIsFrozen] = useState(false);
+  const [thawMethod, setThawMethod] = useState<ThawMethod>("fridge");
 
   useEffect(() => {
     if (!multiPickedCut) {
@@ -177,6 +188,8 @@ export function MultiCookAddItemModal(p: Props) {
       setSelectedInjection(null);
       setSelectedSpritz(null);
       setSelectedWrapFinish(null);
+      setIsFrozen(false);
+      setThawMethod("fridge");
       return;
     }
 
@@ -187,6 +200,8 @@ export function MultiCookAddItemModal(p: Props) {
       setSelectedInjection(editItem.injection);
       setSelectedSpritz(editItem.spritz);
       setSelectedWrapFinish(editItem.wrapFinish);
+      setIsFrozen(editItem.isFrozen);
+      setThawMethod(editItem.thawMethod);
       return;
     }
 
@@ -198,6 +213,8 @@ export function MultiCookAddItemModal(p: Props) {
     loadLastInjection(multiPickedCut.name).then(v => setSelectedInjection(v));
     loadLastSpritz(multiPickedCut.name).then(v => setSelectedSpritz(v));
     loadLastWrapFinish(multiPickedCut.name).then(v => setSelectedWrapFinish(v));
+    setIsFrozen(false);
+    setThawMethod("fridge");
   }, [multiPickedCut?.name, editItem]);
 
   const resetFields = () => {
@@ -207,6 +224,8 @@ export function MultiCookAddItemModal(p: Props) {
     setSelectedInjection(null);
     setSelectedSpritz(null);
     setSelectedWrapFinish(null);
+    setIsFrozen(false);
+    setThawMethod("fridge");
   };
 
   const handleClose = () => {
@@ -230,6 +249,8 @@ export function MultiCookAddItemModal(p: Props) {
       injection: selectedInjection,
       spritz: selectedSpritz,
       wrapFinish: selectedWrapFinish,
+      isFrozen,
+      thawMethod,
     };
 
     if (isEditMode) {
@@ -398,6 +419,88 @@ export function MultiCookAddItemModal(p: Props) {
                   if (multiPickedCut && v) saveLastWrapFinish(multiPickedCut.name, v);
                 }}
               />
+
+              {/* From Freezer toggle */}
+              <View style={{ borderRadius: 10, borderWidth: 1, borderColor: isFrozen ? "#3B82F660" : colors.border, backgroundColor: colors.background, paddingHorizontal: 12, overflow: "hidden" }}>
+                <Pressable
+                  onPress={() => {
+                    if (isFrozen) {
+                      setIsFrozen(false);
+                      Haptics.selectionAsync();
+                      return;
+                    }
+                    if (!effectivePro && !frozenTrialAvailable) {
+                      showPaywall({ trigger: "frozen_timeline_limit_reached", featureName: "Frozen-to-Table Timeline" });
+                      return;
+                    }
+                    setIsFrozen(true);
+                    Haptics.selectionAsync();
+                  }}
+                  style={({ pressed }) => [
+                    {
+                      flexDirection: "row",
+                      alignItems: "center",
+                      paddingVertical: 11,
+                      gap: 10,
+                      minHeight: 44,
+                      borderBottomWidth: isFrozen ? 0.5 : 0,
+                      borderBottomColor: colors.border,
+                    },
+                    pressed && { opacity: 0.65 },
+                  ]}
+                >
+                  <View style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: "#3B82F620", alignItems: "center", justifyContent: "center" }}>
+                    <Feather name="cloud-snow" size={14} color="#3B82F6" />
+                  </View>
+                  <Text style={{ flex: 1, fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground }}>
+                    Starting from frozen?
+                  </Text>
+                  {!effectivePro && !frozenTrialAvailable && (
+                    <View style={s.proPill}>
+                      <Feather name="star" size={9} color="#fff" />
+                      <Text style={s.proPillText}>PRO</Text>
+                    </View>
+                  )}
+                  <View style={[s.toggleTrack, { backgroundColor: isFrozen ? "#3B82F6" : colors.muted, borderColor: isFrozen ? "#3B82F6" : colors.border }]}>
+                    <View style={[s.toggleThumb, { backgroundColor: "#fff", transform: [{ translateX: isFrozen ? 18 : 0 }] }]} />
+                  </View>
+                </Pressable>
+                {isFrozen && (
+                  <View style={{ paddingBottom: 12, paddingTop: 8 }}>
+                    <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                      Thaw Method
+                    </Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={{ flexDirection: "row", gap: 8 }}>
+                        {([
+                          { value: "fridge" as ThawMethod, label: "Refrigerator  (~24h / 4–5 lbs)" },
+                          { value: "cold_water" as ThawMethod, label: "Cold Water  (~1h per lb)" },
+                        ] as const).map(opt => {
+                          const active = thawMethod === opt.value;
+                          return (
+                            <Pressable
+                              key={opt.value}
+                              onPress={() => { setThawMethod(opt.value); Haptics.selectionAsync(); }}
+                              style={{
+                                paddingHorizontal: 12,
+                                paddingVertical: 7,
+                                borderRadius: 20,
+                                borderWidth: 1,
+                                borderColor: active ? "#3B82F6" : colors.border,
+                                backgroundColor: active ? "#3B82F620" : colors.muted,
+                              }}
+                            >
+                              <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? "#3B82F6" : colors.mutedForeground }}>
+                                {opt.label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
 
               <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
                 <TextInput
