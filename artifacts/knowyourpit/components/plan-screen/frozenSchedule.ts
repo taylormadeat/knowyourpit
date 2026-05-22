@@ -5,6 +5,10 @@ import { preheatMinsForGrill } from "./utils";
 // Cold water: ~1h per lb (with water changed every 30 min).
 export const THAW_FRIDGE_HOURS_PER_LB = 24 / 4.5;
 export const THAW_COLD_WATER_HOURS_PER_LB = 1;
+// USDA / food-safety minimum for refrigerator thaw: always at least 24 h
+// regardless of weight. The formula above gives sub-24h results for cuts
+// under 4.5 lbs, which contradicts the AI tips and food safety guidance.
+export const THAW_FRIDGE_MIN_HOURS = 24;
 // Fixed temper window — sit at room temp before going on the grill.
 export const TEMPER_MINUTES = 90;
 
@@ -20,10 +24,13 @@ export function calcThawMinutes(
   method: ThawMethod,
 ): number {
   if (weightLbs <= 0) return 0;
-  const hours =
+  const rawHours =
     method === "fridge"
       ? weightLbs * THAW_FRIDGE_HOURS_PER_LB
       : weightLbs * THAW_COLD_WATER_HOURS_PER_LB;
+  // Fridge thaw: enforce the USDA-safe 24-hour minimum regardless of weight.
+  // The per-lb formula produces sub-24h results for cuts under 4.5 lbs.
+  const hours = method === "fridge" ? Math.max(rawHours, THAW_FRIDGE_MIN_HOURS) : rawHours;
   return Math.round(hours * 60);
 }
 

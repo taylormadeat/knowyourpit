@@ -521,6 +521,16 @@ export default function PlanScreen() {
   const frozenStartInPast =
     !!schedule?.frozen && schedule.frozen.thawStartAt.getTime() < Date.now();
 
+  // Edge case: the thaw window is long enough that it extends past the preheat
+  // start — the meat won't be fully thawed before the grill needs to light.
+  // This can happen even when thawStartAt is in the future if the serve time
+  // is set less than (thawMins + temperMins + preheatMins + cookMins + restMins)
+  // from now. Show an amber warning distinct from frozenStartInPast.
+  const frozenThawOverlapsGrill =
+    !!schedule?.frozen &&
+    !frozenStartInPast &&
+    schedule.frozen.thawEndAt.getTime() > schedule.startAt.getTime();
+
   const weightInputRef = useRef<TextInput>(null);
 
   // When user picks a meat cut, auto-fill temps and restore per-cut quick-picks
@@ -2237,6 +2247,19 @@ export default function PlanScreen() {
               <Text style={s.frozenWarningBody}>
                 A full {schedule.frozen.method === "fridge" ? "fridge thaw" : "cold-water thaw"} for {parsedWeight} lbs needs about {fmtDuration(schedule.frozen.thawMins)}. Push the serve time later
                 {schedule.frozen.method === "fridge" ? " or switch to cold-water thaw" : ""}.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* ── Frozen warning: thaw window overlaps preheat (serve time too tight) ── */}
+        {schedule?.frozen && frozenThawOverlapsGrill && (
+          <View style={[s.frozenWarning, { borderRadius: colors.radius }]}>
+            <Feather name="alert-triangle" size={16} color="#F59E0B" />
+            <View style={{ flex: 1 }}>
+              <Text style={s.frozenWarningTitle}>Not enough time to fully thaw</Text>
+              <Text style={s.frozenWarningBody}>
+                The {schedule.frozen.method === "fridge" ? "fridge thaw" : "cold-water thaw"} ({fmtDuration(schedule.frozen.thawMins)}) won&apos;t finish before the grill needs to light. Push the serve time later{schedule.frozen.method === "fridge" ? " or switch to cold-water thaw" : ""}.
               </Text>
             </View>
           </View>
