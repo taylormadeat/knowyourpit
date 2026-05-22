@@ -834,9 +834,12 @@ export default function HomeScreen() {
                     ? new Date((cook as any).sequenceData.schedule[0].meatOnAt).getTime()
                     : null;
                   if (cookMeatOnMs != null && cookMeatOnMs > nowMs) return null;
+                  const anchorMs = (cookMeatOnMs != null && cookMeatOnMs <= nowMs)
+                    ? cookMeatOnMs
+                    : new Date(cook.actualStartAt).getTime();
                   return (
                     <Text style={[s.cookElapsed, { color: "#E84820" }]}>
-                      {fmtElapsed(nowMs - new Date(cook.actualStartAt).getTime())} elapsed
+                      {fmtElapsed(nowMs - anchorMs)} elapsed
                     </Text>
                   );
                 })()}

@@ -754,9 +754,22 @@ export default function CooksScreen() {
   const renderCookItem = ({ item, inSession }: { item: any; inSession?: boolean }) => {
     const isActive = item.status === "active";
     const isPlanned = item.status === "planned";
-    const elapsedMs = isActive && item.actualStartAt
-      ? nowMs - new Date(item.actualStartAt).getTime()
-      : null;
+    // Resolve the meatOnAt timestamp (from sequenceData or direct field).
+    const cookMeatOnMs: number | null = (() => {
+      const raw = item.sequenceData?.schedule?.[0]?.meatOnAt ?? item.meatOnAt ?? null;
+      return raw ? new Date(raw).getTime() : null;
+    })();
+    // If meatOnAt exists but is still in the future, suppress elapsed entirely —
+    // the cook is in its thaw/preheat phase, not on the smoker yet.
+    const meatIsOnYet = cookMeatOnMs == null || cookMeatOnMs <= nowMs;
+    const elapsedAnchorMs: number | null = (() => {
+      if (!isActive) return null;
+      if (!meatIsOnYet) return null; // future meatOnAt — hide elapsed
+      if (cookMeatOnMs != null) return cookMeatOnMs; // past meatOnAt — use it
+      if (item.actualStartAt) return new Date(item.actualStartAt).getTime(); // no meatOnAt — fallback
+      return null;
+    })();
+    const elapsedMs = elapsedAnchorMs !== null ? nowMs - elapsedAnchorMs : null;
     const plannedStartMs = isPlanned && item.plannedStartAt
       ? new Date(item.plannedStartAt).getTime()
       : null;
