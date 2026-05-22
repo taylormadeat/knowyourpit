@@ -108,7 +108,7 @@ Always run the dry-run first to review the list before passing `--confirm`. The 
 
 ## Ops Log
 
-- **2026-05-22 — Build #99 / v1.0.4 queued**: buildNumber 98→99. Features: thaw-start countdown on frozen cook cards (#762 — "START THAW" badge chip, countdown to thaw window open); spritz schedule sub-rows on cook timeline (#763 — teal dots between Meat On and Wrap/Pull-off showing each spritz time + live countdown); wrap finish technique displayed as italic sub-line beneath wrap step. EAS build + submit pending.
+- **2026-05-22 — Build #99 / v1.0.4 queued**: EAS build id `c051e755-b184-49f6-9765-428d5937ea1a`. buildNumber 98→99. Features: thaw-start countdown on frozen cook cards (#762 — "START THAW" badge chip, countdown to thaw window open); spritz schedule sub-rows on cook timeline (#763 — teal dots between Meat On and Wrap/Pull-off showing each spritz time + live countdown); wrap finish technique displayed as italic sub-line beneath wrap step. Submit pending.
 
 - **2026-05-22 — Build #98 / v1.0.4 submitted to TestFlight**: EAS build id `08d59c98-a58e-4427-ba6f-2bc51bc6126f`. Submission id `8ea1afb3-eb50-4ea9-8622-f0dce25bea24` — status FINISHED (confirmed via EAS GraphQL). Feature: 24-hour minimum floor for refrigerator thaw method (#760) + `frozenThawOverlapsGrill` plan warning when thaw window extends past preheat start. buildNumber 97→98. Subsequent retry submissions (318d76f9, d639e495, f9531de2, aa3b9d4b) all ERRORED — expected, Apple rejected duplicate binary uploads after first submission succeeded.
 
