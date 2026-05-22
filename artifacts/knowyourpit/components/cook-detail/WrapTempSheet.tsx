@@ -42,7 +42,7 @@ export function WrapTempSheet({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onSkip}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
         <Pressable style={ws.overlay} onPress={onSkip} />

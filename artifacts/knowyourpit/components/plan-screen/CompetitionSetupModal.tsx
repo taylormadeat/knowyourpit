@@ -162,7 +162,7 @@ export function CompetitionSetupModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={s.overlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={s.overlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <Pressable style={s.backdrop} onPress={onClose} />
         <View style={[s.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={s.handle} />
