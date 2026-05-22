@@ -55,7 +55,7 @@ export function BoxPresentationChecklist({ visible, onClose, category, colors }:
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <KeyboardAvoidingView
         style={s.overlay}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <Pressable style={s.backdrop} onPress={handleClose} />
         <View style={[s.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
