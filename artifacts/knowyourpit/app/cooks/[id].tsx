@@ -828,6 +828,8 @@ export default function CookDetailScreen() {
     cookStatus,
     cookSeqData,
     (cook as any)?.plannedStartAt ?? null,
+    (cook as any)?.actualThawStartAt ? new Date((cook as any).actualThawStartAt).toISOString() : null,
+    cook?.actualStartAt ? new Date(cook.actualStartAt).toISOString() : null,
   );
   // Spritz reminders — fire at the user's chosen spritz interval throughout the
   // active cook so they're nudged to spritz even when the app is backgrounded.

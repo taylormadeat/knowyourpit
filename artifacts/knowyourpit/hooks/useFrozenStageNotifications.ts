@@ -51,6 +51,11 @@ interface ScheduleArgs {
    */
   includePreheat: boolean;
   /**
+   * When set (pitmaster tapped "Mark Thaw Started"), schedule a 30-minute
+   * warning before thawEndAt so they know to move the meat to temper.
+   */
+  actualThawStartAt?: string | null;
+  /**
    * Optional staleness check used by useFrozenStageNotifications so an older
    * concurrent run can't cancel notifications that a newer run already
    * scheduled. When this returns false, scheduling exits early without
@@ -65,6 +70,7 @@ export async function scheduleFrozenStageNotifications({
   preheatStartAt,
   foodType,
   includePreheat,
+  actualThawStartAt,
   isCurrent,
 }: ScheduleArgs): Promise<void> {
   if (Platform.OS === "web") return;
@@ -114,6 +120,18 @@ export async function scheduleFrozenStageNotifications({
       title: "Meat fully thawed — start tempering",
       body: `${label}: pull from the fridge and rest on the counter to temper before the cook.`,
     });
+
+    // 30-minute warning before thaw completes — only once the pitmaster has
+    // confirmed the thaw is actually underway (actualThawStartAt set).
+    if (actualThawStartAt) {
+      const warningMs = ms - 30 * 60_000;
+      steps.push({
+        key: "thawEndWarning",
+        ms: warningMs,
+        title: "Almost thawed — start tempering soon",
+        body: `${label}: thaw window closes in 30 minutes. Get ready to pull from the fridge.`,
+      });
+    }
   }
 
   if (includePreheat && preheatStartAt) {
@@ -180,6 +198,14 @@ export function useFrozenStageNotifications(
   cookStatus: string | undefined,
   sequenceData: SequenceWithFrozen | null | undefined,
   preheatStartAt: string | null | undefined,
+  actualThawStartAt?: string | null,
+  /**
+   * ISO string set when the pitmaster confirms meat is on the grill
+   * (cook.actualStartAt). When provided and truthy for an active cook, all
+   * frozen-stage notifications (including the thawEndWarning) are cancelled
+   * immediately — the thaw cycle is done.
+   */
+  meatActuallyOnAt?: string | null,
 ): void {
   const frozen = sequenceData?.frozen ?? null;
   const depKey = JSON.stringify({
@@ -188,6 +214,8 @@ export function useFrozenStageNotifications(
     thawEndAt: frozen?.thawEndAt ?? null,
     foodType: frozen?.foodType ?? null,
     preheatStartAt: preheatStartAt ?? null,
+    actualThawStartAt: actualThawStartAt ?? null,
+    meatActuallyOnAt: meatActuallyOnAt ?? null,
   });
   const generationRef = useRef(0);
 
@@ -206,6 +234,14 @@ export function useFrozenStageNotifications(
       return;
     }
 
+    // Meat is confirmed on the grill — the entire thaw cycle is complete.
+    // Cancel any pending frozen-stage notifications (including the 30-min
+    // thawEndWarning) so they don't fire after the meat is already cooking.
+    if (cookStatus === "active" && !!meatActuallyOnAt) {
+      cancelStoredFrozenNotifications(cookId).catch(() => {});
+      return;
+    }
+
     // Avoid double-firing the preheat alert: useScheduleStepNotifications
     // already schedules grillLight while the cook is active.
     const includePreheat = cookStatus === "planned";
@@ -216,6 +252,7 @@ export function useFrozenStageNotifications(
       preheatStartAt,
       foodType: frozen?.foodType ?? null,
       includePreheat,
+      actualThawStartAt,
       isCurrent,
     }).catch(() => {});
   }, [cookId, cookStatus, depKey]);
