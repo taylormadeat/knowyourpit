@@ -411,6 +411,7 @@ export default function PlanScreen() {
   const [multiAddCat, setMultiAddCat] = useState<string>(MEAT_CATEGORIES[0]);
   const [multiAddWeightInput, setMultiAddWeightInput] = useState("");
   const [multiPickedCut, setMultiPickedCut] = useState<MeatCut | null>(null);
+  const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
 
   // ── Competition Mode state ────────────────────────────────────────────
   const [competitionSetupOpen, setCompetitionSetupOpen] = useState(false);
@@ -2493,13 +2494,29 @@ export default function PlanScreen() {
                       </ScrollView>
                     ) : null}
                   </View>
-                  <Pressable
-                    onPress={() => setMultiItems(prev => prev.filter((_, i) => i !== idx))}
-                    hitSlop={10}
-                    style={{ padding: 4, marginTop: 2 }}
-                  >
-                    <Feather name="x-circle" size={18} color={colors.mutedForeground} />
-                  </Pressable>
+                  <View style={{ flexDirection: "row", gap: 6, alignItems: "flex-start", marginTop: 2 }}>
+                    <Pressable
+                      onPress={() => {
+                        const item = multiItems[idx];
+                        setMultiPickedCut(item.cut);
+                        setMultiAddCat(item.cut.category);
+                        setMultiAddWeightInput(item.weightLbs);
+                        setEditingItemIdx(idx);
+                        setMultiAddOpen(true);
+                      }}
+                      hitSlop={10}
+                      style={{ padding: 4 }}
+                    >
+                      <Feather name="edit-2" size={16} color={colors.primary} />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setMultiItems(prev => prev.filter((_, i) => i !== idx))}
+                      hitSlop={10}
+                      style={{ padding: 4 }}
+                    >
+                      <Feather name="x-circle" size={18} color={colors.mutedForeground} />
+                    </Pressable>
+                  </View>
                 </View>
               </View>
             ))}
@@ -2513,6 +2530,7 @@ export default function PlanScreen() {
               setMultiPickedCut(null);
               setMultiAddWeightInput("");
               setMultiAddCat(MEAT_CATEGORIES[0]);
+              setEditingItemIdx(null);
               setMultiAddOpen(true);
             }}
             style={[s.multiAddBtn, { borderColor: colors.border, borderRadius: colors.radius, backgroundColor: colors.card }]}
@@ -2661,7 +2679,10 @@ export default function PlanScreen() {
       {/* ════ MULTI-COOK ADD ITEM MODAL ════ */}
       <MultiCookAddItemModal
         visible={multiAddOpen}
-        onClose={() => setMultiAddOpen(false)}
+        onClose={() => {
+          setMultiAddOpen(false);
+          setEditingItemIdx(null);
+        }}
         colors={colors}
         multiAddCat={multiAddCat}
         setMultiAddCat={setMultiAddCat}
@@ -2670,6 +2691,8 @@ export default function PlanScreen() {
         multiAddWeightInput={multiAddWeightInput}
         setMultiAddWeightInput={setMultiAddWeightInput}
         setMultiItems={setMultiItems}
+        editItem={editingItemIdx != null ? multiItems[editingItemIdx] : null}
+        editIndex={editingItemIdx}
       />
 
       {/* ════ COMPETITION SETUP MODAL ════ */}

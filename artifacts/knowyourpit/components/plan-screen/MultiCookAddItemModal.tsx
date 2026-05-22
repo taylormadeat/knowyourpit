@@ -98,6 +98,8 @@ interface Props {
   multiAddWeightInput: string;
   setMultiAddWeightInput: (v: string) => void;
   setMultiItems: (updater: (prev: MultiItem[]) => MultiItem[]) => void;
+  editItem?: MultiItem | null;
+  editIndex?: number | null;
 }
 
 function ChipRow<T extends string>({
@@ -154,7 +156,10 @@ export function MultiCookAddItemModal(p: Props) {
   const {
     visible, onClose, colors, multiAddCat, setMultiAddCat,
     multiPickedCut, setMultiPickedCut, multiAddWeightInput, setMultiAddWeightInput, setMultiItems,
+    editItem, editIndex,
   } = p;
+
+  const isEditMode = editIndex != null && editItem != null;
 
   const [selectedCookMethod, setSelectedCookMethod] = useState<QpCookMethod | null>(null);
   const [lastUsedMethod, setLastUsedMethod] = useState<QpCookMethod | null>(null);
@@ -173,6 +178,17 @@ export function MultiCookAddItemModal(p: Props) {
       setSelectedWrapFinish(null);
       return;
     }
+
+    if (isEditMode && editItem.cut.name === multiPickedCut.name) {
+      setSelectedCookMethod(editItem.cookMethod);
+      setLastUsedMethod(null);
+      setSelectedMeatStartTemp(editItem.meatStartTemp);
+      setSelectedInjection(editItem.injection);
+      setSelectedSpritz(editItem.spritz);
+      setSelectedWrapFinish(editItem.wrapFinish);
+      return;
+    }
+
     loadLastCookMethod(multiPickedCut.name).then(method => {
       setSelectedCookMethod(method);
       setLastUsedMethod(method);
@@ -181,7 +197,7 @@ export function MultiCookAddItemModal(p: Props) {
     loadLastInjection(multiPickedCut.name).then(v => setSelectedInjection(v));
     loadLastSpritz(multiPickedCut.name).then(v => setSelectedSpritz(v));
     loadLastWrapFinish(multiPickedCut.name).then(v => setSelectedWrapFinish(v));
-  }, [multiPickedCut?.name]);
+  }, [multiPickedCut?.name, editItem]);
 
   const resetFields = () => {
     setSelectedCookMethod(null);
@@ -195,6 +211,37 @@ export function MultiCookAddItemModal(p: Props) {
   const handleClose = () => {
     resetFields();
     onClose();
+  };
+
+  const handleSave = () => {
+    if (!multiPickedCut) return;
+
+    if (selectedCookMethod) {
+      saveLastCookMethod(multiPickedCut.name, selectedCookMethod);
+    }
+
+    const newItem: MultiItem = {
+      cut: multiPickedCut,
+      weightLbs: multiAddWeightInput,
+      grillId: isEditMode ? editItem.grillId : null,
+      cookMethod: selectedCookMethod,
+      meatStartTemp: selectedMeatStartTemp,
+      injection: selectedInjection,
+      spritz: selectedSpritz,
+      wrapFinish: selectedWrapFinish,
+    };
+
+    if (isEditMode) {
+      setMultiItems(prev => prev.map((it, i) => i === editIndex ? newItem : it));
+    } else {
+      setMultiItems(prev => [...prev, newItem]);
+    }
+
+    resetFields();
+    onClose();
+    setMultiPickedCut(null);
+    setMultiAddWeightInput("");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   return (
@@ -211,7 +258,9 @@ export function MultiCookAddItemModal(p: Props) {
         <View style={[s.modalSheet, { backgroundColor: colors.card }]}>
           <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
           <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[s.modalTitle, { color: colors.foreground }]}>Add Item</Text>
+            <Text style={[s.modalTitle, { color: colors.foreground }]}>
+              {isEditMode ? "Edit Item" : "Add Item"}
+            </Text>
             <Pressable onPress={handleClose} hitSlop={10}>
               <Feather name="x" size={22} color={colors.mutedForeground} />
             </Pressable>
@@ -363,30 +412,13 @@ export function MultiCookAddItemModal(p: Props) {
                 />
               </View>
               <Pressable
-                onPress={() => {
-                  if (selectedCookMethod) {
-                    saveLastCookMethod(multiPickedCut.name, selectedCookMethod);
-                  }
-                  setMultiItems(prev => [...prev, {
-                    cut: multiPickedCut,
-                    weightLbs: multiAddWeightInput,
-                    grillId: null,
-                    cookMethod: selectedCookMethod,
-                    meatStartTemp: selectedMeatStartTemp,
-                    injection: selectedInjection,
-                    spritz: selectedSpritz,
-                    wrapFinish: selectedWrapFinish,
-                  }]);
-                  resetFields();
-                  onClose();
-                  setMultiPickedCut(null);
-                  setMultiAddWeightInput("");
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
+                onPress={handleSave}
                 style={[s.submitBtn, { backgroundColor: "#6C3BF5", borderRadius: colors.radius }]}
               >
-                <Feather name="plus" size={16} color="#fff" />
-                <Text style={s.submitText}>Add {multiPickedCut.name}</Text>
+                <Feather name={isEditMode ? "check" : "plus"} size={16} color="#fff" />
+                <Text style={s.submitText}>
+                  {isEditMode ? `Save ${multiPickedCut.name}` : `Add ${multiPickedCut.name}`}
+                </Text>
               </Pressable>
             </View>
           )}
