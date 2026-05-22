@@ -229,15 +229,26 @@ export function SequenceSchedule(p: Props) {
                           const spritzIntervalMin = parseIntervalMinutes((c.spritzFrequency as string | null | undefined) ?? "");
                           if (!spritzIntervalMin || !item.meatOnAt) return null;
                           const meatOnMs = new Date(item.meatOnAt).getTime();
-                          // Stop spritzing at wrap time (if planned) or pull-off.
-                          const hasWrap = item.wrapMethod && item.wrapMethod !== "none" && (item.wrapAtMinutes ?? 0) > 0;
-                          const wrapCutoffMs = hasWrap
-                            ? meatOnMs + Math.round(item.wrapAtMinutes) * 60_000
-                            : null;
+                          // Mirror the same wrap-time derivation used in the Wrap step below.
+                          // Spritz rows stop at the wrap (when clock-based) or pull-off,
+                          // whichever comes first.
+                          const hasWrap = item.wrapMethod && item.wrapMethod !== "none";
+                          let wrapCutoffMs: number | null = null;
+                          if (hasWrap && item.wrapTempF == null) {
+                            const explicitWrapMin = (item.wrapAtMinutes ?? 0) > 0 ? Math.round(item.wrapAtMinutes) : null;
+                            const cookMin = typeof item.estimatedDurationMinutes === "number" && item.estimatedDurationMinutes > 0
+                              ? item.estimatedDurationMinutes : null;
+                            const inferredWrapMin = cookMin != null ? Math.max(30, Math.round(cookMin * 0.55)) : null;
+                            const wrapAtMin = explicitWrapMin ?? inferredWrapMin;
+                            if (wrapAtMin != null) wrapCutoffMs = meatOnMs + wrapAtMin * 60_000;
+                          }
                           const pullOffMs = item.estimatedFinishAt
                             ? new Date(item.estimatedFinishAt).getTime()
                             : null;
-                          const endMs = wrapCutoffMs ?? pullOffMs;
+                          // Use the earlier of wrap cutoff and pull-off.
+                          const endMs = (wrapCutoffMs != null && pullOffMs != null)
+                            ? Math.min(wrapCutoffMs, pullOffMs)
+                            : (wrapCutoffMs ?? pullOffMs);
                           if (!endMs) return null;
                           // Generate spritz timestamps (cap at 12).
                           const spritzTimes: number[] = [];
@@ -273,12 +284,11 @@ export function SequenceSchedule(p: Props) {
                                         },
                                       ]}
                                     />
-                                    <View style={[s.seqTlConnector, { borderColor: spritzColor + "33" }]} />
                                     <View style={{ flex: 1 }}>
                                       <View style={s.seqTlLabelRow}>
                                         <Feather name="droplet" size={9} color={isDone ? colors.mutedForeground : spritzColor} style={{ marginRight: 2 }} />
                                         <Text style={[s.seqTlLabel, { color: isDone ? colors.mutedForeground : spritzColor, fontSize: 9 }]}>
-                                          Spritz #{i + 1}
+                                          Spritz
                                         </Text>
                                       </View>
                                       <Text style={[s.seqTlMeta, { color: isDone ? colors.mutedForeground : colors.foreground, fontSize: 12, fontFamily: "Inter_600SemiBold" }]}>
