@@ -1912,7 +1912,17 @@ export default function CookDetailScreen() {
   const verdictCfg = assessment ? (VERDICT_CONFIG[assessment.verdict] ?? VERDICT_CONFIG.needs_work) : null;
 
   // Live timer computed values
-  const elapsedMs = c.actualStartAt ? nowMs - new Date(c.actualStartAt).getTime() : 0;
+  // Anchor elapsed to meatOnAt (same as cook-list cards) so frozen-cook detail
+  // screens don't inflate "time on the smoker" with thaw/preheat time.
+  // effectiveMeatOnMs is already computed above (thaw-shift adjusted).
+  const elapsedAnchorMs: number | null = (() => {
+    if (c.status !== "active") return c.actualStartAt ? new Date(c.actualStartAt).getTime() : null;
+    if (!isMeatOn) return null; // meat not on the grill yet — hide elapsed
+    if (effectiveMeatOnMs != null) return effectiveMeatOnMs; // past meatOnAt — use it
+    if (c.actualStartAt) return new Date(c.actualStartAt).getTime(); // no meatOnAt — fallback
+    return null;
+  })();
+  const elapsedMs = elapsedAnchorMs !== null ? nowMs - elapsedAnchorMs : 0;
 
   // Remaining time for the live banner — derived from estimatedFinishMs so it
   // stays in sync with the progress bar (including wrap-temp adjustments).

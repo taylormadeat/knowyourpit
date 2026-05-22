@@ -247,16 +247,22 @@ export default function PlanScreen() {
     };
   }, [activeCook?.id, tickIntervalMs]);
 
-  const activeElapsedMs = activeCook?.actualStartAt
-    ? bannerNowMs - new Date(activeCook.actualStartAt).getTime()
-    : 0;
-
   const activeCookMeatOnMs = useMemo(() => {
     const meatOnAt = activeSeqData?.schedule?.[0]?.meatOnAt;
     return meatOnAt ? new Date(meatOnAt as string).getTime() : null;
   }, [activeSeqData]);
 
   const activeCookIsMeatOn = activeCookMeatOnMs == null || activeCookMeatOnMs <= bannerNowMs;
+
+  // Anchor elapsed to meatOnAt (same as cook-list cards) so the banner doesn't
+  // inflate "time on the smoker" with thaw/preheat time for frozen cooks.
+  const activeElapsedMs = (() => {
+    if (!activeCook) return 0;
+    if (!activeCookIsMeatOn) return 0; // meat not yet on — hide elapsed
+    if (activeCookMeatOnMs != null) return bannerNowMs - activeCookMeatOnMs;
+    if (activeCook.actualStartAt) return bannerNowMs - new Date(activeCook.actualStartAt).getTime();
+    return 0;
+  })();
 
   const activeCookRemainingLabel = useMemo(() => {
     const seqFinish = activeSeqData?.schedule?.[0]?.estimatedFinishAt;
