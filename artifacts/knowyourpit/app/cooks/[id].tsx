@@ -2592,8 +2592,8 @@ export default function CookDetailScreen() {
           onCardLayout={onCardLayout}
         />}
 
-        {/* ── Ask PitMaster (active cooks only) ───────────────── */}
-        <AskPitMaster
+        {/* ── Ask PitMaster (active cooks only, once meat is on) ── */}
+        {(cookStatus !== "active" || isMeatOn) && <AskPitMaster
           c={c}
           colors={colors}
           meaterLinked={meaterLinked}
@@ -2626,7 +2626,7 @@ export default function CookDetailScreen() {
           assessment={assessment}
           onCardLayout={onCardLayout}
           cookPhotoCount={cookPhotoCount}
-        />
+        />}
 
         {/* ── Soft "you're 1 cook from the wall" nudge ──────────
             Free users who just completed their second cook see a
