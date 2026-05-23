@@ -145,7 +145,7 @@ import { EditCookTimesSheet } from "@/components/cook-detail/EditCookTimesSheet"
 import { AddToPlannedCookModal } from "@/components/cook-detail/AddToPlannedCookModal";
 import { AlertSheet } from "@/components/cook-detail/AlertSheet";
 import { CheckInHistory } from "@/components/cook-detail/CheckInHistory";
-import { CheckinModal } from "@/components/cook-detail/CheckinModal";
+import { UnifiedCheckinSheet } from "@/components/cook-detail/UnifiedCheckinSheet";
 import { CookCheckinTimeline, CookJourneyReplay } from "@/components/cook-detail/CookCheckinTimeline";
 import { LiveCookSection } from "@/components/cook-detail/LiveCookSection";
 import { CookSummaryCard } from "@/components/cook-detail/CookSummaryCard";
@@ -158,7 +158,6 @@ import { AskPitMaster } from "@/components/cook-detail/AskPitMaster";
 import { RateThisCook } from "@/components/cook-detail/RateThisCook";
 import { ShareCookButton } from "@/components/cook-detail/ShareCookButton";
 import { NextUpBanner } from "@/components/NextUpBanner";
-import { QuickLogSheet } from "@/components/cook-detail/QuickLogSheet";
 import { CookHealthScoreCard } from "@/components/cook-detail/CookHealthScoreCard";
 import { PitJournalFeed } from "@/components/cook-detail/PitJournalFeed";
 import { CookPhotosSection } from "@/components/cook-detail/CookPhotosSection";
@@ -332,7 +331,6 @@ export default function CookDetailScreen() {
   const [alertLabel, setAlertLabel] = useState("");
   const [alertMinutesBefore, setAlertMinutesBefore] = useState("30");
   const [alertSaving, setAlertSaving] = useState(false);
-  const [quickLogVisible, setQuickLogVisible] = useState(false);
 
   // Technique picker sheet state (inline edit on cook detail)
   const [techMethodSheetOpen, setTechMethodSheetOpen] = useState(false);
@@ -1668,10 +1666,15 @@ export default function CookDetailScreen() {
   // whenever an analyze (manual OR auto) finishes successfully.
   const [lastAnalyzedAtMs, setLastAnalyzedAtMs] = useState<number | null>(null);
 
-  const analyze = async (opts: { auto?: boolean; extraNotes?: string } = {}) => {
+  const analyze = async (opts: {
+    auto?: boolean;
+    extraNotes?: string;
+    /** Bypass stale lastCheckin cache — pass temps submitted in the unified sheet directly */
+    checkinOverride?: { internalTempF: number | null; pitTempF: number | null };
+  } = {}) => {
     const auto = opts.auto === true;
-    // extraNotes lets callers (e.g. quick-log note) inject text directly into
-    // the analysis context without racing a React state update cycle.
+    // extraNotes lets callers inject text directly into the analysis context
+    // without racing a React state update cycle (e.g. unified check-in sheet).
     const notesForAnalysis = opts.extraNotes != null
       ? [opts.extraNotes.trim(), scanNotes.trim()].filter(Boolean).join(" · ")
       : scanNotes.trim();
@@ -1681,7 +1684,20 @@ export default function CookDetailScreen() {
         ? (selectedMeaterProbe.internalTempF as number)
         : null;
     const hasMeaterTemp = liveMeaterInternalTempF != null;
-    const hasCheckinTemp = lastCheckin?.internalTempF != null || lastCheckin?.pitTempF != null;
+    // checkinOverride lets the unified check-in sheet bypass async query-cache
+    // lag — the just-submitted temps arrive immediately without waiting for
+    // getListCookCheckinsQueryKey to refetch and update lastCheckin.
+    const resolvedInternalTempF =
+      liveMeaterInternalTempF ??
+      opts.checkinOverride?.internalTempF ??
+      lastCheckin?.internalTempF ??
+      null;
+    const resolvedPitTempF =
+      opts.checkinOverride?.pitTempF ??
+      lastCheckin?.pitTempF ??
+      selectedMeaterProbe?.ambientTempF ??
+      null;
+    const hasCheckinTemp = resolvedInternalTempF != null || resolvedPitTempF != null;
     const hasAnyInput = images.length > 0 || notesForAnalysis.length > 0 || hasCheckinTemp;
     if (!hasAnyInput && !hasMeaterTemp) {
       if (auto) return; // silent skip — nothing useful to grade right now
@@ -1724,12 +1740,13 @@ export default function CookDetailScreen() {
             actualStartAt: c?.actualStartAt ? new Date(c.actualStartAt).toISOString() : null,
             plannedStartAt: c?.plannedStartAt ? new Date(c.plannedStartAt).toISOString() : null,
             plannedEndAt: c?.plannedEndAt ? new Date(c.plannedEndAt).toISOString() : null,
-            // Live MEATER probe takes precedence over last check-in temp
-            userEnteredTempF: liveMeaterInternalTempF ?? lastCheckin?.internalTempF ?? null,
+            // resolvedInternalTempF / resolvedPitTempF bypass stale lastCheckin
+            // cache when called immediately after a unified-sheet submission.
+            userEnteredTempF: resolvedInternalTempF,
             // Live probe data for phase detection (active cooks only)
             liveReadings: liveReadings.length >= 2 ? liveReadings : null,
             elapsedMinutes: c?.actualStartAt ? Math.round((Date.now() - new Date(c.actualStartAt).getTime()) / 60000) : null,
-            currentPitTempF: lastCheckin?.pitTempF ?? selectedMeaterProbe?.ambientTempF ?? null,
+            currentPitTempF: resolvedPitTempF,
             outdoorTempF: weather.tempF ?? null,
             cookStatus: c?.status ?? null,
             // Technique quick-picks persisted on the cook record
@@ -2368,7 +2385,7 @@ export default function CookDetailScreen() {
                 fontFamily: "Inter_700Bold", fontSize: 13,
                 color: isPending ? "#F59E0B" : colors.foreground,
               }}>
-                {isPending ? `Check In: ${pendingCheckinSc?.phaseLabel ?? "Now"}` : "Check In Now"}
+                {isPending ? `Check In: ${pendingCheckinSc?.phaseLabel ?? "Now"}` : "Check In with PitMaster"}
               </Text>
               <Text style={{
                 fontFamily: "Inter_400Regular", fontSize: 12,
@@ -3107,20 +3124,14 @@ export default function CookDetailScreen() {
           lastCheckinInternalTempF={lastCheckin?.internalTempF ?? null}
           lastCheckinPitTempF={lastCheckin?.pitTempF ?? null}
           lastCheckinAt={lastCheckin?.createdAt ?? null}
-          cookNotes={cookNotes}
-          setCookNotes={setCookNotes}
           qpMethod={qpMethod}
-          qpStartTemp={qpStartTemp}
           qpInjection={qpInjection}
           qpSpritz={qpSpritz}
           qpWrap={qpWrap}
-          activeCookNoteTags={activeCookNoteTags}
-          setActiveCookNoteTags={setActiveCookNoteTags}
           paywallUsage={paywallUsage}
           autoGradePaused={autoGradePaused}
           onUpgradeAutoGradePress={onUpgradeAutoGradePress}
           analyzing={analyzing}
-          analyze={analyze}
           lastAnalyzedAtMs={lastAnalyzedAtMs}
           nowMs={nowMs}
           result={result}
@@ -3128,7 +3139,6 @@ export default function CookDetailScreen() {
           verdictCfg={verdictCfg}
           assessment={assessment}
           onCardLayout={onCardLayout}
-          cookPhotoCount={cookPhotoCount}
         />}
 
         {/* ── Soft "you're 1 cook from the wall" nudge ──────────
@@ -3400,50 +3410,6 @@ export default function CookDetailScreen() {
         saveAlert={saveAlert}
       />
 
-      {/* ── Quick Log FAB (active cooks only) ────────────────── */}
-      {cookStatus === "active" && (
-        <Pressable
-          onPress={() => setQuickLogVisible(true)}
-          style={({ pressed }) => ({
-            position: "absolute",
-            bottom: botPad + 24,
-            right: 24,
-            paddingHorizontal: 16,
-            paddingVertical: 10,
-            borderRadius: 24,
-            backgroundColor: "#E84820",
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 3 },
-            shadowOpacity: 0.4,
-            shadowRadius: 5,
-            elevation: 8,
-            opacity: pressed ? 0.8 : 1,
-          })}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Feather name="plus-circle" size={18} color="#fff" />
-            <Text style={{ color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold", marginLeft: 7 }}>Log</Text>
-          </View>
-        </Pressable>
-      )}
-
-      {/* ── Quick Log Sheet ───────────────────────────────────── */}
-      <QuickLogSheet
-        visible={quickLogVisible}
-        onClose={() => setQuickLogVisible(false)}
-        cookId={Number(id)}
-        colors={colors}
-        onEventLogged={() => {
-          qc.invalidateQueries({ queryKey: getListCookEventsQueryKey(Number(id)) });
-        }}
-        onNoteLogged={(noteText) => {
-          // Persist note into cookNotes so subsequent manual analyses include it.
-          setCookNotes((prev) => (prev.trim() ? `${prev.trim()}\n${noteText}` : noteText));
-          // Inject directly into analysis call so PitMaster sees it
-          // immediately without waiting for a React state update cycle.
-          analyze({ extraNotes: noteText });
-        }}
-      />
 
       {/* ── Auto Check-In Toast ──────────────────────────────── */}
       {autoCheckinToast != null && (
@@ -3480,9 +3446,9 @@ export default function CookDetailScreen() {
         </View>
       )}
 
-      {/* ── Smart Check-In Modal ─────────────────────────────── */}
+      {/* ── Unified Check-In with PitMaster Sheet ────────────── */}
       {activeCheckin && (
-        <CheckinModal
+        <UnifiedCheckinSheet
           visible={checkinModalVisible}
           onClose={() => setCheckinModalVisible(false)}
           cookId={Number(id)}
@@ -3508,19 +3474,21 @@ export default function CookDetailScreen() {
           targetCookTempF={cook?.cookTempF ?? null}
           weatherTempF={weather?.tempF ?? null}
           weatherWindSpeedMph={weather?.windSpeedMph ?? null}
+          cookSpritzFrequency={(cook as any)?.spritzFrequency ?? null}
+          cookSpritzLiquid={(cook as any)?.spritzLiquid ?? null}
+          cookWrapFinish={(cook as any)?.wrapFinish ?? null}
+          onRequestAnalyze={async (opts) => {
+            await analyze({
+              extraNotes: opts?.notes || undefined,
+              checkinOverride: { internalTempF: opts?.internalTempF ?? null, pitTempF: opts?.pitTempF ?? null },
+            });
+          }}
+          result={result}
           onCheckinSaved={(savedInternalTempF) => {
-            // A manual check-in may carry a fresher AI finish window from the
-            // server. Set the pending-clear flag and invalidate the cook query
-            // — the dataUpdatedAt-watching effect clears wrapAdjustedFinishMs
-            // atomically when fresh data lands (covers both bounds-change and
-            // identical-bounds edge cases; no stale-value backward jump).
             pendingWrapClearRef.current = true;
             qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
             qc.invalidateQueries({ queryKey: getListCookCheckinsQueryKey(Number(id)) });
-            // Adaptive rescheduling: recompute remaining notifications based on
-            // the actual internal temp just recorded vs what was expected.
-            // Use the submitted modal temp (savedInternalTempF) — not the probe
-            // reading — so manual-entry cooks reschedule correctly too.
+            qc.invalidateQueries({ queryKey: getListCookEventsQueryKey(Number(id)) });
             const first = cookSeqData?.schedule?.[0];
             if (first?.meatOnAt && first?.estimatedFinishAt) {
               const completedKeys = new Set(
@@ -3529,8 +3497,6 @@ export default function CookDetailScreen() {
                   .filter((k): k is string => k != null),
               );
               if (activeCheckin?.phaseKey) completedKeys.add(activeCheckin.phaseKey);
-              // Prefer the saved check-in temp; fall back to live probe only when
-              // no manual temp was entered (pure visual-milestone check-in).
               const adaptiveTemp =
                 savedInternalTempF ??
                 selectedMeaterProbe?.internalTempF ??

@@ -1,9 +1,8 @@
 import React from "react";
-import { View, Text, Pressable, TextInput, ActivityIndicator, ScrollView, StyleSheet, Animated } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, StyleSheet, Animated } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { s } from "./styles";
-import { QP_WRAP_FINISH_OPTIONS } from "@/constants/cookQuickPicks";
 
 type Colors = any;
 
@@ -15,21 +14,14 @@ interface Props {
   lastCheckinInternalTempF: number | null;
   lastCheckinPitTempF: number | null;
   lastCheckinAt: string | null;
-  cookNotes: string;
-  setCookNotes: React.Dispatch<React.SetStateAction<string>>;
   qpMethod: string | null;
-  qpStartTemp: string | null;
   qpInjection: string | null;
   qpSpritz: string | null;
   qpWrap: string | null;
-  activeCookNoteTags: string[];
-  setActiveCookNoteTags: React.Dispatch<React.SetStateAction<string[]>>;
   paywallUsage: any;
   autoGradePaused: boolean;
   onUpgradeAutoGradePress: () => void;
   analyzing: boolean;
-  analyze: () => void;
-  cookPhotoCount?: number;
   lastAnalyzedAtMs: number | null;
   nowMs: number;
   result: any;
@@ -41,15 +33,12 @@ interface Props {
 
 export function AskPitMaster(p: Props) {
   const {
-    c, colors, meaterLinked, meaterProbes,
+    c, colors,
+    meaterLinked, meaterProbes,
     lastCheckinInternalTempF, lastCheckinPitTempF, lastCheckinAt,
-    cookNotes, setCookNotes,
     qpMethod, qpInjection, qpSpritz, qpWrap,
-    activeCookNoteTags, setActiveCookNoteTags,
-    paywallUsage, autoGradePaused, onUpgradeAutoGradePress,
-    analyzing, analyze, lastAnalyzedAtMs, nowMs,
+    analyzing, lastAnalyzedAtMs, nowMs,
     result, renderDecisions, verdictCfg, assessment, onCardLayout,
-    cookPhotoCount = 0,
   } = p;
 
   const [cardExpanded, setCardExpanded] = React.useState(false);
@@ -92,6 +81,7 @@ export function AskPitMaster(p: Props) {
   if (c.status !== "active") return null;
 
   const collapseLabel = (() => {
+    if (analyzing) return "PitMaster is checking in…";
     if (lastAnalyzedAtMs != null) {
       const ageSec = Math.max(0, Math.round((nowMs - lastAnalyzedAtMs) / 1000));
       const ageLabel =
@@ -100,10 +90,12 @@ export function AskPitMaster(p: Props) {
           : ageSec < 3600
             ? `${Math.round(ageSec / 60)} min ago`
             : `${Math.floor(ageSec / 3600)}h ${Math.round((ageSec % 3600) / 60)}m ago`;
-      return `Last checked in ${ageLabel} · Tap to ask again`;
+      return `Last checked in ${ageLabel} · Tap to view`;
     }
     const techSummary = [qpMethod, qpInjection, qpSpritz, qpWrap].filter(Boolean).join(" · ");
-    return techSummary ? `${techSummary} · Tap to ask PitMaster` : "Tap to ask PitMaster";
+    return techSummary
+      ? `${techSummary} · Tap 'Check In with PitMaster' to get coaching`
+      : "Tap 'Check In with PitMaster' below to get your next step";
   })();
 
   const checkinAgeLabel = React.useMemo(() => {
@@ -132,24 +124,22 @@ export function AskPitMaster(p: Props) {
           <Feather name="zap" size={15} color="#fff" />
         </LinearGradient>
         <View style={{ flex: 1 }}>
-          <Text style={[s.logTitle, { color: colors.foreground }]}>What Should I Do Next?</Text>
-          {cardExpanded ? (
-            <Text style={[s.logSub, { color: colors.mutedForeground }]}>
-              {hasLastCheckinTemps
-                ? "Temperatures from your last check-in · add notes and get your next step"
-                : "Log a check-in to provide temperatures for better coaching"}
-            </Text>
-          ) : (
-            <Text style={[s.logSub, { color: colors.mutedForeground }]} numberOfLines={1}>
-              {collapseLabel}
-            </Text>
-          )}
+          <Text style={[s.logTitle, { color: colors.foreground }]}>Check In with PitMaster</Text>
+          <Text style={[s.logSub, { color: colors.mutedForeground }]} numberOfLines={1}>
+            {cardExpanded && result
+              ? "Latest coaching — tap 'Check In with PitMaster' to update"
+              : collapseLabel}
+          </Text>
         </View>
-        <Feather
-          name={cardExpanded ? "chevron-up" : "chevron-down"}
-          size={16}
-          color={colors.mutedForeground as string}
-        />
+        {analyzing ? (
+          <ActivityIndicator size="small" color={colors.mutedForeground} />
+        ) : (
+          <Feather
+            name={cardExpanded ? "chevron-up" : "chevron-down"}
+            size={16}
+            color={colors.mutedForeground as string}
+          />
+        )}
       </Pressable>
 
       {cardExpanded && (
@@ -161,7 +151,7 @@ export function AskPitMaster(p: Props) {
                 <View style={[s.meaterAutoFillBadge, { backgroundColor: "#FF6B2B15", marginBottom: 0 }]}>
                   <Feather name="radio" size={11} color="#FF6B2B" />
                   <Text style={[s.meaterAutoFillText, { color: "#FF6B2B" }]}>
-                    Live from {meaterProbes[0].deviceName} · {liveMeaterTemp}°F · will be used for analysis
+                    Live from {meaterProbes[0].deviceName} · {liveMeaterTemp}°F
                   </Text>
                 </View>
               )}
@@ -194,193 +184,40 @@ export function AskPitMaster(p: Props) {
               <Feather name="thermometer" size={15} color={colors.mutedForeground as string} />
               <Text style={[qs.noCheckinText, { color: colors.mutedForeground }]}>
                 {meaterLinked === true && meaterProbes.length > 0 && liveMeaterTemp != null
-                  ? `Live probe at ${liveMeaterTemp}°F · tap "Check In" to log your pit temp too`
-                  : "Tap the check-in button above to log your probe and pit temperatures."}
+                  ? `Live probe at ${liveMeaterTemp}°F · tap "Check In with PitMaster" to log your pit temp too`
+                  : `Tap "Check In with PitMaster" to log your probe and pit temperatures.`}
               </Text>
             </View>
           )}
 
-          {/* ── What's happening? (cook notes + quick-add chips) ─────────── */}
-          <View>
-            <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
-              What's happening? <Text style={{ fontWeight: "400" }}>(optional)</Text>
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={[qs.chipScroll, { marginBottom: 8 }]}
-            >
-              {QP_WRAP_FINISH_OPTIONS.map((tag) => {
-                const active = activeCookNoteTags.includes(tag);
-                return (
-                  <Pressable
-                    key={tag}
-                    onPress={() => {
-                      if (active) {
-                        setActiveCookNoteTags((prev: string[]) => prev.filter((t) => t !== tag));
-                        setCookNotes((prev: string) => {
-                          const parts = prev.split(" · ").map((p) => p.trim()).filter((p) => p !== tag && p !== "");
-                          return parts.join(" · ");
-                        });
-                      } else {
-                        setActiveCookNoteTags((prev: string[]) => [...prev, tag]);
-                        setCookNotes((prev: string) => (prev.trim() ? `${prev.trim()} · ${tag}` : tag));
-                      }
-                    }}
-                    style={[
-                      qs.chip,
-                      {
-                        borderColor: active ? colors.primary : colors.border,
-                        backgroundColor: active ? colors.primary + "20" : "transparent",
-                        borderRadius: colors.radius,
-                      },
-                    ]}
-                  >
-                    <Text style={[qs.chipText, { color: active ? colors.primary : colors.mutedForeground }]}>
-                      {tag}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-            <TextInput
-              style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, minHeight: 56, padding: 10, fontSize: 13 }]}
-              placeholder="e.g. Going into the stall around 160°F, just wrapped it in butcher paper..."
-              placeholderTextColor={colors.mutedForeground}
-              value={cookNotes}
-              onChangeText={setCookNotes}
-              multiline
-              numberOfLines={2}
-              textAlignVertical="top"
-            />
-          </View>
-
-          {paywallUsage && !paywallUsage.unlimited && (
-            <Text
-              style={{
-                fontSize: 12,
-                fontFamily: "Inter_500Medium",
-                color:
-                  paywallUsage.remaining.aiAnalyzesToday <= 1
-                    ? colors.primary
-                    : colors.mutedForeground,
-                textAlign: "center",
-                marginTop: 6,
-                marginBottom: -2,
-              }}
-            >
-              {paywallUsage.remaining.aiAnalyzesToday} of {paywallUsage.limits.aiAnalyzePerDay} free
-              analyses left today
-            </Text>
-          )}
-          {autoGradePaused && paywallUsage && !paywallUsage.unlimited && (
-            <Pressable
-              onPress={onUpgradeAutoGradePress}
-              style={({ pressed }) => [
+          {/* ── Empty state when no result yet ───────────────────── */}
+          {!result && !analyzing && (
+            <View
+              style={[
+                qs.noCheckinNudge,
                 {
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: 10,
+                  backgroundColor: "#6C3BF512",
+                  borderColor: "#6C3BF530",
                   borderRadius: colors.radius,
-                  backgroundColor: "#E84820" + "12",
-                  borderWidth: 1,
-                  borderColor: "#E84820" + "35",
-                  opacity: pressed ? 0.85 : 1,
+                  marginTop: 4,
                 },
               ]}
             >
-              <Feather name="pause-circle" size={16} color="#E84820" />
-              <Text
-                style={{
-                  flex: 1,
-                  color: colors.foreground,
-                  fontSize: 13,
-                  fontFamily: "Inter_600SemiBold",
-                }}
-              >
-                Auto-grading is a Pro feature — upgrade to unlock
-              </Text>
-              <Feather name="chevron-right" size={16} color="#E84820" />
-            </Pressable>
-          )}
-
-          {cookPhotoCount > 0 && (
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 6,
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-                borderRadius: 8,
-                backgroundColor: "#6C3BF512",
-                borderWidth: 1,
-                borderColor: "#6C3BF530",
-                marginBottom: 4,
-              }}
-            >
-              <Feather name="camera" size={12} color="#A855F7" />
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontFamily: "Inter_500Medium",
-                  color: "#A855F7",
-                  flex: 1,
-                }}
-              >
-                Using your {cookPhotoCount} cook photo{cookPhotoCount > 1 ? "s" : ""} for visual analysis
+              <Feather name="zap" size={15} color="#A855F7" />
+              <Text style={[qs.noCheckinText, { color: colors.mutedForeground }]}>
+                Tap "Check In with PitMaster" below to get your next coaching step.
               </Text>
             </View>
           )}
 
-          <Pressable
-            style={({ pressed }) => [s.analyzeBtn, { borderRadius: colors.radius }, (analyzing || pressed) && { opacity: 0.75 }]}
-            onPress={() => analyze()}
-            disabled={analyzing}
-          >
-            <LinearGradient colors={["#6C3BF5", "#A855F7"]} style={s.analyzeBtnGradient}>
-              {analyzing ? (
-                <>
-                  <ActivityIndicator color="#fff" size="small" />
-                  <Text style={s.analyzeBtnText}>PitMaster is checking in…</Text>
-                </>
-              ) : (
-                <>
-                  <Feather name="zap" size={16} color="#fff" />
-                  <Text style={s.analyzeBtnText}>Ask PitMaster</Text>
-                </>
-              )}
-            </LinearGradient>
-          </Pressable>
-
-          {lastAnalyzedAtMs != null && (() => {
-            const ageSec = Math.max(0, Math.round((nowMs - lastAnalyzedAtMs) / 1000));
-            const ageLabel =
-              ageSec < 60
-                ? "just now"
-                : ageSec < 3600
-                  ? `${Math.round(ageSec / 60)} min ago`
-                  : `${Math.floor(ageSec / 3600)}h ${Math.round((ageSec % 3600) / 60)}m ago`;
-            const hh = new Date(lastAnalyzedAtMs).getHours();
-            const mm = new Date(lastAnalyzedAtMs).getMinutes();
-            const ampm = hh >= 12 ? "PM" : "AM";
-            const hour12 = hh % 12 === 0 ? 12 : hh % 12;
-            const clock = `${hour12}:${String(mm).padStart(2, "0")} ${ampm}`;
-            return (
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontFamily: "Inter_500Medium",
-                  color: colors.mutedForeground,
-                  textAlign: "center",
-                  marginTop: -2,
-                }}
-              >
-                Auto-graded {clock} · Updated {ageLabel}
+          {analyzing && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 }}>
+              <ActivityIndicator size="small" color="#A855F7" />
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>
+                PitMaster is checking in…
               </Text>
-            );
-          })()}
+            </View>
+          )}
 
           {result && (
             <View style={[s.results, { borderTopColor: colors.border }]}>
@@ -419,7 +256,6 @@ export function AskPitMaster(p: Props) {
 
                 return (
                   <Animated.View style={[s.phaseCard, { backgroundColor: phaseColor + "15", borderColor: phaseColor + "40", borderRadius: colors.radius }, { opacity: phaseOpacity, transform: [{ translateY: phaseAnim.y }] }]}>
-                    {/* Phase chip + optional narrative toggle on same row */}
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <View style={[s.phaseChip, { backgroundColor: phaseColor + "25", borderColor: phaseColor + "50" }]}>
                         <Feather name={phaseIcon as any} size={12} color={phaseColor} />
@@ -480,7 +316,6 @@ export function AskPitMaster(p: Props) {
                 </View>
               )}
 
-              {/* Assessment bullets — collapsed behind a summary chip row */}
               {(() => {
                 const wellCount = assessment?.whatWentWell?.length ?? 0;
                 const tipCount = assessment?.suggestions?.length ?? 0;
@@ -546,9 +381,6 @@ export function AskPitMaster(p: Props) {
 }
 
 const qs = StyleSheet.create({
-  chipScroll: { flexDirection: "row", gap: 7, paddingVertical: 2 },
-  chip: { paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1 },
-  chipText: { fontSize: 12, fontFamily: "Inter_500Medium" },
   tempReadBox: {
     borderWidth: 1,
     borderRadius: 8,
