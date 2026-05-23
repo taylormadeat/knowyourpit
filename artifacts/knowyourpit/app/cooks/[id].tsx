@@ -270,6 +270,8 @@ export default function CookDetailScreen() {
   // banner but does NOT auto-open the modal. Cleared when the user taps the
   // banner or dismisses it.
   const [pendingCheckinSc, setPendingCheckinSc] = useState<ScheduledCheckin | null>(null);
+  // Nudge banner: shown on active cooks with zero saved check-ins; user can dismiss
+  const [firstCheckinNudgeDismissed, setFirstCheckinNudgeDismissed] = useState(false);
 
   const openCheckin = useCallback((sc: ScheduledCheckin) => {
     setActiveCheckin(sc);
@@ -2152,6 +2154,77 @@ export default function CookDetailScreen() {
             </View>
           ) : null}
         </View>
+
+        {/* ── No-check-in-yet nudge (active cooks, zero saved check-ins) ── */}
+        {cookStatus === "active" &&
+          !checkinsLoading &&
+          (cookCheckins as any[]).length === 0 &&
+          !firstCheckinNudgeDismissed && (() => {
+            const handlePress = () => {
+              const schedule = getCheckinSchedule((cook as any)?.foodType ?? null);
+              const phase = schedule.phases[0];
+              openCheckin({
+                id: `manual_${Date.now()}`,
+                phaseKey: phase.key,
+                phaseLabel: phase.label,
+                scheduledAt: Date.now(),
+                phase,
+              });
+            };
+            return (
+              <Pressable
+                onPress={handlePress}
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  borderRadius: colors.radius,
+                  borderWidth: 1,
+                  borderColor: "#F59E0B60",
+                  backgroundColor: "#F59E0B12",
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  opacity: pressed ? 0.82 : 1,
+                })}
+              >
+                <View style={{
+                  width: 32, height: 32, borderRadius: 8,
+                  backgroundColor: "#F59E0B",
+                  alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                }}>
+                  <Feather name="thermometer" size={16} color="#fff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    fontFamily: "Inter_700Bold",
+                    fontSize: 13,
+                    color: "#F59E0B",
+                    marginBottom: 2,
+                  }}>
+                    No temperatures logged yet
+                  </Text>
+                  <Text style={{
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 12,
+                    color: colors.mutedForeground,
+                  }}>
+                    Tap to log your first check-in and get PitMaster coaching
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setFirstCheckinNudgeDismissed(true);
+                  }}
+                  hitSlop={8}
+                  style={{ padding: 4 }}
+                >
+                  <Feather name="x" size={16} color={colors.mutedForeground as string} />
+                </Pressable>
+              </Pressable>
+            );
+          })()}
 
         {/* ── Thaw status banner (active frozen cooks before meat is on) ── */}
         <ThawStatusBanner
