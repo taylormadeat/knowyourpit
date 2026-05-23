@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { PROBE_POLL_INTERVAL_MS } from "@/constants/polling";
 import {
   View,
   Text,
@@ -829,7 +830,7 @@ export default function CookDetailScreen() {
     query: {
       queryKey: getGetMeaterReadingsQueryKey(),
       enabled: cookStatus === "active",
-      refetchInterval: cookStatus === "active" ? 15000 : false,
+      refetchInterval: cookStatus === "active" ? PROBE_POLL_INTERVAL_MS : false,
     },
   });
   // null = still loading (don't show placeholder yet), true/false = resolved
@@ -840,7 +841,7 @@ export default function CookDetailScreen() {
     query: {
       queryKey: getGetThermoworksReadingsQueryKey(),
       enabled: cookStatus === "active",
-      refetchInterval: cookStatus === "active" ? 15000 : false,
+      refetchInterval: cookStatus === "active" ? PROBE_POLL_INTERVAL_MS : false,
     },
   });
   const thermoworksLinked = thermoworksLoading ? null : (thermoworksData?.linked ?? false);

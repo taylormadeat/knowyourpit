@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
+import { PROBE_POLL_INTERVAL_MS } from "@/constants/polling";
 
 export type MeaterProbe = {
   deviceId: string;
@@ -36,7 +37,7 @@ export function useMeaterReadings(enabled = true) {
       if (!res.ok) throw new Error("Failed to fetch MEATER readings");
       return res.json() as Promise<MeaterReadingsResponse>;
     },
-    refetchInterval: 15000,
+    refetchInterval: PROBE_POLL_INTERVAL_MS,
     staleTime: 10000,
     enabled,
   });

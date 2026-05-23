@@ -4,6 +4,7 @@ import { View, Text, Pressable, ActivityIndicator, ScrollView } from "react-nati
 import { Feather } from "@expo/vector-icons";
 import { useListCookEvents, getListCookEventsQueryKey } from "@workspace/api-client-react";
 import type { CookCheckin, CookLogEvent } from "@workspace/api-client-react";
+import { PROBE_POLL_INTERVAL_MS } from "@/constants/polling";
 
 type FeatherName = ComponentProps<typeof Feather>["name"];
 
@@ -103,7 +104,7 @@ export function PitJournalFeed({
     query: {
       queryKey: getListCookEventsQueryKey(cookId),
       enabled: cookStatus === "active" || cookStatus === "completed",
-      refetchInterval: cookStatus === "active" ? 15000 : false,
+      refetchInterval: cookStatus === "active" ? PROBE_POLL_INTERVAL_MS : false,
     },
   });
 
