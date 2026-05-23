@@ -36,6 +36,7 @@ import { useScheduleStepNotifications } from "@/hooks/useScheduleStepNotificatio
 import {
   useFrozenStageNotifications,
   cancelStoredFrozenNotifications,
+  scheduleFrozenStageNotifications,
 } from "@/hooks/useFrozenStageNotifications";
 import { useSpritzNotifications, computeNextSpritzMs } from "@/hooks/useSpritzNotifications";
 import { setCookDetailVisible, setCurrentCookId } from "@/hooks/cookDetailVisibility";
@@ -696,6 +697,17 @@ export default function CookDetailScreen() {
             id: cook.id,
             data: { sequenceData: updatedSeqData } as any,
           });
+
+          // Re-fire frozen-stage notifications using the adjusted thawEndAt so
+          // the "thaw done – start tempering" alert fires at the correct time.
+          scheduleFrozenStageNotifications({
+            cookId: cook.id,
+            frozen: updatedSeqData.frozen,
+            preheatStartAt: (cook as any)?.plannedStartAt ?? null,
+            foodType: (frozen as any)?.foodType ?? null,
+            includePreheat: cookStatus === "planned",
+            actualThawStartAt: actualNow,
+          }).catch(() => {});
         }
       }
 
