@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Pressable, TextInput, ActivityIndicator, ScrollView, StyleSheet } from "react-native";
+import { View, Text, Pressable, TextInput, ActivityIndicator, ScrollView, StyleSheet, Animated } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { s } from "./styles";
@@ -56,10 +56,36 @@ export function AskPitMaster(p: Props) {
   const [phaseNarrativeExpanded, setPhaseNarrativeExpanded] = React.useState(false);
   const [assessmentExpanded, setAssessmentExpanded] = React.useState(false);
 
+  const heroAnim = React.useRef(new Animated.ValueXY({ x: 0, y: 16 })).current;
+  const heroOpacity = React.useRef(new Animated.Value(0)).current;
+  const phaseAnim = React.useRef(new Animated.ValueXY({ x: 0, y: 16 })).current;
+  const phaseOpacity = React.useRef(new Animated.Value(0)).current;
+  const assessAnim = React.useRef(new Animated.ValueXY({ x: 0, y: 16 })).current;
+  const assessOpacity = React.useRef(new Animated.Value(0)).current;
+
   React.useEffect(() => {
     if (result) {
       setPhaseNarrativeExpanded(false);
       setAssessmentExpanded(false);
+
+      heroAnim.setValue({ x: 0, y: 16 });
+      heroOpacity.setValue(0);
+      phaseAnim.setValue({ x: 0, y: 16 });
+      phaseOpacity.setValue(0);
+      assessAnim.setValue({ x: 0, y: 16 });
+      assessOpacity.setValue(0);
+
+      const makeSlide = (opacity: Animated.Value, anim: Animated.ValueXY, delay: number) =>
+        Animated.parallel([
+          Animated.timing(opacity, { toValue: 1, duration: 280, delay, useNativeDriver: true }),
+          Animated.timing(anim.y, { toValue: 0, duration: 280, delay, useNativeDriver: true }),
+        ]);
+
+      Animated.sequence([
+        makeSlide(heroOpacity, heroAnim, 150),
+        makeSlide(phaseOpacity, phaseAnim, 0),
+        makeSlide(assessOpacity, assessAnim, 0),
+      ]).start();
     }
   }, [result]);
 
@@ -358,7 +384,9 @@ export function AskPitMaster(p: Props) {
 
           {result && (
             <View style={[s.results, { borderTopColor: colors.border }]}>
-              {renderDecisions(result.decisions ?? [])}
+              <Animated.View style={{ opacity: heroOpacity, transform: [{ translateY: heroAnim.y }] }}>
+                {renderDecisions(result.decisions ?? [])}
+              </Animated.View>
 
               {result.phasePrediction && (() => {
                 const pp = result.phasePrediction!;
@@ -390,7 +418,7 @@ export function AskPitMaster(p: Props) {
                   pp.timeToFinishMinutes != null;
 
                 return (
-                  <View style={[s.phaseCard, { backgroundColor: phaseColor + "15", borderColor: phaseColor + "40", borderRadius: colors.radius }]}>
+                  <Animated.View style={[s.phaseCard, { backgroundColor: phaseColor + "15", borderColor: phaseColor + "40", borderRadius: colors.radius }, { opacity: phaseOpacity, transform: [{ translateY: phaseAnim.y }] }]}>
                     {/* Phase chip + optional narrative toggle on same row */}
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <View style={[s.phaseChip, { backgroundColor: phaseColor + "25", borderColor: phaseColor + "50" }]}>
@@ -437,10 +465,11 @@ export function AskPitMaster(p: Props) {
                         )}
                       </View>
                     )}
-                  </View>
+                  </Animated.View>
                 );
               })()}
 
+              <Animated.View style={{ opacity: assessOpacity, transform: [{ translateY: assessAnim.y }] }}>
               {verdictCfg && assessment && (
                 <View style={[s.verdictBanner, { backgroundColor: verdictCfg.color + "18", borderColor: verdictCfg.color + "40", borderRadius: colors.radius }]}>
                   <Feather name={verdictCfg.icon as any} size={20} color={verdictCfg.color} />
@@ -499,6 +528,7 @@ export function AskPitMaster(p: Props) {
                   </View>
                 );
               })()}
+              </Animated.View>
               {result.noDataFound && result.probes.length === 0 && (
                 <View style={s.noDataRow}>
                   <Feather name="info" size={15} color={colors.mutedForeground} />
