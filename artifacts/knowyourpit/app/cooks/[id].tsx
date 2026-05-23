@@ -145,6 +145,7 @@ import { LiveCookSection } from "@/components/cook-detail/LiveCookSection";
 import { CookSummaryCard } from "@/components/cook-detail/CookSummaryCard";
 import { SequenceSchedule } from "@/components/cook-detail/SequenceSchedule";
 import { FrozenTimeline } from "@/components/cook-detail/FrozenTimeline";
+import { PlannedCookTimeline } from "@/components/cook-detail/PlannedCookTimeline";
 import { ThawStatusBanner } from "@/components/cook-detail/ThawStatusBanner";
 import { StoredAiAnalysis } from "@/components/cook-detail/StoredAiAnalysis";
 import { AskPitMaster } from "@/components/cook-detail/AskPitMaster";
@@ -2503,6 +2504,30 @@ export default function CookDetailScreen() {
           setPlanSheetVisible={setPlanSheetVisible}
         />
 
+        {/* ── Cook Timeline (planned cooks only) ── */}
+        {cookStatus === "planned" && (
+          <>
+            <FrozenTimeline c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs} />
+            <SequenceSchedule
+              c={c}
+              colors={colors}
+              cookStatus={cookStatus}
+              nowMs={nowMs}
+              nextStep={nextStep}
+              seqScheduleExpanded={seqScheduleExpanded}
+              setSeqScheduleExpanded={setSeqScheduleExpanded}
+              confirmedSteps={confirmedSteps}
+              toggleConfirmedStep={toggleConfirmedStep}
+              scheduleListYRef={scheduleListYRef}
+              itemYRef={itemYRef}
+              timelineYRef={timelineYRef}
+              rowYRef={rowYRef}
+              onQuickLog={undefined}
+            />
+            <PlannedCookTimeline c={c} colors={colors} />
+          </>
+        )}
+
         {/* ── Start Cook CTA (planned cooks only, above the schedule) ── */}
         {cookStatus === "planned" && (
           <>
@@ -2728,23 +2753,27 @@ export default function CookDetailScreen() {
           colors={colors}
         />
 
-        <FrozenTimeline c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs} />
-        <SequenceSchedule
-          c={c}
-          colors={colors}
-          cookStatus={cookStatus}
-          nowMs={nowMs}
-          nextStep={nextStep}
-          seqScheduleExpanded={seqScheduleExpanded}
-          setSeqScheduleExpanded={setSeqScheduleExpanded}
-          confirmedSteps={confirmedSteps}
-          toggleConfirmedStep={toggleConfirmedStep}
-          scheduleListYRef={scheduleListYRef}
-          itemYRef={itemYRef}
-          timelineYRef={timelineYRef}
-          rowYRef={rowYRef}
-          onQuickLog={cookStatus === "active" ? handleLogFuelEvent : undefined}
-        />
+        {cookStatus !== "planned" && (
+          <>
+            <FrozenTimeline c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs} />
+            <SequenceSchedule
+              c={c}
+              colors={colors}
+              cookStatus={cookStatus}
+              nowMs={nowMs}
+              nextStep={nextStep}
+              seqScheduleExpanded={seqScheduleExpanded}
+              setSeqScheduleExpanded={setSeqScheduleExpanded}
+              confirmedSteps={confirmedSteps}
+              toggleConfirmedStep={toggleConfirmedStep}
+              scheduleListYRef={scheduleListYRef}
+              itemYRef={itemYRef}
+              timelineYRef={timelineYRef}
+              rowYRef={rowYRef}
+              onQuickLog={cookStatus === "active" ? handleLogFuelEvent : undefined}
+            />
+          </>
+        )}
 
         {/* ── Timeline accuracy recap ───────────────────────────── */}
         {Object.keys(confirmedSteps).length > 0 && cookSeqData && (
