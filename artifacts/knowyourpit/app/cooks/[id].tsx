@@ -120,6 +120,7 @@ import {
   scheduleCheckinNotifications,
   loadRemovedCheckinPhaseKeys,
 } from "@/hooks/useCheckinNotifications";
+import { useAutoCheckin, type AutoCheckinProbeReading } from "@/hooks/useAutoCheckin";
 import {
   scheduleStepNotifications,
   cancelStoredStepNotifications,
@@ -300,6 +301,9 @@ export default function CookDetailScreen() {
   const [checkinModalVisible, setCheckinModalVisible] = useState(false);
   const [activeCheckin, setActiveCheckin] = useState<ScheduledCheckin | null>(null);
   const createCheckin = useCreateCookCheckin();
+  // Auto-check-in toast: shown briefly after a probe-triggered auto-log fires.
+  const [autoCheckinToast, setAutoCheckinToast] = useState<string | null>(null);
+  const autoCheckinToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Pending check-in driven by a notification tap — shows the "Check In Now"
   // banner but does NOT auto-open the modal. Cleared when the user taps the
   // banner or dismisses it.
@@ -821,7 +825,7 @@ export default function CookDetailScreen() {
     );
   }, [cookCheckins]);
 
-  const { data: meaterData, isLoading: meaterLoading } = useGetMeaterReadings({
+  const { data: meaterData, isLoading: meaterLoading, dataUpdatedAt: meaterDataUpdatedAt } = useGetMeaterReadings({
     query: {
       queryKey: getGetMeaterReadingsQueryKey(),
       enabled: cookStatus === "active",
@@ -832,7 +836,7 @@ export default function CookDetailScreen() {
   const meaterLinked = meaterLoading ? null : (meaterData?.linked ?? false);
   const meaterProbes = meaterData?.probes ?? [];
 
-  const { data: thermoworksData, isLoading: thermoworksLoading } = useGetThermoworksReadings({
+  const { data: thermoworksData, isLoading: thermoworksLoading, dataUpdatedAt: thermoworksDataUpdatedAt } = useGetThermoworksReadings({
     query: {
       queryKey: getGetThermoworksReadingsQueryKey(),
       enabled: cookStatus === "active",
@@ -977,6 +981,70 @@ export default function CookDetailScreen() {
   );
   // Smart check-in notifications — fire at BBQ milestone points while cook is active.
   const storedScheduledCheckins = useCheckinNotifications(Number(id) || null, cookStatus, cookSeqData);
+
+  // Build a probe reading object for the auto-checkin hook. We use the
+  // react-query dataUpdatedAt timestamp so the hook knows how fresh the
+  // reading is (must be < 60 s old to qualify as "live").
+  const autoCheckinProbeReading = useMemo((): AutoCheckinProbeReading | null => {
+    if (selectedMeaterProbe?.internalTempF != null) {
+      return {
+        internalTempF: selectedMeaterProbe.internalTempF,
+        pitTempF: selectedMeaterProbe.ambientTempF ?? null,
+        probeSource: "meater",
+        fetchedAtMs: meaterDataUpdatedAt,
+      };
+    }
+    if (selectedThermoworksProbe != null && (selectedThermoworksProbe as any).tempF != null) {
+      return {
+        internalTempF: (selectedThermoworksProbe as any).tempF,
+        pitTempF: null,
+        probeSource: "thermoworks",
+        fetchedAtMs: thermoworksDataUpdatedAt,
+      };
+    }
+    return null;
+  }, [selectedMeaterProbe, selectedThermoworksProbe, meaterDataUpdatedAt, thermoworksDataUpdatedAt]);
+
+  // Auto check-in: when a scheduled milestone time is reached and a live probe
+  // reading is available, record the check-in automatically.
+  useAutoCheckin({
+    cookId: Number(id) || null,
+    cookStatus,
+    scheduledCheckins: storedScheduledCheckins,
+    existingCheckins: cookCheckins as CookCheckin[],
+    probeReading: autoCheckinProbeReading,
+    onAutoCheckinFired: ({ phaseLabel, internalTempF }) => {
+      const temp = Math.round(internalTempF);
+      const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const msg = `Check-in recorded automatically — ${temp}°F at ${timeStr}`;
+      setAutoCheckinToast(msg);
+      if (autoCheckinToastTimerRef.current) clearTimeout(autoCheckinToastTimerRef.current);
+      autoCheckinToastTimerRef.current = setTimeout(() => setAutoCheckinToast(null), 5000);
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      }
+      qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+      qc.invalidateQueries({ queryKey: getListCookCheckinsQueryKey(Number(id)) });
+      const first = cookSeqData?.schedule?.[0];
+      if (first?.meatOnAt && first?.estimatedFinishAt) {
+        const completedKeys = new Set(
+          (cookCheckins as CookCheckin[])
+            .map((ci) => ci.phaseKey)
+            .filter((k): k is string => k != null),
+        );
+        rescheduleCheckinNotifications({
+          cookId: Number(id),
+          foodType: first.foodType ?? null,
+          weightLbs: cook?.weightLbs ?? null,
+          meatOnAt: first.meatOnAt,
+          estimatedFinishAt: first.estimatedFinishAt,
+          wrapAtMinutes: first.wrapAtMinutes ?? null,
+          completedPhaseKeys: completedKeys,
+          actualInternalTempF: internalTempF,
+        }).catch(() => {});
+      }
+    },
+  });
   // Background / cross-screen deep link: consume pending check-in notification
   // placed by the _layout.tsx router handler when the user was NOT on this cook
   // screen at the time of the notification tap. Shows the "Check In Now" banner
@@ -3366,6 +3434,41 @@ export default function CookDetailScreen() {
           analyze({ extraNotes: noteText });
         }}
       />
+
+      {/* ── Auto Check-In Toast ──────────────────────────────── */}
+      {autoCheckinToast != null && (
+        <View
+          style={{
+            position: "absolute",
+            bottom: 90 + insets.bottom,
+            left: 16,
+            right: 16,
+            backgroundColor: "#1C1C1F",
+            borderColor: "#22c55e",
+            borderWidth: 1,
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.3,
+            shadowRadius: 6,
+            elevation: 8,
+            zIndex: 9999,
+          }}
+        >
+          <Feather name="check-circle" size={16} color="#22c55e" />
+          <Text style={{ flex: 1, color: "#F3EDE1", fontFamily: "Inter_400Regular", fontSize: 13 }}>
+            {autoCheckinToast}
+          </Text>
+          <Pressable onPress={() => setAutoCheckinToast(null)} hitSlop={10}>
+            <Feather name="x" size={14} color="#9CA3AF" />
+          </Pressable>
+        </View>
+      )}
 
       {/* ── Smart Check-In Modal ─────────────────────────────── */}
       {activeCheckin && (

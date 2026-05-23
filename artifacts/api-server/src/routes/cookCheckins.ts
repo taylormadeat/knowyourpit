@@ -34,6 +34,8 @@ const CreateCookCheckinBodySchema = z.object({
   photoKey: z.string().nullable().optional(),
   aiGuidanceShown: z.string().nullable().optional(),
   autoDismissed: z.boolean().optional(),
+  isAutomatic: z.boolean().optional(),
+  probeSource: z.string().nullable().optional(),
   phaseLabel: z.string().nullable().optional(),
   phaseKey: z.string().nullable().optional(),
 });
@@ -207,6 +209,8 @@ router.post("/cooks/:id/checkins", requireAuth, async (req: any, res): Promise<v
       photoKey: parsed.data.photoKey ?? null,
       aiGuidanceShown: parsed.data.aiGuidanceShown ?? null,
       autoDismissed: parsed.data.autoDismissed ?? false,
+      isAutomatic: parsed.data.isAutomatic ?? false,
+      probeSource: parsed.data.probeSource ?? null,
       phaseLabel: parsed.data.phaseLabel ?? null,
       phaseKey: parsed.data.phaseKey ?? null,
     })

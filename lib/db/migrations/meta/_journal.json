@@ -43,6 +43,13 @@
       "when": 1748563200000,
       "tag": "0006_actual_thaw_start",
       "breakpoints": false
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1748217600000,
+      "tag": "0007_checkin_auto_probe_columns",
+      "breakpoints": false
     }
   ]
 }

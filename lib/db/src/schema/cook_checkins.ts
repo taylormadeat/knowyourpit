@@ -21,6 +21,8 @@ export const cookCheckins = pgTable("cook_checkins", {
   photoKey: text("photo_key"),
   aiGuidanceShown: text("ai_guidance_shown"),
   autoDismissed: boolean("auto_dismissed").notNull().default(false),
+  isAutomatic: boolean("is_automatic").notNull().default(false),
+  probeSource: text("probe_source"),
   phaseLabel: text("phase_label"),
   phaseKey: text("phase_key"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

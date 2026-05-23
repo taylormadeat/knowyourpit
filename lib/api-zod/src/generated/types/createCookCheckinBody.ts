@@ -22,6 +22,9 @@ export interface CreateCookCheckinBody {
   /** @nullable */
   aiGuidanceShown?: string | null;
   autoDismissed?: boolean;
+  isAutomatic?: boolean;
+  /** @nullable */
+  probeSource?: string | null;
   /** @nullable */
   phaseLabel?: string | null;
   /** @nullable */

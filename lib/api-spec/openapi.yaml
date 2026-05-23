@@ -2959,6 +2959,10 @@ components:
           type: ["string", "null"]
         autoDismissed:
           type: boolean
+        isAutomatic:
+          type: boolean
+        probeSource:
+          type: ["string", "null"]
         phaseLabel:
           type: ["string", "null"]
         phaseKey:
@@ -2981,6 +2985,8 @@ components:
         - photoKey
         - aiGuidanceShown
         - autoDismissed
+        - isAutomatic
+        - probeSource
         - phaseLabel
         - phaseKey
         - createdAt
@@ -3026,6 +3032,10 @@ components:
           type: ["string", "null"]
         autoDismissed:
           type: boolean
+        isAutomatic:
+          type: boolean
+        probeSource:
+          type: ["string", "null"]
         phaseLabel:
           type: ["string", "null"]
         phaseKey:

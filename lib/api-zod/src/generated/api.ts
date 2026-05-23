@@ -1460,6 +1460,8 @@ export const ListCookCheckinsResponseItem = zod.object({
   photoKey: zod.string().nullable(),
   aiGuidanceShown: zod.string().nullable(),
   autoDismissed: zod.boolean(),
+  isAutomatic: zod.boolean(),
+  probeSource: zod.string().nullable(),
   phaseLabel: zod.string().nullable(),
   phaseKey: zod.string().nullable(),
   createdAt: zod.coerce.date(),
@@ -1491,6 +1493,8 @@ export const CreateCookCheckinBody = zod.object({
   photoKey: zod.string().nullish(),
   aiGuidanceShown: zod.string().nullish(),
   autoDismissed: zod.boolean().optional(),
+  isAutomatic: zod.boolean().optional(),
+  probeSource: zod.string().nullish(),
   phaseLabel: zod.string().nullish(),
   phaseKey: zod.string().nullish(),
 });
