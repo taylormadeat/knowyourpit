@@ -291,6 +291,14 @@ export default function CookDetailScreen() {
   const [techSpritzLiquidSheetOpen, setTechSpritzLiquidSheetOpen] = useState(false);
   const [techWrapFinishSheetOpen, setTechWrapFinishSheetOpen] = useState(false);
   const [seqScheduleExpanded, setSeqScheduleExpanded] = useState(false);
+  // Auto-expand the sequence schedule for planned cooks so pitmasters see
+  // the timeline immediately without an extra tap.
+  useEffect(() => {
+    const seqData = (cook as any)?.sequenceData;
+    if (cookStatus === "planned" && seqData?.schedule?.length > 0) {
+      setSeqScheduleExpanded(true);
+    }
+  }, [cookStatus, (cook as any)?.id]);
   const [techsExpanded, setTechsExpanded] = useState(false);
   const [planSheetVisible, setPlanSheetVisible] = useState(false);
   const [addToSessionOpen, setAddToSessionOpen] = useState(false);
@@ -2528,7 +2536,7 @@ export default function CookDetailScreen() {
           </>
         )}
 
-        {/* ── Start Cook CTA (planned cooks only, above the schedule) ── */}
+        {/* ── Start Cook CTA (planned cooks only) ── */}
         {cookStatus === "planned" && (
           <>
             <Pressable
