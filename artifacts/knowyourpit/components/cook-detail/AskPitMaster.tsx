@@ -56,6 +56,13 @@ export function AskPitMaster(p: Props) {
   const [phaseNarrativeExpanded, setPhaseNarrativeExpanded] = React.useState(false);
   const [assessmentExpanded, setAssessmentExpanded] = React.useState(false);
 
+  React.useEffect(() => {
+    if (result) {
+      setPhaseNarrativeExpanded(false);
+      setAssessmentExpanded(false);
+    }
+  }, [result]);
+
   if (c.status !== "active") return null;
 
   const collapseLabel = (() => {

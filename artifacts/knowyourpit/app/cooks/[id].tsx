@@ -1583,6 +1583,7 @@ export default function CookDetailScreen() {
         } as any,
       });
       setResult(data);
+      setExpandedRationale(null);
       // Save full analysis result to the cook record (backend also appends to analysisHistory)
       await updateCook.mutateAsync({
         id: Number(id),
