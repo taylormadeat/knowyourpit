@@ -962,19 +962,32 @@ export default function PlanScreen() {
       // warning fires against the new thawEndAt using the cook's existing
       // actualThawStartAt as the trigger flag.
       if (replanCookIdNum) {
+        // Was this cook frozen before this edit? Used to decide whether we need
+        // to clear sequenceData.frozen and fromFrozen in the DB.
+        const wasFrozen = !!(replanSeqData?.frozen);
+
+        // Build sequenceData: update frozen timing when still frozen, or
+        // explicitly null it out so the hook doesn't reschedule stale alerts.
         const updatedFrozenSeqData: SequenceData = {
           ...(replanSeqData ?? ({} as SequenceData)),
-          ...(frozenForCook ? { frozen: frozenForCook } : {}),
+          ...(frozenForCook ? { frozen: frozenForCook } : { frozen: null }),
         };
         await updateCook.mutateAsync({
           id: replanCookIdNum,
           data: {
             ...(serveAt && { plannedEndAt: serveAt }),
             ...(plannedStart && { plannedStartAt: plannedStart }),
-            ...(frozenForCook && { sequenceData: updatedFrozenSeqData }),
+            // Always persist sequenceData when the frozen state is changing
+            // (either updated timing or removed entirely).
+            ...((frozenForCook || wasFrozen) && { sequenceData: updatedFrozenSeqData }),
+            // When the pitmaster removes the frozen flag, clear it in the DB so
+            // useFrozenStageNotifications no longer sees this as a frozen cook
+            // and doesn't re-schedule the cancelled notifications on remount.
+            ...(!frozenForCook && wasFrozen ? { fromFrozen: false } : {}),
           } as any,
         });
-        // Cancel stale IDs keyed to this cook, then arm fresh notifications.
+        // Cancel stale IDs keyed to this cook. If the cook is still frozen
+        // (just with updated timing/method), re-arm with the new schedule.
         // Passing the existing actualThawStartAt ensures the 30-min warning
         // is re-scheduled against the new thawEndAt — which is the fix for
         // task #784's re-plan scenario.
