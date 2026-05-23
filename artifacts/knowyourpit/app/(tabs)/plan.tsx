@@ -35,6 +35,7 @@ import {
   useListGrills,
   useCreateCook,
   useUpdateCook,
+  useDeleteCook,
   useGetCook,
   useAiPredict,
   useAiMultiCook,
@@ -184,6 +185,7 @@ export default function PlanScreen() {
   const { data: grills } = useListGrills();
   const createCook = useCreateCook();
   const updateCook = useUpdateCook();
+  const deleteCook = useDeleteCook();
 
   // ── Replan mode ────────────────────────────────────────────────────────
   // When the cook detail screen navigates here with ?replanCookId=<n> the
@@ -926,6 +928,31 @@ export default function PlanScreen() {
         }
       : null;
 
+    // Before creating a new frozen cook, check whether the pitmaster already
+    // has a planned frozen cook for the same food type + grill. If so, ask
+    // whether to replace (delete the old record) or keep both.
+    let shouldReplaceStale = false;
+    if (frozenForCook && !replanCookIdNum) {
+      const stalePlannedFrozen = (plannedCooks ?? []).filter(
+        (c: Cook & { fromFrozen?: boolean }) =>
+          c.fromFrozen &&
+          c.foodType === selectedCut.name &&
+          (grillId == null || c.grillId === grillId),
+      );
+      if (stalePlannedFrozen.length > 0) {
+        shouldReplaceStale = await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            `Existing ${selectedCut.name} Plan`,
+            `You already have a planned ${selectedCut.name} cook. Replace it with the new plan, or keep both?`,
+            [
+              { text: "Keep Both", style: "cancel", onPress: () => resolve(false) },
+              { text: "Replace", style: "destructive", onPress: () => resolve(true) },
+            ],
+          );
+        });
+      }
+    }
+
     try {
       // ── UPDATE path (replan mode) ─────────────────────────────────────
       // When replanCookId is set the Plan screen was opened from a planned
@@ -1022,8 +1049,9 @@ export default function PlanScreen() {
       // Cancel thaw notifications for any existing planned or active frozen
       // cooks that match the same food type + grill. This prevents stale alerts
       // from a previous plan (e.g. an adjusted serve time, or a prior "Begin
-      // Thawing Now" session) from firing alongside the new ones. We only clear
-      // notifications — the cook records are kept.
+      // Thawing Now" session) from firing alongside the new ones. When the
+      // pitmaster chose "Replace" (shouldReplaceStale), planned stale cooks are
+      // also deleted from the database; otherwise only notifications are cleared.
       // "later" mode: stale cooks are planned. "now" mode: stale cooks may also
       // be active (a previous "Begin Thawing Now" was already started).
       if (frozenForCook) {
@@ -1040,6 +1068,9 @@ export default function PlanScreen() {
         );
         for (const stale of staleFrozenCooks) {
           cancelStoredFrozenNotifications(stale.id).catch(() => {});
+          if (shouldReplaceStale && stale.status === "planned") {
+            deleteCook.mutateAsync({ id: stale.id }).catch(() => {});
+          }
         }
       }
 
