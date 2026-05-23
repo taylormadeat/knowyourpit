@@ -29,6 +29,8 @@ interface Props {
   meaterProbes: any[];
   thermoworksLinked: boolean | null;
   thermoworksProbes: any[];
+  selectedProbeId?: string | null;
+  onSelectProbe?: (probeId: string | null) => void;
   liveGraphProbes: ProbeTimeSeries[];
   liveReadings: any[];
   cardWidth: number;
@@ -57,10 +59,15 @@ function fmtSpritzCountdown(diffMs: number): string {
 export function LiveCookSection(p: Props) {
   const {
     c, colors, weather, meaterLinked, meaterProbes, thermoworksLinked, thermoworksProbes,
+    selectedProbeId, onSelectProbe,
     liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, estimatedFinishMs,
     setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
     targetTempF, cookTempF, nextSpritzMs, onViewDetails,
   } = p;
+
+  const hasAnyProbe = (meaterLinked === true && meaterProbes.length > 0) ||
+    (thermoworksLinked === true && thermoworksProbes.length > 0);
+  const noneSelected = hasAnyProbe && selectedProbeId == null;
 
   if (c.status !== "active") return null;
 
@@ -108,8 +115,10 @@ export function LiveCookSection(p: Props) {
         <View style={{ flex: 1 }}>
           <Text style={[s.logTitle, { color: colors.foreground }]}>Live Cook</Text>
           <Text style={[s.logSub, { color: colors.mutedForeground }]}>
-            {meaterLinked === true && meaterProbes.length > 0
-              ? "Live probe · auto-updating every 15s"
+            {hasAnyProbe && selectedProbeId != null
+              ? "Tracking selected probe · auto-updating every 15s"
+              : hasAnyProbe
+              ? "Tap a probe below to track it for this cook"
               : meaterLinked === true
               ? "MEATER linked · no active probe detected"
               : "Timer running · link MEATER for live temps"}
@@ -254,68 +263,136 @@ export function LiveCookSection(p: Props) {
         </View>
       )}
 
-      {meaterLinked === true && meaterProbes.map((probe, i) => (
-        <View key={probe.deviceId + i} style={[s.subSection, { borderTopColor: colors.border, paddingHorizontal: 14, paddingBottom: 12 }]}>
-          <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 8 }]}>
-            {probe.deviceName}{probe.cookName ? ` · ${probe.cookName}` : ""}
-          </Text>
-          <View style={s.meaterTempsRow}>
-            <View style={s.meaterTempChip}>
-              <Feather name="thermometer" size={14} color="#FF6B2B" />
-              <View>
-                <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
-                  {probe.internalTempF != null ? `${probe.internalTempF}°F` : "—"}
-                </Text>
-                <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Internal</Text>
-              </View>
+      {meaterLinked === true && meaterProbes.map((probe, i) => {
+        const probeKey = probe.deviceId;
+        const isSelected = selectedProbeId === probeKey;
+        return (
+          <Pressable
+            key={probe.deviceId + i}
+            onPress={() => onSelectProbe?.(isSelected ? null : probeKey)}
+            style={[
+              s.subSection,
+              {
+                borderTopColor: colors.border,
+                paddingHorizontal: 14,
+                paddingBottom: 12,
+                borderWidth: isSelected ? 1.5 : undefined,
+                borderColor: isSelected ? "#FF6B2B60" : undefined,
+                borderRadius: isSelected ? 10 : undefined,
+                marginHorizontal: isSelected ? 8 : undefined,
+                marginTop: isSelected ? 6 : undefined,
+                backgroundColor: isSelected ? "#FF6B2B08" : undefined,
+              },
+            ]}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
+                {probe.deviceName}{probe.cookName ? ` · ${probe.cookName}` : ""}
+              </Text>
+              {isSelected ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#FF6B2B20" }}>
+                  <Feather name="check" size={10} color="#FF6B2B" />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#FF6B2B" }}>Tracking</Text>
+                </View>
+              ) : (
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>Tap to use</Text>
+              )}
             </View>
-            <View style={s.meaterTempChip}>
-              <Feather name="wind" size={14} color="#3b82f6" />
-              <View>
-                <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
-                  {probe.ambientTempF != null ? `${probe.ambientTempF}°F` : "—"}
-                </Text>
-                <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Ambient</Text>
-              </View>
-            </View>
-            {(probe.targetMinTempF != null || probe.targetMaxTempF != null) && (
+            <View style={s.meaterTempsRow}>
               <View style={s.meaterTempChip}>
-                <Feather name="target" size={14} color="#22c55e" />
+                <Feather name="thermometer" size={14} color="#FF6B2B" />
                 <View>
                   <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
-                    {probe.targetMinTempF}–{probe.targetMaxTempF}°F
+                    {probe.internalTempF != null ? `${probe.internalTempF}°F` : "—"}
                   </Text>
-                  <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Target</Text>
+                  <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Internal</Text>
                 </View>
               </View>
-            )}
-          </View>
-        </View>
-      ))}
+              <View style={s.meaterTempChip}>
+                <Feather name="wind" size={14} color="#3b82f6" />
+                <View>
+                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
+                    {probe.ambientTempF != null ? `${probe.ambientTempF}°F` : "—"}
+                  </Text>
+                  <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Ambient</Text>
+                </View>
+              </View>
+              {(probe.targetMinTempF != null || probe.targetMaxTempF != null) && (
+                <View style={s.meaterTempChip}>
+                  <Feather name="target" size={14} color="#22c55e" />
+                  <View>
+                    <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
+                      {probe.targetMinTempF}–{probe.targetMaxTempF}°F
+                    </Text>
+                    <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Target</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          </Pressable>
+        );
+      })}
 
-      {thermoworksLinked === true && thermoworksProbes.map((probe, i) => (
-        <View
-          key={`tw-${probe.deviceId}-${probe.channelNumber}-${i}`}
-          style={[s.subSection, { borderTopColor: colors.border, paddingHorizontal: 14, paddingBottom: 12 }]}
-        >
-          <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 8 }]}>
-            {probe.deviceName}
-            {probe.channelLabel ? ` · ${probe.channelLabel}` : ` · Ch ${probe.channelNumber}`}
-            {"  ·  ThermoWorks"}
-          </Text>
-          <View style={s.meaterTempsRow}>
-            <View style={s.meaterTempChip}>
-              <Feather name="thermometer" size={14} color="#B22222" />
-              <View>
-                <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
-                  {probe.tempF != null ? `${probe.tempF}°F` : "—"}
-                </Text>
-                <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Temperature</Text>
+      {thermoworksLinked === true && thermoworksProbes.map((probe, i) => {
+        const probeKey = `tw_${probe.deviceId}_${probe.channelNumber}`;
+        const isSelected = selectedProbeId === probeKey;
+        return (
+          <Pressable
+            key={`tw-${probe.deviceId}-${probe.channelNumber}-${i}`}
+            onPress={() => onSelectProbe?.(isSelected ? null : probeKey)}
+            style={[
+              s.subSection,
+              {
+                borderTopColor: colors.border,
+                paddingHorizontal: 14,
+                paddingBottom: 12,
+                borderWidth: isSelected ? 1.5 : undefined,
+                borderColor: isSelected ? "#FF6B2B60" : undefined,
+                borderRadius: isSelected ? 10 : undefined,
+                marginHorizontal: isSelected ? 8 : undefined,
+                marginTop: isSelected ? 6 : undefined,
+                backgroundColor: isSelected ? "#FF6B2B08" : undefined,
+              },
+            ]}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
+                {probe.deviceName}
+                {probe.channelLabel ? ` · ${probe.channelLabel}` : ` · Ch ${probe.channelNumber}`}
+                {"  ·  ThermoWorks"}
+              </Text>
+              {isSelected ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#FF6B2B20" }}>
+                  <Feather name="check" size={10} color="#FF6B2B" />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#FF6B2B" }}>Tracking</Text>
+                </View>
+              ) : (
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>Tap to use</Text>
+              )}
+            </View>
+            <View style={s.meaterTempsRow}>
+              <View style={s.meaterTempChip}>
+                <Feather name="thermometer" size={14} color="#B22222" />
+                <View>
+                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
+                    {probe.tempF != null ? `${probe.tempF}°F` : "—"}
+                  </Text>
+                  <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Temperature</Text>
+                </View>
               </View>
             </View>
-          </View>
+          </Pressable>
+        );
+      })}
+
+      {noneSelected && (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 14, marginBottom: 12, padding: 10, borderRadius: 8, backgroundColor: "#FF6B2B08", borderWidth: 1, borderColor: "#FF6B2B25" }}>
+          <Feather name="info" size={13} color="#FF6B2B" />
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, flex: 1 }}>
+            Tap a probe above to assign it to this cook. Each cook tracks one probe independently.
+          </Text>
         </View>
-      ))}
+      )}
 
       {meaterLinked !== true && thermoworksLinked !== true && (
         <View style={[s.meaterPlaceholder, { borderTopColor: colors.border }]}>

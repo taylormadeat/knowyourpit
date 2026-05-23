@@ -239,6 +239,28 @@ export default function CookDetailScreen() {
   const [cardWidth, setCardWidth] = useState(300);
   const [expandedRationale, setExpandedRationale] = useState<number | null>(null);
 
+  // Per-cook probe selection — no probe is selected by default.
+  // Persisted in AsyncStorage so the selection survives navigation.
+  const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS === "web" || !id) return;
+    setSelectedProbeId(null);
+    AsyncStorage.getItem(`probe_selection_${id}`)
+      .then((val) => setSelectedProbeId(val ?? null))
+      .catch(() => setSelectedProbeId(null));
+  }, [id]);
+
+  const handleSelectProbe = useCallback((probeId: string | null) => {
+    setSelectedProbeId(probeId);
+    if (Platform.OS === "web" || !id) return;
+    if (probeId == null) {
+      AsyncStorage.removeItem(`probe_selection_${id}`).catch(() => {});
+    } else {
+      AsyncStorage.setItem(`probe_selection_${id}`, probeId).catch(() => {});
+    }
+  }, [id]);
+
   // Ratings state
   const [rateTenderness, setRateTenderness] = useState<number>(0);
   const [rateFlavor, setRateFlavor] = useState<number>(0);
@@ -808,6 +830,19 @@ export default function CookDetailScreen() {
   const thermoworksLinked = thermoworksLoading ? null : (thermoworksData?.linked ?? false);
   const thermoworksProbes = thermoworksData?.probes ?? [];
 
+  // Only the probe the user explicitly assigned to this cook. Both are null
+  // until the user taps a probe row in LiveCookSection.
+  const selectedMeaterProbe =
+    selectedProbeId != null
+      ? (meaterProbes.find((p) => p.deviceId === selectedProbeId) ?? null)
+      : null;
+  const selectedThermoworksProbe =
+    selectedProbeId != null
+      ? (thermoworksProbes.find(
+          (p: any) => `tw_${p.deviceId}_${p.channelNumber}` === selectedProbeId,
+        ) ?? null)
+      : null;
+
   const [nowMs, setNowMs] = useState(Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [liveReadings, setLiveReadings] = useState<Array<{ timeMinutes: number; tempF: number }>>([]);
@@ -819,10 +854,10 @@ export default function CookDetailScreen() {
     status: cook?.status ?? null,
     meatLabel: cook?.foodType ?? "Cook",
     startedAtIso: cook?.actualStartAt ?? null,
-    currentTempF: meaterProbes[0]?.internalTempF ?? thermoworksProbes[0]?.tempF ?? null,
+    currentTempF: selectedMeaterProbe?.internalTempF ?? selectedThermoworksProbe?.tempF ?? null,
     targetTempF: cook?.targetTempF ?? null,
     cookTempF:
-      meaterProbes[0]?.ambientTempF ??
+      selectedMeaterProbe?.ambientTempF ??
       cook?.cookTempF ??
       null,
   });
@@ -1102,8 +1137,8 @@ export default function CookDetailScreen() {
   };
 
   useEffect(() => {
-    if (meaterProbes.length > 0 && meaterProbes[0].internalTempF != null) {
-      const currentTemp = meaterProbes[0].internalTempF;
+    if (selectedMeaterProbe != null && selectedMeaterProbe.internalTempF != null) {
+      const currentTemp = selectedMeaterProbe.internalTempF;
       const startAt = cook?.actualStartAt;
       const elapsedMins = startAt
         ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000)
@@ -1130,7 +1165,7 @@ export default function CookDetailScreen() {
         cookId: Number(id),
         cookStatus,
         probeInternalTempF: currentTemp,
-        pitTempF: meaterProbes[0]?.ambientTempF ?? null,
+        pitTempF: selectedMeaterProbe?.ambientTempF ?? null,
         targetCookTempF: (cook as any)?.cookTempF ?? null,
         expectedInternalTempF: phaseExpectedInternalMid,
         foodType: (cook as any)?.foodType ?? null,
@@ -1159,7 +1194,7 @@ export default function CookDetailScreen() {
         }
       }
     }
-  }, [meaterProbes]);
+  }, [selectedMeaterProbe]);
 
   // Reconciliation: on screen mount (and when alerts load), mark overdue timer alerts as triggered
   // Handles the case where the app was backgrounded or killed when a scheduled notification fired
@@ -1516,10 +1551,10 @@ export default function CookDetailScreen() {
     const notesForAnalysis = opts.extraNotes != null
       ? [opts.extraNotes.trim(), scanNotes.trim()].filter(Boolean).join(" · ")
       : scanNotes.trim();
-    // Live MEATER probe takes precedence; fall back to last saved check-in temp.
+    // Selected probe takes precedence; fall back to last saved check-in temp.
     const liveMeaterInternalTempF =
-      meaterProbes.length > 0 && meaterProbes[0]?.internalTempF != null
-        ? (meaterProbes[0].internalTempF as number)
+      selectedMeaterProbe?.internalTempF != null
+        ? (selectedMeaterProbe.internalTempF as number)
         : null;
     const hasMeaterTemp = liveMeaterInternalTempF != null;
     const hasCheckinTemp = lastCheckin?.internalTempF != null || lastCheckin?.pitTempF != null;
@@ -1570,7 +1605,7 @@ export default function CookDetailScreen() {
             // Live probe data for phase detection (active cooks only)
             liveReadings: liveReadings.length >= 2 ? liveReadings : null,
             elapsedMinutes: c?.actualStartAt ? Math.round((Date.now() - new Date(c.actualStartAt).getTime()) / 60000) : null,
-            currentPitTempF: lastCheckin?.pitTempF ?? meaterProbes[0]?.ambientTempF ?? null,
+            currentPitTempF: lastCheckin?.pitTempF ?? selectedMeaterProbe?.ambientTempF ?? null,
             outdoorTempF: weather.tempF ?? null,
             cookStatus: c?.status ?? null,
             // Technique quick-picks persisted on the cook record
@@ -1728,11 +1763,11 @@ export default function CookDetailScreen() {
     analyze: typeof analyze;
     scanNotes: string;
     lastCheckinInternalTempF: number | null;
-    meaterProbes: typeof meaterProbes;
+    selectedMeaterProbe: any | null;
     analyzing: boolean;
-  }>({ analyze, scanNotes, lastCheckinInternalTempF: lastCheckin?.internalTempF ?? null, meaterProbes, analyzing });
+  }>({ analyze, scanNotes, lastCheckinInternalTempF: lastCheckin?.internalTempF ?? null, selectedMeaterProbe, analyzing });
   useEffect(() => {
-    autoTickRef.current = { analyze, scanNotes, lastCheckinInternalTempF: lastCheckin?.internalTempF ?? null, meaterProbes, analyzing };
+    autoTickRef.current = { analyze, scanNotes, lastCheckinInternalTempF: lastCheckin?.internalTempF ?? null, selectedMeaterProbe, analyzing };
   });
 
   useEffect(() => {
@@ -1757,8 +1792,7 @@ export default function CookDetailScreen() {
       // Skip silently when nothing is gradeable. Do not consume an analyze
       // call against the user's free-tier cap on empty data.
       const hasCheckinTemp = cur.lastCheckinInternalTempF != null;
-      const hasMeaterTemp =
-        cur.meaterProbes.length > 0 && cur.meaterProbes[0]?.internalTempF != null;
+      const hasMeaterTemp = cur.selectedMeaterProbe?.internalTempF != null;
       const hasNotes = cur.scanNotes.trim().length > 0;
       if (!hasCheckinTemp && !hasMeaterTemp && !hasNotes) {
         timer = setTimeout(tick, AUTO_GRADE_INTERVAL_MS);
@@ -1941,9 +1975,9 @@ export default function CookDetailScreen() {
     return "Marks this cook as active and starts your session timer.";
   })();
 
-  // Live graph from accumulated MEATER readings
+  // Live graph from accumulated readings for the selected probe
   const liveGraphProbes = liveReadings.length >= 2
-    ? [{ probeName: meaterProbes[0]?.deviceName ?? "Probe 1", timeSeries: liveReadings, finishingTempF: liveReadings[liveReadings.length - 1].tempF }]
+    ? [{ probeName: selectedMeaterProbe?.deviceName ?? "Probe 1", timeSeries: liveReadings, finishingTempF: liveReadings[liveReadings.length - 1].tempF }]
     : [];
 
   // Stored analysis from DB
@@ -2329,7 +2363,7 @@ export default function CookDetailScreen() {
 
         {/* ── Live probe temperature chips (active cooks) ──────────────── */}
         {cookStatus === "active" && (() => {
-          const liveProbeTemp = meaterProbes[0]?.internalTempF ?? thermoworksProbes[0]?.tempF ?? cookCurrentTempF;
+          const liveProbeTemp = selectedMeaterProbe?.internalTempF ?? selectedThermoworksProbe?.tempF ?? cookCurrentTempF;
           if (c.targetTempF == null && c.cookTempF == null && liveProbeTemp == null) return null;
           return (
             <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
@@ -2548,6 +2582,8 @@ export default function CookDetailScreen() {
           meaterProbes={meaterProbes}
           thermoworksLinked={thermoworksLinked}
           thermoworksProbes={thermoworksProbes}
+          selectedProbeId={selectedProbeId}
+          onSelectProbe={handleSelectProbe}
           liveGraphProbes={liveGraphProbes}
           liveReadings={liveReadings}
           cardWidth={cardWidth}
@@ -2892,7 +2928,7 @@ export default function CookDetailScreen() {
           c={c}
           colors={colors}
           meaterLinked={meaterLinked}
-          meaterProbes={meaterProbes}
+          meaterProbes={selectedMeaterProbe ? [selectedMeaterProbe] : []}
           lastCheckinInternalTempF={lastCheckin?.internalTempF ?? null}
           lastCheckinPitTempF={lastCheckin?.pitTempF ?? null}
           lastCheckinAt={lastCheckin?.createdAt ?? null}
@@ -3218,12 +3254,12 @@ export default function CookDetailScreen() {
           scheduledAt={activeCheckin.scheduledAt}
           foodType={cook?.foodType}
           weightLbs={cook?.weightLbs ?? null}
-          currentInternalTempF={meaterProbes[0]?.internalTempF ?? thermoworksProbes[0]?.tempF ?? null}
-          currentPitTempF={meaterProbes[0]?.ambientTempF ?? null}
+          currentInternalTempF={selectedMeaterProbe?.internalTempF ?? selectedThermoworksProbe?.tempF ?? null}
+          currentPitTempF={selectedMeaterProbe?.ambientTempF ?? null}
           probeSource={
-            meaterProbes[0]?.internalTempF != null
+            selectedMeaterProbe?.internalTempF != null
               ? "meater"
-              : thermoworksProbes[0]?.tempF != null
+              : selectedThermoworksProbe?.tempF != null
               ? "thermoworks"
               : null
           }
@@ -3260,8 +3296,8 @@ export default function CookDetailScreen() {
               // no manual temp was entered (pure visual-milestone check-in).
               const adaptiveTemp =
                 savedInternalTempF ??
-                meaterProbes[0]?.internalTempF ??
-                thermoworksProbes[0]?.tempF ??
+                selectedMeaterProbe?.internalTempF ??
+                selectedThermoworksProbe?.tempF ??
                 null;
               rescheduleCheckinNotifications({
                 cookId: Number(id),
