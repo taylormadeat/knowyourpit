@@ -37,6 +37,7 @@ import {
   useFrozenStageNotifications,
   cancelStoredFrozenNotifications,
   scheduleFrozenStageNotifications,
+  type FrozenStageData,
 } from "@/hooks/useFrozenStageNotifications";
 import { useSpritzNotifications, computeNextSpritzMs } from "@/hooks/useSpritzNotifications";
 import { setCookDetailVisible, setCurrentCookId } from "@/hooks/cookDetailVisibility";
@@ -693,16 +694,44 @@ export default function CookDetailScreen() {
               thawEndAt: adjustedThawEndAt,
             },
           };
+
+          // Shift plannedStartAt by the same delta so that the preheat
+          // notification fires at the new (correct) grill-light time rather
+          // than the original planned time.  plannedStartAt === grillLightAt
+          // by construction (set when the cook was planned), so applying
+          // diffMs keeps everything in sync.
+          const existingPlannedStart = (cook as any)?.plannedStartAt as string | null | undefined;
+          const shiftedPlannedStartAt: string | null = existingPlannedStart
+            ? new Date(new Date(existingPlannedStart).getTime() + diffMs).toISOString()
+            : null;
+
           await updateCook.mutateAsync({
             id: cook.id,
-            data: { sequenceData: updatedSeqData } as any,
+            data: {
+              sequenceData: updatedSeqData,
+              ...(shiftedPlannedStartAt ? { plannedStartAt: shiftedPlannedStartAt as any } : {}),
+            } as any,
           });
 
-          // Re-fire frozen-stage notifications using the adjusted thawEndAt so
-          // the "thaw done – start tempering" alert fires at the correct time.
+          // Re-fire frozen-stage notifications using the adjusted thawEndAt
+          // and the shifted preheat start so ALL pending alerts move to the
+          // new correct times immediately (don't wait for the query refetch).
           scheduleFrozenStageNotifications({
             cookId: cook.id,
             frozen: updatedSeqData.frozen,
+            preheatStartAt: shiftedPlannedStartAt,
+            foodType: (frozen as any)?.foodType ?? null,
+            includePreheat: cookStatus === "planned",
+            actualThawStartAt: actualNow,
+          }).catch(() => {});
+        } else {
+          // Small diff (≤ 5 min) — timestamps stay the same, but now that
+          // actualThawStartAt is set the 30-minute "almost thawed" warning
+          // needs to be scheduled immediately rather than waiting for the
+          // async query refetch to trigger the hook's reactive depKey.
+          scheduleFrozenStageNotifications({
+            cookId: cook.id,
+            frozen: frozen as FrozenStageData,
             preheatStartAt: (cook as any)?.plannedStartAt ?? null,
             foodType: (frozen as any)?.foodType ?? null,
             includePreheat: cookStatus === "planned",
