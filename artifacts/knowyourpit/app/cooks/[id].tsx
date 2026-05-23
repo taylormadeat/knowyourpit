@@ -247,6 +247,13 @@ export default function CookDetailScreen() {
   const [expandedRationale, setExpandedRationale] = useState<number | null>(null);
   const [showSecondaryDecisions, setShowSecondaryDecisions] = useState(false);
 
+  // Reset decision UI state whenever a new analysis arrives so stale
+  // expanded rationale / secondary decisions don't persist across check-ins.
+  useEffect(() => {
+    setExpandedRationale(null);
+    setShowSecondaryDecisions(false);
+  }, [result]);
+
   // Per-cook probe selection — no probe is selected by default.
   // Persisted in AsyncStorage so the selection survives navigation.
   const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
