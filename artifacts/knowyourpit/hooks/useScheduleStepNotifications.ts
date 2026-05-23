@@ -27,7 +27,7 @@ const STEP_LABELS: Record<string, string> = {
   serve: "Serve",
 };
 
-async function cancelStoredStepNotifications(cookId: number): Promise<void> {
+export async function cancelStoredStepNotifications(cookId: number): Promise<void> {
   try {
     const key = `${STORAGE_KEY_PREFIX}${cookId}`;
     const stored = await AsyncStorage.getItem(key);
@@ -42,7 +42,7 @@ async function cancelStoredStepNotifications(cookId: number): Promise<void> {
   }
 }
 
-async function scheduleStepNotifications(
+export async function scheduleStepNotifications(
   cookId: number,
   schedule: ScheduleItem[],
   isCurrent: () => boolean,

@@ -27,6 +27,11 @@ import {
   scheduleFrozenStageNotifications,
   cancelStoredFrozenNotifications,
 } from "@/hooks/useFrozenStageNotifications";
+import {
+  scheduleStepNotifications,
+  cancelStoredStepNotifications,
+} from "@/hooks/useScheduleStepNotifications";
+import { EditCookTimesSheet } from "@/components/cook-detail/EditCookTimesSheet";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
@@ -216,6 +221,41 @@ export default function PlanScreen() {
   const activeCook: Cook | null = activeCooks?.[0] ?? null;
 
   const { data: plannedCooks } = useListCooks({ status: ListCooksStatus.planned });
+
+  // Edit times sheet (correct active cook timestamps)
+  const [editTimesVisible, setEditTimesVisible] = useState(false);
+  const [editTimesSaving, setEditTimesSaving] = useState(false);
+
+  const handleSaveCookTimes = async (meatOnAt: Date, thawStartAt: Date | null) => {
+    if (!activeCook) return;
+    setEditTimesSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        actualStartAt: meatOnAt.toISOString(),
+      };
+      if (thawStartAt !== null) {
+        payload.actualThawStartAt = thawStartAt.toISOString();
+      }
+      const updated = await updateCook.mutateAsync({ id: activeCook.id, data: payload as any });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetCookQueryKey(activeCook.id) });
+      setEditTimesVisible(false);
+      // Use the freshly returned schedule from the server — not the stale local state.
+      const freshSchedule =
+        ((updated as any)?.sequenceData as SequenceData | undefined)?.schedule ??
+        activeSeqData?.schedule;
+      if (freshSchedule?.length) {
+        cancelStoredStepNotifications(activeCook.id).catch(() => {});
+        scheduleStepNotifications(activeCook.id, freshSchedule, () => true).catch(() => {});
+      }
+    } catch {
+      Alert.alert("Save failed", "Could not update cook times. Please try again.");
+    } finally {
+      setEditTimesSaving(false);
+    }
+  };
 
   const [bannerNowMs, setBannerNowMs] = useState(Date.now());
   // ── Soft post-plan tip card ──
@@ -1215,6 +1255,13 @@ export default function PlanScreen() {
             <Text style={s.nowCookingElapsed}>
               {activeElapsedMs > 0 ? fmtElapsedPlan(activeElapsedMs) : "Just started"}
             </Text>
+            <Pressable
+              onPress={() => setEditTimesVisible(true)}
+              hitSlop={10}
+              style={{ padding: 4, marginRight: 2 }}
+            >
+              <Feather name="clock" size={16} color="#ffffffcc" />
+            </Pressable>
             <Feather name="chevron-right" size={16} color="#fff" />
           </Pressable>
           <NextUpBanner
@@ -1237,6 +1284,45 @@ export default function PlanScreen() {
               />
             </View>
           )}
+          {/* "Cook may already be done" — shown when estimated finish has
+              passed or is within 10 min so the pitmaster knows to check the
+              grill without opening the cook detail screen. */}
+          {(() => {
+            const finishAt = activeSeqData?.schedule?.[0]?.estimatedFinishAt as string | null | undefined;
+            if (!finishAt) return null;
+            const finishMs = new Date(finishAt).getTime();
+            if (finishMs > bannerNowMs + 10 * 60_000) return null;
+            return (
+              <View
+                style={{
+                  marginHorizontal: 16,
+                  marginTop: 6,
+                  marginBottom: 2,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  backgroundColor: "#F9731618",
+                  borderWidth: 1,
+                  borderColor: "#F9731660",
+                  borderRadius: 10,
+                  paddingHorizontal: 12,
+                  paddingVertical: 9,
+                }}
+              >
+                <Feather name="alert-triangle" size={14} color="#F97316" />
+                <Text
+                  style={{
+                    flex: 1,
+                    fontSize: 13,
+                    fontFamily: "Inter_500Medium",
+                    color: "#F97316",
+                  }}
+                >
+                  Cook may already be done — check your grill.
+                </Text>
+              </View>
+            );
+          })()}
         </>
       )}
 
@@ -3010,6 +3096,33 @@ export default function PlanScreen() {
         onContinue={handleCompetitionContinue}
         pending={aiMultiCook.isPending}
       />
+
+      {/* ════ EDIT COOK TIMES SHEET ════ */}
+      {activeCook && (
+        <EditCookTimesSheet
+          visible={editTimesVisible}
+          fromFrozen={!!(activeCook as any).fromFrozen}
+          initialMeatOnAt={
+            (activeCook as any).actualStartAt
+              ? new Date((activeCook as any).actualStartAt)
+              : activeSeqData?.schedule?.[0]?.meatOnAt
+                ? new Date(activeSeqData.schedule[0].meatOnAt as string)
+                : null
+          }
+          initialThawStartAt={
+            (activeCook as any).actualThawStartAt
+              ? new Date((activeCook as any).actualThawStartAt)
+              : (activeSeqData?.frozen as any)?.thawStartAt
+                ? new Date((activeSeqData!.frozen as any).thawStartAt)
+                : null
+          }
+          estimatedFinishAt={activeSeqData?.schedule?.[0]?.estimatedFinishAt ?? null}
+          saving={editTimesSaving}
+          onClose={() => setEditTimesVisible(false)}
+          onSave={handleSaveCookTimes}
+          colors={colors}
+        />
+      )}
 
     </View>
   );

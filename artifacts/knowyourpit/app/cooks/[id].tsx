@@ -120,6 +120,10 @@ import {
   scheduleCheckinNotifications,
   loadRemovedCheckinPhaseKeys,
 } from "@/hooks/useCheckinNotifications";
+import {
+  scheduleStepNotifications,
+  cancelStoredStepNotifications,
+} from "@/hooks/useScheduleStepNotifications";
 import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
 import { getCheckinSchedule, generateCheckinSchedule } from "@/constants/checkinKnowledge";
 import type { CookCheckin } from "@workspace/api-client-react";
@@ -135,6 +139,7 @@ import {
 import { WrapTempSheet } from "@/components/cook-detail/WrapTempSheet";
 import { ActualVsPlannedRecap } from "@/components/cook-detail/ActualVsPlannedRecap";
 import { EditCookModal } from "@/components/cook-detail/EditCookModal";
+import { EditCookTimesSheet } from "@/components/cook-detail/EditCookTimesSheet";
 import { AddToPlannedCookModal } from "@/components/cook-detail/AddToPlannedCookModal";
 import { AlertSheet } from "@/components/cook-detail/AlertSheet";
 import { CheckInHistory } from "@/components/cook-detail/CheckInHistory";
@@ -1109,6 +1114,41 @@ export default function CookDetailScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     }
   }, [nextStepKey, cookStatus]);
+
+  // Edit Times sheet state (active cook timestamp correction)
+  const [editTimesVisible, setEditTimesVisible] = useState(false);
+  const [editTimesSaving, setEditTimesSaving] = useState(false);
+
+  const handleSaveCookTimes = async (meatOnAt: Date, thawStartAt: Date | null) => {
+    setEditTimesSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        actualStartAt: meatOnAt.toISOString(),
+      };
+      if (thawStartAt !== null) {
+        payload.actualThawStartAt = thawStartAt.toISOString();
+      }
+      const updated = await updateCook.mutateAsync({ id: Number(id), data: payload as any });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      setEditTimesVisible(false);
+      // Reschedule step notifications using the freshly returned schedule
+      // from the server response — never the stale pre-edit local state.
+      const freshSchedule =
+        ((updated as any)?.sequenceData as SequenceData | undefined)?.schedule ??
+        cookSeqData?.schedule;
+      if (freshSchedule?.length) {
+        cancelStoredStepNotifications(Number(id)).catch(() => {});
+        scheduleStepNotifications(Number(id), freshSchedule, () => true).catch(() => {});
+      }
+    } catch {
+      Alert.alert("Save failed", "Could not update cook times. Please try again.");
+    } finally {
+      setEditTimesSaving(false);
+    }
+  };
 
   // Edit modal state
   const [editVisible, setEditVisible] = useState(false);
@@ -2113,6 +2153,15 @@ export default function CookDetailScreen() {
         </Pressable>
         <Text style={s.headerTitle} numberOfLines={1}>{c.foodType || "Cook"}</Text>
         <View style={s.headerRight}>
+          {cookStatus === "active" && (
+            <Pressable
+              onPress={() => setEditTimesVisible(true)}
+              style={[s.editBtn, { marginRight: 2 }]}
+              hitSlop={8}
+            >
+              <Feather name="clock" size={17} color="#F3EDE1" />
+            </Pressable>
+          )}
           <Pressable onPress={openEdit} style={s.editBtn} hitSlop={8}>
             <Feather name="edit-2" size={17} color="#F3EDE1" />
           </Pressable>
@@ -2132,6 +2181,47 @@ export default function CookDetailScreen() {
         cookSeqData={cookSeqData}
         nowMs={nowMs}
       />
+
+      {/* ── "Cook may already be done" warning ───────────────────────────
+           Shown persistently when the estimated finish time has passed
+           or is within 10 minutes, reminding the pitmaster to check the
+           grill. Computed from the current (post-save) schedule data.   */}
+      {cookStatus === "active" && (() => {
+        const finishAt = cookSeqData?.schedule?.[0]?.estimatedFinishAt as string | null | undefined;
+        if (!finishAt) return null;
+        const finishMs = new Date(finishAt).getTime();
+        if (finishMs > nowMs + 10 * 60_000) return null;
+        return (
+          <View
+            style={{
+              marginHorizontal: 16,
+              marginTop: 6,
+              marginBottom: 2,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              backgroundColor: "#F9731618",
+              borderWidth: 1,
+              borderColor: "#F9731660",
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              paddingVertical: 9,
+            }}
+          >
+            <Feather name="alert-triangle" size={14} color="#F97316" />
+            <Text
+              style={{
+                flex: 1,
+                fontSize: 13,
+                fontFamily: "Inter_500Medium",
+                color: "#F97316",
+              }}
+            >
+              Cook may already be done — check your grill.
+            </Text>
+          </View>
+        );
+      })()}
 
       {/* ── Check-In prompt banner (active cooks) ────────────────────────
            Shows a highlighted nudge when a notification was tapped
@@ -3185,6 +3275,33 @@ export default function CookDetailScreen() {
         editWrapFinish={editWrapFinish}
         setEditWrapFinish={setEditWrapFinish}
       />
+
+      {/* ── Edit Cook Times Sheet (active cook timestamp correction) ── */}
+      {cookStatus === "active" && (
+        <EditCookTimesSheet
+          visible={editTimesVisible}
+          fromFrozen={!!(cook as any)?.fromFrozen}
+          initialMeatOnAt={
+            (cook as any)?.actualStartAt
+              ? new Date((cook as any).actualStartAt)
+              : cookSeqData?.schedule?.[0]?.meatOnAt
+                ? new Date(cookSeqData.schedule[0].meatOnAt as string)
+                : null
+          }
+          initialThawStartAt={
+            (cook as any)?.actualThawStartAt
+              ? new Date((cook as any).actualThawStartAt)
+              : (cookSeqData?.frozen as any)?.thawStartAt
+                ? new Date((cookSeqData!.frozen as any).thawStartAt)
+                : null
+          }
+          estimatedFinishAt={cookSeqData?.schedule?.[0]?.estimatedFinishAt ?? null}
+          saving={editTimesSaving}
+          onClose={() => setEditTimesVisible(false)}
+          onSave={handleSaveCookTimes}
+          colors={colors}
+        />
+      )}
 
       {/* ── Set Alert Sheet ─────────────────────────────────── */}
       {/* (banner component is defined below the screen export) */}

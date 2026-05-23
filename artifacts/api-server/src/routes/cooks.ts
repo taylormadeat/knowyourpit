@@ -315,6 +315,121 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
     }
     updateData.sequenceData = sd ?? null;
   }
+  // ── Timestamp correction: re-plan schedule when actualStartAt / actualThawStartAt
+  // is corrected on an active cook. Shifting the meatOnAt anchor by the delta
+  // propagates the correction through the full schedule so countdowns stay accurate.
+  const isTimestampCorrection =
+    ("actualStartAt" in req.body && req.body.actualStartAt !== undefined) ||
+    ("actualThawStartAt" in req.body && req.body.actualThawStartAt !== undefined);
+
+  if (isTimestampCorrection) {
+    const [existing] = await db
+      .select({
+        status: cooksTable.status,
+        actualStartAt: cooksTable.actualStartAt,
+        actualThawStartAt: cooksTable.actualThawStartAt,
+        plannedEndAt: cooksTable.plannedEndAt,
+        sequenceData: cooksTable.sequenceData,
+      })
+      .from(cooksTable)
+      .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)));
+
+    if (existing?.status === "active") {
+      type SeqScheduleItem = {
+        meatOnAt?: string | null;
+        estimatedFinishAt?: string | null;
+        grillLightAt?: string | null;
+        [key: string]: unknown;
+      };
+      type SeqFrozen = {
+        thawStartAt?: string | null;
+        thawEndAt?: string | null;
+        [key: string]: unknown;
+      };
+      type SeqData = {
+        schedule: SeqScheduleItem[];
+        frozen?: SeqFrozen | null;
+        [key: string]: unknown;
+      };
+
+      const seqData = existing.sequenceData as SeqData | null;
+
+      // ── Shift schedule timestamps when actualStartAt (meat-on) changes ──
+      const newActualStartAt = req.body.actualStartAt;
+      if (
+        newActualStartAt &&
+        typeof newActualStartAt === "string" &&
+        seqData?.schedule?.length
+      ) {
+        const anchorMs = existing.actualStartAt
+          ? new Date(existing.actualStartAt).getTime()
+          : seqData.schedule[0].meatOnAt
+            ? new Date(seqData.schedule[0].meatOnAt).getTime()
+            : null;
+
+        if (anchorMs !== null) {
+          const newMs = new Date(newActualStartAt).getTime();
+          const deltaMs = newMs - anchorMs;
+
+          if (Math.abs(deltaMs) >= 60_000) {
+            const updatedSchedule: SeqScheduleItem[] = seqData.schedule.map((item) => ({
+              ...item,
+              meatOnAt: item.meatOnAt
+                ? new Date(new Date(item.meatOnAt).getTime() + deltaMs).toISOString()
+                : item.meatOnAt,
+              estimatedFinishAt: item.estimatedFinishAt
+                ? new Date(new Date(item.estimatedFinishAt).getTime() + deltaMs).toISOString()
+                : item.estimatedFinishAt,
+            }));
+
+            // Merge with any client-supplied sequenceData update (client wins on
+            // non-timestamp fields; our derived timestamps take priority).
+            const baseSeq = (updateData.sequenceData as SeqData | undefined) ?? seqData;
+            updateData.sequenceData = { ...baseSeq, schedule: updatedSchedule };
+
+            // Persist the corrected finish time on the cook row so queries that
+            // sort or filter by plannedEndAt stay accurate.
+            const newFinish = updatedSchedule[0]?.estimatedFinishAt;
+            if (newFinish) {
+              updateData.plannedEndAt = new Date(newFinish);
+            }
+          }
+        }
+      }
+
+      // ── Shift frozen timestamps when actualThawStartAt changes ──
+      const newActualThawStartAt = req.body.actualThawStartAt;
+      if (
+        newActualThawStartAt &&
+        typeof newActualThawStartAt === "string" &&
+        seqData?.frozen
+      ) {
+        const anchorMs = existing.actualThawStartAt
+          ? new Date(existing.actualThawStartAt).getTime()
+          : seqData.frozen.thawStartAt
+            ? new Date(seqData.frozen.thawStartAt).getTime()
+            : null;
+
+        if (anchorMs !== null) {
+          const newMs = new Date(newActualThawStartAt).getTime();
+          const deltaMs = newMs - anchorMs;
+
+          if (Math.abs(deltaMs) >= 60_000) {
+            const updatedFrozen: SeqFrozen = {
+              ...seqData.frozen,
+              thawStartAt: newActualThawStartAt,
+              thawEndAt: seqData.frozen.thawEndAt
+                ? new Date(new Date(seqData.frozen.thawEndAt).getTime() + deltaMs).toISOString()
+                : seqData.frozen.thawEndAt,
+            };
+            const existingSeq = (updateData.sequenceData as SeqData | undefined) ?? seqData;
+            updateData.sequenceData = { ...existingSeq, frozen: updatedFrozen };
+          }
+        }
+      }
+    }
+  }
+
   // Canonical judgeScore derivation: when any KCBS sub-score is being written,
   // recompute the compatibility total (appearance + taste + texture) so that
   // judgeScore always reflects the sub-scores rather than an independent client value.
