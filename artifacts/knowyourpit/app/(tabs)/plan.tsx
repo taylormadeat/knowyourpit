@@ -622,6 +622,15 @@ export default function PlanScreen() {
     schedule.frozen.thawEndAt.getTime() > schedule.startAt.getTime();
 
   const weightInputRef = useRef<TextInput>(null);
+  // True while "Begin Thawing Now" is the user's chosen action; false once
+  // the pitmaster switches intent to "Save Cook Plan". Drives callout visibility.
+  // Resets to true whenever the user re-enters the frozen + Cook Now state.
+  const [showBeginThawCallout, setShowBeginThawCallout] = React.useState(true);
+  React.useEffect(() => {
+    if (frozenEnabled && cookNowMode === "now") {
+      setShowBeginThawCallout(true);
+    }
+  }, [frozenEnabled, cookNowMode]);
 
   // When user picks a meat cut, auto-fill temps and restore per-cut quick-picks
   const handlePickCut = (cut: MeatCut) => {
@@ -900,7 +909,12 @@ export default function PlanScreen() {
   };
 
   // ── Submit ───────────────────────────────────────────────────────────
-  const handleSubmit = async () => {
+  // modeOverride: when "later" is passed the function behaves as if
+  // cookNowMode === "later" regardless of current state — used by the
+  // secondary "Save Cook Plan" button in frozen Cook Now mode.
+  const handleSubmit = async (modeOverride?: "later") => {
+    const effectiveCookNowMode = modeOverride ?? cookNowMode;
+
     if (!selectedCut) {
       Alert.alert("Required", "Please select a meat cut");
       return;
@@ -921,7 +935,7 @@ export default function PlanScreen() {
         });
         return;
       }
-      if (cookNowMode === "later" && paywallUsage.usage.plannedCooks >= 1) {
+      if (effectiveCookNowMode === "later" && paywallUsage.usage.plannedCooks >= 1) {
         showPaywall({
           trigger: "planned_cook_limit_reached",
           foodType: selectedCut?.name ?? null,
@@ -1060,8 +1074,8 @@ export default function PlanScreen() {
           cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
           grillId: grillId ?? undefined,
           notes: noteParts.join("\n\n") || undefined,
-          status: cookNowMode === "now" ? "active" : "planned",
-          ...(cookNowMode === "now"
+          status: effectiveCookNowMode === "now" ? "active" : "planned",
+          ...(effectiveCookNowMode === "now"
             ? {
                 actualStartAt: new Date() as any,
                 // When starting a frozen cook immediately, record the thaw
@@ -1111,7 +1125,7 @@ export default function PlanScreen() {
       if (frozenForCook) {
         const cooksToSweep = [
           ...(plannedCooks ?? []),
-          ...(cookNowMode === "now" ? (activeCooks ?? []) : []),
+          ...(effectiveCookNowMode === "now" ? (activeCooks ?? []) : []),
         ] as Array<Cook & { fromFrozen?: boolean }>;
         const staleFrozenCooks = cooksToSweep.filter(
           (c) =>
@@ -1129,7 +1143,7 @@ export default function PlanScreen() {
       }
 
       if (newCookId) {
-        if (cookNowMode === "later" && (frozenForCook || plannedStart)) {
+        if (effectiveCookNowMode === "later" && (frozenForCook || plannedStart)) {
           // Planned frozen cook: schedule thawStart, temper, and preheat
           // notifications. actualThawStartAt is not yet set because the pitmaster
           // hasn't confirmed the thaw is underway. The 30-min thaw-end warning
@@ -1142,7 +1156,7 @@ export default function PlanScreen() {
             foodType: selectedCut.name,
             includePreheat: true,
           }).catch(() => {});
-        } else if (cookNowMode === "now" && frozenForCook) {
+        } else if (effectiveCookNowMode === "now" && frozenForCook) {
           // "Begin Thawing Now": the pitmaster is starting the thaw this
           // instant. Pass actualThawStartAt = now so the 30-min "almost thawed"
           // warning is armed immediately — no need to visit the cook detail
@@ -1191,8 +1205,16 @@ export default function PlanScreen() {
       // it permanently. The card promotes Multi-Cook Sequencer.
       // Strict gate: only show when AsyncStorage has resolved (=== false),
       // never while the dismissal flag is still loading (null).
+      // "Save Cook Plan" (secondary frozen CTA): always land on the new cook's
+      // detail screen so the pitmaster can tap "Start Thaw" when ready — same
+      // post-save flow as "Plan for Later" mode per the task spec.
+      if (modeOverride === "later" && newCookId) {
+        router.push(`/cooks/${newCookId}` as any);
+        return;
+      }
+
       const willShowTip =
-        cookNowMode !== "now" && isFreeAccount && usedCooksBefore >= 1 && multiCookTipDismissed === false;
+        effectiveCookNowMode !== "now" && isFreeAccount && usedCooksBefore >= 1 && multiCookTipDismissed === false;
       if (willShowTip) {
         setMultiCookTipFood(plannedFood);
         setShowMultiCookTip(true);
@@ -1204,7 +1226,7 @@ export default function PlanScreen() {
         // Skip auto-navigating to the Cooks tab so the user actually sees
         // the inline tip before leaving the Plan screen. They can navigate
         // manually after reading or dismissing it.
-      } else if (cookNowMode === "now" && newCookId) {
+      } else if (effectiveCookNowMode === "now" && newCookId) {
         router.push(`/cooks/${newCookId}` as any);
       } else {
         router.push("/(tabs)/cooks" as any);
@@ -1214,6 +1236,13 @@ export default function PlanScreen() {
       if (parseAndShowFromError(e)) return;
       Alert.alert("Error", e?.message || "Failed to create cook");
     }
+  };
+
+  // Secondary CTA for frozen Cook Now mode: saves with status "planned" so
+  // the pitmaster can initiate thawing manually from the cook detail screen.
+  const handleSaveFrozenPlan = async () => {
+    setShowBeginThawCallout(false);
+    await handleSubmit("later");
   };
 
   const botPad = useBottomTabBarHeight();
@@ -2705,7 +2734,7 @@ export default function PlanScreen() {
             { backgroundColor: colors.primary, borderRadius: colors.radius },
             (createCook.isPending || pressed) && { opacity: 0.7 },
           ]}
-          onPress={handleSubmit}
+          onPress={() => handleSubmit()}
           disabled={createCook.isPending}
         >
           {createCook.isPending ? (
@@ -2718,8 +2747,8 @@ export default function PlanScreen() {
           )}
         </Pressable>
 
-        {/* ── Frozen-thaw informational callout (Cook Now + frozen mode only) ── */}
-        {frozenEnabled && cookNowMode === "now" && (
+        {/* ── Frozen-thaw informational callout (Cook Now + frozen, Begin Thawing Now path only) ── */}
+        {frozenEnabled && cookNowMode === "now" && showBeginThawCallout && (
           <View
             style={{
               flexDirection: "row",
@@ -2747,6 +2776,28 @@ export default function PlanScreen() {
               Starting this plan begins your thaw countdown. Notifications will fire when it&apos;s time to move the meat to the counter, then to the grill.
             </Text>
           </View>
+        )}
+
+        {/* ── Secondary: Save Cook Plan (frozen + Cook Now only) ── */}
+        {frozenEnabled && cookNowMode === "now" && (
+          <Pressable
+            style={({ pressed }) => [
+              s.submitBtn,
+              {
+                backgroundColor: "transparent",
+                borderRadius: colors.radius,
+                borderWidth: 1.5,
+                borderColor: colors.primary,
+                marginTop: 10,
+              },
+              (createCook.isPending || pressed) && { opacity: 0.6 },
+            ]}
+            onPress={handleSaveFrozenPlan}
+            disabled={createCook.isPending}
+          >
+            <Feather name="bookmark" size={18} color={colors.primary} />
+            <Text style={[s.submitText, { color: colors.primary }]}>Save Cook Plan</Text>
+          </Pressable>
         )}
 
         </>)}{/* end planMode === "single" */}
