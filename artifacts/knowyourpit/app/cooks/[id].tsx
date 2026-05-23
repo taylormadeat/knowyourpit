@@ -253,6 +253,17 @@ export default function CookDetailScreen() {
     setShowSecondaryDecisions(false);
   }, [result]);
 
+  // Also collapse rationale when the screen loses focus so returning always
+  // shows the clean default state.
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setExpandedRationale(null);
+        setShowSecondaryDecisions(false);
+      };
+    }, [])
+  );
+
   // Per-cook probe selection — no probe is selected by default.
   // Persisted in AsyncStorage so the selection survives navigation.
   const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
