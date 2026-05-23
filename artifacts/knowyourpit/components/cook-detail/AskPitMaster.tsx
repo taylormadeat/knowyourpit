@@ -53,6 +53,8 @@ export function AskPitMaster(p: Props) {
   } = p;
 
   const [cardExpanded, setCardExpanded] = React.useState(false);
+  const [phaseNarrativeExpanded, setPhaseNarrativeExpanded] = React.useState(false);
+  const [assessmentExpanded, setAssessmentExpanded] = React.useState(false);
 
   if (c.status !== "active") return null;
 
@@ -375,20 +377,38 @@ export function AskPitMaster(p: Props) {
                   return m > 0 ? `~${h}h ${m}m` : `~${h}h`;
                 };
 
+                const hasTimingChips =
+                  (pp.timeToStallMinutes != null && pp.phase === "heat_up") ||
+                  (pp.stallDurationMinutes != null && pp.phase === "stall") ||
+                  pp.timeToFinishMinutes != null;
+
                 return (
                   <View style={[s.phaseCard, { backgroundColor: phaseColor + "15", borderColor: phaseColor + "40", borderRadius: colors.radius }]}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: pp.narrative ? 8 : 0 }}>
+                    {/* Phase chip + optional narrative toggle on same row */}
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <View style={[s.phaseChip, { backgroundColor: phaseColor + "25", borderColor: phaseColor + "50" }]}>
                         <Feather name={phaseIcon as any} size={12} color={phaseColor} />
                         <Text style={[s.phaseChipText, { color: phaseColor }]}>{pp.phaseLabel}</Text>
                       </View>
+                      {pp.narrative ? (
+                        <Pressable
+                          onPress={() => setPhaseNarrativeExpanded((v) => !v)}
+                          style={{ flexDirection: "row", alignItems: "center", gap: 3 }}
+                          hitSlop={8}
+                        >
+                          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: phaseColor }}>
+                            {phaseNarrativeExpanded ? "Less" : "More"}
+                          </Text>
+                          <Feather name={phaseNarrativeExpanded ? "chevron-up" : "chevron-down"} size={11} color={phaseColor} />
+                        </Pressable>
+                      ) : null}
                     </View>
 
-                    {pp.narrative ? (
+                    {phaseNarrativeExpanded && pp.narrative ? (
                       <Text style={[s.phaseNarrative, { color: colors.foreground }]}>{pp.narrative}</Text>
                     ) : null}
 
-                    {(pp.timeToStallMinutes != null || pp.stallDurationMinutes != null || pp.timeToFinishMinutes != null) && (
+                    {hasTimingChips && (
                       <View style={s.phaseChips}>
                         {pp.timeToStallMinutes != null && pp.phase === "heat_up" && (
                           <View style={[s.timeChip, { backgroundColor: phaseColor + "20", borderColor: phaseColor + "40" }]}>
@@ -423,28 +443,55 @@ export function AskPitMaster(p: Props) {
                   </View>
                 </View>
               )}
-              {(assessment?.whatWentWell?.length ?? 0) > 0 && (
-                <View style={[s.subSection, { borderColor: colors.border }]}>
-                  <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Looking Good</Text>
-                  {assessment!.whatWentWell!.map((item: string, i: number) => (
-                    <View key={i} style={s.bulletRow}>
-                      <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
-                      <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-              {(assessment?.suggestions?.length ?? 0) > 0 && (
-                <View style={[s.subSection, { borderColor: colors.border }]}>
-                  <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Watch Out For</Text>
-                  {assessment!.suggestions!.map((tip: string, i: number) => (
-                    <View key={i} style={s.bulletRow}>
-                      <Text style={[s.bulletNum, { color: "#A855F7" }]}>{i + 1}</Text>
-                      <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
+
+              {/* Assessment bullets — collapsed behind a summary chip row */}
+              {(() => {
+                const wellCount = assessment?.whatWentWell?.length ?? 0;
+                const tipCount = assessment?.suggestions?.length ?? 0;
+                if (wellCount === 0 && tipCount === 0) return null;
+                const summaryParts: string[] = [];
+                if (wellCount > 0) summaryParts.push(`✓ ${wellCount} on track`);
+                if (tipCount > 0) summaryParts.push(`⚠ ${tipCount} tip${tipCount > 1 ? "s" : ""}`);
+                return (
+                  <View style={[s.subSection, { borderColor: colors.border }]}>
+                    <Pressable
+                      onPress={() => setAssessmentExpanded((v) => !v)}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+                    >
+                      <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0, flex: 1 }]}>
+                        {summaryParts.join("  ·  ")}
+                      </Text>
+                      <Feather name={assessmentExpanded ? "chevron-up" : "chevron-down"} size={13} color={colors.mutedForeground} />
+                    </Pressable>
+                    {assessmentExpanded && (
+                      <>
+                        {wellCount > 0 && (
+                          <View style={{ marginTop: 10, gap: 4 }}>
+                            <Text style={[s.subLabel, { color: "#22c55e", marginBottom: 4 }]}>Looking Good</Text>
+                            {assessment!.whatWentWell!.map((item: string, i: number) => (
+                              <View key={i} style={s.bulletRow}>
+                                <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
+                                <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                        {tipCount > 0 && (
+                          <View style={{ marginTop: 10, gap: 4 }}>
+                            <Text style={[s.subLabel, { color: "#A855F7", marginBottom: 4 }]}>Watch Out For</Text>
+                            {assessment!.suggestions!.map((tip: string, i: number) => (
+                              <View key={i} style={s.bulletRow}>
+                                <Text style={[s.bulletNum, { color: "#A855F7" }]}>{i + 1}</Text>
+                                <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </>
+                    )}
+                  </View>
+                );
+              })()}
               {result.noDataFound && result.probes.length === 0 && (
                 <View style={s.noDataRow}>
                   <Feather name="info" size={15} color={colors.mutedForeground} />

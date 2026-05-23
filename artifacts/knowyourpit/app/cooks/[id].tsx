@@ -237,6 +237,7 @@ export default function CookDetailScreen() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [cardWidth, setCardWidth] = useState(300);
+  const [expandedRationale, setExpandedRationale] = useState<number | null>(null);
 
   // Ratings state
   const [rateTenderness, setRateTenderness] = useState<number>(0);
@@ -1968,37 +1969,86 @@ export default function CookDetailScreen() {
 
   const renderDecisions = (decisions: Decision[]) => {
     if (!decisions || decisions.length === 0) return null;
+    const top = decisions[0];
+    const rest = decisions.slice(1);
+    const topActionCfg = ACTION_CONFIG[top.action] ?? { icon: "zap", label: top.action };
+    const topUrgencyCfg = URGENCY_CONFIG[top.urgency] ?? { label: top.urgency.toUpperCase(), color: "#6B7280" };
+    const topIsMaintain = top.action === "maintain";
+    const topColor = topIsMaintain ? "#22c55e" : topUrgencyCfg.color;
+    const topRationaleOpen = expandedRationale === 0;
+
     return (
       <View style={[s.decisionsSection, { borderColor: colors.border }]}>
-        <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Decisions</Text>
-        {decisions.map((d, i) => {
+        {/* Hero decision card — the #1 action to take right now */}
+        <View style={[s.decisionCard, { backgroundColor: topColor + "12", borderColor: topColor + "40", borderRadius: colors.radius, padding: 14, gap: 10 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View style={[s.decisionActionChip, { backgroundColor: topColor + "25", borderColor: topColor + "50" }]}>
+              <Feather name={topActionCfg.icon as any} size={13} color={topColor} />
+              <Text style={[s.decisionActionText, { color: topColor, fontSize: 13 }]}>{topActionCfg.label}</Text>
+            </View>
+            {!topIsMaintain && (
+              <View style={[s.decisionUrgencyBadge, { backgroundColor: topColor }]}>
+                <Text style={s.decisionUrgencyText}>{topUrgencyCfg.label}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={[s.decisionInstruction, { color: colors.foreground, fontSize: 16 }]}>{top.instruction}</Text>
+          {top.rationale ? (
+            <>
+              <Pressable
+                onPress={() => setExpandedRationale(topRationaleOpen ? null : 0)}
+                style={{ flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" }}
+                hitSlop={8}
+              >
+                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: topColor }}>
+                  {topRationaleOpen ? "Hide reasoning" : "Why?"}
+                </Text>
+                <Feather name={topRationaleOpen ? "chevron-up" : "chevron-down"} size={12} color={topColor} />
+              </Pressable>
+              {topRationaleOpen && (
+                <Text style={[s.decisionRationale, { color: colors.mutedForeground }]}>{top.rationale}</Text>
+              )}
+            </>
+          ) : null}
+        </View>
+
+        {/* Compact secondary decisions */}
+        {rest.map((d, i) => {
+          const idx = i + 1;
           const actionCfg = ACTION_CONFIG[d.action] ?? { icon: "zap", label: d.action };
           const urgencyCfg = URGENCY_CONFIG[d.urgency] ?? { label: d.urgency.toUpperCase(), color: "#6B7280" };
           const isMaintain = d.action === "maintain";
           const cardColor = isMaintain ? "#22c55e" : urgencyCfg.color;
+          const rationaleOpen = expandedRationale === idx;
           return (
-            <View
-              key={i}
-              style={[
-                s.decisionCard,
-                { backgroundColor: cardColor + "12", borderColor: cardColor + "35", borderRadius: colors.radius },
-              ]}
-            >
-              <View style={s.decisionHeader}>
-                <View style={[s.decisionActionChip, { backgroundColor: cardColor + "22", borderColor: cardColor + "45" }]}>
-                  <Feather name={actionCfg.icon as any} size={12} color={cardColor} />
-                  <Text style={[s.decisionActionText, { color: cardColor }]}>{actionCfg.label}</Text>
+            <View key={idx}>
+              <Pressable
+                onPress={() => d.rationale ? setExpandedRationale(rationaleOpen ? null : idx) : undefined}
+                style={[
+                  {
+                    flexDirection: "row", alignItems: "center", gap: 10,
+                    paddingHorizontal: 12, paddingVertical: 10,
+                    borderWidth: 1, borderRadius: colors.radius,
+                    backgroundColor: cardColor + "08", borderColor: cardColor + "28",
+                  },
+                ]}
+              >
+                <View style={[s.decisionActionChip, { backgroundColor: cardColor + "20", borderColor: cardColor + "40", flexShrink: 0 }]}>
+                  <Feather name={actionCfg.icon as any} size={11} color={cardColor} />
+                  <Text style={[s.decisionActionText, { color: cardColor, fontSize: 11 }]}>{actionCfg.label}</Text>
                 </View>
-                {!isMaintain && (
-                  <View style={[s.decisionUrgencyBadge, { backgroundColor: urgencyCfg.color }]}>
-                    <Text style={s.decisionUrgencyText}>{urgencyCfg.label}</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={[s.decisionInstruction, { color: colors.foreground }]}>{d.instruction}</Text>
-              {d.rationale ? (
-                <Text style={[s.decisionRationale, { color: colors.mutedForeground }]}>{d.rationale}</Text>
-              ) : null}
+                <Text style={{ flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, color: colors.foreground }} numberOfLines={rationaleOpen ? undefined : 1}>
+                  {d.instruction}
+                </Text>
+                {d.rationale ? (
+                  <Feather name={rationaleOpen ? "chevron-up" : "help-circle"} size={14} color={colors.mutedForeground} />
+                ) : null}
+              </Pressable>
+              {rationaleOpen && d.rationale && (
+                <Text style={[s.decisionRationale, { color: colors.mutedForeground, paddingHorizontal: 12, paddingTop: 6, paddingBottom: 4 }]}>
+                  {d.rationale}
+                </Text>
+              )}
             </View>
           );
         })}
