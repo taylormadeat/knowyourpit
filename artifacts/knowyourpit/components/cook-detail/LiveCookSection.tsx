@@ -35,7 +35,6 @@ interface Props {
   elapsedMs: number;
   remainingMs: number | null;
   estimatedFinishMs: number | null;
-  userTempEdited: boolean;
   setAlertSheetVisible: (v: boolean) => void;
   setAlertMode: (m: "temp" | "timer") => void;
   activeCookAlerts: any[];
@@ -59,7 +58,7 @@ export function LiveCookSection(p: Props) {
   const {
     c, colors, weather, meaterLinked, meaterProbes, thermoworksLinked, thermoworksProbes,
     liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, estimatedFinishMs,
-    userTempEdited, setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
+    setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
     targetTempF, cookTempF, nextSpritzMs, onViewDetails,
   } = p;
 
@@ -291,14 +290,6 @@ export function LiveCookSection(p: Props) {
               </View>
             )}
           </View>
-          {!userTempEdited && probe.internalTempF != null && (
-            <View style={[s.meaterAutoFillBadge, { backgroundColor: "#FF6B2B15", marginTop: 8 }]}>
-              <Feather name="zap" size={11} color="#FF6B2B" />
-              <Text style={[s.meaterAutoFillText, { color: "#FF6B2B" }]}>
-                Auto-filling temperature input with {probe.internalTempF}°F
-              </Text>
-            </View>
-          )}
         </View>
       ))}
 

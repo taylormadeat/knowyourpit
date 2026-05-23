@@ -234,7 +234,6 @@ export default function CookDetailScreen() {
     return parts.join(" · ");
   }, [qpMethod, qpStartTemp, qpInjection, qpSpritz, qpSpritzLiquid, qpWrap, cookNotes]);
 
-  const [userTempEdited, setUserTempEdited] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [cardWidth, setCardWidth] = useState(300);
@@ -842,7 +841,6 @@ export default function CookDetailScreen() {
     setResult(null);
     setImages([]);
     setCookNotes("");
-    setUserTempEdited(false);
     setQpMethod(null);
     setQpStartTemp(null);
     setQpInjection(null);
@@ -2505,7 +2503,6 @@ export default function CookDetailScreen() {
           elapsedMs={elapsedMs}
           remainingMs={remainingMs}
           estimatedFinishMs={estimatedFinishMs}
-          userTempEdited={userTempEdited}
           setAlertSheetVisible={setAlertSheetVisible}
           setAlertMode={setAlertMode}
           activeCookAlerts={activeCookAlerts}
