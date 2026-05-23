@@ -245,6 +245,7 @@ export default function CookDetailScreen() {
   const [analyzing, setAnalyzing] = useState(false);
   const [cardWidth, setCardWidth] = useState(300);
   const [expandedRationale, setExpandedRationale] = useState<number | null>(null);
+  const [showSecondaryDecisions, setShowSecondaryDecisions] = useState(false);
 
   // Per-cook probe selection — no probe is selected by default.
   // Persisted in AsyncStorage so the selection survives navigation.
@@ -2129,80 +2130,81 @@ export default function CookDetailScreen() {
     const topRationaleOpen = expandedRationale === 0;
 
     return (
-      <View style={[s.decisionsSection, { borderColor: colors.border }]}>
-        {/* Hero decision card — the #1 action to take right now */}
-        <View style={[s.decisionCard, { backgroundColor: topColor + "12", borderColor: topColor + "40", borderRadius: colors.radius, padding: 14, gap: 10 }]}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <View style={[s.decisionActionChip, { backgroundColor: topColor + "25", borderColor: topColor + "50" }]}>
-              <Feather name={topActionCfg.icon as any} size={13} color={topColor} />
-              <Text style={[s.decisionActionText, { color: topColor, fontSize: 13 }]}>{topActionCfg.label}</Text>
-            </View>
-            {!topIsMaintain && (
-              <View style={[s.decisionUrgencyBadge, { backgroundColor: topColor }]}>
-                <Text style={s.decisionUrgencyText}>{topUrgencyCfg.label}</Text>
-              </View>
-            )}
-          </View>
-          <Text style={[s.decisionInstruction, { color: colors.foreground, fontSize: 16 }]}>{top.instruction}</Text>
-          {top.rationale ? (
-            <>
-              <Pressable
-                onPress={() => setExpandedRationale(topRationaleOpen ? null : 0)}
-                style={{ flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" }}
-                hitSlop={8}
-              >
-                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: topColor }}>
-                  {topRationaleOpen ? "Hide reasoning" : "Why?"}
+      <View style={[s.decisionsSection, { borderColor: colors.border, gap: 6 }]}>
+        {/* Compact hero decision — colored left border, action label, instruction capped at 2 lines */}
+        <View style={{ borderRadius: colors.radius, overflow: "hidden", borderWidth: 1, borderColor: topColor + "30", backgroundColor: topColor + "0A" }}>
+          <View style={{ flexDirection: "row" }}>
+            <View style={{ width: 4, backgroundColor: topColor }} />
+            <View style={{ flex: 1, paddingHorizontal: 10, paddingVertical: 8, gap: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                <Feather name={topActionCfg.icon as any} size={12} color={topColor} />
+                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: topColor, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  {topActionCfg.label}
                 </Text>
-                <Feather name={topRationaleOpen ? "chevron-up" : "chevron-down"} size={12} color={topColor} />
-              </Pressable>
-              {topRationaleOpen && (
-                <Text style={[s.decisionRationale, { color: colors.mutedForeground }]}>{top.rationale}</Text>
-              )}
-            </>
-          ) : null}
+              </View>
+              <Text style={[s.decisionInstruction, { color: colors.foreground, fontSize: 14 }]} numberOfLines={2}>
+                {top.instruction}
+              </Text>
+              {top.rationale ? (
+                <>
+                  <Pressable
+                    onPress={() => setExpandedRationale(topRationaleOpen ? null : 0)}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 3, alignSelf: "flex-start" }}
+                    hitSlop={8}
+                  >
+                    <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: topColor }}>
+                      {topRationaleOpen ? "Hide reasoning" : "Why?"}
+                    </Text>
+                    <Feather name={topRationaleOpen ? "chevron-up" : "chevron-down"} size={11} color={topColor} />
+                  </Pressable>
+                  {topRationaleOpen && (
+                    <Text style={[s.decisionRationale, { color: colors.mutedForeground }]}>{top.rationale}</Text>
+                  )}
+                </>
+              ) : null}
+            </View>
+          </View>
         </View>
 
-        {/* Compact secondary decisions */}
-        {rest.map((d, i) => {
-          const idx = i + 1;
-          const actionCfg = ACTION_CONFIG[d.action] ?? { icon: "zap", label: d.action };
-          const urgencyCfg = URGENCY_CONFIG[d.urgency] ?? { label: d.urgency.toUpperCase(), color: "#6B7280" };
-          const isMaintain = d.action === "maintain";
-          const cardColor = isMaintain ? "#22c55e" : urgencyCfg.color;
-          const rationaleOpen = expandedRationale === idx;
-          return (
-            <View key={idx}>
-              <Pressable
-                onPress={() => d.rationale ? setExpandedRationale(rationaleOpen ? null : idx) : undefined}
-                style={[
-                  {
-                    flexDirection: "row", alignItems: "center", gap: 10,
-                    paddingHorizontal: 12, paddingVertical: 10,
-                    borderWidth: 1, borderRadius: colors.radius,
-                    backgroundColor: cardColor + "08", borderColor: cardColor + "28",
-                  },
-                ]}
-              >
-                <View style={[s.decisionActionChip, { backgroundColor: cardColor + "20", borderColor: cardColor + "40", flexShrink: 0 }]}>
-                  <Feather name={actionCfg.icon as any} size={11} color={cardColor} />
-                  <Text style={[s.decisionActionText, { color: cardColor, fontSize: 11 }]}>{actionCfg.label}</Text>
-                </View>
-                <Text style={{ flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, color: colors.foreground }} numberOfLines={rationaleOpen ? undefined : 1}>
-                  {d.instruction}
-                </Text>
-                {d.rationale ? (
-                  <Feather name={rationaleOpen ? "chevron-up" : "help-circle"} size={14} color={colors.mutedForeground} />
-                ) : null}
-              </Pressable>
-              {rationaleOpen && d.rationale && (
-                <Text style={[s.decisionRationale, { color: colors.mutedForeground, paddingHorizontal: 12, paddingTop: 6, paddingBottom: 4 }]}>
-                  {d.rationale}
-                </Text>
-              )}
-            </View>
-          );
-        })}
+        {/* Secondary decisions — collapsed behind a single toggle */}
+        {rest.length > 0 && (
+          <>
+            <Pressable
+              onPress={() => setShowSecondaryDecisions(v => !v)}
+              style={{ flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" }}
+              hitSlop={8}
+            >
+              <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
+                {showSecondaryDecisions ? "Hide suggestions" : `${rest.length} more suggestion${rest.length > 1 ? "s" : ""}`}
+              </Text>
+              <Feather name={showSecondaryDecisions ? "chevron-up" : "chevron-down"} size={12} color={colors.mutedForeground} />
+            </Pressable>
+            {showSecondaryDecisions && (
+              <View style={{ gap: 3 }}>
+                {rest.map((d, i) => {
+                  const actionCfg = ACTION_CONFIG[d.action] ?? { icon: "zap", label: d.action };
+                  const urgencyCfg = URGENCY_CONFIG[d.urgency] ?? { label: d.urgency.toUpperCase(), color: "#6B7280" };
+                  const isMaintain = d.action === "maintain";
+                  const cardColor = isMaintain ? "#22c55e" : urgencyCfg.color;
+                  return (
+                    <View
+                      key={i}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 10, paddingVertical: 7, borderRadius: colors.radius, backgroundColor: cardColor + "08", borderWidth: 1, borderColor: cardColor + "22" }}
+                    >
+                      <Feather name={actionCfg.icon as any} size={11} color={cardColor} />
+                      <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: cardColor, width: 72 }} numberOfLines={1}>
+                        {actionCfg.label}
+                      </Text>
+                      <Text style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }} numberOfLines={1}>
+                        {d.instruction}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </>
+        )}
       </View>
     );
   };
