@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { fmtMinutes } from "@/utils/duration";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -23,7 +23,10 @@ import { LogoBackground } from "@/components/LogoBackground";
 import * as Haptics from "expo-haptics";
 import * as Crypto from "expo-crypto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { scheduleFrozenStageNotifications } from "@/hooks/useFrozenStageNotifications";
+import {
+  scheduleFrozenStageNotifications,
+  cancelStoredFrozenNotifications,
+} from "@/hooks/useFrozenStageNotifications";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
@@ -31,12 +34,15 @@ import { useLayout } from "@/hooks/useLayout";
 import {
   useListGrills,
   useCreateCook,
+  useUpdateCook,
+  useGetCook,
   useAiPredict,
   useAiMultiCook,
   useListCooks,
   getListCooksQueryKey,
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
+  getGetCookQueryKey,
   ListCooksStatus,
   type Cook,
   type MultiCookScheduleItem,
@@ -177,6 +183,32 @@ export default function PlanScreen() {
 
   const { data: grills } = useListGrills();
   const createCook = useCreateCook();
+  const updateCook = useUpdateCook();
+
+  // ── Replan mode ────────────────────────────────────────────────────────
+  // When the cook detail screen navigates here with ?replanCookId=<n> the
+  // Plan screen runs in "replan" mode: handleSubmit UPDATES the identified
+  // planned cook in place rather than creating a new one. The existing
+  // actualThawStartAt is forwarded into scheduleFrozenStageNotifications so
+  // the 30-min thaw-end warning is re-armed against the new thawEndAt.
+  const { replanCookId: replanCookIdParam } = useLocalSearchParams<{ replanCookId?: string }>();
+  const replanCookIdNum: number | null = replanCookIdParam ? Number(replanCookIdParam) : null;
+  const { data: replanCookData } = useGetCook(replanCookIdNum!, {
+    query: {
+      queryKey: getGetCookQueryKey(replanCookIdNum!),
+      enabled: !!replanCookIdNum,
+    },
+  });
+  const replanActualThawStartAt: string | null =
+    replanCookIdNum && replanCookData
+      ? ((replanCookData as any).actualThawStartAt
+          ? new Date((replanCookData as any).actualThawStartAt).toISOString()
+          : null)
+      : null;
+  const replanSeqData: SequenceData | null =
+    replanCookIdNum && replanCookData
+      ? ((replanCookData as { sequenceData?: SequenceData | null } | undefined)?.sequenceData ?? null)
+      : null;
 
   const { data: activeCooks } = useListCooks({ status: ListCooksStatus.active });
   const activeCook: Cook | null = activeCooks?.[0] ?? null;
@@ -835,7 +867,8 @@ export default function PlanScreen() {
     // Free-tier pre-checks — fire paywall before any API work. Pass the
     // currently-selected food type so the paywall can personalize copy
     // (e.g. "Want to log this brisket cook?").
-    if (paywallUsage && !paywallUsage.unlimited) {
+    // Replan mode updates an existing cook in place — no new slot consumed.
+    if (!replanCookIdNum && paywallUsage && !paywallUsage.unlimited) {
       if (paywallUsage.remaining.cooks <= 0) {
         showPaywall({
           trigger: "cook_limit_reached",
@@ -892,6 +925,50 @@ export default function PlanScreen() {
       : null;
 
     try {
+      // ── UPDATE path (replan mode) ─────────────────────────────────────
+      // When replanCookId is set the Plan screen was opened from a planned
+      // frozen cook's detail screen via the "Adjust Timing" button. We patch
+      // the existing cook's timing + frozen schedule rather than creating a
+      // new one, then reschedule notifications so the 30-min "almost thawed"
+      // warning fires against the new thawEndAt using the cook's existing
+      // actualThawStartAt as the trigger flag.
+      if (replanCookIdNum) {
+        const updatedFrozenSeqData: SequenceData = {
+          ...(replanSeqData ?? ({} as SequenceData)),
+          ...(frozenForCook ? { frozen: frozenForCook } : {}),
+        };
+        await updateCook.mutateAsync({
+          id: replanCookIdNum,
+          data: {
+            ...(serveAt && { plannedEndAt: serveAt }),
+            ...(plannedStart && { plannedStartAt: plannedStart }),
+            ...(frozenForCook && { sequenceData: updatedFrozenSeqData }),
+          } as any,
+        });
+        // Cancel stale IDs keyed to this cook, then arm fresh notifications.
+        // Passing the existing actualThawStartAt ensures the 30-min warning
+        // is re-scheduled against the new thawEndAt — which is the fix for
+        // task #784's re-plan scenario.
+        await cancelStoredFrozenNotifications(replanCookIdNum);
+        scheduleFrozenStageNotifications({
+          cookId: replanCookIdNum,
+          frozen: frozenForCook,
+          preheatStartAt: plannedStart ? plannedStart.toISOString() : null,
+          foodType: selectedCut.name,
+          includePreheat: true,
+          actualThawStartAt: replanActualThawStartAt,
+        }).catch(() => {});
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetCookQueryKey(replanCookIdNum) });
+        resetForm();
+        router.push(`/cooks/${replanCookIdNum}` as any);
+        return;
+      }
+
+      // ── CREATE path (normal new-cook flow) ───────────────────────────
       const createdCook = await createCook.mutateAsync({
         data: {
           foodType: selectedCut.name,
@@ -902,7 +979,15 @@ export default function PlanScreen() {
           notes: noteParts.join("\n\n") || undefined,
           status: cookNowMode === "now" ? "active" : "planned",
           ...(cookNowMode === "now"
-            ? { actualStartAt: new Date() as any }
+            ? {
+                actualStartAt: new Date() as any,
+                // When starting a frozen cook immediately, record the thaw
+                // start time now so the cook detail screen can compute
+                // accurate countdowns and so that the 30-min "almost thawed"
+                // warning fires without requiring the user to separately tap
+                // "Mark Thaw Started" on the cook detail screen.
+                ...(frozenForCook ? { actualThawStartAt: new Date() as any } : {}),
+              }
             : {
                 ...(serveAt && { plannedEndAt: serveAt }),
                 ...(plannedStart && { plannedStartAt: plannedStart }),
@@ -931,14 +1016,37 @@ export default function PlanScreen() {
       // so they're armed even if the user never opens the cook detail screen.
       // The cook detail screen's hook will re-reconcile these on mount.
       const newCookId = (createdCook as { id?: number } | undefined)?.id;
-      if (cookNowMode === "later" && newCookId && (frozenForCook || plannedStart)) {
-        scheduleFrozenStageNotifications({
-          cookId: newCookId,
-          frozen: frozenForCook,
-          preheatStartAt: plannedStart ? plannedStart.toISOString() : null,
-          foodType: selectedCut.name,
-          includePreheat: true,
-        }).catch(() => {});
+      if (newCookId) {
+        if (cookNowMode === "later" && (frozenForCook || plannedStart)) {
+          // Planned frozen cook: schedule thawStart, temper, and preheat
+          // notifications. actualThawStartAt is not yet set because the pitmaster
+          // hasn't confirmed the thaw is underway. The 30-min thaw-end warning
+          // will be added by useFrozenStageNotifications when the cook detail
+          // mounts and actualThawStartAt becomes non-null (via handleMarkThawStarted).
+          scheduleFrozenStageNotifications({
+            cookId: newCookId,
+            frozen: frozenForCook,
+            preheatStartAt: plannedStart ? plannedStart.toISOString() : null,
+            foodType: selectedCut.name,
+            includePreheat: true,
+          }).catch(() => {});
+        } else if (cookNowMode === "now" && frozenForCook) {
+          // "Begin Thawing Now": the pitmaster is starting the thaw this
+          // instant. Pass actualThawStartAt = now so the 30-min "almost thawed"
+          // warning is armed immediately — no need to visit the cook detail
+          // screen and tap "Mark Thaw Started" for the warning to fire.
+          // preheatStartAt is omitted; the cook is already active and
+          // useScheduleStepNotifications handles grillLight from the detail screen.
+          const actualThawNow = new Date().toISOString();
+          scheduleFrozenStageNotifications({
+            cookId: newCookId,
+            frozen: frozenForCook,
+            preheatStartAt: null,
+            foodType: selectedCut.name,
+            includePreheat: false,
+            actualThawStartAt: actualThawNow,
+          }).catch(() => {});
+        }
       }
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });

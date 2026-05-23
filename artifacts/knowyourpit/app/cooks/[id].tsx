@@ -2192,6 +2192,42 @@ export default function CookDetailScreen() {
           colors={colors}
         />
 
+        {/* ── Adjust Timing button (planned frozen cook, thaw underway) ── */}
+        {cookStatus === "planned" &&
+          !!(c as any).fromFrozen &&
+          !!(c as any).actualThawStartAt && (
+            <Pressable
+              onPress={() =>
+                router.push(
+                  `/(tabs)/plan?replanCookId=${id}` as any,
+                )
+              }
+              style={({ pressed }) => ({
+                flexDirection: "row" as const,
+                alignItems: "center" as const,
+                justifyContent: "center" as const,
+                gap: 6,
+                borderWidth: 1,
+                borderColor: "#38bdf8",
+                borderRadius: colors.radius,
+                paddingVertical: 10,
+                marginTop: 4,
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Feather name="sliders" size={14} color="#38bdf8" />
+              <Text
+                style={{
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 13,
+                  color: "#38bdf8",
+                }}
+              >
+                Adjust Timing
+              </Text>
+            </Pressable>
+          )}
+
         {/* ── Live probe temperature chips (active cooks) ──────────────── */}
         {cookStatus === "active" && (() => {
           const liveProbeTemp = meaterProbes[0]?.internalTempF ?? thermoworksProbes[0]?.tempF ?? cookCurrentTempF;
