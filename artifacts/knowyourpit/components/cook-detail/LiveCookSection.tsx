@@ -255,7 +255,7 @@ export function LiveCookSection(p: Props) {
         </View>
       )}
 
-      {meaterLinked === true && meaterProbes.length > 0 && liveReadings.length < 2 && (
+      {meaterLinked === true && meaterProbes.length > 0 && selectedProbeId != null && liveReadings.length < 2 && (
         <View style={[s.liveGraphWrap, { borderTopColor: colors.border }]}>
           <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground, textAlign: "left" }]}>
             📡 Collecting readings — chart will appear shortly

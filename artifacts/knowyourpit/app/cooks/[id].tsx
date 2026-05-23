@@ -246,10 +246,17 @@ export default function CookDetailScreen() {
   useEffect(() => {
     if (Platform.OS === "web" || !id) return;
     setSelectedProbeId(null);
+    setLiveReadings([]);
     AsyncStorage.getItem(`probe_selection_${id}`)
       .then((val) => setSelectedProbeId(val ?? null))
       .catch(() => setSelectedProbeId(null));
   }, [id]);
+
+  // Reset accumulated probe readings whenever the selection changes so stale
+  // data from a previous probe never leaks into the graph or AI payload.
+  useEffect(() => {
+    setLiveReadings([]);
+  }, [selectedProbeId]);
 
   const handleSelectProbe = useCallback((probeId: string | null) => {
     setSelectedProbeId(probeId);
@@ -1975,9 +1982,9 @@ export default function CookDetailScreen() {
     return "Marks this cook as active and starts your session timer.";
   })();
 
-  // Live graph from accumulated readings for the selected probe
-  const liveGraphProbes = liveReadings.length >= 2
-    ? [{ probeName: selectedMeaterProbe?.deviceName ?? "Probe 1", timeSeries: liveReadings, finishingTempF: liveReadings[liveReadings.length - 1].tempF }]
+  // Live graph from accumulated readings — only when a probe is actively selected
+  const liveGraphProbes = selectedMeaterProbe != null && liveReadings.length >= 2
+    ? [{ probeName: selectedMeaterProbe.deviceName ?? "Probe 1", timeSeries: liveReadings, finishingTempF: liveReadings[liveReadings.length - 1].tempF }]
     : [];
 
   // Stored analysis from DB
