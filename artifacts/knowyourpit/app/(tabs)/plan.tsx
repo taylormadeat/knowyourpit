@@ -1019,12 +1019,19 @@ export default function PlanScreen() {
       // The cook detail screen's hook will re-reconcile these on mount.
       const newCookId = (createdCook as { id?: number } | undefined)?.id;
 
-      // Cancel thaw notifications for any existing planned frozen cooks that
-      // match the same food type + grill. This prevents stale alerts from a
-      // previous plan (e.g. an adjusted serve time) from firing alongside the
-      // new ones. We only clear notifications — the cook records are kept.
-      if (frozenForCook && plannedCooks) {
-        const staleFrozenCooks = (plannedCooks as Array<Cook & { fromFrozen?: boolean }>).filter(
+      // Cancel thaw notifications for any existing planned or active frozen
+      // cooks that match the same food type + grill. This prevents stale alerts
+      // from a previous plan (e.g. an adjusted serve time, or a prior "Begin
+      // Thawing Now" session) from firing alongside the new ones. We only clear
+      // notifications — the cook records are kept.
+      // "later" mode: stale cooks are planned. "now" mode: stale cooks may also
+      // be active (a previous "Begin Thawing Now" was already started).
+      if (frozenForCook) {
+        const cooksToSweep = [
+          ...(plannedCooks ?? []),
+          ...(cookNowMode === "now" ? (activeCooks ?? []) : []),
+        ] as Array<Cook & { fromFrozen?: boolean }>;
+        const staleFrozenCooks = cooksToSweep.filter(
           (c) =>
             c.fromFrozen &&
             c.foodType === selectedCut.name &&
