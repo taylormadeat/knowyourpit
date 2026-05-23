@@ -3169,6 +3169,13 @@ export default function CookDetailScreen() {
           weightLbs={cook?.weightLbs ?? null}
           currentInternalTempF={meaterProbes[0]?.internalTempF ?? thermoworksProbes[0]?.tempF ?? null}
           currentPitTempF={meaterProbes[0]?.ambientTempF ?? null}
+          probeSource={
+            meaterProbes[0]?.internalTempF != null
+              ? "meater"
+              : thermoworksProbes[0]?.tempF != null
+              ? "thermoworks"
+              : null
+          }
           lastCheckinInternalTempF={
             cookCheckins.length > 0
               ? (cookCheckins[cookCheckins.length - 1] as CookCheckin).internalTempF ?? null

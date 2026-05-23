@@ -143,6 +143,8 @@ interface CheckinModalProps {
   weightLbs?: number | null;
   currentInternalTempF?: number | null;
   currentPitTempF?: number | null;
+  /** Which connected probe provided the pre-filled temperatures. */
+  probeSource?: "meater" | "thermoworks" | null;
   lastCheckinInternalTempF?: number | null;
   targetCookTempF?: number | null;
   weatherTempF?: number | null;
@@ -172,6 +174,7 @@ export function CheckinModal({
   foodType,
   currentInternalTempF,
   currentPitTempF,
+  probeSource,
   weightLbs,
   lastCheckinInternalTempF,
   targetCookTempF,
@@ -477,9 +480,27 @@ export function CheckinModal({
 
           {/* ── Temp inputs ───────────────────────────────────────── */}
           <View style={{ backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 14 }}>
-            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: colors.foreground, textTransform: "uppercase", letterSpacing: 0.6 }}>
-              Temperature Reading
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: colors.foreground, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                Temperature Reading
+              </Text>
+              {probeSource === "meater" && (currentInternalTempF != null || currentPitTempF != null) && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#22c55e18", borderColor: "#22c55e", borderWidth: 1, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>
+                  <Feather name="wifi" size={11} color="#22c55e" />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#22c55e" }}>
+                    Auto-filled from MEATER
+                  </Text>
+                </View>
+              )}
+              {probeSource === "thermoworks" && (currentInternalTempF != null || currentPitTempF != null) && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#22c55e18", borderColor: "#22c55e", borderWidth: 1, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>
+                  <Feather name="wifi" size={11} color="#22c55e" />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#22c55e" }}>
+                    Auto-filled from probe
+                  </Text>
+                </View>
+              )}
+            </View>
             <View style={{ flexDirection: "row", gap: 12 }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, marginBottom: 6 }}>Internal Temp</Text>
@@ -498,11 +519,6 @@ export function CheckinModal({
                   />
                   <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 14 }}>°F</Text>
                 </View>
-                {currentInternalTempF != null && (
-                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#22c55e", marginTop: 4 }}>
-                    Auto-captured from probe
-                  </Text>
-                )}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground, marginBottom: 6 }}>Pit Temp</Text>
@@ -521,11 +537,6 @@ export function CheckinModal({
                   />
                   <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 14 }}>°F</Text>
                 </View>
-                {currentPitTempF != null && (
-                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#22c55e", marginTop: 4 }}>
-                    Auto-captured
-                  </Text>
-                )}
               </View>
             </View>
             {phase.expectedInternalTempRange != null && (
