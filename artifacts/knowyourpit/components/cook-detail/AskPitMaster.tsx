@@ -12,12 +12,9 @@ interface Props {
   colors: Colors;
   meaterLinked: boolean | null;
   meaterProbes: any[];
-  userTempInput: string;
-  setUserTempInput: (v: string) => void;
-  userTempEdited: boolean;
-  setUserTempEdited: (v: boolean) => void;
-  pitTempInput: string;
-  setPitTempInput: (v: string) => void;
+  lastCheckinInternalTempF: number | null;
+  lastCheckinPitTempF: number | null;
+  lastCheckinAt: string | null;
   cookNotes: string;
   setCookNotes: React.Dispatch<React.SetStateAction<string>>;
   qpMethod: string | null;
@@ -45,8 +42,8 @@ interface Props {
 export function AskPitMaster(p: Props) {
   const {
     c, colors, meaterLinked, meaterProbes,
-    userTempInput, setUserTempInput, userTempEdited, setUserTempEdited,
-    pitTempInput, setPitTempInput, cookNotes, setCookNotes,
+    lastCheckinInternalTempF, lastCheckinPitTempF, lastCheckinAt,
+    cookNotes, setCookNotes,
     qpMethod, qpInjection, qpSpritz, qpWrap,
     activeCookNoteTags, setActiveCookNoteTags,
     paywallUsage, autoGradePaused, onUpgradeAutoGradePress,
@@ -74,6 +71,19 @@ export function AskPitMaster(p: Props) {
     return techSummary ? `${techSummary} · Tap to ask PitMaster` : "Tap to ask PitMaster";
   })();
 
+  const checkinAgeLabel = React.useMemo(() => {
+    if (!lastCheckinAt) return null;
+    const ageSec = Math.max(0, Math.round((nowMs - new Date(lastCheckinAt).getTime()) / 1000));
+    if (ageSec < 60) return "just now";
+    if (ageSec < 3600) return `${Math.round(ageSec / 60)} min ago`;
+    return `${Math.floor(ageSec / 3600)}h ${Math.round((ageSec % 3600) / 60)}m ago`;
+  }, [lastCheckinAt, nowMs]);
+
+  const hasLastCheckinTemps = lastCheckinInternalTempF != null || lastCheckinPitTempF != null;
+  const liveMeaterTemp = meaterProbes.length > 0 && meaterProbes[0].internalTempF != null
+    ? meaterProbes[0].internalTempF as number
+    : null;
+
   return (
     <View
       style={[s.logSection, { backgroundColor: colors.card, borderColor: "#6C3BF540", borderRadius: colors.radius }]}
@@ -90,9 +100,9 @@ export function AskPitMaster(p: Props) {
           <Text style={[s.logTitle, { color: colors.foreground }]}>What Should I Do Next?</Text>
           {cardExpanded ? (
             <Text style={[s.logSub, { color: colors.mutedForeground }]}>
-              {meaterLinked === true && meaterProbes.length > 0
-                ? "Temperature auto-filled from your probe · add pit temp or notes and get your next step"
-                : "Enter your probe and pit temperatures to get your next action"}
+              {hasLastCheckinTemps
+                ? "Temperatures from your last check-in · add notes and get your next step"
+                : "Log a check-in to provide temperatures for better coaching"}
             </Text>
           ) : (
             <Text style={[s.logSub, { color: colors.mutedForeground }]} numberOfLines={1}>
@@ -109,43 +119,51 @@ export function AskPitMaster(p: Props) {
 
       {cardExpanded && (
         <>
-          {!userTempEdited && meaterProbes.length > 0 && meaterProbes[0].internalTempF != null && (
-            <View style={[s.meaterAutoFillBadge, { backgroundColor: "#FF6B2B15", marginBottom: 4 }]}>
-              <Feather name="radio" size={11} color="#FF6B2B" />
-              <Text style={[s.meaterAutoFillText, { color: "#FF6B2B" }]}>
-                Live from {meaterProbes[0].deviceName} · {meaterProbes[0].internalTempF}°F internal
+          {/* ── Last check-in temps (read-only) ──────────────────── */}
+          {hasLastCheckinTemps ? (
+            <View style={{ gap: 8 }}>
+              {liveMeaterTemp != null && (
+                <View style={[s.meaterAutoFillBadge, { backgroundColor: "#FF6B2B15", marginBottom: 0 }]}>
+                  <Feather name="radio" size={11} color="#FF6B2B" />
+                  <Text style={[s.meaterAutoFillText, { color: "#FF6B2B" }]}>
+                    Live from {meaterProbes[0].deviceName} · {liveMeaterTemp}°F · will be used for analysis
+                  </Text>
+                </View>
+              )}
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <View style={[qs.tempReadBox, { flex: 1, backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                  <Text style={[qs.tempReadLabel, { color: colors.mutedForeground }]}>Probe temp</Text>
+                  <Text style={[qs.tempReadValue, { color: liveMeaterTemp != null ? "#FF6B2B" : colors.foreground }]}>
+                    {liveMeaterTemp != null
+                      ? `${liveMeaterTemp}°F`
+                      : lastCheckinInternalTempF != null
+                        ? `${lastCheckinInternalTempF}°F`
+                        : "—"}
+                  </Text>
+                </View>
+                <View style={[qs.tempReadBox, { flex: 1, backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                  <Text style={[qs.tempReadLabel, { color: colors.mutedForeground }]}>Pit temp</Text>
+                  <Text style={[qs.tempReadValue, { color: colors.foreground }]}>
+                    {lastCheckinPitTempF != null ? `${lastCheckinPitTempF}°F` : "—"}
+                  </Text>
+                </View>
+              </View>
+              {checkinAgeLabel && (
+                <Text style={[qs.checkinAge, { color: colors.mutedForeground }]}>
+                  From your last check-in · {checkinAgeLabel}
+                </Text>
+              )}
+            </View>
+          ) : (
+            <View style={[qs.noCheckinNudge, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+              <Feather name="thermometer" size={15} color={colors.mutedForeground as string} />
+              <Text style={[qs.noCheckinText, { color: colors.mutedForeground }]}>
+                {meaterLinked === true && meaterProbes.length > 0 && liveMeaterTemp != null
+                  ? `Live probe at ${liveMeaterTemp}°F · tap "Check In" to log your pit temp too`
+                  : "Tap the check-in button above to log your probe and pit temperatures."}
               </Text>
             </View>
           )}
-
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
-                Probe temp <Text style={{ fontWeight: "400" }}>(°F)</Text>
-              </Text>
-              <TextInput
-                style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, height: 38, minHeight: 38, paddingTop: 0, paddingBottom: 0, paddingHorizontal: 10, fontSize: 13 }]}
-                placeholder="e.g. 165"
-                placeholderTextColor={colors.mutedForeground}
-                value={userTempInput}
-                onChangeText={(v) => { setUserTempInput(v); setUserTempEdited(v.trim().length > 0); }}
-                keyboardType="decimal-pad"
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[s.notesInputLabel, { color: colors.mutedForeground }]}>
-                Pit temp <Text style={{ fontWeight: "400" }}>(°F)</Text>
-              </Text>
-              <TextInput
-                style={[s.notesInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius, height: 38, minHeight: 38, paddingTop: 0, paddingBottom: 0, paddingHorizontal: 10, fontSize: 13 }]}
-                placeholder="e.g. 225"
-                placeholderTextColor={colors.mutedForeground}
-                value={pitTempInput}
-                onChangeText={setPitTempInput}
-                keyboardType="decimal-pad"
-              />
-            </View>
-          </View>
 
           {/* ── What's happening? (cook notes + quick-add chips) ─────────── */}
           <View>
@@ -431,7 +449,7 @@ export function AskPitMaster(p: Props) {
                 <View style={s.noDataRow}>
                   <Feather name="info" size={15} color={colors.mutedForeground} />
                   <Text style={[s.noDataText, { color: colors.mutedForeground }]}>
-                    Enter a temperature reading or add cook notes for a better check-in.
+                    Log a check-in with temperatures to get a more accurate analysis.
                   </Text>
                 </View>
               )}
@@ -447,4 +465,38 @@ const qs = StyleSheet.create({
   chipScroll: { flexDirection: "row", gap: 7, paddingVertical: 2 },
   chip: { paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1 },
   chipText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  tempReadBox: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    alignItems: "center",
+    gap: 4,
+  },
+  tempReadLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+  },
+  tempReadValue: {
+    fontSize: 20,
+    fontFamily: "Inter_700Bold",
+  },
+  checkinAge: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+  },
+  noCheckinNudge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+  },
+  noCheckinText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+  },
 });

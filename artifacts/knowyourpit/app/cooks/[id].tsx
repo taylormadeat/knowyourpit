@@ -234,9 +234,7 @@ export default function CookDetailScreen() {
     return parts.join(" · ");
   }, [qpMethod, qpStartTemp, qpInjection, qpSpritz, qpSpritzLiquid, qpWrap, cookNotes]);
 
-  const [userTempInput, setUserTempInput] = useState("");
   const [userTempEdited, setUserTempEdited] = useState(false);
-  const [pitTempInput, setPitTempInput] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [cardWidth, setCardWidth] = useState(300);
@@ -773,6 +771,20 @@ export default function CookDetailScreen() {
     },
   );
 
+  // Most recent saved check-in that recorded at least one temperature value.
+  // Used by AskPitMaster to display read-only temps and by analyze() as fallback
+  // when no live MEATER probe is connected.
+  const lastCheckin = React.useMemo(() => {
+    if (!Array.isArray(cookCheckins) || cookCheckins.length === 0) return null;
+    const withTemps = (cookCheckins as any[]).filter(
+      (ci: any) => ci.internalTempF != null || ci.pitTempF != null,
+    );
+    if (withTemps.length === 0) return null;
+    return withTemps.reduce((best: any, ci: any) =>
+      new Date(ci.createdAt) > new Date(best.createdAt) ? ci : best,
+    );
+  }, [cookCheckins]);
+
   const { data: meaterData, isLoading: meaterLoading } = useGetMeaterReadings({
     query: {
       queryKey: getGetMeaterReadingsQueryKey(),
@@ -828,9 +840,7 @@ export default function CookDetailScreen() {
     setResult(null);
     setImages([]);
     setCookNotes("");
-    setUserTempInput("");
     setUserTempEdited(false);
-    setPitTempInput("");
     setQpMethod(null);
     setQpStartTemp(null);
     setQpInjection(null);
@@ -1091,9 +1101,6 @@ export default function CookDetailScreen() {
   };
 
   useEffect(() => {
-    if (!userTempEdited && meaterProbes.length > 0 && meaterProbes[0].internalTempF != null) {
-      setUserTempInput(String(meaterProbes[0].internalTempF));
-    }
     if (meaterProbes.length > 0 && meaterProbes[0].internalTempF != null) {
       const currentTemp = meaterProbes[0].internalTempF;
       const startAt = cook?.actualStartAt;
@@ -1508,18 +1515,18 @@ export default function CookDetailScreen() {
     const notesForAnalysis = opts.extraNotes != null
       ? [opts.extraNotes.trim(), scanNotes.trim()].filter(Boolean).join(" · ")
       : scanNotes.trim();
-    const hasTemp = userTempInput.trim().length > 0 && !isNaN(parseFloat(userTempInput));
-    // For auto-grade ticks, a live MEATER probe temperature counts as
-    // gradeable input on its own (the analyze API also forwards live
-    // probe data via cookContext), even if the user has cleared the
-    // userTempInput field.
-    const hasMeaterTemp =
-      meaterProbes.length > 0 && meaterProbes[0]?.internalTempF != null;
-    const hasAnyInput = images.length > 0 || notesForAnalysis.length > 0 || hasTemp;
-    if (!hasAnyInput && !(auto && hasMeaterTemp)) {
+    // Live MEATER probe takes precedence; fall back to last saved check-in temp.
+    const liveMeaterInternalTempF =
+      meaterProbes.length > 0 && meaterProbes[0]?.internalTempF != null
+        ? (meaterProbes[0].internalTempF as number)
+        : null;
+    const hasMeaterTemp = liveMeaterInternalTempF != null;
+    const hasCheckinTemp = lastCheckin?.internalTempF != null || lastCheckin?.pitTempF != null;
+    const hasAnyInput = images.length > 0 || notesForAnalysis.length > 0 || hasCheckinTemp;
+    if (!hasAnyInput && !hasMeaterTemp) {
       if (auto) return; // silent skip — nothing useful to grade right now
       if (cookStatus === "active") {
-        Alert.alert("Nothing to check in with", "Enter your current probe temperature or add a note about what's happening on the cook.");
+        Alert.alert("Nothing to check in with", "Log a check-in with your probe and pit temperatures, or add a note about what's happening.");
       } else {
         Alert.alert("Add something", "Upload a thermometer image, enter your temperature reading, or add cook notes before analyzing.");
       }
@@ -1557,11 +1564,12 @@ export default function CookDetailScreen() {
             actualStartAt: c?.actualStartAt ? new Date(c.actualStartAt).toISOString() : null,
             plannedStartAt: c?.plannedStartAt ? new Date(c.plannedStartAt).toISOString() : null,
             plannedEndAt: c?.plannedEndAt ? new Date(c.plannedEndAt).toISOString() : null,
-            userEnteredTempF: userTempInput.trim() && !isNaN(parseFloat(userTempInput)) ? parseFloat(userTempInput) : null,
+            // Live MEATER probe takes precedence over last check-in temp
+            userEnteredTempF: liveMeaterInternalTempF ?? lastCheckin?.internalTempF ?? null,
             // Live probe data for phase detection (active cooks only)
             liveReadings: liveReadings.length >= 2 ? liveReadings : null,
             elapsedMinutes: c?.actualStartAt ? Math.round((Date.now() - new Date(c.actualStartAt).getTime()) / 60000) : null,
-            currentPitTempF: (pitTempInput.trim() && !isNaN(parseFloat(pitTempInput))) ? parseFloat(pitTempInput) : (meaterProbes[0]?.ambientTempF ?? null),
+            currentPitTempF: lastCheckin?.pitTempF ?? meaterProbes[0]?.ambientTempF ?? null,
             outdoorTempF: weather.tempF ?? null,
             cookStatus: c?.status ?? null,
             // Technique quick-picks persisted on the cook record
@@ -1589,7 +1597,7 @@ export default function CookDetailScreen() {
             phasePrediction: data.phasePrediction ?? null,
             decisions: data.decisions ?? [],
             // Snapshot context so history is self-contained
-            snapshotTempF: userTempInput.trim() && !isNaN(parseFloat(userTempInput)) ? parseFloat(userTempInput) : null,
+            snapshotTempF: liveMeaterInternalTempF ?? lastCheckin?.internalTempF ?? null,
             snapshotNotes: notesForAnalysis || null,
             snapshotElapsedMinutes: c?.actualStartAt ? Math.round((Date.now() - new Date(c.actualStartAt).getTime()) / 60000) : null,
             analyzedAt: new Date().toISOString(),
@@ -1717,12 +1725,12 @@ export default function CookDetailScreen() {
   const autoTickRef = useRef<{
     analyze: typeof analyze;
     scanNotes: string;
-    userTempInput: string;
+    lastCheckinInternalTempF: number | null;
     meaterProbes: typeof meaterProbes;
     analyzing: boolean;
-  }>({ analyze, scanNotes, userTempInput, meaterProbes, analyzing });
+  }>({ analyze, scanNotes, lastCheckinInternalTempF: lastCheckin?.internalTempF ?? null, meaterProbes, analyzing });
   useEffect(() => {
-    autoTickRef.current = { analyze, scanNotes, userTempInput, meaterProbes, analyzing };
+    autoTickRef.current = { analyze, scanNotes, lastCheckinInternalTempF: lastCheckin?.internalTempF ?? null, meaterProbes, analyzing };
   });
 
   useEffect(() => {
@@ -1746,12 +1754,11 @@ export default function CookDetailScreen() {
       }
       // Skip silently when nothing is gradeable. Do not consume an analyze
       // call against the user's free-tier cap on empty data.
-      const hasUserTemp =
-        cur.userTempInput.trim().length > 0 && !isNaN(parseFloat(cur.userTempInput));
+      const hasCheckinTemp = cur.lastCheckinInternalTempF != null;
       const hasMeaterTemp =
         cur.meaterProbes.length > 0 && cur.meaterProbes[0]?.internalTempF != null;
       const hasNotes = cur.scanNotes.trim().length > 0;
-      if (!hasUserTemp && !hasMeaterTemp && !hasNotes) {
+      if (!hasCheckinTemp && !hasMeaterTemp && !hasNotes) {
         timer = setTimeout(tick, AUTO_GRADE_INTERVAL_MS);
         return;
       }
@@ -2765,12 +2772,9 @@ export default function CookDetailScreen() {
           colors={colors}
           meaterLinked={meaterLinked}
           meaterProbes={meaterProbes}
-          userTempInput={userTempInput}
-          setUserTempInput={setUserTempInput}
-          userTempEdited={userTempEdited}
-          setUserTempEdited={setUserTempEdited}
-          pitTempInput={pitTempInput}
-          setPitTempInput={setPitTempInput}
+          lastCheckinInternalTempF={lastCheckin?.internalTempF ?? null}
+          lastCheckinPitTempF={lastCheckin?.pitTempF ?? null}
+          lastCheckinAt={lastCheckin?.createdAt ?? null}
           cookNotes={cookNotes}
           setCookNotes={setCookNotes}
           qpMethod={qpMethod}
