@@ -114,7 +114,6 @@ import type {
 import {
   useCheckinNotifications,
   useCheckinDeepLink,
-  evaluateAutoDismiss,
   rescheduleCheckinNotifications,
   cancelStoredCheckinNotifications,
   cancelCheckinNotificationForPhase,
@@ -269,6 +268,10 @@ export default function CookDetailScreen() {
   const [checkinModalVisible, setCheckinModalVisible] = useState(false);
   const [activeCheckin, setActiveCheckin] = useState<ScheduledCheckin | null>(null);
   const createCheckin = useCreateCookCheckin();
+  // Pending check-in driven by a notification tap — shows the "Check In Now"
+  // banner but does NOT auto-open the modal. Cleared when the user taps the
+  // banner or dismisses it.
+  const [pendingCheckinSc, setPendingCheckinSc] = useState<ScheduledCheckin | null>(null);
 
   const openCheckin = useCallback((sc: ScheduledCheckin) => {
     setActiveCheckin(sc);
@@ -918,7 +921,8 @@ export default function CookDetailScreen() {
   const storedScheduledCheckins = useCheckinNotifications(Number(id) || null, cookStatus, cookSeqData);
   // Background / cross-screen deep link: consume pending check-in notification
   // placed by the _layout.tsx router handler when the user was NOT on this cook
-  // screen at the time of the notification tap.
+  // screen at the time of the notification tap. Shows the "Check In Now" banner
+  // instead of auto-opening the modal — the user decides when to log.
   useFocusEffect(
     useCallback(() => {
       const pending = consumePendingCheckin();
@@ -937,88 +941,15 @@ export default function CookDetailScreen() {
         phase,
       };
 
-      const probeInternalTempF =
-        meaterProbes[0]?.internalTempF ?? thermoworksProbes[0]?.tempF ?? null;
-      const lastCheckinTempF =
-        cookCheckins.length > 0
-          ? (cookCheckins[cookCheckins.length - 1] as CookCheckin).internalTempF ?? null
-          : null;
-
-      evaluateAutoDismiss({
-        probeInternalTempF,
-        lastCheckinInternalTempF: lastCheckinTempF,
-        expectedRange: phase.expectedInternalTempRange,
-      })
-        .then(async ({ shouldDismiss }) => {
-          if (shouldDismiss && probeInternalTempF != null) {
-            try {
-              await createCheckin.mutateAsync({
-                id: Number(id),
-                data: {
-                  scheduledAt: new Date(pending.scheduledAt).toISOString(),
-                  internalTempF: probeInternalTempF,
-                  pitTempF: meaterProbes[0]?.ambientTempF ?? null,
-                  statusFlag: "all_good",
-                  userNote: null,
-                  photoKey: null,
-                  aiGuidanceShown: null,
-                  autoDismissed: true,
-                  phaseLabel: pending.phaseLabel,
-                  phaseKey: pending.phaseKey,
-                },
-              });
-              // A completed check-in may carry a fresher AI finish window from
-              // the server. Set the pending-clear flag and invalidate the cook
-              // query — the dataUpdatedAt-watching effect will clear
-              // wrapAdjustedFinishMs atomically when fresh data lands,
-              // covering both the bounds-change case and the identical-bounds
-              // edge case (no intermediate backward jump to stale values).
-              pendingWrapClearRef.current = true;
-              qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
-              qc.invalidateQueries({ queryKey: getListCookCheckinsQueryKey(Number(id)) });
-              // Summary notification so the pitmaster knows the auto-dismiss fired.
-              Notifications.scheduleNotificationAsync({
-                content: {
-                  title: `✓ ${pending.phaseLabel} — auto-logged`,
-                  body: `${Math.round(probeInternalTempF)}°F recorded. Cook is on track.`,
-                  data: {},
-                },
-                trigger: { seconds: 1, type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL },
-              }).catch(() => {});
-              const first = cookSeqData?.schedule?.[0];
-              if (first?.meatOnAt && first?.estimatedFinishAt) {
-                const completed = new Set(
-                  (cookCheckins as CookCheckin[])
-                    .map((ci) => ci.phaseKey)
-                    .filter((k): k is string => k != null),
-                );
-                completed.add(pending.phaseKey);
-                rescheduleCheckinNotifications({
-                  cookId: Number(id),
-                  foodType: first.foodType ?? null,
-                  weightLbs: cook?.weightLbs ?? null,
-                  meatOnAt: first.meatOnAt,
-                  estimatedFinishAt: first.estimatedFinishAt,
-                  wrapAtMinutes: first.wrapAtMinutes ?? null,
-                  completedPhaseKeys: completed,
-                  actualInternalTempF: probeInternalTempF,
-                }).catch(() => {});
-              }
-            } catch {
-              openCheckin(sc);
-            }
-          } else {
-            openCheckin(sc);
-          }
-        })
-        .catch(() => openCheckin(sc));
+      setPendingCheckinSc(sc);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id, cook, meaterProbes, thermoworksProbes, cookCheckins, openCheckin, createCheckin, qc, cookSeqData]),
+    }, [id, cook?.foodType]),
   );
 
   // Foreground deep-link handler: fires when the user taps a check-in notification
   // while already on THIS cook's screen (cookId validated inside the hook).
   // The background case is handled by _layout.tsx + the useFocusEffect above.
+  // Shows the "Check In Now" banner instead of auto-opening the modal.
   useCheckinDeepLink(
     Number(id) || null,
     useCallback(
@@ -1036,96 +967,12 @@ export default function CookDetailScreen() {
           phase,
         };
 
-        const probeInternalTempF =
-          meaterProbes[0]?.internalTempF ?? thermoworksProbes[0]?.tempF ?? null;
-        const lastCheckinTempF =
-          cookCheckins.length > 0
-            ? (cookCheckins[cookCheckins.length - 1] as CookCheckin).internalTempF ?? null
-            : null;
-
-        // Evaluate auto-dismiss conditions (async) and act accordingly
-        evaluateAutoDismiss({
-          probeInternalTempF,
-          lastCheckinInternalTempF: lastCheckinTempF,
-          expectedRange: phase.expectedInternalTempRange,
-        })
-          .then(async ({ shouldDismiss }) => {
-            if (shouldDismiss && probeInternalTempF != null) {
-              // Auto-save via the authenticated mutation — no modal opened
-              try {
-                await createCheckin.mutateAsync({
-                  id: Number(id),
-                  data: {
-                    scheduledAt: new Date(data.scheduledAt).toISOString(),
-                    internalTempF: probeInternalTempF,
-                    pitTempF: meaterProbes[0]?.ambientTempF ?? null,
-                    statusFlag: "all_good",
-                    userNote: null,
-                    photoKey: null,
-                    aiGuidanceShown: null,
-                    autoDismissed: true,
-                    phaseLabel: data.phaseLabel,
-                    phaseKey: data.phaseKey,
-                  },
-                });
-                // Set the pending-clear flag and invalidate the cook query —
-                // the dataUpdatedAt-watching effect clears wrapAdjustedFinishMs
-                // atomically when fresh data lands (covers both bounds-change
-                // and identical-bounds edge cases; no stale-value jump).
-                pendingWrapClearRef.current = true;
-                qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
-                qc.invalidateQueries({ queryKey: getListCookCheckinsQueryKey(Number(id)) });
-                // Summary notification so the pitmaster knows the auto-dismiss fired.
-                Notifications.scheduleNotificationAsync({
-                  content: {
-                    title: `✓ ${data.phaseLabel} — auto-logged`,
-                    body: `${Math.round(probeInternalTempF)}°F recorded. Cook is on track.`,
-                    data: {},
-                  },
-                  trigger: { seconds: 1, type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL },
-                }).catch(() => {});
-
-                // Adaptive reschedule now that a check-in is complete
-                const first = cookSeqData?.schedule?.[0];
-                if (first?.meatOnAt && first?.estimatedFinishAt) {
-                  const completed = new Set(
-                    (cookCheckins as CookCheckin[])
-                      .map((ci) => ci.phaseKey)
-                      .filter((k): k is string => k != null),
-                  );
-                  completed.add(data.phaseKey);
-                  rescheduleCheckinNotifications({
-                    cookId: Number(id),
-                    foodType: first.foodType ?? null,
-                    weightLbs: cook?.weightLbs ?? null,
-                    meatOnAt: first.meatOnAt,
-                    estimatedFinishAt: first.estimatedFinishAt,
-                    wrapAtMinutes: first.wrapAtMinutes ?? null,
-                    completedPhaseKeys: completed,
-                    actualInternalTempF: probeInternalTempF,
-                  }).catch(() => {});
-                }
-              } catch {
-                // Auto-dismiss failed — fall back to showing the modal
-                openCheckin(sc);
-              }
-            } else {
-              openCheckin(sc);
-            }
-          })
-          .catch(() => openCheckin(sc));
+        setPendingCheckinSc(sc);
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [
         cook?.foodType,
-        openCheckin,
-        meaterProbes,
-        thermoworksProbes,
-        cookCheckins,
-        cookSeqData,
         id,
-        createCheckin,
-        qc,
       ],
     ),
   );
@@ -2186,6 +2033,91 @@ export default function CookDetailScreen() {
         cookSeqData={cookSeqData}
         nowMs={nowMs}
       />
+
+      {/* ── Check-In prompt banner (active cooks) ────────────────────────
+           Shows a highlighted nudge when a notification was tapped
+           (pendingCheckinSc) or whenever the cook is active so the
+           pitmaster always has a one-tap path to log temps manually.      */}
+      {cookStatus === "active" && (() => {
+        const hasPlan = (cookSeqData?.schedule?.length ?? 0) > 0;
+        const upcomingCheckins = (
+          hasPlan && storedScheduledCheckins.length > 0
+            ? storedScheduledCheckins
+            : noPlanScheduledCheckins
+        ).filter((sc) => sc.scheduledAt > nowMs);
+
+        const targetSc: ScheduledCheckin | null =
+          pendingCheckinSc ??
+          upcomingCheckins[0] ??
+          null;
+
+        const isPending = pendingCheckinSc != null;
+
+        const handleCheckinPress = () => {
+          if (targetSc) {
+            openCheckin(targetSc);
+          } else {
+            const schedule = getCheckinSchedule((cook as any)?.foodType ?? null);
+            const phase = schedule.phases[0];
+            openCheckin({
+              id: `manual_${Date.now()}`,
+              phaseKey: phase.key,
+              phaseLabel: phase.label,
+              scheduledAt: Date.now(),
+              phase,
+            });
+          }
+          setPendingCheckinSc(null);
+        };
+
+        return (
+          <Pressable
+            onPress={handleCheckinPress}
+            style={({ pressed }) => ({
+              marginHorizontal: 16,
+              marginTop: 8,
+              borderRadius: 10,
+              overflow: "hidden",
+              opacity: pressed ? 0.85 : 1,
+              borderWidth: isPending ? 1.5 : 1,
+              borderColor: isPending ? "#F59E0B" : colors.border,
+              backgroundColor: isPending ? "#F59E0B18" : colors.card,
+              flexDirection: "row",
+              alignItems: "center",
+              paddingHorizontal: 14,
+              paddingVertical: 11,
+              gap: 10,
+            })}
+          >
+            <View style={{
+              width: 30, height: 30, borderRadius: 8,
+              backgroundColor: isPending ? "#F59E0B" : colors.primary,
+              alignItems: "center", justifyContent: "center",
+            }}>
+              <Feather name="thermometer" size={15} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontFamily: "Inter_700Bold", fontSize: 13,
+                color: isPending ? "#F59E0B" : colors.foreground,
+              }}>
+                {isPending ? `Check In: ${pendingCheckinSc?.phaseLabel ?? "Now"}` : "Check In Now"}
+              </Text>
+              <Text style={{
+                fontFamily: "Inter_400Regular", fontSize: 12,
+                color: colors.mutedForeground, marginTop: 1,
+              }}>
+                {isPending
+                  ? "Notification received — tap to log temps and get coaching"
+                  : targetSc
+                  ? `Next: ${targetSc.phaseLabel}`
+                  : "Log current temps and get PitMaster coaching"}
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={16} color={isPending ? "#F59E0B" : colors.mutedForeground} />
+          </Pressable>
+        );
+      })()}
 
       <ScrollView
         ref={scheduleScrollViewRef}

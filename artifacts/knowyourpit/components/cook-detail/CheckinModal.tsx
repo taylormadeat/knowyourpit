@@ -16,13 +16,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import {
   CHECKIN_STATUS_FLAGS,
   CHECKIN_STALL_THRESHOLD_F,
   CHECKIN_PIT_DRIFT_THRESHOLD_F,
-  CHECKIN_AUTO_DISMISS_KEY,
   type CheckinStatusFlag,
   type CheckinPhase,
 } from "@/constants/checkinKnowledge";
@@ -197,7 +194,6 @@ export function CheckinModal({
   const [aiGuidance, setAiGuidance] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [autoDismissEnabled, setAutoDismissEnabled] = useState(false);
   const [cuesExpanded, setCuesExpanded] = useState(true);
 
   // Reset state whenever the modal becomes visible, then kick off a background
@@ -219,10 +215,6 @@ export function CheckinModal({
     setPhotoUri(null);
     setAiGuidance(null);
     setSaving(false);
-
-    AsyncStorage.getItem(CHECKIN_AUTO_DISMISS_KEY)
-      .then((v) => setAutoDismissEnabled(v === "1"))
-      .catch(() => {});
 
     // Background preview using *explicit* prop values — no React-state staleness.
     const initStall =
@@ -281,6 +273,13 @@ export function CheckinModal({
 
   const isColdOutside = weatherTempF != null && weatherTempF < 45;
   const isWindy = weatherWindSpeedMph != null && weatherWindSpeedMph >= 15;
+
+  // Both temperatures must be entered before Save is enabled. Fields may be
+  // pre-filled by a connected probe but the user must explicitly confirm them
+  // by leaving or adjusting the values — pre-fill counts as confirmation.
+  const canSave =
+    parsedInternal != null && !isNaN(parsedInternal) &&
+    parsedPit != null && !isNaN(parsedPit);
 
   // "Regenerate" button — delegates to the module-level helper using current
   // form state, which is accurate since the user has already interacted.
@@ -389,7 +388,6 @@ export function CheckinModal({
           userNote: userNote.trim() || null,
           photoKey: photoKey,
           aiGuidanceShown: finalGuidance,
-          autoDismissed: false,
           phaseLabel: phase.label,
           phaseKey: phase.key,
         },
@@ -404,12 +402,6 @@ export function CheckinModal({
     } finally {
       setSaving(false);
     }
-  };
-
-  const toggleAutoDismiss = () => {
-    const next = !autoDismissEnabled;
-    setAutoDismissEnabled(next);
-    AsyncStorage.setItem(CHECKIN_AUTO_DISMISS_KEY, next ? "1" : "0").catch(() => {});
   };
 
   if (!visible) return null;
@@ -539,6 +531,11 @@ export function CheckinModal({
             {phase.expectedInternalTempRange != null && (
               <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
                 Expected for this phase: {phase.expectedInternalTempRange[0]}–{phase.expectedInternalTempRange[1]}°F
+              </Text>
+            )}
+            {!canSave && (
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "#F59E0B", marginTop: 2 }}>
+                Enter both internal and pit temps to save
               </Text>
             )}
           </View>
@@ -715,33 +712,11 @@ export function CheckinModal({
             </LinearGradient>
           </View>
 
-          {/* ── Auto-dismiss toggle ───────────────────────────────── */}
-          <Pressable
-            onPress={toggleAutoDismiss}
-            style={{
-              flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-              backgroundColor: colors.card, borderRadius: colors.radius,
-              borderWidth: 1, borderColor: colors.border, padding: 14,
-            }}
-          >
-            <View style={{ flex: 1, marginRight: 12 }}>
-              <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.foreground }}>
-                Auto-dismiss check-ins
-              </Text>
-              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, marginTop: 2 }}>
-                When probe data looks normal, skip the modal and log automatically
-              </Text>
-            </View>
-            <View style={{ width: 40, height: 24, borderRadius: 12, backgroundColor: autoDismissEnabled ? colors.primary : colors.border, justifyContent: "center", paddingHorizontal: 2 }}>
-              <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: "#fff", transform: [{ translateX: autoDismissEnabled ? 16 : 0 }] }} />
-            </View>
-          </Pressable>
-
           {/* ── Save button ───────────────────────────────────────── */}
           <Pressable
             onPress={handleSave}
-            disabled={saving}
-            style={({ pressed }) => ({ overflow: "hidden", borderRadius: colors.radius, opacity: pressed || saving ? 0.7 : 1 })}
+            disabled={saving || !canSave}
+            style={({ pressed }) => ({ overflow: "hidden", borderRadius: colors.radius, opacity: pressed || saving || !canSave ? 0.45 : 1 })}
           >
             <LinearGradient
               colors={["#E84520", "#F59E0B"]}

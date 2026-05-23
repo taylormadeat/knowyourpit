@@ -17,7 +17,6 @@ export {
   rescheduleCheckins,
   CHECKIN_STALL_THRESHOLD_F,
   CHECKIN_PIT_DRIFT_THRESHOLD_F,
-  CHECKIN_AUTO_DISMISS_KEY,
   CHECKIN_NOTIF_IDS_KEY_PREFIX,
 } from "@workspace/checkin-schedule";
 export type {

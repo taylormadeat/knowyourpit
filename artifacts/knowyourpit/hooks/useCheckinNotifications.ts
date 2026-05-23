@@ -6,7 +6,6 @@ import {
   generateCheckinSchedule,
   getCheckinSchedule,
   CHECKIN_NOTIF_IDS_KEY_PREFIX,
-  CHECKIN_AUTO_DISMISS_KEY,
   type ScheduledCheckin,
   type CheckinSequenceAnchor,
 } from "@/constants/checkinKnowledge";
@@ -282,45 +281,6 @@ export async function rescheduleCheckinNotifications(opts: {
   let gen = 0;
   const isCurrent = () => gen === 0;
   await scheduleCheckinNotifications(cookId, upcoming, foodType, isCurrent);
-}
-
-// ---------------------------------------------------------------------------
-// Auto-dismiss evaluation (pure logic — no API calls; save via mutation)
-// ---------------------------------------------------------------------------
-
-export interface AutoDismissEvaluation {
-  shouldDismiss: boolean;
-  reason: string;
-}
-
-export async function evaluateAutoDismiss(opts: {
-  probeInternalTempF: number | null;
-  lastCheckinInternalTempF: number | null;
-  expectedRange: [number, number] | null;
-  stallThresholdF?: number;
-}): Promise<AutoDismissEvaluation> {
-  const enabled = await AsyncStorage.getItem(CHECKIN_AUTO_DISMISS_KEY).catch(() => null);
-  if (enabled !== "1") return { shouldDismiss: false, reason: "disabled" };
-
-  const { probeInternalTempF, lastCheckinInternalTempF, expectedRange, stallThresholdF = 3 } = opts;
-
-  if (probeInternalTempF == null) {
-    return { shouldDismiss: false, reason: "no_probe_data" };
-  }
-
-  const stall =
-    lastCheckinInternalTempF != null &&
-    Math.abs(probeInternalTempF - lastCheckinInternalTempF) < stallThresholdF;
-  if (stall) return { shouldDismiss: false, reason: "stall_detected" };
-
-  if (expectedRange != null) {
-    const [lo, hi] = expectedRange;
-    if (probeInternalTempF < lo - 10 || probeInternalTempF > hi + 10) {
-      return { shouldDismiss: false, reason: "out_of_range" };
-    }
-  }
-
-  return { shouldDismiss: true, reason: "ok" };
 }
 
 // ---------------------------------------------------------------------------
