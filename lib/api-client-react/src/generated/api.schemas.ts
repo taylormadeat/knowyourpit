@@ -1364,6 +1364,11 @@ export interface MultiCookItem {
    * @nullable
    */
   thawMethod?: MultiCookItemThawMethod;
+  /**
+   * Free-text notes specific to this item (rub recipe, wood choice, injection brine, special instructions). PitMaster factors these into timing and technique recommendations for this cut.
+   * @nullable
+   */
+  notes?: string | null;
 }
 
 export type MultiCookCompetitionCategoriesItem =

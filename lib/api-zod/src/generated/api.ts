@@ -2101,6 +2101,12 @@ export const AiMultiCookBody = zod.object({
           .describe(
             'Chosen thaw method when fromFrozen is true. \"fridge\" is slow and safest (~24h \/ 4–5 lbs); \"cold_water\" is faster (~1h per lb).',
           ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text notes specific to this item (rub recipe, wood choice, injection brine, special instructions). PitMaster factors these into timing and technique recommendations for this cut.",
+          ),
       }),
     )
     .min(1)

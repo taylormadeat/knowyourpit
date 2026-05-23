@@ -672,6 +672,7 @@ export default function PlanScreen() {
               cookingMethod: item.cookMethod ?? undefined,
               fromFrozen: item.isFrozen || undefined,
               thawMethod: item.isFrozen ? item.thawMethod : undefined,
+              notes: item.notes || undefined,
             };
           }),
           serveAt: (serveAt ?? defaultServeAt).toISOString(),

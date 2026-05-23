@@ -89,6 +89,7 @@ export interface MultiItem {
   wrapFinish: QpWrapFinishOption | null;
   isFrozen: boolean;
   thawMethod: ThawMethod;
+  notes?: string;
 }
 
 interface Props {
@@ -179,6 +180,7 @@ export function MultiCookAddItemModal(p: Props) {
   const [selectedWrapFinish, setSelectedWrapFinish] = useState<QpWrapFinishOption | null>(null);
   const [isFrozen, setIsFrozen] = useState(false);
   const [thawMethod, setThawMethod] = useState<ThawMethod>("fridge");
+  const [itemNotes, setItemNotes] = useState("");
 
   useEffect(() => {
     if (!multiPickedCut) {
@@ -190,6 +192,7 @@ export function MultiCookAddItemModal(p: Props) {
       setSelectedWrapFinish(null);
       setIsFrozen(false);
       setThawMethod("fridge");
+      setItemNotes("");
       return;
     }
 
@@ -202,6 +205,7 @@ export function MultiCookAddItemModal(p: Props) {
       setSelectedWrapFinish(editItem.wrapFinish);
       setIsFrozen(editItem.isFrozen);
       setThawMethod(editItem.thawMethod);
+      setItemNotes(editItem.notes ?? "");
       return;
     }
 
@@ -226,6 +230,7 @@ export function MultiCookAddItemModal(p: Props) {
     setSelectedWrapFinish(null);
     setIsFrozen(false);
     setThawMethod("fridge");
+    setItemNotes("");
   };
 
   const handleClose = () => {
@@ -251,6 +256,7 @@ export function MultiCookAddItemModal(p: Props) {
       wrapFinish: selectedWrapFinish,
       isFrozen,
       thawMethod,
+      notes: itemNotes.trim() || undefined,
     };
 
     if (isEditMode) {
@@ -511,6 +517,21 @@ export function MultiCookAddItemModal(p: Props) {
                   value={multiAddWeightInput}
                   onChangeText={setMultiAddWeightInput}
                 />
+              </View>
+              <View>
+                <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  Notes (optional)
+                </Text>
+                <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                  <TextInput
+                    style={[s.input, { color: colors.foreground, minHeight: 72, textAlignVertical: "top", paddingTop: 10 }]}
+                    placeholder="Rub recipe, wood choice, injection brine, special instructions…"
+                    placeholderTextColor={colors.mutedForeground}
+                    multiline
+                    value={itemNotes}
+                    onChangeText={setItemNotes}
+                  />
+                </View>
               </View>
               <Pressable
                 onPress={handleSave}
