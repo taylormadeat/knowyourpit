@@ -660,11 +660,35 @@ export default function CookDetailScreen() {
           const adjustedThawEndAt = new Date(
             actualStartMs + originalDurationMs,
           ).toISOString();
+
+          // Helper to shift an ISO timestamp by diffMs.
+          const shiftIso = (iso: string | null | undefined): string | null | undefined => {
+            if (!iso) return iso;
+            return new Date(new Date(iso).getTime() + diffMs).toISOString();
+          };
+
+          // Shift grillLightAt and meatOnAt on schedule[0] so the SeqSchedule
+          // timeline (which reads these values directly) reflects the new times.
+          const currentSchedule = currentSeqData?.schedule ?? [];
+          const updatedSchedule = currentSchedule.map((item, idx) => {
+            if (idx !== 0) return item;
+            return {
+              ...item,
+              grillLightAt: shiftIso(item.grillLightAt),
+              meatOnAt: shiftIso(item.meatOnAt),
+            };
+          });
+
+          // Also update frozen.thawStartAt to actualNow so that the render-time
+          // effectiveMeatOnMs delta (actualThawStartAt - frozen.thawStartAt)
+          // becomes zero — preventing double-application of diffMs now that the
+          // schedule timestamps already carry the shift.
           const updatedSeqData: SequenceData = {
             ...currentSeqData,
-            schedule: currentSeqData?.schedule ?? [],
+            schedule: updatedSchedule,
             frozen: {
               ...frozen,
+              thawStartAt: actualNow,
               thawEndAt: adjustedThawEndAt,
             },
           };
