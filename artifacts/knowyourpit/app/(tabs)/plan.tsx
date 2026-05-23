@@ -213,6 +213,8 @@ export default function PlanScreen() {
   const { data: activeCooks } = useListCooks({ status: ListCooksStatus.active });
   const activeCook: Cook | null = activeCooks?.[0] ?? null;
 
+  const { data: plannedCooks } = useListCooks({ status: ListCooksStatus.planned });
+
   const [bannerNowMs, setBannerNowMs] = useState(Date.now());
   // ── Soft post-plan tip card ──
   // After a free user plans a cook AND already had 1+ cooks logged, surface
@@ -1016,6 +1018,24 @@ export default function PlanScreen() {
       // so they're armed even if the user never opens the cook detail screen.
       // The cook detail screen's hook will re-reconcile these on mount.
       const newCookId = (createdCook as { id?: number } | undefined)?.id;
+
+      // Cancel thaw notifications for any existing planned frozen cooks that
+      // match the same food type + grill. This prevents stale alerts from a
+      // previous plan (e.g. an adjusted serve time) from firing alongside the
+      // new ones. We only clear notifications — the cook records are kept.
+      if (frozenForCook && plannedCooks) {
+        const staleFrozenCooks = (plannedCooks as Array<Cook & { fromFrozen?: boolean }>).filter(
+          (c) =>
+            c.fromFrozen &&
+            c.foodType === selectedCut.name &&
+            (grillId == null || c.grillId === grillId) &&
+            c.id !== newCookId,
+        );
+        for (const stale of staleFrozenCooks) {
+          cancelStoredFrozenNotifications(stale.id).catch(() => {});
+        }
+      }
+
       if (newCookId) {
         if (cookNowMode === "later" && (frozenForCook || plannedStart)) {
           // Planned frozen cook: schedule thawStart, temper, and preheat
