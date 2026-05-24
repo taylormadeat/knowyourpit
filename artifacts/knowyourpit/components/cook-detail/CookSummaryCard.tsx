@@ -39,6 +39,15 @@ export function CookSummaryCard(p: Props) {
   const actualDurMs = c.actualStartAt && c.actualEndAt
     ? new Date(c.actualEndAt).getTime() - new Date(c.actualStartAt).getTime()
     : c.actualStartAt && cookStatus === "active" ? nowMs - new Date(c.actualStartAt).getTime() : null;
+
+  const frozenMeatOnAt: string | null = c.fromFrozen
+    ? (c.sequenceData?.schedule?.[0]?.meatOnAt ?? null)
+    : null;
+  const activeCookDurMs =
+    frozenMeatOnAt && c.actualEndAt && cookStatus === "completed"
+      ? new Date(c.actualEndAt).getTime() - new Date(frozenMeatOnAt).getTime()
+      : null;
+
   const planGrade = cookStatus === "completed" ? computePlanGrade(c) : null;
 
   const planDetailRows = [
@@ -64,6 +73,7 @@ export function CookSummaryCard(p: Props) {
     { label: "Started", value: c.actualStartAt ? formatDT(c.actualStartAt) : null },
     { label: "Finished", value: c.actualEndAt ? formatDT(c.actualEndAt) : null },
     { label: "Actual Duration", value: actualDurMs ? fmtDuration(actualDurMs) : null },
+    { label: "Active Cook", value: activeCookDurMs ? fmtDuration(activeCookDurMs) : null },
   ].filter((r) => r.value) : [];
 
   const planModal = (
