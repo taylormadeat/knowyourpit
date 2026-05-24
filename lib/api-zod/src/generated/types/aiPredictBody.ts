@@ -65,6 +65,16 @@ export interface AiPredictBody {
    */
   spritzLiquid?: string | null;
   /**
+   * How often the user plans to mop the meat during the cook (e.g. "No Mop", "Every 30 min", "Every Hour"). Mopping adds moisture and flavor similarly to spritzing but with a thicker sauce. Affects bark development.
+   * @nullable
+   */
+  mopFrequency?: string | null;
+  /**
+   * The mop sauce or liquid the pitmaster uses (e.g. "Mop Sauce", "Butter + Apple Juice", "Beer + Butter"). PitMaster factors this into moisture retention and flavor development guidance.
+   * @nullable
+   */
+  mopLiquid?: string | null;
+  /**
    * User's intended wrap or finish method (e.g. "No Wrap", "Butcher Paper at Stall", "Foil at Stall (Texas Crutch)", "Foil Boat"). PitMaster should align wrap recommendation with this preference.
    * @nullable
    */

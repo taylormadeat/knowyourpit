@@ -35,6 +35,7 @@ const EVENT_TYPE_CONFIG: Record<string, { icon: FeatherName; color: string; labe
   lid_open:        { icon: "wind",          color: "#6B7280", label: "Lid Opened"        },
   flare_up:        { icon: "alert-triangle",color: "#EF4444", label: "Flare-Up"          },
   spritz:          { icon: "droplet",       color: "#3B82F6", label: "Spritz"            },
+  mop:             { icon: "droplet",       color: "#92400E", label: "Mop"               },
   charcoal_add:    { icon: "plus-circle",   color: "#F97316", label: "Charcoal Added"    },
   wood_add:        { icon: "package",       color: "#92400E", label: "Wood Added"        },
   fuel_low:        { icon: "trending-down", color: "#8B5CF6", label: "Fuel Low"          },

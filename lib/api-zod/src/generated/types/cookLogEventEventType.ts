@@ -13,6 +13,7 @@ export const CookLogEventEventType = {
   lid_open: "lid_open",
   flare_up: "flare_up",
   spritz: "spritz",
+  mop: "mop",
   charcoal_add: "charcoal_add",
   wood_add: "wood_add",
   fuel_low: "fuel_low",

@@ -41,6 +41,30 @@ export const QP_SPRITZ_LIQUIDS = [
   "Mop Sauce",
 ] as const;
 
+export const QP_MOP_FREQUENCIES = [
+  "No Mop",
+  "Every 30 min",
+  "Every Hour",
+  "Every 2 Hours",
+  "Once at Stall",
+  "As Needed",
+] as const;
+
+export const QP_MOP_LIQUIDS = [
+  "Mop Sauce",
+  "Butter + Apple Juice",
+  "Beer + Butter",
+  "Apple Cider Vinegar Mix",
+  "Beef Tallow",
+  "Worcestershire + Water",
+  "Apple Juice",
+  "Tomato-Based Mop",
+  "Mustard Mop",
+] as const;
+
+export const SPRITZ_STORAGE_PREFIX = "@knowyourpit:spritz:";
+export const MOP_STORAGE_PREFIX = "@knowyourpit:mop:";
+
 export const QP_WRAP_FINISH_OPTIONS = [
   "No Wrap",
   "Butcher Paper at Stall",
@@ -56,4 +80,6 @@ export type QpMeatStartTemp = (typeof QP_MEAT_START_TEMPS)[number];
 export type QpInjectionOption = (typeof QP_INJECTION_OPTIONS)[number];
 export type QpSpritzFrequency = (typeof QP_SPRITZ_FREQUENCIES)[number];
 export type QpSpritzLiquid = (typeof QP_SPRITZ_LIQUIDS)[number];
+export type QpMopFrequency = (typeof QP_MOP_FREQUENCIES)[number];
+export type QpMopLiquid = (typeof QP_MOP_LIQUIDS)[number];
 export type QpWrapFinishOption = (typeof QP_WRAP_FINISH_OPTIONS)[number];

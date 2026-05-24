@@ -309,6 +309,71 @@ export function SequenceSchedule(p: Props) {
                           );
                         })()}
 
+                        {/* ── Mop sub-rows ── */}
+                        {(() => {
+                          const mopIntervalMin = parseIntervalMinutes((c.mopFrequency as string | null | undefined) ?? "");
+                          if (!mopIntervalMin || !item.meatOnAt) return null;
+                          const meatOnMs = new Date(item.meatOnAt).getTime();
+                          const pullOffMs = item.estimatedFinishAt
+                            ? new Date(item.estimatedFinishAt).getTime()
+                            : null;
+                          if (!pullOffMs) return null;
+                          const mopTimes: number[] = [];
+                          let t = meatOnMs + mopIntervalMin * 60_000;
+                          while (t < pullOffMs && mopTimes.length < 12) {
+                            mopTimes.push(t);
+                            t += mopIntervalMin * 60_000;
+                          }
+                          if (mopTimes.length === 0) return null;
+                          const mopColor = "#92400E";
+                          return (
+                            <>
+                              {mopTimes.map((mopMs, i) => {
+                                const isDone = isActive && mopMs < nowMs;
+                                const isFuture = (cookStatus === "active" || cookStatus === "planned") && mopMs > nowMs;
+                                return (
+                                  <View
+                                    key={i}
+                                    style={[
+                                      s.seqTlRow,
+                                      { marginLeft: 4, marginBottom: 6, opacity: isDone ? 0.45 : 1 },
+                                    ]}
+                                  >
+                                    <View
+                                      style={[
+                                        s.seqTlDot,
+                                        {
+                                          width: 7,
+                                          height: 7,
+                                          borderRadius: 4,
+                                          marginTop: 5,
+                                          backgroundColor: isDone ? colors.mutedForeground : mopColor,
+                                        },
+                                      ]}
+                                    />
+                                    <View style={{ flex: 1 }}>
+                                      <View style={s.seqTlLabelRow}>
+                                        <Feather name="droplet" size={9} color={isDone ? colors.mutedForeground : mopColor} style={{ marginRight: 2 }} />
+                                        <Text style={[s.seqTlLabel, { color: isDone ? colors.mutedForeground : mopColor, fontSize: 9 }]}>
+                                          Mop
+                                        </Text>
+                                      </View>
+                                      <Text style={[s.seqTlMeta, { color: isDone ? colors.mutedForeground : colors.foreground, fontSize: 12, fontFamily: "Inter_600SemiBold" }]}>
+                                        {new Date(mopMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                        {isFuture && (
+                                          <Text style={[s.seqTlMeta, { color: mopColor }]}>
+                                            {" "}· {relCountdown(mopMs, nowMs)}
+                                          </Text>
+                                        )}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                );
+                              })}
+                            </>
+                          );
+                        })()}
+
                         {/* ── Stall zone (brisket / pork shoulder / chuck — active cooks only) ── */}
                         {isActive && stallProne && (
                           <View style={[s.seqTlRow, { marginLeft: 4 }]}>

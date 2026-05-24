@@ -140,6 +140,16 @@ export interface UpdateCookBody {
    */
   spritzLiquid?: string | null;
   /**
+   * How often the cook was mopped (e.g. Every Hour, No Mop)
+   * @nullable
+   */
+  mopFrequency?: string | null;
+  /**
+   * The liquid used to mop (e.g. Mop Sauce, Butter + Apple Juice)
+   * @nullable
+   */
+  mopLiquid?: string | null;
+  /**
    * Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
    * @nullable
    */

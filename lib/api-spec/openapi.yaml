@@ -1566,6 +1566,12 @@ components:
         spritzLiquid:
           type: ["string", "null"]
           description: The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)
+        mopFrequency:
+          type: ["string", "null"]
+          description: How often the cook was mopped (e.g. Every Hour, No Mop)
+        mopLiquid:
+          type: ["string", "null"]
+          description: The liquid used to mop (e.g. Mop Sauce, Butter + Apple Juice)
         wrapFinish:
           type: ["string", "null"]
           description: Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
@@ -1777,6 +1783,12 @@ components:
         spritzLiquid:
           type: ["string", "null"]
           description: The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)
+        mopFrequency:
+          type: ["string", "null"]
+          description: How often the cook was mopped (e.g. Every Hour, No Mop)
+        mopLiquid:
+          type: ["string", "null"]
+          description: The liquid used to mop (e.g. Mop Sauce, Butter + Apple Juice)
         wrapFinish:
           type: ["string", "null"]
           description: Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
@@ -1895,6 +1907,12 @@ components:
         spritzLiquid:
           type: ["string", "null"]
           description: The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)
+        mopFrequency:
+          type: ["string", "null"]
+          description: How often the cook was mopped (e.g. Every Hour, No Mop)
+        mopLiquid:
+          type: ["string", "null"]
+          description: The liquid used to mop (e.g. Mop Sauce, Butter + Apple Juice)
         wrapFinish:
           type: ["string", "null"]
           description: Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
@@ -2239,6 +2257,12 @@ components:
         spritzLiquid:
           type: ["string", "null"]
           description: The liquid the pitmaster uses to spritz (e.g. "Apple Juice", "Apple Cider Vinegar", "Water", "Butter", "Beer"). PitMaster uses this to give liquid-specific advice on color development, bark formation, and flavor.
+        mopFrequency:
+          type: ["string", "null"]
+          description: How often the user plans to mop the meat during the cook (e.g. "No Mop", "Every 30 min", "Every Hour"). Mopping adds moisture and flavor similarly to spritzing but with a thicker sauce. Affects bark development.
+        mopLiquid:
+          type: ["string", "null"]
+          description: The mop sauce or liquid the pitmaster uses (e.g. "Mop Sauce", "Butter + Apple Juice", "Beer + Butter"). PitMaster factors this into moisture retention and flavor development guidance.
         wrapFinish:
           type: ["string", "null"]
           description: User's intended wrap or finish method (e.g. "No Wrap", "Butcher Paper at Stall", "Foil at Stall (Texas Crutch)", "Foil Boat"). PitMaster should align wrap recommendation with this preference.
@@ -3055,7 +3079,7 @@ components:
           format: date-time
         eventType:
           type: string
-          enum: [lid_open, flare_up, spritz, charcoal_add, wood_add, fuel_low, vent_adjust, user_note, proactive_alert, voice_note, ai_analysis]
+          enum: [lid_open, flare_up, spritz, mop, charcoal_add, wood_add, fuel_low, vent_adjust, user_note, proactive_alert, voice_note, ai_analysis]
         note:
           type: ["string", "null"]
         metadata:
@@ -3078,7 +3102,7 @@ components:
       properties:
         eventType:
           type: string
-          enum: [lid_open, flare_up, spritz, charcoal_add, wood_add, fuel_low, vent_adjust, user_note, proactive_alert, voice_note]
+          enum: [lid_open, flare_up, spritz, mop, charcoal_add, wood_add, fuel_low, vent_adjust, user_note, proactive_alert, voice_note]
         note:
           type: ["string", "null"]
         occurredAt:

@@ -13,6 +13,7 @@ interface SelectedChips {
   meatStartTemp?: string | null;
   injection?: string | null;
   spritzFrequency?: string | null;
+  mopFrequency?: string | null;
   wrapFinish?: string | null;
 }
 
@@ -31,6 +32,7 @@ const CHIP_LABELS: { key: keyof SelectedChips; label: string }[] = [
   { key: "meatStartTemp", label: "Start Temp" },
   { key: "injection", label: "Injection" },
   { key: "spritzFrequency", label: "Spritz" },
+  { key: "mopFrequency", label: "Mop" },
   { key: "wrapFinish", label: "Wrap" },
 ];
 

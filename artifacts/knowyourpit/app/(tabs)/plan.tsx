@@ -68,11 +68,15 @@ import {
   QP_COOK_METHODS,
   QP_INJECTION_OPTIONS,
   QP_MEAT_START_TEMPS,
+  QP_MOP_FREQUENCIES,
+  QP_MOP_LIQUIDS,
   QP_SPRITZ_FREQUENCIES,
   QP_WRAP_FINISH_OPTIONS,
   type QpCookMethod,
   type QpInjectionOption,
   type QpMeatStartTemp,
+  type QpMopFrequency,
+  type QpMopLiquid,
   type QpSpritzFrequency,
   type QpWrapFinishOption,
 } from "@/constants/cookQuickPicks";
@@ -120,6 +124,8 @@ const COOK_METHOD_STORAGE_PREFIX = "@knowyourpit:cookMethod:";
 const MEAT_START_TEMP_STORAGE_PREFIX = "@knowyourpit:meatStartTemp:";
 const INJECTION_STORAGE_PREFIX = "@knowyourpit:injection:";
 const SPRITZ_STORAGE_PREFIX = "@knowyourpit:spritz:";
+const MOP_FREQ_STORAGE_PREFIX = "@knowyourpit:mopFreq:";
+const MOP_LIQUID_STORAGE_PREFIX = "@knowyourpit:mopLiquid:";
 const WRAP_FINISH_STORAGE_PREFIX = "@knowyourpit:wrapFinish:";
 
 async function loadLastCookMethod(cutName: string): Promise<QpCookMethod | null> {
@@ -169,6 +175,28 @@ async function loadLastSpritz(cutName: string): Promise<QpSpritzFrequency | null
 }
 async function saveLastSpritz(cutName: string, v: QpSpritzFrequency): Promise<void> {
   try { await AsyncStorage.setItem(SPRITZ_STORAGE_PREFIX + cutName, v); } catch {}
+}
+
+async function loadLastMopFreq(cutName: string): Promise<QpMopFrequency | null> {
+  try {
+    const stored = await AsyncStorage.getItem(MOP_FREQ_STORAGE_PREFIX + cutName);
+    if (stored && (QP_MOP_FREQUENCIES as readonly string[]).includes(stored)) return stored as QpMopFrequency;
+  } catch {}
+  return null;
+}
+async function saveLastMopFreq(cutName: string, v: QpMopFrequency): Promise<void> {
+  try { await AsyncStorage.setItem(MOP_FREQ_STORAGE_PREFIX + cutName, v); } catch {}
+}
+
+async function loadLastMopLiquid(cutName: string): Promise<QpMopLiquid | null> {
+  try {
+    const stored = await AsyncStorage.getItem(MOP_LIQUID_STORAGE_PREFIX + cutName);
+    if (stored && (QP_MOP_LIQUIDS as readonly string[]).includes(stored)) return stored as QpMopLiquid;
+  } catch {}
+  return null;
+}
+async function saveLastMopLiquid(cutName: string, v: QpMopLiquid): Promise<void> {
+  try { await AsyncStorage.setItem(MOP_LIQUID_STORAGE_PREFIX + cutName, v); } catch {}
 }
 
 async function loadLastWrapFinish(cutName: string): Promise<QpWrapFinishOption | null> {
@@ -457,6 +485,10 @@ export default function PlanScreen() {
   const [lastUsedInjection, setLastUsedInjection] = useState<QpInjectionOption | null>(null);
   const [qpSpritz, setQpSpritz] = useState<QpSpritzFrequency | null>(null);
   const [lastUsedSpritz, setLastUsedSpritz] = useState<QpSpritzFrequency | null>(null);
+  const [qpMopFreq, setQpMopFreq] = useState<QpMopFrequency | null>(null);
+  const [lastUsedMopFreq, setLastUsedMopFreq] = useState<QpMopFrequency | null>(null);
+  const [qpMopLiquid, setQpMopLiquid] = useState<QpMopLiquid | null>(null);
+  const [lastUsedMopLiquid, setLastUsedMopLiquid] = useState<QpMopLiquid | null>(null);
   const [qpWrapFinish, setQpWrapFinish] = useState<QpWrapFinishOption | null>(null);
   const [lastUsedWrapFinish, setLastUsedWrapFinish] = useState<QpWrapFinishOption | null>(null);
 
@@ -480,6 +512,10 @@ export default function PlanScreen() {
             setQpInjection(saved.injection as QpInjectionOption);
           if (saved.spritz && (QP_SPRITZ_FREQUENCIES as readonly string[]).includes(saved.spritz))
             setQpSpritz(saved.spritz as QpSpritzFrequency);
+          if (saved.mopFreq && (QP_MOP_FREQUENCIES as readonly string[]).includes(saved.mopFreq))
+            setQpMopFreq(saved.mopFreq as QpMopFrequency);
+          if (saved.mopLiquid && (QP_MOP_LIQUIDS as readonly string[]).includes(saved.mopLiquid))
+            setQpMopLiquid(saved.mopLiquid as QpMopLiquid);
           if (saved.wrapFinish && (QP_WRAP_FINISH_OPTIONS as readonly string[]).includes(saved.wrapFinish))
             setQpWrapFinish(saved.wrapFinish as QpWrapFinishOption);
         } catch {
@@ -491,7 +527,7 @@ export default function PlanScreen() {
   }, []);
 
   // ── Advanced Options bottom-sheet state ───────────────────────────────
-  type AdvSheet = "cookMethod" | "meatStartTemp" | "injection" | "spritz" | "wrapFinish" | "thawMethod" | "notes";
+  type AdvSheet = "cookMethod" | "meatStartTemp" | "injection" | "spritz" | "mopFreq" | "mopLiquid" | "wrapFinish" | "thawMethod" | "notes";
   const [activeSheet, setActiveSheet] = useState<AdvSheet | null>(null);
   const [notesSheetDraft, setNotesSheetDraft] = useState("");
 
@@ -648,6 +684,8 @@ export default function PlanScreen() {
     loadLastMeatStartTemp(cut.name).then(v => { setQpMeatStartTemp(v); setLastUsedMeatStartTemp(v); });
     loadLastInjection(cut.name).then(v => { setQpInjection(v); setLastUsedInjection(v); });
     loadLastSpritz(cut.name).then(v => { setQpSpritz(v); setLastUsedSpritz(v); });
+    loadLastMopFreq(cut.name).then(v => { setQpMopFreq(v); setLastUsedMopFreq(v); });
+    loadLastMopLiquid(cut.name).then(v => { setQpMopLiquid(v); setLastUsedMopLiquid(v); });
     loadLastWrapFinish(cut.name).then(v => { setQpWrapFinish(v); setLastUsedWrapFinish(v); });
     // Wait for the modal slide-out animation to finish before focusing the
     // weight field so KeyboardAwareScrollView can scroll it into view.
@@ -678,6 +716,8 @@ export default function PlanScreen() {
           meatStartTemp: qpMeatStartTemp ?? undefined,
           injection: qpInjection ?? undefined,
           spritzFrequency: qpSpritz ?? undefined,
+          mopFrequency: qpMopFreq ?? undefined,
+          mopLiquid: qpMopLiquid ?? undefined,
           wrapFinish: qpWrapFinish ?? undefined,
           notes: notes.trim() || undefined,
         },
@@ -1106,6 +1146,8 @@ export default function PlanScreen() {
           ...(qpMeatStartTemp && { meatStartTemp: qpMeatStartTemp }),
           ...(qpInjection && { injection: qpInjection }),
           ...(qpSpritz && { spritzFrequency: qpSpritz }),
+          ...(qpMopFreq && { mopFrequency: qpMopFreq }),
+          ...(qpMopLiquid && { mopLiquid: qpMopLiquid }),
           ...(qpWrapFinish && { wrapFinish: qpWrapFinish }),
         } as any,
       });
@@ -1189,6 +1231,8 @@ export default function PlanScreen() {
         meatStartTemp: qpMeatStartTemp,
         injection: qpInjection,
         spritz: qpSpritz,
+        mopFreq: qpMopFreq,
+        mopLiquid: qpMopLiquid,
         wrapFinish: qpWrapFinish,
       })).catch(() => {});
 
@@ -1863,6 +1907,7 @@ export default function PlanScreen() {
           if (qpMeatStartTemp) advParts.push(qpMeatStartTemp);
           if (qpInjection) advParts.push(qpInjection);
           if (qpSpritz) advParts.push(qpSpritz);
+          if (qpMopFreq) advParts.push(qpMopFreq);
           if (qpWrapFinish) advParts.push(qpWrapFinish);
           if (selectedProbeId) advParts.push("Probe linked");
           if (notes.trim()) advParts.push("Notes");
@@ -2273,6 +2318,24 @@ export default function PlanScreen() {
                       colors={colors}
                     />
                     <SettingsRow
+                      label="Mop Frequency"
+                      icon="droplet"
+                      value={qpMopFreq}
+                      placeholder="Any"
+                      onPress={() => setActiveSheet("mopFreq")}
+                      onClear={() => setQpMopFreq(null)}
+                      colors={colors}
+                    />
+                    <SettingsRow
+                      label="Mop Liquid"
+                      icon="droplet"
+                      value={qpMopLiquid}
+                      placeholder="Any"
+                      onPress={() => setActiveSheet("mopLiquid")}
+                      onClear={() => setQpMopLiquid(null)}
+                      colors={colors}
+                    />
+                    <SettingsRow
                       label="Wrap / Finish"
                       icon="package"
                       value={qpWrapFinish}
@@ -2369,6 +2432,36 @@ export default function PlanScreen() {
                       setQpSpritz(val);
                       setLastUsedSpritz(null);
                       if (selectedCut && val) saveLastSpritz(selectedCut.name, val);
+                    }}
+                    onClose={() => setActiveSheet(null)}
+                    colors={colors}
+                  />
+                  <OptionBottomSheet
+                    visible={activeSheet === "mopFreq"}
+                    title="Mop Frequency"
+                    options={QP_MOP_FREQUENCIES}
+                    selected={qpMopFreq}
+                    lastUsed={lastUsedMopFreq}
+                    onChange={(v) => {
+                      const val = v as QpMopFrequency | null;
+                      setQpMopFreq(val);
+                      setLastUsedMopFreq(null);
+                      if (selectedCut && val) saveLastMopFreq(selectedCut.name, val);
+                    }}
+                    onClose={() => setActiveSheet(null)}
+                    colors={colors}
+                  />
+                  <OptionBottomSheet
+                    visible={activeSheet === "mopLiquid"}
+                    title="Mop Liquid"
+                    options={QP_MOP_LIQUIDS}
+                    selected={qpMopLiquid}
+                    lastUsed={lastUsedMopLiquid}
+                    onChange={(v) => {
+                      const val = v as QpMopLiquid | null;
+                      setQpMopLiquid(val);
+                      setLastUsedMopLiquid(null);
+                      if (selectedCut && val) saveLastMopLiquid(selectedCut.name, val);
                     }}
                     onClose={() => setActiveSheet(null)}
                     colors={colors}
@@ -3090,6 +3183,7 @@ export default function PlanScreen() {
           meatStartTemp: qpMeatStartTemp,
           injection: qpInjection,
           spritzFrequency: qpSpritz,
+          mopFrequency: qpMopFreq,
           wrapFinish: qpWrapFinish,
         }}
       />

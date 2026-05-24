@@ -841,7 +841,7 @@ export default function CooksScreen() {
           <Text style={[s.meta, { color: colors.mutedForeground }]}>
             {item.grillName || "No grill"}
           </Text>
-          {(item.cookingMethod || item.spritzFrequency) ? (
+          {(item.cookingMethod || item.spritzFrequency || (item as any).mopFrequency) ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 3 }}>
               {item.cookingMethod ? (
                 <View
@@ -880,6 +880,26 @@ export default function CooksScreen() {
                   <Feather name="droplet" size={9} color="#2dd4bf" />
                   <Text style={{ color: "#2dd4bf", fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 0.2 }}>
                     {item.spritzFrequency}
+                  </Text>
+                </View>
+              ) : null}
+              {(item as any).mopFrequency ? (
+                <View
+                  style={{
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                    backgroundColor: "#92400e22",
+                    borderWidth: 1,
+                    borderColor: "#92400e55",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 3,
+                  }}
+                >
+                  <Feather name="droplet" size={9} color="#b45309" />
+                  <Text style={{ color: "#b45309", fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 0.2 }}>
+                    {(item as any).mopFrequency}
                   </Text>
                 </View>
               ) : null}

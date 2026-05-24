@@ -42,6 +42,9 @@ function makePredictCacheKey(userId: string, p: ReturnType<typeof AiPredictBody.
     cm: p.cookingMethod ?? null,
     inj: p.injection ?? null,
     sp: p.spritzFrequency ?? null,
+    sl: p.spritzLiquid ?? null,
+    mp: p.mopFrequency ?? null,
+    ml: p.mopLiquid ?? null,
     wf: p.wrapFinish ?? null,
     ms: p.meatStartTemp ?? null,
     ot: p.outdoorTempF ?? null,
@@ -57,7 +60,7 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
     return;
   }
 
-  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast, fromFrozen, thawMethod, cookingMethod, injection, spritzFrequency, wrapFinish, meatStartTemp, notes } = parsed.data;
+  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast, fromFrozen, thawMethod, cookingMethod, injection, spritzFrequency, spritzLiquid, mopFrequency, mopLiquid, wrapFinish, meatStartTemp, notes } = parsed.data;
 
   const baseline = getMeatBaseline(foodType);
 
@@ -331,6 +334,11 @@ TECHNIQUE RULES (apply when technique fields are provided in the user prompt):
   - "Every 30 min" or "Every Hour": frequent lid opens add ~5–10% to total cook time vs. no-spritz baseline; note the trade-off (better bark moisture, slightly longer cook).
   - "No Spritz": use baseline; bark will develop faster.
   - "Once at Stall" / "As Needed": negligible time impact; mention in tips.
+- Mop adjustments (apply when "Mop frequency" is provided):
+  - "Every 30 min" or "Every Hour": similar to spritzing — each lid open adds small time. Mopping with a thicker sauce (butter, tallow, mop sauce) can slightly slow bark formation compared to a light spritz. Add ~5% to estimate vs. no-mop baseline; note the moisture and flavor benefits.
+  - "No Mop": no adjustment needed; bark forms at standard pace.
+  - "Once at Stall" / "As Needed": negligible time impact.
+  - Mop liquid specifics: butter/tallow-based mops add richness and promote mahogany color; vinegar-based mops tenderize and brighten; tomato-based mops can burn at high temps so note timing caution above 325°F.
 - Wrap / finish adjustments:
   - "Foil at Stall (Texas Crutch)": align wrap.method to "foil". Stall is effectively eliminated — subtract 30–60 min from stall portion of estimate.
   - "Butcher Paper at Stall": align wrap.method to "butcher_paper". Stall is partially shortened (15–30 min saved vs. no-wrap).
@@ -353,7 +361,10 @@ FROZEN-MEAT RULES (apply only when "Starting from frozen" is true in the user pr
   if (cookingMethod) techniqueLines.push(`Cooking method: ${cookingMethod}`);
   if (meatStartTemp) techniqueLines.push(`Meat starting temperature: ${meatStartTemp}`);
   if (injection) techniqueLines.push(`Injection: ${injection}`);
-  if (spritzFrequency) techniqueLines.push(`Spritz frequency: ${spritzFrequency}`);
+  if (spritzFrequency) techniqueLines.push(`Spritz frequency: ${spritzFrequency}${spritzLiquid ? ` (liquid: ${spritzLiquid})` : ""}`);
+  if (!spritzFrequency && spritzLiquid) techniqueLines.push(`Spritz liquid: ${spritzLiquid}`);
+  if (mopFrequency) techniqueLines.push(`Mop frequency: ${mopFrequency}${mopLiquid ? ` (liquid: ${mopLiquid})` : ""}`);
+  if (!mopFrequency && mopLiquid) techniqueLines.push(`Mop liquid: ${mopLiquid}`);
   if (wrapFinish) techniqueLines.push(`Wrap / finish preference: ${wrapFinish}`);
   const techniqueSection = techniqueLines.length > 0
     ? `\nTechnique details (apply TECHNIQUE RULES from system prompt):\n${techniqueLines.join("\n")}`

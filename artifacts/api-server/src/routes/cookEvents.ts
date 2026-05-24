@@ -12,6 +12,7 @@ const EVENT_TYPES = [
   "lid_open",
   "flare_up",
   "spritz",
+  "mop",
   "charcoal_add",
   "wood_add",
   "fuel_low",
