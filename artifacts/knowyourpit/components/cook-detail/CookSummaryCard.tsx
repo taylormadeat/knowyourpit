@@ -211,6 +211,36 @@ export function CookSummaryCard(p: Props) {
                     </View>
                   )}
                 </View>
+
+                {thawDurMs != null && activeCookDurMs != null && thawDurMs > 0 && activeCookDurMs > 0 && (() => {
+                  const total = thawDurMs + activeCookDurMs;
+                  const thawPct = thawDurMs / total;
+                  const cookPct = activeCookDurMs / total;
+                  return (
+                    <View style={[s.thawCookBarWrap, { borderTopWidth: 1, borderTopColor: colors.border }]}>
+                      <Text style={[s.thawCookBarLabel, { color: colors.mutedForeground }]}>Time Breakdown</Text>
+                      <View style={s.thawCookBarTrack}>
+                        <View style={[s.thawCookBarThaw, { flex: thawPct }]} />
+                        <View style={s.thawCookBarGap} />
+                        <View style={[s.thawCookBarCook, { flex: cookPct }]} />
+                      </View>
+                      <View style={s.thawCookBarLegend}>
+                        <View style={s.thawCookBarLegendItem}>
+                          <View style={[s.thawCookBarLegendDot, { backgroundColor: "#60a5fa" }]} />
+                          <Text style={[s.thawCookBarLegendText, { color: colors.mutedForeground }]}>
+                            Thaw · {fmtDuration(thawDurMs)}
+                          </Text>
+                        </View>
+                        <View style={s.thawCookBarLegendItem}>
+                          <View style={[s.thawCookBarLegendDot, { backgroundColor: "#FF6B2B" }]} />
+                          <Text style={[s.thawCookBarLegendText, { color: colors.mutedForeground }]}>
+                            Active Cook · {fmtDuration(activeCookDurMs)}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })()}
               </>
             )}
           </ScrollView>

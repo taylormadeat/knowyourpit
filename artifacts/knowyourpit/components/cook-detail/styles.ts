@@ -253,6 +253,17 @@ export const s = StyleSheet.create({
   planGridCellLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 },
   planGridCellValue: { fontSize: 14, fontFamily: "Inter_500Medium", lineHeight: 20 },
 
+  thawCookBarWrap: { paddingHorizontal: 14, paddingVertical: 12, gap: 8 },
+  thawCookBarLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.4 },
+  thawCookBarTrack: { flexDirection: "row", height: 10, borderRadius: 5, overflow: "hidden" },
+  thawCookBarThaw: { backgroundColor: "#60a5fa" },
+  thawCookBarGap: { width: 2, backgroundColor: "transparent" },
+  thawCookBarCook: { backgroundColor: "#FF6B2B" },
+  thawCookBarLegend: { flexDirection: "row", gap: 14 },
+  thawCookBarLegendItem: { flexDirection: "row", alignItems: "center", gap: 5 },
+  thawCookBarLegendDot: { width: 8, height: 8, borderRadius: 4 },
+  thawCookBarLegendText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+
   grillOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)" },
   grillSheet: { maxHeight: "65%", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
   grillSheetHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 16 },
