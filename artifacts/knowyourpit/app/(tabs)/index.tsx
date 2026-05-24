@@ -423,6 +423,15 @@ export default function HomeScreen() {
                       meat on in {fmtCountdown(cookSeqMeatOnMs)}
                     </Text>
                   ) : null}
+                  {insights && (() => {
+                    const g = letterGrade(insights.pitMasterScore);
+                    const gc = scoreColor(insights.pitMasterScore);
+                    return (
+                      <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, backgroundColor: gc + "22", borderWidth: 1, borderColor: gc + "55" }}>
+                        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, color: gc }}>{g}</Text>
+                      </View>
+                    );
+                  })()}
                 </View>
 
                 {/* Food type */}
@@ -477,28 +486,29 @@ export default function HomeScreen() {
                   </View>
                 )}
 
-                {/* Last decision teaser */}
+                {/* Decision block / CTA */}
                 {cookTopDecision ? (
-                  <View style={[s.decisionTeaser, { backgroundColor: cookTopDecisionColor! + "18", borderColor: cookTopDecisionColor! + "40" }]}>
-                    <View style={[s.decisionTeaserDot, { backgroundColor: cookTopDecisionColor! }]} />
-                    <Text style={[s.decisionTeaserText, { color: cookTopDecisionColor! }]} numberOfLines={2}>
-                      {cookTopDecision.instruction}
-                    </Text>
+                  <View style={[s.decisionTeaser, { backgroundColor: cookTopDecisionColor! + "15", borderColor: cookTopDecisionColor! + "35", flexDirection: "row", alignItems: "center", gap: 8 }]}>
+                    <View style={{ width: 3, alignSelf: "stretch", backgroundColor: cookTopDecisionColor!, borderRadius: 2 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, color: cookTopDecisionColor!, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 2 }}>
+                        {cookTopDecision.action.replace(/_/g, " ")}
+                      </Text>
+                      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: "#F3EDE1" }} numberOfLines={2}>
+                        {cookTopDecision.instruction}
+                      </Text>
+                    </View>
+                    <Feather name="chevron-right" size={14} color={cookTopDecisionColor!} />
                   </View>
                 ) : (
-                  <View style={s.decisionTeaser}>
+                  <View style={[s.decisionTeaser, { flexDirection: "row", alignItems: "center", gap: 8 }]}>
                     <Feather name="zap" size={13} color="#F59E0B" />
-                    <Text style={[s.decisionTeaserText, { color: "#F59E0B" }]}>
-                      Tap to check in with PitMaster for your next step
+                    <Text style={[s.decisionTeaserText, { color: "#F59E0B", flex: 1 }]}>
+                      Tap to get PitMaster coaching
                     </Text>
+                    <Feather name="chevron-right" size={14} color="#F59E0B" />
                   </View>
                 )}
-
-                {/* CTA */}
-                <View style={s.checkOnItRow}>
-                  <Text style={s.checkOnItText}>Check on your cook</Text>
-                  <Feather name="chevron-right" size={16} color="#E84820" />
-                </View>
 
                 {/* Progress bar — 3px flush at bottom edge */}
                 {bar !== null && (
@@ -557,15 +567,8 @@ export default function HomeScreen() {
           </Pressable>
         )}
 
-        {/* ── PitMaster Score ── */}
-        {/*
-          Two states:
-          1. !isIdentityLinked — RC hasn't confirmed identity yet.
-             Show a neutral skeleton so users never see a false flash.
-          2. isIdentityLinked — Show real score to all users.
-             AI tips inside the card are Pro-only; free users see an upgrade nudge.
-        */}
-        {!isIdentityLinked ? (
+        {/* ── PitMaster Score — hidden when a cook is active ── */}
+        {activeCooks.length === 0 && (!isIdentityLinked ? (
           <View style={{ marginHorizontal: 16, marginBottom: 12 }}>
             <View style={s.sectionHeader}>
               <View style={s.sectionAccent} />
@@ -808,7 +811,7 @@ export default function HomeScreen() {
               );
             })()}
           </>
-        ) : null}
+        ) : null)}
 
         {/* ── Recent Cooks ── */}
         <View style={s.sectionHeader}>

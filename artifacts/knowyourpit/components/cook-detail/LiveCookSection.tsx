@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { s } from "./styles";
 import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
@@ -46,6 +46,11 @@ interface Props {
   nextSpritzMs?: number | null;
   nextMopMs?: number | null;
   onViewDetails?: () => void;
+  isMeatOn?: boolean;
+  pitMasterResult?: any;
+  pitMasterAnalyzing?: boolean;
+  renderDecisions?: (decisions: any[]) => React.ReactNode;
+  onCheckIn?: () => void;
 }
 
 function fmtSpritzCountdown(diffMs: number): string {
@@ -64,6 +69,7 @@ export function LiveCookSection(p: Props) {
     liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, estimatedFinishMs,
     setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
     targetTempF, cookTempF, nextSpritzMs, nextMopMs, onViewDetails,
+    isMeatOn, pitMasterResult, pitMasterAnalyzing, renderDecisions, onCheckIn,
   } = p;
 
   const hasAnyProbe = (meaterLinked === true && meaterProbes.length > 0) ||
@@ -447,6 +453,55 @@ export function LiveCookSection(p: Props) {
               <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: "#3b82f6" }}>{cookTempF}°F</Text>
               <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "#3b82f699" }}>pit</Text>
             </View>
+          )}
+        </View>
+      )}
+
+      {/* ── PitMaster Decision Zone ── */}
+      {isMeatOn && (
+        <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <Feather name="cpu" size={12} color="#FF6B2B" />
+            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: "#FF6B2B", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              PitMaster
+            </Text>
+          </View>
+          {pitMasterAnalyzing ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 }}>
+              <ActivityIndicator size="small" color="#FF6B2B" />
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
+                Analyzing your cook…
+              </Text>
+            </View>
+          ) : pitMasterResult?.decisions?.length > 0 && renderDecisions ? (
+            renderDecisions(pitMasterResult.decisions)
+          ) : (
+            <Pressable
+              onPress={onCheckIn}
+              style={({ pressed }) => ({
+                flexDirection: "row" as const,
+                alignItems: "center" as const,
+                gap: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: "#FF6B2B30",
+                backgroundColor: "#FF6B2B08",
+                opacity: pressed ? 0.82 : 1,
+              })}
+            >
+              <Feather name="thermometer" size={14} color="#FF6B2B" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: colors.foreground }}>
+                  Check In with PitMaster
+                </Text>
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, marginTop: 1 }}>
+                  Log temps and get live coaching
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={15} color={colors.mutedForeground} />
+            </Pressable>
           )}
         </View>
       )}

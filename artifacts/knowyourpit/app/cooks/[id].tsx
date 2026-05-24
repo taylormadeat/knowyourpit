@@ -344,6 +344,18 @@ export default function CookDetailScreen() {
     setCheckinModalVisible(true);
   }, []);
 
+  const handlePitMasterCheckIn = useCallback(() => {
+    const schedule = getCheckinSchedule((cook as any)?.foodType ?? null);
+    const phase = schedule.phases[0];
+    openCheckin({
+      id: `manual_${Date.now()}`,
+      phaseKey: phase.key,
+      phaseLabel: phase.label,
+      scheduledAt: Date.now(),
+      phase,
+    });
+  }, [cook, openCheckin]);
+
   // Alert sheet state
   const [alertSheetVisible, setAlertSheetVisible] = useState(false);
   const [alertMode, setAlertMode] = useState<"temp" | "timer">("temp");
@@ -2843,6 +2855,11 @@ export default function CookDetailScreen() {
           nextSpritzMs={nextSpritzMs}
           nextMopMs={nextMopMs}
           onViewDetails={cookStatus === "active" ? () => setPlanSheetVisible(true) : undefined}
+          isMeatOn={isMeatOn}
+          pitMasterResult={result}
+          pitMasterAnalyzing={analyzing}
+          renderDecisions={renderDecisions}
+          onCheckIn={handlePitMasterCheckIn}
         />
         <CookSummaryCard
           c={c}
@@ -3212,31 +3229,6 @@ export default function CookDetailScreen() {
           onCardLayout={onCardLayout}
         />}
 
-        {/* ── Ask PitMaster (active cooks only, once meat is on) ── */}
-        {(cookStatus !== "active" || isMeatOn) && <AskPitMaster
-          c={c}
-          colors={colors}
-          meaterLinked={meaterLinked}
-          meaterProbes={selectedMeaterProbe ? [selectedMeaterProbe] : []}
-          lastCheckinInternalTempF={lastCheckin?.internalTempF ?? null}
-          lastCheckinPitTempF={lastCheckin?.pitTempF ?? null}
-          lastCheckinAt={lastCheckin?.createdAt ?? null}
-          qpMethod={qpMethod}
-          qpInjection={qpInjection}
-          qpSpritz={qpSpritz}
-          qpWrap={qpWrap}
-          paywallUsage={paywallUsage}
-          autoGradePaused={autoGradePaused}
-          onUpgradeAutoGradePress={onUpgradeAutoGradePress}
-          analyzing={analyzing}
-          lastAnalyzedAtMs={lastAnalyzedAtMs}
-          nowMs={nowMs}
-          result={result}
-          renderDecisions={renderDecisions}
-          verdictCfg={verdictCfg}
-          assessment={assessment}
-          onCardLayout={onCardLayout}
-        />}
 
         {/* ── Soft "you're 1 cook from the wall" nudge ──────────
             Free users who just completed their second cook see a
