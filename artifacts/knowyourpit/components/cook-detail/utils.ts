@@ -98,10 +98,20 @@ export function computePlanGrade(c: {
   plannedEndAt?: string | null;
   actualStartAt?: string | null;
   actualEndAt?: string | null;
+  fromFrozen?: boolean | null;
+  sequenceData?: any;
 }): PlanGrade | null {
   const pStart = c.plannedStartAt ? new Date(c.plannedStartAt).getTime() : null;
   const pEnd = c.plannedEndAt ? new Date(c.plannedEndAt).getTime() : null;
-  const aStart = c.actualStartAt ? new Date(c.actualStartAt).getTime() : null;
+  // For frozen cooks actualStartAt is the thaw start, which is 24+ hours before
+  // plannedStartAt (the grill preheat). Use meatOnAt from the sequence instead
+  // so both anchors refer to the same event: when active cooking began.
+  const frozenMeatOnAt: string | null = c.fromFrozen
+    ? (c.sequenceData?.schedule?.[0]?.meatOnAt ?? null)
+    : null;
+  const aStart = frozenMeatOnAt
+    ? new Date(frozenMeatOnAt).getTime()
+    : c.actualStartAt ? new Date(c.actualStartAt).getTime() : null;
   const aEnd = c.actualEndAt ? new Date(c.actualEndAt).getTime() : null;
   if (!pStart || !pEnd || !aStart || !aEnd) return null;
   const plannedMs = pEnd - pStart;

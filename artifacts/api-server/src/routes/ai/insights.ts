@@ -79,11 +79,19 @@ router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void
 
     const accuracies: number[] = [];
     for (const c of cooks) {
-      if (!c.plannedStartAt || !c.plannedEndAt || !c.actualStartAt || !c.actualEndAt) continue;
+      if (!c.plannedStartAt || !c.plannedEndAt || !c.actualEndAt) continue;
+      // For frozen cooks actualStartAt is the thaw start, which can be 24+ hours
+      // before plannedStartAt (the grill preheat). Use meatOnAt from the sequence
+      // so both anchors refer to when active cooking began.
+      const frozenMeatOnAt: string | null = c.fromFrozen
+        ? ((c.sequenceData as any)?.schedule?.[0]?.meatOnAt ?? null)
+        : null;
+      const effectiveActualStart = frozenMeatOnAt ?? c.actualStartAt;
+      if (!effectiveActualStart) continue;
       const planned =
         new Date(c.plannedEndAt).getTime() - new Date(c.plannedStartAt).getTime();
       const actual =
-        new Date(c.actualEndAt).getTime() - new Date(c.actualStartAt).getTime();
+        new Date(c.actualEndAt).getTime() - new Date(effectiveActualStart).getTime();
       if (planned < 5 * 60 * 1000) continue;
       const deviationPct = (Math.abs(actual - planned) / planned) * 100;
       accuracies.push(Math.max(0, Math.round(100 - deviationPct)));
