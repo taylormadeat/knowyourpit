@@ -2879,6 +2879,8 @@ export default function CookDetailScreen() {
           pitMasterAssessment={assessment}
           renderDecisions={renderDecisions}
           onCheckIn={handlePitMasterCheckIn}
+          lastAnalyzedAtMs={lastAnalyzedAtMs}
+          onRefresh={() => analyze()}
         />
         <CookSummaryCard
           c={c}

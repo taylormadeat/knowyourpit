@@ -53,6 +53,17 @@ interface Props {
   pitMasterAssessment?: any;
   renderDecisions?: (decisions: any[]) => React.ReactNode;
   onCheckIn?: () => void;
+  lastAnalyzedAtMs?: number | null;
+  onRefresh?: () => void;
+}
+
+function fmtLastChecked(lastAnalyzedAtMs: number, nowMs: number): string {
+  const diffMs = nowMs - lastAnalyzedAtMs;
+  if (diffMs < 60000) return "just now";
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return `${mins} min ago`;
+  const h = Math.floor(mins / 60);
+  return `${h}h ago`;
 }
 
 function fmtSpritzCountdown(diffMs: number): string {
@@ -72,7 +83,7 @@ export function LiveCookSection(p: Props) {
     setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
     targetTempF, cookTempF, nextSpritzMs, nextMopMs, onViewDetails,
     isMeatOn, pitMasterResult, pitMasterAnalyzing, pitMasterVerdictCfg, pitMasterAssessment,
-    renderDecisions, onCheckIn,
+    renderDecisions, onCheckIn, lastAnalyzedAtMs, onRefresh,
   } = p;
 
   const [phaseNarrativeExpanded, setPhaseNarrativeExpanded] = React.useState(false);
@@ -471,8 +482,25 @@ export function LiveCookSection(p: Props) {
             <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: "#FF6B2B", textTransform: "uppercase", letterSpacing: 0.5 }}>
               PitMaster
             </Text>
-            {pitMasterAnalyzing && (
+            {pitMasterAnalyzing ? (
               <ActivityIndicator size="small" color="#FF6B2B" style={{ marginLeft: 4 }} />
+            ) : (
+              <>
+                {lastAnalyzedAtMs != null && (
+                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground, marginLeft: 2 }}>
+                    · {fmtLastChecked(lastAnalyzedAtMs, nowMs ?? Date.now())}
+                  </Text>
+                )}
+                {onRefresh != null && (
+                  <Pressable
+                    onPress={onRefresh}
+                    hitSlop={10}
+                    style={({ pressed }) => ({ marginLeft: 2, opacity: pressed ? 0.5 : 1 })}
+                  >
+                    <Feather name="refresh-cw" size={11} color={colors.mutedForeground} />
+                  </Pressable>
+                )}
+              </>
             )}
           </View>
 
