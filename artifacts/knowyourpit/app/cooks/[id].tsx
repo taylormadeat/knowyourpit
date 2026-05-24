@@ -3278,8 +3278,8 @@ export default function CookDetailScreen() {
           saveRatings={saveRatings}
         />
 
-        {/* ── Cook Photos ──────────────────────────────────────── */}
-        <CookPhotosSection cookId={Number(id)} colors={colors} />
+        {/* ── Cook Photos (completed cooks only) ───────────────── */}
+        {cookStatus !== "active" && <CookPhotosSection cookId={Number(id)} colors={colors} />}
 
         {/* ── Share Cook (completed cooks only) ───────────────── */}
         <ShareCookButton cook={c} colors={colors} />
