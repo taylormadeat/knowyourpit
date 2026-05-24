@@ -113,6 +113,8 @@ interface AiAnalysisEvent {
   summary: string;
   detail?: string;
   aiDecisions?: string[];
+  /** Raw verdict key: "on_track" | "watch" | "action_needed" */
+  verdict?: string;
 }
 
 interface TriggeredAlertEvent {
@@ -960,6 +962,7 @@ export function CookActivityTimeline({
           summary: `PitMaster Analysis — ${verdictLabel}`,
           detail: meta?.summary ?? evt.note ?? undefined,
           aiDecisions: decisions.length > 0 ? decisions : undefined,
+          verdict,
         });
         continue;
       }
@@ -1061,6 +1064,47 @@ export function CookActivityTimeline({
     });
   }, []);
 
+  // ── Last AI verdict chip (for collapsed header) ───────────────────────────
+  const lastVerdictChip = React.useMemo(() => {
+    const eligible = pastEvents
+      .filter((e): e is AiAnalysisEvent | UnifiedCheckinEvent => {
+        if (e.kind === "ai-analysis") return true;
+        if (e.kind === "checkin" && !!e.historyEntry?.assessment?.verdict) return true;
+        return false;
+      })
+      .slice()
+      .sort((a, b) => b.occurredAt - a.occurredAt);
+
+    if (eligible.length === 0) return null;
+    const latest = eligible[0];
+
+    if (latest.kind === "ai-analysis") {
+      const v = latest.verdict ?? "";
+      const label =
+        v === "on_track"      ? "On Track"      :
+        v === "watch"         ? "Watch"         :
+        v === "action_needed" ? "Action Needed" :
+        "Analysis";
+      const color =
+        v === "on_track"      ? "#22c55e" :
+        v === "watch"         ? "#F59E0B" :
+        v === "action_needed" ? "#EF4444" :
+        latest.color;
+      return { color, label };
+    }
+
+    if (latest.kind === "checkin" && latest.historyEntry?.assessment?.verdict) {
+      const verdict = latest.historyEntry.assessment.verdict;
+      // Derive color directly from the verdict key — never use the composite checkin
+      // color which may reflect a statusFlag (e.g. purple for low_fuel) instead.
+      const color = VERDICT_COLORS[verdict] ?? "#22c55e";
+      const label = verdict.replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
+      return { color, label };
+    }
+
+    return null;
+  }, [pastEvents]);
+
   // ── Visibility ───────────────────────────────────────────────────────────────
   if (!isActive && !isCompleted && !isPlanned) return null;
 
@@ -1130,6 +1174,17 @@ export function CookActivityTimeline({
         <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground as string }}>
           {headerSubLabel}
         </Text>
+        {!expanded && lastVerdictChip && (
+          <View style={{
+            paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+            backgroundColor: lastVerdictChip.color + "20",
+            borderWidth: 1, borderColor: lastVerdictChip.color + "40",
+          }}>
+            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: lastVerdictChip.color }}>
+              {lastVerdictChip.label}
+            </Text>
+          </View>
+        )}
         <Feather name={expanded ? "chevron-up" : "chevron-down"} size={16}
           color={colors.mutedForeground as string} />
       </Pressable>
