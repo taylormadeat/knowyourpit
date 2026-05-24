@@ -147,9 +147,8 @@ import { EditCookModal } from "@/components/cook-detail/EditCookModal";
 import { EditCookTimesSheet } from "@/components/cook-detail/EditCookTimesSheet";
 import { AddToPlannedCookModal } from "@/components/cook-detail/AddToPlannedCookModal";
 import { AlertSheet } from "@/components/cook-detail/AlertSheet";
-import { CheckInHistory } from "@/components/cook-detail/CheckInHistory";
 import { UnifiedCheckinSheet } from "@/components/cook-detail/UnifiedCheckinSheet";
-import { CookCheckinTimeline, CookJourneyReplay } from "@/components/cook-detail/CookCheckinTimeline";
+import { CookActivityTimeline } from "@/components/cook-detail/CookActivityTimeline";
 import { LiveCookSection } from "@/components/cook-detail/LiveCookSection";
 import { CookSummaryCard } from "@/components/cook-detail/CookSummaryCard";
 import { SequenceSchedule } from "@/components/cook-detail/SequenceSchedule";
@@ -161,7 +160,6 @@ import { RateThisCook } from "@/components/cook-detail/RateThisCook";
 import { ShareCookButton } from "@/components/cook-detail/ShareCookButton";
 import { NextUpBanner } from "@/components/NextUpBanner";
 import { CookHealthScoreCard } from "@/components/cook-detail/CookHealthScoreCard";
-import { PitJournalFeed } from "@/components/cook-detail/PitJournalFeed";
 import { CookPhotosSection } from "@/components/cook-detail/CookPhotosSection";
 import { useProactiveAlerts } from "@/hooks/useProactiveAlerts";
 import { getListCookEventsQueryKey } from "@workspace/api-client-react";
@@ -3285,32 +3283,17 @@ export default function CookDetailScreen() {
         <ShareCookButton cook={c} colors={colors} />
 
 
-        {/* ── Smart Check-In Timeline ──────────────────────── */}
-        <CookCheckinTimeline
-          c={c as Record<string, unknown>}
+        {/* ── Activity Timeline (unified: check-ins, journal events, alerts, milestones) */}
+        <CookActivityTimeline
+          c={c}
           colors={colors}
           cookStatus={cookStatus}
           nowMs={nowMs}
+          cookId={Number(id)}
           cookSeqData={cookSeqData as SequenceData | null}
           checkins={cookCheckins as CookCheckin[]}
           checkinsLoading={checkinsLoading}
           onOpenCheckin={openCheckin}
-        />
-
-        {/* ── Cook Journey Replay (completed cooks) ─────────── */}
-        <CookJourneyReplay
-          c={c as Record<string, unknown>}
-          colors={colors}
-          checkins={cookCheckins as CookCheckin[]}
-          cookSeqData={cookSeqData as SequenceData | null}
-        />
-
-        {/* ── Pit Journal Feed ──────────────────────────────── */}
-        <PitJournalFeed
-          cookId={Number(id)}
-          colors={colors}
-          cookStatus={cookStatus}
-          checkins={cookCheckins as CookCheckin[]}
           triggeredAlerts={activeCookAlerts
             .filter((a) => a.triggeredAt != null)
             .map((a) => ({ id: a.id, message: a.message ?? "Temperature alert triggered", triggeredAt: a.triggeredAt as string }))}
@@ -3334,28 +3317,15 @@ export default function CookDetailScreen() {
             const prev = arr[i - 1];
             return Math.floor(r.tempF / 25) > Math.floor(prev.tempF / 25);
           }).map((r, i) => ({ id: `probe-${i}`, tempF: r.tempF, timeMinutes: r.timeMinutes }))}
-        />
-
-        {/* ── Check-in History (AI analysis history + upcoming planned) ────────── */}
-        <CheckInHistory
-          c={c}
-          colors={colors}
           effectivePro={effectivePro}
           isIdentityLinked={isIdentityLinked}
           showPaywall={showPaywall}
           plannedCheckins={(() => {
             if (cookStatus !== "active") return [];
-            // When a cook has an AI plan the hook populates storedScheduledCheckins.
-            // When there's no plan, prefer noPlanScheduledCheckins (set immediately
-            // by handleStatusUpdate) so the card shows reminders right away without
-            // waiting for the hook. Use storedScheduledCheckins only when an AI plan
-            // is present (cookSeqData has schedule items) to avoid stale values
-            // from a prior cook bleeding in.
             const hasPlan = !!cookSeqData?.schedule?.length;
             const base = hasPlan && storedScheduledCheckins.length > 0
               ? storedScheduledCheckins
               : noPlanScheduledCheckins;
-            // Sort ascending by scheduledAt so current (first) is always the soonest.
             return base
               .filter((sc) => !removedPlannedKeys.has(sc.phaseKey) && sc.scheduledAt > nowMs)
               .sort((a, b) => a.scheduledAt - b.scheduledAt);
