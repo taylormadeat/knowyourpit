@@ -157,7 +157,6 @@ import { FrozenTimeline } from "@/components/cook-detail/FrozenTimeline";
 import { PlannedCookTimeline } from "@/components/cook-detail/PlannedCookTimeline";
 import { ThawStatusBanner } from "@/components/cook-detail/ThawStatusBanner";
 import { StoredAiAnalysis } from "@/components/cook-detail/StoredAiAnalysis";
-import { AskPitMaster } from "@/components/cook-detail/AskPitMaster";
 import { RateThisCook } from "@/components/cook-detail/RateThisCook";
 import { ShareCookButton } from "@/components/cook-detail/ShareCookButton";
 import { NextUpBanner } from "@/components/NextUpBanner";
@@ -343,18 +342,6 @@ export default function CookDetailScreen() {
     setActiveCheckin(sc);
     setCheckinModalVisible(true);
   }, []);
-
-  const handlePitMasterCheckIn = useCallback(() => {
-    const schedule = getCheckinSchedule((cook as any)?.foodType ?? null);
-    const phase = schedule.phases[0];
-    openCheckin({
-      id: `manual_${Date.now()}`,
-      phaseKey: phase.key,
-      phaseLabel: phase.label,
-      scheduledAt: Date.now(),
-      phase,
-    });
-  }, [cook, openCheckin]);
 
   // Alert sheet state
   const [alertSheetVisible, setAlertSheetVisible] = useState(false);
@@ -1033,6 +1020,36 @@ export default function CookDetailScreen() {
   );
   // Smart check-in notifications — fire at BBQ milestone points while cook is active.
   const storedScheduledCheckins = useCheckinNotifications(Number(id) || null, cookStatus, cookSeqData);
+
+  // Opens the check-in sheet with the most contextually relevant phase:
+  // pending notification → next upcoming scheduled → manual phase-0 fallback.
+  // Mirrors the same targeting logic as the persistent check-in CTA banner.
+  const handlePitMasterCheckIn = useCallback(() => {
+    const hasPlan = (cookSeqData?.schedule?.length ?? 0) > 0;
+    const upcoming = (
+      hasPlan && storedScheduledCheckins.length > 0
+        ? storedScheduledCheckins
+        : noPlanScheduledCheckins
+    ).filter((sc) => sc.scheduledAt > nowMs);
+
+    const targetSc: ScheduledCheckin | null =
+      pendingCheckinSc ?? upcoming[0] ?? null;
+
+    if (targetSc) {
+      openCheckin(targetSc);
+    } else {
+      const schedule = getCheckinSchedule((cook as any)?.foodType ?? null);
+      const phase = schedule.phases[0];
+      openCheckin({
+        id: `manual_${Date.now()}`,
+        phaseKey: phase.key,
+        phaseLabel: phase.label,
+        scheduledAt: Date.now(),
+        phase,
+      });
+    }
+    setPendingCheckinSc(null);
+  }, [cook, cookSeqData, storedScheduledCheckins, noPlanScheduledCheckins, nowMs, pendingCheckinSc, openCheckin]);
 
   // Build a probe reading object for the auto-checkin hook. We use the
   // react-query dataUpdatedAt timestamp so the hook knows how fresh the
@@ -2858,6 +2875,8 @@ export default function CookDetailScreen() {
           isMeatOn={isMeatOn}
           pitMasterResult={result}
           pitMasterAnalyzing={analyzing}
+          pitMasterVerdictCfg={verdictCfg}
+          pitMasterAssessment={assessment}
           renderDecisions={renderDecisions}
           onCheckIn={handlePitMasterCheckIn}
         />

@@ -49,6 +49,8 @@ interface Props {
   isMeatOn?: boolean;
   pitMasterResult?: any;
   pitMasterAnalyzing?: boolean;
+  pitMasterVerdictCfg?: any;
+  pitMasterAssessment?: any;
   renderDecisions?: (decisions: any[]) => React.ReactNode;
   onCheckIn?: () => void;
 }
@@ -69,8 +71,12 @@ export function LiveCookSection(p: Props) {
     liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, estimatedFinishMs,
     setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
     targetTempF, cookTempF, nextSpritzMs, nextMopMs, onViewDetails,
-    isMeatOn, pitMasterResult, pitMasterAnalyzing, renderDecisions, onCheckIn,
+    isMeatOn, pitMasterResult, pitMasterAnalyzing, pitMasterVerdictCfg, pitMasterAssessment,
+    renderDecisions, onCheckIn,
   } = p;
+
+  const [phaseNarrativeExpanded, setPhaseNarrativeExpanded] = React.useState(false);
+  const [assessmentExpanded, setAssessmentExpanded] = React.useState(false);
 
   const hasAnyProbe = (meaterLinked === true && meaterProbes.length > 0) ||
     (thermoworksLinked === true && thermoworksProbes.length > 0);
@@ -459,22 +465,167 @@ export function LiveCookSection(p: Props) {
 
       {/* ── PitMaster Decision Zone ── */}
       {isMeatOn && (
-        <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 }}>
+        <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
             <Feather name="cpu" size={12} color="#FF6B2B" />
             <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: "#FF6B2B", textTransform: "uppercase", letterSpacing: 0.5 }}>
               PitMaster
             </Text>
+            {pitMasterAnalyzing && (
+              <ActivityIndicator size="small" color="#FF6B2B" style={{ marginLeft: 4 }} />
+            )}
           </View>
-          {pitMasterAnalyzing ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 }}>
-              <ActivityIndicator size="small" color="#FF6B2B" />
+
+          {pitMasterResult ? (
+            <View style={{ gap: 8 }}>
+              {/* Decisions */}
+              {(pitMasterResult.decisions?.length ?? 0) > 0 && renderDecisions &&
+                renderDecisions(pitMasterResult.decisions)}
+
+              {/* Phase prediction */}
+              {pitMasterResult.phasePrediction && (() => {
+                const pp = pitMasterResult.phasePrediction;
+                const PHASE_COLORS: Record<string, string> = {
+                  heat_up: "#3B82F6",
+                  stall: "#F59E0B",
+                  finishing: "#22c55e",
+                  done: "#6B7280",
+                };
+                const PHASE_ICONS: Record<string, string> = {
+                  heat_up: "thermometer",
+                  stall: "clock",
+                  finishing: "trending-up",
+                  done: "check-circle",
+                };
+                const phaseColor = PHASE_COLORS[pp.phase] ?? "#6B7280";
+                const phaseIcon = PHASE_ICONS[pp.phase] ?? "activity";
+                const fmtTime = (mins: number) => {
+                  if (mins < 60) return `~${mins}m`;
+                  const h = Math.floor(mins / 60);
+                  const m = mins % 60;
+                  return m > 0 ? `~${h}h ${m}m` : `~${h}h`;
+                };
+                const hasTimingChips =
+                  (pp.timeToStallMinutes != null && pp.phase === "heat_up") ||
+                  (pp.stallDurationMinutes != null && pp.phase === "stall") ||
+                  pp.timeToFinishMinutes != null;
+                return (
+                  <View style={[s.phaseCard, { backgroundColor: phaseColor + "15", borderColor: phaseColor + "40", borderRadius: colors.radius }]}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <View style={[s.phaseChip, { backgroundColor: phaseColor + "25", borderColor: phaseColor + "50" }]}>
+                        <Feather name={phaseIcon as any} size={12} color={phaseColor} />
+                        <Text style={[s.phaseChipText, { color: phaseColor }]}>{pp.phaseLabel}</Text>
+                      </View>
+                      {pp.narrative ? (
+                        <Pressable
+                          onPress={() => setPhaseNarrativeExpanded((v) => !v)}
+                          style={{ flexDirection: "row", alignItems: "center", gap: 3 }}
+                          hitSlop={8}
+                        >
+                          <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: phaseColor }}>
+                            {phaseNarrativeExpanded ? "Less" : "More"}
+                          </Text>
+                          <Feather name={phaseNarrativeExpanded ? "chevron-up" : "chevron-down"} size={11} color={phaseColor} />
+                        </Pressable>
+                      ) : null}
+                    </View>
+                    {phaseNarrativeExpanded && pp.narrative ? (
+                      <Text style={[s.phaseNarrative, { color: colors.foreground }]}>{pp.narrative}</Text>
+                    ) : null}
+                    {hasTimingChips && (
+                      <View style={s.phaseChips}>
+                        {pp.timeToStallMinutes != null && pp.phase === "heat_up" && (
+                          <View style={[s.timeChip, { backgroundColor: phaseColor + "20", borderColor: phaseColor + "40" }]}>
+                            <Feather name="clock" size={11} color={phaseColor} />
+                            <Text style={[s.timeChipText, { color: phaseColor }]}>Stall in {fmtTime(pp.timeToStallMinutes)}</Text>
+                          </View>
+                        )}
+                        {pp.stallDurationMinutes != null && pp.phase === "stall" && (
+                          <View style={[s.timeChip, { backgroundColor: "#F59E0B20", borderColor: "#F59E0B40" }]}>
+                            <Feather name="pause-circle" size={11} color="#F59E0B" />
+                            <Text style={[s.timeChipText, { color: "#F59E0B" }]}>Stall ends in {fmtTime(pp.stallDurationMinutes)}</Text>
+                          </View>
+                        )}
+                        {pp.timeToFinishMinutes != null && (
+                          <View style={[s.timeChip, { backgroundColor: "#22c55e20", borderColor: "#22c55e40" }]}>
+                            <Feather name="flag" size={11} color="#22c55e" />
+                            <Text style={[s.timeChipText, { color: "#22c55e" }]}>Done in {fmtTime(pp.timeToFinishMinutes)}</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                );
+              })()}
+
+              {/* Verdict banner */}
+              {pitMasterVerdictCfg && pitMasterAssessment && (
+                <View style={[s.verdictBanner, { backgroundColor: pitMasterVerdictCfg.color + "18", borderColor: pitMasterVerdictCfg.color + "40", borderRadius: colors.radius }]}>
+                  <Feather name={pitMasterVerdictCfg.icon as any} size={20} color={pitMasterVerdictCfg.color} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.verdictLabel, { color: pitMasterVerdictCfg.color }]}>{pitMasterVerdictCfg.label}</Text>
+                    {pitMasterAssessment.summary ? (
+                      <Text style={[s.verdictSummary, { color: colors.foreground }]}>{pitMasterAssessment.summary}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              )}
+
+              {/* Assessment expand/collapse */}
+              {(() => {
+                const wellCount = pitMasterAssessment?.whatWentWell?.length ?? 0;
+                const tipCount = pitMasterAssessment?.suggestions?.length ?? 0;
+                if (wellCount === 0 && tipCount === 0) return null;
+                const summaryParts: string[] = [];
+                if (wellCount > 0) summaryParts.push(`✓ ${wellCount} on track`);
+                if (tipCount > 0) summaryParts.push(`⚠ ${tipCount} tip${tipCount > 1 ? "s" : ""}`);
+                return (
+                  <View style={[s.subSection, { borderColor: colors.border }]}>
+                    <Pressable
+                      onPress={() => setAssessmentExpanded((v) => !v)}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+                    >
+                      <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0, flex: 1 }]}>
+                        {summaryParts.join("  ·  ")}
+                      </Text>
+                      <Feather name={assessmentExpanded ? "chevron-up" : "chevron-down"} size={13} color={colors.mutedForeground} />
+                    </Pressable>
+                    {assessmentExpanded && (
+                      <>
+                        {wellCount > 0 && (
+                          <View style={{ marginTop: 10, gap: 4 }}>
+                            <Text style={[s.subLabel, { color: "#22c55e", marginBottom: 4 }]}>Looking Good</Text>
+                            {pitMasterAssessment!.whatWentWell!.map((item: string, i: number) => (
+                              <View key={i} style={s.bulletRow}>
+                                <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
+                                <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                        {tipCount > 0 && (
+                          <View style={{ marginTop: 10, gap: 4 }}>
+                            <Text style={[s.subLabel, { color: "#A855F7", marginBottom: 4 }]}>Watch Out For</Text>
+                            {pitMasterAssessment!.suggestions!.map((tip: string, i: number) => (
+                              <View key={i} style={s.bulletRow}>
+                                <Text style={[s.bulletNum, { color: "#A855F7" }]}>{i + 1}</Text>
+                                <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </>
+                    )}
+                  </View>
+                );
+              })()}
+            </View>
+          ) : pitMasterAnalyzing ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 }}>
               <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
                 Analyzing your cook…
               </Text>
             </View>
-          ) : pitMasterResult?.decisions?.length > 0 && renderDecisions ? (
-            renderDecisions(pitMasterResult.decisions)
           ) : (
             <Pressable
               onPress={onCheckIn}
