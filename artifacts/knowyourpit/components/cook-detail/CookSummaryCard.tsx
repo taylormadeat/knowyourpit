@@ -47,6 +47,10 @@ export function CookSummaryCard(p: Props) {
     frozenMeatOnAt && c.actualEndAt && cookStatus === "completed"
       ? new Date(c.actualEndAt).getTime() - new Date(frozenMeatOnAt).getTime()
       : null;
+  const thawDurMs =
+    frozenMeatOnAt && c.actualStartAt && cookStatus === "completed"
+      ? new Date(frozenMeatOnAt).getTime() - new Date(c.actualStartAt).getTime()
+      : null;
 
   const planGrade = cookStatus === "completed" ? computePlanGrade(c) : null;
 
@@ -73,6 +77,7 @@ export function CookSummaryCard(p: Props) {
     { label: "Started", value: c.actualStartAt ? formatDT(c.actualStartAt) : null },
     { label: "Finished", value: c.actualEndAt ? formatDT(c.actualEndAt) : null },
     { label: "Actual Duration", value: actualDurMs ? fmtDuration(actualDurMs) : null },
+    { label: "Thaw Time", value: thawDurMs ? fmtDuration(thawDurMs) : null },
     { label: "Active Cook", value: activeCookDurMs ? fmtDuration(activeCookDurMs) : null },
   ].filter((r) => r.value) : [];
 
