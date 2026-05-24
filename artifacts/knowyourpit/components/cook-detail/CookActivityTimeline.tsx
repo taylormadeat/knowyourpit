@@ -873,6 +873,8 @@ export function CookActivityTimeline({
   const [expanded, setExpanded] = useState(cookStatus === "active");
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const scrollRef = useRef<ScrollView>(null);
+  const prevCountRef = useRef(0);
+  const isAtBottomRef = useRef(true);
 
   const isActive = cookStatus === "active";
   const isCompleted = cookStatus === "completed";
@@ -1036,10 +1038,16 @@ export function CookActivityTimeline({
     [scheduledCheckins, isPlanned],
   );
 
-  // Auto-expand and scroll on new events during active cook
+  // Auto-expand and scroll on new events during active cook.
+  // Only fires when a genuinely new event arrives (prevCount > 0 ensures initial
+  // load is skipped). Scroll is suppressed when the user has scrolled upward.
   useEffect(() => {
-    if (!isActive || pastEvents.length === 0) return;
+    if (!isActive) return;
+    const prevCount = prevCountRef.current;
+    prevCountRef.current = pastEvents.length;
+    if (pastEvents.length === 0 || prevCount === 0 || pastEvents.length <= prevCount) return;
     setExpanded(true);
+    if (!isAtBottomRef.current) return;
     const timer = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1158,7 +1166,12 @@ export function CookActivityTimeline({
       {/* Timeline rows */}
       {!checkinsLoading && !eventsLoading && expanded && allRows.length > 0 && (
         <ScrollView ref={scrollRef} style={{ maxHeight: 520 }}
-          showsVerticalScrollIndicator={false} nestedScrollEnabled>
+          showsVerticalScrollIndicator={false} nestedScrollEnabled
+          scrollEventThrottle={100}
+          onScroll={(e) => {
+            const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+            isAtBottomRef.current = layoutMeasurement.height + contentOffset.y >= contentSize.height - 32;
+          }}>
           <View style={{ padding: 14 }}>
             {allRows.map((row, idx) => {
               const isLast = idx === allRows.length - 1;
