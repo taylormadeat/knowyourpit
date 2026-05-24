@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, Animated } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { s } from "./styles";
 import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
@@ -88,6 +88,24 @@ export function LiveCookSection(p: Props) {
 
   const [phaseNarrativeExpanded, setPhaseNarrativeExpanded] = React.useState(false);
   const [assessmentExpanded, setAssessmentExpanded] = React.useState(false);
+
+  const flashAnim = React.useRef(new Animated.Value(0)).current;
+  const prevLastAnalyzedAtMs = React.useRef<number | null>(null);
+  const hasHydrated = React.useRef(false);
+  React.useEffect(() => {
+    if (lastAnalyzedAtMs == null) return;
+    if (prevLastAnalyzedAtMs.current === lastAnalyzedAtMs) return;
+    const isFirstSeed = !hasHydrated.current;
+    prevLastAnalyzedAtMs.current = lastAnalyzedAtMs;
+    hasHydrated.current = true;
+    if (isFirstSeed) return;
+    flashAnim.setValue(1);
+    Animated.timing(flashAnim, {
+      toValue: 0,
+      duration: 900,
+      useNativeDriver: true,
+    }).start();
+  }, [lastAnalyzedAtMs, flashAnim]);
 
   const hasAnyProbe = (meaterLinked === true && meaterProbes.length > 0) ||
     (thermoworksLinked === true && thermoworksProbes.length > 0);
@@ -478,6 +496,19 @@ export function LiveCookSection(p: Props) {
       {isMeatOn && (
         <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: -14,
+                right: -14,
+                top: -4,
+                bottom: -4,
+                backgroundColor: "#FF6B2B",
+                borderRadius: 4,
+                opacity: flashAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.12] }),
+              }}
+            />
             <Feather name="cpu" size={12} color="#FF6B2B" />
             <Text style={{ fontFamily: "Inter_700Bold", fontSize: 11, color: "#FF6B2B", textTransform: "uppercase", letterSpacing: 0.5 }}>
               PitMaster
