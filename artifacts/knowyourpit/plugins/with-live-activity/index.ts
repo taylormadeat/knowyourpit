@@ -237,6 +237,7 @@ const withWidgetTarget: ConfigPlugin = (config) =>
   });
 
 const withLiveActivity: ConfigPlugin = (config) => {
+  if ((config as any).platform !== "ios") return config;
   config = withLiveActivityInfoPlist(config);
   config = withAppGroupEntitlement(config);
   config = withWidgetSources(config);

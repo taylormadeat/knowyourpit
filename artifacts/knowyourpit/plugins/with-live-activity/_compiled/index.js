@@ -198,6 +198,7 @@ const withWidgetTarget = (config) => (0, config_plugins_1.withXcodeProject)(conf
     return mod;
 });
 const withLiveActivity = (config) => {
+    if (config.platform !== "ios") return config;
     config = withLiveActivityInfoPlist(config);
     config = withAppGroupEntitlement(config);
     config = withWidgetSources(config);

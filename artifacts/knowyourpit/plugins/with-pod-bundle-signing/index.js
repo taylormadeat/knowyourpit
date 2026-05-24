@@ -7,6 +7,7 @@ const DEPLOY_MARKER = "# PIT_DEPLOYMENT_TARGET_FIX";
 const MIN_IOS = "16.1";
 
 const withPodBundleSigning = (config) => {
+  if (config.platform !== "ios") return config;
   return withDangerousMod(config, [
     "ios",
     async (cfg) => {

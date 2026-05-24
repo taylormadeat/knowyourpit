@@ -31,9 +31,10 @@
     "android": {
       "package": "com.knowyourpit.app",
       "versionCode": 3,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#FFFFFF"
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#0e0e10"
       },
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
