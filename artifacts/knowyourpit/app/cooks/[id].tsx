@@ -1794,6 +1794,14 @@ export default function CookDetailScreen() {
             spritzFrequency: c?.spritzFrequency ?? null,
             spritzLiquid: c?.spritzLiquid ?? null,
             wrapFinish: c?.wrapFinish ?? null,
+            // Frozen-meat fields — let PitMaster factor thaw time into future plans
+            // actualStartAt = meat-on time; actualThawStartAt = when thaw started.
+            // thaw duration = actualStartAt - actualThawStartAt
+            // active cook duration = actualEndAt - actualStartAt
+            fromFrozen: c?.fromFrozen ?? false,
+            thawMethod: c?.thawMethod ?? null,
+            actualThawStartAt: c?.actualThawStartAt ? new Date(c.actualThawStartAt).toISOString() : null,
+            actualEndAt: c?.actualEndAt ? new Date(c.actualEndAt).toISOString() : null,
           },
         } as any,
       });

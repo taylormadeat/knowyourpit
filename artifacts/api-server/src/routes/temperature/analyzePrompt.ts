@@ -120,6 +120,15 @@ suggestions: 3-5 specific, actionable improvements. Reference actual temperature
 If cook context is provided, use those values to fill any gaps and assess against stated targets.
 If noDataFound is true, still assess and suggest based on cook notes and any provided context alone.
 
+=== FROZEN COOK ANALYSIS ===
+When "Started from frozen: YES" appears in the cook context:
+- In "whatWentWell" or "suggestions", explicitly acknowledge the thaw method and duration that was used.
+- Reference the actual thaw duration when making recommendations. E.g. "Your refrigerator thaw ran 27h — right in the sweet spot for a 12 lb brisket."
+- If the thaw duration seems too short for the weight and method, flag it (e.g. fridge thaw < 24h per 4-5 lbs is at-risk for uneven thaw).
+- In "suggestions", always include a specific lead-time recommendation for the NEXT frozen cook of this cut — name the thaw method and the hours of lead time needed based on what actually happened.
+- Separate thaw time from grill time when discussing duration. Active cook duration (grill time only) is what matters for future cook planning; thaw duration is overhead that needs to be scheduled before the cook.
+- Non-frozen cooks: ignore this section entirely — do not mention thawing.
+
 ${isActiveCook ? `=== ACTIVE COOK MODE — LIVE LANGUAGE REQUIRED ===
 This cook is IN PROGRESS RIGHT NOW. The pitmaster is checking in mid-cook for live guidance, NOT reviewing a finished cook. You MUST write the assessment in present tense as a live status report:
 

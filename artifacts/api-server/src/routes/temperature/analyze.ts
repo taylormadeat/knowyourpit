@@ -84,6 +84,15 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
       spritzFrequency?: string | null;
       spritzLiquid?: string | null;
       wrapFinish?: string | null;
+      // Frozen-meat fields
+      // actualStartAt = meat-on time (already in type above)
+      // actualThawStartAt = when the thaw actually started
+      // thaw duration = actualStartAt - actualThawStartAt
+      // active cook duration = actualEndAt - actualStartAt
+      fromFrozen?: boolean | null;
+      thawMethod?: string | null;
+      actualThawStartAt?: string | null;
+      actualEndAt?: string | null;
     } | null;
   };
 
@@ -262,6 +271,55 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
   }
   if (cookContext?.wrapFinish) techniqueLines.push(`Wrap/finish method: ${cookContext.wrapFinish}`);
   if (techniqueLines.length > 0) contextLines.push(`Techniques used: ${techniqueLines.join(" · ")}`);
+
+  // ── Frozen-meat context ──────────────────────────────────────────────────
+  // For frozen cooks we pass the thaw duration and active cook duration
+  // separately so PitMaster can recommend the right lead time on future cooks.
+  if (cookContext?.fromFrozen) {
+    const thawMethodLabel = (() => {
+      switch (cookContext.thawMethod) {
+        case "fridge":
+        case "refrigerator": return "refrigerator (~24h per 4-5 lbs, USDA-safe)";
+        case "cold_water":   return "cold-water (~30 min per lb, change water every 30 min)";
+        case "microwave":    return "microwave (cook immediately after)";
+        case "counter":      return "counter (not recommended for food safety)";
+        case "cook_from_frozen":
+        case "cook-from-frozen": return "cook-from-frozen (no thaw, add ~50% cook time)";
+        default: return cookContext.thawMethod ?? "not specified";
+      }
+    })();
+
+    contextLines.push(`Started from frozen: YES`);
+    contextLines.push(`Thaw method: ${thawMethodLabel}`);
+
+    // Thaw duration: from when thaw started (actualThawStartAt) to when meat
+    // went on the grill (actualStartAt). Active cook duration: actualStartAt
+    // to actualEndAt. Both only emitted when timestamps are available.
+    const meatOnStr = cookContext.actualStartAt;   // actual meat-on time
+    const thawStartStr = cookContext.actualThawStartAt; // actual thaw start
+    const actualEndStr = cookContext.actualEndAt;
+
+    const fmtDur = (ms: number): string => {
+      const totalMin = Math.round(ms / 60000);
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
+      return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    };
+
+    if (meatOnStr && thawStartStr) {
+      const thawDurMs = new Date(meatOnStr).getTime() - new Date(thawStartStr).getTime();
+      if (thawDurMs > 0) {
+        contextLines.push(`Thaw duration (thaw start → meat on grill): ${fmtDur(thawDurMs)}`);
+      }
+    }
+
+    if (meatOnStr && actualEndStr) {
+      const activeDurMs = new Date(actualEndStr).getTime() - new Date(meatOnStr).getTime();
+      if (activeDurMs > 0) {
+        contextLines.push(`Active cook duration (grill time only, excludes thaw): ${fmtDur(activeDurMs)}`);
+      }
+    }
+  }
 
   // ── Live MEATER readings analysis ────────────────────────────────────────
   const rawLive = Array.isArray(cookContext?.liveReadings) ? cookContext.liveReadings : [];
