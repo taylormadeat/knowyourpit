@@ -1938,22 +1938,36 @@ export default function CookDetailScreen() {
         ? (selectedMeaterProbe.internalTempF as number)
         : null;
     const hasMeaterTemp = liveMeaterInternalTempF != null;
+    // BLE context device (MEATER via GATT, Govee, Weber iGrill) live readings.
+    const liveBleInternalTempF = selectedBleContextDevice?.probeTempF ?? null;
+    const liveBleAmbientTempF = selectedBleContextDevice?.ambientTempF ?? null;
+    // LAN probe (Fireboard, MEATER Block, ThermoWorks Signals) live readings.
+    const liveLanInternalTempF = selectedLanProbe?.probeTempF ?? null;
+    const liveLanAmbientTempF = selectedLanProbe?.ambientTempF ?? null;
+    const hasLiveProbeTemp = liveBleInternalTempF != null || liveLanInternalTempF != null;
     // checkinOverride lets the unified check-in sheet bypass async query-cache
     // lag — the just-submitted temps arrive immediately without waiting for
     // getListCookCheckinsQueryKey to refetch and update lastCheckin.
+    // Priority for meat temp: MEATER cloud > BLE GATT/adv > LAN probe > manual check-in override > last check-in.
     const resolvedInternalTempF =
       liveMeaterInternalTempF ??
+      liveBleInternalTempF ??
+      liveLanInternalTempF ??
       opts.checkinOverride?.internalTempF ??
       lastCheckin?.internalTempF ??
       null;
+    // Priority for pit/ambient temp: manual override > live probe ambient (BLE > LAN > MEATER cloud) > last check-in (stale fallback).
+    // Live probe ambient takes precedence over stale check-in history so PitMaster sees real current pit temp.
     const resolvedPitTempF =
       opts.checkinOverride?.pitTempF ??
-      lastCheckin?.pitTempF ??
+      liveBleAmbientTempF ??
+      liveLanAmbientTempF ??
       selectedMeaterProbe?.ambientTempF ??
+      lastCheckin?.pitTempF ??
       null;
     const hasCheckinTemp = resolvedInternalTempF != null || resolvedPitTempF != null;
     const hasAnyInput = images.length > 0 || notesForAnalysis.length > 0 || hasCheckinTemp;
-    if (!hasAnyInput && !hasMeaterTemp) {
+    if (!hasAnyInput && !hasMeaterTemp && !hasLiveProbeTemp) {
       if (auto) return; // silent skip — nothing useful to grade right now
       if (cookStatus === "active") {
         Alert.alert("Nothing to check in with", "Log a check-in with your probe and pit temperatures, or add a note about what's happening.");
