@@ -553,6 +553,7 @@ router.delete("/sessions/:sessionId", requireAuth, async (req: any, res): Promis
     for (const p of cookPhotoRows) {
       await deleteFromStorage(p.storageKey).catch(() => {});
     }
+    await db.delete(temperatureReadingsTable).where(eq(temperatureReadingsTable.cookId, cook.id));
     await db.delete(cookPhotosTable).where(eq(cookPhotosTable.cookId, cook.id));
     await db.delete(cookCheckins).where(eq(cookCheckins.cookId, cook.id));
     await db.delete(alertsTable).where(eq(alertsTable.cookId, cook.id));
@@ -578,6 +579,7 @@ router.delete("/cooks/:id", requireAuth, async (req: any, res): Promise<void> =>
   for (const p of cookPhotoRows) {
     await deleteFromStorage(p.storageKey).catch(() => {});
   }
+  await db.delete(temperatureReadingsTable).where(eq(temperatureReadingsTable.cookId, params.data.id));
   await db.delete(cookPhotosTable).where(eq(cookPhotosTable.cookId, params.data.id));
   await db.delete(cookCheckins).where(eq(cookCheckins.cookId, params.data.id));
   await db.delete(alertsTable).where(eq(alertsTable.cookId, params.data.id));
