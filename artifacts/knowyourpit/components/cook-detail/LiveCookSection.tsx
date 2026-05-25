@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, Pressable, ActivityIndicator, Animated } from "react-native";
+import type { InkbirdProbeReading } from "@/hooks/useInkbirdBLE";
 import { Feather } from "@expo/vector-icons";
 import { s } from "./styles";
 import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
@@ -29,6 +30,9 @@ interface Props {
   meaterProbes: any[];
   thermoworksLinked: boolean | null;
   thermoworksProbes: any[];
+  inkbirdProbes?: InkbirdProbeReading[];
+  tempMode?: "probe" | "manual";
+  onSetTempMode?: (mode: "probe" | "manual") => void;
   selectedProbeId?: string | null;
   onSelectProbe?: (probeId: string | null) => void;
   liveGraphProbes: ProbeTimeSeries[];
@@ -78,6 +82,7 @@ function fmtSpritzCountdown(diffMs: number): string {
 export function LiveCookSection(p: Props) {
   const {
     c, colors, weather, meaterLinked, meaterProbes, thermoworksLinked, thermoworksProbes,
+    inkbirdProbes = [], tempMode = "manual", onSetTempMode,
     selectedProbeId, onSelectProbe,
     liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, estimatedFinishMs,
     setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
@@ -108,8 +113,9 @@ export function LiveCookSection(p: Props) {
   }, [lastAnalyzedAtMs, flashAnim]);
 
   const hasAnyProbe = (meaterLinked === true && meaterProbes.length > 0) ||
-    (thermoworksLinked === true && thermoworksProbes.length > 0);
-  const noneSelected = hasAnyProbe && selectedProbeId == null;
+    (thermoworksLinked === true && thermoworksProbes.length > 0) ||
+    inkbirdProbes.length > 0;
+  const noneSelected = tempMode === "probe" && hasAnyProbe && selectedProbeId == null;
 
   if (c.status !== "active") return null;
 
@@ -157,13 +163,13 @@ export function LiveCookSection(p: Props) {
         <View style={{ flex: 1 }}>
           <Text style={[s.logTitle, { color: colors.foreground }]}>Live Cook</Text>
           <Text style={[s.logSub, { color: colors.mutedForeground }]}>
-            {hasAnyProbe && selectedProbeId != null
+            {tempMode === "manual"
+              ? "Manual entry · log temps during check-in"
+              : hasAnyProbe && selectedProbeId != null
               ? "Tracking selected probe · auto-updating every 15s"
               : hasAnyProbe
               ? "Tap a probe below to track it for this cook"
-              : meaterLinked === true
-              ? "MEATER linked · no active probe detected"
-              : "Timer running · link MEATER for live temps"}
+              : "No probe detected · scanning nearby Inkbird devices"}
           </Text>
         </View>
         <View style={[s.connectedBadgeSmall, { backgroundColor: "#FF6B2B18" }]}>
@@ -325,7 +331,50 @@ export function LiveCookSection(p: Props) {
         </View>
       )}
 
-      {meaterLinked === true && meaterProbes.length > 0 && selectedProbeId != null && liveReadings.length < 2 && (
+      {/* ── Temp Mode Toggle ── */}
+      <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.border }}>
+        <Pressable
+          onPress={() => onSetTempMode?.("probe")}
+          style={[
+            { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
+            tempMode === "probe"
+              ? { backgroundColor: "#FF6B2B18", borderColor: "#FF6B2B60" }
+              : { backgroundColor: "transparent", borderColor: colors.border },
+          ]}
+        >
+          <Feather name="bluetooth" size={13} color={tempMode === "probe" ? "#FF6B2B" : colors.mutedForeground} />
+          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: tempMode === "probe" ? "#FF6B2B" : colors.mutedForeground }}>
+            Connected Probe
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => onSetTempMode?.("manual")}
+          style={[
+            { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
+            tempMode === "manual"
+              ? { backgroundColor: colors.primary + "18", borderColor: colors.primary + "60" }
+              : { backgroundColor: "transparent", borderColor: colors.border },
+          ]}
+        >
+          <Feather name="edit-3" size={13} color={tempMode === "manual" ? colors.primary : colors.mutedForeground} />
+          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: tempMode === "manual" ? colors.primary : colors.mutedForeground }}>
+            Manual Entry
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* Manual Entry mode: just a short note — temps are entered during check-in */}
+      {tempMode === "manual" && (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 14, marginBottom: 12, padding: 10, borderRadius: 8, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
+          <Feather name="edit-3" size={13} color={colors.mutedForeground} />
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, flex: 1 }}>
+            Enter probe and pit temperatures during your check-in.
+          </Text>
+        </View>
+      )}
+
+      {/* Connected Probe mode: show all available probe sources */}
+      {tempMode === "probe" && meaterLinked === true && meaterProbes.length > 0 && selectedProbeId != null && liveReadings.length < 2 && (
         <View style={[s.liveGraphWrap, { borderTopColor: colors.border }]}>
           <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground, textAlign: "left" }]}>
             📡 Collecting readings — chart will appear shortly
@@ -333,7 +382,7 @@ export function LiveCookSection(p: Props) {
         </View>
       )}
 
-      {meaterLinked === true && meaterProbes.map((probe, i) => {
+      {tempMode === "probe" && meaterLinked === true && meaterProbes.map((probe: any, i: number) => {
         const probeKey = probe.deviceId;
         const isSelected = selectedProbeId === probeKey;
         return (
@@ -403,7 +452,7 @@ export function LiveCookSection(p: Props) {
         );
       })}
 
-      {thermoworksLinked === true && thermoworksProbes.map((probe, i) => {
+      {tempMode === "probe" && thermoworksLinked === true && thermoworksProbes.map((probe: any, i: number) => {
         const probeKey = `tw_${probe.deviceId}_${probe.channelNumber}`;
         const isSelected = selectedProbeId === probeKey;
         return (
@@ -455,6 +504,61 @@ export function LiveCookSection(p: Props) {
         );
       })}
 
+      {/* Inkbird BLE probe rows */}
+      {tempMode === "probe" && inkbirdProbes.map((probe, i) => {
+        const probeKey = `ble_${probe.deviceId}_${probe.probeIndex}`;
+        const isSelected = selectedProbeId === probeKey;
+        return (
+          <Pressable
+            key={`ble-${probe.deviceId}-${probe.probeIndex}-${i}`}
+            onPress={() => onSelectProbe?.(isSelected ? null : probeKey)}
+            style={[
+              s.subSection,
+              {
+                borderTopColor: colors.border,
+                paddingHorizontal: 14,
+                paddingBottom: 12,
+                borderWidth: isSelected ? 1.5 : undefined,
+                borderColor: isSelected ? "#FF6B2B60" : undefined,
+                borderRadius: isSelected ? 10 : undefined,
+                marginHorizontal: isSelected ? 8 : undefined,
+                marginTop: isSelected ? 6 : undefined,
+                backgroundColor: isSelected ? "#FF6B2B08" : undefined,
+              },
+            ]}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                <Feather name="bluetooth" size={11} color="#3B82F6" />
+                <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
+                  {probe.deviceName}{`  ·  Ch ${probe.probeIndex + 1}  ·  Inkbird`}
+                  {probe.tempF == null ? "  ·  Searching…" : ""}
+                </Text>
+              </View>
+              {isSelected ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#FF6B2B20" }}>
+                  <Feather name="check" size={10} color="#FF6B2B" />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#FF6B2B" }}>Tracking</Text>
+                </View>
+              ) : (
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>Tap to use</Text>
+              )}
+            </View>
+            <View style={s.meaterTempsRow}>
+              <View style={s.meaterTempChip}>
+                <Feather name="thermometer" size={14} color="#3B82F6" />
+                <View>
+                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
+                    {probe.tempF != null ? `${Math.round(probe.tempF)}°F` : "—"}
+                  </Text>
+                  <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Internal</Text>
+                </View>
+              </View>
+            </View>
+          </Pressable>
+        );
+      })}
+
       {noneSelected && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 14, marginBottom: 12, padding: 10, borderRadius: 8, backgroundColor: "#FF6B2B08", borderWidth: 1, borderColor: "#FF6B2B25" }}>
           <Feather name="info" size={13} color="#FF6B2B" />
@@ -464,11 +568,11 @@ export function LiveCookSection(p: Props) {
         </View>
       )}
 
-      {meaterLinked !== true && thermoworksLinked !== true && (
+      {tempMode === "probe" && meaterLinked !== true && thermoworksLinked !== true && inkbirdProbes.length === 0 && (
         <View style={[s.meaterPlaceholder, { borderTopColor: colors.border }]}>
           <Feather name="thermometer" size={20} color={colors.mutedForeground} />
           <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground }]}>
-            Link MEATER or ThermoWorks in Profile to see live probe data here.
+            Bring your Inkbird probe into range, or link MEATER/ThermoWorks in Profile.
           </Text>
         </View>
       )}

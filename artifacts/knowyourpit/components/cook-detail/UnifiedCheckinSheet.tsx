@@ -100,7 +100,7 @@ interface UnifiedCheckinSheetProps {
   weightLbs?: number | null;
   currentInternalTempF?: number | null;
   currentPitTempF?: number | null;
-  probeSource?: "meater" | "thermoworks" | null;
+  probeSource?: "meater" | "thermoworks" | "inkbird" | null;
   lastCheckinInternalTempF?: number | null;
   targetCookTempF?: number | null;
   weatherTempF?: number | null;

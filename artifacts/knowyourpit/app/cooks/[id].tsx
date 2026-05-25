@@ -150,6 +150,7 @@ import { AlertSheet } from "@/components/cook-detail/AlertSheet";
 import { UnifiedCheckinSheet } from "@/components/cook-detail/UnifiedCheckinSheet";
 import { CookActivityTimeline } from "@/components/cook-detail/CookActivityTimeline";
 import { LiveCookSection } from "@/components/cook-detail/LiveCookSection";
+import { useInkbirdBLE } from "@/hooks/useInkbirdBLE";
 import { CookSummaryCard } from "@/components/cook-detail/CookSummaryCard";
 import { SequenceSchedule } from "@/components/cook-detail/SequenceSchedule";
 import { FrozenTimeline } from "@/components/cook-detail/FrozenTimeline";
@@ -274,12 +275,20 @@ export default function CookDetailScreen() {
   // Persisted in AsyncStorage so the selection survives navigation.
   const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
 
+  // "probe" = live BLE/cloud probe drives check-in auto-fill.
+  // "manual" = user types temps during check-in (default until a probe is chosen).
+  const [tempMode, setTempMode] = useState<"probe" | "manual">("manual");
+
   useEffect(() => {
     if (Platform.OS === "web" || !id) return;
     setSelectedProbeId(null);
+    setTempMode("manual");
     setLiveReadings([]);
     AsyncStorage.getItem(`probe_selection_${id}`)
-      .then((val) => setSelectedProbeId(val ?? null))
+      .then((val) => {
+        setSelectedProbeId(val ?? null);
+        if (val != null) setTempMode("probe");
+      })
       .catch(() => setSelectedProbeId(null));
   }, [id]);
 
@@ -291,6 +300,7 @@ export default function CookDetailScreen() {
 
   const handleSelectProbe = useCallback((probeId: string | null) => {
     setSelectedProbeId(probeId);
+    if (probeId != null) setTempMode("probe");
     if (Platform.OS === "web" || !id) return;
     if (probeId == null) {
       AsyncStorage.removeItem(`probe_selection_${id}`).catch(() => {});
@@ -885,6 +895,18 @@ export default function CookDetailScreen() {
         ) ?? null)
       : null;
 
+  // Inkbird BLE scanning — only when the cook is active and probe mode is on
+  const { probes: inkbirdProbes } = useInkbirdBLE({
+    enabled: cookStatus === "active" && tempMode === "probe",
+  });
+
+  const selectedInkbirdProbe =
+    selectedProbeId != null && selectedProbeId.startsWith("ble_")
+      ? (inkbirdProbes.find(
+          (p) => `ble_${p.deviceId}_${p.probeIndex}` === selectedProbeId,
+        ) ?? null)
+      : null;
+
   const [nowMs, setNowMs] = useState(Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [liveReadings, setLiveReadings] = useState<Array<{ timeMinutes: number; tempF: number }>>([]);
@@ -896,7 +918,7 @@ export default function CookDetailScreen() {
     status: cook?.status ?? null,
     meatLabel: cook?.foodType ?? "Cook",
     startedAtIso: cook?.actualStartAt ?? null,
-    currentTempF: selectedMeaterProbe?.internalTempF ?? selectedThermoworksProbe?.tempF ?? null,
+    currentTempF: selectedMeaterProbe?.internalTempF ?? selectedThermoworksProbe?.tempF ?? selectedInkbirdProbe?.tempF ?? null,
     targetTempF: cook?.targetTempF ?? null,
     cookTempF:
       selectedMeaterProbe?.ambientTempF ??
@@ -1053,6 +1075,7 @@ export default function CookDetailScreen() {
   // react-query dataUpdatedAt timestamp so the hook knows how fresh the
   // reading is (must be < 60 s old to qualify as "live").
   const autoCheckinProbeReading = useMemo((): AutoCheckinProbeReading | null => {
+    if (tempMode !== "probe") return null;
     if (selectedMeaterProbe?.internalTempF != null) {
       return {
         internalTempF: selectedMeaterProbe.internalTempF,
@@ -1069,8 +1092,20 @@ export default function CookDetailScreen() {
         fetchedAtMs: thermoworksDataUpdatedAt,
       };
     }
+    if (selectedInkbirdProbe?.tempF != null) {
+      return {
+        internalTempF: selectedInkbirdProbe.tempF,
+        pitTempF: null,
+        probeSource: "inkbird",
+        fetchedAtMs: selectedInkbirdProbe.lastSeenMs,
+      };
+    }
     return null;
-  }, [selectedMeaterProbe, selectedThermoworksProbe, meaterDataUpdatedAt, thermoworksDataUpdatedAt]);
+  }, [
+    tempMode,
+    selectedMeaterProbe, selectedThermoworksProbe, selectedInkbirdProbe,
+    meaterDataUpdatedAt, thermoworksDataUpdatedAt,
+  ]);
 
   // Auto check-in: when a scheduled milestone time is reached and a live probe
   // reading is available, record the check-in automatically.
@@ -2853,6 +2888,9 @@ export default function CookDetailScreen() {
           meaterProbes={meaterProbes}
           thermoworksLinked={thermoworksLinked}
           thermoworksProbes={thermoworksProbes}
+          inkbirdProbes={inkbirdProbes}
+          tempMode={tempMode}
+          onSetTempMode={setTempMode}
           selectedProbeId={selectedProbeId}
           onSelectProbe={handleSelectProbe}
           liveGraphProbes={liveGraphProbes}
@@ -3537,13 +3575,21 @@ export default function CookDetailScreen() {
           scheduledAt={activeCheckin.scheduledAt}
           foodType={cook?.foodType}
           weightLbs={cook?.weightLbs ?? null}
-          currentInternalTempF={selectedMeaterProbe?.internalTempF ?? selectedThermoworksProbe?.tempF ?? null}
-          currentPitTempF={selectedMeaterProbe?.ambientTempF ?? null}
+          currentInternalTempF={
+            tempMode === "probe"
+              ? (selectedMeaterProbe?.internalTempF ?? selectedThermoworksProbe?.tempF ?? selectedInkbirdProbe?.tempF ?? null)
+              : null
+          }
+          currentPitTempF={tempMode === "probe" ? (selectedMeaterProbe?.ambientTempF ?? null) : null}
           probeSource={
-            selectedMeaterProbe?.internalTempF != null
+            tempMode !== "probe"
+              ? null
+              : selectedMeaterProbe?.internalTempF != null
               ? "meater"
               : selectedThermoworksProbe?.tempF != null
               ? "thermoworks"
+              : selectedInkbirdProbe?.tempF != null
+              ? "inkbird"
               : null
           }
           lastCheckinInternalTempF={

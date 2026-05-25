@@ -84,6 +84,7 @@
     "expo-image-manipulator": "^14.0.8",
     "expo-sharing": "~14.0.8",
     "live-activity": "file:./modules/live-activity",
+    "react-native-ble-plx": "^3.5.1",
     "react-native-purchases": "9.7.2",
     "react-native-view-shot": "^5.0.0"
   }

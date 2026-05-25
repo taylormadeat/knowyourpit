@@ -28,7 +28,7 @@ const PROBE_FRESH_MS = 60 * 1000;
 export interface AutoCheckinProbeReading {
   internalTempF: number | null;
   pitTempF?: number | null;
-  probeSource: "meater" | "thermoworks";
+  probeSource: "meater" | "thermoworks" | "inkbird";
   fetchedAtMs: number;
 }
 
