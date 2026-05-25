@@ -305,6 +305,7 @@ export default function CookDetailScreen() {
     // Reset accumulated state whenever the cook id changes.
     setSelectedProbeId(null);
     setLiveReadings([]);
+    setLivePitReadings([]);
   }, [id]);
 
   useEffect(() => {
@@ -336,6 +337,7 @@ export default function CookDetailScreen() {
   // app reopen — probe transitions null→savedId after mount).
   useEffect(() => {
     setLiveReadings([]);
+    setLivePitReadings([]);
     liveReadingsSeededRef.current = false;
   }, [selectedProbeId]);
 
@@ -1022,6 +1024,7 @@ export default function CookDetailScreen() {
   const [nowMs, setNowMs] = useState(Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [liveReadings, setLiveReadings] = useState<Array<{ timeMinutes: number; tempF: number }>>([]);
+  const [livePitReadings, setLivePitReadings] = useState<Array<{ timeMinutes: number; tempF: number }>>([]);
 
   // Fetch historical temperature readings so the live graph is pre-populated
   // when the user reopens the app mid-cook, and to surface a post-cook
@@ -1065,6 +1068,7 @@ export default function CookDetailScreen() {
 
   useEffect(() => {
     setLiveReadings([]);
+    setLivePitReadings([]);
     liveReadingsSeededRef.current = false;
     setNowMs(Date.now());
     setResult(null);
@@ -1099,27 +1103,28 @@ export default function CookDetailScreen() {
 
     const startMs = new Date(cook.actualStartAt).getTime();
 
-    // Pick the lowest probe number as the primary series (probe 1 is typically
-    // the internal meat probe).  If readings span multiple probes we only seed
-    // from one so the chart stays consistent with the single-series live graph.
-    const probeNumbers = [
-      ...new Set(historicalReadings.map((r: TemperatureReading) => r.probeNumber)),
-    ].sort((a, b) => a - b);
-    const primaryProbe = probeNumbers[0];
+    const toEntry = (r: TemperatureReading) => ({
+      timeMinutes:
+        Math.round(
+          Math.max(0, (new Date(r.recordedAt).getTime() - startMs) / 60000) * 10,
+        ) / 10,
+      tempF: r.tempF,
+    });
 
-    const entries = historicalReadings
-      .filter((r: TemperatureReading) => r.probeNumber === primaryProbe)
-      .map((r: TemperatureReading) => ({
-        timeMinutes:
-          Math.round(
-            Math.max(0, (new Date(r.recordedAt).getTime() - startMs) / 60000) * 10,
-          ) / 10,
-        tempF: r.tempF,
-      }))
+    // probeNumber 0 = internal meat probe, probeNumber 1 = ambient / pit
+    const internalEntries = historicalReadings
+      .filter((r: TemperatureReading) => r.probeNumber === 0)
+      .map(toEntry)
       .sort((a, b) => a.timeMinutes - b.timeMinutes);
 
-    if (entries.length > 0) {
-      setLiveReadings(entries);
+    const pitEntries = historicalReadings
+      .filter((r: TemperatureReading) => r.probeNumber === 1)
+      .map(toEntry)
+      .sort((a, b) => a.timeMinutes - b.timeMinutes);
+
+    if (internalEntries.length > 0 || pitEntries.length > 0) {
+      if (internalEntries.length > 0) setLiveReadings(internalEntries);
+      if (pitEntries.length > 0) setLivePitReadings(pitEntries);
       liveReadingsSeededRef.current = true;
     }
   }, [historicalReadings, cook?.actualStartAt, selectedProbeId]);
@@ -1597,10 +1602,17 @@ export default function CookDetailScreen() {
       const elapsedMins = startAt
         ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000)
         : 0;
+      const elapsedRounded = Math.round(elapsedMins * 10) / 10;
       setLiveReadings((prev) => [
         ...prev,
-        { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: currentTemp },
+        { timeMinutes: elapsedRounded, tempF: currentTemp },
       ]);
+      if (selectedMeaterProbe.ambientTempF != null) {
+        setLivePitReadings((prev) => [
+          ...prev,
+          { timeMinutes: elapsedRounded, tempF: selectedMeaterProbe.ambientTempF! },
+        ]);
+      }
 
       // Proactive deviation alerts (spike, stall, pit-drop).
       // expectedInternalTempF is the midpoint of the current checkin phase's
@@ -1659,10 +1671,17 @@ export default function CookDetailScreen() {
     const elapsedMins = startAt
       ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000)
       : 0;
+    const elapsedRounded = Math.round(elapsedMins * 10) / 10;
     setLiveReadings((prev) => [
       ...prev,
-      { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: currentTemp },
+      { timeMinutes: elapsedRounded, tempF: currentTemp },
     ]);
+    if (selectedBleContextDevice.ambientTempF != null) {
+      setLivePitReadings((prev) => [
+        ...prev,
+        { timeMinutes: elapsedRounded, tempF: selectedBleContextDevice.ambientTempF! },
+      ]);
+    }
   }, [selectedBleContextDevice]);
 
   // Accumulate live readings for LAN probes (Fireboard, MEATER Block, ThermoWorks Signals).
@@ -1674,10 +1693,17 @@ export default function CookDetailScreen() {
     const elapsedMins = startAt
       ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000)
       : 0;
+    const elapsedRounded = Math.round(elapsedMins * 10) / 10;
     setLiveReadings((prev) => [
       ...prev,
-      { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: currentTemp },
+      { timeMinutes: elapsedRounded, tempF: currentTemp },
     ]);
+    if (selectedLanProbe.ambientTempF != null) {
+      setLivePitReadings((prev) => [
+        ...prev,
+        { timeMinutes: elapsedRounded, tempF: selectedLanProbe.ambientTempF! },
+      ]);
+    }
   }, [selectedLanProbe]);
 
   // Accumulate live readings for ThermoWorks BLE probes.
@@ -2589,7 +2615,12 @@ export default function CookDetailScreen() {
     selectedInkbirdProbe?.deviceName ??
     "Probe";
   const liveGraphProbes = tempMode === "probe" && selectedProbeId != null && liveReadings.length >= 2
-    ? [{ probeName: activeProbeName, timeSeries: liveReadings, finishingTempF: liveReadings[liveReadings.length - 1]!.tempF }]
+    ? [
+        { probeName: activeProbeName, timeSeries: liveReadings, finishingTempF: liveReadings[liveReadings.length - 1]!.tempF },
+        ...(livePitReadings.length >= 2
+          ? [{ probeName: "Pit / Ambient", timeSeries: livePitReadings, finishingTempF: livePitReadings[livePitReadings.length - 1]!.tempF }]
+          : []),
+      ]
     : [];
 
   // Stored analysis from DB

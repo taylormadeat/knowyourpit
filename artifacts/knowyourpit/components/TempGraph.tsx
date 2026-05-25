@@ -23,7 +23,7 @@ type Props = {
   height?: number;
 };
 
-const PROBE_COLORS = ["#E84820", "#A855F7", "#3b82f6", "#22c55e", "#eab308"];
+const PROBE_COLORS = ["#E84820", "#64748B", "#A855F7", "#22c55e", "#eab308"];
 
 const PAD = { top: 14, right: 20, bottom: 36, left: 44 };
 
