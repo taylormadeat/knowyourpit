@@ -2656,8 +2656,14 @@ export default function CookDetailScreen() {
           }))
           .sort((a: { timeMinutes: number }, b: { timeMinutes: number }) => a.timeMinutes - b.timeMinutes);
         const lastTemp = timeSeries[timeSeries.length - 1]?.tempF ?? 0;
+        const probeName =
+          probeNum === 1
+            ? "Internal"
+            : probeNum === 2
+              ? "Ambient"
+              : `Probe ${probeNum}`;
         return {
-          probeName: probeNumbers.length === 1 ? "Probe" : `Probe ${probeNum}`,
+          probeName,
           timeSeries,
           finishingTempF: lastTemp,
         };
