@@ -334,6 +334,19 @@ export default function SessionDetailScreen() {
     }
     return null;
   }
+
+  // helper: get the assigned probe's display name (uses allBleDevices so name is
+  // available even when the probe is briefly disconnected)
+  function getAssignedProbeName(cookId: number): string | null {
+    const key = cookProbeAssignments.get(cookId);
+    if (!key) return null;
+    if (key.startsWith("bleCtx_")) {
+      const deviceId = key.slice("bleCtx_".length);
+      const dev = allBleDevices.find((d) => d.id === deviceId);
+      return dev?.name ?? "Probe";
+    }
+    return null;
+  }
   const effectivePro = useEffectivePro();
   const { showPaywall } = usePaywall();
 
@@ -1034,6 +1047,32 @@ export default function SessionDetailScreen() {
                                 <Text style={s.livePillText}>LIVE</Text>
                                 {probeTemp && (
                                   <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#EB6C2B" }}>
+                                    {probeTemp}
+                                  </Text>
+                                )}
+                              </View>
+                            );
+                          })()}
+                          {(() => {
+                            const probeName = getAssignedProbeName(cook.id);
+                            if (!probeName) return null;
+                            const probeTemp = getAssignedProbeTemp(cook.id);
+                            const isConnected = !!connectedBleDevices.find(
+                              (d) => cookProbeAssignments.get(cook.id) === `bleCtx_${d.id}`
+                            );
+                            return (
+                              <View
+                                style={[
+                                  s.probeChip,
+                                  !isConnected && { opacity: 0.5 },
+                                ]}
+                              >
+                                <Feather name="bluetooth" size={10} color="#60A5FA" />
+                                <Text style={s.probeChipText} numberOfLines={1}>
+                                  {probeName}
+                                </Text>
+                                {probeTemp && (
+                                  <Text style={[s.probeChipText, { fontFamily: "Inter_600SemiBold" }]}>
                                     {probeTemp}
                                   </Text>
                                 )}
@@ -2246,6 +2285,24 @@ const s = StyleSheet.create({
   badgeText: {
     fontSize: 11,
     fontFamily: "Inter_500Medium",
+  },
+  probeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#3B82F620",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#3B82F640",
+    maxWidth: 140,
+  },
+  probeChipText: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+    color: "#60A5FA",
+    flexShrink: 1,
   },
   livePill: {
     flexDirection: "row",
