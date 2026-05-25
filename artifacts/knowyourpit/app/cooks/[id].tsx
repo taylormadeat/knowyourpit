@@ -1568,6 +1568,36 @@ export default function CookDetailScreen() {
     }
   }, [selectedMeaterProbe]);
 
+  // Accumulate live readings for BLE context probes (MEATER via GATT, Govee, Weber iGrill).
+  // Fires every GATT poll cycle (~15 s) so the live graph has real-time BLE data.
+  useEffect(() => {
+    if (selectedBleContextDevice == null || selectedBleContextDevice.probeTempF == null) return;
+    const currentTemp = selectedBleContextDevice.probeTempF;
+    const startAt = cook?.actualStartAt;
+    const elapsedMins = startAt
+      ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000)
+      : 0;
+    setLiveReadings((prev) => [
+      ...prev,
+      { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: currentTemp },
+    ]);
+  }, [selectedBleContextDevice]);
+
+  // Accumulate live readings for LAN probes (Fireboard, MEATER Block, ThermoWorks Signals).
+  // Fires every LAN poll cycle (~15 s) so the live graph has real-time WiFi data.
+  useEffect(() => {
+    if (selectedLanProbe == null || selectedLanProbe.probeTempF == null) return;
+    const currentTemp = selectedLanProbe.probeTempF;
+    const startAt = cook?.actualStartAt;
+    const elapsedMins = startAt
+      ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000)
+      : 0;
+    setLiveReadings((prev) => [
+      ...prev,
+      { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: currentTemp },
+    ]);
+  }, [selectedLanProbe]);
+
   // Reconciliation: on screen mount (and when alerts load), mark overdue timer alerts as triggered
   // Handles the case where the app was backgrounded or killed when a scheduled notification fired
   useEffect(() => {
@@ -2396,9 +2426,16 @@ export default function CookDetailScreen() {
     return "Marks this cook as active and starts your session timer.";
   })();
 
-  // Live graph from accumulated readings — only when a probe is actively selected
-  const liveGraphProbes = selectedMeaterProbe != null && liveReadings.length >= 2
-    ? [{ probeName: selectedMeaterProbe.deviceName ?? "Probe 1", timeSeries: liveReadings, finishingTempF: liveReadings[liveReadings.length - 1].tempF }]
+  // Live graph from accumulated readings — works for any selected probe type
+  // (MEATER, ThermoWorks, Inkbird BLE, BLE context device, or LAN probe).
+  const activeProbeName =
+    selectedMeaterProbe?.deviceName ??
+    (selectedBleContextDevice?.name) ??
+    selectedLanProbe?.deviceName ??
+    selectedInkbirdProbe?.deviceName ??
+    "Probe";
+  const liveGraphProbes = tempMode === "probe" && selectedProbeId != null && liveReadings.length >= 2
+    ? [{ probeName: activeProbeName, timeSeries: liveReadings, finishingTempF: liveReadings[liveReadings.length - 1]!.tempF }]
     : [];
 
   // Stored analysis from DB
