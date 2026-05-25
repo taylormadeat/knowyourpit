@@ -72,6 +72,7 @@ import {
   useListCookCheckins,
   useCreateCookCheckin,
   useListCookPhotos,
+  useUploadTemperatureData,
   getListCooksQueryKey,
   getGetCookQueryKey,
   getGetDashboardSummaryQueryKey,
@@ -151,6 +152,8 @@ import { UnifiedCheckinSheet } from "@/components/cook-detail/UnifiedCheckinShee
 import { CookActivityTimeline } from "@/components/cook-detail/CookActivityTimeline";
 import { LiveCookSection } from "@/components/cook-detail/LiveCookSection";
 import { useInkbirdBLE } from "@/hooks/useInkbirdBLE";
+import { useBleProbes } from "@/contexts/BleProbeContext";
+import { useLanProbes, type LanProbeReading } from "@/hooks/useLanProbes";
 import { CookSummaryCard } from "@/components/cook-detail/CookSummaryCard";
 import { SequenceSchedule } from "@/components/cook-detail/SequenceSchedule";
 import { FrozenTimeline } from "@/components/cook-detail/FrozenTimeline";
@@ -340,8 +343,23 @@ export default function CookDetailScreen() {
 
   const createAlert = useCreateAlert();
   const patchAlert = usePatchAlert();
+  const uploadTemperatureData = useUploadTemperatureData();
 
   const cookStatus = (cook as any)?.status;
+
+  // Count of globally-active cooks — used to gate auto-probe-assignment so
+  // we never silently assign a probe when multiple cooks are running in parallel
+  // (the user must pick explicitly in that multi-cook situation).
+  const { data: allCooksForCount } = useListCooks(undefined, {
+    query: {
+      queryKey: [...getListCooksQueryKey(), "active_count"],
+      enabled: cookStatus === "active",
+      staleTime: 30_000,
+    },
+  });
+  const activeCookCount = (allCooksForCount ?? []).filter(
+    (c: any) => c?.status === "active",
+  ).length;
 
   // Ambient outdoor weather — Pro-only; free users get null values so no
   // location request is ever triggered for non-subscribers.
@@ -930,6 +948,62 @@ export default function CookDetailScreen() {
         ) ?? null)
       : null;
 
+  // BLE context: connected BLE devices (MEATER via GATT, Govee, Weber iGrill)
+  const {
+    devices: allBleDevices,
+    reconnectBanner,
+    dismissReconnectBanner,
+  } = useBleProbes();
+  const bleContextDevices = allBleDevices.filter(
+    (d) => d.connectionState === "connected",
+  );
+
+  // LAN probes: Fireboard, MEATER Block, ThermoWorks Signals on local network
+  const { probes: lanProbes } = useLanProbes({
+    enabled: cookStatus === "active" && tempMode === "probe",
+    pollIntervalMs: 15_000,
+  });
+
+  const selectedLanProbe: LanProbeReading | null =
+    selectedProbeId != null && selectedProbeId.startsWith("lan_")
+      ? (lanProbes.find((p) => `lan_${p.deviceId}` === selectedProbeId) ?? null)
+      : null;
+
+  const selectedBleContextDevice =
+    selectedProbeId != null && selectedProbeId.startsWith("bleCtx_")
+      ? (bleContextDevices.find((d) => `bleCtx_${d.id}` === selectedProbeId) ?? null)
+      : null;
+
+  // Auto-assign: when exactly one probe is available AND this is the only
+  // active cook (so we're sure the probe belongs to this cook), auto-select it.
+  const [autoAssignBanner, setAutoAssignBanner] = useState<string | null>(null);
+  const autoAssignFiredRef = useRef(false);
+  useEffect(() => {
+    // Don't auto-assign in multi-cook scenarios — user must pick explicitly.
+    if (activeCookCount > 1) return;
+    if (tempMode !== "probe" || selectedProbeId != null || autoAssignFiredRef.current) return;
+    const allAvailable: string[] = [
+      ...inkbirdProbes.map((p) => `ble_${p.deviceId}_${p.probeIndex}`),
+      ...bleContextDevices.map((d) => `bleCtx_${d.id}`),
+      ...lanProbes.map((p) => `lan_${p.deviceId}`),
+    ];
+    if (allAvailable.length === 1) {
+      autoAssignFiredRef.current = true;
+      const probeKey = allAvailable[0]!;
+      handleSelectProbe(probeKey);
+      const label = bleContextDevices.find((d) => `bleCtx_${d.id}` === probeKey)?.name
+        ?? inkbirdProbes.find((p) => `ble_${p.deviceId}_${p.probeIndex}` === probeKey)?.deviceName
+        ?? lanProbes.find((p) => `lan_${p.deviceId}` === probeKey)?.deviceName
+        ?? "Probe";
+      setAutoAssignBanner(`Auto-connected to ${label}`);
+      const t = setTimeout(() => setAutoAssignBanner(null), 5_000);
+      return () => clearTimeout(t);
+    }
+  }, [
+    activeCookCount, tempMode, selectedProbeId,
+    inkbirdProbes, bleContextDevices, lanProbes, handleSelectProbe,
+  ]);
+
   const [nowMs, setNowMs] = useState(Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [liveReadings, setLiveReadings] = useState<Array<{ timeMinutes: number; tempF: number }>>([]);
@@ -1123,12 +1197,68 @@ export default function CookDetailScreen() {
         fetchedAtMs: selectedInkbirdProbe.lastSeenMs,
       };
     }
+    if (selectedBleContextDevice?.probeTempF != null) {
+      return {
+        internalTempF: selectedBleContextDevice.probeTempF,
+        pitTempF: selectedBleContextDevice.ambientTempF ?? null,
+        probeSource: "ble",
+        fetchedAtMs: selectedBleContextDevice.lastSeenMs,
+      };
+    }
+    if (selectedLanProbe?.probeTempF != null) {
+      return {
+        internalTempF: selectedLanProbe.probeTempF,
+        pitTempF: selectedLanProbe.ambientTempF ?? null,
+        probeSource: "lan",
+        fetchedAtMs: selectedLanProbe.lastSeenMs,
+      };
+    }
     return null;
   }, [
     tempMode,
     selectedMeaterProbe, selectedThermoworksProbe, selectedInkbirdProbe,
+    selectedBleContextDevice, selectedLanProbe,
     meaterDataUpdatedAt, thermoworksDataUpdatedAt,
   ]);
+
+  // Persist BLE / LAN probe readings to the backend temperature_readings table
+  // so the AI assistant and cook graphs have access to the data, just like
+  // MEATER / ThermoWorks readings that flow through the cloud adapters.
+  const lastUploadedProbeTs = useRef<number>(0);
+  useEffect(() => {
+    if (!autoCheckinProbeReading) return;
+    const { internalTempF, probeSource, fetchedAtMs } = autoCheckinProbeReading;
+    if (probeSource !== "ble" && probeSource !== "lan") return;
+    if (internalTempF == null) return;
+    // Debounce: only upload once per polling cycle — if the reading timestamp
+    // hasn't advanced since our last upload, skip.
+    if (fetchedAtMs <= lastUploadedProbeTs.current) return;
+    const cookId = Number(id);
+    if (!cookId || cookStatus !== "active") return;
+    lastUploadedProbeTs.current = fetchedAtMs;
+    uploadTemperatureData.mutate({
+      data: {
+        cookId,
+        source: probeSource,
+        readings: [
+          {
+            probeNumber: 0,
+            probeName: selectedBleContextDevice?.name ?? selectedLanProbe?.deviceName ?? null,
+            tempF: internalTempF,
+            recordedAt: new Date(fetchedAtMs).toISOString(),
+          },
+          ...(autoCheckinProbeReading.pitTempF != null
+            ? [{
+                probeNumber: 1,
+                probeName: "Ambient / Pit",
+                tempF: autoCheckinProbeReading.pitTempF,
+                recordedAt: new Date(fetchedAtMs).toISOString(),
+              }]
+            : []),
+        ],
+      },
+    });
+  }, [autoCheckinProbeReading, id, cookStatus]);
 
   // Auto check-in: when a scheduled milestone time is reached and a live probe
   // reading is available, record the check-in automatically.
@@ -2912,6 +3042,12 @@ export default function CookDetailScreen() {
           thermoworksLinked={thermoworksLinked}
           thermoworksProbes={thermoworksProbes}
           inkbirdProbes={inkbirdProbes}
+          bleContextDevices={bleContextDevices}
+          lanProbes={lanProbes}
+          autoAssignBanner={autoAssignBanner}
+          onDismissAutoAssignBanner={() => setAutoAssignBanner(null)}
+          reconnectBanner={reconnectBanner}
+          onDismissReconnectBanner={dismissReconnectBanner}
           tempMode={tempMode}
           onSetTempMode={setTempMode}
           selectedProbeId={selectedProbeId}

@@ -1,6 +1,8 @@
 import React from "react";
 import { View, Text, Pressable, ActivityIndicator, Animated } from "react-native";
 import type { InkbirdProbeReading } from "@/hooks/useInkbirdBLE";
+import type { BleDevice, ReconnectBanner } from "@/contexts/BleProbeContext";
+import type { LanProbeReading } from "@/hooks/useLanProbes";
 import { Feather } from "@expo/vector-icons";
 import { s } from "./styles";
 import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
@@ -31,6 +33,12 @@ interface Props {
   thermoworksLinked: boolean | null;
   thermoworksProbes: any[];
   inkbirdProbes?: InkbirdProbeReading[];
+  bleContextDevices?: BleDevice[];
+  lanProbes?: LanProbeReading[];
+  autoAssignBanner?: string | null;
+  onDismissAutoAssignBanner?: () => void;
+  reconnectBanner?: ReconnectBanner | null;
+  onDismissReconnectBanner?: () => void;
   tempMode?: "probe" | "manual";
   onSetTempMode?: (mode: "probe" | "manual") => void;
   selectedProbeId?: string | null;
@@ -82,7 +90,10 @@ function fmtSpritzCountdown(diffMs: number): string {
 export function LiveCookSection(p: Props) {
   const {
     c, colors, weather, meaterLinked, meaterProbes, thermoworksLinked, thermoworksProbes,
-    inkbirdProbes = [], tempMode = "manual", onSetTempMode,
+    inkbirdProbes = [], bleContextDevices = [], lanProbes = [],
+    autoAssignBanner, onDismissAutoAssignBanner,
+    reconnectBanner, onDismissReconnectBanner,
+    tempMode = "manual", onSetTempMode,
     selectedProbeId, onSelectProbe,
     liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, estimatedFinishMs,
     setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
@@ -114,7 +125,9 @@ export function LiveCookSection(p: Props) {
 
   const hasAnyProbe = (meaterLinked === true && meaterProbes.length > 0) ||
     (thermoworksLinked === true && thermoworksProbes.length > 0) ||
-    inkbirdProbes.length > 0;
+    inkbirdProbes.length > 0 ||
+    bleContextDevices.length > 0 ||
+    lanProbes.length > 0;
   const noneSelected = tempMode === "probe" && hasAnyProbe && selectedProbeId == null;
 
   if (c.status !== "active") return null;
@@ -169,7 +182,7 @@ export function LiveCookSection(p: Props) {
               ? "Tracking selected probe · auto-updating every 15s"
               : hasAnyProbe
               ? "Tap a probe below to track it for this cook"
-              : "No probe detected · scanning nearby Inkbird devices"}
+              : "No probe detected · scanning nearby devices"}
           </Text>
         </View>
         <View style={[s.connectedBadgeSmall, { backgroundColor: "#FF6B2B18" }]}>
@@ -177,6 +190,44 @@ export function LiveCookSection(p: Props) {
           <Text style={[s.liveText, { color: "#FF6B2B" }]}>LIVE</Text>
         </View>
       </View>
+
+      {/* Auto-assign banner — shown when a single probe was auto-selected */}
+      {autoAssignBanner != null && (
+        <Pressable
+          onPress={onDismissAutoAssignBanner}
+          style={{
+            flexDirection: "row", alignItems: "center", gap: 8,
+            marginHorizontal: 14, marginTop: 4, marginBottom: 2,
+            padding: 10, borderRadius: 8,
+            backgroundColor: "#3B82F618", borderWidth: 1, borderColor: "#3B82F640",
+          }}
+        >
+          <Feather name="zap" size={13} color="#3B82F6" />
+          <Text style={{ flex: 1, fontFamily: "Inter_500Medium", fontSize: 12, color: "#3B82F6" }}>
+            {autoAssignBanner}
+          </Text>
+          <Feather name="x" size={13} color="#3B82F6" />
+        </Pressable>
+      )}
+
+      {/* BLE Reconnect Banner */}
+      {reconnectBanner != null && (
+        <Pressable
+          onPress={onDismissReconnectBanner}
+          style={{
+            flexDirection: "row", alignItems: "center", gap: 8,
+            marginHorizontal: 14, marginTop: 4, marginBottom: 2,
+            padding: 10, borderRadius: 8,
+            backgroundColor: "#22c55e18", borderWidth: 1, borderColor: "#22c55e40",
+          }}
+        >
+          <Feather name="bluetooth" size={13} color="#22c55e" />
+          <Text style={{ flex: 1, fontFamily: "Inter_500Medium", fontSize: 12, color: "#22c55e" }}>
+            {reconnectBanner.deviceName} reconnected
+          </Text>
+          <Feather name="x" size={13} color="#22c55e" />
+        </Pressable>
+      )}
 
       {turnInBadge}
 
@@ -559,6 +610,79 @@ export function LiveCookSection(p: Props) {
         );
       })}
 
+      {/* BLE context device rows (MEATER via BLE, Govee, Weber iGrill) */}
+      {tempMode === "probe" && bleContextDevices.map((device, i) => {
+        const probeKey = `bleCtx_${device.id}`;
+        const isSelected = selectedProbeId === probeKey;
+        const hasAmbient = device.ambientTempF != null;
+        return (
+          <Pressable
+            key={`bleCtx-${device.id}-${i}`}
+            onPress={() => onSelectProbe?.(isSelected ? null : probeKey)}
+            style={[
+              s.subSection,
+              {
+                borderTopColor: colors.border,
+                paddingHorizontal: 14,
+                paddingBottom: 12,
+                borderWidth: isSelected ? 1.5 : undefined,
+                borderColor: isSelected ? "#FF6B2B60" : undefined,
+                borderRadius: isSelected ? 10 : undefined,
+                marginHorizontal: isSelected ? 8 : undefined,
+                marginTop: isSelected ? 6 : undefined,
+                backgroundColor: isSelected ? "#FF6B2B08" : undefined,
+              },
+            ]}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, flex: 1, flexWrap: "wrap" }}>
+                <Feather name="bluetooth" size={11} color="#3B82F6" />
+                <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
+                  {device.name}
+                </Text>
+                {device.batteryPct != null && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 99, backgroundColor: device.batteryPct > 50 ? "#22c55e20" : device.batteryPct > 20 ? "#EAB30820" : "#ef444420" }}>
+                    <Feather name="battery" size={9} color={device.batteryPct > 50 ? "#22c55e" : device.batteryPct > 20 ? "#EAB308" : "#ef4444"} />
+                    <Text style={{ fontSize: 9, fontFamily: "Inter_600SemiBold", color: device.batteryPct > 50 ? "#22c55e" : device.batteryPct > 20 ? "#EAB308" : "#ef4444" }}>{device.batteryPct}%</Text>
+                  </View>
+                )}
+              </View>
+              {isSelected ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#FF6B2B20" }}>
+                  <Feather name="check" size={10} color="#FF6B2B" />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#FF6B2B" }}>Tracking</Text>
+                </View>
+              ) : (
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>Tap to use</Text>
+              )}
+            </View>
+            {/* Dual-temp row: internal + ambient side by side */}
+            <View style={s.meaterTempsRow}>
+              <View style={s.meaterTempChip}>
+                <Feather name="thermometer" size={14} color="#FF6B2B" />
+                <View>
+                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
+                    {device.probeTempF != null ? `${device.probeTempF}°F` : "—"}
+                  </Text>
+                  <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Internal</Text>
+                </View>
+              </View>
+              {hasAmbient && (
+                <View style={s.meaterTempChip}>
+                  <Feather name="wind" size={14} color="#3b82f6" />
+                  <View>
+                    <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
+                      {device.ambientTempF}°F
+                    </Text>
+                    <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Ambient / Pit</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          </Pressable>
+        );
+      })}
+
       {noneSelected && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 14, marginBottom: 12, padding: 10, borderRadius: 8, backgroundColor: "#FF6B2B08", borderWidth: 1, borderColor: "#FF6B2B25" }}>
           <Feather name="info" size={13} color="#FF6B2B" />
@@ -568,7 +692,72 @@ export function LiveCookSection(p: Props) {
         </View>
       )}
 
-      {tempMode === "probe" && meaterLinked !== true && thermoworksLinked !== true && inkbirdProbes.length === 0 && (
+      {/* LAN probe rows (Fireboard, MEATER Block, ThermoWorks Signals) */}
+      {tempMode === "probe" && lanProbes.map((probe, i) => {
+        const probeKey = `lan_${probe.deviceId}`;
+        const isSelected = selectedProbeId === probeKey;
+        return (
+          <Pressable
+            key={`lan-${probe.deviceId}-${i}`}
+            onPress={() => onSelectProbe?.(isSelected ? null : probeKey)}
+            style={[
+              s.subSection,
+              {
+                borderTopColor: colors.border,
+                paddingHorizontal: 14,
+                paddingBottom: 12,
+                borderWidth: isSelected ? 1.5 : undefined,
+                borderColor: isSelected ? "#FF6B2B60" : undefined,
+                borderRadius: isSelected ? 10 : undefined,
+                marginHorizontal: isSelected ? 8 : undefined,
+                marginTop: isSelected ? 6 : undefined,
+                backgroundColor: isSelected ? "#FF6B2B08" : undefined,
+              },
+            ]}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                <Feather name="wifi" size={11} color="#0EA5E9" />
+                <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
+                  {probe.deviceName} · {probe.channelLabel}
+                </Text>
+              </View>
+              {isSelected ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#FF6B2B20" }}>
+                  <Feather name="check" size={10} color="#FF6B2B" />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#FF6B2B" }}>Tracking</Text>
+                </View>
+              ) : (
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>Tap to use</Text>
+              )}
+            </View>
+            <View style={s.meaterTempsRow}>
+              <View style={s.meaterTempChip}>
+                <Feather name="thermometer" size={14} color="#0EA5E9" />
+                <View>
+                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
+                    {probe.probeTempF}°F
+                  </Text>
+                  <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Internal</Text>
+                </View>
+              </View>
+              {probe.ambientTempF != null && (
+                <View style={s.meaterTempChip}>
+                  <Feather name="wind" size={14} color="#3b82f6" />
+                  <View>
+                    <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
+                      {probe.ambientTempF}°F
+                    </Text>
+                    <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Ambient / Pit</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          </Pressable>
+        );
+      })}
+
+      {tempMode === "probe" && meaterLinked !== true && thermoworksLinked !== true && inkbirdProbes.length === 0 && bleContextDevices.length === 0 && lanProbes.length === 0 && (
         <View style={[s.meaterPlaceholder, { borderTopColor: colors.border }]}>
           <Feather name="thermometer" size={20} color={colors.mutedForeground} />
           <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground }]}>

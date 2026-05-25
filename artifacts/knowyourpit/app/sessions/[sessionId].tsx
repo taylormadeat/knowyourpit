@@ -21,6 +21,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useLayout } from "@/hooks/useLayout";
+import { useBleProbes } from "@/contexts/BleProbeContext";
+import { useEffectivePro } from "@/hooks/useEffectivePro";
+import { usePaywall } from "@/contexts/PaywallContext";
 import { useGetSessionCooks, useListCooks, useUpdateSession, useDeleteSession, useRemoveCookFromSession, useUpdateCook, useListGrills, getGetSessionCooksQueryKey, type Cook, type UpdateCookBody } from "@workspace/api-client-react";
 import { EditCookModal } from "@/components/cook-detail/EditCookModal";
 import { getEditDates } from "@/components/cook-detail/utils";
@@ -274,6 +277,25 @@ export default function SessionDetailScreen() {
   const [draftLabel, setDraftLabel] = useState("");
   const [draftNotes, setDraftNotes] = useState("");
   const [expandedCookIds, setExpandedCookIds] = useState<Set<number>>(new Set());
+
+  // Multi-cook probe routing: map cookId → probeKey (Pro only)
+  const [cookProbeAssignments, setCookProbeAssignments] = useState<Map<number, string>>(new Map());
+  const { devices: allBleDevices } = useBleProbes();
+  const connectedBleDevices = allBleDevices.filter((d) => d.connectionState === "connected");
+
+  // helper: get live temp from probe assignment for display in session card
+  function getAssignedProbeTemp(cookId: number): string | null {
+    const key = cookProbeAssignments.get(cookId);
+    if (!key) return null;
+    if (key.startsWith("bleCtx_")) {
+      const deviceId = key.slice("bleCtx_".length);
+      const dev = connectedBleDevices.find((d) => d.id === deviceId);
+      return dev?.probeTempF != null ? `${dev.probeTempF}°F` : null;
+    }
+    return null;
+  }
+  const effectivePro = useEffectivePro();
+  const { showPaywall } = usePaywall();
 
   // Competition results entry modal
   const [resultsOpen, setResultsOpen] = useState(false);
@@ -962,12 +984,20 @@ export default function SessionDetailScreen() {
                               </View>
                             ) : null;
                           })()}
-                          {isActive && (
-                            <View style={s.livePill}>
-                              <View style={s.liveDot} />
-                              <Text style={s.livePillText}>LIVE</Text>
-                            </View>
-                          )}
+                          {isActive && (() => {
+                            const probeTemp = getAssignedProbeTemp(cook.id);
+                            return (
+                              <View style={[s.livePill, probeTemp ? { gap: 4, paddingRight: 6 } : {}]}>
+                                <View style={s.liveDot} />
+                                <Text style={s.livePillText}>LIVE</Text>
+                                {probeTemp && (
+                                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#EB6C2B" }}>
+                                    {probeTemp}
+                                  </Text>
+                                )}
+                              </View>
+                            );
+                          })()}
                         </View>
                         {cook.grillName ? (
                           <Text style={[s.cookGrill, { color: colors.mutedForeground }]}>
@@ -1339,6 +1369,76 @@ export default function SessionDetailScreen() {
                             Edit cook &amp; techniques
                           </Text>
                         </Pressable>
+
+                        {/* Multi-cook probe routing — active cooks only, Pro-gated */}
+                        {isActive && (
+                          <View style={[s.probePickerSection, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                              <Feather name="bluetooth" size={12} color={colors.mutedForeground} />
+                              <Text style={[s.probePickerTitle, { color: colors.mutedForeground }]}>
+                                Probe Assignment
+                              </Text>
+                              {!effectivePro && (
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, backgroundColor: colors.primary + "22" }}>
+                                  <Feather name="lock" size={9} color={colors.primary} />
+                                  <Text style={{ fontSize: 9.5, fontFamily: "Inter_600SemiBold", color: colors.primary }}>PRO</Text>
+                                </View>
+                              )}
+                            </View>
+                            {connectedBleDevices.length === 0 ? (
+                              <Text style={[s.probePickerEmpty, { color: colors.mutedForeground }]}>
+                                No BLE probes connected. Open Devices to pair a thermometer.
+                              </Text>
+                            ) : (
+                              connectedBleDevices.map((device) => {
+                                const key = `bleCtx_${device.id}`;
+                                const isAssigned = cookProbeAssignments.get(cook.id) === key;
+                                return (
+                                  <Pressable
+                                    key={device.id}
+                                    onPress={() => {
+                                      if (!effectivePro) {
+                                        showPaywall({ trigger: "pro_required", featureName: "Multi-Cook Probe Routing" });
+                                        return;
+                                      }
+                                      setCookProbeAssignments((prev) => {
+                                        const next = new Map(prev);
+                                        if (isAssigned) next.delete(cook.id);
+                                        else next.set(cook.id, key);
+                                        return next;
+                                      });
+                                    }}
+                                    style={[
+                                      s.probePickerRow,
+                                      {
+                                        borderColor: isAssigned ? "#FF6B2B60" : colors.border,
+                                        backgroundColor: isAssigned ? "#FF6B2B08" : colors.card,
+                                      },
+                                    ]}
+                                  >
+                                    <View style={{ flex: 1 }}>
+                                      <Text style={[s.probePickerName, { color: colors.foreground }]}>{device.name}</Text>
+                                      {device.probeTempF != null && (
+                                        <Text style={[s.probePickerTemp, { color: colors.mutedForeground }]}>
+                                          {device.probeTempF}°F internal
+                                          {device.ambientTempF != null ? ` · ${device.ambientTempF}°F pit` : ""}
+                                          {device.batteryPct != null ? ` · 🔋${device.batteryPct}%` : ""}
+                                        </Text>
+                                      )}
+                                    </View>
+                                    {isAssigned ? (
+                                      <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#FF6B2B20" }}>
+                                        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#FF6B2B" }}>Tracking</Text>
+                                      </View>
+                                    ) : (
+                                      <Feather name="circle" size={14} color={colors.mutedForeground} />
+                                    )}
+                                  </Pressable>
+                                );
+                              })
+                            )}
+                          </View>
+                        )}
 
                         <Pressable
                           onPress={() => router.push(`/cooks/${cook.id}` as any)}
@@ -2061,6 +2161,40 @@ const s = StyleSheet.create({
   openDetailText: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",
+  },
+  probePickerSection: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 10,
+    gap: 6,
+  },
+  probePickerTitle: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  probePickerEmpty: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+  },
+  probePickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 9,
+    gap: 8,
+  },
+  probePickerName: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
+  probePickerTemp: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
   },
   badge: {
     paddingHorizontal: 7,

@@ -26,6 +26,7 @@ import { BootDiagnostic } from "@/components/BootDiagnostic";
 import { CACHE_STORAGE_KEY } from "@/constants/cache";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { PaywallProvider } from "@/contexts/PaywallContext";
+import { BleProbeProvider } from "@/contexts/BleProbeContext";
 import {
   consumeLastBootError,
   formatBootErrorForDisplay,
@@ -624,9 +625,11 @@ function ClerkGatedShell({
       <SessionExpiredGuard />
       <SubscriptionProvider>
         <PaywallProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <RootLayoutNav />
-          </GestureHandlerRootView>
+          <BleProbeProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <RootLayoutNav />
+            </GestureHandlerRootView>
+          </BleProbeProvider>
         </PaywallProvider>
       </SubscriptionProvider>
     </IsolatedQueryProvider>
