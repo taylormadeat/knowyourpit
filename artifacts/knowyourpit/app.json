@@ -2,7 +2,7 @@
   "expo": {
     "name": "knowyourpit",
     "slug": "knowyourpit",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.knowyourpit.app",
-      "buildNumber": "100",
+      "buildNumber": "101",
       "appleTeamId": "W8AY23XJTF",
       "usesAppleSignIn": true,
       "infoPlist": {
