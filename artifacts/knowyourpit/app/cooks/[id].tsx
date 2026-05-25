@@ -3023,6 +3023,22 @@ export default function CookDetailScreen() {
         {cookStatus === "active" && (() => {
           const liveProbeTemp = selectedMeaterProbe?.internalTempF ?? selectedThermoworksProbe?.tempF ?? cookCurrentTempF;
           if (c.targetTempF == null && c.cookTempF == null && liveProbeTemp == null) return null;
+          // Determine which probe is providing the live reading so the chip
+          // can label the source (e.g. "MEATER Block" or "BLE Probe").
+          let liveProbeSrcLabel: string | null = null;
+          if (selectedMeaterProbe?.internalTempF != null) {
+            liveProbeSrcLabel = (selectedMeaterProbe as any).deviceName ?? "MEATER Probe";
+          } else if (selectedThermoworksProbe?.tempF != null) {
+            liveProbeSrcLabel = (selectedThermoworksProbe as any).deviceName ?? "ThermoWorks";
+          } else if (selectedBleContextDevice?.probeTempF != null) {
+            liveProbeSrcLabel = selectedBleContextDevice.name ?? "BLE Probe";
+          } else if (selectedLanProbe?.probeTempF != null) {
+            liveProbeSrcLabel = selectedLanProbe.deviceName ?? "LAN Probe";
+          } else if (selectedInkbirdProbe?.tempF != null) {
+            liveProbeSrcLabel = (selectedInkbirdProbe as any).deviceName ?? "Inkbird";
+          } else if (cookCurrentTempF != null && activeProbeName !== "Probe") {
+            liveProbeSrcLabel = activeProbeName;
+          }
           return (
             <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
               {c.targetTempF != null && (
@@ -3043,7 +3059,11 @@ export default function CookDetailScreen() {
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: "#F59E0B12", borderWidth: 1, borderColor: "#F59E0B30" }}>
                   <Feather name="activity" size={11} color="#F59E0B" />
                   <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#F59E0B" }}>{Math.round(liveProbeTemp)}°F</Text>
-                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "#F59E0B99" }}>probe</Text>
+                  {liveProbeSrcLabel != null && (
+                    <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "#F59E0B99" }}>
+                      {liveProbeSrcLabel}
+                    </Text>
+                  )}
                 </View>
               )}
             </View>
@@ -3275,6 +3295,7 @@ export default function CookDetailScreen() {
           onCheckIn={handlePitMasterCheckIn}
           lastAnalyzedAtMs={lastAnalyzedAtMs}
           onRefresh={() => analyze()}
+          activeProbeName={activeProbeName !== "Probe" ? activeProbeName : null}
         />
         <CookSummaryCard
           c={c}

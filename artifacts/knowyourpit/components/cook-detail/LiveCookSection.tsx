@@ -67,6 +67,7 @@ interface Props {
   onCheckIn?: () => void;
   lastAnalyzedAtMs?: number | null;
   onRefresh?: () => void;
+  activeProbeName?: string | null;
 }
 
 function fmtLastChecked(lastAnalyzedAtMs: number, nowMs: number): string {
@@ -99,7 +100,7 @@ export function LiveCookSection(p: Props) {
     setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
     targetTempF, cookTempF, nextSpritzMs, nextMopMs, onViewDetails,
     isMeatOn, pitMasterResult, pitMasterAnalyzing, pitMasterVerdictCfg, pitMasterAssessment,
-    renderDecisions, onCheckIn, lastAnalyzedAtMs, onRefresh,
+    renderDecisions, onCheckIn, lastAnalyzedAtMs, onRefresh, activeProbeName,
   } = p;
 
   const [phaseNarrativeExpanded, setPhaseNarrativeExpanded] = React.useState(false);
@@ -179,7 +180,7 @@ export function LiveCookSection(p: Props) {
             {tempMode === "manual"
               ? "Manual entry · log temps during check-in"
               : hasAnyProbe && selectedProbeId != null
-              ? "Tracking selected probe · auto-updating every 15s"
+              ? `Tracking ${activeProbeName ?? "selected probe"} · auto-updating every 15s`
               : hasAnyProbe
               ? "Tap a probe below to track it for this cook"
               : "No probe detected · scanning nearby devices"}
