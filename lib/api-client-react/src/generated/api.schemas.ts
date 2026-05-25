@@ -1038,6 +1038,25 @@ export interface TemperatureUploadResult {
   cookId: number;
 }
 
+/**
+ * A single live channel reading from a multi-channel probe device
+ */
+export interface ProbeChannelReading {
+  /** Human-readable channel label (e.g. "Brisket Flat", "Channel 1", "Pit") */
+  channelLabel: string;
+  /** Current temperature reading for this channel in Fahrenheit */
+  probeTempF: number;
+}
+
+/**
+ * Structured cook context for richer AI analysis
+ * @nullable
+ */
+export type AnalyzeCookBodyCookContext = {
+  /** All active probe channels from the connected LAN/BLE device (e.g. Fireboard, ThermoWorks Signals, MEATER Block) */
+  probeChannels?: ProbeChannelReading[];
+} | null;
+
 export interface AnalyzeCookImageInput {
   /** Base64-encoded image data */
   base64: string;
@@ -1058,6 +1077,11 @@ export interface AnalyzeCookBody {
    * @nullable
    */
   cookId?: number | null;
+  /**
+   * Structured cook context for richer AI analysis
+   * @nullable
+   */
+  cookContext?: AnalyzeCookBodyCookContext;
 }
 
 export interface ProbeTimePoint {

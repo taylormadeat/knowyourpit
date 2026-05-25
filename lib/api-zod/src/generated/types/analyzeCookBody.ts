@@ -5,6 +5,7 @@
  * PitMaster AI - BBQ Planning & Monitoring API
  * OpenAPI spec version: 0.1.0
  */
+import type { AnalyzeCookBodyCookContext } from "./analyzeCookBodyCookContext";
 import type { AnalyzeCookImageInput } from "./analyzeCookImageInput";
 
 export interface AnalyzeCookBody {
@@ -20,4 +21,9 @@ export interface AnalyzeCookBody {
    * @nullable
    */
   cookId?: number | null;
+  /**
+   * Structured cook context for richer AI analysis
+   * @nullable
+   */
+  cookContext?: AnalyzeCookBodyCookContext;
 }

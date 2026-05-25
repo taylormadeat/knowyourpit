@@ -1807,6 +1807,34 @@ export const AnalyzeCookBody = zod.object({
     .describe(
       "Optional cook ID — when provided, the analysis result is saved as a Pit Journal entry",
     ),
+  cookContext: zod
+    .object({
+      probeChannels: zod
+        .array(
+          zod
+            .object({
+              channelLabel: zod
+                .string()
+                .describe(
+                  'Human-readable channel label (e.g. \"Brisket Flat\", \"Channel 1\", \"Pit\")',
+                ),
+              probeTempF: zod
+                .number()
+                .describe(
+                  "Current temperature reading for this channel in Fahrenheit",
+                ),
+            })
+            .describe(
+              "A single live channel reading from a multi-channel probe device",
+            ),
+        )
+        .optional()
+        .describe(
+          "All active probe channels from the connected LAN\/BLE device (e.g. Fireboard, ThermoWorks Signals, MEATER Block)",
+        ),
+    })
+    .nullish()
+    .describe("Structured cook context for richer AI analysis"),
 });
 
 export const AnalyzeCookResponse = zod.object({

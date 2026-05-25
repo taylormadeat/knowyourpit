@@ -93,6 +93,11 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
       thawMethod?: string | null;
       actualThawStartAt?: string | null;
       actualEndAt?: string | null;
+      // Multi-channel probe readings: all active channels from a LAN/BLE device
+      // (e.g. Fireboard with 4 probes, ThermoWorks Signals, MEATER Block).
+      // The first selected channel's reading is still passed as userEnteredTempF
+      // for backward-compat; probeChannels gives PitMaster the full picture.
+      probeChannels?: Array<{ channelLabel: string; probeTempF: number }> | null;
     } | null;
   };
 
@@ -271,6 +276,33 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
   }
   if (cookContext?.wrapFinish) techniqueLines.push(`Wrap/finish method: ${cookContext.wrapFinish}`);
   if (techniqueLines.length > 0) contextLines.push(`Techniques used: ${techniqueLines.join(" · ")}`);
+
+  // ── Multi-channel probe readings ─────────────────────────────────────────
+  // When a multi-probe device (Fireboard, ThermoWorks Signals, MEATER Block)
+  // is connected we receive all active channel readings, not just the selected
+  // one. Surface each channel by label so PitMaster can reason about done-ness
+  // and stall detection across different meat zones simultaneously.
+  const probeChannels = Array.isArray(cookContext?.probeChannels) ? cookContext.probeChannels : [];
+  const validProbeChannels = probeChannels.filter(
+    (ch): ch is { channelLabel: string; probeTempF: number } =>
+      ch != null &&
+      typeof ch.channelLabel === "string" && ch.channelLabel.trim().length > 0 &&
+      typeof ch.probeTempF === "number" && isFinite(ch.probeTempF),
+  );
+  if (validProbeChannels.length > 1) {
+    const channelLines = validProbeChannels
+      .map((ch) => `  • ${ch.channelLabel}: ${ch.probeTempF}°F`)
+      .join("\n");
+    contextLines.push(
+      `All active probe channels (multi-channel device):\n${channelLines}\n` +
+      `(The "Current internal meat temperature" above is the selected/primary channel. ` +
+      `Use all channels together to assess overall done-ness, detect stalls per zone, ` +
+      `and flag any channels that are running significantly hotter or colder than expected.)`,
+    );
+  } else if (validProbeChannels.length === 1) {
+    const ch = validProbeChannels[0]!;
+    contextLines.push(`Probe channel: ${ch.channelLabel} — ${ch.probeTempF}°F`);
+  }
 
   // ── Frozen-meat context ──────────────────────────────────────────────────
   // For frozen cooks we pass the thaw duration and active cook duration

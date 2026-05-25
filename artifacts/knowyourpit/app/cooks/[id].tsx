@@ -2075,6 +2075,26 @@ export default function CookDetailScreen() {
             thawMethod: c?.thawMethod ?? null,
             actualThawStartAt: c?.actualThawStartAt ? new Date(c.actualThawStartAt).toISOString() : null,
             actualEndAt: c?.actualEndAt ? new Date(c.actualEndAt).toISOString() : null,
+            // All active probe channels from every connected device — lets
+            // PitMaster reason about every zone simultaneously (e.g. brisket
+            // flat vs point, pit vs meat).
+            // • LAN devices (Fireboard, ThermoWorks Signals, MEATER Block):
+            //   each channel has its own label from the device firmware.
+            // • BLE devices (MEATER GATT, Govee, Weber iGrill): each *device*
+            //   is one channel; we use the device name as the label.
+            // Omitted entirely when no connected probes are reporting temps.
+            probeChannels: (() => {
+              const channels: Array<{ channelLabel: string; probeTempF: number }> = [];
+              for (const p of lanProbes) {
+                channels.push({ channelLabel: p.channelLabel, probeTempF: p.probeTempF });
+              }
+              for (const d of bleContextDevices) {
+                if (d.probeTempF != null) {
+                  channels.push({ channelLabel: d.name, probeTempF: d.probeTempF });
+                }
+              }
+              return channels.length > 0 ? channels : null;
+            })(),
           },
         } as any,
       });

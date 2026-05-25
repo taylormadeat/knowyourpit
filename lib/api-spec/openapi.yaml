@@ -2063,8 +2063,31 @@ components:
         cookId:
           type: ["integer", "null"]
           description: Optional cook ID — when provided, the analysis result is saved as a Pit Journal entry
+        cookContext:
+          type: ["object", "null"]
+          description: Structured cook context for richer AI analysis
+          properties:
+            probeChannels:
+              type: array
+              description: All active probe channels from the connected LAN/BLE device (e.g. Fireboard, ThermoWorks Signals, MEATER Block)
+              items:
+                $ref: "#/components/schemas/ProbeChannelReading"
       required:
         - images
+
+    ProbeChannelReading:
+      type: object
+      description: A single live channel reading from a multi-channel probe device
+      properties:
+        channelLabel:
+          type: string
+          description: Human-readable channel label (e.g. "Brisket Flat", "Channel 1", "Pit")
+        probeTempF:
+          type: number
+          description: Current temperature reading for this channel in Fahrenheit
+      required:
+        - channelLabel
+        - probeTempF
 
     AnalyzeCookImageInput:
       type: object
