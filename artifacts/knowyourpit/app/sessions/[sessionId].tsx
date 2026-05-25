@@ -313,6 +313,13 @@ export default function SessionDetailScreen() {
     }
   }, [sessionId, cookProbeAssignments]);
 
+  // When every cook in the session has ended, clear the saved probe assignments
+  // so stale pairings don't reappear if the session screen is revisited.
+  useEffect(() => {
+    if (Platform.OS === "web" || !sessionId || !allCompleted) return;
+    AsyncStorage.removeItem(`session_probe_assignments_${sessionId}`).catch(() => {});
+  }, [sessionId, allCompleted]);
+
   const { devices: allBleDevices } = useBleProbes();
   const connectedBleDevices = allBleDevices.filter((d) => d.connectionState === "connected");
 
@@ -679,6 +686,8 @@ export default function SessionDetailScreen() {
             setEditVisible(false);
             deleteSession.mutate(sessionId, {
               onSuccess: () => {
+                // Clear saved probe assignments so the storage key doesn't linger.
+                AsyncStorage.removeItem(`session_probe_assignments_${sessionId}`).catch(() => {});
                 router.replace("/(tabs)/cooks" as any);
               },
               onError: () => {

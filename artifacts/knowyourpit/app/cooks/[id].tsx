@@ -299,9 +299,16 @@ export default function CookDetailScreen() {
   );
 
   useEffect(() => {
-    if (Platform.OS === "web" || !id) return;
+    // Reset accumulated state whenever the cook id changes.
     setSelectedProbeId(null);
     setLiveReadings([]);
+  }, [id]);
+
+  useEffect(() => {
+    // Only rehydrate a saved probe selection for active cooks.
+    // Completed / cancelled cooks should not show a stale pairing.
+    const currentStatus = (cook as any)?.status;
+    if (Platform.OS === "web" || !id || currentStatus !== "active") return;
     const sessionMode = sessionTempModes.get(String(id));
     AsyncStorage.getItem(`probe_selection_${id}`)
       .then((val) => {
@@ -316,7 +323,8 @@ export default function CookDetailScreen() {
         }
       })
       .catch(() => setSelectedProbeId(null));
-  }, [id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, (cook as any)?.status]);
 
   // Reset accumulated probe readings whenever the selection changes so stale
   // data from a previous probe never leaks into the graph or AI payload.
@@ -1783,6 +1791,13 @@ export default function CookDetailScreen() {
     qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
     qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
     qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+
+    // Clear the saved probe assignment so a stale pairing never reappears if
+    // the user revisits this cook after it has ended.
+    if ((status === "completed" || status === "cancelled") && id && Platform.OS !== "web") {
+      setSelectedProbeId(null);
+      AsyncStorage.removeItem(`probe_selection_${id}`).catch(() => {});
+    }
 
     // When starting a cook that has no AI plan yet, schedule generic check-in
     // notifications anchored to now + an estimated finish time. The
