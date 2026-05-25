@@ -73,6 +73,9 @@ import {
   useCreateCookCheckin,
   useListCookPhotos,
   useUploadTemperatureData,
+  useListTemperatureReadings,
+  getListTemperatureReadingsQueryKey,
+  type TemperatureReading,
   getListCooksQueryKey,
   getGetCookQueryKey,
   getGetDashboardSummaryQueryKey,
@@ -328,8 +331,12 @@ export default function CookDetailScreen() {
 
   // Reset accumulated probe readings whenever the selection changes so stale
   // data from a previous probe never leaks into the graph or AI payload.
+  // Also reset the seeded flag so historical data is re-fetched and re-seeded
+  // for the newly selected probe (covers the async AsyncStorage rehydration on
+  // app reopen — probe transitions null→savedId after mount).
   useEffect(() => {
     setLiveReadings([]);
+    liveReadingsSeededRef.current = false;
   }, [selectedProbeId]);
 
   const handleSelectProbe = useCallback((probeId: string | null) => {
@@ -1016,6 +1023,22 @@ export default function CookDetailScreen() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [liveReadings, setLiveReadings] = useState<Array<{ timeMinutes: number; tempF: number }>>([]);
 
+  // Fetch historical temperature readings so the live graph is pre-populated
+  // when the user reopens the app mid-cook. Only fetched for active cooks that
+  // have a known start time (otherwise there is no anchor for timeMinutes).
+  const { data: historicalReadings } = useListTemperatureReadings(
+    { cookId: Number(id) },
+    {
+      query: {
+        queryKey: getListTemperatureReadingsQueryKey({ cookId: Number(id) }),
+        enabled: cookStatus === "active" && !!cook?.actualStartAt,
+      },
+    },
+  );
+  // Track whether we've already seeded liveReadings for this cook so we don't
+  // overwrite live probe readings that arrive after the initial seed.
+  const liveReadingsSeededRef = useRef(false);
+
   // iOS Live Activity (lock screen + Dynamic Island). No-op on Android,
   // Expo Go, and unsupported devices.
   useCookLiveActivity({
@@ -1042,6 +1065,7 @@ export default function CookDetailScreen() {
 
   useEffect(() => {
     setLiveReadings([]);
+    liveReadingsSeededRef.current = false;
     setNowMs(Date.now());
     setResult(null);
     setImages([]);
@@ -1055,6 +1079,50 @@ export default function CookDetailScreen() {
     setQpWrap(null);
     setActiveCookNoteTags([]);
   }, [id]);
+
+  // Seed liveReadings from historical temperature_readings on mount so the
+  // graph is not blank when the user reopens the app mid-cook.  New probe
+  // readings are appended on top by the probe-polling effects below, giving a
+  // continuous chart without gaps.
+  //
+  // `selectedProbeId` is included in deps because it changes asynchronously
+  // during app reopen (null → savedProbeId via AsyncStorage rehydration). That
+  // transition clears liveReadings and resets the seeded ref, but
+  // `historicalReadings` is already cached at that point so won't change —
+  // without `selectedProbeId` here the effect would never re-run and the graph
+  // would stay blank.  Including it causes a re-run exactly when needed while
+  // the seeded ref gate prevents subsequent live probe ticks from re-seeding.
+  useEffect(() => {
+    if (liveReadingsSeededRef.current) return;
+    if (!historicalReadings || historicalReadings.length === 0) return;
+    if (!cook?.actualStartAt) return;
+
+    const startMs = new Date(cook.actualStartAt).getTime();
+
+    // Pick the lowest probe number as the primary series (probe 1 is typically
+    // the internal meat probe).  If readings span multiple probes we only seed
+    // from one so the chart stays consistent with the single-series live graph.
+    const probeNumbers = [
+      ...new Set(historicalReadings.map((r: TemperatureReading) => r.probeNumber)),
+    ].sort((a, b) => a - b);
+    const primaryProbe = probeNumbers[0];
+
+    const entries = historicalReadings
+      .filter((r: TemperatureReading) => r.probeNumber === primaryProbe)
+      .map((r: TemperatureReading) => ({
+        timeMinutes:
+          Math.round(
+            Math.max(0, (new Date(r.recordedAt).getTime() - startMs) / 60000) * 10,
+          ) / 10,
+        tempF: r.tempF,
+      }))
+      .sort((a, b) => a.timeMinutes - b.timeMinutes);
+
+    if (entries.length > 0) {
+      setLiveReadings(entries);
+      liveReadingsSeededRef.current = true;
+    }
+  }, [historicalReadings, cook?.actualStartAt, selectedProbeId]);
 
   // Initialize ratings from saved cook data; also re-syncs when server refetches after a save
   const cookRatingT = (cook as any)?.ratingTenderness ?? 0;
