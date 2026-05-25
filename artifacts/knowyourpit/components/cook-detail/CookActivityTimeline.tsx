@@ -211,6 +211,20 @@ const URGENCY_COLORS: Record<string, string> = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+const PROBE_SOURCE_LABELS: Record<string, string> = {
+  meater:       "MEATER Probe",
+  thermoworks:  "ThermoWorks Probe",
+  inkbird:      "Inkbird Probe",
+  govee:        "Govee Probe",
+  ble:          "Bluetooth Probe",
+  lan:          "Network Probe",
+};
+
+function probeSourceLabel(source: string | null | undefined): string | null {
+  if (!source) return null;
+  return PROBE_SOURCE_LABELS[source] ?? "Probe";
+}
+
 const fmtTime = (ms: number) => {
   try {
     return new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
@@ -443,6 +457,8 @@ function CheckinRow({
   // One-line collapsed preview
   const collapsedPreview = (() => {
     const bits: string[] = [];
+    const srcLabel = probeSourceLabel(ci?.probeSource);
+    if (srcLabel) bits.push(srcLabel);
     if (ci?.internalTempF != null) bits.push(`${Math.round(ci.internalTempF)}°F`);
     if (ci?.statusFlag) {
       const cfg = STATUS_FLAG_CONFIG[ci.statusFlag];
@@ -512,6 +528,21 @@ function CheckinRow({
                         {cfg.label}
                       </Text>
                     </View>
+                  </View>
+                ) : null;
+              })()}
+
+              {/* Probe source chip */}
+              {ci?.probeSource && (ci.internalTempF != null || ci.pitTempF != null) && (() => {
+                const label = probeSourceLabel(ci.probeSource);
+                return label ? (
+                  <View style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 4,
+                    backgroundColor: "#22c55e18", borderColor: "#22c55e40", borderWidth: 1,
+                    borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>
+                    <Feather name="wifi" size={11} color="#22c55e" />
+                    <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: "#22c55e" }}>
+                      {label}
+                    </Text>
                   </View>
                 ) : null;
               })()}
