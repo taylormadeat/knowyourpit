@@ -1024,14 +1024,14 @@ export default function CookDetailScreen() {
   const [liveReadings, setLiveReadings] = useState<Array<{ timeMinutes: number; tempF: number }>>([]);
 
   // Fetch historical temperature readings so the live graph is pre-populated
-  // when the user reopens the app mid-cook. Only fetched for active cooks that
-  // have a known start time (otherwise there is no anchor for timeMinutes).
+  // when the user reopens the app mid-cook, and to surface a post-cook
+  // temperature profile for completed cooks that may not have AI analysis.
   const { data: historicalReadings } = useListTemperatureReadings(
     { cookId: Number(id) },
     {
       query: {
         queryKey: getListTemperatureReadingsQueryKey({ cookId: Number(id) }),
-        enabled: cookStatus === "active" && !!cook?.actualStartAt,
+        enabled: (cookStatus === "active" || cookStatus === "completed") && !!cook?.actualStartAt,
       },
     },
   );
@@ -2598,6 +2598,47 @@ export default function CookDetailScreen() {
   const storedVerdictCfg = storedAssessment ? (VERDICT_CONFIG[storedAssessment.verdict] ?? VERDICT_CONFIG.needs_work) : null;
   const storedGraphProbes = (storedAnalysis?.probes ?? []).filter((p: any) => p.timeSeries && p.timeSeries.length >= 2);
 
+  // Build ProbeTimeSeries from raw DB temperature_readings for completed cooks.
+  // Grouped by probeNumber so each physical probe gets its own line on the graph.
+  // Used as a fallback when the cook has no stored AI analysis, and as a
+  // supplement when it does (storedGraphProbes takes priority).
+  const completedCookReadingsProbes = useMemo<ProbeTimeSeries[]>(() => {
+    if (cookStatus !== "completed") return [];
+    if (!historicalReadings || historicalReadings.length === 0) return [];
+    if (!c.actualStartAt) return [];
+
+    const startMs = new Date(c.actualStartAt).getTime();
+    const probeNumbers = [
+      ...new Set(historicalReadings.map((r: TemperatureReading) => r.probeNumber)),
+    ].sort((a: number, b: number) => a - b);
+
+    return probeNumbers
+      .map((probeNum: number) => {
+        const timeSeries = historicalReadings
+          .filter((r: TemperatureReading) => r.probeNumber === probeNum)
+          .map((r: TemperatureReading) => ({
+            timeMinutes:
+              Math.round(
+                Math.max(0, (new Date(r.recordedAt).getTime() - startMs) / 60000) * 10,
+              ) / 10,
+            tempF: r.tempF,
+          }))
+          .sort((a: { timeMinutes: number }, b: { timeMinutes: number }) => a.timeMinutes - b.timeMinutes);
+        const lastTemp = timeSeries[timeSeries.length - 1]?.tempF ?? 0;
+        return {
+          probeName: probeNumbers.length === 1 ? "Probe" : `Probe ${probeNum}`,
+          timeSeries,
+          finishingTempF: lastTemp,
+        };
+      })
+      .filter((p) => p.timeSeries.length >= 2);
+  }, [cookStatus, historicalReadings, c.actualStartAt]);
+
+  // Effective probes for the stored-analysis graph: prefer AI-derived probes
+  // (richer metadata) but fall back to raw readings probes when absent.
+  const effectiveStoredGraphProbes =
+    storedGraphProbes.length > 0 ? storedGraphProbes : completedCookReadingsProbes;
+
   // ── Decision engine renderer ──────────────────────────────────────────────
   const ACTION_CONFIG: Record<string, { icon: string; label: string }> = {
     wrap:              { icon: "package",       label: "Wrap Now"         },
@@ -3660,7 +3701,7 @@ export default function CookDetailScreen() {
           storedAnalysis={storedAnalysis}
           storedAssessment={storedAssessment}
           storedVerdictCfg={storedVerdictCfg}
-          storedGraphProbes={storedGraphProbes}
+          storedGraphProbes={effectiveStoredGraphProbes}
           cardWidth={cardWidth}
           nowMs={nowMs}
           isIdentityLinked={isIdentityLinked}
@@ -3670,6 +3711,28 @@ export default function CookDetailScreen() {
           showPaywall={showPaywall}
           onCardLayout={onCardLayout}
         />}
+
+        {/* ── Standalone Temperature History (completed cooks with probe data but no AI analysis) ── */}
+        {cookStatus === "completed" && !storedAnalysis && completedCookReadingsProbes.length > 0 && (
+          <View
+            style={[
+              { backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 4 },
+            ]}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <Feather name="activity" size={15} color={colors.mutedForeground as string} />
+              <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: colors.foreground, letterSpacing: 0.3 }}>
+                Temperature History
+              </Text>
+            </View>
+            <TempGraph
+              probes={completedCookReadingsProbes}
+              targetTempF={c.targetTempF ?? null}
+              width={cardWidth}
+              height={190}
+            />
+          </View>
+        )}
 
 
         {/* ── Soft "you're 1 cook from the wall" nudge ──────────
