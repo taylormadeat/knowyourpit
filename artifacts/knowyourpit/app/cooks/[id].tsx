@@ -1986,6 +1986,20 @@ export default function CookDetailScreen() {
       opts.checkinOverride?.internalTempF ??
       lastCheckin?.internalTempF ??
       null;
+    // Determine which source resolved the internal temp so the result card
+    // can show "Source: MEATER Probe · 185°F" for user transparency.
+    let snapshotTempSourceLabel: string | null = null;
+    if (liveMeaterInternalTempF != null) {
+      snapshotTempSourceLabel = selectedMeaterProbe?.deviceName ?? "MEATER Probe";
+    } else if (liveBleInternalTempF != null) {
+      snapshotTempSourceLabel = selectedBleContextDevice?.name ?? "BLE Probe";
+    } else if (liveLanInternalTempF != null) {
+      snapshotTempSourceLabel = selectedLanProbe?.deviceName ?? "LAN Probe";
+    } else if (opts.checkinOverride?.internalTempF != null) {
+      snapshotTempSourceLabel = "Manual Entry";
+    } else if (lastCheckin?.internalTempF != null) {
+      snapshotTempSourceLabel = "Last Check-In";
+    }
     // Priority for pit/ambient temp: manual override > live probe ambient (BLE > LAN > MEATER cloud) > last check-in (stale fallback).
     // Live probe ambient takes precedence over stale check-in history so PitMaster sees real current pit temp.
     const resolvedPitTempF =
@@ -2081,7 +2095,8 @@ export default function CookDetailScreen() {
             phasePrediction: data.phasePrediction ?? null,
             decisions: data.decisions ?? [],
             // Snapshot context so history is self-contained
-            snapshotTempF: liveMeaterInternalTempF ?? lastCheckin?.internalTempF ?? null,
+            snapshotTempF: resolvedInternalTempF,
+            snapshotTempSourceLabel,
             snapshotNotes: notesForAnalysis || null,
             snapshotElapsedMinutes: c?.actualStartAt ? Math.round((Date.now() - new Date(c.actualStartAt).getTime()) / 60000) : null,
             analyzedAt: new Date().toISOString(),

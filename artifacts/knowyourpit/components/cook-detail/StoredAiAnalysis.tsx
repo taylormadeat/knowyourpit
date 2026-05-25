@@ -92,6 +92,25 @@ export function StoredAiAnalysis(p: Props) {
                 })()
               : "Saved from image scan"}
           </Text>
+          {(() => {
+            const sourceLabel = (storedAnalysis as any)?.snapshotTempSourceLabel as string | null | undefined;
+            const snapTempF = (storedAnalysis as any)?.snapshotTempF as number | null | undefined;
+            if (!sourceLabel) return null;
+            const tempPart = snapTempF != null ? ` · ${Math.round(snapTempF)}°F` : "";
+            return (
+              <View style={{
+                flexDirection: "row", alignItems: "center", gap: 4,
+                marginTop: 5, alignSelf: "flex-start",
+                backgroundColor: "#6C3BF518", borderRadius: 6,
+                paddingHorizontal: 7, paddingVertical: 3,
+              }}>
+                <Feather name="radio" size={10} color="#A855F7" />
+                <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: "#A855F7" }}>
+                  {sourceLabel}{tempPart}
+                </Text>
+              </View>
+            );
+          })()}
         </View>
         {storedVerdictCfg && (
           <View style={[s.verdictPill, { backgroundColor: storedVerdictCfg.color + "22" }]}>
