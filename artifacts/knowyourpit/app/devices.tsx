@@ -248,12 +248,16 @@ export default function DevicesScreen() {
     scan: scanLan,
     addCustomHost,
     removeCustomHost,
-  } = useLanProbes({ enabled: true, pollIntervalMs: 30_000 });
+  } = useLanProbes({ enabled: effectivePro, pollIntervalMs: 30_000 });
 
   const [customHostInput, setCustomHostInput] = useState("");
   const [showCustomHostInput, setShowCustomHostInput] = useState(false);
 
   const handleScan = () => {
+    if (!effectivePro) {
+      showPaywall({ trigger: "pro_required", featureName: "Smart Probe Integration" });
+      return;
+    }
     startBleScan();
     scanLan();
   };
@@ -391,100 +395,111 @@ export default function DevicesScreen() {
               <Text style={[s.sectionHeader, { color: colors.mutedForeground }]}>WiFi Devices</Text>
             </View>
 
-            {lanDevices.length === 0 ? (
-              <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-                <Feather name="wifi-off" size={20} color={colors.mutedForeground} />
-                <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
-                  No WiFi thermometers found on your local network.
-                </Text>
-                <Text style={[s.emptySubText, { color: colors.mutedForeground }]}>
-                  Supported: Fireboard 2/Drive, MEATER Block, ThermoWorks Signals
-                </Text>
-              </View>
+            {!effectivePro ? (
+              <LockedFeatureCard
+                featureName="Local WiFi Thermometers"
+                teaser="Connect Fireboard, MEATER Block, and ThermoWorks Signals over your local network for live temps and auto PitMaster check-ins."
+                icon="wifi"
+                onPress={() => showPaywall({ trigger: "pro_required", featureName: "Smart Probe Integration" })}
+              />
             ) : (
-              lanDevices.map((device) => (
-                <LanDeviceCard key={device.host} device={device} colors={colors} />
-              ))
-            )}
-
-            {/* Custom host rows — user-supplied IPs / mDNS names */}
-            {customHosts.map((host) => (
-              <View
-                key={host}
-                style={[s.deviceCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
-              >
-                <View style={s.deviceRow}>
-                  <View style={[s.deviceIcon, { backgroundColor: "#0EA5E910" }]}>
-                    <Feather name="server" size={18} color="#0EA5E9" />
+              <>
+                {lanDevices.length === 0 ? (
+                  <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                    <Feather name="wifi-off" size={20} color={colors.mutedForeground} />
+                    <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
+                      No WiFi thermometers found on your local network.
+                    </Text>
+                    <Text style={[s.emptySubText, { color: colors.mutedForeground }]}>
+                      Supported: Fireboard 2/Drive, MEATER Block, ThermoWorks Signals
+                    </Text>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[s.deviceName, { color: colors.foreground }]}>{host}</Text>
-                    <Text style={[s.deviceSub, { color: colors.mutedForeground }]}>Custom device address</Text>
-                  </View>
-                  <Pressable
-                    onPress={() => removeCustomHost(host)}
-                    style={{ padding: 6 }}
-                    hitSlop={8}
-                  >
-                    <Feather name="trash-2" size={16} color="#ef4444" />
-                  </Pressable>
-                </View>
-              </View>
-            ))}
+                ) : (
+                  lanDevices.map((device) => (
+                    <LanDeviceCard key={device.host} device={device} colors={colors} />
+                  ))
+                )}
 
-            {/* Add custom host */}
-            {showCustomHostInput ? (
-              <View style={[s.deviceCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, padding: 12, gap: 8 }]}>
-                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.foreground }}>
-                  Add device IP or hostname
-                </Text>
-                <TextInput
-                  style={[s.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
-                  placeholder="e.g. 192.168.1.100 or fireboard.local"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={customHostInput}
-                  onChangeText={setCustomHostInput}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="url"
-                  returnKeyType="done"
-                  onSubmitEditing={() => {
-                    if (customHostInput.trim()) {
-                      addCustomHost(customHostInput);
-                      setCustomHostInput("");
-                      setShowCustomHostInput(false);
-                    }
-                  }}
-                />
-                <View style={{ flexDirection: "row", gap: 8 }}>
-                  <Pressable
-                    onPress={() => { setShowCustomHostInput(false); setCustomHostInput(""); }}
-                    style={[s.unlinkBtn, { flex: 1, borderColor: colors.border, justifyContent: "center" }]}
+                {/* Custom host rows — user-supplied IPs / mDNS names */}
+                {customHosts.map((host) => (
+                  <View
+                    key={host}
+                    style={[s.deviceCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
                   >
-                    <Text style={s.unlinkText}>Cancel</Text>
-                  </Pressable>
+                    <View style={s.deviceRow}>
+                      <View style={[s.deviceIcon, { backgroundColor: "#0EA5E910" }]}>
+                        <Feather name="server" size={18} color="#0EA5E9" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[s.deviceName, { color: colors.foreground }]}>{host}</Text>
+                        <Text style={[s.deviceSub, { color: colors.mutedForeground }]}>Custom device address</Text>
+                      </View>
+                      <Pressable
+                        onPress={() => removeCustomHost(host)}
+                        style={{ padding: 6 }}
+                        hitSlop={8}
+                      >
+                        <Feather name="trash-2" size={16} color="#ef4444" />
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
+
+                {/* Add custom host */}
+                {showCustomHostInput ? (
+                  <View style={[s.deviceCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, padding: 12, gap: 8 }]}>
+                    <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.foreground }}>
+                      Add device IP or hostname
+                    </Text>
+                    <TextInput
+                      style={[s.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
+                      placeholder="e.g. 192.168.1.100 or fireboard.local"
+                      placeholderTextColor={colors.mutedForeground}
+                      value={customHostInput}
+                      onChangeText={setCustomHostInput}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      keyboardType="url"
+                      returnKeyType="done"
+                      onSubmitEditing={() => {
+                        if (customHostInput.trim()) {
+                          addCustomHost(customHostInput);
+                          setCustomHostInput("");
+                          setShowCustomHostInput(false);
+                        }
+                      }}
+                    />
+                    <View style={{ flexDirection: "row", gap: 8 }}>
+                      <Pressable
+                        onPress={() => { setShowCustomHostInput(false); setCustomHostInput(""); }}
+                        style={[s.unlinkBtn, { flex: 1, borderColor: colors.border, justifyContent: "center" }]}
+                      >
+                        <Text style={s.unlinkText}>Cancel</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          if (customHostInput.trim()) {
+                            addCustomHost(customHostInput);
+                            setCustomHostInput("");
+                            setShowCustomHostInput(false);
+                          }
+                        }}
+                        style={[s.linkBtn, { flex: 1, backgroundColor: "#0EA5E9", marginTop: 0, marginHorizontal: 0, justifyContent: "center" }]}
+                      >
+                        <Text style={s.linkBtnText}>Add</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
                   <Pressable
-                    onPress={() => {
-                      if (customHostInput.trim()) {
-                        addCustomHost(customHostInput);
-                        setCustomHostInput("");
-                        setShowCustomHostInput(false);
-                      }
-                    }}
-                    style={[s.linkBtn, { flex: 1, backgroundColor: "#0EA5E9", marginTop: 0, marginHorizontal: 0, justifyContent: "center" }]}
+                    onPress={() => setShowCustomHostInput(true)}
+                    style={[s.linkBtn, { backgroundColor: "#0EA5E920", marginTop: 0, marginHorizontal: 0, alignItems: "center" }]}
                   >
-                    <Text style={s.linkBtnText}>Add</Text>
+                    <Feather name="plus" size={14} color="#0EA5E9" />
+                    <Text style={[s.linkBtnText, { color: "#0EA5E9" }]}>Add Custom Device IP / Hostname</Text>
                   </Pressable>
-                </View>
-              </View>
-            ) : (
-              <Pressable
-                onPress={() => setShowCustomHostInput(true)}
-                style={[s.linkBtn, { backgroundColor: "#0EA5E920", marginTop: 0, marginHorizontal: 0, alignItems: "center" }]}
-              >
-                <Feather name="plus" size={14} color="#0EA5E9" />
-                <Text style={[s.linkBtnText, { color: "#0EA5E9" }]}>Add Custom Device IP / Hostname</Text>
-              </Pressable>
+                )}
+              </>
             )}
           </View>
 
@@ -495,38 +510,49 @@ export default function DevicesScreen() {
               <Text style={[s.sectionHeader, { color: colors.mutedForeground }]}>Bluetooth Devices</Text>
             </View>
 
-            {blePermDenied && (
-              <View style={[s.emptyCard, { backgroundColor: "#ef444412", borderColor: "#ef444440", borderRadius: colors.radius }]}>
-                <Feather name="alert-circle" size={16} color="#ef4444" />
-                <Text style={[s.emptyText, { color: "#ef4444" }]}>
-                  Bluetooth permission denied. Enable it in Settings to use BLE thermometers.
-                </Text>
-              </View>
-            )}
-
-            {!blePermDenied && bleDevices.length === 0 && (
-              <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-                <Feather name="bluetooth" size={20} color={colors.mutedForeground} />
-                <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
-                  {bleScanning ? "Scanning for nearby BLE probes…" : "No Bluetooth devices found nearby."}
-                </Text>
-                {!bleScanning && (
-                  <Text style={[s.emptySubText, { color: colors.mutedForeground }]}>
-                    Supported: MEATER probe, Govee H5051/H5075, Weber iGrill 2/3/Mini, Inkbird IBT-series
-                  </Text>
-                )}
-              </View>
-            )}
-
-            {bleDevices.map((device) => (
-              <BleDeviceCard
-                key={device.id}
-                device={device}
-                colors={colors}
-                onPair={() => pairDevice(device.id)}
-                onUnpair={() => unpairDevice(device.id)}
+            {!effectivePro ? (
+              <LockedFeatureCard
+                featureName="Bluetooth Thermometers"
+                teaser="Pair Inkbird, Govee, Weber iGrill, and MEATER probes via Bluetooth for live temperatures and automatic PitMaster coaching."
+                icon="bluetooth"
+                onPress={() => showPaywall({ trigger: "pro_required", featureName: "Smart Probe Integration" })}
               />
-            ))}
+            ) : (
+              <>
+                {blePermDenied && (
+                  <View style={[s.emptyCard, { backgroundColor: "#ef444412", borderColor: "#ef444440", borderRadius: colors.radius }]}>
+                    <Feather name="alert-circle" size={16} color="#ef4444" />
+                    <Text style={[s.emptyText, { color: "#ef4444" }]}>
+                      Bluetooth permission denied. Enable it in Settings to use BLE thermometers.
+                    </Text>
+                  </View>
+                )}
+
+                {!blePermDenied && bleDevices.length === 0 && (
+                  <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                    <Feather name="bluetooth" size={20} color={colors.mutedForeground} />
+                    <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
+                      {bleScanning ? "Scanning for nearby BLE probes…" : "No Bluetooth devices found nearby."}
+                    </Text>
+                    {!bleScanning && (
+                      <Text style={[s.emptySubText, { color: colors.mutedForeground }]}>
+                        Supported: MEATER probe, Govee H5051/H5075, Weber iGrill 2/3/Mini, Inkbird IBT-series
+                      </Text>
+                    )}
+                  </View>
+                )}
+
+                {bleDevices.map((device) => (
+                  <BleDeviceCard
+                    key={device.id}
+                    device={device}
+                    colors={colors}
+                    onPair={() => pairDevice(device.id)}
+                    onUnpair={() => unpairDevice(device.id)}
+                  />
+                ))}
+              </>
+            )}
           </View>
 
           {/* ── Section: Cloud Integrations ── */}

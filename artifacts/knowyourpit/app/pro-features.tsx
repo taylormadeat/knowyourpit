@@ -146,22 +146,27 @@ function WeatherPreview({ colors }: { colors: any }) {
 }
 
 function ProbeAutoGradePreview({ colors }: { colors: any }) {
+  const devices = [
+    { label: "Inkbird IBT-4XS", type: "BLE", typeColor: "#3B82F6", temp: "168°F", dot: "#E84520" },
+    { label: "Fireboard 2 · Ch1", type: "WiFi", typeColor: "#0EA5E9", temp: "241°F", dot: "#F59E0B" },
+  ];
   return (
     <View style={pv.probeWrap}>
-      <View style={[pv.probeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={pv.probeRow}>
-          <View style={[pv.probeDot, { backgroundColor: "#22C55E" }]} />
-          <Text style={[pv.probeName, { color: colors.foreground }]}>MEATER+  Probe 1</Text>
-          <Text style={[pv.probeTemp, { color: "#E84520" }]}>168°F</Text>
+      {devices.map((d) => (
+        <View key={d.label} style={[pv.probeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={pv.probeRow}>
+            <View style={[pv.probeDot, { backgroundColor: d.dot }]} />
+            <Text style={[pv.probeName, { color: colors.foreground }]}>{d.label}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 99, backgroundColor: d.typeColor + "20" }}>
+              <Text style={{ fontSize: 9, fontFamily: "Inter_600SemiBold", color: d.typeColor }}>{d.type}</Text>
+            </View>
+            <Text style={[pv.probeTemp, { color: d.dot, fontSize: 14 }]}>{d.temp}</Text>
+          </View>
         </View>
-        <View style={pv.probeBarTrack}>
-          <View style={[pv.probeBarFill, { width: "62%", backgroundColor: "#E84520" }]} />
-        </View>
-        <Text style={[pv.probeTarget, { color: colors.mutedForeground }]}>Target 203°F · 35°F remaining</Text>
-      </View>
+      ))}
       <View style={[pv.probeCheckin, { backgroundColor: "#22C55E18", borderColor: "#22C55E44" }]}>
         <Feather name="cpu" size={12} color="#22C55E" />
-        <Text style={[pv.probeCheckinText, { color: "#22C55E" }]}>PitMaster auto-graded at 30 min · "Looking great — stay the course"</Text>
+        <Text style={[pv.probeCheckinText, { color: "#22C55E" }]}>PitMaster auto-graded at 30 min · "Brisket on track — grill temp running 10° high"</Text>
       </View>
     </View>
   );
@@ -254,8 +259,8 @@ const FEATURES = [
   },
   {
     id: "probe",
-    headline: "Live Probe Auto-Grading",
-    benefit: "PitMaster checks in every 30 minutes using live temps from your MEATER or ThermoWorks probe.",
+    headline: "Live Thermometer Connection",
+    benefit: "Connect Inkbird, Govee, Weber iGrill, Fireboard, MEATER, and ThermoWorks probes via Bluetooth or WiFi. PitMaster auto-grades every 30 minutes using live temps.",
     Preview: ProbeAutoGradePreview,
   },
   {
