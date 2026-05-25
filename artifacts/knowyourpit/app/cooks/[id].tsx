@@ -1297,14 +1297,13 @@ export default function CookDetailScreen() {
     meaterDataUpdatedAt, thermoworksDataUpdatedAt,
   ]);
 
-  // Persist BLE / LAN probe readings to the backend temperature_readings table
-  // so the AI assistant and cook graphs have access to the data, just like
-  // MEATER / ThermoWorks readings that flow through the cloud adapters.
+  // Persist all live probe readings to the backend temperature_readings table
+  // so the graph survives app restarts. Covers MEATER, ThermoWorks, Inkbird,
+  // BLE (GATT context) and LAN probes — every source that appends to liveReadings.
   const lastUploadedProbeTs = useRef<number>(0);
   useEffect(() => {
     if (!autoCheckinProbeReading) return;
     const { internalTempF, probeSource, fetchedAtMs } = autoCheckinProbeReading;
-    if (probeSource !== "ble" && probeSource !== "lan") return;
     if (internalTempF == null) return;
     // Debounce: only upload once per polling cycle — if the reading timestamp
     // hasn't advanced since our last upload, skip.
@@ -1312,6 +1311,13 @@ export default function CookDetailScreen() {
     const cookId = Number(id);
     if (!cookId || cookStatus !== "active") return;
     lastUploadedProbeTs.current = fetchedAtMs;
+    const probeName =
+      probeSource === "meater" ? (selectedMeaterProbe?.deviceName ?? "MEATER Probe") :
+      probeSource === "thermoworks" ? ((selectedThermoworksProbe as any)?.deviceName ?? "ThermoWorks Probe") :
+      probeSource === "inkbird" ? (selectedInkbirdProbe?.deviceName ?? "Inkbird Probe") :
+      probeSource === "ble" ? (selectedBleContextDevice?.name ?? "BLE Probe") :
+      probeSource === "lan" ? (selectedLanProbe?.deviceName ?? "LAN Probe") :
+      null;
     uploadTemperatureData.mutate({
       data: {
         cookId,
@@ -1319,7 +1325,7 @@ export default function CookDetailScreen() {
         readings: [
           {
             probeNumber: 0,
-            probeName: selectedBleContextDevice?.name ?? selectedLanProbe?.deviceName ?? null,
+            probeName,
             tempF: internalTempF,
             recordedAt: new Date(fetchedAtMs).toISOString(),
           },
