@@ -103,11 +103,12 @@ interface PaywallModalProps {
 }
 
 const FEATURES: ReadonlyArray<{ icon: FeatherIconName; label: string }> = [
-  { icon: "zap",          label: "Unlimited cooks & cook history" },
-  { icon: "message-circle", label: "Unlimited PitMaster AI chat & scans" },
-  { icon: "activity",    label: "Live probe auto-grading (MEATER & ThermoWorks)" },
-  { icon: "layers",      label: "Multi-Cook Sequencer & Competition Mode" },
-  { icon: "bar-chart-2", label: "Cook Quality Analytics & Grill Fingerprint" },
+  { icon: "zap",            label: "Unlimited cooks, logs & full cook history" },
+  { icon: "message-circle", label: "Unlimited PitMaster AI coaching & photo scans" },
+  { icon: "bluetooth",      label: "Bluetooth & WiFi thermometers — Inkbird, Govee, iGrill, Fireboard & more" },
+  { icon: "layers",         label: "Multi-Cook Sequencer & Competition Mode" },
+  { icon: "cloud",          label: "Cook-Day Weather Forecast & Frozen-to-Table Planner" },
+  { icon: "bar-chart-2",    label: "Cook Quality Analytics & Grill Fingerprint" },
 ];
 
 function normalizeFoodType(raw?: string | null): string | null {
