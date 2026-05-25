@@ -1606,6 +1606,36 @@ export default function CookDetailScreen() {
     ]);
   }, [selectedLanProbe]);
 
+  // Accumulate live readings for ThermoWorks BLE probes.
+  // Fires each time the ThermoWorks probe polling cycle delivers a new reading.
+  useEffect(() => {
+    if (selectedThermoworksProbe == null || (selectedThermoworksProbe as any).tempF == null) return;
+    const currentTemp = (selectedThermoworksProbe as any).tempF as number;
+    const startAt = cook?.actualStartAt;
+    const elapsedMins = startAt
+      ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000)
+      : 0;
+    setLiveReadings((prev) => [
+      ...prev,
+      { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: currentTemp },
+    ]);
+  }, [selectedThermoworksProbe]);
+
+  // Accumulate live readings for Inkbird BLE probes.
+  // Fires each time the BLE advertisement scanner delivers a new reading.
+  useEffect(() => {
+    if (selectedInkbirdProbe?.tempF == null) return;
+    const currentTemp = selectedInkbirdProbe.tempF;
+    const startAt = cook?.actualStartAt;
+    const elapsedMins = startAt
+      ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000)
+      : 0;
+    setLiveReadings((prev) => [
+      ...prev,
+      { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: currentTemp },
+    ]);
+  }, [selectedInkbirdProbe]);
+
   // Reconciliation: on screen mount (and when alerts load), mark overdue timer alerts as triggered
   // Handles the case where the app was backgrounded or killed when a scheduled notification fired
   useEffect(() => {
