@@ -173,6 +173,11 @@ LogBox.ignoreLogs(["ref.measureLayout must be called with a ref"]);
 
 const logoImg = require("@/assets/images/logo.png");
 
+// Per-session temp-mode choices (probe / manual) keyed by cookId string.
+// Module-scope so explicit user choices (probe → manual or vice-versa) survive
+// Expo Router re-mounts within one app session without an AsyncStorage write.
+const sessionTempModes = new Map<string, "probe" | "manual">();
+
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
   (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
@@ -276,18 +281,36 @@ export default function CookDetailScreen() {
   const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
 
   // "probe" = live BLE/cloud probe drives check-in auto-fill.
-  // "manual" = user types temps during check-in (default until a probe is chosen).
-  const [tempMode, setTempMode] = useState<"probe" | "manual">("manual");
+  // "manual" = user types temps during check-in.
+  // Session map is checked first so an explicit user choice survives re-mounts.
+  const [tempMode, setTempModeState] = useState<"probe" | "manual">(
+    () => (id ? (sessionTempModes.get(String(id)) ?? "manual") : "manual"),
+  );
+
+  const setTempMode = useCallback(
+    (mode: "probe" | "manual") => {
+      setTempModeState(mode);
+      if (id) sessionTempModes.set(String(id), mode);
+    },
+    [id],
+  );
 
   useEffect(() => {
     if (Platform.OS === "web" || !id) return;
     setSelectedProbeId(null);
-    setTempMode("manual");
     setLiveReadings([]);
+    const sessionMode = sessionTempModes.get(String(id));
     AsyncStorage.getItem(`probe_selection_${id}`)
       .then((val) => {
         setSelectedProbeId(val ?? null);
-        if (val != null) setTempMode("probe");
+        // Only auto-switch to probe mode when the user has NOT explicitly chosen
+        // a mode this session — respects a deliberate "Manual Entry" switch.
+        if (val != null && sessionMode == null) {
+          setTempModeState("probe");
+          sessionTempModes.set(String(id), "probe");
+        } else if (sessionMode != null) {
+          setTempModeState(sessionMode);
+        }
       })
       .catch(() => setSelectedProbeId(null));
   }, [id]);
@@ -307,7 +330,7 @@ export default function CookDetailScreen() {
     } else {
       AsyncStorage.setItem(`probe_selection_${id}`, probeId).catch(() => {});
     }
-  }, [id]);
+  }, [id, setTempMode]);
 
   // Ratings state
   const [rateTenderness, setRateTenderness] = useState<number>(0);

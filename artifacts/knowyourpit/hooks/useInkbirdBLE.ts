@@ -38,20 +38,28 @@ interface UseInkbirdBLEResult {
   scanning: boolean;
 }
 
-// Set to true if your Inkbird model reports temperatures in Celsius.
-// Most IBT-2X / IBT-4XS / IBT-6XS firmware reports in 1/10 °F.
-const INKBIRD_TEMP_UNIT_IS_CELSIUS = false;
+// Inkbird IBT-series advertisement format: values are in 1/10 °C by default.
+// Set to false only if your specific firmware revision reports in 1/10 °F.
+const INKBIRD_TEMP_UNIT_IS_CELSIUS = true;
 
 // Device name prefixes used by Inkbird thermometers (case-insensitive)
 const INKBIRD_PREFIXES = ["ibbq", "inkbird", "ibt-", "ibt_"];
 
+// Service UUID advertised by Inkbird IBT-series devices (16-bit: 0xFFF0)
+const INKBIRD_SERVICE_UUID = "0000fff0-0000-1000-8000-00805f9b34fb";
+
 // Remove devices from the list if not seen within this window
 const STALE_TIMEOUT_MS = 30_000;
 
-function isInkbirdDevice(name: string | null | undefined): boolean {
-  if (!name) return false;
-  const lower = name.toLowerCase();
-  return INKBIRD_PREFIXES.some((p) => lower.startsWith(p));
+function isInkbirdDevice(device: any): boolean {
+  const name = (device?.name ?? device?.localName ?? "") as string;
+  if (INKBIRD_PREFIXES.some((p) => name.toLowerCase().startsWith(p))) return true;
+  // Fallback: match on advertised service UUID (some models omit a known name)
+  const serviceUUIDs: string[] = device?.serviceUUIDs ?? [];
+  if (serviceUUIDs.some((u: string) => u.toLowerCase() === INKBIRD_SERVICE_UUID)) return true;
+  const serviceData: Record<string, string> = device?.serviceData ?? {};
+  if (Object.keys(serviceData).some((k) => k.toLowerCase() === INKBIRD_SERVICE_UUID)) return true;
+  return false;
 }
 
 function base64ToBytes(b64: string): number[] {
@@ -169,10 +177,9 @@ export function useInkbirdBLE({ enabled }: UseInkbirdBLEOptions): UseInkbirdBLER
             if (!mounted) return;
             if (error) return; // Bluetooth disabled / permission revoked
 
-            const name = device?.name ?? device?.localName;
-            if (!isInkbirdDevice(name)) return;
+            if (!isInkbirdDevice(device)) return;
 
-            const deviceName = (name as string) ?? "Inkbird";
+            const deviceName = (device.name ?? device.localName ?? "Inkbird") as string;
             const temps = parseInkbirdTemps(device.manufacturerData as string | null);
 
             const now = Date.now();
