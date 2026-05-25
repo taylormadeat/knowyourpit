@@ -28,10 +28,16 @@ const MORE_HREF = "/(tabs)/more" as Href;
 const { width: SCREEN_W } = Dimensions.get("window");
 const BRAND_ORANGE = "#E84820";
 const SUPPORT_EMAIL = "support@knowyourpit.com";
+const APP_STORE_URL = "itms-apps://itunes.apple.com/app/id6738518044";
 
 const logoImg = require("@/assets/images/logo.png");
 
 type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
+
+interface FeatureGridItem {
+  icon: FeatherIconName;
+  label: string;
+}
 
 interface Slide {
   id: string;
@@ -42,6 +48,7 @@ interface Slide {
   headline: string;
   body: string;
   emailLink?: boolean;
+  featureGrid?: FeatureGridItem[];
 }
 
 // Icon box backgrounds — dark so they pop against the warm orange gradient bg.
@@ -53,12 +60,12 @@ const AMBER_GLOW = "rgba(245,158,11,0.3)";
 const SLIDES: Slide[] = [
   {
     id: "welcome",
-    icon: "sun",
+    icon: "thermometer",
     iconColor: "#FCD34D",
     iconBg: ["#2A1C04", "#1A1002"],
     iconGlow: "rgba(252,211,77,0.35)",
     headline: "Welcome, Pitmaster.",
-    body: "You've got the pit. We've got the plan. Let's make every cook your best one yet.",
+    body: "You've got the pit. We've got the plan. Every cook, better than the last.",
   },
   {
     id: "plan",
@@ -66,26 +73,13 @@ const SLIDES: Slide[] = [
     iconColor: "#F97316",
     iconBg: ["#2A1808", "#1A1005"],
     iconGlow: "rgba(249,115,22,0.35)",
-    headline: "Plan every cook",
-    body: "Log your meat, grill, and target temp and get an AI-powered cook timeline. Adjust on the fly as your pit does its thing.",
-  },
-  {
-    id: "log",
-    icon: "clipboard",
-    iconColor: "#FB923C",
-    iconBg: ["#2A1A08", "#1A1105"],
-    iconGlow: "rgba(251,146,60,0.3)",
-    headline: "Track your progress",
-    body: "Log your cooks and watch your technique improve. Every session builds a picture of what works on your pit.",
-  },
-  {
-    id: "grills",
-    icon: "wind",
-    iconColor: "#FBBF24",
-    iconBg: AMBER_BG,
-    iconGlow: AMBER_GLOW,
-    headline: "Know your grill",
-    body: "Add each of your grills and knowyourpit learns how they run — hot spots, pace, and bias — so every plan fits your actual pit.",
+    headline: "Plan. Log. Repeat.",
+    body: "An AI cook timeline, a running log of every session, and a live picture of your pit — all in one place.",
+    featureGrid: [
+      { icon: "calendar", label: "Cook plan" },
+      { icon: "clipboard", label: "Cook log" },
+      { icon: "cpu", label: "Your grill" },
+    ],
   },
   {
     id: "ai",
@@ -93,17 +87,17 @@ const SLIDES: Slide[] = [
     iconColor: "#F59E0B",
     iconBg: AMBER_BG,
     iconGlow: AMBER_GLOW,
-    headline: "PitMaster AI at your side",
-    body: "Ask anything — wood pairings, stall strategies, temp troubleshooting. PitMaster knows BBQ and knows your pit.",
+    headline: "PitMaster's got your back",
+    body: "Ask anything mid-cook — wood pairings, stall strategies, or just 'is this brisket done?' PitMaster knows your pit.",
   },
   {
     id: "feedback",
-    icon: "mail",
-    iconColor: BRAND_ORANGE,
-    iconBg: ORANGE_BG,
-    iconGlow: ORANGE_GLOW,
-    headline: "You're one of our first",
-    body: "That means your feedback matters most. Spotted something off? Have an idea? Send us a note — screenshots welcome.",
+    icon: "star",
+    iconColor: "#F59E0B",
+    iconBg: AMBER_BG,
+    iconGlow: AMBER_GLOW,
+    headline: "You're one of our first 🔥",
+    body: "Your feedback shapes everything we build next. Spotted something off? Have an idea? We're listening.",
     emailLink: true,
   },
 ];
@@ -119,6 +113,23 @@ function IconBox({ slide }: { slide: Slide }) {
   );
 }
 
+function FeatureGrid({ items }: { items: FeatureGridItem[] }) {
+  return (
+    <View style={s.featureGrid}>
+      {items.map((item) => (
+        <LinearGradient
+          key={item.icon}
+          colors={["#2A1808", "#1A1005"]}
+          style={s.featureChip}
+        >
+          <Feather name={item.icon} size={28} color="#F97316" />
+          <Text style={s.featureChipLabel}>{item.label}</Text>
+        </LinearGradient>
+      ))}
+    </View>
+  );
+}
+
 function SlideView({ slide, isLast }: { slide: Slide; isLast: boolean }) {
   function handleEmail() {
     const url = `mailto:${SUPPORT_EMAIL}?subject=knowyourpit%20feedback`;
@@ -130,23 +141,44 @@ function SlideView({ slide, isLast }: { slide: Slide; isLast: boolean }) {
       .catch(() => Alert.alert("No mail app found", `Email us at ${SUPPORT_EMAIL}`));
   }
 
+  function handleRateApp() {
+    Linking.openURL(APP_STORE_URL).catch(() => {});
+  }
+
   return (
     <View style={s.slide}>
-      <IconBox slide={slide} />
+      {slide.featureGrid ? (
+        <FeatureGrid items={slide.featureGrid} />
+      ) : (
+        <IconBox slide={slide} />
+      )}
 
       <Text style={s.headline}>{slide.headline}</Text>
       <Text style={s.body}>{slide.body}</Text>
 
       {slide.emailLink && (
-        <Pressable
-          onPress={handleEmail}
-          style={s.emailBtn}
-          accessibilityRole="link"
-          accessibilityLabel={`Send feedback to ${SUPPORT_EMAIL}`}
-        >
-          <Feather name="mail" size={14} color="#FFFFFF" />
-          <Text style={s.emailText}>{SUPPORT_EMAIL}</Text>
-        </Pressable>
+        <>
+          <Pressable
+            onPress={handleEmail}
+            style={({ pressed }) => [s.emailBtn, pressed && { opacity: 0.88 }]}
+            accessibilityRole="link"
+            accessibilityLabel={`Send feedback to ${SUPPORT_EMAIL}`}
+          >
+            <Feather name="mail" size={16} color={BRAND_ORANGE} />
+            <Text style={s.emailText}>{SUPPORT_EMAIL}</Text>
+          </Pressable>
+
+          {Platform.OS === "ios" && (
+            <Pressable
+              onPress={handleRateApp}
+              style={({ pressed }) => [s.rateLink, pressed && { opacity: 0.7 }]}
+              accessibilityRole="link"
+              accessibilityLabel="Rate the app on the App Store"
+            >
+              <Text style={s.rateLinkText}>Rate the app ★</Text>
+            </Pressable>
+          )}
+        </>
       )}
 
       {isLast && (
@@ -388,6 +420,32 @@ const s = StyleSheet.create({
     shadowOpacity: 1,
     elevation: 16,
   },
+  featureGrid: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 36,
+  },
+  featureChip: {
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+    shadowColor: "rgba(249,115,22,0.35)",
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 24,
+    shadowOpacity: 1,
+    elevation: 10,
+  },
+  featureChipLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_500Medium",
+    color: "rgba(255,255,255,0.7)",
+    textAlign: "center",
+  },
   headline: {
     fontSize: 30,
     fontFamily: "Inter_700Bold",
@@ -408,19 +466,34 @@ const s = StyleSheet.create({
   emailBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 7,
-    marginTop: 18,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.35)",
-    backgroundColor: "rgba(255,255,255,0.12)",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 24,
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    alignSelf: "stretch",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
   },
   emailText: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: "Inter_600SemiBold",
-    color: "#FFFFFF",
+    color: BRAND_ORANGE,
+  },
+  rateLink: {
+    marginTop: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  rateLinkText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    color: "rgba(255,255,255,0.55)",
+    textDecorationLine: "underline",
   },
   emailHint: {
     marginTop: 10,
