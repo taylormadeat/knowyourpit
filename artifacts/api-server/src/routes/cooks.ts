@@ -548,18 +548,22 @@ router.delete("/sessions/:sessionId", requireAuth, async (req: any, res): Promis
     res.status(404).json({ error: "Session not found" });
     return;
   }
-  for (const cook of cooks) {
-    const cookPhotoRows = await db.select().from(cookPhotosTable).where(eq(cookPhotosTable.cookId, cook.id));
-    for (const p of cookPhotoRows) {
-      await deleteFromStorage(p.storageKey).catch(() => {});
+  const photoRowsBySession: { storageKey: string }[] = [];
+  await db.transaction(async (tx) => {
+    for (const cook of cooks) {
+      const cookPhotoRows = await tx.select({ storageKey: cookPhotosTable.storageKey }).from(cookPhotosTable).where(eq(cookPhotosTable.cookId, cook.id));
+      photoRowsBySession.push(...cookPhotoRows);
+      await tx.delete(temperatureReadingsTable).where(eq(temperatureReadingsTable.cookId, cook.id));
+      await tx.delete(cookPhotosTable).where(eq(cookPhotosTable.cookId, cook.id));
+      await tx.delete(cookCheckins).where(eq(cookCheckins.cookId, cook.id));
+      await tx.delete(alertsTable).where(eq(alertsTable.cookId, cook.id));
     }
-    await db.delete(temperatureReadingsTable).where(eq(temperatureReadingsTable.cookId, cook.id));
-    await db.delete(cookPhotosTable).where(eq(cookPhotosTable.cookId, cook.id));
-    await db.delete(cookCheckins).where(eq(cookCheckins.cookId, cook.id));
-    await db.delete(alertsTable).where(eq(alertsTable.cookId, cook.id));
+    await tx.delete(cooksTable)
+      .where(and(eq(cooksTable.sessionId, params.data.sessionId), eq(cooksTable.userId, req.userId)));
+  });
+  for (const p of photoRowsBySession) {
+    await deleteFromStorage(p.storageKey).catch(() => {});
   }
-  await db.delete(cooksTable)
-    .where(and(eq(cooksTable.sessionId, params.data.sessionId), eq(cooksTable.userId, req.userId)));
   res.sendStatus(204);
 });
 
@@ -575,15 +579,18 @@ router.delete("/cooks/:id", requireAuth, async (req: any, res): Promise<void> =>
     res.status(404).json({ error: "Cook not found" });
     return;
   }
-  const cookPhotoRows = await db.select().from(cookPhotosTable).where(eq(cookPhotosTable.cookId, params.data.id));
+  let cookPhotoRows: { storageKey: string }[] = [];
+  await db.transaction(async (tx) => {
+    cookPhotoRows = await tx.select({ storageKey: cookPhotosTable.storageKey }).from(cookPhotosTable).where(eq(cookPhotosTable.cookId, params.data.id));
+    await tx.delete(temperatureReadingsTable).where(eq(temperatureReadingsTable.cookId, params.data.id));
+    await tx.delete(cookPhotosTable).where(eq(cookPhotosTable.cookId, params.data.id));
+    await tx.delete(cookCheckins).where(eq(cookCheckins.cookId, params.data.id));
+    await tx.delete(alertsTable).where(eq(alertsTable.cookId, params.data.id));
+    await tx.delete(cooksTable).where(eq(cooksTable.id, params.data.id));
+  });
   for (const p of cookPhotoRows) {
     await deleteFromStorage(p.storageKey).catch(() => {});
   }
-  await db.delete(temperatureReadingsTable).where(eq(temperatureReadingsTable.cookId, params.data.id));
-  await db.delete(cookPhotosTable).where(eq(cookPhotosTable.cookId, params.data.id));
-  await db.delete(cookCheckins).where(eq(cookCheckins.cookId, params.data.id));
-  await db.delete(alertsTable).where(eq(alertsTable.cookId, params.data.id));
-  await db.delete(cooksTable).where(eq(cooksTable.id, params.data.id));
   res.sendStatus(204);
 });
 
