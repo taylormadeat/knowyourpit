@@ -50,6 +50,13 @@
       "when": 1748217600000,
       "tag": "0007_checkin_auto_probe_columns",
       "breakpoints": false
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1748217600001,
+      "tag": "0008_cook_photos_pending_delete",
+      "breakpoints": false
     }
   ]
 }

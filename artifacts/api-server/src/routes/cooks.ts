@@ -548,13 +548,21 @@ router.delete("/sessions/:sessionId", requireAuth, async (req: any, res): Promis
     res.status(404).json({ error: "Session not found" });
     return;
   }
-  const photoRowsBySession: { storageKey: string }[] = [];
+  const photoRowsBySession: { id: number; storageKey: string }[] = [];
   await db.transaction(async (tx) => {
     for (const cook of cooks) {
-      const cookPhotoRows = await tx.select({ storageKey: cookPhotosTable.storageKey }).from(cookPhotosTable).where(eq(cookPhotosTable.cookId, cook.id));
+      const cookPhotoRows = await tx
+        .select({ id: cookPhotosTable.id, storageKey: cookPhotosTable.storageKey })
+        .from(cookPhotosTable)
+        .where(eq(cookPhotosTable.cookId, cook.id));
       photoRowsBySession.push(...cookPhotoRows);
+      if (cookPhotoRows.length > 0) {
+        await tx
+          .update(cookPhotosTable)
+          .set({ pendingDelete: true })
+          .where(eq(cookPhotosTable.cookId, cook.id));
+      }
       await tx.delete(temperatureReadingsTable).where(eq(temperatureReadingsTable.cookId, cook.id));
-      await tx.delete(cookPhotosTable).where(eq(cookPhotosTable.cookId, cook.id));
       await tx.delete(cookCheckins).where(eq(cookCheckins.cookId, cook.id));
       await tx.delete(alertsTable).where(eq(alertsTable.cookId, cook.id));
     }
@@ -562,7 +570,12 @@ router.delete("/sessions/:sessionId", requireAuth, async (req: any, res): Promis
       .where(and(eq(cooksTable.sessionId, params.data.sessionId), eq(cooksTable.userId, req.userId)));
   });
   for (const p of photoRowsBySession) {
-    await deleteFromStorage(p.storageKey).catch(() => {});
+    try {
+      await deleteFromStorage(p.storageKey);
+      await db.delete(cookPhotosTable).where(eq(cookPhotosTable.id, p.id));
+    } catch {
+      req.log.warn({ storageKey: p.storageKey }, "storage delete failed; photo row left pending_delete for cleanup script");
+    }
   }
   res.sendStatus(204);
 });
@@ -579,17 +592,30 @@ router.delete("/cooks/:id", requireAuth, async (req: any, res): Promise<void> =>
     res.status(404).json({ error: "Cook not found" });
     return;
   }
-  let cookPhotoRows: { storageKey: string }[] = [];
+  let cookPhotoRows: { id: number; storageKey: string }[] = [];
   await db.transaction(async (tx) => {
-    cookPhotoRows = await tx.select({ storageKey: cookPhotosTable.storageKey }).from(cookPhotosTable).where(eq(cookPhotosTable.cookId, params.data.id));
+    cookPhotoRows = await tx
+      .select({ id: cookPhotosTable.id, storageKey: cookPhotosTable.storageKey })
+      .from(cookPhotosTable)
+      .where(eq(cookPhotosTable.cookId, params.data.id));
+    if (cookPhotoRows.length > 0) {
+      await tx
+        .update(cookPhotosTable)
+        .set({ pendingDelete: true })
+        .where(eq(cookPhotosTable.cookId, params.data.id));
+    }
     await tx.delete(temperatureReadingsTable).where(eq(temperatureReadingsTable.cookId, params.data.id));
-    await tx.delete(cookPhotosTable).where(eq(cookPhotosTable.cookId, params.data.id));
     await tx.delete(cookCheckins).where(eq(cookCheckins.cookId, params.data.id));
     await tx.delete(alertsTable).where(eq(alertsTable.cookId, params.data.id));
     await tx.delete(cooksTable).where(eq(cooksTable.id, params.data.id));
   });
   for (const p of cookPhotoRows) {
-    await deleteFromStorage(p.storageKey).catch(() => {});
+    try {
+      await deleteFromStorage(p.storageKey);
+      await db.delete(cookPhotosTable).where(eq(cookPhotosTable.id, p.id));
+    } catch {
+      req.log.warn({ storageKey: p.storageKey }, "storage delete failed; photo row left pending_delete for cleanup script");
+    }
   }
   res.sendStatus(204);
 });

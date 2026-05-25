@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -9,6 +9,7 @@ export const cookPhotosTable = pgTable("cook_photos", {
   storageKey: text("storage_key").notNull(),
   takenAt: timestamp("taken_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  pendingDelete: boolean("pending_delete").notNull().default(false),
 });
 
 export const insertCookPhotoSchema = createInsertSchema(cookPhotosTable).omit({ id: true, createdAt: true });

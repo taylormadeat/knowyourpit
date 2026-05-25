@@ -73,12 +73,8 @@ async function uploadToStorage(buffer: Buffer, mimeType: string): Promise<string
 async function deleteFromStorage(storageKey: string): Promise<void> {
   const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
   if (!bucketId) return;
-  try {
-    const bucket = objectStorageClient.bucket(bucketId);
-    await bucket.file(storageKey).delete({ ignoreNotFound: true });
-  } catch {
-    // best-effort
-  }
+  const bucket = objectStorageClient.bucket(bucketId);
+  await bucket.file(storageKey).delete({ ignoreNotFound: true });
 }
 
 router.get("/cooks/:id/photos", requireAuth, async (req: any, res): Promise<void> => {
