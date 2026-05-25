@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import * as Notifications from "expo-notifications";
 import { fmtMinutes } from "@/utils/duration";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -280,6 +281,38 @@ export default function SessionDetailScreen() {
 
   // Multi-cook probe routing: map cookId → probeKey (Pro only)
   const [cookProbeAssignments, setCookProbeAssignments] = useState<Map<number, string>>(new Map());
+  // Guard: don't write to AsyncStorage until the initial load has completed,
+  // otherwise the save effect fires with an empty map before hydration and
+  // overwrites the stored data.
+  const probeAssignmentsHydrated = React.useRef(false);
+
+  // Persist probe assignments across sessions: load on mount, save on change.
+  useEffect(() => {
+    if (Platform.OS === "web" || !sessionId) return;
+    probeAssignmentsHydrated.current = false;
+    AsyncStorage.getItem(`session_probe_assignments_${sessionId}`)
+      .then((raw) => {
+        if (raw) {
+          const entries: [number, string][] = JSON.parse(raw);
+          setCookProbeAssignments(new Map(entries));
+        }
+        probeAssignmentsHydrated.current = true;
+      })
+      .catch(() => {
+        probeAssignmentsHydrated.current = true;
+      });
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (Platform.OS === "web" || !sessionId || !probeAssignmentsHydrated.current) return;
+    if (cookProbeAssignments.size === 0) {
+      AsyncStorage.removeItem(`session_probe_assignments_${sessionId}`).catch(() => {});
+    } else {
+      const entries = Array.from(cookProbeAssignments.entries());
+      AsyncStorage.setItem(`session_probe_assignments_${sessionId}`, JSON.stringify(entries)).catch(() => {});
+    }
+  }, [sessionId, cookProbeAssignments]);
+
   const { devices: allBleDevices } = useBleProbes();
   const connectedBleDevices = allBleDevices.filter((d) => d.connectionState === "connected");
 
