@@ -7,6 +7,7 @@ import { fmtMinutes } from "@/utils/duration";
 import { relCountdown } from "./utils";
 import type { NextStep } from "./types";
 import { parseIntervalMinutes } from "@/hooks/useSpritzNotifications";
+import { FingerprintCallout } from "./FingerprintCallout";
 
 type Colors = any;
 
@@ -56,7 +57,7 @@ export function SequenceSchedule(p: Props) {
     onQuickLog,
   } = p;
 
-  const seqData = (c.sequenceData as { schedule: any[]; serveAt: string; summary?: string | null } | null | undefined);
+  const seqData = (c.sequenceData as { schedule: any[]; serveAt: string; summary?: string | null; fingerprintSource?: "grill" | "user" | "pit_bias_only" | null; fingerprintNote?: string | null } | null | undefined);
   if (!seqData?.schedule?.length) return null;
   const cookFoodType = (c.foodType ?? "").toLowerCase().trim();
   const cookMeatOnMs = c.plannedStartAt ? new Date(c.plannedStartAt).getTime() : null;
@@ -641,6 +642,11 @@ export function SequenceSchedule(p: Props) {
               </View>
             );
           })}
+          <FingerprintCallout
+            fingerprintSource={seqData.fingerprintSource}
+            fingerprintNote={seqData.fingerprintNote}
+            colors={colors}
+          />
         </View>
       )}
     </View>

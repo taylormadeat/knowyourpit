@@ -1140,12 +1140,25 @@ export default function PlanScreen() {
           ...(wrap?.wrapTempF && { wrapTempF: Math.round(wrap.wrapTempF) }),
           ...(wrap?.reason && { wrapReason: wrap.reason }),
           ...(frozenForCook && {
-            sequenceData: { schedule: [], frozen: frozenForCook, aiCheckins: aiResult?.checkins ?? null },
+            sequenceData: {
+              schedule: [],
+              frozen: frozenForCook,
+              aiCheckins: aiResult?.checkins ?? null,
+              ...(aiResult?.fingerprintSource === "grill" || aiResult?.fingerprintSource === "user"
+                ? { fingerprintSource: aiResult.fingerprintSource, fingerprintNote: aiResult.fingerprintNote ?? null }
+                : {}),
+            },
             fromFrozen: true,
             thawMethod: frozenForCook.method,
           }),
-          ...(!frozenForCook && aiResult?.checkins?.length && {
-            sequenceData: { schedule: [], aiCheckins: aiResult.checkins },
+          ...(!frozenForCook && (aiResult?.checkins?.length || aiResult?.fingerprintSource === "grill" || aiResult?.fingerprintSource === "user") && {
+            sequenceData: {
+              schedule: [],
+              ...(aiResult?.checkins?.length ? { aiCheckins: aiResult.checkins } : {}),
+              ...(aiResult?.fingerprintSource === "grill" || aiResult?.fingerprintSource === "user"
+                ? { fingerprintSource: aiResult.fingerprintSource, fingerprintNote: aiResult.fingerprintNote ?? null }
+                : {}),
+            },
           }),
           // Technique quick-picks from the Plan screen
           ...(qpCookMethod && { cookingMethod: qpCookMethod }),

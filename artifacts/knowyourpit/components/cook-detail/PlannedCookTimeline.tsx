@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { s } from "./styles";
+import { FingerprintCallout } from "./FingerprintCallout";
 
 type Colors = any;
 
@@ -120,7 +121,7 @@ export function PlannedCookTimeline({ c, colors }: Props) {
       </View>
 
       {/* Steps */}
-      <View style={{ padding: 14 }}>
+      <View style={{ padding: 14, paddingBottom: 10 }}>
         {steps.map((step, idx) => {
           const isLast = idx === steps.length - 1;
           const dotColor = step.primary ? accentColor : colors.mutedForeground;
@@ -208,6 +209,16 @@ export function PlannedCookTimeline({ c, colors }: Props) {
             </View>
           );
         })}
+        {(() => {
+          const seqData = c.sequenceData as { fingerprintSource?: "grill" | "user" | "pit_bias_only" | null; fingerprintNote?: string | null } | null | undefined;
+          return (
+            <FingerprintCallout
+              fingerprintSource={seqData?.fingerprintSource}
+              fingerprintNote={seqData?.fingerprintNote}
+              colors={colors}
+            />
+          );
+        })()}
       </View>
     </View>
   );

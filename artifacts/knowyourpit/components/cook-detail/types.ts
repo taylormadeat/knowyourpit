@@ -99,6 +99,8 @@ export interface SequenceData {
   summary?: string | null;
   frozen?: FrozenStageInfo | null;
   aiCheckins?: AiCheckinItem[] | null;
+  fingerprintSource?: "grill" | "user" | "pit_bias_only" | null;
+  fingerprintNote?: string | null;
 }
 
 export type NextStepKey = "grillLight" | "meatOn" | "wrap" | "pullOff" | "serve";
