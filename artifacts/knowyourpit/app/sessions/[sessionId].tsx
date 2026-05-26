@@ -21,6 +21,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { useStoredScheduledCheckins } from "@/hooks/useCheckinNotifications";
+import { setPendingCheckin } from "@/lib/pendingCheckinNotif";
 import { useLayout } from "@/hooks/useLayout";
 import { useBleProbes } from "@/contexts/BleProbeContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
@@ -171,6 +173,80 @@ function fmtElapsed(ms: number): string {
 function fmtCookDuration(mins: number | null | undefined): string {
   if (!mins || mins <= 0) return "";
   return fmtMinutes(mins);
+}
+
+function fmtCheckinCountdown(nowMs: number, targetMs: number): string {
+  const diffMs = targetMs - nowMs;
+  if (diffMs <= 0) return "now";
+  const mins = Math.floor(diffMs / 60000);
+  if (mins <= 5) return "soon";
+  if (mins < 60) return `in ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  const rem = mins % 60;
+  return rem > 0 ? `in ${hrs}h ${rem}m` : `in ${hrs}h`;
+}
+
+interface CookCheckinHintProps {
+  cookId: number;
+  nowMs: number;
+  router: ReturnType<typeof useRouter>;
+}
+
+function CookCheckinHint({ cookId, nowMs, router }: CookCheckinHintProps) {
+  const storedCheckins = useStoredScheduledCheckins(cookId);
+  const nextCheckin = storedCheckins.find((sc) => sc.scheduledAt > nowMs) ?? null;
+  if (!nextCheckin) return null;
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 5,
+          marginTop: 2,
+          opacity: pressed ? 0.7 : 1,
+        },
+      ]}
+      hitSlop={8}
+      onPress={(e) => {
+        e.stopPropagation();
+        setPendingCheckin({
+          cookId,
+          phaseKey: nextCheckin.phaseKey,
+          phaseLabel: nextCheckin.phaseLabel,
+          scheduledAt: nextCheckin.scheduledAt,
+          autoOpen: true,
+        });
+        router.push(`/cooks/${cookId}` as any);
+      }}
+    >
+      <Feather name="clock" size={11} color="#96908A" />
+      <Text
+        style={{
+          fontFamily: "Inter_400Regular",
+          fontSize: 12,
+          color: "#96908A",
+        }}
+      >
+        {"Next check-in: "}
+        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: "#B8B2AA" }}>
+          {nextCheckin.phaseLabel}
+        </Text>
+        {" · "}
+        <Text
+          style={{
+            fontFamily: "Inter_600SemiBold",
+            fontSize: 12,
+            color: nextCheckin.scheduledAt - nowMs <= 5 * 60 * 1000 ? "#EF4444" : "#D4CEC8",
+          }}
+        >
+          {fmtCheckinCountdown(nowMs, nextCheckin.scheduledAt)}
+        </Text>
+      </Text>
+      <Feather name="chevron-right" size={10} color="#96908A" style={{ marginLeft: 2 }} />
+    </Pressable>
+  );
 }
 
 // Pull this cook's specific plan steps from its sequenceData.
@@ -1163,6 +1239,9 @@ export default function SessionDetailScreen() {
                           <Text style={[s.elapsed, { color: "#E84820" }]}>
                             {fmtElapsed(elapsedMs)} on the smoker
                           </Text>
+                        )}
+                        {isActive && (
+                          <CookCheckinHint cookId={cook.id} nowMs={now} router={router} />
                         )}
                         {cook.status === "completed" && (cook.ratingTenderness || cook.ratingFlavor || cook.ratingBark) && (
                           <View style={s.ratingsRow}>
