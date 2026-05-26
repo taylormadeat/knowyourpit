@@ -29,6 +29,7 @@ import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { useGetSessionCooks, useListCooks, useUpdateSession, useDeleteSession, useRemoveCookFromSession, useUpdateCook, useListGrills, getGetSessionCooksQueryKey, type Cook, type UpdateCookBody } from "@workspace/api-client-react";
 import { EditCookModal } from "@/components/cook-detail/EditCookModal";
+import { FingerprintCallout } from "@/components/cook-detail/FingerprintCallout";
 import { getEditDates } from "@/components/cook-detail/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -293,6 +294,14 @@ function getItemPlan(cook: Cook): ItemPlan | null {
     ) ?? null;
   }
   return best;
+}
+
+function getFingerprintData(cook: Cook): { fingerprintSource: "grill" | "user" | "pit_bias_only" | null; fingerprintNote: string | null } {
+  const seqData = (cook as Cook & { sequenceData?: unknown })?.sequenceData as { fingerprintSource?: "grill" | "user" | "pit_bias_only" | null; fingerprintNote?: string | null } | null | undefined;
+  return {
+    fingerprintSource: seqData?.fingerprintSource ?? null,
+    fingerprintNote: seqData?.fingerprintNote ?? null,
+  };
 }
 
 export default function SessionDetailScreen() {
@@ -1040,6 +1049,7 @@ export default function SessionDetailScreen() {
               const isLast = idx === (cooks ?? []).length - 1;
               const isExpanded = expandedCookIds.has(cook.id);
               const itemPlan = getItemPlan(cook);
+              const fingerprintData = getFingerprintData(cook);
 
               return (
                 <Pressable
@@ -1510,6 +1520,11 @@ export default function SessionDetailScreen() {
                                 </View>
                               );
                             })()}
+                            <FingerprintCallout
+                              fingerprintSource={fingerprintData.fingerprintSource}
+                              fingerprintNote={fingerprintData.fingerprintNote}
+                              colors={colors}
+                            />
                           </>
                         ) : (
                           <Text style={[s.itemPlanEmpty, { color: colors.mutedForeground }]}>
