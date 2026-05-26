@@ -2522,6 +2522,51 @@ export default function CookDetailScreen() {
     }
   }, [nextSpritzMs]);
 
+  // Build ProbeTimeSeries from raw DB temperature_readings for completed cooks.
+  // Grouped by probeNumber so each physical probe gets its own line on the graph.
+  // Used as a fallback when the cook has no stored AI analysis, and as a
+  // supplement when it does (storedGraphProbes takes priority).
+  // IMPORTANT: must live BEFORE the early returns so hook count is stable.
+  const completedCookReadingsProbes = useMemo<ProbeTimeSeries[]>(() => {
+    if (!cook) return [];
+    if (cookStatus !== "completed") return [];
+    if (!historicalReadings || historicalReadings.length === 0) return [];
+    const actualStartAt = (cook as any)?.actualStartAt;
+    if (!actualStartAt) return [];
+
+    const startMs = new Date(actualStartAt).getTime();
+    const probeNumbers = [
+      ...new Set(historicalReadings.map((r: TemperatureReading) => r.probeNumber)),
+    ].sort((a: number, b: number) => a - b);
+
+    return probeNumbers
+      .map((probeNum: number) => {
+        const timeSeries = historicalReadings
+          .filter((r: TemperatureReading) => r.probeNumber === probeNum)
+          .map((r: TemperatureReading) => ({
+            timeMinutes:
+              Math.round(
+                Math.max(0, (new Date(r.recordedAt).getTime() - startMs) / 60000) * 10,
+              ) / 10,
+            tempF: r.tempF,
+          }))
+          .sort((a: { timeMinutes: number }, b: { timeMinutes: number }) => a.timeMinutes - b.timeMinutes);
+        const lastTemp = timeSeries[timeSeries.length - 1]?.tempF ?? 0;
+        const probeName =
+          probeNum === 1
+            ? "Internal"
+            : probeNum === 2
+              ? "Ambient"
+              : `Probe ${probeNum}`;
+        return {
+          probeName,
+          timeSeries,
+          finishingTempF: lastTemp,
+        };
+      })
+      .filter((p) => p.timeSeries.length >= 2);
+  }, [cook, cookStatus, historicalReadings]);
+
   if (isLoading) {
     return (
       <View style={[s.center, { backgroundColor: colors.background }]}>
@@ -2637,48 +2682,6 @@ export default function CookDetailScreen() {
   const storedAssessment = storedAnalysis?.assessment ?? null;
   const storedVerdictCfg = storedAssessment ? (VERDICT_CONFIG[storedAssessment.verdict] ?? VERDICT_CONFIG.needs_work) : null;
   const storedGraphProbes = (storedAnalysis?.probes ?? []).filter((p: any) => p.timeSeries && p.timeSeries.length >= 2);
-
-  // Build ProbeTimeSeries from raw DB temperature_readings for completed cooks.
-  // Grouped by probeNumber so each physical probe gets its own line on the graph.
-  // Used as a fallback when the cook has no stored AI analysis, and as a
-  // supplement when it does (storedGraphProbes takes priority).
-  const completedCookReadingsProbes = useMemo<ProbeTimeSeries[]>(() => {
-    if (cookStatus !== "completed") return [];
-    if (!historicalReadings || historicalReadings.length === 0) return [];
-    if (!c.actualStartAt) return [];
-
-    const startMs = new Date(c.actualStartAt).getTime();
-    const probeNumbers = [
-      ...new Set(historicalReadings.map((r: TemperatureReading) => r.probeNumber)),
-    ].sort((a: number, b: number) => a - b);
-
-    return probeNumbers
-      .map((probeNum: number) => {
-        const timeSeries = historicalReadings
-          .filter((r: TemperatureReading) => r.probeNumber === probeNum)
-          .map((r: TemperatureReading) => ({
-            timeMinutes:
-              Math.round(
-                Math.max(0, (new Date(r.recordedAt).getTime() - startMs) / 60000) * 10,
-              ) / 10,
-            tempF: r.tempF,
-          }))
-          .sort((a: { timeMinutes: number }, b: { timeMinutes: number }) => a.timeMinutes - b.timeMinutes);
-        const lastTemp = timeSeries[timeSeries.length - 1]?.tempF ?? 0;
-        const probeName =
-          probeNum === 1
-            ? "Internal"
-            : probeNum === 2
-              ? "Ambient"
-              : `Probe ${probeNum}`;
-        return {
-          probeName,
-          timeSeries,
-          finishingTempF: lastTemp,
-        };
-      })
-      .filter((p) => p.timeSeries.length >= 2);
-  }, [cookStatus, historicalReadings, c.actualStartAt]);
 
   // Effective probes for the stored-analysis graph: prefer AI-derived probes
   // (richer metadata) but fall back to raw readings probes when absent.
