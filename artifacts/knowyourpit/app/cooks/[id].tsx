@@ -1260,6 +1260,23 @@ export default function CookDetailScreen() {
     setPendingCheckinSc(null);
   }, [cook, cookSeqData, storedScheduledCheckins, noPlanScheduledCheckins, nowMs, pendingCheckinSc, openCheckin]);
 
+  // Next upcoming scheduled check-in — shown in the PitMaster hub card as a
+  // forward-looking hint: "Next: Stall · in 45 min".
+  const { nextCheckinMs, nextCheckinLabel } = useMemo(() => {
+    const hasPlan = (cookSeqData?.schedule?.length ?? 0) > 0;
+    const now = nowMs ?? Date.now();
+    const upcoming = (
+      hasPlan && storedScheduledCheckins.length > 0
+        ? storedScheduledCheckins
+        : noPlanScheduledCheckins
+    ).filter((sc) => sc.scheduledAt > now);
+    const next = upcoming[0] ?? null;
+    return {
+      nextCheckinMs: next?.scheduledAt ?? null,
+      nextCheckinLabel: next?.phaseLabel ?? null,
+    };
+  }, [cookSeqData, storedScheduledCheckins, noPlanScheduledCheckins, nowMs]);
+
   // Build a probe reading object for the auto-checkin hook. We use the
   // react-query dataUpdatedAt timestamp so the hook knows how fresh the
   // reading is (must be < 60 s old to qualify as "live").
@@ -3312,6 +3329,8 @@ export default function CookDetailScreen() {
           lastCheckinInternalTempF={lastCheckin?.internalTempF ?? null}
           onRefresh={() => analyze()}
           activeProbeName={activeProbeName !== "Probe" ? activeProbeName : null}
+          nextCheckinMs={nextCheckinMs}
+          nextCheckinLabel={nextCheckinLabel}
         />
         <CookSummaryCard
           c={c}

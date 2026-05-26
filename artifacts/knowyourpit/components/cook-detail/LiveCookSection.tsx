@@ -70,6 +70,8 @@ interface Props {
   lastCheckinInternalTempF?: number | null;
   onRefresh?: () => void;
   activeProbeName?: string | null;
+  nextCheckinMs?: number | null;
+  nextCheckinLabel?: string | null;
 }
 
 function fmtLastChecked(lastAnalyzedAtMs: number, nowMs: number): string {
@@ -103,6 +105,7 @@ export function LiveCookSection(p: Props) {
     targetTempF, cookTempF, nextSpritzMs, nextMopMs, onViewDetails,
     isMeatOn, pitMasterResult, pitMasterAnalyzing, pitMasterVerdictCfg, pitMasterAssessment,
     renderDecisions, onCheckIn, onOpenChat, lastAnalyzedAtMs, lastCheckinInternalTempF, onRefresh, activeProbeName,
+    nextCheckinMs, nextCheckinLabel,
   } = p;
 
   const [phaseNarrativeExpanded, setPhaseNarrativeExpanded] = React.useState(false);
@@ -997,6 +1000,17 @@ export function LiveCookSection(p: Props) {
                 : ""}
             </Text>
           )}
+          {nextCheckinMs != null && nextCheckinLabel != null && (() => {
+            const now = nowMs ?? Date.now();
+            const diffMs = nextCheckinMs - now;
+            const mins = Math.floor(diffMs / 60000);
+            const timeLabel = mins <= 5 ? "Soon" : `in ${mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)}h ${mins % 60}m`}`;
+            return (
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 1 }}>
+                {`Next: ${nextCheckinLabel} · ${timeLabel}`}
+              </Text>
+            );
+          })()}
           <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
             <Pressable
               onPress={onCheckIn}
