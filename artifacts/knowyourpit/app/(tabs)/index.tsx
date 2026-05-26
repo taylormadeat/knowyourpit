@@ -30,6 +30,7 @@ import { letterGrade, scoreColor } from "@/utils/gradeUtils";
 import { AnimatedBarFill } from "@/components/cook-detail/CookProgressBar";
 import { ThawStatusBanner } from "@/components/cook-detail/ThawStatusBanner";
 import { PitMasterChatModal } from "@/components/PitMasterChatModal";
+import { ActiveCookCard } from "@/components/home/ActiveCookCard";
 
 const logoImg = require("@/assets/images/logo.png");
 
@@ -249,7 +250,7 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       setNowMs(Date.now());
-      const id = setInterval(() => setNowMs(Date.now()), 60_000);
+      const id = setInterval(() => setNowMs(Date.now()), 1_000);
       return () => clearInterval(id);
     }, [])
   );
@@ -390,139 +391,14 @@ export default function HomeScreen() {
         )}
 
         {/* ── Active Cook Widget(s) — one card per active cook ── */}
-        {activeCooks.map((activeCook) => {
-          const cookSeqMeatOnAt = (activeCook as any)?.sequenceData?.schedule?.[0]?.meatOnAt ?? null;
-          const cookSeqMeatOnMs: number | null = cookSeqMeatOnAt ? new Date(cookSeqMeatOnAt as string).getTime() : null;
-          const cookIsMeatOn = cookSeqMeatOnMs == null || cookSeqMeatOnMs <= nowMs;
-          const cookTopDecision = (activeCook as any)?.analysisResult?.decisions?.[0] ?? null;
-          const cookTopDecisionColor = cookTopDecision
-            ? URGENCY_COLOR[cookTopDecision.urgency] ?? "#6C3BF5"
-            : null;
-          const bar = getCookCardBar(activeCook, nowMs);
-          return (
-            <Pressable
-              key={activeCook.id}
-              style={({ pressed }) => [pressed && { opacity: 0.88 }]}
-              onPress={() => router.push(`/cooks/${activeCook.id}` as any)}
-            >
-              <LinearGradient
-                colors={["#2D1008", "#1E0B04"]}
-                style={[s.activeCookWidget, { borderColor: "#E8482055" }]}
-              >
-                {/* Live indicator row */}
-                <View style={s.activeLiveRow}>
-                  <View style={[s.liveDot, !cookIsMeatOn && { backgroundColor: "#38bdf8" }]} />
-                  <Text style={[s.liveLabel, !cookIsMeatOn && { color: "#38bdf8" }]}>
-                    {cookIsMeatOn ? "LIVE ON THE SMOKER" : "THAWING"}
-                  </Text>
-                  {cookIsMeatOn ? (
-                    (cookSeqMeatOnMs != null || (activeCook as any).actualStartAt) && (
-                      <Text style={s.elapsedBadge}>
-                        {fmtElapsed(nowMs - (cookSeqMeatOnMs ?? new Date((activeCook as any).actualStartAt).getTime()))} in
-                      </Text>
-                    )
-                  ) : cookSeqMeatOnMs != null ? (
-                    <Text style={[s.elapsedBadge, { color: "#38bdf8" }]}>
-                      meat on in {fmtCountdown(cookSeqMeatOnMs)}
-                    </Text>
-                  ) : null}
-                  {insights && (() => {
-                    const g = letterGrade(insights.pitMasterScore);
-                    const gc = scoreColor(insights.pitMasterScore);
-                    return (
-                      <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, backgroundColor: gc + "22", borderWidth: 1, borderColor: gc + "55" }}>
-                        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, color: gc }}>{g}</Text>
-                      </View>
-                    );
-                  })()}
-                </View>
-
-                {/* Food type */}
-                <Text style={s.activeFoodType}>
-                  {activeCook.foodType || "Cook in progress"}
-                </Text>
-                {activeCook.grillName ? (
-                  <Text style={s.activeGrill}>{activeCook.grillName}</Text>
-                ) : null}
-
-                {/* Thaw status banner — shown when meat is not yet on the grill */}
-                {!cookIsMeatOn && (
-                  <View style={{ marginTop: 10 }}>
-                    <ThawStatusBanner
-                      cookStatus={(activeCook as any).status}
-                      isMeatOn={cookIsMeatOn}
-                      actualStartAt={(activeCook as any).actualStartAt}
-                      cookSeqData={(activeCook as any).sequenceData}
-                      meatOnMs={cookSeqMeatOnMs}
-                      nowMs={nowMs}
-                      thawMethod={(activeCook as any).thawMethod}
-                      actualThawStartAt={(activeCook as any).actualThawStartAt}
-                      colors={colors}
-                    />
-                  </View>
-                )}
-
-                {/* Temp chips */}
-                {(activeCook.targetTempF != null || activeCook.cookTempF != null || activeCook.currentTempF != null) && (
-                  <View style={{ flexDirection: "row", gap: 6, marginTop: 6, marginBottom: 2, flexWrap: "wrap" }}>
-                    {activeCook.targetTempF != null && (
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#22c55e12", borderWidth: 1, borderColor: "#22c55e30" }}>
-                        <Feather name="thermometer" size={10} color="#22c55e" />
-                        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#22c55e" }}>{activeCook.targetTempF}°F</Text>
-                        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#22c55e99" }}>target</Text>
-                      </View>
-                    )}
-                    {activeCook.cookTempF != null && (
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#3b82f612", borderWidth: 1, borderColor: "#3b82f630" }}>
-                        <Feather name="wind" size={10} color="#3b82f6" />
-                        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#3b82f6" }}>{activeCook.cookTempF}°F</Text>
-                        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#3b82f699" }}>pit</Text>
-                      </View>
-                    )}
-                    {activeCook.currentTempF != null && (
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#F59E0B12", borderWidth: 1, borderColor: "#F59E0B30" }}>
-                        <Feather name="activity" size={10} color="#F59E0B" />
-                        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#F59E0B" }}>{activeCook.currentTempF}°F</Text>
-                        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#F59E0B99" }}>probe</Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-
-                {/* Decision block / CTA */}
-                {cookTopDecision ? (
-                  <View style={[s.decisionTeaser, { backgroundColor: cookTopDecisionColor! + "15", borderColor: cookTopDecisionColor! + "35", flexDirection: "row", alignItems: "center", gap: 8 }]}>
-                    <View style={{ width: 3, alignSelf: "stretch", backgroundColor: cookTopDecisionColor!, borderRadius: 2 }} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 10, color: cookTopDecisionColor!, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 2 }}>
-                        {cookTopDecision.action.replace(/_/g, " ")}
-                      </Text>
-                      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: "#F3EDE1" }} numberOfLines={2}>
-                        {cookTopDecision.instruction}
-                      </Text>
-                    </View>
-                    <Feather name="chevron-right" size={14} color={cookTopDecisionColor!} />
-                  </View>
-                ) : (
-                  <View style={[s.decisionTeaser, { flexDirection: "row", alignItems: "center", gap: 8 }]}>
-                    <Feather name="zap" size={13} color="#F59E0B" />
-                    <Text style={[s.decisionTeaserText, { color: "#F59E0B", flex: 1 }]}>
-                      Tap to get PitMaster coaching
-                    </Text>
-                    <Feather name="chevron-right" size={14} color="#F59E0B" />
-                  </View>
-                )}
-
-                {/* Progress bar — 3px flush at bottom edge */}
-                {bar !== null && (
-                  <View style={s.activeCookBar}>
-                    <AnimatedBarFill progress={bar.progress} color={bar.color} borderRadius={0} />
-                  </View>
-                )}
-              </LinearGradient>
-            </Pressable>
-          );
-        })}
+        {activeCooks.map((activeCook) => (
+          <ActiveCookCard
+            key={activeCook.id}
+            activeCook={activeCook}
+            nowMs={nowMs}
+            insights={insights}
+          />
+        ))}
 
         {/* ── Upcoming Cook Countdown ── */}
         {upcomingCook && (
