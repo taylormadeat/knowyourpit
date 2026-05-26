@@ -1429,6 +1429,8 @@ export default function CookDetailScreen() {
   // placed by the _layout.tsx router handler when the user was NOT on this cook
   // screen at the time of the notification tap. Shows the "Check In Now" banner
   // instead of auto-opening the modal — the user decides when to log.
+  // Exception: when autoOpen is true (e.g. tapping the hint row on the Home
+  // card) the check-in sheet opens immediately without the intermediate banner.
   useFocusEffect(
     useCallback(() => {
       const pending = consumePendingCheckin();
@@ -1447,9 +1449,13 @@ export default function CookDetailScreen() {
         phase,
       };
 
-      setPendingCheckinSc(sc);
+      if (pending.autoOpen) {
+        openCheckin(sc);
+      } else {
+        setPendingCheckinSc(sc);
+      }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id, cook?.foodType]),
+    }, [id, cook?.foodType, openCheckin]),
   );
 
   // Foreground deep-link handler: fires when the user taps a check-in notification

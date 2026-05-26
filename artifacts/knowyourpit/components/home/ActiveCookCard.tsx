@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useStoredScheduledCheckins } from "@/hooks/useCheckinNotifications";
+import { setPendingCheckin } from "@/lib/pendingCheckinNotif";
 import { getCookCardBar } from "@/utils/cookCardBar";
 import { letterGrade, scoreColor } from "@/utils/gradeUtils";
 import { AnimatedBarFill } from "@/components/cook-detail/CookProgressBar";
@@ -138,9 +139,23 @@ export function ActiveCookCard({ activeCook, nowMs, insights }: ActiveCookCardPr
           <Text style={s.activeGrill}>{activeCook.grillName}</Text>
         ) : null}
 
-        {/* Next check-in countdown */}
+        {/* Next check-in countdown — tappable: jumps straight to check-in sheet */}
         {nextCheckin != null && (
-          <View style={s.checkinRow}>
+          <Pressable
+            style={({ pressed }) => [s.checkinRow, pressed && { opacity: 0.7 }]}
+            hitSlop={8}
+            onPress={(e) => {
+              e.stopPropagation();
+              setPendingCheckin({
+                cookId: activeCook.id,
+                phaseKey: nextCheckin.phaseKey,
+                phaseLabel: nextCheckin.phaseLabel,
+                scheduledAt: nextCheckin.scheduledAt,
+                autoOpen: true,
+              });
+              router.push(`/cooks/${activeCook.id}` as any);
+            }}
+          >
             <Feather name="clock" size={11} color="#96908A" />
             <Text style={s.checkinText}>
               {"Next check-in: "}
@@ -157,7 +172,8 @@ export function ActiveCookCard({ activeCook, nowMs, insights }: ActiveCookCardPr
                 {fmtCheckinCountdown(nowMs, nextCheckin.scheduledAt)}
               </Text>
             </Text>
-          </View>
+            <Feather name="chevron-right" size={10} color="#96908A" style={{ marginLeft: 2 }} />
+          </Pressable>
         )}
 
         {/* Thaw status banner — shown when meat is not yet on the grill */}
