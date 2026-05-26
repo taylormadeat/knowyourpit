@@ -65,7 +65,9 @@ interface Props {
   pitMasterAssessment?: any;
   renderDecisions?: (decisions: any[]) => React.ReactNode;
   onCheckIn?: () => void;
+  onOpenChat?: () => void;
   lastAnalyzedAtMs?: number | null;
+  lastCheckinInternalTempF?: number | null;
   onRefresh?: () => void;
   activeProbeName?: string | null;
 }
@@ -100,7 +102,7 @@ export function LiveCookSection(p: Props) {
     setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
     targetTempF, cookTempF, nextSpritzMs, nextMopMs, onViewDetails,
     isMeatOn, pitMasterResult, pitMasterAnalyzing, pitMasterVerdictCfg, pitMasterAssessment,
-    renderDecisions, onCheckIn, lastAnalyzedAtMs, onRefresh, activeProbeName,
+    renderDecisions, onCheckIn, onOpenChat, lastAnalyzedAtMs, lastCheckinInternalTempF, onRefresh, activeProbeName,
   } = p;
 
   const [phaseNarrativeExpanded, setPhaseNarrativeExpanded] = React.useState(false);
@@ -980,33 +982,59 @@ export function LiveCookSection(p: Props) {
               </Text>
             </View>
           ) : (
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, paddingVertical: 4 }}>
+              Log your first check-in to get live coaching.
+            </Text>
+          )}
+
+          {/* ── Hub action row ─────────────────────────────────── */}
+          {(lastCheckinInternalTempF != null || lastAnalyzedAtMs != null) && (
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 2 }}>
+              {lastAnalyzedAtMs != null
+                ? `Last check-in ${fmtLastChecked(lastAnalyzedAtMs, nowMs ?? Date.now())}${lastCheckinInternalTempF != null ? ` · ${Math.round(lastCheckinInternalTempF)}°F` : ""}`
+                : lastCheckinInternalTempF != null
+                ? `Last: ${Math.round(lastCheckinInternalTempF)}°F`
+                : ""}
+            </Text>
+          )}
+          <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
             <Pressable
               onPress={onCheckIn}
               style={({ pressed }) => ({
+                flex: 1,
                 flexDirection: "row" as const,
                 alignItems: "center" as const,
-                gap: 10,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
+                justifyContent: "center" as const,
+                gap: 6,
+                paddingVertical: 9,
                 borderRadius: 8,
-                borderWidth: 1,
-                borderColor: "#FF6B2B30",
-                backgroundColor: "#FF6B2B08",
+                backgroundColor: "#FF6B2B",
                 opacity: pressed ? 0.82 : 1,
               })}
             >
-              <Feather name="thermometer" size={14} color="#FF6B2B" />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: colors.foreground }}>
-                  Check In with PitMaster
-                </Text>
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, marginTop: 1 }}>
-                  Log temps and get live coaching
-                </Text>
-              </View>
-              <Feather name="chevron-right" size={15} color={colors.mutedForeground} />
+              <Feather name="thermometer" size={13} color="#fff" />
+              <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: "#fff" }}>Check In</Text>
             </Pressable>
-          )}
+            <Pressable
+              onPress={onOpenChat}
+              style={({ pressed }) => ({
+                flex: 1,
+                flexDirection: "row" as const,
+                alignItems: "center" as const,
+                justifyContent: "center" as const,
+                gap: 6,
+                paddingVertical: 9,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.card,
+                opacity: pressed ? 0.82 : 1,
+              })}
+            >
+              <Feather name="message-circle" size={13} color={colors.mutedForeground} />
+              <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.foreground }}>Chat</Text>
+            </Pressable>
+          </View>
         </View>
       )}
 

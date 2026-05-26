@@ -293,13 +293,13 @@ export function UnifiedCheckinSheet({
       }
       onCheckinSaved?.(parsedInternal ?? null);
 
-      setStage("analyzing");
-      await onRequestAnalyze({
+      onClose();
+
+      onRequestAnalyze({
         internalTempF: parsedInternal ?? null,
         pitTempF: parsedPit ?? null,
         notes: userNote.trim(),
-      });
-      setStage("done");
+      }).catch(() => {});
     } catch (err: any) {
       setStage("form");
       Alert.alert("Check-in failed", "Could not save. Please try again.");
@@ -307,7 +307,7 @@ export function UnifiedCheckinSheet({
   };
 
   const handleClose = () => {
-    if (stage === "submitting" || stage === "analyzing") return;
+    if (stage === "submitting") return;
     onClose();
   };
 
@@ -966,32 +966,6 @@ export function UnifiedCheckinSheet({
             </LinearGradient>
           </Pressable>
 
-          {/* ── Inline AI result ─────────────────────────────────── */}
-          {isDone && result && (
-            <InlineAnalysisResult result={result} colors={colors} />
-          )}
-
-          {/* ── Dismiss after done ────────────────────────────────── */}
-          {isDone && (
-            <Pressable
-              onPress={onClose}
-              style={({ pressed }) => ({
-                alignItems: "center",
-                paddingVertical: 14,
-                opacity: pressed ? 0.6 : 1,
-              })}
-            >
-              <Text
-                style={{
-                  fontFamily: "Inter_500Medium",
-                  fontSize: 15,
-                  color: colors.mutedForeground,
-                }}
-              >
-                Done
-              </Text>
-            </Pressable>
-          )}
         </ScrollView>
       </AppKeyboardAvoidingView>
     </Modal>

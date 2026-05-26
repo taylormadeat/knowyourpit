@@ -152,6 +152,7 @@ import { EditCookTimesSheet } from "@/components/cook-detail/EditCookTimesSheet"
 import { AddToPlannedCookModal } from "@/components/cook-detail/AddToPlannedCookModal";
 import { AlertSheet } from "@/components/cook-detail/AlertSheet";
 import { UnifiedCheckinSheet } from "@/components/cook-detail/UnifiedCheckinSheet";
+import { PitMasterChatModal } from "@/components/PitMasterChatModal";
 import { CookActivityTimeline } from "@/components/cook-detail/CookActivityTimeline";
 import { LiveCookSection } from "@/components/cook-detail/LiveCookSection";
 import { useInkbirdBLE } from "@/hooks/useInkbirdBLE";
@@ -392,6 +393,7 @@ export default function CookDetailScreen() {
 
   // Check-in modal state
   const [checkinModalVisible, setCheckinModalVisible] = useState(false);
+  const [chatModalVisible, setChatModalVisible] = useState(false);
   const [activeCheckin, setActiveCheckin] = useState<ScheduledCheckin | null>(null);
   const createCheckin = useCreateCookCheckin();
   // Auto-check-in toast: shown briefly after a probe-triggered auto-log fires.
@@ -2880,90 +2882,6 @@ export default function CookDetailScreen() {
         );
       })()}
 
-      {/* ── Check-In prompt banner (active cooks) ────────────────────────
-           Shows a highlighted nudge when a notification was tapped
-           (pendingCheckinSc) or whenever the cook is active so the
-           pitmaster always has a one-tap path to log temps manually.      */}
-      {cookStatus === "active" && (() => {
-        const hasPlan = (cookSeqData?.schedule?.length ?? 0) > 0;
-        const upcomingCheckins = (
-          hasPlan && storedScheduledCheckins.length > 0
-            ? storedScheduledCheckins
-            : noPlanScheduledCheckins
-        ).filter((sc) => sc.scheduledAt > nowMs);
-
-        const targetSc: ScheduledCheckin | null =
-          pendingCheckinSc ??
-          upcomingCheckins[0] ??
-          null;
-
-        const isPending = pendingCheckinSc != null;
-
-        const handleCheckinPress = () => {
-          if (targetSc) {
-            openCheckin(targetSc);
-          } else {
-            const schedule = getCheckinSchedule((cook as any)?.foodType ?? null);
-            const phase = schedule.phases[0];
-            openCheckin({
-              id: `manual_${Date.now()}`,
-              phaseKey: phase.key,
-              phaseLabel: phase.label,
-              scheduledAt: Date.now(),
-              phase,
-            });
-          }
-          setPendingCheckinSc(null);
-        };
-
-        return (
-          <Pressable
-            onPress={handleCheckinPress}
-            style={({ pressed }) => ({
-              marginHorizontal: 16,
-              marginTop: 8,
-              borderRadius: 10,
-              overflow: "hidden",
-              opacity: pressed ? 0.85 : 1,
-              borderWidth: isPending ? 1.5 : 1,
-              borderColor: isPending ? "#F59E0B" : colors.border,
-              backgroundColor: isPending ? "#F59E0B18" : colors.card,
-              flexDirection: "row",
-              alignItems: "center",
-              paddingHorizontal: 14,
-              paddingVertical: 11,
-              gap: 10,
-            })}
-          >
-            <View style={{
-              width: 30, height: 30, borderRadius: 8,
-              backgroundColor: isPending ? "#F59E0B" : colors.primary,
-              alignItems: "center", justifyContent: "center",
-            }}>
-              <Feather name="thermometer" size={15} color="#fff" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{
-                fontFamily: "Inter_700Bold", fontSize: 13,
-                color: isPending ? "#F59E0B" : colors.foreground,
-              }}>
-                {isPending ? `Check In: ${pendingCheckinSc?.phaseLabel ?? "Now"}` : "Check In with PitMaster"}
-              </Text>
-              <Text style={{
-                fontFamily: "Inter_400Regular", fontSize: 12,
-                color: colors.mutedForeground, marginTop: 1,
-              }}>
-                {isPending
-                  ? "Notification received — tap to log temps and get coaching"
-                  : targetSc
-                  ? `Next: ${targetSc.phaseLabel}`
-                  : "Log current temps and get PitMaster coaching"}
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={16} color={isPending ? "#F59E0B" : colors.mutedForeground} />
-          </Pressable>
-        );
-      })()}
 
       <ScrollView
         ref={scheduleScrollViewRef}
@@ -3389,7 +3307,9 @@ export default function CookDetailScreen() {
           pitMasterAssessment={assessment}
           renderDecisions={renderDecisions}
           onCheckIn={handlePitMasterCheckIn}
+          onOpenChat={() => setChatModalVisible(true)}
           lastAnalyzedAtMs={lastAnalyzedAtMs}
+          lastCheckinInternalTempF={lastCheckin?.internalTempF ?? null}
           onRefresh={() => analyze()}
           activeProbeName={activeProbeName !== "Probe" ? activeProbeName : null}
         />
@@ -4141,6 +4061,12 @@ export default function CookDetailScreen() {
           }}
         />
       )}
+
+      {/* ── PitMaster Chat Modal ──────────────────────────────── */}
+      <PitMasterChatModal
+        visible={chatModalVisible}
+        onClose={() => setChatModalVisible(false)}
+      />
     </View>
   );
 }
