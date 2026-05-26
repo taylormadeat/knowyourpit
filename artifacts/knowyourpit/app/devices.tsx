@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  AppState,
+  type AppStateStatus,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppHeader } from "@/components/AppHeader";
@@ -320,6 +322,38 @@ export default function DevicesScreen() {
       scanLan();
     }
   };
+
+  // Track whether the permission-denied notice ("No WiFi thermometers found /
+  // Open Settings") was visible when the user last left the app.  When they
+  // return to the foreground after visiting Settings we auto-rescan so they
+  // don't have to tap "Scan for Devices" manually.
+  const permNoticedWhenBackgroundedRef = useRef(false);
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === "active") {
+        // Returned to foreground — rescan if the permission-denied notice was
+        // showing when the user left (lanScanEnabled true but mDNS found nothing).
+        if (permNoticedWhenBackgroundedRef.current) {
+          permNoticedWhenBackgroundedRef.current = false;
+          scanLan();
+        }
+      } else if (nextState === "background" || nextState === "inactive") {
+        // Record whether the "Open Settings" notice is currently visible.
+        // Condition mirrors the render branch below:
+        //   lanScanEnabled === true && mdnsAvailable && mdnsScanEmpty
+        // Also covers the case where mdnsAvailable is still false (module not
+        // yet loaded) while lanScanEnabled is true.
+        permNoticedWhenBackgroundedRef.current =
+          lanScanEnabled === true && (!mdnsAvailable || mdnsScanEmpty);
+      }
+    };
+
+    const sub = AppState.addEventListener("change", handleAppStateChange);
+    return () => sub.remove();
+  }, [lanScanEnabled, mdnsAvailable, mdnsScanEmpty, scanLan]);
 
   const isScanning = bleScanning || lanScanning;
 
