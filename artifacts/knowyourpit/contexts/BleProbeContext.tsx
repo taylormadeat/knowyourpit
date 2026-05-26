@@ -81,6 +81,7 @@ interface BleProbeContextValue {
   stopScan: () => void;
   pairDevice: (deviceId: string) => void;
   unpairDevice: (deviceId: string) => void;
+  setHasActiveCook: (val: boolean) => void;
 }
 
 const BleProbeContext = createContext<BleProbeContextValue>({
@@ -93,6 +94,7 @@ const BleProbeContext = createContext<BleProbeContextValue>({
   stopScan: () => {},
   pairDevice: () => {},
   unpairDevice: () => {},
+  setHasActiveCook: () => {},
 });
 
 export function useBleProbes() {
@@ -135,6 +137,8 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
   const deviceMapRef = useRef<Map<string, BleDevice>>(new Map());
   const pairedIdsRef = useRef<Set<string>>(new Set());
   const prevConnectedRef = useRef<Set<string>>(new Set());
+  const wasDroppedRef = useRef<Set<string>>(new Set());
+  const hasActiveCookRef = useRef(false);
   const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const staleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const gattPollTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
@@ -146,23 +150,26 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const checkReconnect = useCallback((device: BleDevice) => {
-    if (
-      device.connectionState === "connected" &&
-      !prevConnectedRef.current.has(device.id)
-    ) {
-      if (prevConnectedRef.current.size > 0) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    if (device.connectionState === "connected") {
+      if (!prevConnectedRef.current.has(device.id) && wasDroppedRef.current.has(device.id)) {
+        // Genuine reconnect after a drop — show banner only (no haptic)
         setReconnectBanner({ deviceName: device.name });
         const timer = setTimeout(() => {
           if (mountedRef.current) setReconnectBanner(null);
         }, 6000);
+        wasDroppedRef.current.delete(device.id);
         return () => clearTimeout(timer);
       }
       prevConnectedRef.current.add(device.id);
-    } else if (device.connectionState === "connected") {
-      prevConnectedRef.current.add(device.id);
     } else if (device.connectionState === "disconnected") {
-      prevConnectedRef.current.delete(device.id);
+      if (prevConnectedRef.current.has(device.id)) {
+        // Probe dropped — haptic only during a live cook
+        if (hasActiveCookRef.current) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+        }
+        wasDroppedRef.current.add(device.id);
+        prevConnectedRef.current.delete(device.id);
+      }
     }
   }, []);
 
@@ -517,6 +524,10 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
     setReconnectBanner(null);
   }, []);
 
+  const setHasActiveCook = useCallback((val: boolean) => {
+    hasActiveCookRef.current = val;
+  }, []);
+
   return (
     <BleProbeContext.Provider
       value={{
@@ -529,6 +540,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         stopScan,
         pairDevice,
         unpairDevice,
+        setHasActiveCook,
       }}
     >
       {children}
