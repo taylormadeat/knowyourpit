@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { View, Text, Pressable, StyleSheet, Animated } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -71,6 +71,38 @@ export function ActiveCookCard({ activeCook, nowMs, insights }: ActiveCookCardPr
   const storedCheckins = useStoredScheduledCheckins(activeCook?.id ?? null);
   const nextCheckin = storedCheckins.find((sc) => sc.scheduledAt > nowMs) ?? null;
 
+  const isCheckinUrgent =
+    nextCheckin != null && nextCheckin.scheduledAt - nowMs <= 5 * 60 * 1000;
+
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const pulseRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    if (isCheckinUrgent) {
+      pulseRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 0.4,
+            duration: 750,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 750,
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+      pulseRef.current.start();
+    } else {
+      pulseRef.current?.stop();
+      pulseAnim.setValue(1);
+    }
+    return () => {
+      pulseRef.current?.stop();
+    };
+  }, [isCheckinUrgent, pulseAnim]);
+
   return (
     <Pressable
       style={({ pressed }) => [pressed && { opacity: 0.88 }]}
@@ -141,39 +173,39 @@ export function ActiveCookCard({ activeCook, nowMs, insights }: ActiveCookCardPr
 
         {/* Next check-in countdown — tappable: jumps straight to check-in sheet */}
         {nextCheckin != null && (
-          <Pressable
-            style={({ pressed }) => [s.checkinRow, pressed && { opacity: 0.7 }]}
-            hitSlop={8}
-            onPress={(e) => {
-              e.stopPropagation();
-              setPendingCheckin({
-                cookId: activeCook.id,
-                phaseKey: nextCheckin.phaseKey,
-                phaseLabel: nextCheckin.phaseLabel,
-                scheduledAt: nextCheckin.scheduledAt,
-                autoOpen: true,
-              });
-              router.push(`/cooks/${activeCook.id}` as any);
-            }}
-          >
-            <Feather name="clock" size={11} color="#96908A" />
-            <Text style={s.checkinText}>
-              {"Next check-in: "}
-              <Text style={s.checkinLabel}>{nextCheckin.phaseLabel}</Text>
-              {" · "}
-              <Text
-                style={[
-                  s.checkinCountdown,
-                  nextCheckin.scheduledAt - nowMs <= 5 * 60 * 1000 && {
-                    color: "#EF4444",
-                  },
-                ]}
-              >
-                {fmtCheckinCountdown(nowMs, nextCheckin.scheduledAt)}
+          <Animated.View style={{ opacity: pulseAnim, alignSelf: "flex-start" }}>
+            <Pressable
+              style={({ pressed }) => [s.checkinRow, pressed && { opacity: 0.7 }]}
+              hitSlop={8}
+              onPress={(e) => {
+                e.stopPropagation();
+                setPendingCheckin({
+                  cookId: activeCook.id,
+                  phaseKey: nextCheckin.phaseKey,
+                  phaseLabel: nextCheckin.phaseLabel,
+                  scheduledAt: nextCheckin.scheduledAt,
+                  autoOpen: true,
+                });
+                router.push(`/cooks/${activeCook.id}` as any);
+              }}
+            >
+              <Feather name="clock" size={11} color="#96908A" />
+              <Text style={s.checkinText}>
+                {"Next check-in: "}
+                <Text style={s.checkinLabel}>{nextCheckin.phaseLabel}</Text>
+                {" · "}
+                <Text
+                  style={[
+                    s.checkinCountdown,
+                    isCheckinUrgent && { color: "#EF4444" },
+                  ]}
+                >
+                  {fmtCheckinCountdown(nowMs, nextCheckin.scheduledAt)}
+                </Text>
               </Text>
-            </Text>
-            <Feather name="chevron-right" size={10} color="#96908A" style={{ marginLeft: 2 }} />
-          </Pressable>
+              <Feather name="chevron-right" size={10} color="#96908A" style={{ marginLeft: 2 }} />
+            </Pressable>
+          </Animated.View>
         )}
 
         {/* Thaw status banner — shown when meat is not yet on the grill */}
