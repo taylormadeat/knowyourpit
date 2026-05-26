@@ -304,6 +304,7 @@ export default function DevicesScreen() {
     devices: lanDevices,
     scanning: lanScanning,
     mdnsAvailable,
+    mdnsScanEmpty,
     scan: scanLan,
   } = useLanProbes({ enabled: lanHookEnabled, pollIntervalMs: 30_000 });
 
@@ -501,7 +502,24 @@ export default function DevicesScreen() {
               </View>
             ) : (
               <>
-                {lanDevices.length === 0 ? (
+                {Platform.OS === "ios" && lanScanEnabled === true && mdnsAvailable && mdnsScanEmpty ? (
+                  <View style={[s.emptyCard, { backgroundColor: "#EAB30812", borderColor: "#EAB30840", borderRadius: colors.radius }]}>
+                    <Feather name="alert-triangle" size={16} color="#EAB308" />
+                    <Text style={[s.emptyText, { color: colors.foreground }]}>
+                      No WiFi thermometers found
+                    </Text>
+                    <Text style={[s.emptySubText, { color: colors.mutedForeground }]}>
+                      If iOS asked for Local Network permission and you tapped "Don't Allow", open Settings and enable it for knowyourpit to discover devices.
+                    </Text>
+                    <Pressable
+                      onPress={() => Linking.openSettings()}
+                      style={s.openSettingsBtn}
+                    >
+                      <Feather name="settings" size={14} color="#fff" />
+                      <Text style={s.openSettingsBtnText}>Open Settings</Text>
+                    </Pressable>
+                  </View>
+                ) : lanDevices.length === 0 ? (
                   <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
                     <Feather name="wifi-off" size={20} color={colors.mutedForeground} />
                     <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
@@ -900,4 +918,6 @@ const s = StyleSheet.create({
   lanPermBody: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
   lanPermBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 10, paddingVertical: 12, marginTop: 2 },
   lanPermBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#fff" },
+  openSettingsBtn: { marginTop: 4, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#EAB308", paddingHorizontal: 16, paddingVertical: 9, borderRadius: 8 },
+  openSettingsBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff" },
 });

@@ -65,6 +65,12 @@ interface UseLanProbesResult {
   probes: LanProbeReading[];
   scanning: boolean;
   mdnsAvailable: boolean;
+  /**
+   * True after at least one mDNS scan cycle completed with an empty result.
+   * Proxy for "iOS Local Network permission denied" — the module loaded but
+   * browsing the LAN returned nothing.  See useZeroconfDiscovery for details.
+   */
+  mdnsScanEmpty: boolean;
   scan: () => void;
 }
 
@@ -106,6 +112,7 @@ export function useLanProbes({
     discovered,
     mdnsAvailable,
     scanning: mdnsScanning,
+    mdnsScanEmpty,
     rescan,
     evictHost,
   } = useZeroconfDiscovery(enabled && Platform.OS !== "web");
@@ -284,6 +291,7 @@ export function useLanProbes({
     probes,
     scanning: scanning || mdnsScanning,
     mdnsAvailable,
+    mdnsScanEmpty,
     scan: scanAll,
   };
 }

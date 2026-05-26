@@ -46,6 +46,14 @@ export interface UseZeroconfDiscoveryResult {
   mdnsAvailable: boolean;
   /** Whether a scan is actively running */
   scanning: boolean;
+  /**
+   * True after at least one full mDNS scan cycle has completed (scanning went
+   * true → false) with an empty result.  This is the best available in-app
+   * proxy for "iOS Local Network permission was denied": the module loads fine
+   * (mdnsAvailable === true) but browsing returned nothing.  Resets to false
+   * whenever a service is resolved.
+   */
+  mdnsScanEmpty: boolean;
   /** Manually trigger a fresh scan (stops current scan, restarts) */
   rescan: () => void;
   /**
@@ -139,9 +147,16 @@ export function useZeroconfDiscovery(enabled: boolean): UseZeroconfDiscoveryResu
   const [discovered, setDiscovered] = useState<DiscoveredHosts>({});
   const [mdnsAvailable, setMdnsAvailable] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [mdnsScanEmpty, setMdnsScanEmpty] = useState(false);
   const browserRef = useRef<ZeroconfBrowser | null>(null);
   const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  // Keep a ref to the latest discovered map so the scan-completion effect can
+  // read its current value without adding discovered to its dependency array
+  // (which would fire on every resolve event instead of just on scan end).
+  const discoveredRef = useRef<DiscoveredHosts>({});
+  discoveredRef.current = discovered;
+  const prevScanningRef = useRef(false);
 
   // Seed discovered state from AsyncStorage before the first scan completes
   useEffect(() => {
@@ -286,5 +301,24 @@ export function useZeroconfDiscovery(enabled: boolean): UseZeroconfDiscoveryResu
     removePersistedHost(type, host);
   }, []);
 
-  return { discovered, mdnsAvailable, scanning, rescan: startScan, evictHost };
+  // After each mDNS scan cycle completes, record whether anything was discovered.
+  // This is the best available in-app proxy for "iOS Local Network permission denied":
+  // the module loads fine (mdnsAvailable=true) but browsing the LAN returned nothing
+  // after the full 8-second window.  Resets to false if a service is resolved later
+  // (handled in the "resolved" listener above via setDiscovered which causes a re-check).
+  useEffect(() => {
+    if (!enabled) {
+      setMdnsScanEmpty(false);
+      prevScanningRef.current = false;
+      return;
+    }
+    // Trailing edge: scanning was true, is now false → scan just ended
+    if (prevScanningRef.current && !scanning) {
+      const hasResults = KNOWN_TYPES.some((t) => (discoveredRef.current[t]?.length ?? 0) > 0);
+      setMdnsScanEmpty(!hasResults);
+    }
+    prevScanningRef.current = scanning;
+  }, [scanning, enabled]);
+
+  return { discovered, mdnsAvailable, scanning, mdnsScanEmpty, rescan: startScan, evictHost };
 }
