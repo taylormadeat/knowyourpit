@@ -216,8 +216,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
   const unpairDevice = useCallback(
     (deviceId: string) => {
       pairedIdsRef.current.delete(deviceId);
-      const d = deviceMapRef.current.get(deviceId);
-      if (d) deviceMapRef.current.set(deviceId, { ...d, paired: false });
+      deviceMapRef.current.delete(deviceId);
       flushDevices();
       savePairedIds();
     },

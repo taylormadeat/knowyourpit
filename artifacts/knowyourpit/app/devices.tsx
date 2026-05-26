@@ -81,9 +81,25 @@ function BleDeviceCard({ device, colors, onPair, onUnpair }: {
   const isConnected = device.connectionState === "connected";
   const isConnecting = device.connectionState === "connecting";
   const isPaired = device.paired;
+  const isOffline = isPaired && !isConnected && !isConnecting;
+
+  const confirmRemove = () => {
+    Alert.alert(
+      "Remove Device",
+      `Remove "${device.name}" from your paired devices? It will no longer appear in your device list.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Remove", style: "destructive", onPress: onUnpair },
+      ],
+    );
+  };
 
   return (
-    <View style={[s.deviceCard, { backgroundColor: colors.card, borderColor: isConnected ? "#22c55e40" : colors.border, borderRadius: colors.radius }]}>
+    <Pressable
+      onLongPress={isOffline ? confirmRemove : undefined}
+      delayLongPress={400}
+      style={[s.deviceCard, { backgroundColor: colors.card, borderColor: isConnected ? "#22c55e40" : colors.border, borderRadius: colors.radius }]}
+    >
       <View style={s.deviceRow}>
         <View style={[s.deviceIcon, { backgroundColor: "#3B82F620" }]}>
           <Feather name="bluetooth" size={20} color="#3B82F6" />
@@ -138,7 +154,7 @@ function BleDeviceCard({ device, colors, onPair, onUnpair }: {
       <View style={[s.deviceActions, { borderTopColor: colors.border }]}>
         {isPaired ? (
           <Pressable
-            onPress={onUnpair}
+            onPress={confirmRemove}
             style={[s.unlinkBtn, { borderColor: colors.border }]}
           >
             <Text style={s.unlinkText}>Unpair Device</Text>
@@ -153,7 +169,12 @@ function BleDeviceCard({ device, colors, onPair, onUnpair }: {
           </Pressable>
         )}
       </View>
-    </View>
+      {isOffline && (
+        <Text style={{ fontSize: 10, fontFamily: "Inter_400Regular", color: colors.mutedForeground, textAlign: "center", paddingBottom: 8, opacity: 0.6 }}>
+          Hold to remove
+        </Text>
+      )}
+    </Pressable>
   );
 }
 
