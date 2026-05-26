@@ -1262,7 +1262,7 @@ export default function CookDetailScreen() {
 
   // Next upcoming scheduled check-in — shown in the PitMaster hub card as a
   // forward-looking hint: "Next: Stall · in 45 min".
-  const { nextCheckinMs, nextCheckinLabel } = useMemo(() => {
+  const { nextCheckinMs, nextCheckinLabel, nextCheckinSc } = useMemo(() => {
     const hasPlan = (cookSeqData?.schedule?.length ?? 0) > 0;
     const now = nowMs ?? Date.now();
     const upcoming = (
@@ -1274,8 +1274,17 @@ export default function CookDetailScreen() {
     return {
       nextCheckinMs: next?.scheduledAt ?? null,
       nextCheckinLabel: next?.phaseLabel ?? null,
+      nextCheckinSc: next,
     };
   }, [cookSeqData, storedScheduledCheckins, noPlanScheduledCheckins, nowMs]);
+
+  const handleCheckInNext = useCallback(() => {
+    if (nextCheckinSc) {
+      openCheckin(nextCheckinSc);
+    } else {
+      handlePitMasterCheckIn();
+    }
+  }, [nextCheckinSc, openCheckin, handlePitMasterCheckIn]);
 
   // Build a probe reading object for the auto-checkin hook. We use the
   // react-query dataUpdatedAt timestamp so the hook knows how fresh the
@@ -3324,6 +3333,7 @@ export default function CookDetailScreen() {
           pitMasterAssessment={assessment}
           renderDecisions={renderDecisions}
           onCheckIn={handlePitMasterCheckIn}
+          onCheckInNext={handleCheckInNext}
           onOpenChat={() => setChatModalVisible(true)}
           lastAnalyzedAtMs={lastAnalyzedAtMs}
           lastCheckinInternalTempF={lastCheckin?.internalTempF ?? null}

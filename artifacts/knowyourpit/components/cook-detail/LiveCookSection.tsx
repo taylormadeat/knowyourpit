@@ -65,6 +65,7 @@ interface Props {
   pitMasterAssessment?: any;
   renderDecisions?: (decisions: any[]) => React.ReactNode;
   onCheckIn?: () => void;
+  onCheckInNext?: () => void;
   onOpenChat?: () => void;
   lastAnalyzedAtMs?: number | null;
   lastCheckinInternalTempF?: number | null;
@@ -104,7 +105,7 @@ export function LiveCookSection(p: Props) {
     setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
     targetTempF, cookTempF, nextSpritzMs, nextMopMs, onViewDetails,
     isMeatOn, pitMasterResult, pitMasterAnalyzing, pitMasterVerdictCfg, pitMasterAssessment,
-    renderDecisions, onCheckIn, onOpenChat, lastAnalyzedAtMs, lastCheckinInternalTempF, onRefresh, activeProbeName,
+    renderDecisions, onCheckIn, onCheckInNext, onOpenChat, lastAnalyzedAtMs, lastCheckinInternalTempF, onRefresh, activeProbeName,
     nextCheckinMs, nextCheckinLabel,
   } = p;
 
@@ -1006,9 +1007,27 @@ export function LiveCookSection(p: Props) {
             const mins = Math.floor(diffMs / 60000);
             const timeLabel = mins <= 5 ? "Soon" : `in ${mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)}h ${mins % 60}m`}`;
             return (
-              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 1 }}>
-                {`Next: ${nextCheckinLabel} · ${timeLabel}`}
-              </Text>
+              <Pressable
+                onPress={onCheckInNext}
+                disabled={!onCheckInNext}
+                style={({ pressed }) => ({
+                  alignSelf: "flex-start",
+                  marginTop: 1,
+                  opacity: pressed ? 0.6 : 1,
+                })}
+              >
+                {({ pressed }) => (
+                  <Text style={{
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 11,
+                    color: pressed ? "#FF6B2B" : colors.mutedForeground,
+                    textDecorationLine: onCheckInNext ? "underline" : "none",
+                    textDecorationColor: colors.mutedForeground,
+                  }}>
+                    {`Next: ${nextCheckinLabel} · ${timeLabel}`}
+                  </Text>
+                )}
+              </Pressable>
             );
           })()}
           <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
