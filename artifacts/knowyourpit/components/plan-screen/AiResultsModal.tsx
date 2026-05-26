@@ -143,6 +143,47 @@ export function AiResultsModal(p: Props) {
                       </View>
                     </View>
                   ))}
+                  {(aiResult.fingerprintSource === "grill" || aiResult.fingerprintSource === "user") && (() => {
+                    const note: string | null = aiResult.fingerprintNote ?? null;
+                    const countMatch = note ? note.match(/across (\d+) cook/) : null;
+                    const n = countMatch ? parseInt(countMatch[1], 10) : null;
+                    const cookWord = n === 1 ? "cook" : "cooks";
+                    let label: string;
+                    if (aiResult.fingerprintSource === "grill") {
+                      label = n != null
+                        ? `Tuned to your ${n} ${cookWord} on this grill`
+                        : "Tuned to your cook history on this grill";
+                    } else {
+                      const meatMatch = note ? note.match(/learned pace on ([^(]+?) \(across all grills\)/) : null;
+                      const meat = meatMatch ? meatMatch[1].trim() : null;
+                      label = n != null && meat
+                        ? `Tuned to your ${n} ${meat} ${cookWord}`
+                        : n != null
+                          ? `Tuned to your ${n} personal ${cookWord}`
+                          : "Tuned to your personal cook history";
+                    }
+                    return (
+                      <View style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                        marginTop: 10,
+                        paddingTop: 10,
+                        borderTopWidth: 1,
+                        borderTopColor: colors.border,
+                      }}>
+                        <Feather name="bar-chart-2" size={12} color={colors.mutedForeground} />
+                        <Text style={{
+                          fontFamily: "Inter_400Regular",
+                          fontSize: 12,
+                          color: colors.mutedForeground,
+                          flex: 1,
+                        }}>
+                          {label}
+                        </Text>
+                      </View>
+                    );
+                  })()}
                 </View>
 
                 {aiResult.wrap && (
