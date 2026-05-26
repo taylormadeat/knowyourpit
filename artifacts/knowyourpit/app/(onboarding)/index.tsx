@@ -1,18 +1,14 @@
-import React, { useRef, useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
   Pressable,
   StyleSheet,
-  FlatList,
   Alert,
   Linking,
   Platform,
   BackHandler,
-  Dimensions,
   Image,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -24,169 +20,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export const ONBOARDING_SEEN_KEY = "knowyourpit:hasSeenOnboarding";
 
 const MORE_HREF = "/(tabs)/more" as Href;
-
-const { width: SCREEN_W } = Dimensions.get("window");
 const BRAND_ORANGE = "#E84820";
 const SUPPORT_EMAIL = "support@knowyourpit.com";
 const APP_STORE_URL = "itms-apps://itunes.apple.com/app/id6738518044";
 
 const logoImg = require("@/assets/images/logo.png");
-
-type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
-
-interface FeatureGridItem {
-  icon: FeatherIconName;
-  label: string;
-}
-
-interface Slide {
-  id: string;
-  icon: FeatherIconName;
-  iconColor: string;
-  iconBg: readonly [string, string];
-  iconGlow: string;
-  headline: string;
-  body: string;
-  emailLink?: boolean;
-  featureGrid?: FeatureGridItem[];
-}
-
-// Icon box backgrounds — dark so they pop against the warm orange gradient bg.
-const ORANGE_BG: readonly [string, string] = ["#2A1810", "#1A1008"];
-const ORANGE_GLOW = "rgba(232,72,32,0.35)";
-const AMBER_BG: readonly [string, string] = ["#2A1E08", "#1A1205"];
-const AMBER_GLOW = "rgba(245,158,11,0.3)";
-
-const SLIDES: Slide[] = [
-  {
-    id: "welcome",
-    icon: "thermometer",
-    iconColor: "#FCD34D",
-    iconBg: ["#2A1C04", "#1A1002"],
-    iconGlow: "rgba(252,211,77,0.35)",
-    headline: "Welcome, Pitmaster.",
-    body: "You've got the pit. We've got the plan. Every cook, better than the last.",
-  },
-  {
-    id: "plan",
-    icon: "calendar",
-    iconColor: "#F97316",
-    iconBg: ["#2A1808", "#1A1005"],
-    iconGlow: "rgba(249,115,22,0.35)",
-    headline: "Plan. Log. Repeat.",
-    body: "An AI cook timeline, a running log of every session, and a live picture of your pit — all in one place.",
-    featureGrid: [
-      { icon: "calendar", label: "Cook plan" },
-      { icon: "clipboard", label: "Cook log" },
-      { icon: "cpu", label: "Your grill" },
-    ],
-  },
-  {
-    id: "ai",
-    icon: "zap",
-    iconColor: "#F59E0B",
-    iconBg: AMBER_BG,
-    iconGlow: AMBER_GLOW,
-    headline: "PitMaster's got your back",
-    body: "Ask anything mid-cook — wood pairings, stall strategies, or just 'is this brisket done?' PitMaster knows your pit.",
-  },
-  {
-    id: "feedback",
-    icon: "star",
-    iconColor: "#F59E0B",
-    iconBg: AMBER_BG,
-    iconGlow: AMBER_GLOW,
-    headline: "You're one of our first 🔥",
-    body: "Your feedback shapes everything we build next. Spotted something off? Have an idea? We're listening.",
-    emailLink: true,
-  },
-];
-
-function IconBox({ slide }: { slide: Slide }) {
-  return (
-    <LinearGradient
-      colors={slide.iconBg as [string, string]}
-      style={[s.iconBox, { shadowColor: slide.iconGlow }]}
-    >
-      <Feather name={slide.icon} size={48} color={slide.iconColor} />
-    </LinearGradient>
-  );
-}
-
-function FeatureGrid({ items }: { items: FeatureGridItem[] }) {
-  return (
-    <View style={s.featureGrid}>
-      {items.map((item) => (
-        <LinearGradient
-          key={item.icon}
-          colors={["#2A1808", "#1A1005"]}
-          style={s.featureChip}
-        >
-          <Feather name={item.icon} size={28} color="#F97316" />
-          <Text style={s.featureChipLabel}>{item.label}</Text>
-        </LinearGradient>
-      ))}
-    </View>
-  );
-}
-
-function SlideView({ slide, isLast }: { slide: Slide; isLast: boolean }) {
-  function handleEmail() {
-    const url = `mailto:${SUPPORT_EMAIL}?subject=knowyourpit%20feedback`;
-    Linking.canOpenURL(url)
-      .then((ok) => {
-        if (ok) return Linking.openURL(url);
-        Alert.alert("No mail app found", `Email us at ${SUPPORT_EMAIL}`);
-      })
-      .catch(() => Alert.alert("No mail app found", `Email us at ${SUPPORT_EMAIL}`));
-  }
-
-  function handleRateApp() {
-    Linking.openURL(APP_STORE_URL).catch(() => {});
-  }
-
-  return (
-    <View style={s.slide}>
-      {slide.featureGrid ? (
-        <FeatureGrid items={slide.featureGrid} />
-      ) : (
-        <IconBox slide={slide} />
-      )}
-
-      <Text style={s.headline}>{slide.headline}</Text>
-      <Text style={s.body}>{slide.body}</Text>
-
-      {slide.emailLink && (
-        <>
-          <Pressable
-            onPress={handleEmail}
-            style={({ pressed }) => [s.emailBtn, pressed && { opacity: 0.88 }]}
-            accessibilityRole="link"
-            accessibilityLabel={`Send feedback to ${SUPPORT_EMAIL}`}
-          >
-            <Feather name="mail" size={16} color={BRAND_ORANGE} />
-            <Text style={s.emailText}>{SUPPORT_EMAIL}</Text>
-          </Pressable>
-
-          {Platform.OS === "ios" && (
-            <Pressable
-              onPress={handleRateApp}
-              style={({ pressed }) => [s.rateLink, pressed && { opacity: 0.7 }]}
-              accessibilityRole="link"
-              accessibilityLabel="Rate the app on the App Store"
-            >
-              <Text style={s.rateLinkText}>Rate the app ★</Text>
-            </Pressable>
-          )}
-        </>
-      )}
-
-      {isLast && (
-        <Text style={s.emailHint}>We read everything.</Text>
-      )}
-    </View>
-  );
-}
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -194,11 +32,9 @@ export default function OnboardingScreen() {
   const { user } = useUser();
   const { replay } = useLocalSearchParams<{ replay?: string }>();
   const isReplay = replay === "1";
-  const flatRef = useRef<FlatList<Slide>>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [saving, setSaving] = useState(false);
 
-  const isLast = currentIndex === SLIDES.length - 1;
+  const [page, setPage] = useState<0 | 1>(0);
+  const [saving, setSaving] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -232,34 +68,21 @@ export default function OnboardingScreen() {
     router.replace("/(tabs)");
   }
 
-  function skipToEnd() {
-    const lastIdx = SLIDES.length - 1;
-    flatRef.current?.scrollToIndex({ index: lastIdx, animated: true });
-    setCurrentIndex(lastIdx);
+  function handleEmail() {
+    const url = `mailto:${SUPPORT_EMAIL}?subject=knowyourpit%20feedback`;
+    Linking.canOpenURL(url)
+      .then((ok) => {
+        if (ok) return Linking.openURL(url);
+        Alert.alert("No mail app found", `Email us at ${SUPPORT_EMAIL}`);
+      })
+      .catch(() => Alert.alert("No mail app found", `Email us at ${SUPPORT_EMAIL}`));
   }
 
-  function goPrev() {
-    if (currentIndex === 0) return;
-    const prev = currentIndex - 1;
-    flatRef.current?.scrollToIndex({ index: prev, animated: true });
-    setCurrentIndex(prev);
+  function handleRateApp() {
+    Linking.openURL(APP_STORE_URL).catch(() => {});
   }
 
-  function goNext() {
-    if (isLast) {
-      finish();
-      return;
-    }
-    const next = currentIndex + 1;
-    flatRef.current?.scrollToIndex({ index: next, animated: true });
-    setCurrentIndex(next);
-  }
-
-  function onMomentumScrollEnd(e: NativeSyntheticEvent<NativeScrollEvent>) {
-    const offset = e.nativeEvent.contentOffset.x;
-    const idx = Math.round(offset / SCREEN_W);
-    setCurrentIndex(idx);
-  }
+  const isLast = page === 1;
 
   return (
     <LinearGradient
@@ -267,17 +90,6 @@ export default function OnboardingScreen() {
       locations={[0, 0.18, 0.38, 0.62, 1.0]}
       style={s.root}
     >
-      {/* Skip — top-right */}
-      <Pressable
-        style={[s.skipBtn, { top: insets.top + 16 }]}
-        onPress={isLast ? finish : skipToEnd}
-        hitSlop={12}
-        accessibilityRole="button"
-        accessibilityLabel={isLast ? "Dismiss onboarding" : "Skip to last slide"}
-      >
-        <Text style={s.skipText}>Skip</Text>
-      </Pressable>
-
       {/* Top-left: close in replay, logo in first-run */}
       {isReplay ? (
         <Pressable
@@ -285,7 +97,7 @@ export default function OnboardingScreen() {
           onPress={() => router.replace(MORE_HREF)}
           hitSlop={12}
           accessibilityRole="button"
-          accessibilityLabel="Close walkthrough"
+          accessibilityLabel="Close"
         >
           <Feather name="x" size={22} color="rgba(255,255,255,0.6)" />
         </Pressable>
@@ -298,45 +110,90 @@ export default function OnboardingScreen() {
         />
       )}
 
-      {/* Slides */}
-      <FlatList
-        ref={flatRef}
-        data={SLIDES}
-        keyExtractor={(s) => s.id}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        scrollEventThrottle={16}
-        onMomentumScrollEnd={onMomentumScrollEnd}
-        renderItem={({ item, index }) => (
-          <SlideView slide={item} isLast={index === SLIDES.length - 1} />
-        )}
-        style={s.pager}
-      />
+      {/* Skip / close top-right */}
+      <Pressable
+        style={[s.skipBtn, { top: insets.top + 16 }]}
+        onPress={isLast ? finish : () => setPage(1)}
+        hitSlop={12}
+        accessibilityRole="button"
+        accessibilityLabel={isLast ? "Dismiss" : "Skip to next"}
+      >
+        <Text style={s.skipText}>{isLast ? "Done" : "Skip"}</Text>
+      </Pressable>
 
-      {/* Bottom: dots + button */}
+      {/* Card */}
+      <View style={s.cardWrap}>
+        <View style={s.card}>
+          {page === 0 ? (
+            /* ── Page 1: Welcome ─────────────────────── */
+            <>
+              <LinearGradient
+                colors={["#2A1C04", "#1A1002"]}
+                style={s.iconBox}
+              >
+                <Feather name="thermometer" size={48} color="#FCD34D" />
+              </LinearGradient>
+              <Text style={s.headline}>Welcome, Pitmaster.</Text>
+              <Text style={s.body}>
+                You've got the pit. We've got the plan. Every cook, better than the last.
+              </Text>
+            </>
+          ) : (
+            /* ── Page 2: Feedback ────────────────────── */
+            <>
+              <LinearGradient
+                colors={["#2A1E08", "#1A1205"]}
+                style={s.iconBox}
+              >
+                <Feather name="star" size={48} color="#F59E0B" />
+              </LinearGradient>
+              <Text style={s.headline}>You're one of our first 🔥</Text>
+              <Text style={s.body}>
+                Your feedback shapes everything we build next. Spotted something off? Have an idea? We're listening.
+              </Text>
+              <Pressable
+                onPress={handleEmail}
+                style={({ pressed }) => [s.emailBtn, pressed && { opacity: 0.88 }]}
+                accessibilityRole="link"
+                accessibilityLabel={`Send feedback to ${SUPPORT_EMAIL}`}
+              >
+                <Feather name="mail" size={16} color={BRAND_ORANGE} />
+                <Text style={s.emailText}>{SUPPORT_EMAIL}</Text>
+              </Pressable>
+              {Platform.OS === "ios" && (
+                <Pressable
+                  onPress={handleRateApp}
+                  style={({ pressed }) => [s.rateLink, pressed && { opacity: 0.7 }]}
+                  accessibilityRole="link"
+                  accessibilityLabel="Rate the app on the App Store"
+                >
+                  <Text style={s.rateLinkText}>Rate the app ★</Text>
+                </Pressable>
+              )}
+              <Text style={s.hint}>We read everything.</Text>
+            </>
+          )}
+        </View>
+      </View>
+
+      {/* Bottom: dots + CTA */}
       <View style={[s.bottom, { paddingBottom: insets.bottom + 24 }]}>
-        {/* Progress dots */}
         <View style={s.dots}>
-          {SLIDES.map((_, i) => (
+          {([0, 1] as const).map((i) => (
             <View
               key={i}
-              style={[
-                s.dot,
-                i === currentIndex ? s.dotActive : s.dotInactive,
-              ]}
+              style={[s.dot, i === page ? s.dotActive : s.dotInactive]}
             />
           ))}
         </View>
 
-        {/* CTA row */}
         <View style={s.ctaRow}>
-          {isReplay && currentIndex > 0 ? (
+          {isReplay && page === 1 ? (
             <Pressable
               style={({ pressed }) => [s.backBtn, pressed && { opacity: 0.7 }]}
-              onPress={goPrev}
+              onPress={() => setPage(0)}
               accessibilityRole="button"
-              accessibilityLabel="Previous slide"
+              accessibilityLabel="Previous"
             >
               <Feather name="chevron-left" size={20} color="#FFFFFF" />
               <Text style={s.backText}>Back</Text>
@@ -345,18 +202,16 @@ export default function OnboardingScreen() {
           <Pressable
             style={({ pressed }) => [
               s.ctaBtn,
-              isReplay && currentIndex > 0 ? s.ctaBtnFlex : s.ctaBtnFull,
+              isReplay && page === 1 ? s.ctaBtnFlex : s.ctaBtnFull,
               pressed && { opacity: 0.88 },
             ]}
-            onPress={goNext}
+            onPress={isLast ? finish : () => setPage(1)}
             disabled={saving}
             accessibilityRole="button"
-            accessibilityLabel={isLast ? "Let's go" : "Next slide"}
+            accessibilityLabel={isLast ? "Let's go" : "Next"}
           >
             <View style={s.ctaInner}>
-              <Text style={s.ctaText}>
-                {isLast ? "Let's go! 🔥" : "Next →"}
-              </Text>
+              <Text style={s.ctaText}>{isLast ? "Let's go! 🔥" : "Next →"}</Text>
             </View>
           </Pressable>
         </View>
@@ -395,16 +250,17 @@ const s = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     color: "rgba(255,255,255,0.6)",
   },
-  pager: {
-    flex: 1,
-  },
-  slide: {
-    width: SCREEN_W,
+  cardWrap: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 36,
-    paddingTop: 80,
+    paddingHorizontal: 24,
+  },
+  card: {
+    width: "100%",
+    maxWidth: 380,
+    alignItems: "center",
+    paddingHorizontal: 12,
   },
   iconBox: {
     width: 112,
@@ -412,39 +268,13 @@ const s = StyleSheet.create({
     borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 36,
+    marginBottom: 32,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.10)",
     shadowOffset: { width: 0, height: 0 },
     shadowRadius: 48,
     shadowOpacity: 1,
     elevation: 16,
-  },
-  featureGrid: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 36,
-  },
-  featureChip: {
-    width: 72,
-    height: 72,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    shadowColor: "rgba(249,115,22,0.35)",
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 24,
-    shadowOpacity: 1,
-    elevation: 10,
-  },
-  featureChipLabel: {
-    fontSize: 10,
-    fontFamily: "Inter_500Medium",
-    color: "rgba(255,255,255,0.7)",
-    textAlign: "center",
   },
   headline: {
     fontSize: 30,
@@ -495,7 +325,7 @@ const s = StyleSheet.create({
     color: "rgba(255,255,255,0.55)",
     textDecorationLine: "underline",
   },
-  emailHint: {
+  hint: {
     marginTop: 10,
     fontSize: 13,
     fontFamily: "Inter_400Regular",
