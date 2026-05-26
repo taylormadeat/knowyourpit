@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Alert,
   Linking,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { Feather } from "@expo/vector-icons";
@@ -36,6 +37,8 @@ import {
 } from "@workspace/api-client-react";
 
 const THERMOWORKS_COLOR = "#B22222";
+
+const LAN_PERMISSION_KEY = "@knowyourpit/mdns/scan_explanation_shown";
 
 function fmtLastSeen(lastSeenMs: number): string {
   const diffMs = Date.now() - lastSeenMs;
@@ -280,12 +283,29 @@ export default function DevicesScreen() {
     unpairDevice,
   } = useBleProbes();
 
+  const [lanScanEnabled, setLanScanEnabled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem(LAN_PERMISSION_KEY).then((val) => {
+      setLanScanEnabled(val === "1");
+    });
+  }, []);
+
+  const handleAllowLanScan = async () => {
+    await AsyncStorage.setItem(LAN_PERMISSION_KEY, "1");
+    setLanScanEnabled(true);
+  };
+
+  const lanHookEnabled =
+    effectivePro &&
+    (Platform.OS !== "ios" || lanScanEnabled === true);
+
   const {
     devices: lanDevices,
     scanning: lanScanning,
     mdnsAvailable,
     scan: scanLan,
-  } = useLanProbes({ enabled: effectivePro, pollIntervalMs: 30_000 });
+  } = useLanProbes({ enabled: lanHookEnabled, pollIntervalMs: 30_000 });
 
   const handleScan = () => {
     if (!effectivePro) {
@@ -293,7 +313,11 @@ export default function DevicesScreen() {
       return;
     }
     startBleScan();
-    scanLan();
+    // On iOS, only trigger the LAN scan once the user has acknowledged the
+    // local-network permission card. On other platforms no gate is needed.
+    if (Platform.OS !== "ios" || lanScanEnabled === true) {
+      scanLan();
+    }
   };
 
   const isScanning = bleScanning || lanScanning;
@@ -448,6 +472,33 @@ export default function DevicesScreen() {
                 icon="wifi"
                 onPress={() => showPaywall({ trigger: "pro_required", featureName: "Smart Probe Integration" })}
               />
+            ) : Platform.OS === "ios" && lanScanEnabled === false ? (
+              <View style={[s.lanPermCard, { backgroundColor: colors.card, borderColor: "#0EA5E940", borderRadius: colors.radius }]}>
+                <View style={s.lanPermIconRow}>
+                  <View style={[s.lanPermIconWrap, { backgroundColor: "#0EA5E920" }]}>
+                    <Feather name="wifi" size={22} color="#0EA5E9" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.lanPermTitle, { color: colors.foreground }]}>Local Network Access</Text>
+                    <Text style={[s.lanPermSub, { color: colors.mutedForeground }]}>Required for WiFi thermometer discovery</Text>
+                  </View>
+                </View>
+                <Text style={[s.lanPermBody, { color: colors.mutedForeground }]}>
+                  iOS will ask for permission to scan your local network. This lets knowyourpit automatically find Fireboard, MEATER Block, and ThermoWorks Signals thermometers on your WiFi — no IP address needed.
+                </Text>
+                <Text style={[s.lanPermBody, { color: colors.mutedForeground, marginTop: 4 }]}>
+                  Your network data never leaves your device. Tap{" "}
+                  <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.foreground }}>Allow</Text>{" "}
+                  when iOS prompts you.
+                </Text>
+                <Pressable
+                  onPress={handleAllowLanScan}
+                  style={[s.lanPermBtn, { backgroundColor: "#0EA5E9" }]}
+                >
+                  <Feather name="wifi" size={15} color="#fff" />
+                  <Text style={s.lanPermBtnText}>Scan My Network</Text>
+                </Pressable>
+              </View>
             ) : (
               <>
                 {lanDevices.length === 0 ? (
@@ -841,4 +892,12 @@ const s = StyleSheet.create({
   confirmLinkBtn: { flex: 1, borderRadius: 8, paddingVertical: 11, alignItems: "center" },
   oauthHint: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
   oauthHintLink: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  lanPermCard: { borderWidth: 1, padding: 16, gap: 10 },
+  lanPermIconRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  lanPermIconWrap: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  lanPermTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  lanPermSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 1 },
+  lanPermBody: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
+  lanPermBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 10, paddingVertical: 12, marginTop: 2 },
+  lanPermBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#fff" },
 });

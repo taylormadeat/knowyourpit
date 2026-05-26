@@ -198,9 +198,10 @@ export function useLanProbes({
   }, [enabled, pollIntervalMs, doPoll]);
 
   const scanAll = useCallback(() => {
+    if (!enabled) return;
     rescan();
     doPoll();
-  }, [rescan, doPoll]);
+  }, [enabled, rescan, doPoll]);
 
   return {
     devices,
