@@ -364,13 +364,6 @@ export default function CookDetailScreen() {
 
   const cookStatus = (cook as any)?.status;
 
-  // Tell BleProbeContext whether a live cook is active so it knows whether
-  // to fire a haptic when a connected probe drops.
-  useEffect(() => {
-    setHasActiveCook(cookStatus === "active");
-    return () => setHasActiveCook(false);
-  }, [cookStatus, setHasActiveCook]);
-
   // Count of globally-active cooks — used to gate auto-probe-assignment so
   // we never silently assign a probe when multiple cooks are running in parallel
   // (the user must pick explicitly in that multi-cook situation).
@@ -979,6 +972,14 @@ export default function CookDetailScreen() {
     dismissReconnectBanner,
     setHasActiveCook,
   } = useBleProbes();
+
+  // Tell BleProbeContext whether a live cook is active so it knows whether
+  // to fire a haptic when a connected probe drops.
+  useEffect(() => {
+    setHasActiveCook(cookStatus === "active");
+    return () => setHasActiveCook(false);
+  }, [cookStatus, setHasActiveCook]);
+
   const bleContextDevices = allBleDevices.filter(
     (d) => d.connectionState === "connected",
   );
