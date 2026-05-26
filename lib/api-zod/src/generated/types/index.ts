@@ -8,6 +8,7 @@
 
 export * from "./aiChatBody";
 export * from "./aiChatResponse";
+export * from "./aiCheckinItem";
 export * from "./aiPredictBody";
 export * from "./aiPredictBodyThawMethod";
 export * from "./aiPredictResponse";

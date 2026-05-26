@@ -90,11 +90,15 @@ export interface FrozenStageInfo {
   foodType?: string | null;
 }
 
+import type { AiCheckinItem } from "@workspace/checkin-schedule";
+export type { AiCheckinItem };
+
 export interface SequenceData {
   schedule: ScheduleItem[];
   serveAt?: string;
   summary?: string | null;
   frozen?: FrozenStageInfo | null;
+  aiCheckins?: AiCheckinItem[] | null;
 }
 
 export type NextStepKey = "grillLight" | "meatOn" | "wrap" | "pullOff" | "serve";

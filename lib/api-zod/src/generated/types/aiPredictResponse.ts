@@ -5,6 +5,7 @@
  * PitMaster AI - BBQ Planning & Monitoring API
  * OpenAPI spec version: 0.1.0
  */
+import type { AiCheckinItem } from "./aiCheckinItem";
 import type { AiPredictResponseConfidence } from "./aiPredictResponseConfidence";
 import type { AiPredictResponseFingerprintSource } from "./aiPredictResponseFingerprintSource";
 import type { WrapRecommendation } from "./wrapRecommendation";
@@ -38,6 +39,8 @@ export interface AiPredictResponse {
   confidence: AiPredictResponseConfidence;
   rationale: string;
   tips: string[];
+  /** AI-generated check-in schedule tailored to this specific meat, technique, and cook plan. Each item fires at offsetMinutes after meatOnAt. */
+  checkins: AiCheckinItem[];
   /** True when the per-grill fingerprint adjusted the time estimate or note */
   fingerprintApplied: boolean;
   /**

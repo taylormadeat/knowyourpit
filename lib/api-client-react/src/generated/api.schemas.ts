@@ -1279,6 +1279,27 @@ export interface WrapRecommendation {
   restMinutes: number;
 }
 
+/**
+ * A single AI-generated check-in step for a cook plan
+ */
+export interface AiCheckinItem {
+  /** Minutes after meatOnAt when this check-in should fire */
+  offsetMinutes: number;
+  /** Short display label for this check-in phase (e.g. "Bark Lock", "Wrap Time") */
+  label: string;
+  /** Actionable instruction the pitmaster will act on at this moment */
+  coachingNote: string;
+  /** What to look for visually or physically when this check-in fires */
+  visualCues: string[];
+  /**
+   * Expected [min, max] internal temp range at this check-in (null if not probe-based)
+   * @minItems 2
+   * @maxItems 2
+   * @nullable
+   */
+  expectedInternalTempRange?: number[] | null;
+}
+
 export type AiPredictResponseConfidence =
   (typeof AiPredictResponseConfidence)[keyof typeof AiPredictResponseConfidence];
 
@@ -1331,6 +1352,8 @@ export interface AiPredictResponse {
   confidence: AiPredictResponseConfidence;
   rationale: string;
   tips: string[];
+  /** AI-generated check-in schedule tailored to this specific meat, technique, and cook plan. Each item fires at offsetMinutes after meatOnAt. */
+  checkins: AiCheckinItem[];
   /** True when the per-grill fingerprint adjusted the time estimate or note */
   fingerprintApplied: boolean;
   /**

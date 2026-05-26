@@ -13,6 +13,7 @@ import {
   UpdateSessionBody,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
+import type { AiCheckinItem } from "@workspace/checkin-schedule";
 import { clearHomeInsightsCache } from "./ai";
 import { endLiveActivitiesForCook } from "../lib/liveActivityPush";
 import {
@@ -318,9 +319,12 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
   // ── Timestamp correction: re-plan schedule when actualStartAt / actualThawStartAt
   // is corrected on an active cook. Shifting the meatOnAt anchor by the delta
   // propagates the correction through the full schedule so countdowns stay accurate.
+  // Also triggers when sequenceData is directly updated so AI check-in offsets can
+  // be rescaled when estimatedFinishAt changes without a corresponding actualStartAt edit.
   const isTimestampCorrection =
     ("actualStartAt" in req.body && req.body.actualStartAt !== undefined) ||
-    ("actualThawStartAt" in req.body && req.body.actualThawStartAt !== undefined);
+    ("actualThawStartAt" in req.body && req.body.actualThawStartAt !== undefined) ||
+    ("sequenceData" in req.body && req.body.sequenceData !== null);
 
   if (isTimestampCorrection) {
     const [existing] = await db
@@ -349,6 +353,7 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
       type SeqData = {
         schedule: SeqScheduleItem[];
         frozen?: SeqFrozen | null;
+        aiCheckins?: AiCheckinItem[] | null;
         [key: string]: unknown;
       };
 
@@ -387,6 +392,42 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
             const baseSeq = (updateData.sequenceData as SeqData | undefined) ?? seqData;
             updateData.sequenceData = { ...baseSeq, schedule: updatedSchedule };
 
+            // ── Rescale AI check-in offsets when meat-on time shifts ──────────
+            // AI check-in offsetMinutes are stored relative to meatOnAt, so when
+            // meatOnAt shifts all absolute scheduled times shift automatically.
+            // When both meatOnAt and estimatedFinishAt shift by the same delta the
+            // cook duration is unchanged (scale = 1.0) and offsets need no
+            // adjustment. This block handles the general case: if a future path
+            // shifts only one of the two timestamps, offsets are proportionally
+            // rescaled so they stay in the same relative position in the cook.
+            const existingAiCheckins = seqData.aiCheckins as AiCheckinItem[] | null | undefined;
+            if (Array.isArray(existingAiCheckins) && existingAiCheckins.length > 0) {
+              const oldFinishMs = seqData.schedule[0]?.estimatedFinishAt
+                ? new Date(seqData.schedule[0].estimatedFinishAt).getTime()
+                : null;
+              const newMeatOnMs = anchorMs + deltaMs;
+              const newFinishMs = updatedSchedule[0]?.estimatedFinishAt
+                ? new Date(updatedSchedule[0].estimatedFinishAt).getTime()
+                : null;
+              if (oldFinishMs !== null && newFinishMs !== null) {
+                const oldDurationMs = oldFinishMs - anchorMs;
+                const newDurationMs = newFinishMs - newMeatOnMs;
+                if (oldDurationMs > 0 && Math.abs(newDurationMs - oldDurationMs) > 1000) {
+                  const durationScale = newDurationMs / oldDurationMs;
+                  const nowMs = Date.now();
+                  const rescaled = existingAiCheckins.map((ci) => {
+                    const absMs = newMeatOnMs + ci.offsetMinutes * 60_000;
+                    if (absMs <= nowMs) return ci; // already fired — don't shift
+                    return { ...ci, offsetMinutes: Math.round(ci.offsetMinutes * durationScale) };
+                  });
+                  updateData.sequenceData = {
+                    ...(updateData.sequenceData as SeqData),
+                    aiCheckins: rescaled,
+                  };
+                }
+              }
+            }
+
             // Persist the corrected finish time on the cook row so queries that
             // sort or filter by plannedEndAt stay accurate.
             const newFinish = updatedSchedule[0]?.estimatedFinishAt;
@@ -424,6 +465,51 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
             };
             const existingSeq = (updateData.sequenceData as SeqData | undefined) ?? seqData;
             updateData.sequenceData = { ...existingSeq, frozen: updatedFrozen };
+          }
+        }
+      }
+
+      // ── Rescale AI check-in offsets for direct estimatedFinishAt edits ───────
+      // When a client patches sequenceData directly (e.g. an "adjust finish time"
+      // action on a live cook) without also sending actualStartAt, meatOnAt stays
+      // fixed but estimatedFinishAt changes. Detect that shift and proportionally
+      // rescale stored AI check-in offsetMinutes so they stay at the correct
+      // relative position within the new cook duration.
+      // This is a no-op when actualStartAt also changed (handled by the deltaMs
+      // path above which already rescales via the same durationScale logic).
+      if (
+        !newActualStartAt &&
+        "sequenceData" in req.body &&
+        req.body.sequenceData !== null &&
+        Array.isArray(seqData?.aiCheckins) &&
+        seqData.aiCheckins!.length > 0
+      ) {
+        const incomingSd = req.body.sequenceData as SeqData | null;
+        const newFinishStr = incomingSd?.schedule?.[0]?.estimatedFinishAt;
+        const oldFinishStr = seqData!.schedule?.[0]?.estimatedFinishAt;
+        const meatOnStr = seqData!.schedule?.[0]?.meatOnAt;
+
+        if (newFinishStr && oldFinishStr && meatOnStr && newFinishStr !== oldFinishStr) {
+          const oldFinishMs = new Date(oldFinishStr).getTime();
+          const newFinishMs = new Date(newFinishStr).getTime();
+          const meatOnMs = new Date(meatOnStr).getTime();
+
+          if (!isNaN(oldFinishMs) && !isNaN(newFinishMs) && !isNaN(meatOnMs)) {
+            const oldDurationMs = oldFinishMs - meatOnMs;
+            const newDurationMs = newFinishMs - meatOnMs;
+
+            if (oldDurationMs > 0 && newDurationMs > 0 && Math.abs(newDurationMs - oldDurationMs) > 1000) {
+              const durationScale = newDurationMs / oldDurationMs;
+              const nowMs = Date.now();
+              const rescaled = (seqData!.aiCheckins as AiCheckinItem[]).map((ci) => {
+                const absMs = meatOnMs + ci.offsetMinutes * 60_000;
+                if (absMs <= nowMs) return ci; // already fired — don't shift
+                return { ...ci, offsetMinutes: Math.round(ci.offsetMinutes * durationScale) };
+              });
+              // Merge into whatever sequenceData update the client sent
+              const baseForMerge = (updateData.sequenceData as SeqData | undefined) ?? seqData!;
+              updateData.sequenceData = { ...baseForMerge, aiCheckins: rescaled };
+            }
           }
         }
       }

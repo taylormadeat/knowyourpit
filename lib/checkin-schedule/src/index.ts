@@ -11,6 +11,20 @@
 
 export type CheckinStatusFlag = "all_good" | "running_behind" | "flare_up" | "low_fuel";
 
+/**
+ * A single AI-generated check-in step produced by the /ai/predict endpoint.
+ * Stored in sequenceData.aiCheckins and served by the /checkins/schedule route.
+ * offsetMinutes is relative to meatOnAt so it rescales correctly when the cook
+ * is rescheduled.
+ */
+export interface AiCheckinItem {
+  offsetMinutes: number;
+  label: string;
+  coachingNote: string;
+  visualCues: string[];
+  expectedInternalTempRange?: [number, number] | null;
+}
+
 export interface CheckinPhase {
   key: string;
   label: string;

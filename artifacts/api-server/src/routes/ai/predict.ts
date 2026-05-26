@@ -7,6 +7,9 @@ import { requireAuth } from "../../middlewares/requireAuth";
 import { computeSmokerInsights, formatSmokerProfile, simplifyFoodType } from "../../lib/smokerCalibration";
 import { aiRateLimit, isPitProbe, getAssessment } from "./shared";
 import { getMeatBaseline } from "./meatBaselines";
+import type { AiCheckinItem } from "@workspace/checkin-schedule";
+
+export type { AiCheckinItem };
 
 const router: IRouter = Router();
 
@@ -17,12 +20,14 @@ const router: IRouter = Router();
 // Cache the raw AI prediction object for 30 minutes keyed by all input params +
 // userId. The DB queries (fingerprint calibration, grill data) still run fresh
 // on every request so calibration stays up-to-date; only the LLM call is skipped.
+
 type PredictionAiOutput = {
   estimatedDurationMinutes: number;
   confidence: string;
   rationale: string;
   tips: string[];
   wrap: { wrapAtMinutes: number; method: string; wrapTempF: number | null; reason: string; restMinutes: number };
+  checkins?: AiCheckinItem[] | null;
   recommendedServeAt: string | null;
   recommendedServeReason: string | null;
 };
@@ -292,9 +297,37 @@ Return ONLY valid JSON with this exact structure — no markdown, no extra text:
     "reason": "string",
     "restMinutes": number
   },
+  "checkins": [
+    {
+      "offsetMinutes": number,
+      "label": "string",
+      "coachingNote": "string",
+      "visualCues": ["string"],
+      "expectedInternalTempRange": [number, number] | null
+    }
+  ],
   "recommendedServeAt": "ISO-8601 string" | null,
   "recommendedServeReason": "string" | null
 }
+
+CHECK-IN SCHEDULE RULES (required — generate checkins for every cook):
+- checkins is an array of phase check-ins tailored to this exact cook: its meat, technique, timing, and grill.
+- offsetMinutes is minutes after meatOnAt (not from start of day). Use the estimatedDurationMinutes you produced as the total cook window.
+- Every coachingNote must be something the pitmaster will act on RIGHT NOW at that check-in — not general advice. Reference the specific meat, technique, or equipment.
+- Every visualCues array has 2–4 items: concrete, sensory things to see/feel/smell at that moment.
+- expectedInternalTempRange: the [min, max] band you expect the meat's internal temp to be in at this check-in. Set null only for check-ins where a probe reading isn't meaningful (e.g., a rest/hold check after pull).
+- Number of check-ins by cook style:
+  - Low & Slow (brisket, pork butt, ribs): 5–7 check-ins spanning the full cook
+  - Medium cooks (chicken, turkey, lamb): 3–4 check-ins
+  - Hot & Fast or short cooks (<2 hours): 2–3 check-ins, earlier in the cook
+  - Rest/hold phase: add one final check-in offset past estimatedDurationMinutes (e.g., 30–60 min after)
+- Wrap check-in MUST land at wrap.wrapAtMinutes (use the exact wrapAtMinutes you produced in wrap{}) if wrap.method is not "none". Label it "Wrap Check" or similar and reference the wrap method in the coachingNote.
+- Spritzing cooks: cluster check-ins around the spritz window (first spritz, mid-cook spritz cadence, final check before pull). Reference the spritz in coaching notes.
+- Mopping cooks: time check-ins around the mop cadence; note technique-specific bark and color cues.
+- Hot & Fast: fewer check-ins, earlier (first at ~15–20% of cook), coaching language reflects fast pace — watch for rapid bark development, early color lock.
+- The first check-in fires 10–20% into the cook (never less than 15 min into the cook) so the pitmaster has time to get the fire established.
+- Labels must be descriptive and meat-specific: "Early Smoke", "Bark Lock", "Stall Entry", "Wrap Decision", "Money Muscle Check", "Probe Tender Check", "Rest & Hold", etc. Not generic.
+- Do NOT produce generic percentage-based check-ins — every label, note, and timing must be bespoke to this cook.
 
 CONFIDENCE RULES (apply strictly):
 - "high": You have a verified baseline AND (user has similar cook history OR weight + both temps are specified). You can make a precise, calibrated estimate.
@@ -393,15 +426,14 @@ ${userHistorySection}${fingerprintGuidance}`;
   const cacheKey = makePredictCacheKey(req.userId, parsed.data);
   const cached = predictionAiCache.get(cacheKey);
 
-  type WrapRec = { wrapAtMinutes: number; method: string; wrapTempF: number | null; reason: string; restMinutes: number };
-  let prediction: { estimatedDurationMinutes: number; confidence: string; rationale: string; tips: string[]; wrap: WrapRec; recommendedServeAt?: string | null; recommendedServeReason?: string | null };
+  let prediction: PredictionAiOutput;
 
   if (cached && Date.now() - cached.cachedAt < PREDICTION_CACHE_TTL_MS) {
     prediction = cached.output as typeof prediction;
   } else {
     const response = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
-      max_completion_tokens: 1024,
+      max_completion_tokens: 2048,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -439,6 +471,7 @@ ${userHistorySection}${fingerprintGuidance}`;
         rationale: prediction.rationale,
         tips: prediction.tips,
         wrap: prediction.wrap,
+        checkins: prediction.checkins ?? null,
         recommendedServeAt: prediction.recommendedServeAt ?? null,
         recommendedServeReason: prediction.recommendedServeReason ?? null,
       },
@@ -520,6 +553,28 @@ ${userHistorySection}${fingerprintGuidance}`;
     ? "high"
     : (prediction.confidence || "medium");
 
+  // Sanitise and validate AI-generated check-ins. Filter out malformed items
+  // so the client always receives a well-typed array (never null/undefined).
+  const rawCheckins: unknown[] = Array.isArray(prediction.checkins) ? prediction.checkins : [];
+  const checkins: AiCheckinItem[] = rawCheckins
+    .filter((c): c is Record<string, unknown> => typeof c === "object" && c !== null)
+    .map((c) => ({
+      offsetMinutes: typeof c.offsetMinutes === "number" ? c.offsetMinutes : 0,
+      label: typeof c.label === "string" ? c.label : "Check-In",
+      coachingNote: typeof c.coachingNote === "string" ? c.coachingNote : "",
+      visualCues: Array.isArray(c.visualCues)
+        ? (c.visualCues as unknown[]).filter((v): v is string => typeof v === "string")
+        : [],
+      expectedInternalTempRange:
+        Array.isArray(c.expectedInternalTempRange) &&
+        c.expectedInternalTempRange.length === 2 &&
+        typeof (c.expectedInternalTempRange as unknown[])[0] === "number" &&
+        typeof (c.expectedInternalTempRange as unknown[])[1] === "number"
+          ? (c.expectedInternalTempRange as [number, number])
+          : null,
+    }))
+    .filter((c) => c.offsetMinutes >= 0 && c.label.length > 0);
+
   res.json({
     estimatedDurationMinutes: prediction.estimatedDurationMinutes,
     preheatMinutes,
@@ -534,6 +589,7 @@ ${userHistorySection}${fingerprintGuidance}`;
       reason: wrap.reason ?? "",
       restMinutes: wrap.restMinutes ?? 0,
     },
+    checkins,
     confidence: finalConfidence,
     rationale: prediction.rationale || "Based on food type and weight.",
     tips: prediction.tips || [],

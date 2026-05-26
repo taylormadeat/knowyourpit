@@ -9,6 +9,7 @@ import {
   generateCheckinSchedule,
 } from "@workspace/checkin-schedule";
 import { computeCookHealthScore, computeFinishRange } from "./cookEvents";
+import type { AiCheckinItem } from "@workspace/checkin-schedule";
 
 // ---------------------------------------------------------------------------
 // Derived lookup: expected internal temp range per phase key.
@@ -154,20 +155,41 @@ router.get("/cooks/:id/checkins/schedule", requireAuth, async (req: any, res): P
 
   const meatOnAt = new Date(firstItem.meatOnAt as string);
   const estimatedFinishAt = new Date(firstItem.estimatedFinishAt as string);
-  const wrapAtMinutes =
-    typeof firstItem.wrapAtMinutes === "number" ? firstItem.wrapAtMinutes : null;
-  // foodType drives which meat-specific phase keys/labels are returned.
-  // Prefer the cook's own foodType column; fall back to the AI plan's embedded value.
-  const foodType =
-    cook.foodType ??
-    (typeof firstItem.foodType === "string" ? firstItem.foodType : null);
-  const weightLbs =
-    typeof firstItem.weightLbs === "number" ? firstItem.weightLbs : null;
 
   if (isNaN(meatOnAt.getTime()) || isNaN(estimatedFinishAt.getTime())) {
     res.json([]);
     return;
   }
+
+  // ── AI-generated check-ins (primary path) ──────────────────────────────
+  // If sequenceData contains an AI-generated checkins array, resolve each
+  // offsetMinutes to an absolute scheduledAt and return those directly.
+  // The static library is only used as a fallback for cooks that have no
+  // AI plan (legacy records or cooks started without running the AI predictor).
+  const aiCheckins = seqData?.aiCheckins;
+  if (Array.isArray(aiCheckins) && aiCheckins.length > 0) {
+    const meatOnMs = meatOnAt.getTime();
+    const items = (aiCheckins as AiCheckinItem[]).map((ci, idx) => ({
+      phaseKey: `ai_checkin_${idx}`,
+      phaseLabel: ci.label,
+      scheduledAt: new Date(meatOnMs + ci.offsetMinutes * 60_000).toISOString(),
+      anchorType: "ai" as const,
+      coachingNote: ci.coachingNote,
+      visualCues: ci.visualCues,
+      expectedInternalTempRange: ci.expectedInternalTempRange ?? null,
+    }));
+    res.json(items);
+    return;
+  }
+
+  // ── Static library fallback ───────────────────────────────────────────
+  const wrapAtMinutes =
+    typeof firstItem.wrapAtMinutes === "number" ? firstItem.wrapAtMinutes : null;
+  const foodType =
+    cook.foodType ??
+    (typeof firstItem.foodType === "string" ? firstItem.foodType : null);
+  const weightLbs =
+    typeof firstItem.weightLbs === "number" ? firstItem.weightLbs : null;
 
   const items = buildSchedule(meatOnAt, estimatedFinishAt, wrapAtMinutes, foodType, weightLbs);
   res.json(items);
@@ -220,68 +242,118 @@ router.post("/cooks/:id/checkins", requireAuth, async (req: any, res): Promise<v
   // from the expected range for this phase, recompute the cook's estimated
   // finish time and persist it back to the sequence data so subsequent
   // schedule fetches and client display reflect the adjustment.
+  //
+  // Range source priority:
+  //   1. Static PHASE_EXPECTED_RANGES dict (built from the shared checkin-schedule lib)
+  //   2. expectedInternalTempRange stored on the AI-generated check-in itself
+  //      (phaseKey pattern "ai_checkin_<idx>" → sequenceData.aiCheckins[idx])
   if (parsed.data.internalTempF != null && parsed.data.phaseKey) {
-    const range = PHASE_EXPECTED_RANGES[parsed.data.phaseKey];
-    if (range) {
-      const [lo, hi] = range;
-      const mid = (lo + hi) / 2;
-      const deviation = parsed.data.internalTempF - mid;
+    const staticRange: [number, number] | undefined = PHASE_EXPECTED_RANGES[parsed.data.phaseKey];
+    const aiCheckinMatch = /^ai_checkin_(\d+)$/.exec(parsed.data.phaseKey);
 
-      if (Math.abs(deviation) >= 15) {
-        try {
-          const [cookWithSeq] = await db
-            .select({ id: cooksTable.id, sequenceData: cooksTable.sequenceData })
-            .from(cooksTable)
-            .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)));
+    if (staticRange != null || aiCheckinMatch != null) {
+      try {
+        const [cookWithSeq] = await db
+          .select({ id: cooksTable.id, sequenceData: cooksTable.sequenceData })
+          .from(cooksTable)
+          .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)));
 
-          if (cookWithSeq?.sequenceData) {
-            const seq: Record<string, unknown> =
-              typeof cookWithSeq.sequenceData === "string"
-                ? JSON.parse(cookWithSeq.sequenceData as string)
-                : (cookWithSeq.sequenceData as Record<string, unknown>);
+        if (cookWithSeq?.sequenceData) {
+          const seq: Record<string, unknown> =
+            typeof cookWithSeq.sequenceData === "string"
+              ? JSON.parse(cookWithSeq.sequenceData as string)
+              : (cookWithSeq.sequenceData as Record<string, unknown>);
 
-            const schedule = seq?.schedule;
-            if (Array.isArray(schedule) && schedule.length > 0) {
-              const first = schedule[0] as Record<string, unknown>;
-              if (first.estimatedFinishAt) {
-                const finishMs = new Date(first.estimatedFinishAt as string).getTime();
-                const nowMs = Date.now();
-                const remaining = finishMs - nowMs;
+          // Resolve the expected temp range for this check-in phase
+          let range: [number, number] | null = staticRange ?? null;
+          if (range == null && aiCheckinMatch) {
+            const idx = parseInt(aiCheckinMatch[1], 10);
+            const aiCheckins = seq?.aiCheckins as AiCheckinItem[] | undefined;
+            const aiRange = aiCheckins?.[idx]?.expectedInternalTempRange;
+            if (Array.isArray(aiRange) && aiRange.length === 2) {
+              range = aiRange as [number, number];
+            }
+          }
 
-                if (remaining > 0) {
-                  // Positive deviation = temp ahead = faster cook = compress remaining time.
-                  // Negative deviation = temp behind = slower cook = extend remaining time.
-                  // Clamped to ±25% of remaining duration.
-                  const rangeWidth = hi - lo;
-                  const scaleFactor = 1 - (deviation / rangeWidth) * 0.25;
-                  const clampedScale = Math.max(0.75, Math.min(1.25, scaleFactor));
-                  const newFinishMs = nowMs + remaining * clampedScale;
+          if (range != null) {
+            const [lo, hi] = range;
+            const mid = (lo + hi) / 2;
+            const deviation = parsed.data.internalTempF - mid;
 
-                  const newSeq = {
-                    ...seq,
-                    schedule: schedule.map((item: unknown, idx: number) =>
-                      idx === 0
-                        ? {
-                            ...(item as Record<string, unknown>),
-                            estimatedFinishAt: new Date(newFinishMs).toISOString(),
-                          }
-                        : item,
-                    ),
-                  };
+            if (Math.abs(deviation) >= 15) {
+              const schedule = seq?.schedule;
+              if (Array.isArray(schedule) && schedule.length > 0) {
+                const first = schedule[0] as Record<string, unknown>;
+                if (first.estimatedFinishAt) {
+                  const finishMs = new Date(first.estimatedFinishAt as string).getTime();
+                  const nowMs = Date.now();
+                  const remaining = finishMs - nowMs;
 
-                  await db
-                    .update(cooksTable)
-                    .set({ sequenceData: newSeq })
-                    .where(
-                      and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)),
-                    );
+                  if (remaining > 0) {
+                    // Positive deviation = temp ahead = faster cook = compress remaining time.
+                    // Negative deviation = temp behind = slower cook = extend remaining time.
+                    // Clamped to ±25% of remaining duration.
+                    const rangeWidth = hi - lo;
+                    const scaleFactor = 1 - (deviation / rangeWidth) * 0.25;
+                    const clampedScale = Math.max(0.75, Math.min(1.25, scaleFactor));
+                    const newFinishMs = nowMs + remaining * clampedScale;
+
+                    // ── Rescale AI check-in offsets ──────────────────────────
+                    // When estimatedFinishAt shifts, rescale the remaining unfired
+                    // AI check-in offsetMinutes proportionally so they stay in the
+                    // same relative position within the cook. Phase labels and
+                    // coaching notes are never touched — only times shift.
+                    let updatedAiCheckins: AiCheckinItem[] | null = null;
+                    const storedAiCheckins = seq?.aiCheckins;
+                    if (Array.isArray(storedAiCheckins) && storedAiCheckins.length > 0) {
+                      const meatOnMs = first.meatOnAt
+                        ? new Date(first.meatOnAt as string).getTime()
+                        : null;
+                      if (meatOnMs !== null && !isNaN(meatOnMs)) {
+                        const oldTotalMs = finishMs - meatOnMs;
+                        const newTotalMs = newFinishMs - meatOnMs;
+                        if (oldTotalMs > 0 && newTotalMs > 0) {
+                          const durationScale = newTotalMs / oldTotalMs;
+                          updatedAiCheckins = (storedAiCheckins as AiCheckinItem[]).map((ci) => {
+                            const scheduledMs = meatOnMs + ci.offsetMinutes * 60_000;
+                            // Only rescale check-ins that haven't fired yet
+                            if (scheduledMs <= nowMs) return ci;
+                            return {
+                              ...ci,
+                              offsetMinutes: Math.round(ci.offsetMinutes * durationScale),
+                            };
+                          });
+                        }
+                      }
+                    }
+
+                    const newSeq = {
+                      ...seq,
+                      schedule: schedule.map((item: unknown, idx: number) =>
+                        idx === 0
+                          ? {
+                              ...(item as Record<string, unknown>),
+                              estimatedFinishAt: new Date(newFinishMs).toISOString(),
+                            }
+                          : item,
+                      ),
+                      ...(updatedAiCheckins !== null ? { aiCheckins: updatedAiCheckins } : {}),
+                    };
+
+                    await db
+                      .update(cooksTable)
+                      .set({ sequenceData: newSeq })
+                      .where(
+                        and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)),
+                      );
+                  }
                 }
               }
             }
           }
-        } catch {
-          // ETA update is best-effort; don't fail the check-in save
         }
+      } catch {
+        // ETA update is best-effort; don't fail the check-in save
       }
     }
   }

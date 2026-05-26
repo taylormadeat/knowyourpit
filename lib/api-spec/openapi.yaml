@@ -2324,6 +2324,37 @@ components:
         - reason
         - restMinutes
 
+    AiCheckinItem:
+      type: object
+      description: A single AI-generated check-in step for a cook plan
+      properties:
+        offsetMinutes:
+          type: number
+          description: Minutes after meatOnAt when this check-in should fire
+        label:
+          type: string
+          description: Short display label for this check-in phase (e.g. "Bark Lock", "Wrap Time")
+        coachingNote:
+          type: string
+          description: Actionable instruction the pitmaster will act on at this moment
+        visualCues:
+          type: array
+          items:
+            type: string
+          description: What to look for visually or physically when this check-in fires
+        expectedInternalTempRange:
+          type: ["array", "null"]
+          items:
+            type: number
+          minItems: 2
+          maxItems: 2
+          description: Expected [min, max] internal temp range at this check-in (null if not probe-based)
+      required:
+        - offsetMinutes
+        - label
+        - coachingNote
+        - visualCues
+
     AiPredictResponse:
       type: object
       properties:
@@ -2360,6 +2391,11 @@ components:
           type: array
           items:
             type: string
+        checkins:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiCheckinItem"
+          description: AI-generated check-in schedule tailored to this specific meat, technique, and cook plan. Each item fires at offsetMinutes after meatOnAt.
         fingerprintApplied:
           type: boolean
           description: True when the per-grill fingerprint adjusted the time estimate or note
@@ -2391,6 +2427,7 @@ components:
         - fingerprintNote
         - fingerprintSource
         - tips
+        - checkins
 
     MultiCookItem:
       type: object

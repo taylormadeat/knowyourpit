@@ -2039,6 +2039,9 @@ export const AiPredictBody = zod.object({
     ),
 });
 
+export const aiPredictResponseCheckinsItemExpectedInternalTempRangeMin = 2;
+export const aiPredictResponseCheckinsItemExpectedInternalTempRangeMax = 2;
+
 export const AiPredictResponse = zod.object({
   estimatedDurationMinutes: zod
     .number()
@@ -2087,6 +2090,42 @@ export const AiPredictResponse = zod.object({
   confidence: zod.enum(["low", "medium", "high"]),
   rationale: zod.string(),
   tips: zod.array(zod.string()),
+  checkins: zod
+    .array(
+      zod
+        .object({
+          offsetMinutes: zod
+            .number()
+            .describe("Minutes after meatOnAt when this check-in should fire"),
+          label: zod
+            .string()
+            .describe(
+              'Short display label for this check-in phase (e.g. \"Bark Lock\", \"Wrap Time\")',
+            ),
+          coachingNote: zod
+            .string()
+            .describe(
+              "Actionable instruction the pitmaster will act on at this moment",
+            ),
+          visualCues: zod
+            .array(zod.string())
+            .describe(
+              "What to look for visually or physically when this check-in fires",
+            ),
+          expectedInternalTempRange: zod
+            .array(zod.number())
+            .min(aiPredictResponseCheckinsItemExpectedInternalTempRangeMin)
+            .max(aiPredictResponseCheckinsItemExpectedInternalTempRangeMax)
+            .nullish()
+            .describe(
+              "Expected [min, max] internal temp range at this check-in (null if not probe-based)",
+            ),
+        })
+        .describe("A single AI-generated check-in step for a cook plan"),
+    )
+    .describe(
+      "AI-generated check-in schedule tailored to this specific meat, technique, and cook plan. Each item fires at offsetMinutes after meatOnAt.",
+    ),
   fingerprintApplied: zod
     .boolean()
     .describe(
