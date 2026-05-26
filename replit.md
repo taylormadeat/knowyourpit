@@ -8,6 +8,7 @@ knowyourpit is an AI-powered BBQ planning and management application. It offers 
 
 - All `eas` and `expo` commands must be run from `artifacts/knowyourpit/`, never from the workspace root.
 - Do not delete the disabled Apple Watch companion app code; it is the starting point for future modernization work.
+- Never auto-initiate an EAS build. Always ask the user for confirmation before queuing any build.
 
 ## Mobile UI Conventions
 
