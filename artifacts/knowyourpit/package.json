@@ -86,6 +86,7 @@
     "live-activity": "file:./modules/live-activity",
     "react-native-ble-plx": "^3.5.1",
     "react-native-purchases": "9.7.2",
-    "react-native-view-shot": "^5.0.0"
+    "react-native-view-shot": "^5.0.0",
+    "react-native-zeroconf": "^0.14.0"
   }
 }

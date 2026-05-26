@@ -157,7 +157,13 @@ function BleDeviceCard({ device, colors, onPair, onUnpair }: {
   );
 }
 
+/** Returns true when the host string is an IPv4 or IPv6 address (mDNS-resolved). */
+function isIpAddress(host: string): boolean {
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(":");
+}
+
 function LanDeviceCard({ device, colors }: { device: LanDeviceStatus; colors: any }) {
+  const autoDiscovered = isIpAddress(device.host);
   return (
     <View style={[s.deviceCard, { backgroundColor: colors.card, borderColor: device.connected ? "#22c55e40" : colors.border, borderRadius: colors.radius }]}>
       <View style={s.deviceRow}>
@@ -165,9 +171,21 @@ function LanDeviceCard({ device, colors }: { device: LanDeviceStatus; colors: an
           <Feather name="wifi" size={20} color="#0EA5E9" />
         </View>
         <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             <Text style={[s.deviceName, { color: colors.foreground }]}>{device.deviceName}</Text>
             <ConnectionTypeBadge type="lan" />
+            {autoDiscovered && (
+              <View style={{
+                flexDirection: "row", alignItems: "center", gap: 3,
+                paddingHorizontal: 6, paddingVertical: 2, borderRadius: 99,
+                backgroundColor: "#a855f720",
+              }}>
+                <Feather name="zap" size={9} color="#a855f7" />
+                <Text style={{ fontSize: 9.5, fontFamily: "Inter_600SemiBold", color: "#a855f7" }}>
+                  Auto-discovered
+                </Text>
+              </View>
+            )}
           </View>
           <Text style={[s.deviceSub, { color: colors.mutedForeground }]}>
             {device.host}
@@ -244,6 +262,7 @@ export default function DevicesScreen() {
   const {
     devices: lanDevices,
     scanning: lanScanning,
+    mdnsAvailable,
     scan: scanLan,
   } = useLanProbes({ enabled: effectivePro, pollIntervalMs: 30_000 });
 
@@ -387,6 +406,18 @@ export default function DevicesScreen() {
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <Feather name="wifi" size={13} color={colors.mutedForeground} />
               <Text style={[s.sectionHeader, { color: colors.mutedForeground }]}>WiFi Devices</Text>
+              {effectivePro && mdnsAvailable && (
+                <View style={{
+                  flexDirection: "row", alignItems: "center", gap: 3,
+                  paddingHorizontal: 6, paddingVertical: 2, borderRadius: 99,
+                  backgroundColor: "#22c55e20",
+                }}>
+                  <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: "#22c55e" }} />
+                  <Text style={{ fontSize: 9.5, fontFamily: "Inter_600SemiBold", color: "#22c55e" }}>
+                    mDNS
+                  </Text>
+                </View>
+              )}
             </View>
 
             {!effectivePro ? (
@@ -405,7 +436,9 @@ export default function DevicesScreen() {
                       No WiFi thermometers found on your local network.
                     </Text>
                     <Text style={[s.emptySubText, { color: colors.mutedForeground }]}>
-                      Supported: Fireboard 2/Drive, MEATER Block, ThermoWorks Signals
+                      {mdnsAvailable
+                        ? "Auto-discovery (mDNS) is active — make sure your device is on the same WiFi network. Supported: Fireboard 2/Drive, MEATER Block, ThermoWorks Signals"
+                        : "Supported: Fireboard 2/Drive, MEATER Block, ThermoWorks Signals"}
                     </Text>
                   </View>
                 ) : (
