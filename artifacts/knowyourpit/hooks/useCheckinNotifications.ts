@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -11,6 +11,21 @@ import {
 } from "@/constants/checkinKnowledge";
 import { customFetch } from "@workspace/api-client-react";
 import type { SequenceData } from "@/components/cook-detail/types";
+
+// ---------------------------------------------------------------------------
+// In-process event emitter — signals that the persisted schedule changed
+// ---------------------------------------------------------------------------
+
+/** Listeners registered by useStoredScheduledCheckins instances. */
+const _scheduleChangeListeners = new Set<() => void>();
+
+/**
+ * Fire after any write to the `_scheduled` AsyncStorage key so that
+ * useStoredScheduledCheckins re-reads without needing a full remount.
+ */
+export function notifyCheckinScheduleChanged(): void {
+  _scheduleChangeListeners.forEach((fn) => fn());
+}
 
 // ---------------------------------------------------------------------------
 // Storage key constants
@@ -92,6 +107,7 @@ async function storeCheckinNotificationIds(
       [`${CHECKIN_NOTIF_IDS_KEY_PREFIX}${cookId}${CHECKIN_PHASE_MAP_SUFFIX}`, JSON.stringify(phaseMap)],
       [`${CHECKIN_NOTIF_IDS_KEY_PREFIX}${cookId}${CHECKIN_SCHEDULED_SUFFIX}`, JSON.stringify(checkins)],
     ]);
+    notifyCheckinScheduleChanged();
   } catch (err) {
     console.warn("[checkin] storeCheckinNotificationIds failed:", err);
   }
@@ -134,6 +150,7 @@ export async function cancelCheckinNotificationForPhase(
         [idsKey, JSON.stringify(updatedIds)],
         [scheduledKey, JSON.stringify(updatedCheckins)],
       ]);
+      notifyCheckinScheduleChanged();
     }
 
     // Persist the removal so future rescheduling passes never recreate this reminder.
@@ -404,24 +421,44 @@ export function useCheckinNotifications(
  * scheduleCheckinNotifications) so the UI reflects the actual device state
  * rather than a re-generated estimate. Returns an empty array on web or
  * when no schedule has been persisted yet.
+ *
+ * Re-reads automatically when rescheduleCheckinNotifications or
+ * cancelCheckinNotificationForPhase updates the stored schedule, so the
+ * Home card countdown refreshes without requiring a remount.
  */
 export function useStoredScheduledCheckins(
   cookId: number | null | undefined,
 ): ScheduledCheckin[] {
   const [checkins, setCheckins] = useState<ScheduledCheckin[]>([]);
 
+  const readFromStorage = useCallback(
+    (id: number) => {
+      const key = `${CHECKIN_NOTIF_IDS_KEY_PREFIX}${id}${CHECKIN_SCHEDULED_SUFFIX}`;
+      AsyncStorage.getItem(key)
+        .then((stored) => {
+          setCheckins(stored ? (JSON.parse(stored) as ScheduledCheckin[]) : []);
+        })
+        .catch(() => setCheckins([]));
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!cookId || Platform.OS === "web") {
       setCheckins([]);
       return;
     }
-    const key = `${CHECKIN_NOTIF_IDS_KEY_PREFIX}${cookId}${CHECKIN_SCHEDULED_SUFFIX}`;
-    AsyncStorage.getItem(key)
-      .then((stored) => {
-        setCheckins(stored ? (JSON.parse(stored) as ScheduledCheckin[]) : []);
-      })
-      .catch(() => setCheckins([]));
-  }, [cookId]);
+
+    // Initial read
+    readFromStorage(cookId);
+
+    // Re-read whenever the persisted schedule is updated by any scheduling call
+    const handleChange = () => readFromStorage(cookId);
+    _scheduleChangeListeners.add(handleChange);
+    return () => {
+      _scheduleChangeListeners.delete(handleChange);
+    };
+  }, [cookId, readFromStorage]);
 
   return checkins;
 }
