@@ -73,6 +73,8 @@ interface Props {
   activeProbeName?: string | null;
   nextCheckinMs?: number | null;
   nextCheckinLabel?: string | null;
+  upcomingCheckins?: Array<{ id: string; scheduledAt: number; phaseLabel: string }>;
+  onCheckInPhase?: (sc: any) => void;
 }
 
 function fmtLastChecked(lastAnalyzedAtMs: number, nowMs: number): string {
@@ -106,11 +108,12 @@ export function LiveCookSection(p: Props) {
     targetTempF, cookTempF, nextSpritzMs, nextMopMs, onViewDetails,
     isMeatOn, pitMasterResult, pitMasterAnalyzing, pitMasterVerdictCfg, pitMasterAssessment,
     renderDecisions, onCheckIn, onCheckInNext, onOpenChat, lastAnalyzedAtMs, lastCheckinInternalTempF, onRefresh, activeProbeName,
-    nextCheckinMs, nextCheckinLabel,
+    nextCheckinMs, nextCheckinLabel, upcomingCheckins = [], onCheckInPhase,
   } = p;
 
   const [phaseNarrativeExpanded, setPhaseNarrativeExpanded] = React.useState(false);
   const [assessmentExpanded, setAssessmentExpanded] = React.useState(false);
+  const [timelineExpanded, setTimelineExpanded] = React.useState(true);
 
   const flashAnim = React.useRef(new Animated.Value(0)).current;
   const prevLastAnalyzedAtMs = React.useRef<number | null>(null);
@@ -1006,28 +1009,82 @@ export function LiveCookSection(p: Props) {
             const diffMs = nextCheckinMs - now;
             const mins = Math.floor(diffMs / 60000);
             const timeLabel = mins <= 5 ? "Soon" : `in ${mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)}h ${mins % 60}m`}`;
+            const hasMore = upcomingCheckins.length > 0;
             return (
-              <Pressable
-                onPress={onCheckInNext}
-                disabled={!onCheckInNext}
-                style={({ pressed }) => ({
-                  alignSelf: "flex-start",
-                  marginTop: 1,
-                  opacity: pressed ? 0.6 : 1,
-                })}
-              >
-                {({ pressed }) => (
-                  <Text style={{
-                    fontFamily: "Inter_400Regular",
-                    fontSize: 11,
-                    color: pressed ? "#FF6B2B" : colors.mutedForeground,
-                    textDecorationLine: onCheckInNext ? "underline" : "none",
-                    textDecorationColor: colors.mutedForeground,
-                  }}>
-                    {`Next: ${nextCheckinLabel} · ${timeLabel}`}
-                  </Text>
+              <View style={{ marginTop: 1 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Pressable
+                    onPress={onCheckInNext}
+                    disabled={!onCheckInNext}
+                    style={({ pressed }) => ({
+                      opacity: pressed ? 0.6 : 1,
+                    })}
+                  >
+                    {({ pressed }) => (
+                      <Text style={{
+                        fontFamily: "Inter_400Regular",
+                        fontSize: 11,
+                        color: pressed ? "#FF6B2B" : colors.mutedForeground,
+                        textDecorationLine: onCheckInNext ? "underline" : "none",
+                        textDecorationColor: colors.mutedForeground,
+                      }}>
+                        {`Next: ${nextCheckinLabel} · ${timeLabel}`}
+                      </Text>
+                    )}
+                  </Pressable>
+                  {hasMore && (
+                    <Pressable
+                      onPress={() => setTimelineExpanded((v) => !v)}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                      <Feather
+                        name={timelineExpanded ? "chevron-up" : "chevron-down"}
+                        size={11}
+                        color={colors.mutedForeground}
+                      />
+                    </Pressable>
+                  )}
+                </View>
+                {hasMore && timelineExpanded && (
+                  <View style={{ marginTop: 5, paddingLeft: 2 }}>
+                    {upcomingCheckins.map((sc, i) => {
+                      const diff = sc.scheduledAt - now;
+                      const isLast = i === upcomingCheckins.length - 1;
+                      return (
+                        <View key={sc.id} style={{ flexDirection: "row", alignItems: "stretch" }}>
+                          <View style={{ alignItems: "center", width: 14 }}>
+                            <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: colors.mutedForeground + "50", marginTop: 3 }} />
+                            {!isLast && (
+                              <View style={{ flex: 1, width: 1, backgroundColor: colors.mutedForeground + "25", marginTop: 2 }} />
+                            )}
+                          </View>
+                          <Pressable
+                            onPress={() => onCheckInPhase?.(sc)}
+                            disabled={!onCheckInPhase}
+                            style={({ pressed }) => ({
+                              flex: 1,
+                              paddingBottom: isLast ? 0 : 7,
+                              opacity: pressed ? 0.6 : 1,
+                            })}
+                          >
+                            {({ pressed }) => (
+                              <Text style={{
+                                fontFamily: "Inter_400Regular",
+                                fontSize: 11,
+                                color: pressed ? colors.foreground : colors.mutedForeground,
+                                textDecorationLine: onCheckInPhase ? "underline" : "none",
+                                textDecorationColor: colors.mutedForeground + "80",
+                              }}>
+                                {`${sc.phaseLabel} · ${fmtTurnInCountdown(diff)}`}
+                              </Text>
+                            )}
+                          </Pressable>
+                        </View>
+                      );
+                    })}
+                  </View>
                 )}
-              </Pressable>
+              </View>
             );
           })()}
           <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>

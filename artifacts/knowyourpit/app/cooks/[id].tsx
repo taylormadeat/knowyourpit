@@ -1262,7 +1262,7 @@ export default function CookDetailScreen() {
 
   // Next upcoming scheduled check-in — shown in the PitMaster hub card as a
   // forward-looking hint: "Next: Stall · in 45 min".
-  const { nextCheckinMs, nextCheckinLabel, nextCheckinSc } = useMemo(() => {
+  const { nextCheckinMs, nextCheckinLabel, nextCheckinSc, upcomingCheckinsForCard } = useMemo(() => {
     const hasPlan = (cookSeqData?.schedule?.length ?? 0) > 0;
     const now = nowMs ?? Date.now();
     const upcoming = (
@@ -1275,6 +1275,7 @@ export default function CookDetailScreen() {
       nextCheckinMs: next?.scheduledAt ?? null,
       nextCheckinLabel: next?.phaseLabel ?? null,
       nextCheckinSc: next,
+      upcomingCheckinsForCard: upcoming.slice(1, 5),
     };
   }, [cookSeqData, storedScheduledCheckins, noPlanScheduledCheckins, nowMs]);
 
@@ -3341,6 +3342,8 @@ export default function CookDetailScreen() {
           activeProbeName={activeProbeName !== "Probe" ? activeProbeName : null}
           nextCheckinMs={nextCheckinMs}
           nextCheckinLabel={nextCheckinLabel}
+          upcomingCheckins={upcomingCheckinsForCard}
+          onCheckInPhase={openCheckin}
         />
         <CookSummaryCard
           c={c}
