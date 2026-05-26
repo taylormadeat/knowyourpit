@@ -1066,18 +1066,26 @@ export default function PlanScreen() {
 
         // Build sequenceData: update frozen timing when still frozen, or
         // explicitly null it out so the hook doesn't reschedule stale alerts.
+        // Also carry forward any AI fingerprint adjustment so the callout
+        // remains visible after a replan.
+        const hasFingerprint =
+          aiResult?.fingerprintSource === "grill" ||
+          aiResult?.fingerprintSource === "user";
         const updatedFrozenSeqData: SequenceData = {
           ...(replanSeqData ?? ({} as SequenceData)),
           ...(frozenForCook ? { frozen: frozenForCook } : { frozen: null }),
+          ...(hasFingerprint
+            ? { fingerprintSource: aiResult!.fingerprintSource, fingerprintNote: aiResult!.fingerprintNote ?? null }
+            : {}),
         };
         await updateCook.mutateAsync({
           id: replanCookIdNum,
           data: {
             ...(serveAt && { plannedEndAt: serveAt }),
             ...(plannedStart && { plannedStartAt: plannedStart }),
-            // Always persist sequenceData when the frozen state is changing
-            // (either updated timing or removed entirely).
-            ...((frozenForCook || wasFrozen) && { sequenceData: updatedFrozenSeqData }),
+            // Persist sequenceData when: frozen state is changing, or an AI
+            // fingerprint adjustment needs to be recorded.
+            ...((frozenForCook || wasFrozen || hasFingerprint) && { sequenceData: updatedFrozenSeqData }),
             // When the pitmaster removes the frozen flag, clear it in the DB so
             // useFrozenStageNotifications no longer sees this as a frozen cook
             // and doesn't re-schedule the cancelled notifications on remount.
