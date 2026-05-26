@@ -369,6 +369,26 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
     try {
       managerRef.current?.stopDeviceScan();
     } catch {}
+
+    // Mark advertisement-based devices (govee, inkbird) as disconnected if they
+    // haven't been seen recently — they only exist while actively advertising,
+    // so a scan ending means we can no longer confirm they're present.
+    const now = Date.now();
+    let changed = false;
+    for (const [id, d] of deviceMapRef.current) {
+      if (
+        (d.adapter === "govee" || d.adapter === "inkbird") &&
+        d.connectionState !== "disconnected" &&
+        now - d.lastSeenMs > STALE_DEVICE_MS
+      ) {
+        deviceMapRef.current.set(id, { ...d, connectionState: "disconnected" });
+        changed = true;
+      }
+    }
+    if (changed && mountedRef.current) {
+      setDevices(Array.from(deviceMapRef.current.values()));
+    }
+
     if (mountedRef.current) setScanning(false);
   }, []);
 
@@ -462,13 +482,9 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     mountedRef.current = true;
 
-    // Load paired IDs, then immediately scan so previously-paired devices
-    // reconnect without the user needing to press "Scan" manually.
-    loadPairedIds().then(() => {
-      if (mountedRef.current && Platform.OS !== "web") {
-        startScan();
-      }
-    });
+    // Load paired IDs on mount. Do NOT auto-scan — the user must tap
+    // "Scan for Devices" to initiate a BLE scan.
+    loadPairedIds();
 
     if (Platform.OS !== "web") {
       staleTimerRef.current = setInterval(() => {
@@ -486,12 +502,16 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         if (changed && mountedRef.current) flushDevices();
       }, 15_000);
 
-      // Re-scan whenever the app comes back to the foreground so previously-
-      // paired devices that went out of range and returned get reconnected
-      // automatically (BLE connections drop when the phone screen is off).
+      // When the app foregrounds, attempt to reconnect already-paired GATT
+      // devices that are currently disconnected — no full BLE scan.
       const sub = AppState.addEventListener("change", (state: AppStateStatus) => {
-        if (state === "active" && mountedRef.current) {
-          startScan();
+        if (state === "active" && mountedRef.current && managerRef.current) {
+          for (const id of pairedIdsRef.current) {
+            const d = deviceMapRef.current.get(id);
+            if (d && GATT_ADAPTERS.includes(d.adapter) && d.connectionState === "disconnected") {
+              connectGatt(managerRef.current, id, d.adapter);
+            }
+          }
         }
       });
 
@@ -518,7 +538,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         managerRef.current?.destroy();
       } catch {}
     };
-  }, [loadPairedIds, startScan, stopScan, flushDevices]);
+  }, [loadPairedIds, connectGatt, stopScan, flushDevices]);
 
   const dismissReconnectBanner = useCallback(() => {
     setReconnectBanner(null);
