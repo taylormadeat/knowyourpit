@@ -25,10 +25,6 @@ function NativeTabLayout() {
         <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
         <Label>Plan</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="ai">
-        <Icon sf={{ default: "flame", selected: "flame.fill" }} />
-        <Label>PitMaster</Label>
-      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="more">
         <Icon sf={{ default: "ellipsis.circle", selected: "ellipsis.circle.fill" }} />
         <Label>More</Label>
@@ -117,10 +113,7 @@ function ClassicTabLayout() {
       />
       <Tabs.Screen
         name="ai"
-        options={{
-          title: "PitMaster",
-          tabBarIcon: ({ color }) => <GrillIcon color={color} size={26} />,
-        }}
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="more"

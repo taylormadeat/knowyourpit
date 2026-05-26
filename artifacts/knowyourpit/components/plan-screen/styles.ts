@@ -371,7 +371,25 @@ export const planStyles = StyleSheet.create({
   multiItemGrillChipText: { fontSize: 11, fontFamily: "Inter_500Medium" },
   multiAddBtn: { borderWidth: 1, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 13, marginBottom: 12 },
   multiAddBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+
+  /* Ask PitMaster about this plan */
+  askPitMasterPlanBtn: {
+    marginHorizontal: 20,
+    marginBottom: 10,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 8,
+  },
+  askPitMasterPlanText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
 });
+
 
 export const probeCardStyles = StyleSheet.create({
   probeCard: { borderWidth: 1, padding: 14, marginBottom: 12 },

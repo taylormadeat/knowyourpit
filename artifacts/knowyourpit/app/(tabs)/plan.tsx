@@ -86,6 +86,7 @@ import { usePaywallUsage } from "@/hooks/usePaywallUsage";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 
 import { planStyles as s, probeCardStyles as sp } from "@/components/plan-screen/styles";
+import { PitMasterChatModal } from "@/components/PitMasterChatModal";
 import {
   getUpcomingDates,
   formatDate,
@@ -466,6 +467,8 @@ export default function PlanScreen() {
   const aiPredict = useAiPredict();
   const [aiResult, setAiResult] = useState<any | null>(null);
   const [aiResultOpen, setAiResultOpen] = useState(false);
+  const [planChatOpen, setPlanChatOpen] = useState(false);
+  const [planChatSeed, setPlanChatSeed] = useState<string | undefined>(undefined);
   // AI schedule overrides: set when the user applies a PitMaster plan,
   // cleared when they change the cut, weight, or grill.
   const [aiCookMins, setAiCookMins] = useState<number | null>(null);
@@ -2626,6 +2629,42 @@ export default function PlanScreen() {
           </Pressable>
         )}
 
+        {/* Ask PitMaster about this plan — shown after a plan is generated */}
+        {aiResult && (
+          <Pressable
+            onPress={() => {
+              const parts: string[] = [];
+              if (selectedCut) parts.push(`Meat: ${selectedCut.name}`);
+              if (weightLbs) parts.push(`Weight: ${weightLbs} lbs`);
+              if (qpCookMethod) parts.push(`Method: ${qpCookMethod}`);
+              if (cookTempF) parts.push(`Pit temp: ${cookTempF}°F`);
+              if (targetTempF) parts.push(`Target internal: ${targetTempF}°F`);
+              if (selectedGrill?.name) parts.push(`Grill: ${selectedGrill.name}`);
+              if (aiResult.estimatedDurationMinutes) parts.push(`Estimated cook time: ${aiResult.estimatedDurationMinutes} minutes`);
+              if (aiResult.confidence) parts.push(`Plan confidence: ${aiResult.confidence}`);
+              if (aiResult.rationale) parts.push(`PitMaster rationale: ${aiResult.rationale}`);
+              parts.push("I have a follow-up question about this plan.");
+              setPlanChatSeed(parts.join("\n"));
+              setPlanChatOpen(true);
+            }}
+            style={({ pressed }) => [
+              s.askPitMasterPlanBtn,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                borderRadius: colors.radius,
+              },
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <Feather name="message-circle" size={15} color="#E84820" />
+            <Text style={[s.askPitMasterPlanText, { color: colors.foreground }]}>
+              Ask PitMaster about this plan
+            </Text>
+            <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
+          </Pressable>
+        )}
+
         {/* ── First-action hero (frozen mode only) ── */}
         {schedule?.frozen && !frozenStartInPast && (
           <View style={[s.firstActionCard, { borderRadius: colors.radius }]}>
@@ -3268,6 +3307,13 @@ export default function PlanScreen() {
           colors={colors}
         />
       )}
+
+      <PitMasterChatModal
+        visible={planChatOpen}
+        onClose={() => setPlanChatOpen(false)}
+        seedMessage={planChatSeed}
+        contextLabel="Asking about this plan"
+      />
 
     </View>
   );

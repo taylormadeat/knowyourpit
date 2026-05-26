@@ -29,6 +29,7 @@ import { getCookCardBar } from "@/utils/cookCardBar";
 import { letterGrade, scoreColor } from "@/utils/gradeUtils";
 import { AnimatedBarFill } from "@/components/cook-detail/CookProgressBar";
 import { ThawStatusBanner } from "@/components/cook-detail/ThawStatusBanner";
+import { PitMasterChatModal } from "@/components/PitMasterChatModal";
 
 const logoImg = require("@/assets/images/logo.png");
 
@@ -286,6 +287,7 @@ export default function HomeScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const [tipsExpanded, setTipsExpanded] = useState(false);
   const [scoreExpanded, setScoreExpanded] = useState(false);
+  const [pitMasterChatOpen, setPitMasterChatOpen] = useState(false);
 
   const toggleTips = (expand?: boolean) => {
     setTipsExpanded((prev) => (expand !== undefined ? expand : !prev));
@@ -814,6 +816,33 @@ export default function HomeScreen() {
           </>
         ) : null)}
 
+        {/* ── Chat with PitMaster entry point ── */}
+        <Pressable
+          onPress={() => setPitMasterChatOpen(true)}
+          style={({ pressed }) => [
+            s.pitMasterChatRow,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              borderRadius: colors.radius,
+            },
+            pressed && { opacity: 0.8 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Chat with PitMaster"
+        >
+          <View style={[s.pitMasterChatIcon, { backgroundColor: "#E84820" + "18" }]}>
+            <Feather name="zap" size={18} color="#E84820" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.pitMasterChatLabel, { color: colors.foreground }]}>Chat with PitMaster</Text>
+            <Text style={[s.pitMasterChatSub, { color: colors.mutedForeground }]}>
+              Ask anything about your cook · history included
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+        </Pressable>
+
         {/* ── Recent Cooks ── */}
         <View style={s.sectionHeader}>
           <View style={s.sectionAccent} />
@@ -880,6 +909,11 @@ export default function HomeScreen() {
         )}
         </View>
       </ScrollView>
+
+      <PitMasterChatModal
+        visible={pitMasterChatOpen}
+        onClose={() => setPitMasterChatOpen(false)}
+      />
     </View>
   );
 }
@@ -1422,5 +1456,35 @@ const s = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     lineHeight: 18,
     flex: 1,
+  },
+
+  /* PitMaster chat row */
+  pitMasterChatRow: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 10,
+  },
+  pitMasterChatIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pitMasterChatLabel: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    flex: 1,
+  },
+  pitMasterChatSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 1,
   },
 });

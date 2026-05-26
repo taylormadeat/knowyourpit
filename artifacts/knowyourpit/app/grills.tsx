@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -33,6 +33,7 @@ import {
 } from "@workspace/api-client-react";
 import { GRILL_CATALOG, type GrillModel } from "@/constants/grillCatalog";
 import { GrillTypeIcon, classifyGrillType, grillGradientColors } from "@/components/GrillTypeIcon";
+import { PitMasterChatModal } from "@/components/PitMasterChatModal";
 
 const GRILL_TYPES = [
   "Pellet Grill", "Kamado", "Offset Smoker", "Reverse Flow Smoker",
@@ -346,6 +347,27 @@ export default function GrillsScreen() {
   const createGrill = useCreateGrill();
   const updateGrill = useUpdateGrill();
   const deleteGrill = useDeleteGrill();
+
+  // PitMaster chat state
+  const [pitMasterChatOpen, setPitMasterChatOpen] = useState(false);
+  const [pitMasterChatSeed, setPitMasterChatSeed] = useState<string | undefined>(undefined);
+  const [pitMasterChatLabel, setPitMasterChatLabel] = useState<string | undefined>(undefined);
+
+  const openGrillChat = useCallback((grill: any) => {
+    const parts: string[] = [
+      `I want to ask about my grill: ${grill.name}`,
+    ];
+    if (grill.brand) parts.push(`Brand: ${grill.brand}`);
+    if (grill.type) parts.push(`Type: ${grill.type}`);
+    if (grill.fuelType) parts.push(`Fuel: ${grill.fuelType}`);
+    if (grill.cookCount) parts.push(`Cooks on this grill: ${grill.cookCount}`);
+    if (grill.totalHours) parts.push(`Total hours cooked: ${grill.totalHours.toFixed(1)}h`);
+    if (grill.mostCookedFood) parts.push(`Most cooked food: ${grill.mostCookedFood}`);
+    parts.push("What can you tell me about this grill and how to get the best results from it?");
+    setPitMasterChatSeed(parts.join("\n"));
+    setPitMasterChatLabel(`Asking about ${grill.name}`);
+    setPitMasterChatOpen(true);
+  }, []);
 
   // Add modal state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -708,6 +730,21 @@ export default function GrillsScreen() {
                   completedCookCount={item.completedCookCount ?? 0}
                   colors={colors}
                 />
+                {/* Ask PitMaster about this grill */}
+                <Pressable
+                  onPress={() => openGrillChat(item)}
+                  style={({ pressed }) => [
+                    s.askPitMasterBtn,
+                    { borderColor: colors.border, backgroundColor: colors.muted },
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Feather name="zap" size={13} color="#E84820" />
+                  <Text style={[s.askPitMasterText, { color: colors.foreground }]}>
+                    Ask PitMaster about this grill
+                  </Text>
+                  <Feather name="chevron-right" size={13} color={colors.mutedForeground} />
+                </Pressable>
               </View>
               <View style={{ flexDirection: "column", gap: 6 }}>
                 <Pressable
@@ -1015,6 +1052,13 @@ export default function GrillsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <PitMasterChatModal
+        visible={pitMasterChatOpen}
+        onClose={() => setPitMasterChatOpen(false)}
+        seedMessage={pitMasterChatSeed}
+        contextLabel={pitMasterChatLabel}
+      />
     </View>
   );
 }
@@ -1122,4 +1166,21 @@ const s = StyleSheet.create({
   helperText: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: -4, marginBottom: 4 },
   wifiToggle: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, marginTop: 12 },
   wifiToggleText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+
+  /* Ask PitMaster button */
+  askPitMasterBtn: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  askPitMasterText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
 });
