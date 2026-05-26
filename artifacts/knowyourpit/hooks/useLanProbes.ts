@@ -16,6 +16,15 @@
  *      `thermoworks-signals.local` are still tried when no Zeroconf host is
  *      available for a given device type.  Fetch times out after 3 s if the
  *      host isn't reachable.
+ *
+ * IP-change recovery
+ * ------------------
+ * Persisted (mDNS-cached) hosts are tracked for consecutive poll failures.
+ * After CONSECUTIVE_FAIL_THRESHOLD failures against a cached host the hook
+ * automatically evicts that host from both the in-memory discovered map and
+ * AsyncStorage, then triggers a fresh mDNS rescan.  This lets the app recover
+ * quickly when a device's IP changes (DHCP reassignment, router reboot) rather
+ * than waiting up to 24 hours for the TTL to expire.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -23,6 +32,7 @@ import { Platform } from "react-native";
 import { pollFireboard } from "./lan/fireboard";
 import { pollMeaterBlock } from "./lan/meaterBlock";
 import { pollThermoworksSignals } from "./lan/thermoworksSignals";
+import type { ZeroconfDeviceType } from "./lan/zeroconf";
 import { useZeroconfDiscovery } from "./useZeroconfDiscovery";
 
 export interface LanProbeReading {
@@ -64,6 +74,17 @@ const DEFAULT_FIREBOARD_HOST = "fireboard.local";
 const DEFAULT_MEATER_BLOCK_HOST = "meaterblock.local";
 const DEFAULT_SIGNALS_HOSTS = ["thermoworks-signals.local", "signals.local"];
 
+/**
+ * Number of consecutive failed polls against a cached (mDNS-discovered) host
+ * before it is evicted and a rescan is triggered.
+ */
+const CONSECUTIVE_FAIL_THRESHOLD = 3;
+
+interface HostResult {
+  host: string;
+  readings: LanProbeReading[];
+}
+
 export function useLanProbes({
   enabled,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
@@ -74,11 +95,19 @@ export function useLanProbes({
   const mountedRef = useRef(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  /**
+   * Per-host consecutive-failure counter.  Only hosts that came from the
+   * mDNS-discovered map are tracked here; hardcoded .local fallbacks are
+   * intentionally excluded so a missing device doesn't trigger a rescan.
+   */
+  const failCountsRef = useRef<Map<string, number>>(new Map());
+
   const {
     discovered,
     mdnsAvailable,
     scanning: mdnsScanning,
     rescan,
+    evictHost,
   } = useZeroconfDiscovery(enabled && Platform.OS !== "web");
 
   const doPoll = useCallback(async () => {
@@ -115,34 +144,81 @@ export function useLanProbes({
         ...DEFAULT_SIGNALS_HOSTS,
       ]);
 
-      const [fireboardResults, meaterResults, signalsResults] = await Promise.all([
-        // Poll all Fireboard hosts in parallel; take any that respond
-        Promise.all(
-          fireboardHosts.map((h) => pollFireboard(h).catch(() => [] as LanProbeReading[])),
-        ).then((arrays) => arrays.flat()),
+      // ── Poll all hosts, tracking per-host results ──────────────────────────
+      // We need individual host attribution (not just a flat merged array) so
+      // we can maintain accurate consecutive-failure counts for discovered hosts.
+      async function pollAllHosts<T extends LanProbeReading>(
+        hosts: string[],
+        pollFn: (host: string) => Promise<T[]>,
+      ): Promise<HostResult[]> {
+        return Promise.all(
+          hosts.map(async (host) => ({
+            host,
+            readings: await pollFn(host).catch(() => [] as T[]),
+          })),
+        );
+      }
 
-        // Poll all MEATER Block hosts in parallel; take any that respond
-        Promise.all(
-          meaterHosts.map((h) => pollMeaterBlock(h).catch(() => [] as LanProbeReading[])),
-        ).then((arrays) => arrays.flat()),
-
-        // Poll all Signals hosts in parallel; take any that respond
-        Promise.all(
-          signalsHosts.map((h) =>
-            pollThermoworksSignals(h).catch(() => [] as LanProbeReading[]),
-          ),
-        ).then((arrays) => arrays.flat()),
+      const [fireboardPerHost, meaterPerHost, signalsPerHost] = await Promise.all([
+        pollAllHosts(fireboardHosts, pollFireboard),
+        pollAllHosts(meaterHosts, pollMeaterBlock),
+        pollAllHosts(signalsHosts, pollThermoworksSignals),
       ]);
 
       if (!mountedRef.current) return;
 
-      const allReadings: LanProbeReading[] = [
-        ...fireboardResults,
-        ...meaterResults,
-        ...signalsResults,
-      ];
+      // ── Track consecutive failures for mDNS-discovered hosts ───────────────
+      // Only hosts that originated from the discovered map are subject to
+      // eviction — the hardcoded .local fallbacks are always-tried and a miss
+      // there simply means the device is absent, not that the IP changed.
+      let shouldRescan = false;
 
-      // Deduplicate by deviceId
+      function trackFailures(
+        type: ZeroconfDeviceType,
+        perHost: HostResult[],
+        discoveredForType: string[] | undefined,
+      ): void {
+        if (!discoveredForType?.length) return;
+        const discoveredSet = new Set(discoveredForType);
+
+        for (const { host, readings } of perHost) {
+          if (!discoveredSet.has(host)) continue; // skip hardcoded fallback names
+
+          if (readings.length > 0) {
+            // Successful poll — reset any accumulated failure count
+            failCountsRef.current.delete(host);
+          } else {
+            const prev = failCountsRef.current.get(host) ?? 0;
+            const next = prev + 1;
+
+            if (next >= CONSECUTIVE_FAIL_THRESHOLD) {
+              // IP has changed or device is gone — evict the stale address
+              failCountsRef.current.delete(host);
+              evictHost(type, host);
+              shouldRescan = true;
+            } else {
+              failCountsRef.current.set(host, next);
+            }
+          }
+        }
+      }
+
+      trackFailures("fireboard", fireboardPerHost, discovered.fireboard);
+      trackFailures("meater_block", meaterPerHost, discovered.meater_block);
+      trackFailures("thermoworks_signals", signalsPerHost, discovered.thermoworks_signals);
+
+      // Trigger a single rescan after all evictions so mDNS can rediscover
+      // the device at its new IP address.
+      if (shouldRescan) rescan();
+
+      // ── Flatten and deduplicate readings ──────────────────────────────────
+      const allReadings: LanProbeReading[] = [
+        ...fireboardPerHost,
+        ...meaterPerHost,
+        ...signalsPerHost,
+      ].flatMap((r) => r.readings);
+
+      // Deduplicate by deviceId + channelIndex
       const seen = new Set<string>();
       const deduped: LanProbeReading[] = [];
       for (const r of allReadings) {
@@ -179,7 +255,7 @@ export function useLanProbes({
     } finally {
       if (mountedRef.current) setScanning(false);
     }
-  }, [discovered]);
+  }, [discovered, evictHost, rescan]);
 
   useEffect(() => {
     mountedRef.current = true;

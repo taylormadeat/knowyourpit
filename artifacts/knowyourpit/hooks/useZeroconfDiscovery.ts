@@ -48,6 +48,11 @@ export interface UseZeroconfDiscoveryResult {
   scanning: boolean;
   /** Manually trigger a fresh scan (stops current scan, restarts) */
   rescan: () => void;
+  /**
+   * Remove a host from both the in-memory discovered map and AsyncStorage.
+   * Call this when consecutive poll failures indicate the cached IP is stale.
+   */
+  evictHost: (type: ZeroconfDeviceType, host: string) => void;
 }
 
 /** How long (ms) to keep a scan active before stopping */
@@ -77,6 +82,20 @@ async function loadPersistedHosts(type: ZeroconfDeviceType): Promise<string[]> {
     return entries.filter((e) => e.discoveredAt >= cutoff).map((e) => e.host);
   } catch {
     return [];
+  }
+}
+
+/** Remove a single host entry from AsyncStorage for a given device type. */
+async function removePersistedHost(type: ZeroconfDeviceType, host: string): Promise<void> {
+  if (type === "unknown") return;
+  try {
+    const raw = await AsyncStorage.getItem(storageKey(type));
+    if (!raw) return;
+    const existing: PersistedEntry[] = JSON.parse(raw);
+    const updated = existing.filter((e) => e.host !== host);
+    await AsyncStorage.setItem(storageKey(type), JSON.stringify(updated));
+  } catch {
+    // Non-fatal — persistence is best-effort
   }
 }
 
@@ -261,5 +280,11 @@ export function useZeroconfDiscovery(enabled: boolean): UseZeroconfDiscoveryResu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 
-  return { discovered, mdnsAvailable, scanning, rescan: startScan };
+  const evictHost = useCallback((type: ZeroconfDeviceType, host: string) => {
+    setDiscovered((prev) => removeHost(prev, type, host));
+    // Remove from AsyncStorage so it doesn't seed the next session
+    removePersistedHost(type, host);
+  }, []);
+
+  return { discovered, mdnsAvailable, scanning, rescan: startScan, evictHost };
 }
