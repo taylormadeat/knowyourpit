@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, Modal, Pressable, ScrollView } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -42,6 +42,8 @@ export function AiResultsModal(p: Props) {
   const activeChips = selectedChips
     ? CHIP_LABELS.filter((c) => selectedChips[c.key])
     : [];
+
+  const [checkinsExpanded, setCheckinsExpanded] = useState(false);
 
   return (
     <Modal
@@ -190,6 +192,113 @@ export function AiResultsModal(p: Props) {
                         <Text style={[s.tipText, { color: colors.mutedForeground }]}>{tip}</Text>
                       </View>
                     ))}
+                  </View>
+                )}
+
+                {aiResult.checkins && aiResult.checkins.length > 0 && (
+                  <View style={[s.aiSection, { borderColor: colors.border }]}>
+                    <Pressable
+                      onPress={() => setCheckinsExpanded((v) => !v)}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+                      hitSlop={8}
+                    >
+                      <Feather name="clock" size={14} color="#6C3BF5" />
+                      <Text style={[s.aiSectionTitle, { color: colors.foreground, flex: 1, marginBottom: 0 }]}>
+                        Check-In Schedule
+                      </Text>
+                      <View style={{
+                        backgroundColor: "#6C3BF5" + "18",
+                        borderColor: "#6C3BF5" + "40",
+                        borderWidth: 1,
+                        borderRadius: 12,
+                        paddingHorizontal: 8,
+                        paddingVertical: 2,
+                        marginRight: 4,
+                      }}>
+                        <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#6C3BF5" }}>
+                          {aiResult.checkins.length} check-ins
+                        </Text>
+                      </View>
+                      <Feather
+                        name={checkinsExpanded ? "chevron-up" : "chevron-down"}
+                        size={16}
+                        color={colors.mutedForeground}
+                      />
+                    </Pressable>
+
+                    {checkinsExpanded && (
+                      <View style={{ marginTop: 12 }}>
+                        {aiResult.checkins.map((ci: any, i: number) => {
+                          const isWrap = /wrap/i.test(ci.label);
+                          return (
+                            <View key={i} style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
+                              <View style={{ alignItems: "center", width: 32 }}>
+                                <View style={{
+                                  width: 28,
+                                  height: 28,
+                                  borderRadius: 14,
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  backgroundColor: isWrap ? "#F59E0B18" : "#6C3BF5" + "15",
+                                  borderWidth: 1,
+                                  borderColor: isWrap ? "#F59E0B40" : "#6C3BF5" + "30",
+                                }}>
+                                  <Feather
+                                    name={isWrap ? "package" : "check-circle"}
+                                    size={12}
+                                    color={isWrap ? "#F59E0B" : "#6C3BF5"}
+                                  />
+                                </View>
+                                {i < aiResult.checkins.length - 1 && (
+                                  <View style={{ width: 1, flex: 1, backgroundColor: colors.border, marginTop: 3 }} />
+                                )}
+                              </View>
+                              <View style={{ flex: 1, paddingBottom: i < aiResult.checkins.length - 1 ? 4 : 0 }}>
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                                  <Text style={{
+                                    fontSize: 12,
+                                    fontFamily: "Inter_700Bold",
+                                    color: isWrap ? "#F59E0B" : colors.foreground,
+                                    flex: 1,
+                                  }}>
+                                    {ci.label}
+                                  </Text>
+                                  <Text style={{
+                                    fontSize: 11,
+                                    fontFamily: "Inter_600SemiBold",
+                                    color: colors.mutedForeground,
+                                  }}>
+                                    +{fmtDuration(ci.offsetMinutes)}
+                                  </Text>
+                                  {ci.expectedInternalTempRange && (
+                                    <View style={{
+                                      backgroundColor: colors.muted,
+                                      borderRadius: 8,
+                                      paddingHorizontal: 6,
+                                      paddingVertical: 2,
+                                    }}>
+                                      <Text style={{ fontSize: 10, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
+                                        {ci.expectedInternalTempRange[0]}–{ci.expectedInternalTempRange[1]}°F
+                                      </Text>
+                                    </View>
+                                  )}
+                                </View>
+                                {ci.coachingNote ? (
+                                  <Text style={{
+                                    fontSize: 12,
+                                    fontFamily: "Inter_400Regular",
+                                    color: colors.mutedForeground,
+                                    lineHeight: 17,
+                                  }}>
+                                    {ci.coachingNote}
+                                  </Text>
+                                ) : null}
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
                   </View>
                 )}
 
