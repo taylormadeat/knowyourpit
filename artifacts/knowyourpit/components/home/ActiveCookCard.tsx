@@ -439,6 +439,13 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: 5,
     marginTop: -4,
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.09)",
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   checkinText: {
     fontFamily: "Inter_400Regular",
