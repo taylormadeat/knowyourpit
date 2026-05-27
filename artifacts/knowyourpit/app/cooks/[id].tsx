@@ -3556,8 +3556,8 @@ export default function CookDetailScreen() {
           />
         )}
 
-        {/* ── Stored AI analysis (hidden for active cooks until meat is on) ── */}
-        {(cookStatus !== "active" || isMeatOn) && <StoredAiAnalysis
+        {/* ── Stored AI analysis (completed and planned cooks only) ── */}
+        {cookStatus !== "active" && <StoredAiAnalysis
           c={c}
           colors={colors}
           storedAnalysis={storedAnalysis}
