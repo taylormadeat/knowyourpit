@@ -46,11 +46,11 @@ with open(key_file, "w") as f:
 print(f"Key written to {key_file}")
 EOF
 
-BUILD_ARG=""
 if [ -n "${1:-}" ]; then
     BUILD_ARG="--id $1"
     echo "Submitting build $1 ..."
 else
+    BUILD_ARG="--latest"
     echo "Submitting latest finished build ..."
 fi
 
