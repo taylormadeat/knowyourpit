@@ -40,6 +40,9 @@ import {
   decodeGoveeAdvertisement,
 } from "@/hooks/ble/adapters/govee";
 import {
+  parseInkbirdTemps,
+} from "@/hooks/ble/adapters/inkbird";
+import {
   decodeIGrillProbeChar,
   decodeIGrillBatteryChar,
   IGRILL_SERVICE_UUID,
@@ -63,6 +66,8 @@ export interface BleDevice {
   probeTempF: number | null;
   ambientTempF: number | null;
   batteryPct: number | null;
+  /** Multi-channel temps for advertisement-based probes (e.g. Inkbird IBT-series). */
+  channelTempsF: number[] | null;
   lastSeenMs: number;
   paired: boolean;
 }
@@ -196,6 +201,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         probeTempF: null,
         ambientTempF: null,
         batteryPct: null,
+        channelTempsF: null,
         lastSeenMs: Date.now(),
         paired: pairedIdsRef.current.has(id),
         ...existing,
@@ -510,13 +516,18 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
             let probeTempF: number | null = null;
             let ambientTempF: number | null = null;
             let batteryPct: number | null = null;
+            let channelTempsF: number[] | null = null;
 
             if (adapter === "govee") {
               const reading = decodeGoveeAdvertisement(device.manufacturerData ?? null);
               probeTempF = reading.probeTempF;
               batteryPct = reading.batteryPct;
             } else if (adapter === "inkbird") {
-              // Inkbird temps decoded by useInkbirdBLE — here we just track presence
+              const temps = parseInkbirdTemps(device.manufacturerData ?? null);
+              if (temps.length > 0) {
+                channelTempsF = temps;
+                probeTempF = temps[0] ?? null;
+              }
             }
 
             upsertDevice(device.id, {
@@ -526,6 +537,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
               probeTempF,
               ambientTempF,
               batteryPct,
+              channelTempsF,
               lastSeenMs: now,
             });
           }

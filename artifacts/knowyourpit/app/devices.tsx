@@ -138,21 +138,39 @@ function BleDeviceCard({ device, colors, onPair, onUnpair }: {
         )}
       </View>
 
-      {isConnected && (device.probeTempF != null || device.ambientTempF != null) && (
+      {isConnected && (
+        (device.channelTempsF && device.channelTempsF.length > 0) ||
+        device.probeTempF != null ||
+        device.ambientTempF != null
+      ) && (
         <View style={[s.deviceList, { borderTopColor: colors.border, flexDirection: "row", gap: 12, flexWrap: "wrap" }]}>
-          {device.probeTempF != null && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-              <Feather name="thermometer" size={13} color="#FF6B2B" />
-              <Text style={[s.probeName, { color: colors.foreground }]}>{device.probeTempF}°F</Text>
-              <Text style={[s.deviceSub, { color: colors.mutedForeground, marginTop: 0 }]}>internal</Text>
-            </View>
-          )}
-          {device.ambientTempF != null && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-              <Feather name="wind" size={13} color="#3b82f6" />
-              <Text style={[s.probeName, { color: colors.foreground }]}>{device.ambientTempF}°F</Text>
-              <Text style={[s.deviceSub, { color: colors.mutedForeground, marginTop: 0 }]}>ambient</Text>
-            </View>
+          {device.channelTempsF && device.channelTempsF.length > 0 ? (
+            device.channelTempsF.map((tempF, idx) => (
+              <View key={idx} style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                <Feather name="thermometer" size={13} color="#FF6B2B" />
+                <Text style={[s.probeName, { color: colors.foreground }]}>{tempF}°F</Text>
+                <Text style={[s.deviceSub, { color: colors.mutedForeground, marginTop: 0 }]}>
+                  {device.channelTempsF!.length > 1 ? `probe ${idx + 1}` : "probe"}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <>
+              {device.probeTempF != null && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                  <Feather name="thermometer" size={13} color="#FF6B2B" />
+                  <Text style={[s.probeName, { color: colors.foreground }]}>{device.probeTempF}°F</Text>
+                  <Text style={[s.deviceSub, { color: colors.mutedForeground, marginTop: 0 }]}>internal</Text>
+                </View>
+              )}
+              {device.ambientTempF != null && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                  <Feather name="wind" size={13} color="#3b82f6" />
+                  <Text style={[s.probeName, { color: colors.foreground }]}>{device.ambientTempF}°F</Text>
+                  <Text style={[s.deviceSub, { color: colors.mutedForeground, marginTop: 0 }]}>ambient</Text>
+                </View>
+              )}
+            </>
           )}
         </View>
       )}

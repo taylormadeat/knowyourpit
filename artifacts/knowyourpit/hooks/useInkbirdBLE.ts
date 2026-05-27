@@ -26,6 +26,7 @@ import { Platform, PermissionsAndroid } from "react-native";
 import {
   INKBIRD_NAME_PREFIXES,
   INKBIRD_SERVICE_UUIDS,
+  parseInkbirdTemps,
 } from "@/hooks/ble/adapters/inkbird";
 
 export interface InkbirdProbeReading {
@@ -46,14 +47,7 @@ interface UseInkbirdBLEResult {
   scanning: boolean;
 }
 
-// Remove devices from the list if not seen within this window
 const STALE_TIMEOUT_MS = 30_000;
-
-// Plausible BBQ temperature bounds in Celsius.
-// If a raw/10 value (interpreted as °C) falls outside this range but would
-// be plausible as °F, we treat it as already in °F (firmware °F variant).
-const MAX_PLAUSIBLE_CELSIUS = 650;
-const MIN_PLAUSIBLE_CELSIUS = -50;
 
 function isInkbirdDevice(device: any): boolean {
   const name = ((device?.name ?? device?.localName ?? "") as string).toLowerCase();
@@ -66,86 +60,6 @@ function isInkbirdDevice(device: any): boolean {
   const serviceData: Record<string, string> = device?.serviceData ?? {};
   const lowerKeys = Object.keys(serviceData).map((k) => k.toLowerCase());
   return INKBIRD_SERVICE_UUIDS.some((uuid) => lowerKeys.includes(uuid));
-}
-
-function base64ToBytes(b64: string): number[] {
-  try {
-    const str = atob(b64);
-    return Array.from(str, (c) => c.charCodeAt(0));
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Parse probe temperatures from an Inkbird IBT-series BLE advertisement.
- *
- * Handles both 2/4-channel (IBT-2X, IBT-4XS) and 6-channel (IBT-6XS) formats.
- * The wire format is identical — the 6-channel devices simply carry more pairs.
- *
- * Unit detection (in priority order):
- *  1. Unit flag byte — the byte immediately after all channel pairs, when present:
- *       0x00       → source is °C (most firmware versions)
- *       0xFF/0x01  → source is °F (some regional/older firmware)
- *  2. Plausibility heuristic — if a raw÷10 value would be unreasonably high or
- *     low for Celsius (outside -50 … 650 °C) but plausible as °F, treat as °F.
- *  3. Default → assume °C.
- *
- * Returns an array of tempF values, one per inserted probe channel.
- * Channels with no probe inserted (raw value ≥ 0xFFFE) are omitted.
- */
-function parseInkbirdTemps(manufacturerData: string | null): number[] {
-  if (!manufacturerData) return [];
-  const bytes = base64ToBytes(manufacturerData);
-  if (bytes.length < 4) return [];
-
-  // Collect raw uint16 values for every channel slot (up to 6).
-  const maxChannels = 6;
-  const rawValues: number[] = [];
-  for (
-    let i = 2, ch = 0;
-    i + 1 < bytes.length && ch < maxChannels;
-    i += 2, ch++
-  ) {
-    const raw = (bytes[i] ?? 0) | ((bytes[i + 1] ?? 0) << 8);
-    rawValues.push(raw);
-  }
-
-  // Try to read a unit flag byte: the byte immediately after all channel pairs.
-  const unitFlagIdx = 2 + rawValues.length * 2;
-  let sourceIsCelsius = true; // conservative default (vast majority of firmware)
-  if (unitFlagIdx < bytes.length) {
-    const flag = bytes[unitFlagIdx];
-    if (flag === 0xff || flag === 0x01) {
-      sourceIsCelsius = false; // explicit °F flag
-    } else if (flag === 0x00) {
-      sourceIsCelsius = true; // explicit °C flag
-    }
-    // Any other value: keep the default (°C)
-  }
-
-  const temps: number[] = [];
-  for (const raw of rawValues) {
-    if (raw >= 0xfffe) continue; // probe not inserted (0xFFFE or 0xFFFF)
-
-    const value = raw / 10; // 1/10 of source unit
-
-    let tempF: number;
-    if (sourceIsCelsius) {
-      // Plausibility check: if value is outside realistic Celsius BBQ range,
-      // the firmware is likely sending °F without the flag — use it directly.
-      if (value > MAX_PLAUSIBLE_CELSIUS || value < MIN_PLAUSIBLE_CELSIUS) {
-        tempF = value; // already °F
-      } else {
-        tempF = (value * 9) / 5 + 32; // °C → °F
-      }
-    } else {
-      tempF = value; // explicit °F source
-    }
-
-    temps.push(Math.round(tempF * 10) / 10);
-  }
-  return temps;
 }
 
 async function requestBlePermissionsAndroid(): Promise<boolean> {
