@@ -2287,6 +2287,7 @@ export default function CookDetailScreen() {
             snapshotTempSourceLabel,
             snapshotNotes: notesForAnalysis || null,
             snapshotElapsedMinutes: c?.actualStartAt ? Math.round((Date.now() - new Date(c.actualStartAt).getTime()) / 60000) : null,
+            source: images.length > 0 ? "image_scan" : "active_cook",
             analyzedAt: new Date().toISOString(),
           },
         } as any,

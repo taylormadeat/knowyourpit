@@ -58,9 +58,16 @@ export function StoredAiAnalysis(p: Props) {
           <Text style={[s.logTitle, { color: colors.foreground }]}>
             PitMaster Cook Analysis
           </Text>
-          <Text style={[s.logSub, { color: colors.mutedForeground }]}>
-            Saved from image scan
-          </Text>
+          {(storedAnalysis as any)?.source === "image_scan" && (
+            <Text style={[s.logSub, { color: colors.mutedForeground }]}>
+              Saved from image scan
+            </Text>
+          )}
+          {(storedAnalysis as any)?.source !== "image_scan" && (
+            <Text style={[s.logSub, { color: colors.mutedForeground }]}>
+              Cook analysis saved
+            </Text>
+          )}
           {(() => {
             const sourceLabel = (storedAnalysis as any)?.snapshotTempSourceLabel as string | null | undefined;
             const snapTempF = (storedAnalysis as any)?.snapshotTempF as number | null | undefined;

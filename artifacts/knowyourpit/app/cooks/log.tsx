@@ -723,6 +723,7 @@ export default function LogCookScreen() {
           detectedWoodType: effectiveResult.detectedWoodType,
           detectedRub: effectiveResult.detectedRub,
           assessment: effectiveResult.assessment,
+          source: images.length > 0 ? "image_scan" : "cook_end",
           analyzedAt: new Date().toISOString(),
         };
       }
