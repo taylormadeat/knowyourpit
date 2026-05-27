@@ -13,6 +13,7 @@ interface Props {
   c: any;
   colors: Colors;
   cookStatus?: string;
+  estimatedFinishMs?: number | null;
 }
 
 function fmtTime(ms: number): string {
@@ -38,7 +39,7 @@ type CheckinStep = {
 
 type Step = MilestoneStep | CheckinStep;
 
-export function PlannedCookTimeline({ c, colors, cookStatus }: Props) {
+export function PlannedCookTimeline({ c, colors, cookStatus, estimatedFinishMs }: Props) {
   if ((c.sequenceData as any)?.schedule?.length > 0) return null;
 
   const isActive = cookStatus === "active";
@@ -49,7 +50,12 @@ export function PlannedCookTimeline({ c, colors, cookStatus }: Props) {
     : c.actualStartAt
       ? new Date(c.actualStartAt).getTime()
       : null;
-  const serveMs = c.plannedEndAt ? new Date(c.plannedEndAt).getTime() : null;
+  // plannedEndAt is often null for Cook Now active cooks. Fall back to the
+  // caller-supplied estimatedFinishMs (which uses wrap-adjusted AI range →
+  // sequence data → plannedEndAt as its own fallback chain).
+  const serveMs = c.plannedEndAt
+    ? new Date(c.plannedEndAt).getTime()
+    : (estimatedFinishMs ?? null);
 
   if (meatOnMs == null && serveMs == null) return null;
 

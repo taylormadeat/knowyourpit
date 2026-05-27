@@ -3526,7 +3526,7 @@ export default function CookDetailScreen() {
                 returns null. Show PlannedCookTimeline instead so check-in checkpoints
                 and the cook timeline are still visible. It self-guards and returns null
                 when sequenceData is present, so it never duplicates the SequenceSchedule. */}
-            <PlannedCookTimeline c={c} colors={colors} cookStatus={cookStatus} />
+            <PlannedCookTimeline c={c} colors={colors} cookStatus={cookStatus} estimatedFinishMs={estimatedFinishMs} />
           </>
         )}
 
