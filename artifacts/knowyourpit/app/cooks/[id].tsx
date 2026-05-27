@@ -3336,8 +3336,6 @@ export default function CookDetailScreen() {
           isMeatOn={isMeatOn}
           pitMasterResult={result}
           pitMasterAnalyzing={analyzing}
-          pitMasterVerdictCfg={verdictCfg}
-          pitMasterAssessment={assessment}
           renderDecisions={renderDecisions}
           onCheckIn={handlePitMasterCheckIn}
           onCheckInNext={handleCheckInNext}

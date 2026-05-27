@@ -61,8 +61,6 @@ interface Props {
   isMeatOn?: boolean;
   pitMasterResult?: any;
   pitMasterAnalyzing?: boolean;
-  pitMasterVerdictCfg?: any;
-  pitMasterAssessment?: any;
   renderDecisions?: (decisions: any[]) => React.ReactNode;
   onCheckIn?: () => void;
   onCheckInNext?: () => void;
@@ -106,13 +104,12 @@ export function LiveCookSection(p: Props) {
     liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, estimatedFinishMs,
     setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
     targetTempF, cookTempF, nextSpritzMs, nextMopMs, onViewDetails,
-    isMeatOn, pitMasterResult, pitMasterAnalyzing, pitMasterVerdictCfg, pitMasterAssessment,
+    isMeatOn, pitMasterResult, pitMasterAnalyzing,
     renderDecisions, onCheckIn, onCheckInNext, onOpenChat, lastAnalyzedAtMs, lastCheckinInternalTempF, onRefresh, activeProbeName,
     nextCheckinMs, nextCheckinLabel, upcomingCheckins = [], onCheckInPhase,
   } = p;
 
   const [phaseNarrativeExpanded, setPhaseNarrativeExpanded] = React.useState(false);
-  const [assessmentExpanded, setAssessmentExpanded] = React.useState(false);
   const [timelineExpanded, setTimelineExpanded] = React.useState(true);
 
   const flashAnim = React.useRef(new Animated.Value(0)).current;
@@ -920,67 +917,6 @@ export function LiveCookSection(p: Props) {
                 );
               })()}
 
-              {/* Verdict banner */}
-              {pitMasterVerdictCfg && pitMasterAssessment && (
-                <View style={[s.verdictBanner, { backgroundColor: pitMasterVerdictCfg.color + "18", borderColor: pitMasterVerdictCfg.color + "40", borderRadius: colors.radius }]}>
-                  <Feather name={pitMasterVerdictCfg.icon as any} size={20} color={pitMasterVerdictCfg.color} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[s.verdictLabel, { color: pitMasterVerdictCfg.color }]}>{pitMasterVerdictCfg.label}</Text>
-                    {pitMasterAssessment.summary ? (
-                      <Text style={[s.verdictSummary, { color: colors.foreground }]}>{pitMasterAssessment.summary}</Text>
-                    ) : null}
-                  </View>
-                </View>
-              )}
-
-              {/* Assessment expand/collapse */}
-              {(() => {
-                const wellCount = pitMasterAssessment?.whatWentWell?.length ?? 0;
-                const tipCount = pitMasterAssessment?.suggestions?.length ?? 0;
-                if (wellCount === 0 && tipCount === 0) return null;
-                const summaryParts: string[] = [];
-                if (wellCount > 0) summaryParts.push(`✓ ${wellCount} on track`);
-                if (tipCount > 0) summaryParts.push(`⚠ ${tipCount} tip${tipCount > 1 ? "s" : ""}`);
-                return (
-                  <View style={[s.subSection, { borderColor: colors.border }]}>
-                    <Pressable
-                      onPress={() => setAssessmentExpanded((v) => !v)}
-                      style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-                    >
-                      <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0, flex: 1 }]}>
-                        {summaryParts.join("  ·  ")}
-                      </Text>
-                      <Feather name={assessmentExpanded ? "chevron-up" : "chevron-down"} size={13} color={colors.mutedForeground} />
-                    </Pressable>
-                    {assessmentExpanded && (
-                      <>
-                        {wellCount > 0 && (
-                          <View style={{ marginTop: 10, gap: 4 }}>
-                            <Text style={[s.subLabel, { color: "#22c55e", marginBottom: 4 }]}>Looking Good</Text>
-                            {pitMasterAssessment!.whatWentWell!.map((item: string, i: number) => (
-                              <View key={i} style={s.bulletRow}>
-                                <Feather name="check" size={14} color="#22c55e" style={{ marginTop: 2 }} />
-                                <Text style={[s.bulletText, { color: colors.foreground }]}>{item}</Text>
-                              </View>
-                            ))}
-                          </View>
-                        )}
-                        {tipCount > 0 && (
-                          <View style={{ marginTop: 10, gap: 4 }}>
-                            <Text style={[s.subLabel, { color: "#A855F7", marginBottom: 4 }]}>Watch Out For</Text>
-                            {pitMasterAssessment!.suggestions!.map((tip: string, i: number) => (
-                              <View key={i} style={s.bulletRow}>
-                                <Text style={[s.bulletNum, { color: "#A855F7" }]}>{i + 1}</Text>
-                                <Text style={[s.bulletText, { color: colors.foreground }]}>{tip}</Text>
-                              </View>
-                            ))}
-                          </View>
-                        )}
-                      </>
-                    )}
-                  </View>
-                );
-              })()}
             </View>
           ) : pitMasterAnalyzing ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 }}>
