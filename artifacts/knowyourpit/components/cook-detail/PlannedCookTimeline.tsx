@@ -1,10 +1,11 @@
-import React from "react";
-import { View, Text } from "react-native";
+import React, { useState } from "react";
+import { View, Text, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { s } from "./styles";
 import { FingerprintCallout } from "./FingerprintCallout";
-import { generateCheckinSchedule } from "@/constants/checkinKnowledge";
+import { generateCheckinSchedule, type ScheduledCheckin } from "@/constants/checkinKnowledge";
 import { fmtMinutes } from "@/utils/duration";
+import { CheckinPreviewSheet } from "./CheckinPreviewSheet";
 
 type Colors = any;
 
@@ -32,6 +33,7 @@ type CheckinStep = {
   key: string;
   label: string;
   ms: number;
+  sc: ScheduledCheckin;
 };
 
 type Step = MilestoneStep | CheckinStep;
@@ -129,6 +131,7 @@ export function PlannedCookTimeline({ c, colors, cookStatus }: Props) {
           key: `ci-${sc.phaseKey}`,
           label: sc.phaseLabel,
           ms: sc.scheduledAt,
+          sc,
         });
       }
     }
@@ -144,221 +147,293 @@ export function PlannedCookTimeline({ c, colors, cookStatus }: Props) {
   const ciColor = "#7C3AED";
 
   return (
-    <View
-      style={[
-        s.card,
-        {
-          borderRadius: colors.radius,
-          borderColor: colors.border,
-          backgroundColor: colors.card,
-          overflow: "hidden",
-        },
-      ]}
-    >
-      <View
-        style={[
-          s.seqScheduleHeader,
-          { borderBottomWidth: 1, borderBottomColor: colors.border },
-        ]}
-      >
+    <CheckinPreviewWrapper meatOnMs={meatOnMs} colors={colors} isActive={isActive}>
+      {(openPreview) => (
         <View
-          style={[s.seqScheduleIcon, { backgroundColor: accentColor + "22" }]}
+          style={[
+            s.card,
+            {
+              borderRadius: colors.radius,
+              borderColor: colors.border,
+              backgroundColor: colors.card,
+              overflow: "hidden",
+            },
+          ]}
         >
-          <Feather name="clock" size={15} color={accentColor} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[s.seqScheduleTitle, { color: colors.foreground }]}>
-            Cook Timeline
-          </Text>
-          <Text style={[s.seqScheduleSub, { color: colors.mutedForeground }]}>
-            {isActive ? "Active schedule" : "Planned schedule"}
-          </Text>
-        </View>
-      </View>
+          <View
+            style={[
+              s.seqScheduleHeader,
+              { borderBottomWidth: 1, borderBottomColor: colors.border },
+            ]}
+          >
+            <View
+              style={[s.seqScheduleIcon, { backgroundColor: accentColor + "22" }]}
+            >
+              <Feather name="clock" size={15} color={accentColor} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[s.seqScheduleTitle, { color: colors.foreground }]}>
+                Cook Timeline
+              </Text>
+              <Text style={[s.seqScheduleSub, { color: colors.mutedForeground }]}>
+                {isActive ? "Active schedule" : "Planned schedule"}
+              </Text>
+            </View>
+          </View>
 
-      <View style={{ padding: 14, paddingBottom: 10 }}>
-        {allSteps.map((step, idx) => {
-          const isLast = idx === allSteps.length - 1;
+          <View style={{ padding: 14, paddingBottom: 10 }}>
+            {allSteps.map((step, idx) => {
+              const isLast = idx === allSteps.length - 1;
 
-          if (step.kind === "checkin") {
-            const offsetMin =
-              meatOnMs != null
-                ? Math.round((step.ms - meatOnMs) / 60_000)
-                : null;
-            return (
-              <View
-                key={step.key}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "flex-start",
-                  gap: 12,
-                  minHeight: isLast ? 0 : 44,
-                  marginLeft: 3,
-                }}
-              >
-                <View style={{ alignItems: "center", width: 18 }}>
+              if (step.kind === "checkin") {
+                const offsetMin =
+                  meatOnMs != null
+                    ? Math.round((step.ms - meatOnMs) / 60_000)
+                    : null;
+                const rowContent = (
+                  <>
+                    <View style={{ alignItems: "center", width: 18 }}>
+                      <View
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: 4,
+                          backgroundColor: ciColor + "33",
+                          borderWidth: 1.5,
+                          borderColor: ciColor,
+                          marginTop: 5,
+                        }}
+                      />
+                      {!isLast && (
+                        <View
+                          style={{
+                            width: 1,
+                            flex: 1,
+                            backgroundColor: colors.border,
+                            marginTop: 3,
+                          }}
+                        />
+                      )}
+                    </View>
+                    <View style={{ flex: 1, paddingBottom: isLast ? 0 : 4 }}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 5,
+                          marginBottom: 1,
+                        }}
+                      >
+                        <Feather name="bell" size={9} color={ciColor} />
+                        <Text
+                          style={{
+                            fontFamily: "Inter_600SemiBold",
+                            fontSize: 10,
+                            color: ciColor,
+                            textTransform: "uppercase",
+                            letterSpacing: 0.4,
+                          }}
+                        >
+                          Check In · {step.label}
+                        </Text>
+                      </View>
+                      <Text
+                        style={{
+                          fontFamily: "Inter_400Regular",
+                          fontSize: 13,
+                          color: colors.foreground,
+                        }}
+                      >
+                        {fmtTime(step.ms)}
+                        {offsetMin != null && (
+                          <Text
+                            style={{
+                              color: colors.mutedForeground,
+                              fontSize: 12,
+                            }}
+                          >
+                            {" "}· +{fmtMinutes(offsetMin)}
+                          </Text>
+                        )}
+                      </Text>
+                      {!isActive && (
+                        <Text
+                          style={{
+                            fontFamily: "Inter_400Regular",
+                            fontSize: 11,
+                            color: ciColor + "99",
+                            marginTop: 2,
+                          }}
+                        >
+                          Tap to preview →
+                        </Text>
+                      )}
+                    </View>
+                  </>
+                );
+
+                if (!isActive) {
+                  return (
+                    <Pressable
+                      key={step.key}
+                      onPress={() => openPreview(step.sc)}
+                      style={({ pressed }) => ({
+                        flexDirection: "row",
+                        alignItems: "flex-start",
+                        gap: 12,
+                        minHeight: isLast ? 0 : 44,
+                        marginLeft: 3,
+                        opacity: pressed ? 0.65 : 1,
+                      })}
+                    >
+                      {rowContent}
+                    </Pressable>
+                  );
+                }
+
+                return (
                   <View
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 4,
-                      backgroundColor: ciColor + "33",
-                      borderWidth: 1.5,
-                      borderColor: ciColor,
-                      marginTop: 5,
-                    }}
-                  />
-                  {!isLast && (
-                    <View
-                      style={{
-                        width: 1,
-                        flex: 1,
-                        backgroundColor: colors.border,
-                        marginTop: 3,
-                      }}
-                    />
-                  )}
-                </View>
-                <View style={{ flex: 1, paddingBottom: isLast ? 0 : 4 }}>
-                  <View
+                    key={step.key}
                     style={{
                       flexDirection: "row",
-                      alignItems: "center",
-                      gap: 5,
-                      marginBottom: 1,
+                      alignItems: "flex-start",
+                      gap: 12,
+                      minHeight: isLast ? 0 : 44,
+                      marginLeft: 3,
                     }}
                   >
-                    <Feather name="bell" size={9} color={ciColor} />
+                    {rowContent}
+                  </View>
+                );
+              }
+
+              const dotColor = step.primary ? accentColor : colors.mutedForeground;
+              const dotBg = step.primary ? accentColor + "22" : "transparent";
+
+              return (
+                <View
+                  key={step.key}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "flex-start",
+                    gap: 12,
+                    minHeight: isLast ? 0 : 52,
+                  }}
+                >
+                  <View style={{ alignItems: "center", width: 18 }}>
+                    <View
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: 6,
+                        backgroundColor: dotBg,
+                        borderWidth: step.primary ? 0 : 1.5,
+                        borderColor: dotColor,
+                        marginTop: 4,
+                        ...(step.primary && { backgroundColor: accentColor }),
+                      }}
+                    />
+                    {!isLast && (
+                      <View
+                        style={{
+                          width: 1,
+                          flex: 1,
+                          backgroundColor: colors.border,
+                          marginTop: 4,
+                        }}
+                      />
+                    )}
+                  </View>
+
+                  <View style={{ flex: 1, paddingBottom: isLast ? 0 : 4 }}>
                     <Text
                       style={{
                         fontFamily: "Inter_600SemiBold",
-                        fontSize: 10,
-                        color: ciColor,
+                        fontSize: 12,
+                        color: colors.mutedForeground,
                         textTransform: "uppercase",
-                        letterSpacing: 0.4,
+                        letterSpacing: 0.5,
+                        marginBottom: 1,
                       }}
                     >
-                      Check In · {step.label}
+                      {step.label}
                     </Text>
-                  </View>
-                  <Text
-                    style={{
-                      fontFamily: "Inter_400Regular",
-                      fontSize: 13,
-                      color: colors.foreground,
-                    }}
-                  >
-                    {fmtTime(step.ms)}
-                    {offsetMin != null && (
+                    {step.sub != null && (
                       <Text
                         style={{
+                          fontFamily: "Inter_400Regular",
+                          fontSize: 11,
                           color: colors.mutedForeground,
-                          fontSize: 12,
+                          marginBottom: 1,
                         }}
                       >
-                        {" "}· +{fmtMinutes(offsetMin)}
+                        {step.sub}
                       </Text>
                     )}
-                  </Text>
+                    <Text
+                      style={{
+                        fontFamily: "Inter_700Bold",
+                        fontSize: 16,
+                        color: step.primary ? accentColor : colors.foreground,
+                      }}
+                    >
+                      {fmtTime(step.ms)}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            );
-          }
-
-          const dotColor = step.primary ? accentColor : colors.mutedForeground;
-          const dotBg = step.primary ? accentColor + "22" : "transparent";
-
-          return (
-            <View
-              key={step.key}
-              style={{
-                flexDirection: "row",
-                alignItems: "flex-start",
-                gap: 12,
-                minHeight: isLast ? 0 : 52,
-              }}
-            >
-              <View style={{ alignItems: "center", width: 18 }}>
-                <View
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: 6,
-                    backgroundColor: dotBg,
-                    borderWidth: step.primary ? 0 : 1.5,
-                    borderColor: dotColor,
-                    marginTop: 4,
-                    ...(step.primary && { backgroundColor: accentColor }),
-                  }}
+              );
+            })}
+            {(() => {
+              const seqData = c.sequenceData as {
+                fingerprintSource?:
+                  | "grill"
+                  | "user"
+                  | "pit_bias_only"
+                  | null;
+                fingerprintNote?: string | null;
+              } | null | undefined;
+              return (
+                <FingerprintCallout
+                  fingerprintSource={seqData?.fingerprintSource}
+                  fingerprintNote={seqData?.fingerprintNote}
+                  colors={colors}
                 />
-                {!isLast && (
-                  <View
-                    style={{
-                      width: 1,
-                      flex: 1,
-                      backgroundColor: colors.border,
-                      marginTop: 4,
-                    }}
-                  />
-                )}
-              </View>
+              );
+            })()}
+          </View>
+        </View>
+      )}
+    </CheckinPreviewWrapper>
+  );
+}
 
-              <View style={{ flex: 1, paddingBottom: isLast ? 0 : 4 }}>
-                <Text
-                  style={{
-                    fontFamily: "Inter_600SemiBold",
-                    fontSize: 12,
-                    color: colors.mutedForeground,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    marginBottom: 1,
-                  }}
-                >
-                  {step.label}
-                </Text>
-                {step.sub != null && (
-                  <Text
-                    style={{
-                      fontFamily: "Inter_400Regular",
-                      fontSize: 11,
-                      color: colors.mutedForeground,
-                      marginBottom: 1,
-                    }}
-                  >
-                    {step.sub}
-                  </Text>
-                )}
-                <Text
-                  style={{
-                    fontFamily: "Inter_700Bold",
-                    fontSize: 16,
-                    color: step.primary ? accentColor : colors.foreground,
-                  }}
-                >
-                  {fmtTime(step.ms)}
-                </Text>
-              </View>
-            </View>
-          );
-        })}
-        {(() => {
-          const seqData = c.sequenceData as {
-            fingerprintSource?:
-              | "grill"
-              | "user"
-              | "pit_bias_only"
-              | null;
-            fingerprintNote?: string | null;
-          } | null | undefined;
-          return (
-            <FingerprintCallout
-              fingerprintSource={seqData?.fingerprintSource}
-              fingerprintNote={seqData?.fingerprintNote}
-              colors={colors}
-            />
-          );
-        })()}
-      </View>
-    </View>
+// Render-prop wrapper that owns the preview sheet state so the outer
+// component stays a pure function (no hooks at the top level after early
+// returns, which would violate the rules of hooks).
+function CheckinPreviewWrapper({
+  meatOnMs,
+  colors,
+  isActive,
+  children,
+}: {
+  meatOnMs: number | null;
+  colors: any;
+  isActive: boolean;
+  children: (openPreview: (sc: ScheduledCheckin) => void) => React.ReactNode;
+}) {
+  const [previewSc, setPreviewSc] = useState<ScheduledCheckin | null>(null);
+  return (
+    <>
+      {children(isActive ? () => {} : setPreviewSc)}
+      {!isActive && (
+        <CheckinPreviewSheet
+          visible={previewSc != null}
+          onClose={() => setPreviewSc(null)}
+          colors={colors}
+          sc={previewSc}
+          meatOnMs={meatOnMs}
+        />
+      )}
+    </>
   );
 }
