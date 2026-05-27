@@ -139,6 +139,7 @@ import { EditCookTimesSheet } from "@/components/cook-detail/EditCookTimesSheet"
 import { AddToPlannedCookModal } from "@/components/cook-detail/AddToPlannedCookModal";
 import { AlertSheet } from "@/components/cook-detail/AlertSheet";
 import { UnifiedCheckinSheet } from "@/components/cook-detail/UnifiedCheckinSheet";
+import { CheckinPreviewSheet } from "@/components/cook-detail/CheckinPreviewSheet";
 import { PitMasterChatModal } from "@/components/PitMasterChatModal";
 import { CookActivityTimeline } from "@/components/cook-detail/CookActivityTimeline";
 import { LiveCookSection } from "@/components/cook-detail/LiveCookSection";
@@ -420,6 +421,7 @@ export default function CookDetailScreen() {
   // When no cookSeqData exists, this supplements storedScheduledCheckins so the
   // Check-ins card shows the upcoming reminders that were just scheduled.
   const [noPlanScheduledCheckins, setNoPlanScheduledCheckins] = useState<ScheduledCheckin[]>([]);
+  const [plannedCheckinPreviewSc, setPlannedCheckinPreviewSc] = useState<ScheduledCheckin | null>(null);
 
   // Reset noPlanScheduledCheckins whenever the cook identity or active status
   // changes so stale fallback entries from a previously viewed cook can never
@@ -3282,6 +3284,7 @@ export default function CookDetailScreen() {
               rowYRef={rowYRef}
               onQuickLog={undefined}
               scheduledCheckins={plannedSequenceCheckins}
+              onCheckinPress={setPlannedCheckinPreviewSc}
             />
             <PlannedCookTimeline c={c} colors={colors} />
           </>
@@ -3946,6 +3949,19 @@ export default function CookDetailScreen() {
           }}
         />
       )}
+
+      {/* ── Planned sequence check-in preview sheet ──────────── */}
+      <CheckinPreviewSheet
+        visible={plannedCheckinPreviewSc != null}
+        onClose={() => setPlannedCheckinPreviewSc(null)}
+        colors={colors}
+        sc={plannedCheckinPreviewSc}
+        meatOnMs={
+          cookSeqData?.schedule?.[0]?.meatOnAt
+            ? new Date(cookSeqData.schedule[0].meatOnAt).getTime()
+            : null
+        }
+      />
 
       {/* ── PitMaster Chat Modal ──────────────────────────────── */}
       <PitMasterChatModal

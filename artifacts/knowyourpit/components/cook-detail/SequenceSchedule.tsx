@@ -410,10 +410,15 @@ export function SequenceSchedule(p: Props) {
                                   const offsetMin = itemMeatOnMs != null ? Math.round((sc.scheduledAt - itemMeatOnMs) / 60_000) : null;
                                   const offsetLabel = offsetMin != null && offsetMin > 0 ? fmtMinutes(offsetMin) + " after meat-on" : null;
                                   const clockLabel = new Date(sc.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                                  // Planned cooks: always tappable (opens preview) if onCheckinPress provided and not done.
+                                  // Active cooks: tappable only when upcoming and not done (opens check-in log).
+                                  const isTappable = isPlannedCook
+                                    ? !isDone && !!onCheckinPress
+                                    : !isDone && isUpcoming && !!onCheckinPress;
                                   return (
                                     <Pressable
                                       key={`ci-${sc.phaseKey}`}
-                                      onPress={!isDone && isUpcoming && onCheckinPress ? () => onCheckinPress(sc) : undefined}
+                                      onPress={isTappable ? () => onCheckinPress!(sc) : undefined}
                                       style={[s.seqTlRow, { marginLeft: 4, marginBottom: 6, opacity: isDone ? 0.65 : 1 }]}
                                     >
                                       {isNext
@@ -437,8 +442,10 @@ export function SequenceSchedule(p: Props) {
                                             </Text>
                                           )}
                                         </Text>
-                                        {!isDone && isUpcoming && onCheckinPress && (
-                                          <Text style={{ fontSize: 10, fontFamily: "Inter_400Regular", color: ciColor, marginTop: 1 }}>Tap to check in →</Text>
+                                        {isTappable && (
+                                          <Text style={{ fontSize: 10, fontFamily: "Inter_400Regular", color: ciColor, marginTop: 1 }}>
+                                            {isPlannedCook ? "Tap to preview →" : "Tap to check in →"}
+                                          </Text>
                                         )}
                                       </View>
                                     </Pressable>
