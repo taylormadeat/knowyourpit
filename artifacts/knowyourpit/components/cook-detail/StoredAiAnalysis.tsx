@@ -29,7 +29,6 @@ interface Props {
   storedVerdictCfg: any;
   storedGraphProbes: any[];
   cardWidth: number;
-  nowMs: number;
   isIdentityLinked: boolean;
   effectivePro: boolean;
   expandedStoredSections: Set<string>;
@@ -41,7 +40,7 @@ interface Props {
 export function StoredAiAnalysis(p: Props) {
   const {
     c, colors, storedAnalysis, storedAssessment, storedVerdictCfg,
-    storedGraphProbes, cardWidth, nowMs, isIdentityLinked, effectivePro,
+    storedGraphProbes, cardWidth, isIdentityLinked, effectivePro,
     expandedStoredSections, toggleStoredSection, showPaywall, onCardLayout,
   } = p;
   if (!storedAnalysis) return null;
@@ -57,40 +56,10 @@ export function StoredAiAnalysis(p: Props) {
         </LinearGradient>
         <View style={{ flex: 1 }}>
           <Text style={[s.logTitle, { color: colors.foreground }]}>
-            {c.status === "active" ? "PitMaster Live Check-in" : "PitMaster Cook Analysis"}
+            PitMaster Cook Analysis
           </Text>
           <Text style={[s.logSub, { color: colors.mutedForeground }]}>
-            {c.status === "active"
-              ? (() => {
-                  const m = (storedAnalysis as any)?.snapshotElapsedMinutes;
-                  let intoCook = "";
-                  if (typeof m === "number" && m >= 0) {
-                    const h = Math.floor(m / 60);
-                    const mm = m % 60;
-                    intoCook = `Last check-in at ${h > 0 ? `${h}h ${mm}m` : `${mm}m`} into cook`;
-                  } else {
-                    intoCook = "Latest check-in";
-                  }
-                  const analyzedAtRaw =
-                    (storedAnalysis as any)?.analyzedAt ??
-                    (() => {
-                      const hist: any[] = Array.isArray((c as any).analysisHistory) ? (c as any).analysisHistory : [];
-                      return hist.length > 0 ? hist[hist.length - 1]?.savedAt : null;
-                    })();
-                  const analyzedAtMs = analyzedAtRaw ? new Date(analyzedAtRaw).getTime() : NaN;
-                  if (!Number.isFinite(analyzedAtMs)) return intoCook;
-                  const ageSec = Math.max(0, Math.round((nowMs - analyzedAtMs) / 1000));
-                  let ago: string;
-                  if (ageSec < 60) ago = "just now";
-                  else if (ageSec < 3600) ago = `${Math.floor(ageSec / 60)} min ago`;
-                  else {
-                    const ah = Math.floor(ageSec / 3600);
-                    const am = Math.floor((ageSec % 3600) / 60);
-                    ago = am > 0 ? `${ah}h ${am}m ago` : `${ah}h ago`;
-                  }
-                  return `${intoCook} · ${ago}`;
-                })()
-              : "Saved from image scan"}
+            Saved from image scan
           </Text>
           {(() => {
             const sourceLabel = (storedAnalysis as any)?.snapshotTempSourceLabel as string | null | undefined;
@@ -147,7 +116,7 @@ export function StoredAiAnalysis(p: Props) {
           <View style={s.keyTakeawayHeader}>
             <Feather name="star" size={13} color="#A855F7" />
             <Text style={[s.keyTakeawayLabel, { color: "#A855F7" }]}>
-              {c.status === "active" ? "Do this now" : `For your next ${c.foodType || "cook"}`}
+              {`For your next ${c.foodType || "cook"}`}
             </Text>
           </View>
           <Text style={[s.keyTakeawayText, { color: colors.foreground }]}>
@@ -156,11 +125,10 @@ export function StoredAiAnalysis(p: Props) {
         </View>
       )}
 
-      {/* Summary — Pro: full text. Free on a COMPLETED cook: first ~40 words
-          with a bottom fade gradient (Cook Coach teaser). Free on an active
-          cook: full text so live coaching stays visible. */}
+      {/* Summary — Pro: full text. Free: first ~40 words with a bottom fade
+          gradient (Cook Coach teaser). */}
       {isIdentityLinked && storedAssessment?.summary ? (
-        effectivePro || c.status !== "completed" ? (
+        effectivePro ? (
           <Text style={[s.storedSummary, { color: colors.foreground }]}>{storedAssessment.summary}</Text>
         ) : (
           <View style={{ position: "relative" }}>
@@ -254,7 +222,7 @@ export function StoredAiAnalysis(p: Props) {
           <View style={[s.subSection, { borderTopColor: colors.border }]}>
             <Pressable style={s.collapsibleRow} onPress={() => toggleStoredSection("wentWell")}>
               <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>
-                {c.status === "active" ? "What's Working" : "What Went Well"}
+                What Went Well
               </Text>
               <View style={[s.countPill, { backgroundColor: "#22c55e18" }]}>
                 <Text style={[s.countPillText, { color: "#22c55e" }]}>{items.length}</Text>
@@ -283,7 +251,7 @@ export function StoredAiAnalysis(p: Props) {
           <View style={[s.subSection, { borderTopColor: colors.border }]}>
             <Pressable style={s.collapsibleRow} onPress={() => toggleStoredSection("nextTime")}>
               <Text style={[s.subLabel, { color: colors.mutedForeground, flex: 1, marginBottom: 0 }]}>
-                {c.status === "active" ? "What to Adjust" : "Next Time, Try This"}
+                Next Time, Try This
               </Text>
               <View style={[s.countPill, { backgroundColor: "#A855F718" }]}>
                 <Text style={[s.countPillText, { color: "#A855F7" }]}>{tips.length}</Text>
@@ -308,7 +276,7 @@ export function StoredAiAnalysis(p: Props) {
       {/* Free user: blurred view of the actual coach lists. The real items
           are rendered beneath the BlurView so the conversion moment shows
           authentic content shape, not placeholder copy. */}
-      {isIdentityLinked && !effectivePro && c.status === "completed" && (
+      {isIdentityLinked && !effectivePro && (
         ((storedAssessment?.whatWentWell?.length ?? 0) > 0 ||
           (storedAssessment?.suggestions?.length ?? 1) > 1)
       ) && (() => {
@@ -340,7 +308,7 @@ export function StoredAiAnalysis(p: Props) {
               {wins.length > 0 && (
                 <>
                   <Text style={[s.subLabel, { color: colors.mutedForeground }]}>
-                    {c.status === "active" ? "What's Working" : "What Went Well"}
+                    What Went Well
                   </Text>
                   {wins.slice(0, 3).map((item, i) => (
                     <View key={`w-${i}`} style={s.bulletRow}>
@@ -355,7 +323,7 @@ export function StoredAiAnalysis(p: Props) {
               {tips.length > 0 && (
                 <>
                   <Text style={[s.subLabel, { color: colors.mutedForeground, marginTop: 6 }]}>
-                    {c.status === "active" ? "What to Adjust" : "Next Time, Try This"}
+                    Next Time, Try This
                   </Text>
                   {tips.slice(0, 3).map((tip, i) => (
                     <View key={`t-${i}`} style={s.bulletRow}>

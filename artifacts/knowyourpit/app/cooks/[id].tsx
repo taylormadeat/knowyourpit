@@ -3565,7 +3565,6 @@ export default function CookDetailScreen() {
           storedVerdictCfg={storedVerdictCfg}
           storedGraphProbes={effectiveStoredGraphProbes}
           cardWidth={cardWidth}
-          nowMs={nowMs}
           isIdentityLinked={isIdentityLinked}
           effectivePro={effectivePro}
           expandedStoredSections={expandedStoredSections}
