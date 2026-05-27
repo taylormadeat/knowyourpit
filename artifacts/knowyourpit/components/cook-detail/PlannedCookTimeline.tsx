@@ -1,12 +1,10 @@
-import React, { useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import React from "react";
+import { View, Text } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { s } from "./styles";
 import { FingerprintCallout } from "./FingerprintCallout";
 import { generateCheckinSchedule } from "@/constants/checkinKnowledge";
-import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
 import { fmtMinutes } from "@/utils/duration";
-import { CheckinPreviewSheet } from "./CheckinPreviewSheet";
 
 type Colors = any;
 
@@ -33,14 +31,11 @@ type CheckinStep = {
   key: string;
   label: string;
   ms: number;
-  sc: ScheduledCheckin;
 };
 
 type Step = MilestoneStep | CheckinStep;
 
 export function PlannedCookTimeline({ c, colors }: Props) {
-  const [previewSc, setPreviewSc] = useState<ScheduledCheckin | null>(null);
-
   if ((c.sequenceData as any)?.schedule?.length > 0) return null;
 
   const meatOnMs = c.plannedStartAt ? new Date(c.plannedStartAt).getTime() : null;
@@ -126,7 +121,6 @@ export function PlannedCookTimeline({ c, colors }: Props) {
           key: `ci-${sc.phaseKey}`,
           label: sc.phaseLabel,
           ms: sc.scheduledAt,
-          sc,
         });
       }
     }
@@ -142,7 +136,6 @@ export function PlannedCookTimeline({ c, colors }: Props) {
   const ciColor = "#7C3AED";
 
   return (
-    <>
     <View
       style={[
         s.card,
@@ -185,17 +178,15 @@ export function PlannedCookTimeline({ c, colors }: Props) {
                 ? Math.round((step.ms - meatOnMs) / 60_000)
                 : null;
             return (
-              <Pressable
+              <View
                 key={step.key}
-                onPress={() => setPreviewSc(step.sc)}
-                style={({ pressed }) => ({
+                style={{
                   flexDirection: "row",
                   alignItems: "flex-start",
                   gap: 12,
                   minHeight: isLast ? 0 : 44,
                   marginLeft: 3,
-                  opacity: pressed ? 0.7 : 1,
-                })}
+                }}
               >
                 <View style={{ alignItems: "center", width: 18 }}>
                   <View
@@ -261,18 +252,8 @@ export function PlannedCookTimeline({ c, colors }: Props) {
                       </Text>
                     )}
                   </Text>
-                  <Text
-                    style={{
-                      fontFamily: "Inter_400Regular",
-                      fontSize: 10,
-                      color: ciColor,
-                      marginTop: 1,
-                    }}
-                  >
-                    Tap to preview →
-                  </Text>
                 </View>
-              </Pressable>
+              </View>
             );
           }
 
@@ -371,14 +352,5 @@ export function PlannedCookTimeline({ c, colors }: Props) {
         })()}
       </View>
     </View>
-
-    <CheckinPreviewSheet
-      visible={previewSc != null}
-      onClose={() => setPreviewSc(null)}
-      colors={colors}
-      sc={previewSc}
-      meatOnMs={meatOnMs}
-    />
-    </>
   );
 }
