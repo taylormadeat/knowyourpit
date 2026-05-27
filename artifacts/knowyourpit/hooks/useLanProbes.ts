@@ -100,6 +100,10 @@ export function useLanProbes({
   const [scanning, setScanning] = useState(false);
   const mountedRef = useRef(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Ref that always holds the latest discovered map so doPoll can read it
+  // without closing over the state value (which would change its identity on
+  // every mDNS resolution event and restart the polling interval).
+  const discoveredRef = useRef<import("./useZeroconfDiscovery").DiscoveredHosts>({});
 
   /**
    * Per-host consecutive-failure counter.  Only hosts that came from the
@@ -117,6 +121,13 @@ export function useLanProbes({
     evictHost,
   } = useZeroconfDiscovery(enabled && Platform.OS !== "web");
 
+  // Keep the ref in sync so doPoll always sees the latest discovered map
+  // without needing it in its dependency array.
+  discoveredRef.current = discovered;
+
+  // Stable ref to doPoll so the interval effect doesn't need doPoll as a dep.
+  const doPollRef = useRef<() => Promise<void>>(async () => {});
+
   const doPoll = useCallback(async () => {
     if (Platform.OS === "web") return;
     if (!mountedRef.current) return;
@@ -133,13 +144,15 @@ export function useLanProbes({
         return [...new Set(hosts)];
       }
 
+      const snap = discoveredRef.current;
+
       const fireboardHosts = dedup([
-        ...(discovered.fireboard ?? []),
+        ...(snap.fireboard ?? []),
         DEFAULT_FIREBOARD_HOST,
       ]);
 
       const meaterHosts = dedup([
-        ...(discovered.meater_block ?? []),
+        ...(snap.meater_block ?? []),
         DEFAULT_MEATER_BLOCK_HOST,
       ]);
 
@@ -147,7 +160,7 @@ export function useLanProbes({
       // well-known Signals aliases.  Pass each as explicit hosts to the
       // adapter so it doesn't run its own internal alias loop on top.
       const signalsHosts = dedup([
-        ...(discovered.thermoworks_signals ?? []),
+        ...(snap.thermoworks_signals ?? []),
         ...DEFAULT_SIGNALS_HOSTS,
       ]);
 
@@ -210,9 +223,9 @@ export function useLanProbes({
         }
       }
 
-      trackFailures("fireboard", fireboardPerHost, discovered.fireboard);
-      trackFailures("meater_block", meaterPerHost, discovered.meater_block);
-      trackFailures("thermoworks_signals", signalsPerHost, discovered.thermoworks_signals);
+      trackFailures("fireboard", fireboardPerHost, snap.fireboard);
+      trackFailures("meater_block", meaterPerHost, snap.meater_block);
+      trackFailures("thermoworks_signals", signalsPerHost, snap.thermoworks_signals);
 
       // Trigger a single rescan after all evictions so mDNS can rediscover
       // the device at its new IP address.
@@ -262,14 +275,18 @@ export function useLanProbes({
     } finally {
       if (mountedRef.current) setScanning(false);
     }
-  }, [discovered, evictHost, rescan]);
+  }, [evictHost, rescan]);
+
+  // Keep the ref pointing at the latest doPoll so the interval always calls
+  // the current version without needing to be in the effect's dep array.
+  doPollRef.current = doPoll;
 
   useEffect(() => {
     mountedRef.current = true;
     if (!enabled || Platform.OS === "web") return;
 
-    doPoll();
-    intervalRef.current = setInterval(doPoll, pollIntervalMs);
+    doPollRef.current();
+    intervalRef.current = setInterval(() => doPollRef.current(), pollIntervalMs);
 
     return () => {
       mountedRef.current = false;
@@ -278,13 +295,17 @@ export function useLanProbes({
         intervalRef.current = null;
       }
     };
-  }, [enabled, pollIntervalMs, doPoll]);
+    // doPollRef is a stable ref — intentionally excluded from deps so the
+    // interval is only torn down / restarted when enabled or the interval
+    // duration truly changes, not on every mDNS resolution.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, pollIntervalMs]);
 
   const scanAll = useCallback(() => {
     if (!enabled) return;
     rescan();
-    doPoll();
-  }, [enabled, rescan, doPoll]);
+    doPollRef.current();
+  }, [enabled, rescan]);
 
   return {
     devices,

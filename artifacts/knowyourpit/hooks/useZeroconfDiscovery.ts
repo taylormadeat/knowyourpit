@@ -274,15 +274,8 @@ export function useZeroconfDiscovery(enabled: boolean): UseZeroconfDiscoveryResu
       if (mountedRef.current) setScanning(false);
     });
 
-    // Kick off the first scan
-    // Use a small delay so the listeners are registered before scan() runs
-    const initTimer = setTimeout(() => {
-      if (mountedRef.current) startScan();
-    }, 200);
-
     return () => {
       mountedRef.current = false;
-      clearTimeout(initTimer);
       if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
       try {
         browser.stop();
