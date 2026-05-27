@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, Pressable } from "react-native";
+import React, { useRef, useEffect } from "react";
+import { View, Text, Pressable, Animated } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { s } from "./styles";
@@ -12,6 +12,35 @@ import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
 import type { CookCheckin } from "@workspace/api-client-react";
 
 type Colors = any;
+
+function PulsingCheckinDot({ color }: { color: string }) {
+  const anim = useRef(new Animated.Value(1)).current;
+  const loopRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    loopRef.current = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 0.25, duration: 700, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ]),
+    );
+    loopRef.current.start();
+    return () => { loopRef.current?.stop(); };
+  }, [anim]);
+
+  return (
+    <Animated.View
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginTop: 5,
+        backgroundColor: color,
+        opacity: anim,
+      }}
+    />
+  );
+}
 
 interface Props {
   c: any;
@@ -31,6 +60,7 @@ interface Props {
   scheduledCheckins?: ScheduledCheckin[];
   cookCheckins?: CookCheckin[];
   onCheckinPress?: (sc: ScheduledCheckin) => void;
+  nextCheckinSc?: ScheduledCheckin | null;
 }
 
 function isStallProneMeat(foodType: string): boolean {
@@ -60,7 +90,7 @@ export function SequenceSchedule(p: Props) {
     confirmedSteps, toggleConfirmedStep,
     scheduleListYRef, itemYRef, timelineYRef, rowYRef,
     onQuickLog,
-    scheduledCheckins, cookCheckins, onCheckinPress,
+    scheduledCheckins, cookCheckins, onCheckinPress, nextCheckinSc,
   } = p;
 
   const completedPhaseKeys = new Set(
@@ -372,6 +402,7 @@ export function SequenceSchedule(p: Props) {
                                   const sc = event.sc;
                                   const isDone = completedPhaseKeys.has(sc.phaseKey);
                                   const isUpcoming = sc.scheduledAt > nowMs;
+                                  const isNext = !isDone && isUpcoming && sc.phaseKey === nextCheckinSc?.phaseKey;
                                   const ciDotColor = isDone ? "#22c55e" : isUpcoming ? ciColor : colors.mutedForeground as string;
                                   return (
                                     <Pressable
@@ -379,7 +410,10 @@ export function SequenceSchedule(p: Props) {
                                       onPress={!isDone && isUpcoming && onCheckinPress ? () => onCheckinPress(sc) : undefined}
                                       style={[s.seqTlRow, { marginLeft: 4, marginBottom: 6, opacity: isDone ? 0.65 : 1 }]}
                                     >
-                                      <View style={[s.seqTlDot, { width: 8, height: 8, borderRadius: 4, marginTop: 5, backgroundColor: ciDotColor }]} />
+                                      {isNext
+                                        ? <PulsingCheckinDot color={ciDotColor} />
+                                        : <View style={[s.seqTlDot, { width: 8, height: 8, borderRadius: 4, marginTop: 5, backgroundColor: ciDotColor }]} />
+                                      }
                                       <View style={{ flex: 1 }}>
                                         <View style={s.seqTlLabelRow}>
                                           <Feather name={isDone ? "check-circle" : "bell"} size={9} color={ciDotColor} style={{ marginRight: 2 }} />

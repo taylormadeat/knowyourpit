@@ -3570,6 +3570,7 @@ export default function CookDetailScreen() {
               })() : undefined}
               cookCheckins={cookCheckins as CookCheckin[]}
               onCheckinPress={cookStatus === "active" ? openCheckin : undefined}
+              nextCheckinSc={cookStatus === "active" ? nextCheckinSc : null}
             />
           </>
         )}
