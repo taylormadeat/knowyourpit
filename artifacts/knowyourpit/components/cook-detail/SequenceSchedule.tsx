@@ -312,8 +312,8 @@ export function SequenceSchedule(p: Props) {
                             events.push({ kind: "wrap" });
                           }
 
-                          // Check-in checkpoints (active cooks only, meatOn → serve window)
-                          if (isActive && scheduledCheckins && scheduledCheckins.length > 0) {
+                          // Check-in checkpoints (active and planned cooks, meatOn → serve window)
+                          if (scheduledCheckins && scheduledCheckins.length > 0) {
                             const itemServeMs = itemPullOffMs + (item.restMinutes ?? 0) * 60_000;
                             for (const sc of scheduledCheckins) {
                               if (sc.scheduledAt >= itemMeatOnMs && sc.scheduledAt <= itemServeMs) {
@@ -404,6 +404,12 @@ export function SequenceSchedule(p: Props) {
                                   const isUpcoming = sc.scheduledAt > nowMs;
                                   const isNext = !isDone && isUpcoming && sc.phaseKey === nextCheckinSc?.phaseKey;
                                   const ciDotColor = isDone ? "#22c55e" : isUpcoming ? ciColor : colors.mutedForeground as string;
+                                  const isPlannedCook = cookStatus === "planned";
+                                  // For planned cooks: clock time + offset from meat-on.
+                                  // For active cooks: clock time (past) or countdown from now (upcoming).
+                                  const offsetMin = itemMeatOnMs != null ? Math.round((sc.scheduledAt - itemMeatOnMs) / 60_000) : null;
+                                  const offsetLabel = offsetMin != null && offsetMin > 0 ? fmtMinutes(offsetMin) + " after meat-on" : null;
+                                  const clockLabel = new Date(sc.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
                                   return (
                                     <Pressable
                                       key={`ci-${sc.phaseKey}`}
@@ -421,9 +427,15 @@ export function SequenceSchedule(p: Props) {
                                         </View>
                                         <Text style={[s.seqTlMeta, { color: isDone ? colors.mutedForeground as string : colors.foreground as string, fontSize: 12, fontFamily: "Inter_600SemiBold" }]}>
                                           {sc.phaseLabel}
-                                          <Text style={[s.seqTlMeta, { color: isUpcoming ? ciColor : colors.mutedForeground as string }]}>
-                                            {" "}· {isUpcoming ? relCountdown(sc.scheduledAt, nowMs) : new Date(sc.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                          </Text>
+                                          {isPlannedCook ? (
+                                            <Text style={[s.seqTlMeta, { color: ciColor }]}>
+                                              {" "}· {clockLabel}{offsetLabel ? ` · ${offsetLabel}` : ""}
+                                            </Text>
+                                          ) : (
+                                            <Text style={[s.seqTlMeta, { color: isUpcoming ? ciColor : colors.mutedForeground as string }]}>
+                                              {" "}· {isUpcoming ? relCountdown(sc.scheduledAt, nowMs) : clockLabel}
+                                            </Text>
+                                          )}
                                         </Text>
                                         {!isDone && isUpcoming && onCheckinPress && (
                                           <Text style={{ fontSize: 10, fontFamily: "Inter_400Regular", color: ciColor, marginTop: 1 }}>Tap to check in →</Text>

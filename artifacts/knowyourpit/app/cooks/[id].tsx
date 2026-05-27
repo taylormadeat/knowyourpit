@@ -130,7 +130,7 @@ import {
   scheduleStepNotifications,
   cancelStoredStepNotifications,
 } from "@/hooks/useScheduleStepNotifications";
-import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
+import type { ScheduledCheckin, CheckinSequenceAnchor } from "@/constants/checkinKnowledge";
 import { getCheckinSchedule, generateCheckinSchedule } from "@/constants/checkinKnowledge";
 import type { CookCheckin } from "@workspace/api-client-react";
 import { SettingsRow } from "@/components/plan-screen/SettingsRow";
@@ -1251,6 +1251,29 @@ export default function CookDetailScreen() {
       upcomingCheckinsForCard: upcoming.slice(1, 5),
     };
   }, [cookSeqData, storedScheduledCheckins, noPlanScheduledCheckins, nowMs]);
+
+  // For planned cooks with a sequence, compute upcoming check-ins client-side
+  // so SequenceSchedule can show them in the timeline before the cook starts.
+  const plannedSequenceCheckins = useMemo<ScheduledCheckin[]>(() => {
+    if (cookStatus !== "planned") return [];
+    const first = cookSeqData?.schedule?.[0];
+    if (!first?.meatOnAt || !first?.estimatedFinishAt) return [];
+    const meatOnAtMs = new Date(first.meatOnAt).getTime();
+    const estimatedFinishAtMs = new Date(first.estimatedFinishAt).getTime();
+    if (estimatedFinishAtMs <= meatOnAtMs) return [];
+    const anchor: CheckinSequenceAnchor = {
+      meatOnAt: first.meatOnAt,
+      estimatedFinishAt: first.estimatedFinishAt,
+      wrapAtMinutes: first.wrapAtMinutes ?? null,
+    };
+    return generateCheckinSchedule(
+      first.foodType ?? null,
+      meatOnAtMs,
+      estimatedFinishAtMs,
+      anchor,
+      typeof first.weightLbs === "number" ? first.weightLbs : null,
+    );
+  }, [cookStatus, cookSeqData]);
 
   const handleCheckInNext = useCallback(() => {
     if (nextCheckinSc) {
@@ -3335,6 +3358,7 @@ export default function CookDetailScreen() {
               timelineYRef={timelineYRef}
               rowYRef={rowYRef}
               onQuickLog={undefined}
+              scheduledCheckins={plannedSequenceCheckins}
             />
             <PlannedCookTimeline c={c} colors={colors} />
           </>
