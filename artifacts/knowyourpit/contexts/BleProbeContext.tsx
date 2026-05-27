@@ -102,17 +102,32 @@ export function useBleProbes() {
 }
 
 async function requestBlePermissionsAndroid(): Promise<boolean> {
-  const { PermissionsAndroid } = await import("react-native");
+  const { PermissionsAndroid, Alert } = await import("react-native");
   try {
     if ((Platform.Version as number) >= 31) {
+      // Android 12+: show a rationale before the system dialog appears so
+      // the pitmaster understands why Bluetooth access is needed.
+      await new Promise<void>((resolve) => {
+        Alert.alert(
+          "Bluetooth Access Needed",
+          "knowyourpit needs Bluetooth to scan for nearby probes (Inkbird, MEATER, Govee, Weber iGrill). Your location data is never stored or shared.",
+          [{ text: "Continue", onPress: () => resolve() }],
+        );
+      });
+      // Request BLUETOOTH_SCAN, BLUETOOTH_CONNECT, and ACCESS_FINE_LOCATION
+      // together. ACCESS_FINE_LOCATION is required on API 31+ when scanning
+      // for devices that have not been previously paired (neverForLocation
+      // flag is not set in the manifest).
       const results = await PermissionsAndroid.requestMultiple([
         PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
         PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
       ]);
       return Object.values(results).every(
         (r) => r === PermissionsAndroid.RESULTS.GRANTED,
       );
     }
+    // Android < 12: BLE scanning requires ACCESS_FINE_LOCATION
     const result = await PermissionsAndroid.request(
       PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
       {
@@ -412,13 +427,58 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         managerRef.current = new BleManager();
       }
 
+      // iOS: check Bluetooth authorization state before starting the scan so
+      // we surface a permission-denied banner instead of silently returning
+      // zero results. onStateChange with emitCurrentValue=true fires immediately
+      // with the current state, then continues streaming updates.
+      if (Platform.OS === "ios") {
+        const bleState = await new Promise<string>((resolve) => {
+          let settled = false;
+          const sub = managerRef.current.onStateChange((state: string) => {
+            if (state !== "Unknown" && state !== "Resetting") {
+              if (!settled) {
+                settled = true;
+                try { sub?.remove?.(); } catch {}
+                resolve(state);
+              }
+            }
+          }, true);
+          // Safety timeout: treat unresolved state as authorized to not block UI
+          setTimeout(() => {
+            if (!settled) {
+              settled = true;
+              try { sub?.remove?.(); } catch {}
+              resolve("Unknown");
+            }
+          }, 3000);
+        });
+        if (!mountedRef.current) return;
+        if (bleState === "Unauthorized") {
+          setPermissionDenied(true);
+          return;
+        }
+      }
+
       setScanning(true);
 
       managerRef.current.startDeviceScan(
         null,
         { allowDuplicates: true },
         (error: any, device: any) => {
-          if (!mountedRef.current || error || !device) return;
+          if (!mountedRef.current) return;
+          if (error) {
+            // Detect iOS Bluetooth unauthorized errors (errorCode 102 =
+            // BLEError.BluetoothUnauthorized in react-native-ble-plx).
+            if (Platform.OS === "ios") {
+              const code = error?.errorCode ?? error?.code;
+              const reason = String(error?.reason ?? error?.message ?? "").toLowerCase();
+              if (code === 102 || reason.includes("unauthorized") || reason.includes("not authorized")) {
+                setPermissionDenied(true);
+              }
+            }
+            return;
+          }
+          if (!device) return;
 
           const adapter = detectAdapter(device);
           if (!adapter) return;

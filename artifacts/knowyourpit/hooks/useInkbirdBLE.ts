@@ -1,24 +1,32 @@
 /**
  * useInkbirdBLE
  *
- * Scans for nearby Inkbird wireless thermometers (IBT-2X, IBT-4XS, IBT-6XS)
- * over BLE and returns live probe temperature readings without requiring any
- * account, pairing, or cloud connection.
+ * Scans for nearby Inkbird wireless thermometers (IBT-2X, IBT-4XS, IBT-6XS,
+ * IBS-TH) over BLE and returns live probe temperature readings without
+ * requiring any account, pairing, or cloud connection.
  *
  * Inkbird IBT-series devices broadcast manufacturer data in their BLE
  * advertisement packets. Byte format (after base64 decode):
  *   [0:1] = manufacturer ID (skipped)
- *   [2:3] = probe channel 0 temp (little-endian uint16, units = 1/10 °F)
+ *   [2:3] = probe channel 0 temp (little-endian uint16)
  *   [4:5] = probe channel 1 temp
- *   … up to 6 channels
+ *   … up to 6 channels (IBT-6XS)
  *   0xFFFF / 0xFFFE = probe not inserted
  *
- * NOTE: Byte format may need calibration per firmware revision. If readings
- * look off, toggle INKBIRD_TEMP_UNIT_IS_CELSIUS below.
+ * Temperature unit: Inkbird firmware sends values in 1/10 °C by default.
+ * Some older firmware revisions report 1/10 °F — toggle
+ * INKBIRD_TEMP_UNIT_IS_CELSIUS below if readings look ~32 °F too low.
+ *
+ * IBS-TH1/TH2 (temperature + humidity sensors) use the same advertisement
+ * structure; their single channel carries ambient temperature.
  */
 
 import { useEffect, useRef, useState } from "react";
 import { Platform, PermissionsAndroid } from "react-native";
+import {
+  INKBIRD_NAME_PREFIXES,
+  INKBIRD_SERVICE_UUIDS,
+} from "@/hooks/ble/adapters/inkbird";
 
 export interface InkbirdProbeReading {
   deviceId: string;
@@ -38,28 +46,26 @@ interface UseInkbirdBLEResult {
   scanning: boolean;
 }
 
-// Inkbird IBT-series advertisement format: values are in 1/10 °C by default.
-// Set to false only if your specific firmware revision reports in 1/10 °F.
-const INKBIRD_TEMP_UNIT_IS_CELSIUS = true;
-
-// Device name prefixes used by Inkbird thermometers (case-insensitive)
-const INKBIRD_PREFIXES = ["ibbq", "inkbird", "ibt-", "ibt_"];
-
-// Service UUID advertised by Inkbird IBT-series devices (16-bit: 0xFFF0)
-const INKBIRD_SERVICE_UUID = "0000fff0-0000-1000-8000-00805f9b34fb";
-
 // Remove devices from the list if not seen within this window
 const STALE_TIMEOUT_MS = 30_000;
 
+// Plausible BBQ temperature bounds in Celsius.
+// If a raw/10 value (interpreted as °C) falls outside this range but would
+// be plausible as °F, we treat it as already in °F (firmware °F variant).
+const MAX_PLAUSIBLE_CELSIUS = 650;
+const MIN_PLAUSIBLE_CELSIUS = -50;
+
 function isInkbirdDevice(device: any): boolean {
-  const name = (device?.name ?? device?.localName ?? "") as string;
-  if (INKBIRD_PREFIXES.some((p) => name.toLowerCase().startsWith(p))) return true;
-  // Fallback: match on advertised service UUID (some models omit a known name)
+  const name = ((device?.name ?? device?.localName ?? "") as string).toLowerCase();
+  if (INKBIRD_NAME_PREFIXES.some((p) => name.startsWith(p))) return true;
+
   const serviceUUIDs: string[] = device?.serviceUUIDs ?? [];
-  if (serviceUUIDs.some((u: string) => u.toLowerCase() === INKBIRD_SERVICE_UUID)) return true;
+  const lowerUUIDs = serviceUUIDs.map((u: string) => u.toLowerCase());
+  if (INKBIRD_SERVICE_UUIDS.some((uuid) => lowerUUIDs.includes(uuid))) return true;
+
   const serviceData: Record<string, string> = device?.serviceData ?? {};
-  if (Object.keys(serviceData).some((k) => k.toLowerCase() === INKBIRD_SERVICE_UUID)) return true;
-  return false;
+  const lowerKeys = Object.keys(serviceData).map((k) => k.toLowerCase());
+  return INKBIRD_SERVICE_UUIDS.some((uuid) => lowerKeys.includes(uuid));
 }
 
 function base64ToBytes(b64: string): number[] {
@@ -73,27 +79,71 @@ function base64ToBytes(b64: string): number[] {
 
 /**
  * Parse probe temperatures from an Inkbird IBT-series BLE advertisement.
+ *
+ * Handles both 2/4-channel (IBT-2X, IBT-4XS) and 6-channel (IBT-6XS) formats.
+ * The wire format is identical — the 6-channel devices simply carry more pairs.
+ *
+ * Unit detection (in priority order):
+ *  1. Unit flag byte — the byte immediately after all channel pairs, when present:
+ *       0x00       → source is °C (most firmware versions)
+ *       0xFF/0x01  → source is °F (some regional/older firmware)
+ *  2. Plausibility heuristic — if a raw÷10 value would be unreasonably high or
+ *     low for Celsius (outside -50 … 650 °C) but plausible as °F, treat as °F.
+ *  3. Default → assume °C.
+ *
  * Returns an array of tempF values, one per inserted probe channel.
- * Channels with no probe inserted are omitted.
+ * Channels with no probe inserted (raw value ≥ 0xFFFE) are omitted.
  */
 function parseInkbirdTemps(manufacturerData: string | null): number[] {
   if (!manufacturerData) return [];
   const bytes = base64ToBytes(manufacturerData);
   if (bytes.length < 4) return [];
 
-  const temps: number[] = [];
-  // Skip 2-byte manufacturer ID prefix, then read pairs
-  for (let i = 2; i + 1 < bytes.length; i += 2) {
-    const b0 = bytes[i] ?? 0;
-    const b1 = bytes[i + 1] ?? 0;
-    const raw = b0 | (b1 << 8); // little-endian uint16
-    if (raw >= 0xFFFE) continue; // probe not inserted
+  // Collect raw uint16 values for every channel slot (up to 6).
+  const maxChannels = 6;
+  const rawValues: number[] = [];
+  for (
+    let i = 2, ch = 0;
+    i + 1 < bytes.length && ch < maxChannels;
+    i += 2, ch++
+  ) {
+    const raw = (bytes[i] ?? 0) | ((bytes[i + 1] ?? 0) << 8);
+    rawValues.push(raw);
+  }
 
-    const value = raw / 10;
-    const tempF = INKBIRD_TEMP_UNIT_IS_CELSIUS
-      ? (value * 9) / 5 + 32
-      : value;
-    temps.push(tempF);
+  // Try to read a unit flag byte: the byte immediately after all channel pairs.
+  const unitFlagIdx = 2 + rawValues.length * 2;
+  let sourceIsCelsius = true; // conservative default (vast majority of firmware)
+  if (unitFlagIdx < bytes.length) {
+    const flag = bytes[unitFlagIdx];
+    if (flag === 0xff || flag === 0x01) {
+      sourceIsCelsius = false; // explicit °F flag
+    } else if (flag === 0x00) {
+      sourceIsCelsius = true; // explicit °C flag
+    }
+    // Any other value: keep the default (°C)
+  }
+
+  const temps: number[] = [];
+  for (const raw of rawValues) {
+    if (raw >= 0xfffe) continue; // probe not inserted (0xFFFE or 0xFFFF)
+
+    const value = raw / 10; // 1/10 of source unit
+
+    let tempF: number;
+    if (sourceIsCelsius) {
+      // Plausibility check: if value is outside realistic Celsius BBQ range,
+      // the firmware is likely sending °F without the flag — use it directly.
+      if (value > MAX_PLAUSIBLE_CELSIUS || value < MIN_PLAUSIBLE_CELSIUS) {
+        tempF = value; // already °F
+      } else {
+        tempF = (value * 9) / 5 + 32; // °C → °F
+      }
+    } else {
+      tempF = value; // explicit °F source
+    }
+
+    temps.push(Math.round(tempF * 10) / 10);
   }
   return temps;
 }
@@ -101,10 +151,13 @@ function parseInkbirdTemps(manufacturerData: string | null): number[] {
 async function requestBlePermissionsAndroid(): Promise<boolean> {
   try {
     if ((Platform.Version as number) >= 31) {
-      // Android 12+: dedicated BLE scan/connect permissions
+      // Android 12+: dedicated BLE scan/connect permissions.
+      // ACCESS_FINE_LOCATION is also required when scanning for devices
+      // whose MAC address has not been previously paired.
       const results = await PermissionsAndroid.requestMultiple([
         PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
         PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
       ]);
       return Object.values(results).every(
         (r) => r === PermissionsAndroid.RESULTS.GRANTED,
@@ -179,7 +232,7 @@ export function useInkbirdBLE({ enabled }: UseInkbirdBLEOptions): UseInkbirdBLER
 
             if (!isInkbirdDevice(device)) return;
 
-            const deviceName = (device.name ?? device.localName ?? "Inkbird") as string;
+            const deviceName = ((device.name ?? device.localName ?? "Inkbird") as string);
             const temps = parseInkbirdTemps(device.manufacturerData as string | null);
 
             const now = Date.now();
@@ -189,7 +242,7 @@ export function useInkbirdBLE({ enabled }: UseInkbirdBLEOptions): UseInkbirdBLER
               // show it so the user knows it was found (tempF = null)
               const key = `${device.id}_0`;
               probeMapRef.current.set(key, {
-                deviceId: device.id,
+                deviceId: device.id as string,
                 deviceName,
                 probeIndex: 0,
                 tempF: null,

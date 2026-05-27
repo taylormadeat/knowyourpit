@@ -25,6 +25,7 @@
         "NSPhotoLibraryUsageDescription": "knowyourpit accesses your photo library to attach photos to your cook logs and scan images for AI temperature analysis.",
         "NSCameraUsageDescription": "knowyourpit uses your camera to take cook photos and capture progress images for AI temperature analysis.",
         "NSUserNotificationUsageDescription": "knowyourpit sends you alerts when your probe hits the target temperature and reminders to add fuel during long cooks.",
+        "NSBluetoothAlwaysUsageDescription": "knowyourpit uses Bluetooth to read live temperatures from your Inkbird wireless thermometer.",
         "NSLocalNetworkUsageDescription": "knowyourpit scans your local network to automatically discover WiFi thermometers (Fireboard, MEATER Block, ThermoWorks Signals) without requiring you to enter an IP address.",
         "NSBonjourServices": ["_http._tcp"],
         "ITSAppUsesNonExemptEncryption": false

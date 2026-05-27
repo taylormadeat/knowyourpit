@@ -14,6 +14,7 @@ import {
   type AppStateStatus,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { Feather } from "@expo/vector-icons";
@@ -249,6 +250,7 @@ function LanDeviceCard({ device, colors }: { device: LanDeviceStatus; colors: an
 
 export default function DevicesScreen() {
   const colors = useColors();
+  const router = useRouter();
   const qc = useQueryClient();
   const scrollRef = useRef<ScrollView>(null);
   const botPad = useBottomInset();
@@ -450,7 +452,22 @@ export default function DevicesScreen() {
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
       <LogoBackground opacity={0.04} />
-      <AppHeader title="Connected Devices" showBack dark />
+      <AppHeader
+        title="Connected Devices"
+        showBack
+        dark
+        right={
+          <Pressable
+            onPress={() => router.push("/ble-diagnostics" as any)}
+            style={{ paddingHorizontal: 4, paddingVertical: 4, flexDirection: "row", alignItems: "center", gap: 5 }}
+          >
+            <Feather name="activity" size={15} color="#F3EDE1" style={{ opacity: 0.7 }} />
+            <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: "#F3EDE1", opacity: 0.7 }}>
+              Diagnostics
+            </Text>
+          </Pressable>
+        }
+      />
 
       <AppKeyboardAvoidingView style={{ flex: 1 }}>
         <ScrollView
@@ -592,11 +609,23 @@ export default function DevicesScreen() {
             ) : (
               <>
                 {blePermDenied && (
-                  <View style={[s.emptyCard, { backgroundColor: "#ef444412", borderColor: "#ef444440", borderRadius: colors.radius }]}>
-                    <Feather name="alert-circle" size={16} color="#ef4444" />
-                    <Text style={[s.emptyText, { color: "#ef4444" }]}>
-                      Bluetooth permission denied. Enable it in Settings to use BLE thermometers.
+                  <View style={[s.emptyCard, { backgroundColor: "#ef444412", borderColor: "#ef444440", borderRadius: colors.radius, alignItems: "flex-start", gap: 10 }]}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <Feather name="alert-circle" size={16} color="#ef4444" />
+                      <Text style={[s.emptyText, { color: "#ef4444", textAlign: "left" }]}>
+                        Bluetooth permission denied
+                      </Text>
+                    </View>
+                    <Text style={[s.emptySubText, { color: colors.mutedForeground, textAlign: "left" }]}>
+                      knowyourpit cannot scan for BLE probes without Bluetooth access. Open Settings and enable Bluetooth for knowyourpit, then tap "Scan for Devices" again.
                     </Text>
+                    <Pressable
+                      onPress={() => Linking.openSettings()}
+                      style={[s.openSettingsBtn, { backgroundColor: "#ef4444" }]}
+                    >
+                      <Feather name="settings" size={13} color="#fff" />
+                      <Text style={s.openSettingsBtnText}>Open Settings</Text>
+                    </Pressable>
                   </View>
                 )}
 
