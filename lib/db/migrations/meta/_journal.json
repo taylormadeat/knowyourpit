@@ -57,6 +57,13 @@
       "when": 1748217600001,
       "tag": "0008_cook_photos_pending_delete",
       "breakpoints": false
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1748390400000,
+      "tag": "0009_drop_mop_columns",
+      "breakpoints": false
     }
   ]
 }

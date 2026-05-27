@@ -29,7 +29,7 @@ interface EventButton {
 const EVENT_BUTTONS: EventButton[] = [
   { type: "lid_open",     label: "Lid Opened",  icon: "wind",          color: "#6B7280" },
   { type: "flare_up",    label: "Flare-Up",     icon: "alert-triangle",color: "#EF4444" },
-  { type: "spritz",      label: "Spritz",        icon: "droplet",       color: "#3B82F6" },
+  { type: "spritz",      label: "Spritz/Mop",    icon: "droplet",       color: "#3B82F6" },
   { type: "charcoal_add",label: "Charcoal",      icon: "plus-circle",   color: "#F97316" },
   { type: "wood_add",    label: "Wood Chunk",    icon: "package",       color: "#92400E" },
   { type: "fuel_low",    label: "Fuel Low",      icon: "trending-down", color: "#8B5CF6" },

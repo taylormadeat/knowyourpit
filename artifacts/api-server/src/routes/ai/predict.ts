@@ -47,9 +47,6 @@ function makePredictCacheKey(userId: string, p: ReturnType<typeof AiPredictBody.
     cm: p.cookingMethod ?? null,
     inj: p.injection ?? null,
     sp: p.spritzFrequency ?? null,
-    sl: p.spritzLiquid ?? null,
-    mp: p.mopFrequency ?? null,
-    ml: p.mopLiquid ?? null,
     wf: p.wrapFinish ?? null,
     ms: p.meatStartTemp ?? null,
     ot: p.outdoorTempF ?? null,
@@ -65,7 +62,7 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
     return;
   }
 
-  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast, fromFrozen, thawMethod, cookingMethod, injection, spritzFrequency, spritzLiquid, mopFrequency, mopLiquid, wrapFinish, meatStartTemp, notes } = parsed.data;
+  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast, fromFrozen, thawMethod, cookingMethod, injection, spritzFrequency, wrapFinish, meatStartTemp, notes } = parsed.data;
 
   const baseline = getMeatBaseline(foodType);
 
@@ -394,10 +391,7 @@ FROZEN-MEAT RULES (apply only when "Starting from frozen" is true in the user pr
   if (cookingMethod) techniqueLines.push(`Cooking method: ${cookingMethod}`);
   if (meatStartTemp) techniqueLines.push(`Meat starting temperature: ${meatStartTemp}`);
   if (injection) techniqueLines.push(`Injection: ${injection}`);
-  if (spritzFrequency) techniqueLines.push(`Spritz frequency: ${spritzFrequency}${spritzLiquid ? ` (liquid: ${spritzLiquid})` : ""}`);
-  if (!spritzFrequency && spritzLiquid) techniqueLines.push(`Spritz liquid: ${spritzLiquid}`);
-  if (mopFrequency) techniqueLines.push(`Mop frequency: ${mopFrequency}${mopLiquid ? ` (liquid: ${mopLiquid})` : ""}`);
-  if (!mopFrequency && mopLiquid) techniqueLines.push(`Mop liquid: ${mopLiquid}`);
+  if (spritzFrequency) techniqueLines.push(`Spritz/Mop frequency: ${spritzFrequency}`);
   if (wrapFinish) techniqueLines.push(`Wrap / finish preference: ${wrapFinish}`);
   const techniqueSection = techniqueLines.length > 0
     ? `\nTechnique details (apply TECHNIQUE RULES from system prompt):\n${techniqueLines.join("\n")}`

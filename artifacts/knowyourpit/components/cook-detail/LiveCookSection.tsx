@@ -56,7 +56,6 @@ interface Props {
   targetTempF?: number | null;
   cookTempF?: number | null;
   nextSpritzMs?: number | null;
-  nextMopMs?: number | null;
   onViewDetails?: () => void;
   isMeatOn?: boolean;
   pitMasterResult?: any;
@@ -103,7 +102,7 @@ export function LiveCookSection(p: Props) {
     selectedProbeId, onSelectProbe,
     liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, estimatedFinishMs,
     setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
-    targetTempF, cookTempF, nextSpritzMs, nextMopMs, onViewDetails,
+    targetTempF, cookTempF, nextSpritzMs, onViewDetails,
     isMeatOn, pitMasterResult, pitMasterAnalyzing,
     renderDecisions, onCheckIn, onCheckInNext, onOpenChat, lastAnalyzedAtMs, lastCheckinInternalTempF, onRefresh, activeProbeName,
     nextCheckinMs, nextCheckinLabel, upcomingCheckins = [], onCheckInPhase,
@@ -259,39 +258,12 @@ export function LiveCookSection(p: Props) {
           >
             <Feather name="cloud-rain" size={14} color={accent} />
             <Text style={{ color: accent, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-              Next spritz {fmtSpritzCountdown(diffMs)}
+              Spritz/Mop in {fmtSpritzCountdown(diffMs)}
             </Text>
           </View>
         );
       })()}
 
-      {nextMopMs != null && (() => {
-        const now = nowMs ?? Date.now();
-        const diffMs = nextMopMs - now;
-        const isUrgent = diffMs > 0 && diffMs <= 5 * 60 * 1000;
-        const accent = isUrgent ? "#F97316" : "#92400E";
-        return (
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-              marginHorizontal: 14,
-              marginTop: 6,
-              padding: 10,
-              borderRadius: 8,
-              backgroundColor: accent + "18",
-              borderWidth: 1,
-              borderColor: accent + "55",
-            }}
-          >
-            <Feather name="droplet" size={14} color={accent} />
-            <Text style={{ color: accent, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-              Next mop {fmtSpritzCountdown(diffMs)}
-            </Text>
-          </View>
-        );
-      })()}
 
       <CookProgressBar
         startMs={c.actualStartAt ? new Date(c.actualStartAt).getTime() : 0}

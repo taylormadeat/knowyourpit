@@ -30,10 +30,7 @@ import {
 } from "@/constants/checkinKnowledge";
 import {
   QP_SPRITZ_FREQUENCIES,
-  QP_SPRITZ_LIQUIDS,
   QP_WRAP_FINISH_OPTIONS,
-  QP_MOP_FREQUENCIES,
-  QP_MOP_LIQUIDS,
 } from "@/constants/cookQuickPicks";
 
 type FeatherName = ComponentProps<typeof Feather>["name"];
@@ -107,9 +104,6 @@ interface UnifiedCheckinSheetProps {
   weatherWindSpeedMph?: number | null;
   onCheckinSaved?: (savedInternalTempF: number | null) => void;
   cookSpritzFrequency?: string | null;
-  cookSpritzLiquid?: string | null;
-  cookMopFrequency?: string | null;
-  cookMopLiquid?: string | null;
   cookWrapFinish?: string | null;
   onRequestAnalyze: (opts: { internalTempF: number | null; pitTempF: number | null; notes: string }) => Promise<void>;
   result: AnalysisResult | null;
@@ -155,9 +149,6 @@ export function UnifiedCheckinSheet({
   weatherWindSpeedMph,
   onCheckinSaved,
   cookSpritzFrequency,
-  cookSpritzLiquid,
-  cookMopFrequency,
-  cookMopLiquid,
   cookWrapFinish,
   onRequestAnalyze,
   result,
@@ -179,9 +170,6 @@ export function UnifiedCheckinSheet({
   const [userNote, setUserNote] = useState("");
 
   const [spritzFreq, setSpritzFreq] = useState<string | null>(cookSpritzFrequency ?? null);
-  const [spritzLiquid, setSpritzLiquid] = useState<string | null>(cookSpritzLiquid ?? null);
-  const [mopFreq, setMopFreq] = useState<string | null>(cookMopFrequency ?? null);
-  const [mopLiquid, setMopLiquid] = useState<string | null>(cookMopLiquid ?? null);
   const [wrapFinish, setWrapFinish] = useState<string | null>(cookWrapFinish ?? null);
 
   useEffect(() => {
@@ -197,9 +185,6 @@ export function UnifiedCheckinSheet({
     setSelectedFlag(null);
     setUserNote("");
     setSpritzFreq(cookSpritzFrequency ?? null);
-    setSpritzLiquid(cookSpritzLiquid ?? null);
-    setMopFreq(cookMopFrequency ?? null);
-    setMopLiquid(cookMopLiquid ?? null);
     setWrapFinish(cookWrapFinish ?? null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, cookId, phase.key]);
@@ -270,9 +255,6 @@ export function UnifiedCheckinSheet({
 
       const techniqueChanged =
         spritzFreq !== (cookSpritzFrequency ?? null) ||
-        spritzLiquid !== (cookSpritzLiquid ?? null) ||
-        mopFreq !== (cookMopFrequency ?? null) ||
-        mopLiquid !== (cookMopLiquid ?? null) ||
         wrapFinish !== (cookWrapFinish ?? null);
 
       if (techniqueChanged) {
@@ -280,11 +262,8 @@ export function UnifiedCheckinSheet({
           id: cookId,
           data: {
             spritzFrequency: spritzFreq,
-            spritzLiquid: spritzLiquid,
-            mopFrequency: mopFreq,
-            mopLiquid: mopLiquid,
             wrapFinish: wrapFinish,
-          } as any,
+          },
         }).catch(() => {});
       }
 
@@ -808,31 +787,10 @@ export function UnifiedCheckinSheet({
               colors={colors}
             />
             <TechniqueChipRow
-              label="Spritz Frequency"
+              label="Spritz/Mop Frequency"
               options={QP_SPRITZ_FREQUENCIES as unknown as string[]}
               value={spritzFreq}
               onChange={isBusy ? undefined : setSpritzFreq}
-              colors={colors}
-            />
-            <TechniqueChipRow
-              label="Spritz Liquid"
-              options={QP_SPRITZ_LIQUIDS as unknown as string[]}
-              value={spritzLiquid}
-              onChange={isBusy ? undefined : setSpritzLiquid}
-              colors={colors}
-            />
-            <TechniqueChipRow
-              label="Mop Frequency"
-              options={QP_MOP_FREQUENCIES as unknown as string[]}
-              value={mopFreq}
-              onChange={isBusy ? undefined : setMopFreq}
-              colors={colors}
-            />
-            <TechniqueChipRow
-              label="Mop Liquid"
-              options={QP_MOP_LIQUIDS as unknown as string[]}
-              value={mopLiquid}
-              onChange={isBusy ? undefined : setMopLiquid}
               colors={colors}
             />
           </View>

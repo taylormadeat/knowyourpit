@@ -49,15 +49,11 @@ import {
   QP_INJECTION_OPTIONS,
   QP_SPRITZ_FREQUENCIES,
   QP_WRAP_FINISH_OPTIONS,
-  QP_MOP_FREQUENCIES,
-  QP_MOP_LIQUIDS,
   type QpCookMethod,
   type QpMeatStartTemp,
   type QpInjectionOption,
   type QpSpritzFrequency,
   type QpWrapFinishOption,
-  type QpMopFrequency,
-  type QpMopLiquid,
 } from "@/constants/cookQuickPicks";
 import { SettingsRow } from "@/components/plan-screen/SettingsRow";
 import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
@@ -69,8 +65,6 @@ const MEAT_START_TEMP_STORAGE_PREFIX = "@knowyourpit:meatStartTemp:";
 const INJECTION_STORAGE_PREFIX = "@knowyourpit:injection:";
 const SPRITZ_STORAGE_PREFIX = "@knowyourpit:spritz:";
 const WRAP_FINISH_STORAGE_PREFIX = "@knowyourpit:wrapFinish:";
-const MOP_FREQ_STORAGE_PREFIX = "@knowyourpit:mopFreq:";
-const MOP_LIQUID_STORAGE_PREFIX = "@knowyourpit:mopLiquid:";
 
 async function loadLastCookMethod(cutName: string): Promise<QpCookMethod | null> {
   try {
@@ -130,28 +124,6 @@ async function loadLastWrapFinish(cutName: string): Promise<QpWrapFinishOption |
 }
 async function saveLastWrapFinish(cutName: string, v: QpWrapFinishOption): Promise<void> {
   try { await AsyncStorage.setItem(WRAP_FINISH_STORAGE_PREFIX + cutName, v); } catch {}
-}
-
-async function loadLastMopFreq(cutName: string): Promise<QpMopFrequency | null> {
-  try {
-    const stored = await AsyncStorage.getItem(MOP_FREQ_STORAGE_PREFIX + cutName);
-    if (stored && (QP_MOP_FREQUENCIES as readonly string[]).includes(stored)) return stored as QpMopFrequency;
-  } catch {}
-  return null;
-}
-async function saveLastMopFreq(cutName: string, v: QpMopFrequency): Promise<void> {
-  try { await AsyncStorage.setItem(MOP_FREQ_STORAGE_PREFIX + cutName, v); } catch {}
-}
-
-async function loadLastMopLiquid(cutName: string): Promise<QpMopLiquid | null> {
-  try {
-    const stored = await AsyncStorage.getItem(MOP_LIQUID_STORAGE_PREFIX + cutName);
-    if (stored && (QP_MOP_LIQUIDS as readonly string[]).includes(stored)) return stored as QpMopLiquid;
-  } catch {}
-  return null;
-}
-async function saveLastMopLiquid(cutName: string, v: QpMopLiquid): Promise<void> {
-  try { await AsyncStorage.setItem(MOP_LIQUID_STORAGE_PREFIX + cutName, v); } catch {}
 }
 
 type PickerCut = MeatCut & { isCustom?: boolean; customId?: number };
@@ -286,14 +258,10 @@ export default function LogCookScreen() {
   const [lastUsedLogSpritz, setLastUsedLogSpritz] = useState<QpSpritzFrequency | null>(null);
   const [qpWrap, setQpWrap] = useState<QpWrapFinishOption | null>(null);
   const [lastUsedLogWrap, setLastUsedLogWrap] = useState<QpWrapFinishOption | null>(null);
-  const [qpMopFreq, setQpMopFreq] = useState<QpMopFrequency | null>(null);
-  const [lastUsedLogMopFreq, setLastUsedLogMopFreq] = useState<QpMopFrequency | null>(null);
-  const [qpMopLiquid, setQpMopLiquid] = useState<QpMopLiquid | null>(null);
-  const [lastUsedLogMopLiquid, setLastUsedLogMopLiquid] = useState<QpMopLiquid | null>(null);
   const [qpOverflow, setQpOverflow] = useState("");
 
   // Which technique bottom-sheet is open
-  type LogSheet = "cookMethod" | "meatStartTemp" | "injection" | "spritz" | "wrapFinish" | "mopFreq" | "mopLiquid";
+  type LogSheet = "cookMethod" | "meatStartTemp" | "injection" | "spritz" | "wrapFinish";
   const [activeLogSheet, setActiveLogSheet] = useState<LogSheet | null>(null);
 
   // Serialise chip selections into a natural-language string sent to the AI
@@ -302,13 +270,11 @@ export default function LogCookScreen() {
     if (qpMethod) parts.push(`Method: ${qpMethod}`);
     if (qpStartTemp) parts.push(`Starting temp: ${qpStartTemp}`);
     if (qpInjection) parts.push(`Injection: ${qpInjection}`);
-    if (qpSpritz) parts.push(`Spritz: ${qpSpritz}`);
-    if (qpMopFreq) parts.push(`Mop: ${qpMopFreq}${qpMopLiquid ? ` (${qpMopLiquid})` : ""}`);
-    else if (qpMopLiquid) parts.push(`Mop liquid: ${qpMopLiquid}`);
+    if (qpSpritz) parts.push(`Spritz/Mop: ${qpSpritz}`);
     if (qpWrap) parts.push(`Wrap/Finish: ${qpWrap}`);
     if (qpOverflow.trim()) parts.push(qpOverflow.trim());
     return parts.join(" · ");
-  }, [qpMethod, qpStartTemp, qpInjection, qpSpritz, qpMopFreq, qpMopLiquid, qpWrap, qpOverflow]);
+  }, [qpMethod, qpStartTemp, qpInjection, qpSpritz, qpWrap, qpOverflow]);
   const [actualStartDate, setActualStartDate] = useState<Date | null>(null);
   const [logDatePickerOpen, setLogDatePickerOpen] = useState(false);
   const [logTimePickerOpen, setLogTimePickerOpen] = useState(false);
@@ -979,36 +945,6 @@ export default function LogCookScreen() {
               colors={colors}
             />
             <OptionBottomSheet
-              visible={activeLogSheet === "mopFreq"}
-              title="Mop Frequency"
-              options={QP_MOP_FREQUENCIES}
-              selected={qpMopFreq}
-              lastUsed={lastUsedLogMopFreq}
-              onChange={(v) => {
-                const val = v as QpMopFrequency | null;
-                setQpMopFreq(val);
-                setLastUsedLogMopFreq(null);
-                if (foodType && val) saveLastMopFreq(foodType, val);
-              }}
-              onClose={() => setActiveLogSheet(null)}
-              colors={colors}
-            />
-            <OptionBottomSheet
-              visible={activeLogSheet === "mopLiquid"}
-              title="Mop Liquid"
-              options={QP_MOP_LIQUIDS}
-              selected={qpMopLiquid}
-              lastUsed={lastUsedLogMopLiquid}
-              onChange={(v) => {
-                const val = v as QpMopLiquid | null;
-                setQpMopLiquid(val);
-                setLastUsedLogMopLiquid(null);
-                if (foodType && val) saveLastMopLiquid(foodType, val);
-              }}
-              onClose={() => setActiveLogSheet(null)}
-              colors={colors}
-            />
-            <OptionBottomSheet
               visible={activeLogSheet === "wrapFinish"}
               title="Wrap / Finish"
               options={QP_WRAP_FINISH_OPTIONS}
@@ -1361,30 +1297,12 @@ export default function LogCookScreen() {
                   colors={colors}
                 />
                 <SettingsRow
-                  label="Spritz Frequency"
+                  label="Spritz/Mop Frequency"
                   icon="wind"
                   iconColor="#0EA5E9"
                   value={qpSpritz}
                   placeholder="Any"
                   onPress={() => setActiveLogSheet("spritz")}
-                  colors={colors}
-                />
-                <SettingsRow
-                  label="Mop Frequency"
-                  icon="droplet"
-                  iconColor="#92400E"
-                  value={qpMopFreq}
-                  placeholder="Any"
-                  onPress={() => setActiveLogSheet("mopFreq")}
-                  colors={colors}
-                />
-                <SettingsRow
-                  label="Mop Liquid"
-                  icon="droplet"
-                  iconColor="#78350F"
-                  value={qpMopLiquid}
-                  placeholder="Any"
-                  onPress={() => setActiveLogSheet("mopLiquid")}
                   colors={colors}
                 />
                 <SettingsRow
@@ -1659,8 +1577,6 @@ export default function LogCookScreen() {
                     loadLastMeatStartTemp(item.name).then(v => { setQpStartTemp(v); setLastUsedLogStartTemp(v); });
                     loadLastInjection(item.name).then(v => { setQpInjection(v); setLastUsedLogInjection(v); });
                     loadLastSpritz(item.name).then(v => { setQpSpritz(v); setLastUsedLogSpritz(v); });
-                    loadLastMopFreq(item.name).then(v => { setQpMopFreq(v); setLastUsedLogMopFreq(v); });
-                    loadLastMopLiquid(item.name).then(v => { setQpMopLiquid(v); setLastUsedLogMopLiquid(v); });
                     loadLastWrapFinish(item.name).then(v => { setQpWrap(v); setLastUsedLogWrap(v); });
                   }}
                 >

@@ -21,7 +21,6 @@ import {
   QP_COOK_METHODS,
   QP_INJECTION_OPTIONS,
   QP_SPRITZ_FREQUENCIES,
-  QP_SPRITZ_LIQUIDS,
   QP_WRAP_FINISH_OPTIONS,
 } from "@/constants/cookQuickPicks";
 import { SettingsRow } from "@/components/plan-screen/SettingsRow";
@@ -72,8 +71,6 @@ interface Props {
   setEditInjection: (v: string | null) => void;
   editSpritzFrequency: string | null;
   setEditSpritzFrequency: (v: string | null) => void;
-  editSpritzLiquid: string | null;
-  setEditSpritzLiquid: (v: string | null) => void;
   editWrapFinish: string | null;
   setEditWrapFinish: (v: string | null) => void;
 }
@@ -95,14 +92,12 @@ export function EditCookModal(p: Props) {
     editCookingMethod, setEditCookingMethod,
     editInjection, setEditInjection,
     editSpritzFrequency, setEditSpritzFrequency,
-    editSpritzLiquid, setEditSpritzLiquid,
     editWrapFinish, setEditWrapFinish,
   } = p;
 
   const [cookMethodSheetOpen, setCookMethodSheetOpen] = useState(false);
   const [injectionSheetOpen, setInjectionSheetOpen] = useState(false);
   const [spritzSheetOpen, setSpritzSheetOpen] = useState(false);
-  const [spritzLiquidSheetOpen, setSpritzLiquidSheetOpen] = useState(false);
   const [wrapFinishSheetOpen, setWrapFinishSheetOpen] = useState(false);
 
   return (
@@ -261,23 +256,13 @@ export function EditCookModal(p: Props) {
                 colors={colors}
               />
               <SettingsRow
-                label="Spritz Frequency"
+                label="Spritz/Mop Frequency"
                 value={editSpritzFrequency}
                 placeholder="Not set"
                 icon="wind"
                 iconColor="#0EA5E9"
                 onPress={() => setSpritzSheetOpen(true)}
                 onClear={() => setEditSpritzFrequency(null)}
-                colors={colors}
-              />
-              <SettingsRow
-                label="Spritz Liquid"
-                value={editSpritzLiquid}
-                placeholder="Not set"
-                icon="droplet"
-                iconColor="#22C55E"
-                onPress={() => setSpritzLiquidSheetOpen(true)}
-                onClear={() => setEditSpritzLiquid(null)}
                 colors={colors}
               />
               <SettingsRow
@@ -338,16 +323,6 @@ export function EditCookModal(p: Props) {
         selected={editSpritzFrequency}
         onChange={setEditSpritzFrequency}
         onClose={() => setSpritzSheetOpen(false)}
-        colors={colors}
-      />
-
-      <OptionBottomSheet
-        visible={spritzLiquidSheetOpen}
-        title="Spritz Liquid"
-        options={QP_SPRITZ_LIQUIDS}
-        selected={editSpritzLiquid}
-        onChange={setEditSpritzLiquid}
-        onClose={() => setSpritzLiquidSheetOpen(false)}
         colors={colors}
       />
 

@@ -258,7 +258,6 @@ export function SequenceSchedule(p: Props) {
 
                           type MiddleEvent =
                             | { kind: "spritz"; ms: number; i: number }
-                            | { kind: "mop"; ms: number; i: number }
                             | { kind: "wrap" }
                             | { kind: "checkin"; sc: ScheduledCheckin };
                           const events: MiddleEvent[] = [];
@@ -275,18 +274,6 @@ export function SequenceSchedule(p: Props) {
                               events.push({ kind: "spritz", ms: t, i: si });
                               t += spritzIntervalMin * 60_000;
                               si++;
-                            }
-                          }
-
-                          // Mop times (run all the way to pull-off)
-                          const mopIntervalMin = parseIntervalMinutes((c.mopFrequency as string | null | undefined) ?? "");
-                          if (mopIntervalMin) {
-                            let t = itemMeatOnMs + mopIntervalMin * 60_000;
-                            let mi = 0;
-                            while (t < itemPullOffMs && mi < 12) {
-                              events.push({ kind: "mop", ms: t, i: mi });
-                              t += mopIntervalMin * 60_000;
-                              mi++;
                             }
                           }
 
@@ -317,7 +304,6 @@ export function SequenceSchedule(p: Props) {
                           });
 
                           const spritzColor = "#14b8a6";
-                          const mopColor = "#92400E";
                           const ciColor = "#7C3AED";
 
                           return (
@@ -333,31 +319,11 @@ export function SequenceSchedule(p: Props) {
                                       <View style={{ flex: 1 }}>
                                         <View style={s.seqTlLabelRow}>
                                           <Feather name="droplet" size={9} color={isDone ? colors.mutedForeground : spritzColor} style={{ marginRight: 2 }} />
-                                          <Text style={[s.seqTlLabel, { color: isDone ? colors.mutedForeground : spritzColor, fontSize: 9 }]}>Spritz</Text>
+                                          <Text style={[s.seqTlLabel, { color: isDone ? colors.mutedForeground : spritzColor, fontSize: 9 }]}>Spritz/Mop</Text>
                                         </View>
                                         <Text style={[s.seqTlMeta, { color: isDone ? colors.mutedForeground : colors.foreground, fontSize: 12, fontFamily: "Inter_600SemiBold" }]}>
                                           {new Date(spritzMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                                           {isFuture && <Text style={[s.seqTlMeta, { color: spritzColor }]}>{" "}· {relCountdown(spritzMs, nowMs)}</Text>}
-                                        </Text>
-                                      </View>
-                                    </View>
-                                  );
-                                }
-                                if (event.kind === "mop") {
-                                  const mopMs = event.ms;
-                                  const isDone = isActive && mopMs < nowMs;
-                                  const isFuture = (cookStatus === "active" || cookStatus === "planned") && mopMs > nowMs;
-                                  return (
-                                    <View key={`m${evIdx}`} style={[s.seqTlRow, { marginLeft: 4, marginBottom: 6, opacity: isDone ? 0.45 : 1 }]}>
-                                      <View style={[s.seqTlDot, { width: 7, height: 7, borderRadius: 4, marginTop: 5, backgroundColor: isDone ? colors.mutedForeground : mopColor }]} />
-                                      <View style={{ flex: 1 }}>
-                                        <View style={s.seqTlLabelRow}>
-                                          <Feather name="droplet" size={9} color={isDone ? colors.mutedForeground : mopColor} style={{ marginRight: 2 }} />
-                                          <Text style={[s.seqTlLabel, { color: isDone ? colors.mutedForeground : mopColor, fontSize: 9 }]}>Mop</Text>
-                                        </View>
-                                        <Text style={[s.seqTlMeta, { color: isDone ? colors.mutedForeground : colors.foreground, fontSize: 12, fontFamily: "Inter_600SemiBold" }]}>
-                                          {new Date(mopMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                          {isFuture && <Text style={[s.seqTlMeta, { color: mopColor }]}>{" "}· {relCountdown(mopMs, nowMs)}</Text>}
                                         </Text>
                                       </View>
                                     </View>

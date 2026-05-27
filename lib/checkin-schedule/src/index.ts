@@ -70,7 +70,7 @@ export const CHECKIN_SCHEDULES: MeatCheckinSchedule[] = [
           "Fat cap showing deep render lines and pulling back",
           "Smoke ring visible when a corner is sliced open",
         ],
-        prepForNext: "Start spritzing or mopping every 45–60 min if bark is getting too dark; hold off if it still needs development",
+        prepForNext: "Start spritzing/mopping every 45–60 min if bark is getting too dark; hold off if it still needs development",
         coachingTemplate:
           "Bark lock check for brisket. This is the window to lock in bark before the stall — manage moisture carefully.",
         isVisualMilestone: true,
@@ -217,7 +217,7 @@ export const CHECKIN_SCHEDULES: MeatCheckinSchedule[] = [
           "Fat rendering and dripping",
           "Smoke ring forming around the edges",
         ],
-        prepForNext: "Prepare spritz or mop (apple cider vinegar + juice, or your mop sauce) for the stall phase",
+        prepForNext: "Prepare spritz/mop liquid (apple cider vinegar, juice, or your mop sauce) for the stall phase",
         coachingTemplate:
           "Bark development check for pork shoulder. Bark should be forming well before the stall.",
         isVisualMilestone: true,

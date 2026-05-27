@@ -497,25 +497,10 @@ export interface Cook {
    */
   injection?: string | null;
   /**
-   * How often the cook was spritzed (e.g. Every Hour, No Spritz)
+   * How often the cook was spritzed/mopped (e.g. Every Hour, No Spritz)
    * @nullable
    */
   spritzFrequency?: string | null;
-  /**
-   * The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)
-   * @nullable
-   */
-  spritzLiquid?: string | null;
-  /**
-   * How often the cook was mopped (e.g. Every Hour, No Mop)
-   * @nullable
-   */
-  mopFrequency?: string | null;
-  /**
-   * The liquid used to mop (e.g. Mop Sauce, Butter + Apple Juice)
-   * @nullable
-   */
-  mopLiquid?: string | null;
   /**
    * Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
    * @nullable
@@ -725,25 +710,10 @@ export interface CreateCookBody {
    */
   injection?: string | null;
   /**
-   * How often the cook was spritzed (e.g. Every Hour, No Spritz)
+   * How often the cook was spritzed/mopped (e.g. Every Hour, No Spritz)
    * @nullable
    */
   spritzFrequency?: string | null;
-  /**
-   * The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)
-   * @nullable
-   */
-  spritzLiquid?: string | null;
-  /**
-   * How often the cook was mopped (e.g. Every Hour, No Mop)
-   * @nullable
-   */
-  mopFrequency?: string | null;
-  /**
-   * The liquid used to mop (e.g. Mop Sauce, Butter + Apple Juice)
-   * @nullable
-   */
-  mopLiquid?: string | null;
   /**
    * Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
    * @nullable
@@ -930,25 +900,10 @@ export interface UpdateCookBody {
    */
   injection?: string | null;
   /**
-   * How often the cook was spritzed (e.g. Every Hour, No Spritz)
+   * How often the cook was spritzed/mopped (e.g. Every Hour, No Spritz)
    * @nullable
    */
   spritzFrequency?: string | null;
-  /**
-   * The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)
-   * @nullable
-   */
-  spritzLiquid?: string | null;
-  /**
-   * How often the cook was mopped (e.g. Every Hour, No Mop)
-   * @nullable
-   */
-  mopFrequency?: string | null;
-  /**
-   * The liquid used to mop (e.g. Mop Sauce, Butter + Apple Juice)
-   * @nullable
-   */
-  mopLiquid?: string | null;
   /**
    * Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
    * @nullable
@@ -1215,25 +1170,10 @@ export interface AiPredictBody {
    */
   injection?: string | null;
   /**
-   * How often the user plans to spritz the meat during the cook (e.g. "No Spritz", "Every 30 min", "Every Hour", "Once at Stall"). Affects bark development and moisture retention.
+   * How often the user plans to spritz/mop the meat during the cook (e.g. "No Spritz", "Every 30 min", "Every Hour", "Once at Stall"). Affects bark development and moisture retention.
    * @nullable
    */
   spritzFrequency?: string | null;
-  /**
-   * The liquid the pitmaster uses to spritz (e.g. "Apple Juice", "Apple Cider Vinegar", "Water", "Butter", "Beer"). PitMaster uses this to give liquid-specific advice on color development, bark formation, and flavor.
-   * @nullable
-   */
-  spritzLiquid?: string | null;
-  /**
-   * How often the user plans to mop the meat during the cook (e.g. "No Mop", "Every 30 min", "Every Hour"). Mopping adds moisture and flavor similarly to spritzing but with a thicker sauce. Affects bark development.
-   * @nullable
-   */
-  mopFrequency?: string | null;
-  /**
-   * The mop sauce or liquid the pitmaster uses (e.g. "Mop Sauce", "Butter + Apple Juice", "Beer + Butter"). PitMaster factors this into moisture retention and flavor development guidance.
-   * @nullable
-   */
-  mopLiquid?: string | null;
   /**
    * User's intended wrap or finish method (e.g. "No Wrap", "Butcher Paper at Stall", "Foil at Stall (Texas Crutch)", "Foil Boat"). PitMaster should align wrap recommendation with this preference.
    * @nullable

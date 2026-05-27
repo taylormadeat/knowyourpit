@@ -41,7 +41,6 @@ import {
   type FrozenStageData,
 } from "@/hooks/useFrozenStageNotifications";
 import { useSpritzNotifications, computeNextSpritzMs } from "@/hooks/useSpritzNotifications";
-import { useMopNotifications, computeNextMopMs } from "@/hooks/useMopNotifications";
 import { setCookDetailVisible, setCurrentCookId } from "@/hooks/cookDetailVisibility";
 import { consumePendingCheckin } from "@/lib/pendingCheckinNotif";
 import { useCookLiveActivity } from "@/hooks/useCookLiveActivity";
@@ -140,10 +139,7 @@ import {
   QP_COOK_METHODS,
   QP_INJECTION_OPTIONS,
   QP_SPRITZ_FREQUENCIES,
-  QP_SPRITZ_LIQUIDS,
   QP_WRAP_FINISH_OPTIONS,
-  QP_MOP_FREQUENCIES,
-  QP_MOP_LIQUIDS,
 } from "@/constants/cookQuickPicks";
 import { WrapTempSheet } from "@/components/cook-detail/WrapTempSheet";
 import { ActualVsPlannedRecap } from "@/components/cook-detail/ActualVsPlannedRecap";
@@ -221,9 +217,6 @@ export default function CookDetailScreen() {
   const [qpStartTemp, setQpStartTemp] = useState<string | null>(null);
   const [qpInjection, setQpInjection] = useState<string | null>(null);
   const [qpSpritz, setQpSpritz] = useState<string | null>(null);
-  const [qpSpritzLiquid, setQpSpritzLiquid] = useState<string | null>(null);
-  const [qpMopFreq, setQpMopFreq] = useState<string | null>(null);
-  const [qpMopLiquid, setQpMopLiquid] = useState<string | null>(null);
   const [qpWrap, setQpWrap] = useState<string | null>(null);
   const [activeCookNoteTags, setActiveCookNoteTags] = useState<string[]>([]);
 
@@ -238,9 +231,6 @@ export default function CookDetailScreen() {
     if (c.cookingMethod) setQpMethod(c.cookingMethod);
     if (c.injection) setQpInjection(c.injection);
     if (c.spritzFrequency) setQpSpritz(c.spritzFrequency);
-    if (c.spritzLiquid) setQpSpritzLiquid(c.spritzLiquid);
-    if ((c as any).mopFrequency) setQpMopFreq((c as any).mopFrequency);
-    if ((c as any).mopLiquid) setQpMopLiquid((c as any).mopLiquid);
     if (c.wrapFinish) setQpWrap(c.wrapFinish);
   }, [cook]);
 
@@ -250,14 +240,11 @@ export default function CookDetailScreen() {
     if (qpMethod) parts.push(`Method: ${qpMethod}`);
     if (qpStartTemp) parts.push(`Starting temp: ${qpStartTemp}`);
     if (qpInjection) parts.push(`Injection: ${qpInjection}`);
-    if (qpSpritz) parts.push(`Spritz: ${qpSpritz}${qpSpritzLiquid ? ` (${qpSpritzLiquid})` : ""}`);
-    else if (qpSpritzLiquid) parts.push(`Spritz liquid: ${qpSpritzLiquid}`);
-    if (qpMopFreq) parts.push(`Mop: ${qpMopFreq}${qpMopLiquid ? ` (${qpMopLiquid})` : ""}`);
-    else if (qpMopLiquid) parts.push(`Mop liquid: ${qpMopLiquid}`);
+    if (qpSpritz) parts.push(`Spritz/Mop: ${qpSpritz}`);
     if (qpWrap) parts.push(`Wrap/Finish: ${qpWrap}`);
     if (cookNotes.trim()) parts.push(cookNotes.trim());
     return parts.join(" · ");
-  }, [qpMethod, qpStartTemp, qpInjection, qpSpritz, qpSpritzLiquid, qpMopFreq, qpMopLiquid, qpWrap, cookNotes]);
+  }, [qpMethod, qpStartTemp, qpInjection, qpSpritz, qpWrap, cookNotes]);
 
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -423,9 +410,6 @@ export default function CookDetailScreen() {
   const [techMethodSheetOpen, setTechMethodSheetOpen] = useState(false);
   const [techInjectionSheetOpen, setTechInjectionSheetOpen] = useState(false);
   const [techSpritzSheetOpen, setTechSpritzSheetOpen] = useState(false);
-  const [techSpritzLiquidSheetOpen, setTechSpritzLiquidSheetOpen] = useState(false);
-  const [techMopFreqSheetOpen, setTechMopFreqSheetOpen] = useState(false);
-  const [techMopLiquidSheetOpen, setTechMopLiquidSheetOpen] = useState(false);
   const [techWrapFinishSheetOpen, setTechWrapFinishSheetOpen] = useState(false);
   const [seqScheduleExpanded, setSeqScheduleExpanded] = useState(false);
   // Auto-expand the sequence schedule for planned and active cooks so pitmasters
@@ -1089,8 +1073,6 @@ export default function CookDetailScreen() {
     setQpStartTemp(null);
     setQpInjection(null);
     setQpSpritz(null);
-    setQpMopFreq(null);
-    setQpMopLiquid(null);
     setQpWrap(null);
     setActiveCookNoteTags([]);
   }, [id]);
@@ -1215,15 +1197,6 @@ export default function CookDetailScreen() {
     Number(id),
     cookStatus,
     (cook as any)?.spritzFrequency ?? null,
-    (cook as any)?.foodType ?? null,
-    cookSeqData,
-  );
-  // Mop reminders — fire at the user's chosen mop interval throughout the
-  // active cook so they're nudged to mop even when the app is backgrounded.
-  useMopNotifications(
-    Number(id),
-    cookStatus,
-    (cook as any)?.mopFrequency ?? null,
     (cook as any)?.foodType ?? null,
     cookSeqData,
   );
@@ -1622,9 +1595,6 @@ export default function CookDetailScreen() {
   const [editCookingMethod, setEditCookingMethod] = useState<string | null>(null);
   const [editInjection, setEditInjection] = useState<string | null>(null);
   const [editSpritzFrequency, setEditSpritzFrequency] = useState<string | null>(null);
-  const [editSpritzLiquid, setEditSpritzLiquid] = useState<string | null>(null);
-  const [editMopFrequency, setEditMopFrequency] = useState<string | null>(null);
-  const [editMopLiquid, setEditMopLiquid] = useState<string | null>(null);
   const [editWrapFinish, setEditWrapFinish] = useState<string | null>(null);
   const [editSaving, setEditSaving] = useState(false);
 
@@ -2049,9 +2019,6 @@ export default function CookDetailScreen() {
     setEditCookingMethod(c?.cookingMethod ?? null);
     setEditInjection(c?.injection ?? null);
     setEditSpritzFrequency(c?.spritzFrequency ?? null);
-    setEditSpritzLiquid(c?.spritzLiquid ?? null);
-    setEditMopFrequency((c as any)?.mopFrequency ?? null);
-    setEditMopLiquid((c as any)?.mopLiquid ?? null);
     setEditWrapFinish(c?.wrapFinish ?? null);
     setEditVisible(true);
   };
@@ -2076,9 +2043,6 @@ export default function CookDetailScreen() {
       payload.cookingMethod = editCookingMethod;
       payload.injection = editInjection;
       payload.spritzFrequency = editSpritzFrequency;
-      payload.spritzLiquid = editSpritzLiquid;
-      payload.mopFrequency = editMopFrequency;
-      payload.mopLiquid = editMopLiquid;
       payload.wrapFinish = editWrapFinish;
       await updateCook.mutateAsync({ id: Number(id), data: payload });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -2254,7 +2218,6 @@ export default function CookDetailScreen() {
             cookingMethod: c?.cookingMethod ?? null,
             injection: c?.injection ?? null,
             spritzFrequency: c?.spritzFrequency ?? null,
-            spritzLiquid: c?.spritzLiquid ?? null,
             wrapFinish: c?.wrapFinish ?? null,
             // Frozen-meat fields — let PitMaster factor thaw time into future plans
             // actualStartAt = meat-on time; actualThawStartAt = when thaw started.
@@ -2529,10 +2492,6 @@ export default function CookDetailScreen() {
   // Must live BEFORE the early returns alongside the haptic hook (Rules of Hooks).
   const nextSpritzMs = cookStatus === "active"
     ? computeNextSpritzMs((cook as any)?.spritzFrequency ?? null, cookSeqData, nowMs)
-    : null;
-
-  const nextMopMs = cookStatus === "active"
-    ? computeNextMopMs((cook as any)?.mopFrequency ?? null, cookSeqData, nowMs)
     : null;
 
   // Haptic nudge when a spritz slot is reached — fires once per interval.
@@ -3331,7 +3290,6 @@ export default function CookDetailScreen() {
           targetTempF={c.targetTempF ?? null}
           cookTempF={c.cookTempF ?? null}
           nextSpritzMs={nextSpritzMs}
-          nextMopMs={nextMopMs}
           onViewDetails={cookStatus === "active" ? () => setPlanSheetVisible(true) : undefined}
           isMeatOn={isMeatOn}
           pitMasterResult={result}
@@ -3466,7 +3424,7 @@ export default function CookDetailScreen() {
             await updateCook.mutateAsync({ id: Number(id), data });
             await qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
           };
-          const hasTechValues = !!(c.cookingMethod || c.injection || c.spritzFrequency || c.spritzLiquid || (c as any).mopFrequency || (c as any).mopLiquid || c.wrapFinish);
+          const hasTechValues = !!(c.cookingMethod || c.injection || c.spritzFrequency || c.wrapFinish);
           return (
             <View style={{ backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border }}>
               <Pressable
@@ -3478,7 +3436,7 @@ export default function CookDetailScreen() {
                 </Text>
                 {hasTechValues && !techsExpanded && (
                   <View style={{ flexDirection: "row", gap: 5 }}>
-                    {[c.cookingMethod, c.injection, c.spritzFrequency, c.spritzLiquid, (c as any).mopFrequency, (c as any).mopLiquid, c.wrapFinish].filter(Boolean).map((v: string, i: number) => (
+                    {[c.cookingMethod, c.injection, c.spritzFrequency, c.wrapFinish].filter(Boolean).map((v: string, i: number) => (
                       <View key={i} style={{ paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, backgroundColor: colors.muted }}>
                         <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: colors.mutedForeground }}>{v}</Text>
                       </View>
@@ -3510,43 +3468,13 @@ export default function CookDetailScreen() {
                     colors={colors}
                   />
                   <SettingsRow
-                    label="Spritz Frequency"
+                    label="Spritz/Mop Frequency"
                     value={c.spritzFrequency ?? null}
                     placeholder="Not set"
                     icon="wind"
                     iconColor="#0EA5E9"
                     onPress={() => setTechSpritzSheetOpen(true)}
                     onClear={() => saveTechnique({ spritzFrequency: null })}
-                    colors={colors}
-                  />
-                  <SettingsRow
-                    label="Spritz Liquid"
-                    value={c.spritzLiquid ?? null}
-                    placeholder="Not set"
-                    icon="droplet"
-                    iconColor="#22C55E"
-                    onPress={() => setTechSpritzLiquidSheetOpen(true)}
-                    onClear={() => saveTechnique({ spritzLiquid: null })}
-                    colors={colors}
-                  />
-                  <SettingsRow
-                    label="Mop Frequency"
-                    value={(c as any).mopFrequency ?? null}
-                    placeholder="Not set"
-                    icon="droplet"
-                    iconColor="#92400E"
-                    onPress={() => setTechMopFreqSheetOpen(true)}
-                    onClear={() => saveTechnique({ mopFrequency: null } as any)}
-                    colors={colors}
-                  />
-                  <SettingsRow
-                    label="Mop Liquid"
-                    value={(c as any).mopLiquid ?? null}
-                    placeholder="Not set"
-                    icon="droplet"
-                    iconColor="#78350F"
-                    onPress={() => setTechMopLiquidSheetOpen(true)}
-                    onClear={() => saveTechnique({ mopLiquid: null } as any)}
                     colors={colors}
                   />
                   <SettingsRow
@@ -3600,42 +3528,6 @@ export default function CookDetailScreen() {
             await qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
           }}
           onClose={() => setTechSpritzSheetOpen(false)}
-          colors={colors}
-        />
-        <OptionBottomSheet
-          visible={techSpritzLiquidSheetOpen}
-          title="Spritz Liquid"
-          options={QP_SPRITZ_LIQUIDS}
-          selected={c.spritzLiquid ?? null}
-          onChange={async (v) => {
-            await updateCook.mutateAsync({ id: Number(id), data: { spritzLiquid: v } });
-            await qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
-          }}
-          onClose={() => setTechSpritzLiquidSheetOpen(false)}
-          colors={colors}
-        />
-        <OptionBottomSheet
-          visible={techMopFreqSheetOpen}
-          title="Mop Frequency"
-          options={QP_MOP_FREQUENCIES}
-          selected={(c as any).mopFrequency ?? null}
-          onChange={async (v) => {
-            await updateCook.mutateAsync({ id: Number(id), data: { mopFrequency: v } as any });
-            await qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
-          }}
-          onClose={() => setTechMopFreqSheetOpen(false)}
-          colors={colors}
-        />
-        <OptionBottomSheet
-          visible={techMopLiquidSheetOpen}
-          title="Mop Liquid"
-          options={QP_MOP_LIQUIDS}
-          selected={(c as any).mopLiquid ?? null}
-          onChange={async (v) => {
-            await updateCook.mutateAsync({ id: Number(id), data: { mopLiquid: v } as any });
-            await qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
-          }}
-          onClose={() => setTechMopLiquidSheetOpen(false)}
           colors={colors}
         />
         <OptionBottomSheet
@@ -3938,8 +3830,6 @@ export default function CookDetailScreen() {
         setEditInjection={setEditInjection}
         editSpritzFrequency={editSpritzFrequency}
         setEditSpritzFrequency={setEditSpritzFrequency}
-        editSpritzLiquid={editSpritzLiquid}
-        setEditSpritzLiquid={setEditSpritzLiquid}
         editWrapFinish={editWrapFinish}
         setEditWrapFinish={setEditWrapFinish}
       />
@@ -4063,9 +3953,6 @@ export default function CookDetailScreen() {
           weatherTempF={weather?.tempF ?? null}
           weatherWindSpeedMph={weather?.windSpeedMph ?? null}
           cookSpritzFrequency={(cook as any)?.spritzFrequency ?? null}
-          cookSpritzLiquid={(cook as any)?.spritzLiquid ?? null}
-          cookMopFrequency={(cook as any)?.mopFrequency ?? null}
-          cookMopLiquid={(cook as any)?.mopLiquid ?? null}
           cookWrapFinish={(cook as any)?.wrapFinish ?? null}
           onRequestAnalyze={async (opts) => {
             await analyze({

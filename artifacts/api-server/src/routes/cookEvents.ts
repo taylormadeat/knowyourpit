@@ -25,7 +25,7 @@ const EVENT_TYPES = [
 type EventType = (typeof EVENT_TYPES)[number];
 
 const CreateCookEventBodySchema = z.object({
-  eventType: z.enum(EVENT_TYPES),
+  eventType: z.enum(EVENT_TYPES).transform((v) => (v === "mop" ? "spritz" : v) as EventType),
   note: z.string().nullable().optional(),
   occurredAt: z.string().datetime({ offset: true }).nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),

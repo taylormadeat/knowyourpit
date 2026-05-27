@@ -82,7 +82,6 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
       cookingMethod?: string | null;
       injection?: string | null;
       spritzFrequency?: string | null;
-      spritzLiquid?: string | null;
       wrapFinish?: string | null;
       // Frozen-meat fields
       // actualStartAt = meat-on time (already in type above)
@@ -268,11 +267,7 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
   if (cookContext?.cookingMethod) techniqueLines.push(`Cooking method: ${cookContext.cookingMethod}`);
   if (cookContext?.injection) techniqueLines.push(`Injection: ${cookContext.injection}`);
   if (cookContext?.spritzFrequency) {
-    const spritzParts = [`Spritz frequency: ${cookContext.spritzFrequency}`];
-    if (cookContext?.spritzLiquid) spritzParts.push(`with ${cookContext.spritzLiquid}`);
-    techniqueLines.push(spritzParts.join(" "));
-  } else if (cookContext?.spritzLiquid) {
-    techniqueLines.push(`Spritz liquid: ${cookContext.spritzLiquid}`);
+    techniqueLines.push(`Spritz/Mop frequency: ${cookContext.spritzFrequency}`);
   }
   if (cookContext?.wrapFinish) techniqueLines.push(`Wrap/finish method: ${cookContext.wrapFinish}`);
   if (techniqueLines.length > 0) contextLines.push(`Techniques used: ${techniqueLines.join(" · ")}`);

@@ -169,25 +169,10 @@ export interface Cook {
    */
   injection?: string | null;
   /**
-   * How often the cook was spritzed (e.g. Every Hour, No Spritz)
+   * How often the cook was spritzed/mopped (e.g. Every Hour, No Spritz)
    * @nullable
    */
   spritzFrequency?: string | null;
-  /**
-   * The liquid used to spritz (e.g. Apple Juice, Apple Cider Vinegar, Water, Butter)
-   * @nullable
-   */
-  spritzLiquid?: string | null;
-  /**
-   * How often the cook was mopped (e.g. Every Hour, No Mop)
-   * @nullable
-   */
-  mopFrequency?: string | null;
-  /**
-   * The liquid used to mop (e.g. Mop Sauce, Butter + Apple Juice)
-   * @nullable
-   */
-  mopLiquid?: string | null;
   /**
    * Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
    * @nullable
