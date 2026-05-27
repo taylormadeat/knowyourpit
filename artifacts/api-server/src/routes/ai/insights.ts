@@ -171,16 +171,28 @@ router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void
       return Math.round(competitionScore * 0.65 + judgeQualityScore * 0.35);
     })();
 
+    // Scale planAccuracy weight by sample size so a single outlier cook doesn't
+    // carry the full weight. Ramps from 1/3 weight at 1 measured cook up to full
+    // weight at 3+ cooks. This prevents one badly-estimated plan from tanking an
+    // otherwise strong score before the user has enough plan history to be fairly judged.
+    const planSampleFactor = Math.min(accuracies.length / 3, 1);
+
     let weightedSum = 0;
     let totalWeight = 0;
     if (blendedCompetitionScore != null) {
       weightedSum += blendedCompetitionScore * 0.5; totalWeight += 0.5;
       if (avgRatingScore != null) { weightedSum += avgRatingScore * 0.15; totalWeight += 0.15; }
-      if (planAccuracy != null) { weightedSum += planAccuracy * 0.25; totalWeight += 0.25; }
+      if (planAccuracy != null) {
+        const w = 0.25 * planSampleFactor;
+        weightedSum += planAccuracy * w; totalWeight += w;
+      }
       if (aiAssessmentScore != null) { weightedSum += aiAssessmentScore * 0.1; totalWeight += 0.1; }
     } else {
       if (avgRatingScore != null) { weightedSum += avgRatingScore * 0.4; totalWeight += 0.4; }
-      if (planAccuracy != null) { weightedSum += planAccuracy * 0.4; totalWeight += 0.4; }
+      if (planAccuracy != null) {
+        const w = 0.4 * planSampleFactor;
+        weightedSum += planAccuracy * w; totalWeight += w;
+      }
       if (aiAssessmentScore != null) { weightedSum += aiAssessmentScore * 0.2; totalWeight += 0.2; }
     }
     const pitMasterScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
