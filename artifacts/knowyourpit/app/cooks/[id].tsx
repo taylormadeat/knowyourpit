@@ -428,11 +428,11 @@ export default function CookDetailScreen() {
   const [techMopLiquidSheetOpen, setTechMopLiquidSheetOpen] = useState(false);
   const [techWrapFinishSheetOpen, setTechWrapFinishSheetOpen] = useState(false);
   const [seqScheduleExpanded, setSeqScheduleExpanded] = useState(false);
-  // Auto-expand the sequence schedule for planned cooks so pitmasters see
-  // the timeline immediately without an extra tap.
+  // Auto-expand the sequence schedule for planned and active cooks so pitmasters
+  // see the full timeline immediately without an extra tap.
   useEffect(() => {
     const seqData = (cook as any)?.sequenceData;
-    if (cookStatus === "planned" && seqData?.schedule?.length > 0) {
+    if ((cookStatus === "planned" || cookStatus === "active") && seqData?.schedule?.length > 0) {
       setSeqScheduleExpanded(true);
     }
   }, [cookStatus, (cook as any)?.id]);
@@ -3669,6 +3669,15 @@ export default function CookDetailScreen() {
               timelineYRef={timelineYRef}
               rowYRef={rowYRef}
               onQuickLog={cookStatus === "active" ? handleLogFuelEvent : undefined}
+              scheduledCheckins={cookStatus === "active" ? (() => {
+                const hasPlan = !!(cookSeqData?.schedule?.length);
+                const base = hasPlan && storedScheduledCheckins.length > 0
+                  ? storedScheduledCheckins
+                  : noPlanScheduledCheckins;
+                return base.filter((sc) => !removedPlannedKeys.has(sc.phaseKey));
+              })() : undefined}
+              cookCheckins={cookCheckins as CookCheckin[]}
+              onCheckinPress={cookStatus === "active" ? openCheckin : undefined}
             />
           </>
         )}

@@ -8,6 +8,8 @@ import { relCountdown } from "./utils";
 import type { NextStep } from "./types";
 import { parseIntervalMinutes } from "@/hooks/useSpritzNotifications";
 import { FingerprintCallout } from "./FingerprintCallout";
+import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
+import type { CookCheckin } from "@workspace/api-client-react";
 
 type Colors = any;
 
@@ -26,6 +28,9 @@ interface Props {
   timelineYRef: { current: Record<number, number> };
   rowYRef: { current: Record<string, number> };
   onQuickLog?: (action: "charcoal" | "wood") => void;
+  scheduledCheckins?: ScheduledCheckin[];
+  cookCheckins?: CookCheckin[];
+  onCheckinPress?: (sc: ScheduledCheckin) => void;
 }
 
 function isStallProneMeat(foodType: string): boolean {
@@ -55,7 +60,14 @@ export function SequenceSchedule(p: Props) {
     confirmedSteps, toggleConfirmedStep,
     scheduleListYRef, itemYRef, timelineYRef, rowYRef,
     onQuickLog,
+    scheduledCheckins, cookCheckins, onCheckinPress,
   } = p;
+
+  const completedPhaseKeys = new Set(
+    (cookCheckins ?? [])
+      .filter((ci) => ci.phaseKey != null)
+      .map((ci) => ci.phaseKey!)
+  );
 
   const seqData = (c.sequenceData as { schedule: any[]; serveAt: string; summary?: string | null; fingerprintSource?: "grill" | "user" | "pit_bias_only" | null; fingerprintNote?: string | null } | null | undefined);
   if (!seqData?.schedule?.length) return null;
@@ -225,153 +237,234 @@ export function SequenceSchedule(p: Props) {
                           </View>
                         </View>
 
-                        {/* ── Spritz sub-rows ── */}
+                        {/* ── Unified sorted middle: Spritz · Mop · Check-ins · Wrap (clock mode) ── */}
                         {(() => {
+                          const itemMeatOnMs = item.meatOnAt ? new Date(item.meatOnAt).getTime() : null;
+                          const itemPullOffMs = item.estimatedFinishAt ? new Date(item.estimatedFinishAt).getTime() : null;
+                          if (!itemMeatOnMs || !itemPullOffMs) return null;
+
+                          const itemHasWrap = !!(item.wrapMethod && item.wrapMethod !== "none");
+                          const wrapExplicitMin = (item.wrapAtMinutes ?? 0) > 0 ? Math.round(item.wrapAtMinutes) : null;
+                          const wrapCookMin = typeof item.estimatedDurationMinutes === "number" && item.estimatedDurationMinutes > 0 ? item.estimatedDurationMinutes : null;
+                          const wrapInferredMin = wrapCookMin != null ? Math.max(30, Math.round(wrapCookMin * 0.55)) : null;
+                          const wrapMode: "clock" | "temp" = wrapExplicitMin == null && item.wrapTempF != null ? "temp" : "clock";
+                          const wrapAtMin = wrapMode === "clock" ? (wrapExplicitMin ?? wrapInferredMin) : null;
+                          const itemWrapMs = wrapAtMin != null ? itemMeatOnMs + wrapAtMin * 60_000 : null;
+                          const wrapInferred = wrapMode === "clock" && wrapExplicitMin === null;
+                          const isDoneWrap = itemWrapMs != null && isActive && itemWrapMs < nowMs;
+                          const wrapLabel = item.wrapMethod === "foil" ? "Wrap in foil" : item.wrapMethod === "butcher_paper" ? "Wrap in butcher paper" : "Wrap";
+                          const wrapColor = "#A855F7";
+                          const isNextWrap = nextStep?.itemIdx === idx && nextStep?.step === "wrap";
+
+                          type MiddleEvent =
+                            | { kind: "spritz"; ms: number; i: number }
+                            | { kind: "mop"; ms: number; i: number }
+                            | { kind: "wrap" }
+                            | { kind: "checkin"; sc: ScheduledCheckin };
+                          const events: MiddleEvent[] = [];
+
+                          // Spritz times (stop at wrap or pull-off, whichever is earlier)
                           const spritzIntervalMin = parseIntervalMinutes((c.spritzFrequency as string | null | undefined) ?? "");
-                          if (!spritzIntervalMin || !item.meatOnAt) return null;
-                          const meatOnMs = new Date(item.meatOnAt).getTime();
-                          // Mirror the exact wrap-time derivation used in the Wrap step below.
-                          // wrapMode is "temp" only when explicitWrapMin is absent AND wrapTempF is set;
-                          // in every other case (including both fields present) it is "clock".
-                          // Spritz rows stop at the clock-based wrap time or pull-off, whichever is earlier.
-                          const hasWrap = item.wrapMethod && item.wrapMethod !== "none";
-                          let wrapCutoffMs: number | null = null;
-                          if (hasWrap) {
-                            const explicitWrapMin = (item.wrapAtMinutes ?? 0) > 0 ? Math.round(item.wrapAtMinutes) : null;
-                            const cookMin = typeof item.estimatedDurationMinutes === "number" && item.estimatedDurationMinutes > 0
-                              ? item.estimatedDurationMinutes : null;
-                            const inferredWrapMin = cookMin != null ? Math.max(30, Math.round(cookMin * 0.55)) : null;
-                            const wrapMode = (explicitWrapMin == null && item.wrapTempF != null) ? "temp" : "clock";
-                            const wrapAtMin = wrapMode === "clock" ? (explicitWrapMin ?? inferredWrapMin) : null;
-                            if (wrapAtMin != null) wrapCutoffMs = meatOnMs + wrapAtMin * 60_000;
+                          if (spritzIntervalMin) {
+                            const spritzEnd = itemHasWrap && itemWrapMs != null
+                              ? Math.min(itemWrapMs, itemPullOffMs)
+                              : itemPullOffMs;
+                            let t = itemMeatOnMs + spritzIntervalMin * 60_000;
+                            let si = 0;
+                            while (t < spritzEnd && si < 12) {
+                              events.push({ kind: "spritz", ms: t, i: si });
+                              t += spritzIntervalMin * 60_000;
+                              si++;
+                            }
                           }
-                          const pullOffMs = item.estimatedFinishAt
-                            ? new Date(item.estimatedFinishAt).getTime()
-                            : null;
-                          // Use the earlier of wrap cutoff and pull-off.
-                          const endMs = (wrapCutoffMs != null && pullOffMs != null)
-                            ? Math.min(wrapCutoffMs, pullOffMs)
-                            : (wrapCutoffMs ?? pullOffMs);
-                          if (!endMs) return null;
-                          // Generate spritz timestamps (cap at 12).
-                          const spritzTimes: number[] = [];
-                          let t = meatOnMs + spritzIntervalMin * 60_000;
-                          while (t < endMs && spritzTimes.length < 12) {
-                            spritzTimes.push(t);
-                            t += spritzIntervalMin * 60_000;
+
+                          // Mop times (run all the way to pull-off)
+                          const mopIntervalMin = parseIntervalMinutes((c.mopFrequency as string | null | undefined) ?? "");
+                          if (mopIntervalMin) {
+                            let t = itemMeatOnMs + mopIntervalMin * 60_000;
+                            let mi = 0;
+                            while (t < itemPullOffMs && mi < 12) {
+                              events.push({ kind: "mop", ms: t, i: mi });
+                              t += mopIntervalMin * 60_000;
+                              mi++;
+                            }
                           }
-                          if (spritzTimes.length === 0) return null;
+
+                          // Wrap (clock mode only — temp mode renders separately below)
+                          if (itemHasWrap && wrapMode === "clock" && itemWrapMs != null) {
+                            events.push({ kind: "wrap" });
+                          }
+
+                          // Check-in checkpoints (active cooks only, meatOn → serve window)
+                          if (isActive && scheduledCheckins && scheduledCheckins.length > 0) {
+                            const itemServeMs = itemPullOffMs + (item.restMinutes ?? 0) * 60_000;
+                            for (const sc of scheduledCheckins) {
+                              if (sc.scheduledAt >= itemMeatOnMs && sc.scheduledAt <= itemServeMs) {
+                                events.push({ kind: "checkin", sc });
+                              }
+                            }
+                          }
+
+                          if (events.length === 0) return null;
+
+                          // Sort everything by timestamp
+                          events.sort((a, b) => {
+                            const getMs = (e: MiddleEvent) =>
+                              e.kind === "wrap" ? (itemWrapMs ?? 0)
+                              : e.kind === "checkin" ? e.sc.scheduledAt
+                              : e.ms;
+                            return getMs(a) - getMs(b);
+                          });
+
                           const spritzColor = "#14b8a6";
+                          const mopColor = "#92400E";
+                          const ciColor = "#7C3AED";
+
                           return (
                             <>
-                              {spritzTimes.map((spritzMs, i) => {
-                                const isDone = isActive && spritzMs < nowMs;
-                                const isFuture = (cookStatus === "active" || cookStatus === "planned") && spritzMs > nowMs;
-                                return (
-                                  <View
-                                    key={i}
-                                    style={[
-                                      s.seqTlRow,
-                                      { marginLeft: 4, marginBottom: 6, opacity: isDone ? 0.45 : 1 },
-                                    ]}
-                                  >
-                                    <View
-                                      style={[
-                                        s.seqTlDot,
-                                        {
-                                          width: 7,
-                                          height: 7,
-                                          borderRadius: 4,
-                                          marginTop: 5,
-                                          backgroundColor: isDone ? colors.mutedForeground : spritzColor,
-                                        },
-                                      ]}
-                                    />
-                                    <View style={{ flex: 1 }}>
-                                      <View style={s.seqTlLabelRow}>
-                                        <Feather name="droplet" size={9} color={isDone ? colors.mutedForeground : spritzColor} style={{ marginRight: 2 }} />
-                                        <Text style={[s.seqTlLabel, { color: isDone ? colors.mutedForeground : spritzColor, fontSize: 9 }]}>
-                                          Spritz
+                              {events.map((event, evIdx) => {
+                                if (event.kind === "spritz") {
+                                  const spritzMs = event.ms;
+                                  const isDone = isActive && spritzMs < nowMs;
+                                  const isFuture = (cookStatus === "active" || cookStatus === "planned") && spritzMs > nowMs;
+                                  return (
+                                    <View key={`s${evIdx}`} style={[s.seqTlRow, { marginLeft: 4, marginBottom: 6, opacity: isDone ? 0.45 : 1 }]}>
+                                      <View style={[s.seqTlDot, { width: 7, height: 7, borderRadius: 4, marginTop: 5, backgroundColor: isDone ? colors.mutedForeground : spritzColor }]} />
+                                      <View style={{ flex: 1 }}>
+                                        <View style={s.seqTlLabelRow}>
+                                          <Feather name="droplet" size={9} color={isDone ? colors.mutedForeground : spritzColor} style={{ marginRight: 2 }} />
+                                          <Text style={[s.seqTlLabel, { color: isDone ? colors.mutedForeground : spritzColor, fontSize: 9 }]}>Spritz</Text>
+                                        </View>
+                                        <Text style={[s.seqTlMeta, { color: isDone ? colors.mutedForeground : colors.foreground, fontSize: 12, fontFamily: "Inter_600SemiBold" }]}>
+                                          {new Date(spritzMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                          {isFuture && <Text style={[s.seqTlMeta, { color: spritzColor }]}>{" "}· {relCountdown(spritzMs, nowMs)}</Text>}
                                         </Text>
                                       </View>
-                                      <Text style={[s.seqTlMeta, { color: isDone ? colors.mutedForeground : colors.foreground, fontSize: 12, fontFamily: "Inter_600SemiBold" }]}>
-                                        {new Date(spritzMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                        {isFuture && (
-                                          <Text style={[s.seqTlMeta, { color: spritzColor }]}>
-                                            {" "}· {relCountdown(spritzMs, nowMs)}
-                                          </Text>
-                                        )}
-                                      </Text>
                                     </View>
-                                  </View>
-                                );
+                                  );
+                                }
+                                if (event.kind === "mop") {
+                                  const mopMs = event.ms;
+                                  const isDone = isActive && mopMs < nowMs;
+                                  const isFuture = (cookStatus === "active" || cookStatus === "planned") && mopMs > nowMs;
+                                  return (
+                                    <View key={`m${evIdx}`} style={[s.seqTlRow, { marginLeft: 4, marginBottom: 6, opacity: isDone ? 0.45 : 1 }]}>
+                                      <View style={[s.seqTlDot, { width: 7, height: 7, borderRadius: 4, marginTop: 5, backgroundColor: isDone ? colors.mutedForeground : mopColor }]} />
+                                      <View style={{ flex: 1 }}>
+                                        <View style={s.seqTlLabelRow}>
+                                          <Feather name="droplet" size={9} color={isDone ? colors.mutedForeground : mopColor} style={{ marginRight: 2 }} />
+                                          <Text style={[s.seqTlLabel, { color: isDone ? colors.mutedForeground : mopColor, fontSize: 9 }]}>Mop</Text>
+                                        </View>
+                                        <Text style={[s.seqTlMeta, { color: isDone ? colors.mutedForeground : colors.foreground, fontSize: 12, fontFamily: "Inter_600SemiBold" }]}>
+                                          {new Date(mopMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                          {isFuture && <Text style={[s.seqTlMeta, { color: mopColor }]}>{" "}· {relCountdown(mopMs, nowMs)}</Text>}
+                                        </Text>
+                                      </View>
+                                    </View>
+                                  );
+                                }
+                                if (event.kind === "wrap") {
+                                  return (
+                                    <View key={`w${evIdx}`} onLayout={(e) => { rowYRef.current[`${idx}:wrap`] = e.nativeEvent.layout.y; }} style={[s.seqTlRow, isNextWrap && s.seqTlNextRow, isDoneWrap && !confirmedSteps[`${idx}_wrap`] && s.seqTlDoneRow]}>
+                                      {isDoneWrap ? (
+                                        <Pressable onPress={() => toggleConfirmedStep(`${idx}_wrap`)} hitSlop={8} style={s.seqTlDotBtn}>
+                                          {confirmedSteps[`${idx}_wrap`]
+                                            ? <Feather name="check-circle" size={14} color={wrapColor} />
+                                            : <View style={[s.seqTlDot, { backgroundColor: colors.mutedForeground, opacity: 0.45 }]} />}
+                                        </Pressable>
+                                      ) : (
+                                        <View style={[s.seqTlDot, { backgroundColor: wrapColor }]} />
+                                      )}
+                                      <View style={s.seqTlConnector} />
+                                      <View style={{ flex: 1 }}>
+                                        <View style={s.seqTlLabelRow}>
+                                          <Text style={[s.seqTlLabel, { color: isNextWrap ? wrapColor : colors.mutedForeground }, isDoneWrap && s.seqTlDoneLabel]}>{wrapLabel}</Text>
+                                          {isNextWrap && (
+                                            <View style={[s.seqTlNextBadge, { backgroundColor: wrapColor + "25" }]}>
+                                              <Text style={[s.seqTlNextText, { color: wrapColor }]}>NEXT</Text>
+                                            </View>
+                                          )}
+                                        </View>
+                                        <Text style={[s.seqTlTime, { color: isDoneWrap ? colors.mutedForeground : colors.foreground, opacity: isDoneWrap ? 0.55 : 1 }]}>
+                                          {wrapInferred ? "≈ " : ""}{itemWrapMs != null ? new Date(itemWrapMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
+                                          {itemWrapMs != null && (cookStatus === "active" || cookStatus === "planned") && !isDoneWrap && (
+                                            <Text style={[s.seqTlMeta, { color: wrapColor }]}>{" "}· {relCountdown(itemWrapMs, nowMs)}</Text>
+                                          )}
+                                          {item.wrapTempF ? (
+                                            <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>{" "}· at {item.wrapTempF}°F internal</Text>
+                                          ) : wrapInferred ? (
+                                            <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>{" "}· around the stall</Text>
+                                          ) : null}
+                                        </Text>
+                                        {item.wrapReason ? <Text style={[s.seqTlMeta, { color: colors.mutedForeground, marginTop: 2, lineHeight: 16 }]}>{item.wrapReason}</Text> : null}
+                                        {c.wrapFinish ? <Text style={[s.seqTlMeta, { color: colors.mutedForeground, marginTop: 2, lineHeight: 16, fontStyle: "italic" }]}>{c.wrapFinish}</Text> : null}
+                                      </View>
+                                    </View>
+                                  );
+                                }
+                                if (event.kind === "checkin") {
+                                  const sc = event.sc;
+                                  const isDone = completedPhaseKeys.has(sc.phaseKey);
+                                  const isUpcoming = sc.scheduledAt > nowMs;
+                                  const ciDotColor = isDone ? "#22c55e" : isUpcoming ? ciColor : colors.mutedForeground as string;
+                                  return (
+                                    <Pressable
+                                      key={`ci-${sc.phaseKey}`}
+                                      onPress={!isDone && isUpcoming && onCheckinPress ? () => onCheckinPress(sc) : undefined}
+                                      style={[s.seqTlRow, { marginLeft: 4, marginBottom: 6, opacity: isDone ? 0.65 : 1 }]}
+                                    >
+                                      <View style={[s.seqTlDot, { width: 8, height: 8, borderRadius: 4, marginTop: 5, backgroundColor: ciDotColor }]} />
+                                      <View style={{ flex: 1 }}>
+                                        <View style={s.seqTlLabelRow}>
+                                          <Feather name={isDone ? "check-circle" : "bell"} size={9} color={ciDotColor} style={{ marginRight: 2 }} />
+                                          <Text style={[s.seqTlLabel, { color: ciDotColor, fontSize: 9 }]}>{isDone ? "Checked In" : "Check-In"}</Text>
+                                        </View>
+                                        <Text style={[s.seqTlMeta, { color: isDone ? colors.mutedForeground as string : colors.foreground as string, fontSize: 12, fontFamily: "Inter_600SemiBold" }]}>
+                                          {sc.phaseLabel}
+                                          <Text style={[s.seqTlMeta, { color: isUpcoming ? ciColor : colors.mutedForeground as string }]}>
+                                            {" "}· {isUpcoming ? relCountdown(sc.scheduledAt, nowMs) : new Date(sc.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                          </Text>
+                                        </Text>
+                                        {!isDone && isUpcoming && onCheckinPress && (
+                                          <Text style={{ fontSize: 10, fontFamily: "Inter_400Regular", color: ciColor, marginTop: 1 }}>Tap to check in →</Text>
+                                        )}
+                                      </View>
+                                    </Pressable>
+                                  );
+                                }
+                                return null;
                               })}
                             </>
                           );
                         })()}
 
-                        {/* ── Mop sub-rows ── */}
-                        {(() => {
-                          const mopIntervalMin = parseIntervalMinutes((c.mopFrequency as string | null | undefined) ?? "");
-                          if (!mopIntervalMin || !item.meatOnAt) return null;
-                          const meatOnMs = new Date(item.meatOnAt).getTime();
-                          const pullOffMs = item.estimatedFinishAt
-                            ? new Date(item.estimatedFinishAt).getTime()
-                            : null;
-                          if (!pullOffMs) return null;
-                          const mopTimes: number[] = [];
-                          let t = meatOnMs + mopIntervalMin * 60_000;
-                          while (t < pullOffMs && mopTimes.length < 12) {
-                            mopTimes.push(t);
-                            t += mopIntervalMin * 60_000;
-                          }
-                          if (mopTimes.length === 0) return null;
-                          const mopColor = "#92400E";
+                        {/* ── Wrap (temp mode only — no clock timestamp, renders at fixed position) ── */}
+                        {item.wrapMethod && item.wrapMethod !== "none" && (() => {
+                          const tempModeExplicit = (item.wrapAtMinutes ?? 0) > 0 ? Math.round(item.wrapAtMinutes) : null;
+                          if (!(tempModeExplicit == null && item.wrapTempF != null)) return null;
+                          const isNextWrap2 = nextStep?.itemIdx === idx && nextStep?.step === "wrap";
+                          const wrapLabel2 = item.wrapMethod === "foil" ? "Wrap in foil" : item.wrapMethod === "butcher_paper" ? "Wrap in butcher paper" : "Wrap";
+                          const wrapColor2 = "#A855F7";
                           return (
-                            <>
-                              {mopTimes.map((mopMs, i) => {
-                                const isDone = isActive && mopMs < nowMs;
-                                const isFuture = (cookStatus === "active" || cookStatus === "planned") && mopMs > nowMs;
-                                return (
-                                  <View
-                                    key={i}
-                                    style={[
-                                      s.seqTlRow,
-                                      { marginLeft: 4, marginBottom: 6, opacity: isDone ? 0.45 : 1 },
-                                    ]}
-                                  >
-                                    <View
-                                      style={[
-                                        s.seqTlDot,
-                                        {
-                                          width: 7,
-                                          height: 7,
-                                          borderRadius: 4,
-                                          marginTop: 5,
-                                          backgroundColor: isDone ? colors.mutedForeground : mopColor,
-                                        },
-                                      ]}
-                                    />
-                                    <View style={{ flex: 1 }}>
-                                      <View style={s.seqTlLabelRow}>
-                                        <Feather name="droplet" size={9} color={isDone ? colors.mutedForeground : mopColor} style={{ marginRight: 2 }} />
-                                        <Text style={[s.seqTlLabel, { color: isDone ? colors.mutedForeground : mopColor, fontSize: 9 }]}>
-                                          Mop
-                                        </Text>
-                                      </View>
-                                      <Text style={[s.seqTlMeta, { color: isDone ? colors.mutedForeground : colors.foreground, fontSize: 12, fontFamily: "Inter_600SemiBold" }]}>
-                                        {new Date(mopMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                        {isFuture && (
-                                          <Text style={[s.seqTlMeta, { color: mopColor }]}>
-                                            {" "}· {relCountdown(mopMs, nowMs)}
-                                          </Text>
-                                        )}
-                                      </Text>
+                            <View onLayout={(e) => { rowYRef.current[`${idx}:wrap`] = e.nativeEvent.layout.y; }} style={[s.seqTlRow, isNextWrap2 && s.seqTlNextRow]}>
+                              <View style={[s.seqTlDot, { backgroundColor: wrapColor2 }]} />
+                              <View style={s.seqTlConnector} />
+                              <View style={{ flex: 1 }}>
+                                <View style={s.seqTlLabelRow}>
+                                  <Text style={[s.seqTlLabel, { color: isNextWrap2 ? wrapColor2 : colors.mutedForeground }]}>{wrapLabel2}</Text>
+                                  {isNextWrap2 && (
+                                    <View style={[s.seqTlNextBadge, { backgroundColor: wrapColor2 + "25" }]}>
+                                      <Text style={[s.seqTlNextText, { color: wrapColor2 }]}>NEXT</Text>
                                     </View>
-                                  </View>
-                                );
-                              })}
-                            </>
+                                  )}
+                                </View>
+                                <Text style={[s.seqTlTime, { color: colors.foreground }]}>
+                                  When internal reaches {item.wrapTempF}°F
+                                </Text>
+                                {item.wrapReason ? <Text style={[s.seqTlMeta, { color: colors.mutedForeground, marginTop: 2, lineHeight: 16 }]}>{item.wrapReason}</Text> : null}
+                                {c.wrapFinish ? <Text style={[s.seqTlMeta, { color: colors.mutedForeground, marginTop: 2, lineHeight: 16, fontStyle: "italic" }]}>{c.wrapFinish}</Text> : null}
+                              </View>
+                            </View>
                           );
                         })()}
 
@@ -416,94 +509,6 @@ export function SequenceSchedule(p: Props) {
                             </View>
                           </View>
                         )}
-
-                        {/* ── Wrap ── */}
-                        {item.wrapMethod && item.wrapMethod !== "none" ? (() => {
-                          const explicitWrapMin = (item.wrapAtMinutes ?? 0) > 0
-                            ? Math.round(item.wrapAtMinutes)
-                            : null;
-                          const cookMin = typeof item.estimatedDurationMinutes === "number" && item.estimatedDurationMinutes > 0
-                            ? item.estimatedDurationMinutes
-                            : null;
-                          const inferredWrapMin = cookMin != null
-                            ? Math.max(30, Math.round(cookMin * 0.55))
-                            : null;
-                          const wrapMode: "clock" | "temp" =
-                            explicitWrapMin == null && item.wrapTempF != null
-                              ? "temp"
-                              : "clock";
-                          const wrapAtMin = wrapMode === "clock" ? (explicitWrapMin ?? inferredWrapMin) : null;
-                          if (wrapMode === "clock" && wrapAtMin == null) return null;
-                          const wrapInferred = wrapMode === "clock" && explicitWrapMin === null;
-                          const wrapMs = wrapAtMin != null && item.meatOnAt
-                            ? new Date(item.meatOnAt).getTime() + wrapAtMin * 60000
-                            : null;
-                          const isDoneWrap = wrapMs != null && cookStatus === "active" && wrapMs < nowMs;
-                          const wrapLabel =
-                            item.wrapMethod === "foil"
-                              ? "Wrap in foil"
-                              : item.wrapMethod === "butcher_paper"
-                                ? "Wrap in butcher paper"
-                                : "Wrap";
-                          const wrapColor = "#A855F7";
-                          const isNextWrap =
-                            nextStep?.itemIdx === idx && nextStep?.step === "wrap";
-                          return (
-                            <View onLayout={(e) => { rowYRef.current[`${idx}:wrap`] = e.nativeEvent.layout.y; }} style={[s.seqTlRow, isNextWrap && s.seqTlNextRow, isDoneWrap && !confirmedSteps[`${idx}_wrap`] && s.seqTlDoneRow]}>
-                              {isDoneWrap ? (
-                                <Pressable onPress={() => toggleConfirmedStep(`${idx}_wrap`)} hitSlop={8} style={s.seqTlDotBtn}>
-                                  {confirmedSteps[`${idx}_wrap`]
-                                    ? <Feather name="check-circle" size={14} color={wrapColor} />
-                                    : <View style={[s.seqTlDot, { backgroundColor: colors.mutedForeground, opacity: 0.45 }]} />}
-                                </Pressable>
-                              ) : (
-                                <View style={[s.seqTlDot, { backgroundColor: wrapColor }]} />
-                              )}
-                              <View style={s.seqTlConnector} />
-                              <View style={{ flex: 1 }}>
-                                <View style={s.seqTlLabelRow}>
-                                  <Text style={[s.seqTlLabel, { color: isNextWrap ? wrapColor : colors.mutedForeground }, isDoneWrap && s.seqTlDoneLabel]}>{wrapLabel}</Text>
-                                  {isNextWrap && (
-                                    <View style={[s.seqTlNextBadge, { backgroundColor: wrapColor + "25" }]}>
-                                      <Text style={[s.seqTlNextText, { color: wrapColor }]}>NEXT</Text>
-                                    </View>
-                                  )}
-                                </View>
-                                {wrapMode === "temp" ? (
-                                  <Text style={[s.seqTlTime, { color: colors.foreground }]}>
-                                    When internal reaches {item.wrapTempF}°F
-                                  </Text>
-                                ) : (
-                                  <Text style={[s.seqTlTime, { color: isDoneWrap ? colors.mutedForeground : colors.foreground, opacity: isDoneWrap ? 0.55 : 1 }]}>
-                                    {wrapInferred ? "≈ " : ""}{wrapMs != null ? new Date(wrapMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
-                                    {wrapMs != null && (cookStatus === "active" || cookStatus === "planned") && !isDoneWrap && (
-                                      <Text style={[s.seqTlMeta, { color: wrapColor }]}>
-                                        {" "}· {relCountdown(wrapMs, nowMs)}
-                                      </Text>
-                                    )}
-                                    {item.wrapTempF ? (
-                                      <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
-                                        {" "}· at {item.wrapTempF}°F internal
-                                      </Text>
-                                    ) : wrapInferred ? (
-                                      <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
-                                        {" "}· around the stall
-                                      </Text>
-                                    ) : null}
-                                  </Text>
-                                )}
-                                {item.wrapReason ? (
-                                  <Text style={[s.seqTlMeta, { color: colors.mutedForeground, marginTop: 2, lineHeight: 16 }]}>{item.wrapReason}</Text>
-                                ) : null}
-                                {c.wrapFinish ? (
-                                  <Text style={[s.seqTlMeta, { color: colors.mutedForeground, marginTop: 2, lineHeight: 16, fontStyle: "italic" }]}>
-                                    {c.wrapFinish}
-                                  </Text>
-                                ) : null}
-                              </View>
-                            </View>
-                          );
-                        })() : null}
 
                         {/* ── Probe tenderness check (brisket / pork shoulder — active cooks only) ── */}
                         {isActive && probeTender && (
