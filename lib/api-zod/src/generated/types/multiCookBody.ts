@@ -5,7 +5,6 @@
  * PitMaster AI - BBQ Planning & Monitoring API
  * OpenAPI spec version: 0.1.0
  */
-import type { MultiCookCompetition } from "./multiCookCompetition";
 import type { MultiCookItem } from "./multiCookItem";
 
 export interface MultiCookBody {
@@ -14,7 +13,7 @@ export interface MultiCookBody {
    * @maxItems 5
    */
   items: MultiCookItem[];
-  /** Target time when all food should be ready to serve. In Competition Mode each item's turnInAt overrides this for that item; pass the latest turnInAt for backwards compatibility. */
+  /** Target time when all food should be ready to serve. */
   serveAt: Date;
   /**
    * Outdoor ambient temperature in Fahrenheit. May be current conditions or a forecast for the cook day (see outdoorTempIsForecast).
@@ -26,7 +25,6 @@ export interface MultiCookBody {
    * @nullable
    */
   outdoorTempIsForecast?: boolean | null;
-  competition?: MultiCookCompetition;
   /**
    * Optional session-level free-text notes (e.g. wood choice, rub, special instructions). PitMaster factors these into timing and tips for all items in the session.
    * @nullable

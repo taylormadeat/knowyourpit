@@ -434,58 +434,6 @@ export interface Cook {
    * @nullable
    */
   actualThawStartAt?: string | null;
-  /** True when this cook is part of a sanctioned competition (KCBS Competition Mode) */
-  isCompetition: boolean;
-  /**
-   * Name of the competition this cook belongs to (e.g., "Smoketown Invitational 2026")
-   * @nullable
-   */
-  competitionName: string | null;
-  /**
-   * KCBS category — "chicken", "ribs", "pork", or "brisket"
-   * @nullable
-   */
-  competitionCategory: string | null;
-  /**
-   * Official competition turn-in time for this category. Used in Competition Mode instead of plannedEndAt.
-   * @nullable
-   */
-  turnInAt: string | null;
-  /**
-   * Final placement in the category (1=first, 0=DNP). Higher numbers can represent ranges (6=top 10, 11=top 20, 21=below 20).
-   * @nullable
-   */
-  competitionPlacement: number | null;
-  /**
-   * Total number of teams competing in the field — used to compute percentile finish.
-   * @nullable
-   */
-  competitionTeamCount: number | null;
-  /**
-   * Total judges' score (0–360). Auto-computed from sub-scores when all three are provided; can also be entered directly for legacy data.
-   * @nullable
-   */
-  judgeScore: number | null;
-  /**
-   * Appearance sub-score (0–60) — 10 pts × 6 judges per KCBS rules.
-   * @nullable
-   */
-  judgeScoreAppearance: number | null;
-  /**
-   * Taste sub-score (0–150) — 25 pts × 6 judges per KCBS rules.
-   * @nullable
-   */
-  judgeScoreTaste: number | null;
-  /**
-   * Texture sub-score (0–150) — 25 pts × 6 judges per KCBS rules.
-   * @nullable
-   */
-  judgeScoreTexture: number | null;
-  /**
-   * Free-form notes about judge feedback
-   * @nullable
-   */
-  judgeNotes: string | null;
   /**
    * Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)
    * @nullable
@@ -595,20 +543,6 @@ export const CreateCookBodyThawMethod = {
   cold_water: "cold_water",
 } as const;
 
-/**
- * @nullable
- */
-export type CreateCookBodyCompetitionCategory =
-  | (typeof CreateCookBodyCompetitionCategory)[keyof typeof CreateCookBodyCompetitionCategory]
-  | null;
-
-export const CreateCookBodyCompetitionCategory = {
-  chicken: "chicken",
-  ribs: "ribs",
-  pork: "pork",
-  brisket: "brisket",
-} as const;
-
 export interface CreateCookBody {
   /** @nullable */
   grillId?: number | null;
@@ -674,31 +608,6 @@ export interface CreateCookBody {
    * @nullable
    */
   thawMethod?: CreateCookBodyThawMethod;
-  /**
-   * Mark this cook as part of a KCBS competition
-   * @nullable
-   */
-  isCompetition?: boolean | null;
-  /** @nullable */
-  competitionName?: string | null;
-  /** @nullable */
-  competitionCategory?: CreateCookBodyCompetitionCategory;
-  /** @nullable */
-  turnInAt?: string | null;
-  /** @nullable */
-  competitionPlacement?: number | null;
-  /** @nullable */
-  competitionTeamCount?: number | null;
-  /** @nullable */
-  judgeScore?: number | null;
-  /** @nullable */
-  judgeScoreAppearance?: number | null;
-  /** @nullable */
-  judgeScoreTaste?: number | null;
-  /** @nullable */
-  judgeScoreTexture?: number | null;
-  /** @nullable */
-  judgeNotes?: string | null;
   /**
    * Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)
    * @nullable
@@ -766,20 +675,6 @@ export const UpdateCookBodyThawMethod = {
  * @nullable
  */
 export type UpdateCookBodyConfirmedSteps = { [key: string]: string } | null;
-
-/**
- * @nullable
- */
-export type UpdateCookBodyCompetitionCategory =
-  | (typeof UpdateCookBodyCompetitionCategory)[keyof typeof UpdateCookBodyCompetitionCategory]
-  | null;
-
-export const UpdateCookBodyCompetitionCategory = {
-  chicken: "chicken",
-  ribs: "ribs",
-  pork: "pork",
-  brisket: "brisket",
-} as const;
 
 export interface UpdateCookBody {
   /** @nullable */
@@ -849,46 +744,6 @@ export interface UpdateCookBody {
    * @nullable
    */
   confirmedSteps?: UpdateCookBodyConfirmedSteps;
-  /** @nullable */
-  isCompetition?: boolean | null;
-  /** @nullable */
-  competitionName?: string | null;
-  /** @nullable */
-  competitionCategory?: UpdateCookBodyCompetitionCategory;
-  /** @nullable */
-  turnInAt?: string | null;
-  /**
-   * 1=first, 0=DNP, 6=top 10, 11=top 20, 21=below 20
-   * @nullable
-   */
-  competitionPlacement?: number | null;
-  /**
-   * Total teams in the field — used to compute percentile finish
-   * @nullable
-   */
-  competitionTeamCount?: number | null;
-  /**
-   * Total score (0–360). Auto-computed from sub-scores when all three are provided.
-   * @nullable
-   */
-  judgeScore?: number | null;
-  /**
-   * Appearance sub-score (0–60) per KCBS rules
-   * @nullable
-   */
-  judgeScoreAppearance?: number | null;
-  /**
-   * Taste sub-score (0–150) per KCBS rules
-   * @nullable
-   */
-  judgeScoreTaste?: number | null;
-  /**
-   * Texture sub-score (0–150) per KCBS rules
-   * @nullable
-   */
-  judgeScoreTexture?: number | null;
-  /** @nullable */
-  judgeNotes?: string | null;
   /**
    * Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)
    * @nullable
@@ -1319,21 +1174,6 @@ export interface AiPredictResponse {
 }
 
 /**
- * KCBS competition category. When provided alongside turnInAt, this item is backwards-planned independently to its own turnInAt.
- * @nullable
- */
-export type MultiCookItemCategory =
-  | (typeof MultiCookItemCategory)[keyof typeof MultiCookItemCategory]
-  | null;
-
-export const MultiCookItemCategory = {
-  chicken: "chicken",
-  ribs: "ribs",
-  pork: "pork",
-  brisket: "brisket",
-} as const;
-
-/**
  * Chosen thaw method when fromFrozen is true. "fridge" is slow and safest (~24h / 4–5 lbs); "cold_water" is faster (~1h per lb).
  * @nullable
  */
@@ -1362,21 +1202,6 @@ export interface MultiCookItem {
    */
   preheatMinutes?: number | null;
   /**
-   * KCBS competition category. When provided alongside turnInAt, this item is backwards-planned independently to its own turnInAt.
-   * @nullable
-   */
-  category?: MultiCookItemCategory;
-  /**
-   * Per-item competition turn-in time (Competition Mode). When provided, replaces the shared serveAt for backwards planning of THIS item only.
-   * @nullable
-   */
-  turnInAt?: string | null;
-  /**
-   * Minutes needed to walk the turn-in box to the judges' table. Used to schedule walk-to-turn-in notifications and display on the plan timeline.
-   * @nullable
-   */
-  walkMinutes?: number | null;
-  /**
    * Cooking technique selected by the user (e.g. "Low & Slow", "Hot & Fast", "Rotisserie"). When provided the AI should factor it into duration estimates, wrap recommendations, and notes.
    * @nullable
    */
@@ -1398,31 +1223,13 @@ export interface MultiCookItem {
   notes?: string | null;
 }
 
-export type MultiCookCompetitionCategoriesItem =
-  (typeof MultiCookCompetitionCategoriesItem)[keyof typeof MultiCookCompetitionCategoriesItem];
-
-export const MultiCookCompetitionCategoriesItem = {
-  chicken: "chicken",
-  ribs: "ribs",
-  pork: "pork",
-  brisket: "brisket",
-} as const;
-
-export interface MultiCookCompetition {
-  isCompetition: boolean;
-  /** @nullable */
-  name?: string | null;
-  /** KCBS categories entered in this competition. Each item also carries its own category, but this top-level list is the canonical record of "what categories did the pitmaster sign up for" so the AI can frame coaching around the full slate. */
-  categories?: MultiCookCompetitionCategoriesItem[];
-}
-
 export interface MultiCookBody {
   /**
    * @minItems 1
    * @maxItems 5
    */
   items: MultiCookItem[];
-  /** Target time when all food should be ready to serve. In Competition Mode each item's turnInAt overrides this for that item; pass the latest turnInAt for backwards compatibility. */
+  /** Target time when all food should be ready to serve. */
   serveAt: string;
   /**
    * Outdoor ambient temperature in Fahrenheit. May be current conditions or a forecast for the cook day (see outdoorTempIsForecast).
@@ -1434,7 +1241,6 @@ export interface MultiCookBody {
    * @nullable
    */
   outdoorTempIsForecast?: boolean | null;
-  competition?: MultiCookCompetition;
   /**
    * Optional session-level free-text notes (e.g. wood choice, rub, special instructions). PitMaster factors these into timing and tips for all items in the session.
    * @nullable
@@ -1454,21 +1260,6 @@ export const MultiCookScheduleItemWrapMethod = {
   foil: "foil",
   butcher_paper: "butcher_paper",
   none: "none",
-} as const;
-
-/**
- * KCBS category, echoed from the request when in Competition Mode
- * @nullable
- */
-export type MultiCookScheduleItemCategory =
-  | (typeof MultiCookScheduleItemCategory)[keyof typeof MultiCookScheduleItemCategory]
-  | null;
-
-export const MultiCookScheduleItemCategory = {
-  chicken: "chicken",
-  ribs: "ribs",
-  pork: "pork",
-  brisket: "brisket",
 } as const;
 
 export interface MultiCookScheduleItem {
@@ -1506,26 +1297,6 @@ export interface MultiCookScheduleItem {
   wrapReason?: string | null;
   /** One sentence of specific advice for this item */
   notes?: string;
-  /**
-   * KCBS category, echoed from the request when in Competition Mode
-   * @nullable
-   */
-  category?: MultiCookScheduleItemCategory;
-  /**
-   * Competition turn-in time for this item (Competition Mode)
-   * @nullable
-   */
-  turnInAt?: string | null;
-  /**
-   * When to start packing the turn-in box (~15 min before turnInAt) — Competition Mode only
-   * @nullable
-   */
-  boxPackAt?: string | null;
-  /**
-   * Optional human-readable warning when the back-planned schedule is not realistically achievable (e.g. grillLightAt is already in the past). Competition Mode only.
-   * @nullable
-   */
-  warning?: string | null;
 }
 
 export interface MultiCookResponse {

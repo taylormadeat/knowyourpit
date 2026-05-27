@@ -38,13 +38,6 @@ import type { TechniqueStatsItem } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
-import {
-  COMPETITION_CATEGORY_LABEL,
-  COMPETITION_CATEGORY_COLOR,
-  placementLabel,
-  computePercentile,
-  type CompetitionCategory,
-} from "@/constants/competitionKnowledge";
 import { getCookCardBar, type CookCardBar } from "@/utils/cookCardBar";
 import { letterGrade, scoreColor, VERDICT_SCORE } from "@/utils/gradeUtils";
 import { fmtRemaining, barColor, clamp, AnimatedBarFill } from "@/components/cook-detail/CookProgressBar";
@@ -344,7 +337,6 @@ export default function CooksScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("date-desc");
   const [ratedOnly, setRatedOnly] = useState(false);
-  const [competitionsOnly, setCompetitionsOnly] = useState(false);
   const [techniqueFilter, setTechniqueFilter] = useState<string | null>(null);
   const [showTechniquePicker, setShowTechniquePicker] = useState(false);
   const [meatTypeFilter, setMeatTypeFilter] = useState<string | null>(null);
@@ -413,9 +405,6 @@ export default function CooksScreen() {
     if (ratedOnly) {
       list = list.filter((item) => avgRating(item) > 0);
     }
-    if (competitionsOnly) {
-      list = list.filter((item) => item.isCompetition === true);
-    }
     if (techniqueFilter) {
       list = list.filter((item) => item.cookingMethod === techniqueFilter);
     }
@@ -446,7 +435,7 @@ export default function CooksScreen() {
     });
 
     return list;
-  }, [cooks, sortKey, ratedOnly, competitionsOnly, techniqueFilter, meatTypeFilter]);
+  }, [cooks, sortKey, ratedOnly, techniqueFilter, meatTypeFilter]);
 
   const sessionGroups = useMemo((): SessionGroup[] => {
     const all: any[] = (cooks as any[]) || [];
@@ -455,18 +444,6 @@ export default function CooksScreen() {
       if (cook.sessionId) {
         if (!grouped[cook.sessionId]) grouped[cook.sessionId] = [];
         grouped[cook.sessionId].push(cook);
-      }
-    }
-    if (competitionsOnly) {
-      for (const sid of Object.keys(grouped)) {
-        const compCooks = grouped[sid].filter((c: any) => c.isCompetition);
-        if (compCooks.length === 0) {
-          delete grouped[sid];
-        } else {
-          // Drop any non-competition cooks from a mixed session so the
-          // expanded session view also strictly respects the filter.
-          grouped[sid] = compCooks;
-        }
       }
     }
     if (techniqueFilter) {
@@ -516,7 +493,7 @@ export default function CooksScreen() {
       return b.earliestStart.getTime() - a.earliestStart.getTime();
     });
     return groups;
-  }, [cooks, sortKey, competitionsOnly, techniqueFilter, meatTypeFilter]);
+  }, [cooks, sortKey, techniqueFilter, meatTypeFilter]);
 
   type UnifiedItem =
     | { type: "cook"; data: any }
@@ -976,77 +953,6 @@ export default function CooksScreen() {
               {new Date(item.plannedStartAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
             </Text>
           )}
-          {item.isCompetition && (() => {
-            const cat = item.competitionCategory as CompetitionCategory | null;
-            const catColor = cat ? COMPETITION_CATEGORY_COLOR[cat] : "#EAB308";
-            const hasResults =
-              typeof item.competitionPlacement === "number" || item.judgeScore != null;
-            return (
-              <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6, marginTop: 4 }}>
-                {cat ? (
-                  <View
-                    style={{
-                      paddingHorizontal: 6,
-                      paddingVertical: 2,
-                      borderRadius: 4,
-                      backgroundColor: catColor + "22",
-                      borderWidth: 1,
-                      borderColor: catColor,
-                    }}
-                  >
-                    <Text style={{ color: catColor, fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 0.3 }}>
-                      {COMPETITION_CATEGORY_LABEL[cat]}
-                    </Text>
-                  </View>
-                ) : null}
-                {item.turnInAt && !hasResults ? (
-                  <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>
-                    Turn-in {fmtTime(new Date(item.turnInAt))}
-                  </Text>
-                ) : null}
-                {typeof item.competitionPlacement === "number" ? (
-                  <Text style={{ color: catColor, fontFamily: "Inter_700Bold", fontSize: 12 }}>
-                    {placementLabel(item.competitionPlacement)}
-                  </Text>
-                ) : null}
-                {typeof item.competitionPlacement === "number" && item.competitionTeamCount != null && item.competitionTeamCount > 0 ? (
-                  <Text style={{ color: colors.mutedForeground, fontSize: 10, fontFamily: "Inter_500Medium" }}>
-                    {computePercentile(item.competitionPlacement, item.competitionTeamCount)}
-                  </Text>
-                ) : null}
-                {(() => {
-                  const hasSubScores = item.judgeScoreAppearance != null || item.judgeScoreTaste != null || item.judgeScoreTexture != null;
-                  if (hasSubScores) {
-                    const app = item.judgeScoreAppearance ?? 0;
-                    const taste = item.judgeScoreTaste ?? 0;
-                    const texture = item.judgeScoreTexture ?? 0;
-                    const total = app + taste + texture;
-                    return (
-                      <Text style={{ color: colors.foreground, fontSize: 11, fontFamily: "Inter_700Bold" }}>
-                        · {total.toFixed(1)}<Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>/360</Text>
-                      </Text>
-                    );
-                  }
-                  if (item.judgeScore != null) {
-                    return (
-                      <Text style={{ color: colors.foreground, fontSize: 11, fontFamily: "Inter_700Bold" }}>
-                        · {Number(item.judgeScore).toFixed(item.judgeScore % 1 === 0 ? 0 : 1)} pts
-                      </Text>
-                    );
-                  }
-                  return null;
-                })()}
-              </View>
-            );
-          })()}
-          {item.isCompetition && item.judgeNotes ? (
-            <Text
-              style={{ color: colors.mutedForeground, fontSize: 11, fontStyle: "italic", marginTop: 2 }}
-              numberOfLines={2}
-            >
-              "{item.judgeNotes}"
-            </Text>
-          ) : null}
         </View>
         <View style={{ alignItems: "flex-end", gap: 6 }}>
           <View
@@ -1165,38 +1071,15 @@ export default function CooksScreen() {
     const hasActive = group.cooks.some((c) => c.status === "active");
     const allCompleted = group.cooks.every((c) => c.status === "completed");
     const expanded = expandedSessions.has(group.sessionId);
-    const isComp = group.cooks.some((c: any) => c.isCompetition);
-    const compName = isComp
-      ? (group.cooks.find((c: any) => c.competitionName) as any)?.competitionName ?? group.sessionLabel ?? "Competition"
-      : null;
-    const compCategories: CompetitionCategory[] = isComp
-      ? Array.from(
-          new Set(
-            group.cooks
-              .map((c: any) => c.competitionCategory)
-              .filter(Boolean) as CompetitionCategory[],
-          ),
-        )
-      : [];
-    const compPlacements = isComp
-      ? group.cooks
-          .filter((c: any) => c.isCompetition && typeof c.competitionPlacement === "number")
-          .map((c: any) => ({
-            cat: c.competitionCategory as CompetitionCategory | null,
-            placement: c.competitionPlacement as number,
-          }))
-      : [];
     const dateLabel = group.earliestStart
-      ? isComp
-        ? fmtDate(group.earliestStart)
-        : `${fmtDate(group.earliestStart)} · serve by ${fmtTime(
-            group.cooks.reduce((latest, c) => {
-              const t = c.plannedStartAt ? new Date(c.plannedStartAt).getTime() : 0;
-              return t > latest.getTime() ? new Date(c.plannedStartAt) : latest;
-            }, group.earliestStart)
-          )}`
+      ? `${fmtDate(group.earliestStart)} · serve by ${fmtTime(
+          group.cooks.reduce((latest, c) => {
+            const t = c.plannedStartAt ? new Date(c.plannedStartAt).getTime() : 0;
+            return t > latest.getTime() ? new Date(c.plannedStartAt) : latest;
+          }, group.earliestStart)
+        )}`
       : "Scheduled";
-    const displayLabel = isComp ? compName! : (group.sessionLabel || "Multi-Cook Session");
+    const displayLabel = group.sessionLabel || "Multi-Cook Session";
 
     return (
       <Pressable
@@ -1204,11 +1087,7 @@ export default function CooksScreen() {
           s.sessionCard,
           {
             backgroundColor: colors.card,
-            borderColor: hasActive
-              ? "#E8482045"
-              : isComp
-                ? "#EAB30855"
-                : colors.border,
+            borderColor: hasActive ? "#E8482045" : colors.border,
             borderRadius: colors.radius,
           },
         ]}
@@ -1217,30 +1096,21 @@ export default function CooksScreen() {
         <View style={s.sessionHeader}>
           <LinearGradient
             colors={
-              isComp
-                ? ["#EAB308", "#F59E0B"]
-                : hasActive
-                  ? ["#E84820", "#FF6B2B"]
-                  : allCompleted
-                    ? ["#16a34a", "#22c55e"]
-                    : ["#4f46e5", "#6C3BF5"]
+              hasActive
+                ? ["#E84820", "#FF6B2B"]
+                : allCompleted
+                  ? ["#16a34a", "#22c55e"]
+                  : ["#4f46e5", "#6C3BF5"]
             }
             style={s.sessionIcon}
           >
-            <Feather name={isComp ? "award" : "layers"} size={18} color="#fff" />
+            <Feather name="layers" size={18} color="#fff" />
           </LinearGradient>
           <View style={s.sessionInfo}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <Text style={[s.sessionTitle, { color: colors.foreground }]} numberOfLines={1}>
                 {displayLabel}
               </Text>
-              {isComp && (
-                <View style={{ paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, backgroundColor: "#EAB308" }}>
-                  <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 0.5 }}>
-                    COMP
-                  </Text>
-                </View>
-              )}
               {hasActive && (
                 <View style={s.livePill}>
                   <View style={s.liveDot} />
@@ -1309,40 +1179,7 @@ export default function CooksScreen() {
                 </View>
               );
             })()}
-            {isComp && compCategories.length > 0 && (
-              <View style={[s.sessionTagsRow, { marginTop: 4 }]}>
-                {compCategories.map((cat) => {
-                  const color = COMPETITION_CATEGORY_COLOR[cat];
-                  const placed = compPlacements.find((p) => p.cat === cat);
-                  return (
-                    <View
-                      key={cat}
-                      style={[
-                        s.sessionTag,
-                        {
-                          backgroundColor: color + "22",
-                          borderWidth: 1,
-                          borderColor: color,
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 4,
-                        },
-                      ]}
-                    >
-                      <Text style={[s.sessionTagText, { color }]}>
-                        {COMPETITION_CATEGORY_LABEL[cat]}
-                      </Text>
-                      {placed ? (
-                        <Text style={[s.sessionTagText, { color, fontFamily: "Inter_700Bold" }]}>
-                          · {placementLabel(placed.placement)}
-                        </Text>
-                      ) : null}
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-            {!isComp && !expanded && (
+            {!expanded && (
               <View style={s.sessionTagsRow}>
                 {group.cooks.map((c) => {
                   const bar = getCookCardBar(c, nowMs);
@@ -1972,31 +1809,6 @@ export default function CooksScreen() {
             </Text>
           </Pressable>
 
-          <Pressable
-            onPress={() => setCompetitionsOnly((v) => !v)}
-            style={[
-              s.pill,
-              competitionsOnly
-                ? { backgroundColor: "#EAB308" }
-                : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
-              { flexDirection: "row", alignItems: "center", gap: 4 },
-            ]}
-          >
-            <Feather name="award" size={11} color={competitionsOnly ? "#fff" : colors.mutedForeground} />
-            <Text style={[s.pillText, { color: competitionsOnly ? "#fff" : colors.mutedForeground }]}>
-              Competitions
-            </Text>
-          </Pressable>
-          {competitionsOnly && (
-            <Pressable
-              onPress={() => router.push("/competition-career" as any)}
-              style={[s.pill, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 4 }]}
-            >
-              <Feather name="bar-chart-2" size={11} color={colors.mutedForeground} />
-              <Text style={[s.pillText, { color: colors.mutedForeground }]}>Career Stats</Text>
-            </Pressable>
-          )}
-
           {(availableTechniques.length > 0 || techniqueFilter !== null) && (
             <View
               style={[
@@ -2103,26 +1915,22 @@ export default function CooksScreen() {
             <View style={[s.empty, { borderColor: colors.border, borderRadius: colors.radius }]}>
               <Feather name="thermometer" size={36} color={colors.mutedForeground} />
               <Text style={[s.emptyTitle, { color: colors.foreground }]}>
-                {competitionsOnly
-                  ? "No competition cooks yet"
-                  : ratedOnly
-                    ? "No rated cooks found"
-                    : meatTypeFilter
-                      ? `No "${meatTypeFilter}" cooks found`
-                      : techniqueFilter
-                        ? `No "${techniqueFilter}" cooks found`
-                        : "No cooks logged yet"}
+                {ratedOnly
+                  ? "No rated cooks found"
+                  : meatTypeFilter
+                    ? `No "${meatTypeFilter}" cooks found`
+                    : techniqueFilter
+                      ? `No "${techniqueFilter}" cooks found`
+                      : "No cooks logged yet"}
               </Text>
               <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
-                {competitionsOnly
-                  ? "Plan a competition from the Plan tab to see it here"
-                  : ratedOnly
-                    ? "Try removing the \"Rated only\" filter to see all cooks"
-                    : meatTypeFilter
-                      ? "Try a different meat type or tap the pill to clear"
-                      : techniqueFilter
-                        ? "Try a different technique or tap the pill to clear"
-                        : "Hit + to log your first cook. Your data starts here."}
+                {ratedOnly
+                  ? "Try removing the \"Rated only\" filter to see all cooks"
+                  : meatTypeFilter
+                    ? "Try a different meat type or tap the pill to clear"
+                    : techniqueFilter
+                      ? "Try a different technique or tap the pill to clear"
+                      : "Hit + to log your first cook. Your data starts here."}
               </Text>
             </View>
           }

@@ -5,7 +5,6 @@
  * PitMaster AI - BBQ Planning & Monitoring API
  * OpenAPI spec version: 0.1.0
  */
-import type { MultiCookItemCategory } from "./multiCookItemCategory";
 import type { MultiCookItemThawMethod } from "./multiCookItemThawMethod";
 
 export interface MultiCookItem {
@@ -23,21 +22,6 @@ export interface MultiCookItem {
    * @nullable
    */
   preheatMinutes?: number | null;
-  /**
-   * KCBS competition category. When provided alongside turnInAt, this item is backwards-planned independently to its own turnInAt.
-   * @nullable
-   */
-  category?: MultiCookItemCategory;
-  /**
-   * Per-item competition turn-in time (Competition Mode). When provided, replaces the shared serveAt for backwards planning of THIS item only.
-   * @nullable
-   */
-  turnInAt?: Date | null;
-  /**
-   * Minutes needed to walk the turn-in box to the judges' table. Used to schedule walk-to-turn-in notifications and display on the plan timeline.
-   * @nullable
-   */
-  walkMinutes?: number | null;
   /**
    * Cooking technique selected by the user (e.g. "Low & Slow", "Hot & Fast", "Rotisserie"). When provided the AI should factor it into duration estimates, wrap recommendations, and notes.
    * @nullable

@@ -5,7 +5,6 @@
  * PitMaster AI - BBQ Planning & Monitoring API
  * OpenAPI spec version: 0.1.0
  */
-import type { CreateCookBodyCompetitionCategory } from "./createCookBodyCompetitionCategory";
 import type { CreateCookBodyStatus } from "./createCookBodyStatus";
 import type { CreateCookBodyThawMethod } from "./createCookBodyThawMethod";
 import type { CreateCookBodyWrapMethod } from "./createCookBodyWrapMethod";
@@ -75,31 +74,6 @@ export interface CreateCookBody {
    * @nullable
    */
   thawMethod?: CreateCookBodyThawMethod;
-  /**
-   * Mark this cook as part of a KCBS competition
-   * @nullable
-   */
-  isCompetition?: boolean | null;
-  /** @nullable */
-  competitionName?: string | null;
-  /** @nullable */
-  competitionCategory?: CreateCookBodyCompetitionCategory;
-  /** @nullable */
-  turnInAt?: Date | null;
-  /** @nullable */
-  competitionPlacement?: number | null;
-  /** @nullable */
-  competitionTeamCount?: number | null;
-  /** @nullable */
-  judgeScore?: number | null;
-  /** @nullable */
-  judgeScoreAppearance?: number | null;
-  /** @nullable */
-  judgeScoreTaste?: number | null;
-  /** @nullable */
-  judgeScoreTexture?: number | null;
-  /** @nullable */
-  judgeNotes?: string | null;
   /**
    * Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)
    * @nullable

@@ -8,10 +8,9 @@ import { s } from "./styles";
 import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
 import { weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
 import { fmtElapsed, getOutdoorTempEffect } from "./utils";
-import { COMPETITION_CATEGORY_COLOR, COMPETITION_CATEGORY_LABEL, type CompetitionCategory } from "@/constants/competitionKnowledge";
 import { CookProgressBar } from "./CookProgressBar";
 
-function fmtTurnInCountdown(diffMs: number): string {
+function fmtCountdown(diffMs: number): string {
   if (diffMs <= 0) return "now";
   const mins = Math.floor(diffMs / 60000);
   if (mins < 60) return `in ${mins}m`;
@@ -138,41 +137,6 @@ export function LiveCookSection(p: Props) {
 
   if (c.status !== "active") return null;
 
-  const turnInBadge = (() => {
-    if (!c.isCompetition || !c.turnInAt) return null;
-    const turnInMs = new Date(c.turnInAt).getTime();
-    const now = nowMs ?? Date.now();
-    const diffMs = turnInMs - now;
-    const cat = (c.competitionCategory ?? null) as CompetitionCategory | null;
-    const catColor = cat ? COMPETITION_CATEGORY_COLOR[cat] : "#EAB308";
-    const catLabel = cat ? COMPETITION_CATEGORY_LABEL[cat] : "Competition";
-    const isUrgent = diffMs > 0 && diffMs <= 30 * 60 * 1000;
-    const isPast = diffMs <= 0;
-    const accent = isUrgent || isPast ? "#ef4444" : catColor;
-    const text = isPast ? "Turn-in passed" : `Turn-in ${fmtTurnInCountdown(diffMs)}`;
-    return (
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          marginHorizontal: 14,
-          marginTop: 10,
-          padding: 10,
-          borderRadius: 8,
-          backgroundColor: accent + "18",
-          borderWidth: 1,
-          borderColor: accent + "55",
-        }}
-      >
-        <Feather name="award" size={14} color={accent} />
-        <Text style={{ color: accent, fontFamily: "Inter_700Bold", fontSize: 13 }}>
-          {catLabel.toUpperCase()} · {text}
-        </Text>
-      </View>
-    );
-  })();
-
   return (
     <View style={[s.card, { backgroundColor: colors.card, borderColor: "#FF6B2B40", borderRadius: colors.radius }]}>
       <View style={[s.logHeader, { padding: 14 }]}>
@@ -234,8 +198,6 @@ export function LiveCookSection(p: Props) {
           <Feather name="x" size={13} color="#22c55e" />
         </Pressable>
       )}
-
-      {turnInBadge}
 
       {nextSpritzMs != null && (() => {
         const now = nowMs ?? Date.now();
@@ -983,7 +945,7 @@ export function LiveCookSection(p: Props) {
                                 textDecorationLine: onCheckInPhase ? "underline" : "none",
                                 textDecorationColor: colors.mutedForeground + "80",
                               }}>
-                                {`${sc.phaseLabel} · ${fmtTurnInCountdown(diff)}`}
+                                {`${sc.phaseLabel} · ${fmtCountdown(diff)}`}
                               </Text>
                             )}
                           </Pressable>

@@ -1520,40 +1520,6 @@ components:
           type: ["string", "null"]
           format: date-time
           description: The actual timestamp when the pitmaster moved the meat to begin thawing. Null until the pitmaster taps "Mark Thaw Started".
-        isCompetition:
-          type: boolean
-          description: True when this cook is part of a sanctioned competition (KCBS Competition Mode)
-        competitionName:
-          type: ["string", "null"]
-          description: Name of the competition this cook belongs to (e.g., "Smoketown Invitational 2026")
-        competitionCategory:
-          type: ["string", "null"]
-          description: KCBS category — "chicken", "ribs", "pork", or "brisket"
-        turnInAt:
-          type: ["string", "null"]
-          format: date-time
-          description: Official competition turn-in time for this category. Used in Competition Mode instead of plannedEndAt.
-        competitionPlacement:
-          type: ["integer", "null"]
-          description: Final placement in the category (1=first, 0=DNP). Higher numbers can represent ranges (6=top 10, 11=top 20, 21=below 20).
-        competitionTeamCount:
-          type: ["integer", "null"]
-          description: Total number of teams competing in the field — used to compute percentile finish.
-        judgeScore:
-          type: ["number", "null"]
-          description: Total judges' score (0–360). Auto-computed from sub-scores when all three are provided; can also be entered directly for legacy data.
-        judgeScoreAppearance:
-          type: ["number", "null"]
-          description: Appearance sub-score (0–60) — 10 pts × 6 judges per KCBS rules.
-        judgeScoreTaste:
-          type: ["number", "null"]
-          description: Taste sub-score (0–150) — 25 pts × 6 judges per KCBS rules.
-        judgeScoreTexture:
-          type: ["number", "null"]
-          description: Texture sub-score (0–150) — 25 pts × 6 judges per KCBS rules.
-        judgeNotes:
-          type: ["string", "null"]
-          description: Free-form notes about judge feedback
         cookingMethod:
           type: ["string", "null"]
           description: Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)
@@ -1620,17 +1586,6 @@ components:
         - confirmedSteps
         - fromFrozen
         - thawMethod
-        - isCompetition
-        - competitionName
-        - competitionCategory
-        - turnInAt
-        - competitionPlacement
-        - competitionTeamCount
-        - judgeScore
-        - judgeScoreAppearance
-        - judgeScoreTaste
-        - judgeScoreTexture
-        - judgeNotes
         - createdAt
         - updatedAt
 
@@ -1737,31 +1692,6 @@ components:
           type: ["string", "null"]
           enum: [fridge, cold_water, null]
           description: Selected thaw method when fromFrozen is true
-        isCompetition:
-          type: ["boolean", "null"]
-          description: Mark this cook as part of a KCBS competition
-        competitionName:
-          type: ["string", "null"]
-        competitionCategory:
-          type: ["string", "null"]
-          enum: [chicken, ribs, pork, brisket, null]
-        turnInAt:
-          type: ["string", "null"]
-          format: date-time
-        competitionPlacement:
-          type: ["integer", "null"]
-        competitionTeamCount:
-          type: ["integer", "null"]
-        judgeScore:
-          type: ["number", "null"]
-        judgeScoreAppearance:
-          type: ["number", "null"]
-        judgeScoreTaste:
-          type: ["number", "null"]
-        judgeScoreTexture:
-          type: ["number", "null"]
-        judgeNotes:
-          type: ["string", "null"]
         cookingMethod:
           type: ["string", "null"]
           description: Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)
@@ -1847,36 +1777,6 @@ components:
           additionalProperties:
             type: string
           description: Map of step keys to ISO timestamps of when the user confirmed each step
-        isCompetition:
-          type: ["boolean", "null"]
-        competitionName:
-          type: ["string", "null"]
-        competitionCategory:
-          type: ["string", "null"]
-          enum: [chicken, ribs, pork, brisket, null]
-        turnInAt:
-          type: ["string", "null"]
-          format: date-time
-        competitionPlacement:
-          type: ["integer", "null"]
-          description: 1=first, 0=DNP, 6=top 10, 11=top 20, 21=below 20
-        competitionTeamCount:
-          type: ["integer", "null"]
-          description: Total teams in the field — used to compute percentile finish
-        judgeScore:
-          type: ["number", "null"]
-          description: Total score (0–360). Auto-computed from sub-scores when all three are provided.
-        judgeScoreAppearance:
-          type: ["number", "null"]
-          description: Appearance sub-score (0–60) per KCBS rules
-        judgeScoreTaste:
-          type: ["number", "null"]
-          description: Taste sub-score (0–150) per KCBS rules
-        judgeScoreTexture:
-          type: ["number", "null"]
-          description: Texture sub-score (0–150) per KCBS rules
-        judgeNotes:
-          type: ["string", "null"]
         cookingMethod:
           type: ["string", "null"]
           description: Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)
@@ -2409,17 +2309,6 @@ components:
         preheatMinutes:
           type: ["integer", "null"]
           description: Minutes to preheat the grill before putting meat on
-        category:
-          type: ["string", "null"]
-          enum: [chicken, ribs, pork, brisket, null]
-          description: KCBS competition category. When provided alongside turnInAt, this item is backwards-planned independently to its own turnInAt.
-        turnInAt:
-          type: ["string", "null"]
-          format: date-time
-          description: Per-item competition turn-in time (Competition Mode). When provided, replaces the shared serveAt for backwards planning of THIS item only.
-        walkMinutes:
-          type: ["integer", "null"]
-          description: Minutes needed to walk the turn-in box to the judges' table. Used to schedule walk-to-turn-in notifications and display on the plan timeline.
         cookingMethod:
           type: ["string", "null"]
           description: Cooking technique selected by the user (e.g. "Low & Slow", "Hot & Fast", "Rotisserie"). When provided the AI should factor it into duration estimates, wrap recommendations, and notes.
@@ -2436,22 +2325,6 @@ components:
       required:
         - foodType
 
-    MultiCookCompetition:
-      type: object
-      properties:
-        isCompetition:
-          type: boolean
-        name:
-          type: ["string", "null"]
-        categories:
-          type: array
-          description: KCBS categories entered in this competition. Each item also carries its own category, but this top-level list is the canonical record of "what categories did the pitmaster sign up for" so the AI can frame coaching around the full slate.
-          items:
-            type: string
-            enum: [chicken, ribs, pork, brisket]
-      required:
-        - isCompetition
-
     MultiCookBody:
       type: object
       properties:
@@ -2464,15 +2337,13 @@ components:
         serveAt:
           type: string
           format: date-time
-          description: Target time when all food should be ready to serve. In Competition Mode each item's turnInAt overrides this for that item; pass the latest turnInAt for backwards compatibility.
+          description: Target time when all food should be ready to serve.
         outdoorTempF:
           type: ["number", "null"]
           description: Outdoor ambient temperature in Fahrenheit. May be current conditions or a forecast for the cook day (see outdoorTempIsForecast).
         outdoorTempIsForecast:
           type: ["boolean", "null"]
           description: True when outdoorTempF is a forecasted value for the cook day (Pro). False or omitted when it is the current ambient temperature.
-        competition:
-          $ref: "#/components/schemas/MultiCookCompetition"
         notes:
           type: ["string", "null"]
           description: Optional session-level free-text notes (e.g. wood choice, rub, special instructions). PitMaster factors these into timing and tips for all items in the session.
@@ -2521,21 +2392,6 @@ components:
         notes:
           type: string
           description: One sentence of specific advice for this item
-        category:
-          type: ["string", "null"]
-          enum: [chicken, ribs, pork, brisket, null]
-          description: KCBS category, echoed from the request when in Competition Mode
-        turnInAt:
-          type: ["string", "null"]
-          format: date-time
-          description: Competition turn-in time for this item (Competition Mode)
-        boxPackAt:
-          type: ["string", "null"]
-          format: date-time
-          description: When to start packing the turn-in box (~15 min before turnInAt) — Competition Mode only
-        warning:
-          type: ["string", "null"]
-          description: Optional human-readable warning when the back-planned schedule is not realistically achievable (e.g. grillLightAt is already in the past). Competition Mode only.
       required:
         - foodType
         - estimatedDurationMinutes

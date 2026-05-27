@@ -27,38 +27,6 @@ function inferPlanType(expirationDate: Date | null): "Annual" | "Monthly" | null
 
 // ── Feature preview components ──────────────────────────────────────────────
 
-function CompetitionPreview({ colors }: { colors: any }) {
-  const cats = [
-    { label: "Chicken", time: "12:30", color: "#F59E0B" },
-    { label: "Ribs", time: "1:02:15", color: "#E84520" },
-    { label: "Pork", time: "2:15:00", color: "#22C55E" },
-    { label: "Brisket", time: "3:48:30", color: "#8B5CF6" },
-  ];
-  return (
-    <View style={pv.competitionWrap}>
-      <View style={pv.competitionBadge}>
-        <Feather name="award" size={11} color="#E84520" />
-        <Text style={pv.competitionBadgeText}>COMPETITION MODE</Text>
-      </View>
-      <View style={pv.chipRow}>
-        {cats.map((c) => (
-          <View key={c.label} style={[pv.chip, { borderColor: c.color + "55", backgroundColor: c.color + "15" }]}>
-            <View style={[pv.chipDot, { backgroundColor: c.color }]} />
-            <View>
-              <Text style={[pv.chipLabel, { color: colors.mutedForeground }]}>{c.label}</Text>
-              <Text style={[pv.chipTime, { color: colors.foreground }]}>{c.time}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
-      <View style={[pv.turnInRow, { borderTopColor: colors.border }]}>
-        <Feather name="clock" size={11} color={colors.mutedForeground} />
-        <Text style={[pv.turnInText, { color: colors.mutedForeground }]}>Next turn-in: Chicken at 12:30 · Leave 6 min early</Text>
-      </View>
-    </View>
-  );
-}
-
 function MultiCookPreview({ colors }: { colors: any }) {
   const grills = [
     {
@@ -233,12 +201,6 @@ function FrozenPlannerPreview({ colors }: { colors: any }) {
 // ── Feature data ─────────────────────────────────────────────────────────────
 
 const FEATURES = [
-  {
-    id: "competition",
-    headline: "Competition Mode",
-    benefit: "Backwards-planned schedules for all 4 KCBS categories with per-turn-in countdowns.",
-    Preview: CompetitionPreview,
-  },
   {
     id: "multicook",
     headline: "Multi-Cook Sequencer",
@@ -423,18 +385,6 @@ export default function ProFeaturesScreen() {
 // ── Preview sub-styles ────────────────────────────────────────────────────────
 
 const pv = StyleSheet.create({
-  // Competition
-  competitionWrap: { gap: 10, padding: 12 },
-  competitionBadge: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", backgroundColor: "#E8452018", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  competitionBadgeText: { color: "#E84520", fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.6 },
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  chip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
-  chipDot: { width: 6, height: 6, borderRadius: 3 },
-  chipLabel: { fontSize: 10, fontFamily: "Inter_500Medium" },
-  chipTime: { fontSize: 13, fontFamily: "Inter_700Bold" },
-  turnInRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth },
-  turnInText: { fontSize: 11, fontFamily: "Inter_400Regular", flex: 1 },
-
   // Multi-cook
   multiCookWrap: { gap: 8, padding: 12 },
   grillRow: { borderWidth: 1, borderRadius: 8, padding: 8, gap: 6 },

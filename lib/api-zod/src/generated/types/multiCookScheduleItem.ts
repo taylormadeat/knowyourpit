@@ -5,7 +5,6 @@
  * PitMaster AI - BBQ Planning & Monitoring API
  * OpenAPI spec version: 0.1.0
  */
-import type { MultiCookScheduleItemCategory } from "./multiCookScheduleItemCategory";
 import type { MultiCookScheduleItemWrapMethod } from "./multiCookScheduleItemWrapMethod";
 
 export interface MultiCookScheduleItem {
@@ -43,24 +42,4 @@ export interface MultiCookScheduleItem {
   wrapReason?: string | null;
   /** One sentence of specific advice for this item */
   notes?: string;
-  /**
-   * KCBS category, echoed from the request when in Competition Mode
-   * @nullable
-   */
-  category?: MultiCookScheduleItemCategory;
-  /**
-   * Competition turn-in time for this item (Competition Mode)
-   * @nullable
-   */
-  turnInAt?: Date | null;
-  /**
-   * When to start packing the turn-in box (~15 min before turnInAt) — Competition Mode only
-   * @nullable
-   */
-  boxPackAt?: Date | null;
-  /**
-   * Optional human-readable warning when the back-planned schedule is not realistically achievable (e.g. grillLightAt is already in the past). Competition Mode only.
-   * @nullable
-   */
-  warning?: string | null;
 }

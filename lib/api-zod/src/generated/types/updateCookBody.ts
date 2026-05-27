@@ -5,7 +5,6 @@
  * PitMaster AI - BBQ Planning & Monitoring API
  * OpenAPI spec version: 0.1.0
  */
-import type { UpdateCookBodyCompetitionCategory } from "./updateCookBodyCompetitionCategory";
 import type { UpdateCookBodyConfirmedSteps } from "./updateCookBodyConfirmedSteps";
 import type { UpdateCookBodyStatus } from "./updateCookBodyStatus";
 import type { UpdateCookBodyThawMethod } from "./updateCookBodyThawMethod";
@@ -79,46 +78,6 @@ export interface UpdateCookBody {
    * @nullable
    */
   confirmedSteps?: UpdateCookBodyConfirmedSteps;
-  /** @nullable */
-  isCompetition?: boolean | null;
-  /** @nullable */
-  competitionName?: string | null;
-  /** @nullable */
-  competitionCategory?: UpdateCookBodyCompetitionCategory;
-  /** @nullable */
-  turnInAt?: Date | null;
-  /**
-   * 1=first, 0=DNP, 6=top 10, 11=top 20, 21=below 20
-   * @nullable
-   */
-  competitionPlacement?: number | null;
-  /**
-   * Total teams in the field — used to compute percentile finish
-   * @nullable
-   */
-  competitionTeamCount?: number | null;
-  /**
-   * Total score (0–360). Auto-computed from sub-scores when all three are provided.
-   * @nullable
-   */
-  judgeScore?: number | null;
-  /**
-   * Appearance sub-score (0–60) per KCBS rules
-   * @nullable
-   */
-  judgeScoreAppearance?: number | null;
-  /**
-   * Taste sub-score (0–150) per KCBS rules
-   * @nullable
-   */
-  judgeScoreTaste?: number | null;
-  /**
-   * Texture sub-score (0–150) per KCBS rules
-   * @nullable
-   */
-  judgeScoreTexture?: number | null;
-  /** @nullable */
-  judgeNotes?: string | null;
   /**
    * Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)
    * @nullable

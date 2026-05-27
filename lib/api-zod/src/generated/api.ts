@@ -618,65 +618,6 @@ export const ListCooksResponseItem = zod.object({
     .describe(
       'The actual timestamp when the pitmaster moved the meat to begin thawing. Null until the pitmaster taps \"Mark Thaw Started\".',
     ),
-  isCompetition: zod
-    .boolean()
-    .describe(
-      "True when this cook is part of a sanctioned competition (KCBS Competition Mode)",
-    ),
-  competitionName: zod
-    .string()
-    .nullable()
-    .describe(
-      'Name of the competition this cook belongs to (e.g., \"Smoketown Invitational 2026\")',
-    ),
-  competitionCategory: zod
-    .string()
-    .nullable()
-    .describe(
-      'KCBS category — \"chicken\", \"ribs\", \"pork\", or \"brisket\"',
-    ),
-  turnInAt: zod.coerce
-    .date()
-    .nullable()
-    .describe(
-      "Official competition turn-in time for this category. Used in Competition Mode instead of plannedEndAt.",
-    ),
-  competitionPlacement: zod
-    .number()
-    .nullable()
-    .describe(
-      "Final placement in the category (1=first, 0=DNP). Higher numbers can represent ranges (6=top 10, 11=top 20, 21=below 20).",
-    ),
-  competitionTeamCount: zod
-    .number()
-    .nullable()
-    .describe(
-      "Total number of teams competing in the field — used to compute percentile finish.",
-    ),
-  judgeScore: zod
-    .number()
-    .nullable()
-    .describe(
-      "Total judges' score (0–360). Auto-computed from sub-scores when all three are provided; can also be entered directly for legacy data.",
-    ),
-  judgeScoreAppearance: zod
-    .number()
-    .nullable()
-    .describe(
-      "Appearance sub-score (0–60) — 10 pts × 6 judges per KCBS rules.",
-    ),
-  judgeScoreTaste: zod
-    .number()
-    .nullable()
-    .describe("Taste sub-score (0–150) — 25 pts × 6 judges per KCBS rules."),
-  judgeScoreTexture: zod
-    .number()
-    .nullable()
-    .describe("Texture sub-score (0–150) — 25 pts × 6 judges per KCBS rules."),
-  judgeNotes: zod
-    .string()
-    .nullable()
-    .describe("Free-form notes about judge feedback"),
   cookingMethod: zod
     .string()
     .nullish()
@@ -798,28 +739,6 @@ export const CreateCookBody = zod.object({
     ])
     .nullish()
     .describe("Selected thaw method when fromFrozen is true"),
-  isCompetition: zod
-    .boolean()
-    .nullish()
-    .describe("Mark this cook as part of a KCBS competition"),
-  competitionName: zod.string().nullish(),
-  competitionCategory: zod
-    .union([
-      zod.literal("chicken"),
-      zod.literal("ribs"),
-      zod.literal("pork"),
-      zod.literal("brisket"),
-      zod.literal(null),
-    ])
-    .nullish(),
-  turnInAt: zod.coerce.date().nullish(),
-  competitionPlacement: zod.number().nullish(),
-  competitionTeamCount: zod.number().nullish(),
-  judgeScore: zod.number().nullish(),
-  judgeScoreAppearance: zod.number().nullish(),
-  judgeScoreTaste: zod.number().nullish(),
-  judgeScoreTexture: zod.number().nullish(),
-  judgeNotes: zod.string().nullish(),
   cookingMethod: zod
     .string()
     .nullish()
@@ -943,65 +862,6 @@ export const GetCookResponse = zod.object({
     .describe(
       'The actual timestamp when the pitmaster moved the meat to begin thawing. Null until the pitmaster taps \"Mark Thaw Started\".',
     ),
-  isCompetition: zod
-    .boolean()
-    .describe(
-      "True when this cook is part of a sanctioned competition (KCBS Competition Mode)",
-    ),
-  competitionName: zod
-    .string()
-    .nullable()
-    .describe(
-      'Name of the competition this cook belongs to (e.g., \"Smoketown Invitational 2026\")',
-    ),
-  competitionCategory: zod
-    .string()
-    .nullable()
-    .describe(
-      'KCBS category — \"chicken\", \"ribs\", \"pork\", or \"brisket\"',
-    ),
-  turnInAt: zod.coerce
-    .date()
-    .nullable()
-    .describe(
-      "Official competition turn-in time for this category. Used in Competition Mode instead of plannedEndAt.",
-    ),
-  competitionPlacement: zod
-    .number()
-    .nullable()
-    .describe(
-      "Final placement in the category (1=first, 0=DNP). Higher numbers can represent ranges (6=top 10, 11=top 20, 21=below 20).",
-    ),
-  competitionTeamCount: zod
-    .number()
-    .nullable()
-    .describe(
-      "Total number of teams competing in the field — used to compute percentile finish.",
-    ),
-  judgeScore: zod
-    .number()
-    .nullable()
-    .describe(
-      "Total judges' score (0–360). Auto-computed from sub-scores when all three are provided; can also be entered directly for legacy data.",
-    ),
-  judgeScoreAppearance: zod
-    .number()
-    .nullable()
-    .describe(
-      "Appearance sub-score (0–60) — 10 pts × 6 judges per KCBS rules.",
-    ),
-  judgeScoreTaste: zod
-    .number()
-    .nullable()
-    .describe("Taste sub-score (0–150) — 25 pts × 6 judges per KCBS rules."),
-  judgeScoreTexture: zod
-    .number()
-    .nullable()
-    .describe("Texture sub-score (0–150) — 25 pts × 6 judges per KCBS rules."),
-  judgeNotes: zod
-    .string()
-    .nullable()
-    .describe("Free-form notes about judge feedback"),
   cookingMethod: zod
     .string()
     .nullish()
@@ -1128,45 +988,6 @@ export const UpdateCookBody = zod.object({
     .describe(
       "Map of step keys to ISO timestamps of when the user confirmed each step",
     ),
-  isCompetition: zod.boolean().nullish(),
-  competitionName: zod.string().nullish(),
-  competitionCategory: zod
-    .union([
-      zod.literal("chicken"),
-      zod.literal("ribs"),
-      zod.literal("pork"),
-      zod.literal("brisket"),
-      zod.literal(null),
-    ])
-    .nullish(),
-  turnInAt: zod.coerce.date().nullish(),
-  competitionPlacement: zod
-    .number()
-    .nullish()
-    .describe("1=first, 0=DNP, 6=top 10, 11=top 20, 21=below 20"),
-  competitionTeamCount: zod
-    .number()
-    .nullish()
-    .describe("Total teams in the field — used to compute percentile finish"),
-  judgeScore: zod
-    .number()
-    .nullish()
-    .describe(
-      "Total score (0–360). Auto-computed from sub-scores when all three are provided.",
-    ),
-  judgeScoreAppearance: zod
-    .number()
-    .nullish()
-    .describe("Appearance sub-score (0–60) per KCBS rules"),
-  judgeScoreTaste: zod
-    .number()
-    .nullish()
-    .describe("Taste sub-score (0–150) per KCBS rules"),
-  judgeScoreTexture: zod
-    .number()
-    .nullish()
-    .describe("Texture sub-score (0–150) per KCBS rules"),
-  judgeNotes: zod.string().nullish(),
   cookingMethod: zod
     .string()
     .nullish()
@@ -1283,65 +1104,6 @@ export const UpdateCookResponse = zod.object({
     .describe(
       'The actual timestamp when the pitmaster moved the meat to begin thawing. Null until the pitmaster taps \"Mark Thaw Started\".',
     ),
-  isCompetition: zod
-    .boolean()
-    .describe(
-      "True when this cook is part of a sanctioned competition (KCBS Competition Mode)",
-    ),
-  competitionName: zod
-    .string()
-    .nullable()
-    .describe(
-      'Name of the competition this cook belongs to (e.g., \"Smoketown Invitational 2026\")',
-    ),
-  competitionCategory: zod
-    .string()
-    .nullable()
-    .describe(
-      'KCBS category — \"chicken\", \"ribs\", \"pork\", or \"brisket\"',
-    ),
-  turnInAt: zod.coerce
-    .date()
-    .nullable()
-    .describe(
-      "Official competition turn-in time for this category. Used in Competition Mode instead of plannedEndAt.",
-    ),
-  competitionPlacement: zod
-    .number()
-    .nullable()
-    .describe(
-      "Final placement in the category (1=first, 0=DNP). Higher numbers can represent ranges (6=top 10, 11=top 20, 21=below 20).",
-    ),
-  competitionTeamCount: zod
-    .number()
-    .nullable()
-    .describe(
-      "Total number of teams competing in the field — used to compute percentile finish.",
-    ),
-  judgeScore: zod
-    .number()
-    .nullable()
-    .describe(
-      "Total judges' score (0–360). Auto-computed from sub-scores when all three are provided; can also be entered directly for legacy data.",
-    ),
-  judgeScoreAppearance: zod
-    .number()
-    .nullable()
-    .describe(
-      "Appearance sub-score (0–60) — 10 pts × 6 judges per KCBS rules.",
-    ),
-  judgeScoreTaste: zod
-    .number()
-    .nullable()
-    .describe("Taste sub-score (0–150) — 25 pts × 6 judges per KCBS rules."),
-  judgeScoreTexture: zod
-    .number()
-    .nullable()
-    .describe("Texture sub-score (0–150) — 25 pts × 6 judges per KCBS rules."),
-  judgeNotes: zod
-    .string()
-    .nullable()
-    .describe("Free-form notes about judge feedback"),
   cookingMethod: zod
     .string()
     .nullish()
@@ -2102,30 +1864,6 @@ export const AiMultiCookBody = zod.object({
           .number()
           .nullish()
           .describe("Minutes to preheat the grill before putting meat on"),
-        category: zod
-          .union([
-            zod.literal("chicken"),
-            zod.literal("ribs"),
-            zod.literal("pork"),
-            zod.literal("brisket"),
-            zod.literal(null),
-          ])
-          .nullish()
-          .describe(
-            "KCBS competition category. When provided alongside turnInAt, this item is backwards-planned independently to its own turnInAt.",
-          ),
-        turnInAt: zod.coerce
-          .date()
-          .nullish()
-          .describe(
-            "Per-item competition turn-in time (Competition Mode). When provided, replaces the shared serveAt for backwards planning of THIS item only.",
-          ),
-        walkMinutes: zod
-          .number()
-          .nullish()
-          .describe(
-            "Minutes needed to walk the turn-in box to the judges' table. Used to schedule walk-to-turn-in notifications and display on the plan timeline.",
-          ),
         cookingMethod: zod
           .string()
           .nullish()
@@ -2160,9 +1898,7 @@ export const AiMultiCookBody = zod.object({
     .max(aiMultiCookBodyItemsMax),
   serveAt: zod.coerce
     .date()
-    .describe(
-      "Target time when all food should be ready to serve. In Competition Mode each item's turnInAt overrides this for that item; pass the latest turnInAt for backwards compatibility.",
-    ),
+    .describe("Target time when all food should be ready to serve."),
   outdoorTempF: zod
     .number()
     .nullish()
@@ -2175,18 +1911,6 @@ export const AiMultiCookBody = zod.object({
     .describe(
       "True when outdoorTempF is a forecasted value for the cook day (Pro). False or omitted when it is the current ambient temperature.",
     ),
-  competition: zod
-    .object({
-      isCompetition: zod.boolean(),
-      name: zod.string().nullish(),
-      categories: zod
-        .array(zod.enum(["chicken", "ribs", "pork", "brisket"]))
-        .optional()
-        .describe(
-          'KCBS categories entered in this competition. Each item also carries its own category, but this top-level list is the canonical record of \"what categories did the pitmaster sign up for\" so the AI can frame coaching around the full slate.',
-        ),
-    })
-    .optional(),
   notes: zod
     .string()
     .nullish()
@@ -2249,36 +1973,6 @@ export const AiMultiCookResponse = zod.object({
           .string()
           .optional()
           .describe("One sentence of specific advice for this item"),
-        category: zod
-          .union([
-            zod.literal("chicken"),
-            zod.literal("ribs"),
-            zod.literal("pork"),
-            zod.literal("brisket"),
-            zod.literal(null),
-          ])
-          .nullish()
-          .describe(
-            "KCBS category, echoed from the request when in Competition Mode",
-          ),
-        turnInAt: zod.coerce
-          .date()
-          .nullish()
-          .describe(
-            "Competition turn-in time for this item (Competition Mode)",
-          ),
-        boxPackAt: zod.coerce
-          .date()
-          .nullish()
-          .describe(
-            "When to start packing the turn-in box (~15 min before turnInAt) — Competition Mode only",
-          ),
-        warning: zod
-          .string()
-          .nullish()
-          .describe(
-            "Optional human-readable warning when the back-planned schedule is not realistically achievable (e.g. grillLightAt is already in the past). Competition Mode only.",
-          ),
       }),
     )
     .describe("All cook items sorted by grillLightAt (earliest first)"),
@@ -2476,65 +2170,6 @@ export const GetRecentCooksResponseItem = zod.object({
     .describe(
       'The actual timestamp when the pitmaster moved the meat to begin thawing. Null until the pitmaster taps \"Mark Thaw Started\".',
     ),
-  isCompetition: zod
-    .boolean()
-    .describe(
-      "True when this cook is part of a sanctioned competition (KCBS Competition Mode)",
-    ),
-  competitionName: zod
-    .string()
-    .nullable()
-    .describe(
-      'Name of the competition this cook belongs to (e.g., \"Smoketown Invitational 2026\")',
-    ),
-  competitionCategory: zod
-    .string()
-    .nullable()
-    .describe(
-      'KCBS category — \"chicken\", \"ribs\", \"pork\", or \"brisket\"',
-    ),
-  turnInAt: zod.coerce
-    .date()
-    .nullable()
-    .describe(
-      "Official competition turn-in time for this category. Used in Competition Mode instead of plannedEndAt.",
-    ),
-  competitionPlacement: zod
-    .number()
-    .nullable()
-    .describe(
-      "Final placement in the category (1=first, 0=DNP). Higher numbers can represent ranges (6=top 10, 11=top 20, 21=below 20).",
-    ),
-  competitionTeamCount: zod
-    .number()
-    .nullable()
-    .describe(
-      "Total number of teams competing in the field — used to compute percentile finish.",
-    ),
-  judgeScore: zod
-    .number()
-    .nullable()
-    .describe(
-      "Total judges' score (0–360). Auto-computed from sub-scores when all three are provided; can also be entered directly for legacy data.",
-    ),
-  judgeScoreAppearance: zod
-    .number()
-    .nullable()
-    .describe(
-      "Appearance sub-score (0–60) — 10 pts × 6 judges per KCBS rules.",
-    ),
-  judgeScoreTaste: zod
-    .number()
-    .nullable()
-    .describe("Taste sub-score (0–150) — 25 pts × 6 judges per KCBS rules."),
-  judgeScoreTexture: zod
-    .number()
-    .nullable()
-    .describe("Texture sub-score (0–150) — 25 pts × 6 judges per KCBS rules."),
-  judgeNotes: zod
-    .string()
-    .nullable()
-    .describe("Free-form notes about judge feedback"),
   cookingMethod: zod
     .string()
     .nullish()

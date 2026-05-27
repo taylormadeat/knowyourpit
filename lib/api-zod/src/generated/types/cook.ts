@@ -106,58 +106,6 @@ export interface Cook {
    * @nullable
    */
   actualThawStartAt?: Date | null;
-  /** True when this cook is part of a sanctioned competition (KCBS Competition Mode) */
-  isCompetition: boolean;
-  /**
-   * Name of the competition this cook belongs to (e.g., "Smoketown Invitational 2026")
-   * @nullable
-   */
-  competitionName: string | null;
-  /**
-   * KCBS category — "chicken", "ribs", "pork", or "brisket"
-   * @nullable
-   */
-  competitionCategory: string | null;
-  /**
-   * Official competition turn-in time for this category. Used in Competition Mode instead of plannedEndAt.
-   * @nullable
-   */
-  turnInAt: Date | null;
-  /**
-   * Final placement in the category (1=first, 0=DNP). Higher numbers can represent ranges (6=top 10, 11=top 20, 21=below 20).
-   * @nullable
-   */
-  competitionPlacement: number | null;
-  /**
-   * Total number of teams competing in the field — used to compute percentile finish.
-   * @nullable
-   */
-  competitionTeamCount: number | null;
-  /**
-   * Total judges' score (0–360). Auto-computed from sub-scores when all three are provided; can also be entered directly for legacy data.
-   * @nullable
-   */
-  judgeScore: number | null;
-  /**
-   * Appearance sub-score (0–60) — 10 pts × 6 judges per KCBS rules.
-   * @nullable
-   */
-  judgeScoreAppearance: number | null;
-  /**
-   * Taste sub-score (0–150) — 25 pts × 6 judges per KCBS rules.
-   * @nullable
-   */
-  judgeScoreTaste: number | null;
-  /**
-   * Texture sub-score (0–150) — 25 pts × 6 judges per KCBS rules.
-   * @nullable
-   */
-  judgeScoreTexture: number | null;
-  /**
-   * Free-form notes about judge feedback
-   * @nullable
-   */
-  judgeNotes: string | null;
   /**
    * Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)
    * @nullable
