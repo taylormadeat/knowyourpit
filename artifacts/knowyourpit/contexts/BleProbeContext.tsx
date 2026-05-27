@@ -51,6 +51,7 @@ import {
 } from "@/hooks/ble/adapters/weberIGrill";
 
 const STORAGE_KEY = "knowyourpit:ble:pairedDevices";
+const PERM_DENIED_KEY = "knowyourpit:ble:permDenied";
 const STALE_DEVICE_MS = 45_000;
 const SCAN_DURATION_MS = 15_000;
 /** How often to re-read GATT characteristics from connected devices (ms). */
@@ -159,6 +160,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
   const prevConnectedRef = useRef<Set<string>>(new Set());
   const wasDroppedRef = useRef<Set<string>>(new Set());
   const hasActiveCookRef = useRef(false);
+  const permissionDeniedRef = useRef(false);
   const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const staleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const gattPollTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
@@ -224,6 +226,73 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {}
   }, []);
+
+  const loadPermDenied = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem(PERM_DENIED_KEY);
+      if (raw) {
+        permissionDeniedRef.current = true;
+        if (mountedRef.current) setPermissionDenied(true);
+      }
+    } catch {}
+  }, []);
+
+  const markPermDenied = useCallback(async () => {
+    permissionDeniedRef.current = true;
+    if (mountedRef.current) setPermissionDenied(true);
+    try {
+      await AsyncStorage.setItem(PERM_DENIED_KEY, "1");
+    } catch {}
+  }, []);
+
+  const clearPermDenied = useCallback(async () => {
+    permissionDeniedRef.current = false;
+    if (mountedRef.current) setPermissionDenied(false);
+    try {
+      await AsyncStorage.removeItem(PERM_DENIED_KEY);
+    } catch {}
+  }, []);
+
+  /**
+   * Called when the app foregrounds and permissionDenied was previously set.
+   * Checks whether the user has since granted Bluetooth permission in Settings
+   * and clears the denied flag if so.
+   */
+  const checkAndClearPermDenied = useCallback(async () => {
+    if (!permissionDeniedRef.current) return;
+    try {
+      if (Platform.OS === "ios") {
+        const { BleManager } = await import("react-native-ble-plx");
+        const mgr: any = managerRef.current ?? new BleManager();
+        const ownedMgr = !managerRef.current;
+        const bleState: string = await mgr.state();
+        if (ownedMgr) {
+          try { mgr.destroy(); } catch {}
+        }
+        if (bleState !== "Unauthorized") {
+          await clearPermDenied();
+        }
+      } else if (Platform.OS === "android") {
+        const { PermissionsAndroid } = await import("react-native");
+        let granted: boolean;
+        if ((Platform.Version as number) >= 31) {
+          const results = await Promise.all([
+            PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN),
+            PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT),
+            PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION),
+          ]);
+          granted = results.every(Boolean);
+        } else {
+          granted = await PermissionsAndroid.check(
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          );
+        }
+        if (granted) {
+          await clearPermDenied();
+        }
+      }
+    } catch {}
+  }, [clearPermDenied]);
 
   const savePairedIds = useCallback(async () => {
     try {
@@ -424,7 +493,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         const granted = await requestBlePermissionsAndroid();
         if (!mountedRef.current) return;
         if (!granted) {
-          setPermissionDenied(true);
+          await markPermDenied();
           return;
         }
       }
@@ -460,7 +529,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         });
         if (!mountedRef.current) return;
         if (bleState === "Unauthorized") {
-          setPermissionDenied(true);
+          await markPermDenied();
           return;
         }
       }
@@ -479,7 +548,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
               const code = error?.errorCode ?? error?.code;
               const reason = String(error?.reason ?? error?.message ?? "").toLowerCase();
               if (code === 102 || reason.includes("unauthorized") || reason.includes("not authorized")) {
-                setPermissionDenied(true);
+                markPermDenied();
               }
             }
             return;
@@ -548,14 +617,15 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
     } catch {
       if (mountedRef.current) setScanning(false);
     }
-  }, [upsertDevice, flushDevices, connectGatt, stopScan]);
+  }, [upsertDevice, flushDevices, connectGatt, stopScan, markPermDenied]);
 
   useEffect(() => {
     mountedRef.current = true;
 
-    // Load paired IDs on mount. Do NOT auto-scan — the user must tap
-    // "Scan for Devices" to initiate a BLE scan.
+    // Load paired IDs and persisted permission-denied state on mount.
+    // Do NOT auto-scan — the user must tap "Scan for Devices".
     loadPairedIds();
+    loadPermDenied();
 
     if (Platform.OS !== "web") {
       staleTimerRef.current = setInterval(() => {
@@ -573,14 +643,20 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         if (changed && mountedRef.current) flushDevices();
       }, 15_000);
 
-      // When the app foregrounds, attempt to reconnect already-paired GATT
-      // devices that are currently disconnected — no full BLE scan.
+      // When the app foregrounds:
+      //  1. Check if the user granted BT permission in Settings and clear the
+      //     denied banner if so.
+      //  2. Attempt to reconnect already-paired GATT devices that are currently
+      //     disconnected — no full BLE scan.
       const sub = AppState.addEventListener("change", (state: AppStateStatus) => {
-        if (state === "active" && mountedRef.current && managerRef.current) {
-          for (const id of pairedIdsRef.current) {
-            const d = deviceMapRef.current.get(id);
-            if (d && GATT_ADAPTERS.includes(d.adapter) && d.connectionState === "disconnected") {
-              connectGatt(managerRef.current, id, d.adapter);
+        if (state === "active" && mountedRef.current) {
+          checkAndClearPermDenied();
+          if (managerRef.current) {
+            for (const id of pairedIdsRef.current) {
+              const d = deviceMapRef.current.get(id);
+              if (d && GATT_ADAPTERS.includes(d.adapter) && d.connectionState === "disconnected") {
+                connectGatt(managerRef.current, id, d.adapter);
+              }
             }
           }
         }
@@ -609,7 +685,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         managerRef.current?.destroy();
       } catch {}
     };
-  }, [loadPairedIds, connectGatt, stopScan, flushDevices]);
+  }, [loadPairedIds, loadPermDenied, checkAndClearPermDenied, connectGatt, stopScan, flushDevices]);
 
   const dismissReconnectBanner = useCallback(() => {
     setReconnectBanner(null);
