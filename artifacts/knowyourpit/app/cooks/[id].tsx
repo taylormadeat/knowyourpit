@@ -3596,6 +3596,11 @@ export default function CookDetailScreen() {
               onCheckinPress={cookStatus === "active" ? openCheckin : undefined}
               nextCheckinSc={cookStatus === "active" ? nextCheckinSc : null}
             />
+            {/* For active cooks with no AI sequence plan (Cook Now path), SequenceSchedule
+                returns null. Show PlannedCookTimeline instead so check-in checkpoints
+                and the cook timeline are still visible. It self-guards and returns null
+                when sequenceData is present, so it never duplicates the SequenceSchedule. */}
+            <PlannedCookTimeline c={c} colors={colors} cookStatus={cookStatus} />
           </>
         )}
 

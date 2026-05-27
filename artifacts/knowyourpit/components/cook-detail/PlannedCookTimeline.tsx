@@ -11,6 +11,7 @@ type Colors = any;
 interface Props {
   c: any;
   colors: Colors;
+  cookStatus?: string;
 }
 
 function fmtTime(ms: number): string {
@@ -35,10 +36,17 @@ type CheckinStep = {
 
 type Step = MilestoneStep | CheckinStep;
 
-export function PlannedCookTimeline({ c, colors }: Props) {
+export function PlannedCookTimeline({ c, colors, cookStatus }: Props) {
   if ((c.sequenceData as any)?.schedule?.length > 0) return null;
 
-  const meatOnMs = c.plannedStartAt ? new Date(c.plannedStartAt).getTime() : null;
+  const isActive = cookStatus === "active";
+  // For Cook Now (immediate start) cooks, plannedStartAt may be null.
+  // Fall back to actualStartAt so the anchor for check-in offsets is correct.
+  const meatOnMs = c.plannedStartAt
+    ? new Date(c.plannedStartAt).getTime()
+    : c.actualStartAt
+      ? new Date(c.actualStartAt).getTime()
+      : null;
   const serveMs = c.plannedEndAt ? new Date(c.plannedEndAt).getTime() : null;
 
   if (meatOnMs == null && serveMs == null) return null;
@@ -163,7 +171,7 @@ export function PlannedCookTimeline({ c, colors }: Props) {
             Cook Timeline
           </Text>
           <Text style={[s.seqScheduleSub, { color: colors.mutedForeground }]}>
-            Planned schedule
+            {isActive ? "Active schedule" : "Planned schedule"}
           </Text>
         </View>
       </View>
