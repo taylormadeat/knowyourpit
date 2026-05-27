@@ -20,9 +20,8 @@ export function useSmokerProfile(enabled = true) {
   const { getToken } = useAuth();
 
   const baseUrl =
-    typeof process !== "undefined" && process.env.EXPO_PUBLIC_DOMAIN
-      ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-      : "";
+    process.env.EXPO_PUBLIC_API_URL ??
+    (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
 
   return useQuery<SmokerInsights>({
     queryKey: ["smoker", "profile"],
