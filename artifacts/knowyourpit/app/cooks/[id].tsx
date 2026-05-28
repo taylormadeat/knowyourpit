@@ -960,7 +960,7 @@ export default function CookDetailScreen() {
   }, [cookStatus, setHasActiveCook]);
 
   const bleContextDevices = allBleDevices.filter(
-    (d) => d.connectionState === "connected",
+    (d) => d.connectionState === "connected" && d.paired,
   );
 
   // LAN probes: Fireboard, MEATER Block, ThermoWorks Signals on local network
