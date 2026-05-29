@@ -125,3 +125,9 @@ id = "yl45kdY3Nhl6ju26KO1p8"
 uri = "file://.local/knowyourpit-style-guide.pdf"
 type = "pdf"
 title = "knowyourpit Brand & Style Guide"
+
+[[outputs]]
+id = "MRGIbyxzDwhVIClJTpdgn"
+uri = "file://scripts/output/knowyourpit-knowledge.pdf"
+type = "pdf"
+title = "knowyourpit Knowledge PDF"
