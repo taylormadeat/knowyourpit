@@ -113,3 +113,9 @@ id = "NsTxnberNdwr56-4t_lfp"
 uri = "file://attached_assets/knowyourpit_apppreview_886x1920.mp4"
 type = "video"
 title = "App Preview — 886×1920 (App Store ready)"
+
+[[outputs]]
+id = "rSR7aDVM_e331zQ6HOlPo"
+uri = "file://.local/knowyourpit-style-guide.md"
+type = "text"
+title = "knowyourpit Brand & Style Guide"
