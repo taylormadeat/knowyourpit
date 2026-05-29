@@ -129,6 +129,65 @@ dashboard audit.
 Variables marked "—" are either not needed in that EAS environment or are
 injected at runtime by the Replit build system and must NOT be set in EAS.
 
+## GitHub Build Backup secrets
+
+These are **server-side** Replit Secrets (not `EXPO_PUBLIC_*` variables — never
+exposed to the mobile bundle). Set them in the Replit Secrets panel.
+
+### `GITHUB_TOKEN`
+- **Purpose**: GitHub Personal Access Token used by `scripts/src/githubBuildBackup.ts`
+  to push git tags and create GitHub Releases after each successful EAS submission.
+- **Required scope**: `repo` (classic token) **or** a fine-grained token with
+  **Contents: write** permission on the target repository.
+- **How to create**: GitHub → Settings → Developer settings → Personal access
+  tokens → Generate new token. Select the `repo` scope (or for fine-grained:
+  select the target repository and grant "Contents: read and write").
+- **Set in**: Replit Secrets panel as `GITHUB_TOKEN`.
+- **Used in**: `scripts/src/githubBuildBackup.ts`, `artifacts/knowyourpit/scripts/submit-ios.sh`.
+- **If unset**: `submit-ios.sh` prints an informational notice and skips the
+  backup step. The TestFlight submission itself is not affected.
+
+### `GITHUB_REPO`
+- **Purpose**: Target GitHub repository for build backups, in `owner/repo` format.
+- **Example**: `taylormadeat/knowyourpit`
+- **Set in**: Replit Secrets panel as `GITHUB_REPO`.
+- **Used in**: `scripts/src/githubBuildBackup.ts`, `artifacts/knowyourpit/scripts/submit-ios.sh`.
+- **If unset**: Same behavior as missing `GITHUB_TOKEN` — backup is skipped with
+  an informational notice.
+
+### Pre-flight check
+
+Before starting a long EAS build, verify the backup is configured correctly:
+
+```bash
+pnpm --filter @workspace/scripts run build:backup:check
+```
+
+Exits 0 if `GITHUB_TOKEN` and `GITHUB_REPO` are both set. Exits 2 with a
+clear remediation message if either is missing. Run this check once after
+setting the secrets to confirm everything is ready.
+
+### Manual backup trigger
+
+To back up any past build without re-running the submit script:
+
+```bash
+# From the workspace root:
+pnpm --filter @workspace/scripts run build:backup -- \
+    --platform ios \
+    --buildNumber 106 \
+    --version 1.0.11 \
+    --easBuildId abc-123-def-456
+
+# Dry-run (prints what would happen, no API calls):
+pnpm --filter @workspace/scripts run build:backup:dry-run -- \
+    --platform ios \
+    --buildNumber 106 \
+    --version 1.0.11
+```
+
+---
+
 ## Audit notes (May 2026)
 
 - `eas.json` `build.production.env` contains exactly one variable

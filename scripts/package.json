@@ -20,6 +20,9 @@
     "setup-asc-iap": "tsx ./src/createAscIapProducts.ts",
     "checkAscIapState": "tsx ./src/checkAscIapState.ts",
     "knowledge-pdf": "tsx ./src/generate-knowledge-pdf.ts",
+    "build:backup": "tsx ./src/githubBuildBackup.ts",
+    "build:backup:dry-run": "tsx ./src/githubBuildBackup.ts --dry-run",
+    "build:backup:check": "tsx ./src/githubBuildBackupCheck.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
