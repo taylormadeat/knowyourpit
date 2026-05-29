@@ -1,0 +1,131 @@
+// Dynamic Expo config.
+// Reads GOOGLE_SERVICES_JSON from the environment when set (EAS file-type secret
+// injects the path automatically). Falls back to the local file for dev builds.
+
+/** @type {import('expo/config').ExpoConfig} */
+const config = {
+  name: "knowyourpit",
+  slug: "knowyourpit",
+  version: "1.0.10",
+  sdkVersion: "54.0.0",
+  orientation: "portrait",
+  icon: "./assets/images/icon.png",
+  scheme: "knowyourpit",
+  userInterfaceStyle: "dark",
+  newArchEnabled: true,
+  splash: {
+    image: "./assets/images/logo.png",
+    resizeMode: "contain",
+    backgroundColor: "#0e0e10",
+  },
+  ios: {
+    supportsTablet: true,
+    bundleIdentifier: "com.knowyourpit.app",
+    buildNumber: "105",
+    appleTeamId: "W8AY23XJTF",
+    usesAppleSignIn: true,
+    infoPlist: {
+      NSLocationWhenInUseUsageDescription:
+        "knowyourpit uses your location to show the current outdoor temperature during live cook sessions.",
+      NSPhotoLibraryUsageDescription:
+        "knowyourpit accesses your photo library to attach photos to your cook logs and scan images for AI temperature analysis.",
+      NSCameraUsageDescription:
+        "knowyourpit uses your camera to take cook photos and capture progress images for AI temperature analysis.",
+      NSUserNotificationUsageDescription:
+        "knowyourpit sends you alerts when your probe hits the target temperature and reminders to add fuel during long cooks.",
+      NSBluetoothAlwaysUsageDescription:
+        "knowyourpit uses Bluetooth to read live temperatures from your Inkbird wireless thermometer.",
+      NSLocalNetworkUsageDescription:
+        "knowyourpit scans your local network to automatically discover WiFi thermometers (Fireboard, MEATER Block, ThermoWorks Signals) without requiring you to enter an IP address.",
+      NSBonjourServices: ["_http._tcp"],
+      ITSAppUsesNonExemptEncryption: false,
+    },
+  },
+  android: {
+    package: "com.knowyourpit.app",
+    versionCode: 3,
+    googleServicesFile:
+      process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
+    adaptiveIcon: {
+      foregroundImage: "./assets/images/adaptive-icon.png",
+      backgroundColor: "#0e0e10",
+    },
+    permissions: [
+      "android.permission.ACCESS_COARSE_LOCATION",
+      "android.permission.ACCESS_FINE_LOCATION",
+      "android.permission.CAMERA",
+      "android.permission.READ_MEDIA_IMAGES",
+      "android.permission.RECEIVE_BOOT_COMPLETED",
+      "android.permission.SCHEDULE_EXACT_ALARM",
+      "android.permission.VIBRATE",
+      "android.permission.POST_NOTIFICATIONS",
+      "android.permission.BLUETOOTH_SCAN",
+      "android.permission.BLUETOOTH_CONNECT",
+    ],
+  },
+  web: {
+    favicon: "./assets/images/icon.png",
+  },
+  plugins: [
+    [
+      "react-native-ble-plx",
+      {
+        isBackgroundEnabled: false,
+        modes: ["central"],
+        bluetoothAlwaysPermission:
+          "knowyourpit uses Bluetooth to read live temperatures from your Inkbird wireless thermometer.",
+      },
+    ],
+    [
+      "expo-build-properties",
+      {
+        ios: {
+          deploymentTarget: "16.1",
+        },
+      },
+    ],
+    "./plugins/with-pod-bundle-signing",
+    "./plugins/with-live-activity",
+    "expo-apple-authentication",
+    "expo-router",
+    "expo-font",
+    "expo-web-browser",
+    [
+      "expo-notifications",
+      {
+        icon: "./assets/images/icon.png",
+        color: "#232327",
+        sounds: [],
+      },
+    ],
+    [
+      "expo-location",
+      {
+        locationWhenInUsePermission:
+          "knowyourpit uses your location to show the current outdoor temperature during live cook sessions.",
+      },
+    ],
+    [
+      "expo-image-picker",
+      {
+        photosPermission:
+          "knowyourpit accesses your photo library to attach photos to your cook logs and scan images for AI temperature analysis.",
+        cameraPermission:
+          "knowyourpit uses your camera to take cook photos and capture progress images for AI temperature analysis.",
+      },
+    ],
+  ],
+  experiments: {
+    typedRoutes: true,
+    reactCompiler: true,
+  },
+  extra: {
+    eas: {
+      projectId: "21f048d2-8424-41d4-9e01-6395719bdc30",
+    },
+  },
+  privacyPolicyUrl: "https://knowyourpit.com/privacy",
+  owner: "taylormadeat",
+};
+
+module.exports = { expo: config };
