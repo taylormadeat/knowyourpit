@@ -14,6 +14,9 @@
       },
       "android": {
         "buildType": "apk"
+      },
+      "hooks": {
+        "pre-install": "./scripts/pre-build-hook.sh"
       }
     },
     "development-device": {
@@ -27,6 +30,9 @@
       },
       "android": {
         "buildType": "apk"
+      },
+      "hooks": {
+        "pre-install": "./scripts/pre-build-hook.sh"
       }
     },
     "preview": {
@@ -39,6 +45,9 @@
       },
       "android": {
         "buildType": "apk"
+      },
+      "hooks": {
+        "pre-install": "./scripts/pre-build-hook.sh"
       }
     },
     "production": {
@@ -57,6 +66,9 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.knowyourpit.com",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD": "pk_live_Y2xlcmsua25vd3lvdXJwaXQuY29tJA"
+      },
+      "hooks": {
+        "pre-install": "./scripts/pre-build-hook.sh"
       }
     }
   },
