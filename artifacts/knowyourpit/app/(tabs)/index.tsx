@@ -599,16 +599,41 @@ export default function HomeScreen() {
                   {/* Score breakdown panel */}
                   {scoreExpanded && (() => {
                     const sb = insights.scoreBreakdown;
-                    const ratingPts = sb.avgRating != null ? Math.round((sb.avgRating / 5) * 100 * 0.4) : null;
-                    const planPts = sb.planAccuracy != null ? Math.round(sb.planAccuracy * 0.4) : null;
-                    const aiPts = sb.aiAssessmentScore != null ? Math.round(sb.aiAssessmentScore * 0.2) : null;
+                    const ratingPts = sb.avgRating != null ? Math.round((sb.avgRating / 5) * 100 * 0.35) : null;
+                    const planPts = sb.planAccuracy != null ? Math.round(sb.planAccuracy * 0.2) : null;
+                    const aiPts = sb.aiAssessmentScore != null ? Math.round(sb.aiAssessmentScore * 0.45) : null;
                     return (
                       <View style={[s.scoreCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-                        {/* Row: Ratings */}
+                        {/* Row: AI Assessment */}
                         <View style={[s.scoreRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
                           <View style={s.scoreRowLeft}>
                             <View style={[s.scoreIconWrap, { backgroundColor: color + "18" }]}>
-                              <Feather name="star" size={13} color={color} />
+                              <Feather name="cpu" size={13} color={color} />
+                            </View>
+                            <View style={s.scoreRowInfo}>
+                              <Text style={[s.scoreRowTitle, { color: colors.foreground }]}>AI Assessment</Text>
+                              <Text style={[s.scoreRowSub, { color: colors.mutedForeground }]}>
+                                {sb.aiAssessmentScore != null
+                                  ? `${sb.aiAssessmentScore} / 100 avg verdict · ${sb.cookCount} cook${sb.cookCount !== 1 ? "s" : ""}`
+                                  : `No analyzed cooks yet · ${sb.cookCount} cook${sb.cookCount !== 1 ? "s" : ""} logged`}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={s.scoreRowRight}>
+                            <View style={[s.weightBadge, { backgroundColor: color + "22", borderColor: color + "44" }]}>
+                              <Text style={[s.weightText, { color }]}>45%</Text>
+                            </View>
+                            <Text style={[s.scorePts, { color: aiPts != null ? colors.foreground : colors.mutedForeground }]}>
+                              {aiPts != null ? `${aiPts} / 45 pts` : "—"}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Row: Ratings */}
+                        <View style={[s.scoreRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                          <View style={s.scoreRowLeft}>
+                            <View style={[s.scoreIconWrap, { backgroundColor: "rgba(255,255,255,0.07)" }]}>
+                              <Feather name="star" size={13} color="#96908A" />
                             </View>
                             <View style={s.scoreRowInfo}>
                               <Text style={[s.scoreRowTitle, { color: colors.foreground }]}>Your Ratings</Text>
@@ -618,17 +643,17 @@ export default function HomeScreen() {
                             </View>
                           </View>
                           <View style={s.scoreRowRight}>
-                            <View style={[s.weightBadge, { backgroundColor: color + "22", borderColor: color + "44" }]}>
-                              <Text style={[s.weightText, { color }]}>40%</Text>
+                            <View style={[s.weightBadge, { backgroundColor: "rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.12)" }]}>
+                              <Text style={[s.weightText, { color: "#96908A" }]}>35%</Text>
                             </View>
                             <Text style={[s.scorePts, { color: ratingPts != null ? colors.foreground : colors.mutedForeground }]}>
-                              {ratingPts != null ? `${ratingPts} / 40 pts` : "—"}
+                              {ratingPts != null ? `${ratingPts} / 35 pts` : "—"}
                             </Text>
                           </View>
                         </View>
 
                         {/* Row: Plan Accuracy */}
-                        <View style={[s.scoreRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                        <View style={s.scoreRow}>
                           <View style={s.scoreRowLeft}>
                             <View style={[s.scoreIconWrap, { backgroundColor: "rgba(255,255,255,0.07)" }]}>
                               <Feather name="target" size={13} color="#96908A" />
@@ -642,35 +667,10 @@ export default function HomeScreen() {
                           </View>
                           <View style={s.scoreRowRight}>
                             <View style={[s.weightBadge, { backgroundColor: "rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.12)" }]}>
-                              <Text style={[s.weightText, { color: "#96908A" }]}>40%</Text>
-                            </View>
-                            <Text style={[s.scorePts, { color: planPts != null ? colors.foreground : colors.mutedForeground }]}>
-                              {planPts != null ? `${planPts} / 40 pts` : "—"}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Row: AI Assessment */}
-                        <View style={s.scoreRow}>
-                          <View style={s.scoreRowLeft}>
-                            <View style={[s.scoreIconWrap, { backgroundColor: "rgba(255,255,255,0.07)" }]}>
-                              <Feather name="cpu" size={13} color="#96908A" />
-                            </View>
-                            <View style={s.scoreRowInfo}>
-                              <Text style={[s.scoreRowTitle, { color: colors.foreground }]}>AI Assessment</Text>
-                              <Text style={[s.scoreRowSub, { color: colors.mutedForeground }]}>
-                                {sb.aiAssessmentScore != null
-                                  ? `${sb.aiAssessmentScore} / 100 avg verdict · ${sb.cookCount} cook${sb.cookCount !== 1 ? "s" : ""}`
-                                  : `No analyzed cooks yet · ${sb.cookCount} cook${sb.cookCount !== 1 ? "s" : ""} logged`}
-                              </Text>
-                            </View>
-                          </View>
-                          <View style={s.scoreRowRight}>
-                            <View style={[s.weightBadge, { backgroundColor: "rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.12)" }]}>
                               <Text style={[s.weightText, { color: "#96908A" }]}>20%</Text>
                             </View>
-                            <Text style={[s.scorePts, { color: aiPts != null ? colors.foreground : colors.mutedForeground }]}>
-                              {aiPts != null ? `${aiPts} / 20 pts` : "—"}
+                            <Text style={[s.scorePts, { color: planPts != null ? colors.foreground : colors.mutedForeground }]}>
+                              {planPts != null ? `${planPts} / 20 pts` : "—"}
                             </Text>
                           </View>
                         </View>
@@ -679,7 +679,7 @@ export default function HomeScreen() {
                         <View style={[s.scoreNote, { borderTopWidth: 1, borderTopColor: colors.border }]}>
                           <Feather name="info" size={12} color={colors.mutedForeground} style={{ marginTop: 1 }} />
                           <Text style={[s.scoreNoteText, { color: colors.mutedForeground }]}>
-                            Self-ratings count for 40% of your score. PitMaster grades your cook results (20%) and how closely you follow planned timelines (40%) — so logging cooks with photos and setting planned start/end times will move your grade the most.
+                            PitMaster's AI verdict counts for 45% of your score. Your ratings add 35%, and how closely you follow planned timelines adds 20% — so logging cooks with photos and ratings will move your grade the most.
                           </Text>
                         </View>
                       </View>

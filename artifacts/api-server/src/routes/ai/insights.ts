@@ -128,12 +128,12 @@ router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void
 
     let weightedSum = 0;
     let totalWeight = 0;
-    if (avgRatingScore != null) { weightedSum += avgRatingScore * 0.4; totalWeight += 0.4; }
+    if (avgRatingScore != null) { weightedSum += avgRatingScore * 0.35; totalWeight += 0.35; }
     if (planAccuracy != null) {
-      const w = 0.4 * planSampleFactor;
+      const w = 0.2 * planSampleFactor;
       weightedSum += planAccuracy * w; totalWeight += w;
     }
-    if (aiAssessmentScore != null) { weightedSum += aiAssessmentScore * 0.2; totalWeight += 0.2; }
+    if (aiAssessmentScore != null) { weightedSum += aiAssessmentScore * 0.45; totalWeight += 0.45; }
     const pitMasterScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
 
     let tips: string[] = [];
