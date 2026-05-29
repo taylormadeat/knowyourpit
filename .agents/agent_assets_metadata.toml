@@ -119,3 +119,9 @@ id = "rSR7aDVM_e331zQ6HOlPo"
 uri = "file://.local/knowyourpit-style-guide.md"
 type = "text"
 title = "knowyourpit Brand & Style Guide"
+
+[[outputs]]
+id = "yl45kdY3Nhl6ju26KO1p8"
+uri = "file://.local/knowyourpit-style-guide.pdf"
+type = "pdf"
+title = "knowyourpit Brand & Style Guide"
