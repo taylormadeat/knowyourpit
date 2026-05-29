@@ -32,14 +32,11 @@
   },
   "dependencies": {
     "@replit/revenuecat-sdk": "4.0.0",
-    "@sparticuz/chromium": "^149.0.0",
     "@types/js-yaml": "^4.0.9",
     "@workspace/db": "workspace:*",
     "drizzle-orm": "catalog:",
     "js-yaml": "^4.1.1",
-    "marked": "^18.0.4",
-    "pg": "^8.20.0",
-    "puppeteer": "^25.1.0",
-    "puppeteer-core": "^25.1.0"
+    "pdfkit": "^0.15.2",
+    "pg": "^8.20.0"
   }
 }
