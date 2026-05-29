@@ -8,7 +8,8 @@ import {
   getCheckinSchedule,
   generateCheckinSchedule,
 } from "@workspace/checkin-schedule";
-import { computeCookHealthScore, computeFinishRange } from "./cookEvents";
+import { computeCookHealthScore, computeFinishRange, computePlanAccuracy } from "./cookEvents";
+import { getAssessment } from "./ai/shared";
 import type { AiCheckinItem } from "@workspace/checkin-schedule";
 
 // ---------------------------------------------------------------------------
@@ -372,15 +373,28 @@ router.post("/cooks/:id/checkins", requireAuth, async (req: any, res): Promise<v
       .where(eq(cookEvents.cookId, params.data.id));
 
     const [cookForHealth] = await db
-      .select({ cookTempF: cooksTable.cookTempF, sequenceData: cooksTable.sequenceData })
+      .select({
+        cookTempF: cooksTable.cookTempF,
+        sequenceData: cooksTable.sequenceData,
+        analysisResult: cooksTable.analysisResult,
+        plannedStartAt: cooksTable.plannedStartAt,
+        plannedEndAt: cooksTable.plannedEndAt,
+        actualStartAt: cooksTable.actualStartAt,
+        actualEndAt: cooksTable.actualEndAt,
+        fromFrozen: cooksTable.fromFrozen,
+      })
       .from(cooksTable)
       .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)));
 
     if (cookForHealth) {
+      const verdict = getAssessment(cookForHealth.analysisResult)?.verdict ?? null;
+      const planAccuracyScore = computePlanAccuracy(cookForHealth);
       const health = computeCookHealthScore({
         checkins: allCheckins,
         events: allEvents,
         cookTempF: cookForHealth.cookTempF,
+        verdict,
+        planAccuracyScore,
       });
 
       const updatePayload: Record<string, unknown> = {

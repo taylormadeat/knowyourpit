@@ -3025,6 +3025,14 @@ components:
             pitDrift:
               type: boolean
               description: Whether significant pit temperature drift was detected
+            aiVerdict:
+              type: string
+              nullable: true
+              description: AI assessment verdict (perfect, good, needs_work, overcooked, undercooked)
+            planAccuracyScore:
+              type: integer
+              nullable: true
+              description: Plan adherence score 0-100
           required:
             - issueCount
             - stallDetected

@@ -20,4 +20,8 @@ export type CookHealthScoreFactors = {
   stallDetected: boolean;
   /** Whether significant pit temperature drift was detected */
   pitDrift: boolean;
+  /** AI assessment verdict (perfect, good, needs_work, overcooked, undercooked) */
+  aiVerdict?: string | null;
+  /** Plan adherence score 0-100 */
+  planAccuracyScore?: number | null;
 };

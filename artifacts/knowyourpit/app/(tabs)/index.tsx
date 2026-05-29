@@ -508,30 +508,23 @@ export default function HomeScreen() {
 
                           {/* Breakdown chips */}
                           <View style={s.gradeChips}>
-                            {insights.scoreBreakdown.avgRating != null && (
+                            {insights.scoreBreakdown.avgHealthScore != null && (
                               <View style={[s.gradeChip, { backgroundColor: color + "18", borderColor: color + "35" }]}>
-                                <Feather name="star" size={10} color={color} />
+                                <Feather name="activity" size={10} color={color} />
                                 <Text style={[s.gradeChipText, { color }]}>
+                                  {insights.scoreBreakdown.avgHealthScore}% health
+                                </Text>
+                              </View>
+                            )}
+                            {insights.scoreBreakdown.avgRating != null && (
+                              <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
+                                <Feather name="star" size={10} color="#96908A" />
+                                <Text style={[s.gradeChipText, { color: "#96908A" }]}>
                                   {insights.scoreBreakdown.avgRating.toFixed(1)} rating
                                 </Text>
                               </View>
                             )}
-                            {insights.scoreBreakdown.planAccuracy != null && (
-                              <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
-                                <Feather name="target" size={10} color="#96908A" />
-                                <Text style={[s.gradeChipText, { color: "#96908A" }]}>
-                                  {insights.scoreBreakdown.planAccuracy}% accuracy
-                                </Text>
-                              </View>
-                            )}
-                            {insights.scoreBreakdown.aiAssessmentScore != null ? (
-                              <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
-                                <Feather name="cpu" size={10} color="#96908A" />
-                                <Text style={[s.gradeChipText, { color: "#96908A" }]}>
-                                  {insights.scoreBreakdown.aiAssessmentScore}% AI score
-                                </Text>
-                              </View>
-                            ) : (
+                            {insights.scoreBreakdown.avgHealthScore == null && (
                               <View style={[s.gradeChip, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
                                 <Feather name="layers" size={10} color="#96908A" />
                                 <Text style={[s.gradeChipText, { color: "#96908A" }]}>
@@ -599,38 +592,37 @@ export default function HomeScreen() {
                   {/* Score breakdown panel */}
                   {scoreExpanded && (() => {
                     const sb = insights.scoreBreakdown;
-                    const ratingPts = sb.avgRating != null ? Math.round((sb.avgRating / 5) * 100 * 0.35) : null;
-                    const planPts = sb.planAccuracy != null ? Math.round(sb.planAccuracy * 0.2) : null;
-                    const aiPts = sb.aiAssessmentScore != null ? Math.round(sb.aiAssessmentScore * 0.45) : null;
+                    const healthPts = sb.avgHealthScore != null ? Math.round(sb.avgHealthScore * 0.7) : null;
+                    const ratingPts = sb.avgRating != null ? Math.round((sb.avgRating / 5) * 100 * 0.3) : null;
                     return (
                       <View style={[s.scoreCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-                        {/* Row: AI Assessment */}
+                        {/* Row: Cook Health */}
                         <View style={[s.scoreRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
                           <View style={s.scoreRowLeft}>
                             <View style={[s.scoreIconWrap, { backgroundColor: color + "18" }]}>
-                              <Feather name="cpu" size={13} color={color} />
+                              <Feather name="activity" size={13} color={color} />
                             </View>
                             <View style={s.scoreRowInfo}>
-                              <Text style={[s.scoreRowTitle, { color: colors.foreground }]}>AI Assessment</Text>
+                              <Text style={[s.scoreRowTitle, { color: colors.foreground }]}>Cook Health</Text>
                               <Text style={[s.scoreRowSub, { color: colors.mutedForeground }]}>
-                                {sb.aiAssessmentScore != null
-                                  ? `${sb.aiAssessmentScore} / 100 avg verdict · ${sb.cookCount} cook${sb.cookCount !== 1 ? "s" : ""}`
-                                  : `No analyzed cooks yet · ${sb.cookCount} cook${sb.cookCount !== 1 ? "s" : ""} logged`}
+                                {sb.avgHealthScore != null
+                                  ? `${sb.avgHealthScore}% avg · AI verdict, process & plan`
+                                  : `No health data yet — run a check-in or AI analysis`}
                               </Text>
                             </View>
                           </View>
                           <View style={s.scoreRowRight}>
                             <View style={[s.weightBadge, { backgroundColor: color + "22", borderColor: color + "44" }]}>
-                              <Text style={[s.weightText, { color }]}>45%</Text>
+                              <Text style={[s.weightText, { color }]}>70%</Text>
                             </View>
-                            <Text style={[s.scorePts, { color: aiPts != null ? colors.foreground : colors.mutedForeground }]}>
-                              {aiPts != null ? `${aiPts} / 45 pts` : "—"}
+                            <Text style={[s.scorePts, { color: healthPts != null ? colors.foreground : colors.mutedForeground }]}>
+                              {healthPts != null ? `${healthPts} / 70 pts` : "—"}
                             </Text>
                           </View>
                         </View>
 
                         {/* Row: Ratings */}
-                        <View style={[s.scoreRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                        <View style={s.scoreRow}>
                           <View style={s.scoreRowLeft}>
                             <View style={[s.scoreIconWrap, { backgroundColor: "rgba(255,255,255,0.07)" }]}>
                               <Feather name="star" size={13} color="#96908A" />
@@ -644,33 +636,10 @@ export default function HomeScreen() {
                           </View>
                           <View style={s.scoreRowRight}>
                             <View style={[s.weightBadge, { backgroundColor: "rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.12)" }]}>
-                              <Text style={[s.weightText, { color: "#96908A" }]}>35%</Text>
+                              <Text style={[s.weightText, { color: "#96908A" }]}>30%</Text>
                             </View>
                             <Text style={[s.scorePts, { color: ratingPts != null ? colors.foreground : colors.mutedForeground }]}>
-                              {ratingPts != null ? `${ratingPts} / 35 pts` : "—"}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Row: Plan Accuracy */}
-                        <View style={s.scoreRow}>
-                          <View style={s.scoreRowLeft}>
-                            <View style={[s.scoreIconWrap, { backgroundColor: "rgba(255,255,255,0.07)" }]}>
-                              <Feather name="target" size={13} color="#96908A" />
-                            </View>
-                            <View style={s.scoreRowInfo}>
-                              <Text style={[s.scoreRowTitle, { color: colors.foreground }]}>Plan Accuracy</Text>
-                              <Text style={[s.scoreRowSub, { color: colors.mutedForeground }]}>
-                                {sb.planAccuracy != null ? `${sb.planAccuracy}% on target` : "No timing data yet"}
-                              </Text>
-                            </View>
-                          </View>
-                          <View style={s.scoreRowRight}>
-                            <View style={[s.weightBadge, { backgroundColor: "rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.12)" }]}>
-                              <Text style={[s.weightText, { color: "#96908A" }]}>20%</Text>
-                            </View>
-                            <Text style={[s.scorePts, { color: planPts != null ? colors.foreground : colors.mutedForeground }]}>
-                              {planPts != null ? `${planPts} / 20 pts` : "—"}
+                              {ratingPts != null ? `${ratingPts} / 30 pts` : "—"}
                             </Text>
                           </View>
                         </View>
@@ -679,7 +648,7 @@ export default function HomeScreen() {
                         <View style={[s.scoreNote, { borderTopWidth: 1, borderTopColor: colors.border }]}>
                           <Feather name="info" size={12} color={colors.mutedForeground} style={{ marginTop: 1 }} />
                           <Text style={[s.scoreNoteText, { color: colors.mutedForeground }]}>
-                            PitMaster's AI verdict counts for 45% of your score. Your ratings add 35%, and how closely you follow planned timelines adds 20% — so logging cooks with photos and ratings will move your grade the most.
+                            Cook Health drives 70% of your score — it blends the AI verdict on your food, your process (check-ins, drift, issues), and plan adherence. Your ratings add the remaining 30%.
                           </Text>
                         </View>
                       </View>

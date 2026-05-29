@@ -4,6 +4,7 @@ import { db, cooksTable, cookEvents } from "@workspace/db";
 import { z } from "zod/v4";
 import { requireAuth } from "../middlewares/requireAuth";
 import type { CookCheckin, CookEvent } from "@workspace/db";
+import { getAssessment } from "./ai/shared";
 const router: IRouter = Router();
 
 const CookEventIdParams = z.object({ id: z.coerce.number().int().positive() });
@@ -35,10 +36,20 @@ const CreateCookEventBodySchema = z.object({
 // Health score computation
 // ---------------------------------------------------------------------------
 
+const VERDICT_SCORE: Record<string, number> = {
+  perfect: 100,
+  good: 75,
+  needs_work: 50,
+  overcooked: 25,
+  undercooked: 25,
+};
+
 export interface CookHealthInput {
   checkins: Pick<CookCheckin, "internalTempF" | "pitTempF" | "statusFlag" | "phaseKey" | "scheduledAt" | "firedAt">[];
   events: { eventType: CookEvent["eventType"] }[];
   cookTempF: number | null | undefined;
+  verdict?: string | null;
+  planAccuracyScore?: number | null;
 }
 
 export interface CookHealthResult {
@@ -50,29 +61,49 @@ export interface CookHealthResult {
     issueCount: number;
     stallDetected: boolean;
     pitDrift: boolean;
+    aiVerdict: string | null;
+    planAccuracyScore: number | null;
   };
 }
 
-export function computeCookHealthScore(input: CookHealthInput): CookHealthResult {
-  const { checkins, events, cookTempF } = input;
+export function computePlanAccuracy(cook: {
+  plannedStartAt?: Date | string | null;
+  plannedEndAt?: Date | string | null;
+  actualEndAt?: Date | string | null;
+  actualStartAt?: Date | string | null;
+  fromFrozen?: boolean | null;
+  sequenceData?: unknown;
+}): number | null {
+  if (!cook.plannedStartAt || !cook.plannedEndAt || !cook.actualEndAt) return null;
+  const frozenMeatOnAt: string | null = cook.fromFrozen
+    ? ((cook.sequenceData as any)?.schedule?.[0]?.meatOnAt ?? null)
+    : null;
+  const effectiveActualStart = frozenMeatOnAt ?? cook.actualStartAt;
+  if (!effectiveActualStart) return null;
+  const planned = new Date(cook.plannedEndAt).getTime() - new Date(cook.plannedStartAt).getTime();
+  const actual = new Date(cook.actualEndAt).getTime() - new Date(effectiveActualStart).getTime();
+  if (planned < 5 * 60 * 1000) return null;
+  const deviationPct = (Math.abs(actual - planned) / planned) * 100;
+  return Math.max(0, Math.round(100 - deviationPct));
+}
 
+export function computeCookHealthScore(input: CookHealthInput): CookHealthResult {
+  const { checkins, events, cookTempF, verdict = null, planAccuracyScore = null } = input;
+
+  // ── Check-in process score (0–100) ──────────────────────────────────────
   let issueCount = 0;
   let stallDetected = false;
   let pitDrift = false;
 
-  // Count flagged issues from checkins
   for (const ci of checkins) {
     if (ci.statusFlag === "flare_up" || ci.statusFlag === "running_behind") {
       issueCount++;
     }
   }
-
-  // Count issue events
   issueCount += events.filter(
     (e) => e.eventType === "flare_up" || e.eventType === "fuel_low",
   ).length;
 
-  // Stall detection: if two consecutive checkins have internal temps within 3°F
   for (let i = 1; i < checkins.length; i++) {
     const prev = checkins[i - 1].internalTempF;
     const curr = checkins[i].internalTempF;
@@ -81,7 +112,6 @@ export function computeCookHealthScore(input: CookHealthInput): CookHealthResult
     }
   }
 
-  // Pit drift detection: pit temp deviates >30°F from target
   if (cookTempF != null) {
     for (const ci of checkins) {
       if (ci.pitTempF != null && Math.abs(ci.pitTempF - cookTempF) > 30) {
@@ -91,7 +121,6 @@ export function computeCookHealthScore(input: CookHealthInput): CookHealthResult
     }
   }
 
-  // Step timing: checkins fired significantly late (>30 min after scheduled)
   let lateCount = 0;
   for (const ci of checkins) {
     if (ci.scheduledAt && ci.firedAt) {
@@ -101,45 +130,64 @@ export function computeCookHealthScore(input: CookHealthInput): CookHealthResult
     }
   }
 
-  // Compute a numeric score (0–100)
-  let score = 100;
-  score -= issueCount * 15;
-  if (stallDetected) score -= 10;
-  if (pitDrift) score -= 10;
-  score -= lateCount * 5;
-  score = Math.max(0, Math.min(100, score));
+  let checkinScore = 100;
+  checkinScore -= issueCount * 15;
+  if (stallDetected) checkinScore -= 10;
+  if (pitDrift) checkinScore -= 10;
+  checkinScore -= lateCount * 5;
+  checkinScore = Math.max(0, Math.min(100, checkinScore));
 
+  // ── Blended score: 60% AI verdict + 25% check-in process + 15% plan ───
+  const verdictScore = verdict ? (VERDICT_SCORE[verdict] ?? null) : null;
+  const hasCheckinData = checkins.length > 0 || events.length > 0;
+
+  let weightedSum = 0;
+  let totalWeight = 0;
+  if (verdictScore != null)      { weightedSum += verdictScore      * 0.60; totalWeight += 0.60; }
+  if (hasCheckinData)            { weightedSum += checkinScore      * 0.25; totalWeight += 0.25; }
+  if (planAccuracyScore != null) { weightedSum += planAccuracyScore * 0.15; totalWeight += 0.15; }
+
+  const score = totalWeight > 0
+    ? Math.max(0, Math.min(100, Math.round(weightedSum / totalWeight)))
+    : checkinScore;
+
+  // ── Letter grade + reason ────────────────────────────────────────────────
   let grade: "A" | "B" | "C" | "D" | "F";
   let reason: string;
 
   if (score >= 90) {
     grade = "A";
-    reason = "Temps tracking well, no issues detected — keep it up!";
+    reason = verdict === "perfect"
+      ? "Perfect cook — excellent process and outcome."
+      : "Outstanding cook — everything on track from start to finish.";
   } else if (score >= 75) {
     grade = "B";
-    reason =
-      issueCount > 0
-        ? `Minor issue(s) flagged but overall on track.`
+    reason = verdict === "good"
+      ? "Good result — solid process with minor deviations."
+      : issueCount > 0
+        ? "Minor issue(s) flagged but overall on track."
         : stallDetected
-          ? "Stall detected — this is normal, cook is otherwise tracking well."
-          : "Cook is progressing well with minor deviations.";
+          ? "Stall detected — normal for this cook, otherwise tracking well."
+          : "Cook progressed well with minor deviations.";
   } else if (score >= 60) {
     grade = "C";
-    reason =
-      pitDrift
-        ? "Pit temp has drifted significantly — check vents or fuel."
+    reason = verdict === "needs_work"
+      ? "Result needs improvement — keep an eye on temps and timing."
+      : pitDrift
+        ? "Pit temp drifted significantly — check vents or fuel."
         : issueCount >= 2
-          ? "Multiple issues flagged — keep a close eye on temps."
-          : "Cook is running behind or has encountered obstacles.";
+          ? "Multiple issues flagged — close monitoring needed."
+          : "Cook encountered obstacles but stayed on track.";
   } else if (score >= 45) {
     grade = "D";
-    reason =
-      issueCount >= 3
+    reason = (verdict === "overcooked" || verdict === "undercooked")
+      ? `Cook finished ${verdict === "overcooked" ? "overcooked" : "undercooked"} — review temps and timing for next time.`
+      : issueCount >= 3
         ? "Several issues detected — consider adjusting your approach."
-        : "Cook is significantly off-plan — temps or timing need attention.";
+        : "Cook ran significantly off-plan — temps or timing need attention.";
   } else {
     grade = "F";
-    reason = "Major issues detected — consider reviewing your setup and temps.";
+    reason = "Major issues detected — review your setup, temps, and process.";
   }
 
   return {
@@ -151,6 +199,8 @@ export function computeCookHealthScore(input: CookHealthInput): CookHealthResult
       issueCount,
       stallDetected,
       pitDrift,
+      aiVerdict: verdict ?? null,
+      planAccuracyScore: planAccuracyScore ?? null,
     },
   };
 }
@@ -294,6 +344,13 @@ router.get("/cooks/:id/health", requireAuth, async (req: any, res): Promise<void
       cookTempF: cooksTable.cookTempF,
       healthScore: cooksTable.healthScore,
       healthScoreReason: cooksTable.healthScoreReason,
+      analysisResult: cooksTable.analysisResult,
+      plannedStartAt: cooksTable.plannedStartAt,
+      plannedEndAt: cooksTable.plannedEndAt,
+      actualStartAt: cooksTable.actualStartAt,
+      actualEndAt: cooksTable.actualEndAt,
+      fromFrozen: cooksTable.fromFrozen,
+      sequenceData: cooksTable.sequenceData,
     })
     .from(cooksTable)
     .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)));
@@ -314,10 +371,15 @@ router.get("/cooks/:id/health", requireAuth, async (req: any, res): Promise<void
     .from(cookEvents)
     .where(eq(cookEvents.cookId, params.data.id));
 
+  const verdict = getAssessment(cook.analysisResult)?.verdict ?? null;
+  const planAccuracyScore = computePlanAccuracy(cook);
+
   const result = computeCookHealthScore({
     checkins,
     events: evts,
     cookTempF: cook.cookTempF,
+    verdict,
+    planAccuracyScore,
   });
 
   res.json({

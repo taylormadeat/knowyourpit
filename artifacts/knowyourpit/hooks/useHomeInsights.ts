@@ -8,8 +8,7 @@ export interface HomeInsights {
   scoreLabel: string;
   scoreBreakdown: {
     avgRating: number | null;
-    planAccuracy: number | null;
-    aiAssessmentScore: number | null;
+    avgHealthScore: number | null;
     cookCount: number;
   };
   tips: string[];

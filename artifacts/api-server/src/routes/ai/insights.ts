@@ -14,13 +14,17 @@ interface HomeInsights {
   scoreLabel: string;
   scoreBreakdown: {
     avgRating: number | null;
-    planAccuracy: number | null;
-    aiAssessmentScore: number | null;
+    avgHealthScore: number | null;
     cookCount: number;
   };
   tips: string[];
   tipsGeneratedAt: string;
 }
+
+// Map stored letter grade to a representative numeric score (midpoint of each band)
+const HEALTH_GRADE_SCORE: Record<string, number> = {
+  A: 95, B: 82, C: 67, D: 52, F: 22,
+};
 
 const homeInsightsCache = new Map<string, { data: HomeInsights; expiresAt: number }>();
 
@@ -77,63 +81,21 @@ router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void
         : null;
     const avgRatingScore = avgRating != null ? (avgRating / 5) * 100 : null;
 
-    const accuracies: number[] = [];
-    for (const c of cooks) {
-      if (!c.plannedStartAt || !c.plannedEndAt || !c.actualEndAt) continue;
-      // For frozen cooks actualStartAt is the thaw start, which can be 24+ hours
-      // before plannedStartAt (the grill preheat). Use meatOnAt from the sequence
-      // so both anchors refer to when active cooking began.
-      const frozenMeatOnAt: string | null = c.fromFrozen
-        ? ((c.sequenceData as any)?.schedule?.[0]?.meatOnAt ?? null)
-        : null;
-      const effectiveActualStart = frozenMeatOnAt ?? c.actualStartAt;
-      if (!effectiveActualStart) continue;
-      const planned =
-        new Date(c.plannedEndAt).getTime() - new Date(c.plannedStartAt).getTime();
-      const actual =
-        new Date(c.actualEndAt).getTime() - new Date(effectiveActualStart).getTime();
-      if (planned < 5 * 60 * 1000) continue;
-      const deviationPct = (Math.abs(actual - planned) / planned) * 100;
-      accuracies.push(Math.max(0, Math.round(100 - deviationPct)));
-    }
-    const planAccuracy =
-      accuracies.length > 0
-        ? Math.round(accuracies.reduce((s, a) => s + a, 0) / accuracies.length)
-        : null;
-
-    const VERDICT_SCORE: Record<string, number> = {
-      perfect: 100,
-      good: 75,
-      needs_work: 50,
-      overcooked: 25,
-      undercooked: 25,
-    };
-    const verdictScores: number[] = [];
-    for (const c of cooks) {
-      const verdict = getAssessment(c.analysisResult)?.verdict;
-      if (verdict && VERDICT_SCORE[verdict] !== undefined) {
-        verdictScores.push(VERDICT_SCORE[verdict]);
-      }
-    }
-    const aiAssessmentScore =
-      verdictScores.length > 0
-        ? Math.round(verdictScores.reduce((s, v) => s + v, 0) / verdictScores.length)
-        : null;
-
-    // Scale planAccuracy weight by sample size so a single outlier cook doesn't
-    // carry the full weight. Ramps from 1/3 weight at 1 measured cook up to full
-    // weight at 3+ cooks. This prevents one badly-estimated plan from tanking an
-    // otherwise strong score before the user has enough plan history to be fairly judged.
-    const planSampleFactor = Math.min(accuracies.length / 3, 1);
+    // Cook Health: average stored health grade (letter→numeric) across all cooks that have one.
+    // The stored grade is a blended score (AI verdict 60% + check-in process 25% + plan 15%)
+    // computed and saved whenever a check-in is submitted or analysis is run.
+    const healthScores = cooks
+      .filter((c) => c.healthScore != null)
+      .map((c) => HEALTH_GRADE_SCORE[c.healthScore!])
+      .filter((s): s is number => s != null);
+    const avgHealthScore = healthScores.length > 0
+      ? Math.round(healthScores.reduce((s, v) => s + v, 0) / healthScores.length)
+      : null;
 
     let weightedSum = 0;
     let totalWeight = 0;
-    if (avgRatingScore != null) { weightedSum += avgRatingScore * 0.35; totalWeight += 0.35; }
-    if (planAccuracy != null) {
-      const w = 0.2 * planSampleFactor;
-      weightedSum += planAccuracy * w; totalWeight += w;
-    }
-    if (aiAssessmentScore != null) { weightedSum += aiAssessmentScore * 0.45; totalWeight += 0.45; }
+    if (avgHealthScore != null) { weightedSum += avgHealthScore  * 0.70; totalWeight += 0.70; }
+    if (avgRatingScore != null) { weightedSum += avgRatingScore  * 0.30; totalWeight += 0.30; }
     const pitMasterScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
 
     let tips: string[] = [];
@@ -176,8 +138,8 @@ Respond ONLY with a JSON array of exactly 3 strings: ["tip1", "tip2", "tip3"]`;
       if (avgRating != null && avgRating < 3.5) {
         tips.push("Focus on nailing internal temp — it's the single biggest factor in your ratings.");
       }
-      if (planAccuracy != null && planAccuracy < 70) {
-        tips.push("Your cooks tend to run over plan — build in a 20% time buffer when serving guests.");
+      if (avgHealthScore != null && avgHealthScore < 65) {
+        tips.push("Your cook health scores suggest process issues — watch for pit drift, flare-ups, and late check-ins.");
       }
       tips.push("Keep rating every cook. PitMaster gets more accurate and personal with each entry.");
       tips = tips.slice(0, 3);
@@ -186,7 +148,7 @@ Respond ONLY with a JSON array of exactly 3 strings: ["tip1", "tip2", "tip3"]`;
     const result: HomeInsights = {
       pitMasterScore,
       scoreLabel: getPitMasterLabel(pitMasterScore),
-      scoreBreakdown: { avgRating, planAccuracy, aiAssessmentScore, cookCount },
+      scoreBreakdown: { avgRating, avgHealthScore, cookCount },
       tips,
       tipsGeneratedAt: new Date().toISOString(),
     };

@@ -216,36 +216,49 @@ export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, 
             {(
               [
                 {
+                  label: "AI Verdict",
+                  icon: "cpu" as FeatherName,
+                  value: health.factors.aiVerdict
+                    ? ({ perfect: "Perfect", good: "Good", needs_work: "Needs Work", overcooked: "Overcooked", undercooked: "Undercooked" }[health.factors.aiVerdict] ?? health.factors.aiVerdict)
+                    : "Not yet analyzed",
+                  ok: health.factors.aiVerdict === "perfect" || health.factors.aiVerdict === "good",
+                  note: "60% of health score",
+                },
+                {
+                  label: "Process Score",
+                  icon: "activity" as FeatherName,
+                  value: health.factors.issueCount === 0 && !health.factors.stallDetected && !health.factors.pitDrift
+                    ? "Clean cook"
+                    : [
+                        health.factors.issueCount > 0 ? `${health.factors.issueCount} issue(s)` : null,
+                        health.factors.stallDetected ? "stall detected" : null,
+                        health.factors.pitDrift ? "pit drift" : null,
+                      ].filter(Boolean).join(", "),
+                  ok: health.factors.issueCount === 0 && !health.factors.stallDetected && !health.factors.pitDrift,
+                  note: "25% of health score",
+                },
+                {
+                  label: "Plan Adherence",
+                  icon: "target" as FeatherName,
+                  value: health.factors.planAccuracyScore != null ? `${health.factors.planAccuracyScore}% on target` : "No plan data",
+                  ok: health.factors.planAccuracyScore != null && health.factors.planAccuracyScore >= 70,
+                  note: "15% of health score",
+                },
+                {
                   label: "Temperature Tracking",
                   icon: "thermometer" as FeatherName,
                   value: health.factors.tempTracking ?? "No data yet",
                   ok: !health.factors.pitDrift,
+                  note: null,
                 },
                 {
                   label: "Step Timing",
                   icon: "clock" as FeatherName,
                   value: health.factors.stepTiming ?? "No data yet",
                   ok: health.factors.stepTiming === "On time" || !health.factors.stepTiming,
+                  note: null,
                 },
-                {
-                  label: "Issues Flagged",
-                  icon: "alert-triangle" as FeatherName,
-                  value: health.factors.issueCount === 0 ? "None" : `${health.factors.issueCount} issue(s)`,
-                  ok: health.factors.issueCount === 0,
-                },
-                {
-                  label: "Stall Detected",
-                  icon: "activity" as FeatherName,
-                  value: health.factors.stallDetected ? "Yes — temp plateau" : "No",
-                  ok: !health.factors.stallDetected,
-                },
-                {
-                  label: "Pit Drift",
-                  icon: "wind" as FeatherName,
-                  value: health.factors.pitDrift ? "Yes — >30°F from target" : "No",
-                  ok: !health.factors.pitDrift,
-                },
-              ] satisfies Array<{ label: string; icon: FeatherName; value: string; ok: boolean }>
+              ] satisfies Array<{ label: string; icon: FeatherName; value: string; ok: boolean; note: string | null }>
             ).map((f) => (
               <View
                 key={f.label}
@@ -271,9 +284,16 @@ export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, 
                   <Feather name={f.icon} size={16} color={f.ok ? "#22c55e" : "#EF4444"} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.foreground as string }}>
-                    {f.label}
-                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.foreground as string }}>
+                      {f.label}
+                    </Text>
+                    {f.note && (
+                      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground as string }}>
+                        {f.note}
+                      </Text>
+                    )}
+                  </View>
                   <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground as string, marginTop: 2 }}>
                     {f.value}
                   </Text>
