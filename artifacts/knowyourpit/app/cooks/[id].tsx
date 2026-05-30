@@ -1002,6 +1002,10 @@ export default function CookDetailScreen() {
     selectedMeatProbeId != null
       ? (meaterProbes.find((p) => p.deviceId === selectedMeatProbeId) ?? null)
       : null;
+  const selectedMeaterPitProbe =
+    selectedPitProbeId != null
+      ? (meaterProbes.find((p) => p.deviceId === selectedPitProbeId) ?? null)
+      : null;
   const selectedThermoworksMeatProbe =
     selectedMeatProbeId != null
       ? (thermoworksProbes.find(
@@ -1066,10 +1070,18 @@ export default function CookDetailScreen() {
     selectedMeatProbeId?.startsWith("lan_")
       ? (lanProbes.find((p) => `lan_${p.deviceId}` === selectedMeatProbeId) ?? null)
       : null;
+  const selectedLanPitProbe: LanProbeReading | null =
+    selectedPitProbeId?.startsWith("lan_")
+      ? (lanProbes.find((p) => `lan_${p.deviceId}` === selectedPitProbeId) ?? null)
+      : null;
 
   const selectedBleContextDevice =
     selectedMeatProbeId?.startsWith("bleCtx_")
       ? (bleContextDevices.find((d) => `bleCtx_${d.id}` === selectedMeatProbeId) ?? null)
+      : null;
+  const selectedBleContextPitDevice =
+    selectedPitProbeId?.startsWith("bleCtx_")
+      ? (bleContextDevices.find((d) => `bleCtx_${d.id}` === selectedPitProbeId) ?? null)
       : null;
 
   // Auto-assign: when exactly one probe is available AND this is the only
@@ -1375,9 +1387,15 @@ export default function CookDetailScreen() {
   const autoCheckinProbeReading = useMemo((): AutoCheckinProbeReading | null => {
     if (tempMode !== "probe") return null;
     if (selectedMeaterProbe?.internalTempF != null) {
+      // Pit temp: use designated pit MEATER probe's internalTempF if a separate
+      // one was assigned; otherwise fall back to the meat probe's bundled ambient.
+      const pitTempF =
+        selectedMeaterPitProbe != null && selectedMeaterPitProbe.deviceId !== selectedMeaterProbe.deviceId
+          ? (selectedMeaterPitProbe.internalTempF ?? null)
+          : (selectedMeaterProbe.ambientTempF ?? null);
       return {
         internalTempF: selectedMeaterProbe.internalTempF,
-        pitTempF: selectedMeaterProbe.ambientTempF ?? null,
+        pitTempF,
         probeSource: "meater",
         fetchedAtMs: meaterDataUpdatedAt,
       };
@@ -1401,17 +1419,29 @@ export default function CookDetailScreen() {
       };
     }
     if (selectedBleContextDevice?.probeTempF != null) {
+      // Pit temp: use designated pit BLE-context device's probeTempF if a separate
+      // one was assigned; otherwise fall back to the meat device's bundled ambient.
+      const pitTempF =
+        selectedBleContextPitDevice != null && selectedBleContextPitDevice.id !== selectedBleContextDevice.id
+          ? (selectedBleContextPitDevice.probeTempF ?? null)
+          : (selectedBleContextDevice.ambientTempF ?? null);
       return {
         internalTempF: selectedBleContextDevice.probeTempF,
-        pitTempF: selectedBleContextDevice.ambientTempF ?? null,
+        pitTempF,
         probeSource: "ble",
         fetchedAtMs: selectedBleContextDevice.lastSeenMs,
       };
     }
     if (selectedLanProbe?.probeTempF != null) {
+      // Pit temp: use designated pit LAN probe's probeTempF if a separate
+      // one was assigned; otherwise fall back to the meat probe's bundled ambient.
+      const pitTempF =
+        selectedLanPitProbe != null && selectedLanPitProbe.deviceId !== selectedLanProbe.deviceId
+          ? (selectedLanPitProbe.probeTempF ?? null)
+          : (selectedLanProbe.ambientTempF ?? null);
       return {
         internalTempF: selectedLanProbe.probeTempF,
-        pitTempF: selectedLanProbe.ambientTempF ?? null,
+        pitTempF,
         probeSource: "lan",
         fetchedAtMs: selectedLanProbe.lastSeenMs,
       };
@@ -1419,9 +1449,11 @@ export default function CookDetailScreen() {
     return null;
   }, [
     tempMode,
-    selectedMeaterProbe, selectedThermoworksProbe, selectedThermoworksPitProbe,
+    selectedMeaterProbe, selectedMeaterPitProbe,
+    selectedThermoworksProbe, selectedThermoworksPitProbe,
     selectedInkbirdProbe, selectedInkbirdPitProbe,
-    selectedBleContextDevice, selectedLanProbe,
+    selectedBleContextDevice, selectedBleContextPitDevice,
+    selectedLanProbe, selectedLanPitProbe,
     meaterDataUpdatedAt, thermoworksDataUpdatedAt,
   ]);
 
@@ -1745,7 +1777,8 @@ export default function CookDetailScreen() {
         ...prev,
         { timeMinutes: elapsedRounded, tempF: currentTemp },
       ]);
-      if (selectedMeaterProbe.ambientTempF != null) {
+      // Pit: use ambient when no dedicated pit MEATER is assigned; dedicated pit handled below.
+      if (selectedMeaterProbe.ambientTempF != null && selectedMeaterPitProbe == null) {
         setLivePitReadings((prev) => [
           ...prev,
           { timeMinutes: elapsedRounded, tempF: selectedMeaterProbe.ambientTempF! },
@@ -1800,6 +1833,21 @@ export default function CookDetailScreen() {
     }
   }, [selectedMeaterProbe]);
 
+  // Accumulate live pit readings for a dedicated MEATER pit probe (separate device assigned as pit).
+  useEffect(() => {
+    if (selectedMeaterPitProbe == null || selectedMeaterPitProbe.internalTempF == null) return;
+    if (selectedMeaterPitProbe.deviceId === selectedMeaterProbe?.deviceId) return; // same device — ambient handled above
+    const currentTemp = selectedMeaterPitProbe.internalTempF;
+    const startAt = cook?.actualStartAt;
+    const elapsedMins = startAt
+      ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000)
+      : 0;
+    setLivePitReadings((prev) => [
+      ...prev,
+      { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: currentTemp },
+    ]);
+  }, [selectedMeaterPitProbe]);
+
   // Accumulate live readings for BLE context probes (MEATER via GATT, Govee, Weber iGrill).
   // Fires every GATT poll cycle (~15 s) so the live graph has real-time BLE data.
   useEffect(() => {
@@ -1814,13 +1862,28 @@ export default function CookDetailScreen() {
       ...prev,
       { timeMinutes: elapsedRounded, tempF: currentTemp },
     ]);
-    if (selectedBleContextDevice.ambientTempF != null) {
+    // Pit: use ambient when no dedicated pit device is assigned; dedicated pit handled below.
+    if (selectedBleContextDevice.ambientTempF != null && selectedBleContextPitDevice == null) {
       setLivePitReadings((prev) => [
         ...prev,
         { timeMinutes: elapsedRounded, tempF: selectedBleContextDevice.ambientTempF! },
       ]);
     }
   }, [selectedBleContextDevice]);
+
+  // Accumulate live pit readings for a dedicated BLE-context pit device.
+  useEffect(() => {
+    if (selectedBleContextPitDevice == null || selectedBleContextPitDevice.probeTempF == null) return;
+    const currentTemp = selectedBleContextPitDevice.probeTempF;
+    const startAt = cook?.actualStartAt;
+    const elapsedMins = startAt
+      ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000)
+      : 0;
+    setLivePitReadings((prev) => [
+      ...prev,
+      { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: currentTemp },
+    ]);
+  }, [selectedBleContextPitDevice]);
 
   // Accumulate live readings for LAN probes (Fireboard, MEATER Block, ThermoWorks Signals).
   // Fires every LAN poll cycle (~15 s) so the live graph has real-time WiFi data.
@@ -1836,13 +1899,28 @@ export default function CookDetailScreen() {
       ...prev,
       { timeMinutes: elapsedRounded, tempF: currentTemp },
     ]);
-    if (selectedLanProbe.ambientTempF != null) {
+    // Pit: use ambient when no dedicated pit probe is assigned; dedicated pit handled below.
+    if (selectedLanProbe.ambientTempF != null && selectedLanPitProbe == null) {
       setLivePitReadings((prev) => [
         ...prev,
         { timeMinutes: elapsedRounded, tempF: selectedLanProbe.ambientTempF! },
       ]);
     }
   }, [selectedLanProbe]);
+
+  // Accumulate live pit readings for a dedicated LAN pit probe.
+  useEffect(() => {
+    if (selectedLanPitProbe == null || selectedLanPitProbe.probeTempF == null) return;
+    const currentTemp = selectedLanPitProbe.probeTempF;
+    const startAt = cook?.actualStartAt;
+    const elapsedMins = startAt
+      ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000)
+      : 0;
+    setLivePitReadings((prev) => [
+      ...prev,
+      { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: currentTemp },
+    ]);
+  }, [selectedLanPitProbe]);
 
   // Accumulate live readings for ThermoWorks BLE probes.
   // Fires each time the ThermoWorks probe polling cycle delivers a new reading.
