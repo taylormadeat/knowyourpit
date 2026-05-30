@@ -47,11 +47,19 @@ export const INKBIRD_NAME_PREFIXES = [
  * 0xFFF0 — primary IBT-series service (all known BBQ probes)
  * 0xFFF5 — alternate seen on some IBS-TH2 humidity/temp sensors
  * 0xFFE0 — seen on some TPMS and generic Inkbird-OEM units
+ *
+ * Both full 128-bit and short 16-bit forms are included because iOS
+ * (react-native-ble-plx on CoreBluetooth) returns short UUIDs in their
+ * collapsed form ("fff0") for some device firmware versions rather than
+ * expanding them to the full Bluetooth base UUID form.
  */
 export const INKBIRD_SERVICE_UUIDS = [
   "0000fff0-0000-1000-8000-00805f9b34fb",
   "0000fff5-0000-1000-8000-00805f9b34fb",
   "0000ffe0-0000-1000-8000-00805f9b34fb",
+  "fff0",
+  "fff5",
+  "ffe0",
 ];
 
 // Plausible BBQ temperature bounds in Celsius.

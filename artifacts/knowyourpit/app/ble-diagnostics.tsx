@@ -19,9 +19,11 @@ import { ADAPTER_LABELS, detectAdapter } from "@/hooks/ble/adapters";
 interface RawBleDevice {
   id: string;
   name: string | null;
+  localName: string | null;
   rssi: number | null;
   adapter: string;
   manufacturerDataHex: string | null;
+  serviceUUIDs: string[];
   lastSeenMs: number;
 }
 
@@ -161,6 +163,31 @@ function DeviceRow({ device, colors }: { device: RawBleDevice; colors: any }) {
             selectable
           >
             {device.id}
+          </Text>
+          {device.localName != null && device.localName !== device.name && (
+            <>
+              <Text style={[s.expandedLabel, { color: colors.mutedForeground }]}>
+                Local Name
+              </Text>
+              <Text style={[s.expandedValue, { color: colors.foreground }]} selectable>
+                {device.localName}
+              </Text>
+            </>
+          )}
+          <Text style={[s.expandedLabel, { color: colors.mutedForeground }]}>
+            Service UUIDs
+          </Text>
+          <Text
+            style={[
+              s.expandedValue,
+              {
+                color: device.serviceUUIDs.length > 0 ? colors.foreground : colors.mutedForeground,
+                fontFamily: "Inter_400Regular",
+              },
+            ]}
+            selectable
+          >
+            {device.serviceUUIDs.length > 0 ? device.serviceUUIDs.join("\n") : "none"}
           </Text>
           <Text style={[s.expandedLabel, { color: colors.mutedForeground }]}>
             Manufacturer Data (hex)
@@ -318,16 +345,15 @@ export default function BleDiagnosticsScreen() {
           const hex = base64ToHex(device.manufacturerData as string | null | undefined);
 
           const existing = deviceMapRef.current.get(device.id as string);
+          const incomingServiceUUIDs: string[] = (device.serviceUUIDs as string[] | null) ?? [];
           deviceMapRef.current.set(device.id as string, {
             id: device.id as string,
-            name:
-              (device.name as string | null) ??
-              (device.localName as string | null) ??
-              existing?.name ??
-              null,
+            name: (device.name as string | null) ?? existing?.name ?? null,
+            localName: (device.localName as string | null) ?? existing?.localName ?? null,
             rssi: (device.rssi as number | null) ?? existing?.rssi ?? null,
             adapter: adapter ?? "unknown",
             manufacturerDataHex: hex ?? existing?.manufacturerDataHex ?? null,
+            serviceUUIDs: incomingServiceUUIDs.length > 0 ? incomingServiceUUIDs : (existing?.serviceUUIDs ?? []),
             lastSeenMs: Date.now(),
           });
 
