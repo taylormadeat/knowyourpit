@@ -27,8 +27,10 @@
  *   - ibt-6         → IBT-6XS / IBT-6XP (6-channel, distinct prefix in some FW)
  *   - ibs-th        → IBS-TH1 / IBS-TH2 temperature & humidity sensors
  *   - inkbird_ib    → older batch-branded units
- *   - tpms          → Inkbird TPMS (tyre pressure) sensors that share the same
- *                     BLE stack (some pitmasters use them for grill-lid temps)
+ *
+ * Note: "tpms" was removed — TPMS (tyre pressure) sensors from many non-Inkbird
+ * brands share this prefix and have a completely different data payload, causing
+ * them to appear in the device list with invalid temperature readings.
  */
 export const INKBIRD_NAME_PREFIXES = [
   "ibbq",
@@ -38,7 +40,6 @@ export const INKBIRD_NAME_PREFIXES = [
   "ibt-6",
   "ibs-th",
   "inkbird_ib",
-  "tpms",
 ];
 
 /**
@@ -141,15 +142,19 @@ export function parseInkbirdTemps(manufacturerData: string | null): number[] {
   return temps;
 }
 
+/**
+ * Returns true if the scanned BLE device is an Inkbird thermometer.
+ *
+ * Detection is name-only. Service UUID fallback was intentionally removed:
+ * 0xFFF0 and 0xFFE0 are generic UUIDs shared by hundreds of unrelated device
+ * categories (fitness bands, smart plugs, generic sensors). Using them as a
+ * detection signal caused every nearby device advertising those UUIDs to appear
+ * as an Inkbird thermometer in the Connected Devices list.
+ *
+ * In practice all Inkbird BBQ probes broadcast a recognisable name
+ * (iBBQ, IBT-4XS, Inkbird …) so name-only matching is sufficient.
+ */
 export function isInkbirdDevice(device: any): boolean {
   const name = ((device?.name ?? device?.localName ?? "") as string).toLowerCase();
-  if (INKBIRD_NAME_PREFIXES.some((p) => name.startsWith(p))) return true;
-
-  const serviceUUIDs: string[] = device?.serviceUUIDs ?? [];
-  const lowerUUIDs = serviceUUIDs.map((u: string) => u.toLowerCase());
-  if (INKBIRD_SERVICE_UUIDS.some((uuid) => lowerUUIDs.includes(uuid))) return true;
-
-  const serviceData: Record<string, string> = device?.serviceData ?? {};
-  const lowerKeys = Object.keys(serviceData).map((k) => k.toLowerCase());
-  return INKBIRD_SERVICE_UUIDS.some((uuid) => lowerKeys.includes(uuid));
+  return INKBIRD_NAME_PREFIXES.some((p) => name.startsWith(p));
 }
