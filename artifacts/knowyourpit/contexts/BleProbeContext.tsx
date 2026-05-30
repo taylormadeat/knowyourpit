@@ -583,12 +583,10 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Reset the scan silence watchdog state. Setting the timestamp to 0 signals
-    // "no scan has started yet" so the watchdog condition (> 0 check) won't
-    // fire between scan windows. Also clear the restarting guard so the next
-    // scan can trigger a restart if needed.
-    lastScanAdvertisementAtRef.current = 0;
-    scanSilenceRestartingRef.current = false;
+    // Clear the scan silence restarting guard so the next scan window can
+    // trigger a restart if needed. Do NOT reset lastScanAdvertisementAtRef —
+    // it must persist across scan windows so the watchdog can measure total
+    // silence time, not just silence within a single 15 s window.
 
     if (mountedRef.current) setScanning(false);
   }, []);
@@ -738,6 +736,13 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         },
       );
 
+      // Clear any existing stop timer before scheduling a new one — rapid
+      // restarts (e.g. from the silence watchdog) could leave a stale timer
+      // that would prematurely end the fresh scan.
+      if (scanTimerRef.current) {
+        clearTimeout(scanTimerRef.current);
+        scanTimerRef.current = null;
+      }
       scanTimerRef.current = setTimeout(stopScan, SCAN_DURATION_MS);
     } catch {
       if (mountedRef.current) setScanning(false);
@@ -816,20 +821,24 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
           startScan();
         }
 
-        // Scan silence watchdog: if a scan is currently in progress but no
-        // advertisement has arrived for ADV_WATCHDOG_MS (60 s), iOS may have
-        // silently killed startDeviceScan (common after screen-lock or
-        // backgrounding). Restart the scan to restore advertisement delivery.
-        // scanTimerRef.current is non-null only while a scan window is open.
+        // Scan silence watchdog: if no BLE advertisement has been received for
+        // ADV_WATCHDOG_MS (60 s) since the last scan started (or last packet),
+        // iOS may have silently killed startDeviceScan after backgrounding or
+        // screen-lock. Because BleProbeContext scan windows are only 15 s, the
+        // silence is measured across windows (lastScanAdvertisementAtRef is NOT
+        // reset in stopScan — it persists until a new advertisement arrives or
+        // a fresh startScan() initialises it). This means:
+        //   - t=0:  scan starts, lastScanAdvertisementAt = t0
+        //   - t=15s: scan stops (no devices heard) — ref stays at t0
+        //   - t=60s: stale timer fires, condition met → startScan() restarts
         if (
-          scanTimerRef.current !== null &&
           !scanSilenceRestartingRef.current &&
           lastScanAdvertisementAtRef.current > 0 &&
           now - lastScanAdvertisementAtRef.current > ADV_WATCHDOG_MS
         ) {
           scanSilenceRestartingRef.current = true;
           if (__DEV__) {
-            console.warn("[BleProbeContext] No BLE advertisements for 60 s during active scan — restarting");
+            console.warn("[BleProbeContext] No BLE advertisements for 60 s — restarting scan");
           }
           lastScanAdvertisementAtRef.current = now; // reset before restart
           (startScan() as Promise<void>).finally(() => {
