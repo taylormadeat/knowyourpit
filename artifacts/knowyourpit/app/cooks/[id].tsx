@@ -201,6 +201,10 @@ export default function CookDetailScreen() {
   const { showPaywall, parseAndShowFromError } = usePaywall();
   const { data: paywallUsage } = usePaywallUsage();
   const effectivePro = useEffectivePro();
+  // Ref so async effects can read the latest effectivePro value without
+  // adding it to their dependency arrays (which would cause unwanted re-runs).
+  const effectiveProRef = useRef(effectivePro);
+  effectiveProRef.current = effectivePro;
   // Used to suppress the Cook Coach blur during the brief Phase-1→Phase-2 RC
   // window on first install (no SecureStore cache yet). Without this, a Pro
   // user reopening the app for the first time after install would see the
@@ -293,10 +297,14 @@ export default function CookDetailScreen() {
 
   const setTempMode = useCallback(
     (mode: "probe" | "manual") => {
+      if (mode === "probe" && !effectivePro) {
+        showPaywall({ trigger: "pro_required", featureName: "Live Thermometer Connection" });
+        return;
+      }
       setTempModeState(mode);
       if (id) sessionTempModes.set(String(id), mode);
     },
-    [id],
+    [id, effectivePro, showPaywall],
   );
 
   useEffect(() => {
@@ -365,9 +373,13 @@ export default function CookDetailScreen() {
         setProbeLabelsState(resolvedLabels);
         // Only auto-switch to probe mode when the user has NOT explicitly chosen
         // a mode this session — respects a deliberate "Manual Entry" switch.
+        // Also requires Pro: probe connections are a Pro feature, so silently
+        // stay in manual mode if the user has downgraded since last launch.
         if (meatProbeId != null && sessionMode == null) {
-          setTempModeState("probe");
-          sessionTempModes.set(String(id), "probe");
+          if (effectiveProRef.current) {
+            setTempModeState("probe");
+            sessionTempModes.set(String(id), "probe");
+          }
         } else if (sessionMode != null) {
           setTempModeState(sessionMode);
         }

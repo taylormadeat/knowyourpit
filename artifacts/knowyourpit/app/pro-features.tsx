@@ -209,8 +209,8 @@ const FEATURES = [
   },
   {
     id: "ai",
-    headline: "Unlimited AI PitMaster",
-    benefit: "Ask anything, anytime — no daily chat or scan limits. Get pro coaching for every cook.",
+    headline: "AI PitMaster — Up to 20 Messages/Day",
+    benefit: "Ask anything during your cook — up to 20 messages per day of real-time coaching, cook analysis, and BBQ guidance without hitting free-tier limits.",
     Preview: AIPitmasterPreview,
   },
   {
@@ -222,7 +222,7 @@ const FEATURES = [
   {
     id: "probe",
     headline: "Live Thermometer Connection",
-    benefit: "Connect Inkbird, Govee, Weber iGrill, Fireboard, MEATER, and ThermoWorks probes via Bluetooth or WiFi. PitMaster auto-grades every 30 minutes using live temps.",
+    benefit: "Connect any thermometer — Inkbird, Govee, MEATER, ThermoWorks, Fireboard, and more — via Bluetooth or WiFi. PitMaster auto-grades every 30 minutes using live temperatures.",
     Preview: ProbeAutoGradePreview,
   },
   {
