@@ -76,6 +76,12 @@ function base64ToBytes(b64: string): number[] {
   }
 }
 
+// Plausible BBQ temperature bounds in Fahrenheit (derived from Celsius bounds).
+// Any computed tempF outside this range is treated as a no-probe / garbage reading
+// and filtered out, regardless of the declared unit.
+const MIN_PLAUSIBLE_F = (MIN_PLAUSIBLE_CELSIUS * 9) / 5 + 32; // ≈ -58 °F
+const MAX_PLAUSIBLE_F = (MAX_PLAUSIBLE_CELSIUS * 9) / 5 + 32; // ≈ 1202 °F
+
 /**
  * Parse probe temperatures from an Inkbird IBT-series BLE advertisement.
  *
@@ -86,12 +92,13 @@ function base64ToBytes(b64: string): number[] {
  *  1. Unit flag byte — the byte immediately after all channel pairs, when present:
  *       0x00       → source is °C (most firmware versions)
  *       0xFF/0x01  → source is °F (some regional/older firmware)
- *  2. Plausibility heuristic — if a raw÷10 value would be unreasonably high or
- *     low for Celsius (outside -50 … 650 °C) but plausible as °F, treat as °F.
- *  3. Default → assume °C.
+ *  2. Default → assume °C.
  *
- * Returns an array of tempF values, one per inserted probe channel.
- * Channels with no probe inserted (raw value ≥ 0xFFFE) are omitted.
+ * Returns an array of tempF values, one per channel with a valid probe reading.
+ * Channels are omitted when:
+ *   - raw value ≥ 0xFFFE   (device sentinel for "no probe inserted")
+ *   - computed tempF is outside –58 °F … 1202 °F  (garbage / no-probe data
+ *     that did not use the sentinel, common on some IBT-4XS firmware)
  */
 export function parseInkbirdTemps(manufacturerData: string | null): number[] {
   if (!manufacturerData) return [];
@@ -122,20 +129,25 @@ export function parseInkbirdTemps(manufacturerData: string | null): number[] {
 
   const temps: number[] = [];
   for (const raw of rawValues) {
+    // Explicit "no probe" sentinel used by most Inkbird firmware.
     if (raw >= 0xfffe) continue;
 
     const value = raw / 10;
 
     let tempF: number;
     if (sourceIsCelsius) {
-      if (value > MAX_PLAUSIBLE_CELSIUS || value < MIN_PLAUSIBLE_CELSIUS) {
-        tempF = value;
-      } else {
-        tempF = (value * 9) / 5 + 32;
-      }
+      // If the Celsius value is outside the plausible range the raw bytes are
+      // garbage (some firmware variants send non-sentinel junk for empty slots).
+      // Drop the channel rather than re-interpreting it as Fahrenheit — that
+      // was the previous behaviour and caused readings like 5661 °F / 3103 °F.
+      if (value > MAX_PLAUSIBLE_CELSIUS || value < MIN_PLAUSIBLE_CELSIUS) continue;
+      tempF = (value * 9) / 5 + 32;
     } else {
       tempF = value;
     }
+
+    // Final bounds gate — catches any remaining outliers regardless of unit flag.
+    if (tempF < MIN_PLAUSIBLE_F || tempF > MAX_PLAUSIBLE_F) continue;
 
     temps.push(Math.round(tempF * 10) / 10);
   }
