@@ -519,6 +519,10 @@ export default function CookDetailScreen() {
   const [inkbirdReconnectToast, setInkbirdReconnectToast] = useState(false);
   const inkbirdReconnectToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevInkbirdReconnectingRef = useRef(false);
+  // BLE context reconnect toast (MEATER / Govee): same pattern, driven by reconnectBanner.
+  const [bleReconnectToast, setBleReconnectToast] = useState<string | null>(null);
+  const bleReconnectToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevReconnectBannerRef = useRef<string | null>(null);
   // Pending check-in driven by a notification tap — shows the "Check In Now"
   // banner but does NOT auto-open the modal. Cleared when the user taps the
   // banner or dismisses it.
@@ -1139,6 +1143,20 @@ export default function CookDetailScreen() {
     setHasActiveCook(cookStatus === "active");
     return () => setHasActiveCook(false);
   }, [cookStatus, setHasActiveCook]);
+
+  // Fire a "<DeviceName> reconnected ✓" toast when a MEATER or Govee probe
+  // reappears after a drop (driven by BleProbeContext's reconnectBanner).
+  useEffect(() => {
+    const prevName = prevReconnectBannerRef.current;
+    const currName = reconnectBanner?.deviceName ?? null;
+    prevReconnectBannerRef.current = currName;
+    if (currName != null && prevName == null) {
+      setBleReconnectToast(currName);
+      dismissReconnectBanner();
+      if (bleReconnectToastTimerRef.current) clearTimeout(bleReconnectToastTimerRef.current);
+      bleReconnectToastTimerRef.current = setTimeout(() => setBleReconnectToast(null), 3000);
+    }
+  }, [reconnectBanner, dismissReconnectBanner]);
 
   const bleContextDevices = allBleDevices.filter(
     (d) => d.connectionState === "connected" && d.paired,
@@ -4218,6 +4236,44 @@ export default function CookDetailScreen() {
             Inkbird reconnected ✓
           </Text>
           <Pressable onPress={() => setInkbirdReconnectToast(false)} hitSlop={10}>
+            <Feather name="x" size={14} color="#9CA3AF" />
+          </Pressable>
+        </View>
+      )}
+
+      {/* ── BLE Context Reconnect Toast (MEATER / Govee) ─────── */}
+      {bleReconnectToast != null && (
+        <View
+          style={{
+            position: "absolute",
+            bottom:
+              (autoCheckinToast != null ? 60 : 0) +
+              (inkbirdReconnectToast ? 60 : 0) +
+              90 + insets.bottom,
+            left: 16,
+            right: 16,
+            backgroundColor: "#1C1C1F",
+            borderColor: "#22c55e",
+            borderWidth: 1,
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.3,
+            shadowRadius: 6,
+            elevation: 8,
+            zIndex: 9999,
+          }}
+        >
+          <Feather name="wifi" size={16} color="#22c55e" />
+          <Text style={{ flex: 1, color: "#F3EDE1", fontFamily: "Inter_400Regular", fontSize: 13 }}>
+            {bleReconnectToast} reconnected ✓
+          </Text>
+          <Pressable onPress={() => setBleReconnectToast(null)} hitSlop={10}>
             <Feather name="x" size={14} color="#9CA3AF" />
           </Pressable>
         </View>
