@@ -182,7 +182,7 @@ const ONBOARDING_FEATURE_LAUNCH_MS = new Date("2026-05-18T00:00:00Z").getTime();
 
 // BETA MODE: set to true to show the tutorial on every launch for all users.
 // Flip to false when beta testing is complete to revert to first-login-only.
-const ONBOARDING_ALWAYS_SHOW = false;
+const ONBOARDING_ALWAYS_SHOW = true;
 
 // Typed route constant — avoids repeating `as any` at every call site.
 // Expo Router generates Href types from the file system at build time; because

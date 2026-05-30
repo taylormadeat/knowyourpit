@@ -26,6 +26,15 @@ const APP_STORE_URL = "itms-apps://itunes.apple.com/app/id6738518044";
 
 const logoImg = require("@/assets/images/logo.png");
 
+const FEATURES: { icon: string; label: string; color: string }[] = [
+  { icon: "zap",            label: "AI Cook Plans",    color: "#FCD34D" },
+  { icon: "message-circle", label: "PitMaster Coach",  color: "#F97316" },
+  { icon: "thermometer",    label: "Live Temperature", color: "#60A5FA" },
+  { icon: "book-open",      label: "Cook Logger",      color: "#34D399" },
+  { icon: "wind",           label: "Frozen Planning",  color: "#A5F3FC" },
+  { icon: "layers",         label: "Multi-Cook",       color: "#F472B6" },
+];
+
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -125,18 +134,18 @@ export default function OnboardingScreen() {
       <View style={s.cardWrap}>
         <View style={s.card}>
           {page === 0 ? (
-            /* ── Page 1: Welcome ─────────────────────── */
+            /* ── Page 1: Welcome + feature grid ──────── */
             <>
-              <LinearGradient
-                colors={["#2A1C04", "#1A1002"]}
-                style={s.iconBox}
-              >
-                <Feather name="thermometer" size={48} color="#FCD34D" />
-              </LinearGradient>
               <Text style={s.headline}>Welcome, Pitmaster.</Text>
-              <Text style={s.body}>
-                You've got the pit. We've got the plan. Every cook, better than the last.
-              </Text>
+              <View style={s.featureGrid}>
+                {FEATURES.map((f) => (
+                  <View key={f.label} style={s.featureTile}>
+                    <Feather name={f.icon as any} size={18} color={f.color} />
+                    <Text style={s.featureLabel}>{f.label}</Text>
+                  </View>
+                ))}
+              </View>
+              <Text style={s.body}>Everything you need. Nothing you don't.</Text>
             </>
           ) : (
             /* ── Page 2: Feedback ────────────────────── */
@@ -302,6 +311,32 @@ const s = StyleSheet.create({
     textAlign: "center",
     lineHeight: 24,
     maxWidth: 300,
+  },
+  featureGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 24,
+    marginBottom: 20,
+    width: "100%",
+  },
+  featureTile: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    width: "47%",
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+  },
+  featureLabel: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    color: "rgba(255,255,255,0.88)",
+    flexShrink: 1,
   },
   emailBtn: {
     flexDirection: "row",
