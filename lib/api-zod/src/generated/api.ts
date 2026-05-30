@@ -666,6 +666,14 @@ export const ListCooksResponseItem = zod.object({
     .number()
     .optional()
     .describe("Number of photos attached to this cook"),
+  probeAssignments: zod
+    .object({
+      meatProbeId: zod.string().nullish(),
+      pitProbeId: zod.string().nullish(),
+      labels: zod.record(zod.string(), zod.string()).optional(),
+    })
+    .nullish()
+    .describe("Server-persisted probe assignments and labels for this cook"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -761,6 +769,14 @@ export const CreateCookBody = zod.object({
     .describe(
       "Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)",
     ),
+  probeAssignments: zod
+    .object({
+      meatProbeId: zod.string().nullish(),
+      pitProbeId: zod.string().nullish(),
+      labels: zod.record(zod.string(), zod.string()).optional(),
+    })
+    .nullish()
+    .describe("Server-persisted probe assignments and labels for this cook"),
 });
 
 /**
@@ -910,6 +926,14 @@ export const GetCookResponse = zod.object({
     .number()
     .optional()
     .describe("Number of photos attached to this cook"),
+  probeAssignments: zod
+    .object({
+      meatProbeId: zod.string().nullish(),
+      pitProbeId: zod.string().nullish(),
+      labels: zod.record(zod.string(), zod.string()).optional(),
+    })
+    .nullish()
+    .describe("Server-persisted probe assignments and labels for this cook"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1010,6 +1034,14 @@ export const UpdateCookBody = zod.object({
     .describe(
       "Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)",
     ),
+  probeAssignments: zod
+    .object({
+      meatProbeId: zod.string().nullish(),
+      pitProbeId: zod.string().nullish(),
+      labels: zod.record(zod.string(), zod.string()).optional(),
+    })
+    .nullish()
+    .describe("Server-persisted probe assignments and labels for this cook"),
 });
 
 export const UpdateCookResponse = zod.object({
@@ -1152,6 +1184,14 @@ export const UpdateCookResponse = zod.object({
     .number()
     .optional()
     .describe("Number of photos attached to this cook"),
+  probeAssignments: zod
+    .object({
+      meatProbeId: zod.string().nullish(),
+      pitProbeId: zod.string().nullish(),
+      labels: zod.record(zod.string(), zod.string()).optional(),
+    })
+    .nullish()
+    .describe("Server-persisted probe assignments and labels for this cook"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1386,6 +1426,16 @@ export const GetCookHealthResponse = zod.object({
       pitDrift: zod
         .boolean()
         .describe("Whether significant pit temperature drift was detected"),
+      aiVerdict: zod
+        .string()
+        .nullish()
+        .describe(
+          "AI assessment verdict (perfect, good, needs_work, overcooked, undercooked)",
+        ),
+      planAccuracyScore: zod
+        .number()
+        .nullish()
+        .describe("Plan adherence score 0-100"),
     })
     .describe("Breakdown of individual score contributors"),
   computedAt: zod.coerce.date(),
@@ -2218,6 +2268,14 @@ export const GetRecentCooksResponseItem = zod.object({
     .number()
     .optional()
     .describe("Number of photos attached to this cook"),
+  probeAssignments: zod
+    .object({
+      meatProbeId: zod.string().nullish(),
+      pitProbeId: zod.string().nullish(),
+      labels: zod.record(zod.string(), zod.string()).optional(),
+    })
+    .nullish()
+    .describe("Server-persisted probe assignments and labels for this cook"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

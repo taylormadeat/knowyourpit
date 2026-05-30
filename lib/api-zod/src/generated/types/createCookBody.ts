@@ -5,6 +5,7 @@
  * PitMaster AI - BBQ Planning & Monitoring API
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateCookBodyProbeAssignments } from "./createCookBodyProbeAssignments";
 import type { CreateCookBodyStatus } from "./createCookBodyStatus";
 import type { CreateCookBodyThawMethod } from "./createCookBodyThawMethod";
 import type { CreateCookBodyWrapMethod } from "./createCookBodyWrapMethod";
@@ -94,4 +95,9 @@ export interface CreateCookBody {
    * @nullable
    */
   wrapFinish?: string | null;
+  /**
+   * Server-persisted probe assignments and labels for this cook
+   * @nullable
+   */
+  probeAssignments?: CreateCookBodyProbeAssignments;
 }

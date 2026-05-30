@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { UpdateCookBodyConfirmedSteps } from "./updateCookBodyConfirmedSteps";
+import type { UpdateCookBodyProbeAssignments } from "./updateCookBodyProbeAssignments";
 import type { UpdateCookBodyStatus } from "./updateCookBodyStatus";
 import type { UpdateCookBodyThawMethod } from "./updateCookBodyThawMethod";
 import type { UpdateCookBodyWrapMethod } from "./updateCookBodyWrapMethod";
@@ -98,4 +99,9 @@ export interface UpdateCookBody {
    * @nullable
    */
   wrapFinish?: string | null;
+  /**
+   * Server-persisted probe assignments and labels for this cook
+   * @nullable
+   */
+  probeAssignments?: UpdateCookBodyProbeAssignments;
 }

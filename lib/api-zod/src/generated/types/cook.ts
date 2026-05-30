@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CookConfirmedSteps } from "./cookConfirmedSteps";
+import type { CookProbeAssignments } from "./cookProbeAssignments";
 import type { CookStatus } from "./cookStatus";
 import type { CookThawMethod } from "./cookThawMethod";
 import type { CookWrapMethod } from "./cookWrapMethod";
@@ -153,6 +154,11 @@ export interface Cook {
   currentTempF?: number | null;
   /** Number of photos attached to this cook */
   photoCount?: number;
+  /**
+   * Server-persisted probe assignments and labels for this cook
+   * @nullable
+   */
+  probeAssignments?: CookProbeAssignments;
   createdAt: Date;
   updatedAt: Date;
 }

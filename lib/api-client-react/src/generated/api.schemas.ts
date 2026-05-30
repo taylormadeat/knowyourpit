@@ -338,6 +338,19 @@ export const CookThawMethod = {
   cold_water: "cold_water",
 } as const;
 
+/**
+ * Server-persisted probe assignments and labels for this cook
+ * @nullable
+ */
+export type CookProbeAssignments = {
+  /** @nullable */
+  meatProbeId?: string | null;
+  /** @nullable */
+  pitProbeId?: string | null;
+  labels?: { [key: string]: string };
+  [key: string]: unknown;
+} | null;
+
 export interface Cook {
   id: number;
   /** @nullable */
@@ -481,6 +494,11 @@ export interface Cook {
   currentTempF?: number | null;
   /** Number of photos attached to this cook */
   photoCount?: number;
+  /**
+   * Server-persisted probe assignments and labels for this cook
+   * @nullable
+   */
+  probeAssignments?: CookProbeAssignments;
   createdAt: string;
   updatedAt: string;
 }
@@ -542,6 +560,19 @@ export const CreateCookBodyThawMethod = {
   fridge: "fridge",
   cold_water: "cold_water",
 } as const;
+
+/**
+ * Server-persisted probe assignments and labels for this cook
+ * @nullable
+ */
+export type CreateCookBodyProbeAssignments = {
+  /** @nullable */
+  meatProbeId?: string | null;
+  /** @nullable */
+  pitProbeId?: string | null;
+  labels?: { [key: string]: string };
+  [key: string]: unknown;
+} | null;
 
 export interface CreateCookBody {
   /** @nullable */
@@ -628,6 +659,11 @@ export interface CreateCookBody {
    * @nullable
    */
   wrapFinish?: string | null;
+  /**
+   * Server-persisted probe assignments and labels for this cook
+   * @nullable
+   */
+  probeAssignments?: CreateCookBodyProbeAssignments;
 }
 
 /**
@@ -675,6 +711,19 @@ export const UpdateCookBodyThawMethod = {
  * @nullable
  */
 export type UpdateCookBodyConfirmedSteps = { [key: string]: string } | null;
+
+/**
+ * Server-persisted probe assignments and labels for this cook
+ * @nullable
+ */
+export type UpdateCookBodyProbeAssignments = {
+  /** @nullable */
+  meatProbeId?: string | null;
+  /** @nullable */
+  pitProbeId?: string | null;
+  labels?: { [key: string]: string };
+  [key: string]: unknown;
+} | null;
 
 export interface UpdateCookBody {
   /** @nullable */
@@ -764,6 +813,11 @@ export interface UpdateCookBody {
    * @nullable
    */
   wrapFinish?: string | null;
+  /**
+   * Server-persisted probe assignments and labels for this cook
+   * @nullable
+   */
+  probeAssignments?: UpdateCookBodyProbeAssignments;
 }
 
 export interface TemperatureReading {

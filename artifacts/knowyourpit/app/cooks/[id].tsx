@@ -315,12 +315,52 @@ export default function CookDetailScreen() {
 
     (async () => {
       try {
-        const { meatProbeId, pitProbeId, probeLabels } = await loadProbeState(id, AsyncStorage);
+        let meatProbeId: string | null;
+        let pitProbeId: string | null;
+        let resolvedLabels: Record<string, string>;
+
+        // Server-first: prefer probeAssignments stored on the cook record so
+        // two devices sharing the same cook always see the same labels.
+        //
+        // Authoritative signal: probeAssignments is a non-null object on the
+        // server response (even with all-null/empty fields). A null value means
+        // the cook has never had probe assignments synced to the server
+        // (pre-migration or never-set) — in that case fall back to AsyncStorage.
+        // This distinction lets an explicit "clear all" on device A propagate
+        // correctly to device B without being overridden by stale local data.
+        const serverAssignments = (cook as any)?.probeAssignments as {
+          meatProbeId?: string | null;
+          pitProbeId?: string | null;
+          labels?: Record<string, string>;
+        } | null | undefined;
+
+        if (serverAssignments !== null && serverAssignments !== undefined) {
+          // Server has authoritative state — use it verbatim (including clears).
+          meatProbeId = serverAssignments.meatProbeId ?? null;
+          pitProbeId = serverAssignments.pitProbeId ?? null;
+          resolvedLabels = serverAssignments.labels ?? {};
+          // Write back to AsyncStorage so offline fallback stays warm and stale
+          // data from a previous session is overwritten.
+          // (Platform.OS !== "web" is guaranteed by the outer guard above.)
+          await Promise.all([
+            saveMeatProbeId(id, meatProbeId, AsyncStorage),
+            savePitProbeId(id, pitProbeId, AsyncStorage),
+            saveProbeLabels(id, resolvedLabels, AsyncStorage),
+          ]).catch(() => {});
+        } else {
+          // Server value is null → cook has never been synced (pre-migration or
+          // offline stale response). Fall back to locally-cached state.
+          const local = await loadProbeState(id, AsyncStorage);
+          meatProbeId = local.meatProbeId;
+          pitProbeId = local.pitProbeId;
+          resolvedLabels = local.probeLabels;
+        }
+
         setSelectedMeatProbeId(meatProbeId);
         setSelectedPitProbeId(pitProbeId);
-        if (Object.keys(probeLabels).length > 0) {
-          setProbeLabelsState(probeLabels);
-        }
+        // Always apply resolved labels so an explicit "clear all" on another
+        // device propagates correctly (empty object must overwrite stale state).
+        setProbeLabelsState(resolvedLabels);
         // Only auto-switch to probe mode when the user has NOT explicitly chosen
         // a mode this session — respects a deliberate "Manual Entry" switch.
         if (meatProbeId != null && sessionMode == null) {
@@ -334,7 +374,7 @@ export default function CookDetailScreen() {
       }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, (cook as any)?.status]);
+  }, [id, (cook as any)?.status, (cook as any)?.probeAssignments]);
 
   // Count of globally-active cooks — used to gate auto-probe-assignment so
   // we never silently assign a probe when multiple cooks are running in parallel
@@ -385,25 +425,59 @@ export default function CookDetailScreen() {
     if (probeId != null) setTempMode("probe");
     if (Platform.OS !== "web" && id) {
       saveMeatProbeId(id, probeId, AsyncStorage);
+      // Sync to server (fire-and-forget) so a pit partner on another device
+      // picks up the updated assignment without re-entering it.
+      updateCook.mutate({
+        id: Number(id),
+        data: {
+          probeAssignments: {
+            meatProbeId: probeId,
+            pitProbeId: selectedPitProbeId,
+            labels: probeLabels,
+          },
+        },
+      });
     }
-  }, [id, setTempMode]);
+  }, [id, setTempMode, selectedPitProbeId, probeLabels, updateCook]);
 
   const handleSelectPitProbe = useCallback((probeId: string | null) => {
     setSelectedPitProbeId(probeId);
     if (Platform.OS !== "web" && id) {
       savePitProbeId(id, probeId, AsyncStorage);
+      // Sync to server (fire-and-forget).
+      updateCook.mutate({
+        id: Number(id),
+        data: {
+          probeAssignments: {
+            meatProbeId: selectedMeatProbeId,
+            pitProbeId: probeId,
+            labels: probeLabels,
+          },
+        },
+      });
     }
-  }, [id]);
+  }, [id, selectedMeatProbeId, probeLabels, updateCook]);
 
   const handleSetProbeLabel = useCallback((probeKey: string, label: string) => {
     setProbeLabelsState((prev) => {
       const next = buildUpdatedProbeLabels(prev, probeKey, label);
       if (Platform.OS !== "web" && id) {
         saveProbeLabels(id, next, AsyncStorage);
+        // Sync to server (fire-and-forget).
+        updateCook.mutate({
+          id: Number(id),
+          data: {
+            probeAssignments: {
+              meatProbeId: selectedMeatProbeId,
+              pitProbeId: selectedPitProbeId,
+              labels: next,
+            },
+          },
+        });
       }
       return next;
     });
-  }, [id]);
+  }, [id, selectedMeatProbeId, selectedPitProbeId, updateCook]);
 
   // Ratings state
   const [rateTenderness, setRateTenderness] = useState<number>(0);

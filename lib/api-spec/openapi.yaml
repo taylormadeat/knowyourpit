@@ -1552,6 +1552,19 @@ components:
         photoCount:
           type: integer
           description: Number of photos attached to this cook
+        probeAssignments:
+          type: ["object", "null"]
+          description: Server-persisted probe assignments and labels for this cook
+          properties:
+            meatProbeId:
+              type: ["string", "null"]
+            pitProbeId:
+              type: ["string", "null"]
+            labels:
+              type: object
+              additionalProperties:
+                type: string
+          additionalProperties: true
         createdAt:
           type: string
           format: date-time
@@ -1704,6 +1717,19 @@ components:
         wrapFinish:
           type: ["string", "null"]
           description: Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
+        probeAssignments:
+          type: ["object", "null"]
+          description: Server-persisted probe assignments and labels for this cook
+          properties:
+            meatProbeId:
+              type: ["string", "null"]
+            pitProbeId:
+              type: ["string", "null"]
+            labels:
+              type: object
+              additionalProperties:
+                type: string
+          additionalProperties: true
       required:
         - foodType
 
@@ -1789,6 +1815,19 @@ components:
         wrapFinish:
           type: ["string", "null"]
           description: Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)
+        probeAssignments:
+          type: ["object", "null"]
+          description: Server-persisted probe assignments and labels for this cook
+          properties:
+            meatProbeId:
+              type: ["string", "null"]
+            pitProbeId:
+              type: ["string", "null"]
+            labels:
+              type: object
+              additionalProperties:
+                type: string
+          additionalProperties: true
 
     TemperatureReading:
       type: object
