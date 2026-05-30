@@ -505,6 +505,7 @@ export function LiveCookSection(p: Props) {
         const isMeat = selectedMeatProbeId === probeKey;
         const isPit = selectedPitProbeId === probeKey;
         const otherCook = otherCookAssignments[probeKey];
+        const lockedByOther = !!otherCook && !isMeat && !isPit;
         const isEditing = editingLabelKey === probeKey;
         return (
           <View
@@ -547,13 +548,16 @@ export function LiveCookSection(p: Props) {
                 </View>
               </View>
             </View>
-            {otherCook ? (
+            {lockedByOther ? (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: colors.mutedForeground + "12", alignSelf: "flex-start" }}>
                 <Feather name="lock" size={10} color={colors.mutedForeground} />
                 <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>Used by {otherCook}</Text>
               </View>
             ) : (
-              <View style={{ flexDirection: "row", gap: 8 }}>
+              <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+                {otherCook && (
+                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>⚠ {otherCook}</Text>
+                )}
                 <Pressable onPress={() => onSelectMeatProbe?.(isMeat ? null : probeKey)}
                   style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isMeat ? "#FF6B2B60" : "transparent" }}>
                   <Feather name="thermometer" size={11} color={isMeat ? "#FF6B2B" : colors.mutedForeground} />
@@ -578,6 +582,7 @@ export function LiveCookSection(p: Props) {
         const isMeat = selectedMeatProbeId === probeKey;
         const isPit = selectedPitProbeId === probeKey;
         const otherCook = otherCookAssignments[probeKey];
+        const lockedByOther = !!otherCook && !isMeat && !isPit;
         const isEditing = editingLabelKey === probeKey;
         return (
           <View
@@ -620,13 +625,16 @@ export function LiveCookSection(p: Props) {
                 </View>
               </View>
             </View>
-            {otherCook ? (
+            {lockedByOther ? (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: colors.mutedForeground + "12", alignSelf: "flex-start" }}>
                 <Feather name="lock" size={10} color={colors.mutedForeground} />
                 <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>Used by {otherCook}</Text>
               </View>
             ) : (
-              <View style={{ flexDirection: "row", gap: 8 }}>
+              <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+                {otherCook && (
+                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>⚠ {otherCook}</Text>
+                )}
                 <Pressable onPress={() => onSelectMeatProbe?.(isMeat ? null : probeKey)}
                   style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isMeat ? "#FF6B2B60" : "transparent" }}>
                   <Feather name="thermometer" size={11} color={isMeat ? "#FF6B2B" : colors.mutedForeground} />

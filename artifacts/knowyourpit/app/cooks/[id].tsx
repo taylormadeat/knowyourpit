@@ -4114,16 +4114,33 @@ export default function CookDetailScreen() {
           weightLbs={cook?.weightLbs ?? null}
           currentInternalTempF={
             tempMode === "probe"
-              ? (selectedMeaterProbe?.internalTempF ?? selectedThermoworksProbe?.tempF ?? selectedInkbirdProbe?.tempF ?? null)
+              ? (selectedMeaterProbe?.internalTempF
+                  ?? selectedThermoworksProbe?.tempF
+                  ?? selectedInkbirdProbe?.tempF
+                  ?? selectedBleContextDevice?.probeTempF
+                  ?? selectedLanProbe?.probeTempF
+                  ?? null)
               : null
           }
           currentPitTempF={tempMode === "probe"
-            ? (selectedMeaterProbe?.ambientTempF
-                ?? selectedInkbirdPitProbe?.tempF
+            ? (
+                // Dedicated MEATER pit probe (separate device in grill)
+                (selectedMeaterPitProbe != null && selectedMeaterPitProbe.deviceId !== selectedMeaterProbe?.deviceId
+                  ? selectedMeaterPitProbe.internalTempF ?? null
+                  : selectedMeaterProbe?.ambientTempF ?? null)
+                // Dedicated ThermoWorks pit channel
                 ?? (selectedThermoworksPitProbe != null ? (selectedThermoworksPitProbe as any).tempF ?? null : null)
-                ?? selectedLanProbe?.ambientTempF
-                ?? selectedBleContextDevice?.ambientTempF
-                ?? null)
+                // Dedicated Inkbird pit channel
+                ?? selectedInkbirdPitProbe?.tempF
+                // Dedicated BLE-context pit device, or meat device's ambient
+                ?? (selectedBleContextPitDevice != null && selectedBleContextPitDevice.id !== selectedBleContextDevice?.id
+                    ? selectedBleContextPitDevice.probeTempF ?? null
+                    : selectedBleContextDevice?.ambientTempF ?? null)
+                // Dedicated LAN pit probe, or meat probe's ambient
+                ?? (selectedLanPitProbe != null && selectedLanPitProbe.deviceId !== selectedLanProbe?.deviceId
+                    ? selectedLanPitProbe.probeTempF ?? null
+                    : selectedLanProbe?.ambientTempF ?? null)
+              )
             : null}
           probeSource={
             tempMode !== "probe"
