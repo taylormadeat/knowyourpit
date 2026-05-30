@@ -90,6 +90,12 @@ interface BleProbeContextValue {
   pairDevice: (deviceId: string) => void;
   unpairDevice: (deviceId: string) => void;
   setHasActiveCook: (val: boolean) => void;
+  /**
+   * True when any BLE device is in an active recovery cycle — either a GATT
+   * reconnect timer is pending (MEATER / Weber iGrill) or the advertisement
+   * watchdog restarted the scan for a silent paired device (Govee / Inkbird).
+   */
+  reconnecting: boolean;
 }
 
 const BleProbeContext = createContext<BleProbeContextValue>({
@@ -103,6 +109,7 @@ const BleProbeContext = createContext<BleProbeContextValue>({
   pairDevice: () => {},
   unpairDevice: () => {},
   setHasActiveCook: () => {},
+  reconnecting: false,
 });
 
 export function useBleProbes() {
@@ -155,6 +162,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
   const [scanning, setScanning] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [reconnectBanner, setReconnectBanner] = useState<ReconnectBanner | null>(null);
+  const [reconnecting, setReconnecting] = useState(false);
 
   const managerRef = useRef<any>(null);
   const deviceMapRef = useRef<Map<string, BleDevice>>(new Map());
@@ -167,6 +175,11 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
   const staleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const gattPollTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
   const mountedRef = useRef(true);
+  // Tracks per-device GATT reconnect timers (MEATER / Weber iGrill)
+  const gattReconnectTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  // Set to true when the stale-timer watchdog triggers a scan restart for a
+  // silent paired advertisement-based device (Govee / Inkbird in BleProbeContext).
+  const scanningForLostAdvDeviceRef = useRef(false);
 
   const flushDevices = useCallback(() => {
     if (!mountedRef.current) return;
@@ -380,6 +393,18 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         gattPollTimersRef.current.delete(deviceId);
       }
 
+      // Clear any pending GATT reconnect timer — we're actively connecting now
+      const pendingReconnect = gattReconnectTimersRef.current.get(deviceId);
+      if (pendingReconnect) {
+        clearTimeout(pendingReconnect);
+        gattReconnectTimersRef.current.delete(deviceId);
+        if (mountedRef.current) {
+          setReconnecting(
+            gattReconnectTimersRef.current.size > 0 || scanningForLostAdvDeviceRef.current,
+          );
+        }
+      }
+
       try {
         upsertDevice(deviceId, {
           name: deviceMapRef.current.get(deviceId)?.name ?? "Device",
@@ -417,11 +442,32 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
           const t = gattPollTimersRef.current.get(deviceId);
           if (t) { clearInterval(t); gattPollTimersRef.current.delete(deviceId); }
           if (!mountedRef.current) return;
+
+          // Route through upsertDevice so checkReconnect fires correctly:
+          // this triggers haptic feedback, marks wasDropped, and removes from
+          // prevConnected — allowing the reconnect banner to fire later.
           const d = deviceMapRef.current.get(deviceId);
           if (d) {
-            deviceMapRef.current.set(deviceId, { ...d, connectionState: "disconnected" });
-            prevConnectedRef.current.delete(deviceId);
-            flushDevices();
+            upsertDevice(deviceId, { name: d.name, adapter, connectionState: "disconnected" });
+          }
+
+          // Auto-reconnect loop: while a cook is active and the device is
+          // paired, schedule a retry every 30 s until the probe comes back.
+          if (hasActiveCookRef.current && pairedIdsRef.current.has(deviceId)) {
+            const reconnectTimer = setTimeout(() => {
+              gattReconnectTimersRef.current.delete(deviceId);
+              if (!mountedRef.current || !managerRef.current || !hasActiveCookRef.current) {
+                if (mountedRef.current) {
+                  setReconnecting(
+                    gattReconnectTimersRef.current.size > 0 || scanningForLostAdvDeviceRef.current,
+                  );
+                }
+                return;
+              }
+              connectGatt(managerRef.current, deviceId, adapter);
+            }, 30_000);
+            gattReconnectTimersRef.current.set(deviceId, reconnectTimer);
+            if (mountedRef.current) setReconnecting(true);
           }
         });
       } catch {
@@ -429,6 +475,24 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         if (d) {
           deviceMapRef.current.set(deviceId, { ...d, connectionState: "disconnected" });
           flushDevices();
+        }
+        // If the connection attempt itself fails during an active cook, schedule
+        // a retry so we keep trying until the probe comes back into range.
+        if (hasActiveCookRef.current && pairedIdsRef.current.has(deviceId) && mountedRef.current) {
+          const reconnectTimer = setTimeout(() => {
+            gattReconnectTimersRef.current.delete(deviceId);
+            if (!mountedRef.current || !managerRef.current || !hasActiveCookRef.current) {
+              if (mountedRef.current) {
+                setReconnecting(
+                  gattReconnectTimersRef.current.size > 0 || scanningForLostAdvDeviceRef.current,
+                );
+              }
+              return;
+            }
+            connectGatt(managerRef.current, deviceId, adapter);
+          }, 30_000);
+          gattReconnectTimersRef.current.set(deviceId, reconnectTimer);
+          if (mountedRef.current) setReconnecting(true);
         }
       }
     },
@@ -478,6 +542,15 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
     }
     if (changed && mountedRef.current) {
       setDevices(Array.from(deviceMapRef.current.values()));
+    }
+
+    // Clear advertisement watchdog flag — the scan is ending, so we're no
+    // longer actively hunting for a lost paired device.
+    if (scanningForLostAdvDeviceRef.current) {
+      scanningForLostAdvDeviceRef.current = false;
+      if (mountedRef.current) {
+        setReconnecting(gattReconnectTimersRef.current.size > 0);
+      }
     }
 
     if (mountedRef.current) setScanning(false);
@@ -638,16 +711,35 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
       staleTimerRef.current = setInterval(() => {
         const now = Date.now();
         let changed = false;
+        let hasMissingPairedAdvDevice = false;
+
         for (const [id, d] of deviceMapRef.current) {
-          if (
-            d.connectionState !== "connected" &&
-            now - d.lastSeenMs > STALE_DEVICE_MS
-          ) {
-            deviceMapRef.current.delete(id);
-            changed = true;
+          if (d.connectionState !== "connected" && now - d.lastSeenMs > STALE_DEVICE_MS) {
+            if (d.paired && (d.adapter === "govee" || d.adapter === "inkbird")) {
+              // Keep paired advertisement devices in the map so the watchdog can
+              // track them, but mark them disconnected to reflect the signal loss.
+              if (d.connectionState !== "disconnected") {
+                deviceMapRef.current.set(id, { ...d, connectionState: "disconnected" });
+                changed = true;
+              }
+              hasMissingPairedAdvDevice = true;
+            } else {
+              deviceMapRef.current.delete(id);
+              changed = true;
+            }
           }
         }
+
         if (changed && mountedRef.current) flushDevices();
+
+        // Advertisement watchdog: if an active cook is running and a paired
+        // advertisement-based device has gone silent, restart the scan to find it.
+        // Mirrors the Inkbird reconnect watchdog in useInkbirdBLE.
+        if (hasMissingPairedAdvDevice && hasActiveCookRef.current && !scanningForLostAdvDeviceRef.current) {
+          scanningForLostAdvDeviceRef.current = true;
+          if (mountedRef.current) setReconnecting(true);
+          startScan();
+        }
       }, 15_000);
 
       // When the app foregrounds:
@@ -676,6 +768,8 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         if (staleTimerRef.current) clearInterval(staleTimerRef.current);
         for (const t of gattPollTimersRef.current.values()) clearInterval(t);
         gattPollTimersRef.current.clear();
+        for (const t of gattReconnectTimersRef.current.values()) clearTimeout(t);
+        gattReconnectTimersRef.current.clear();
         try {
           managerRef.current?.destroy();
         } catch {}
@@ -688,11 +782,13 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
       if (staleTimerRef.current) clearInterval(staleTimerRef.current);
       for (const t of gattPollTimersRef.current.values()) clearInterval(t);
       gattPollTimersRef.current.clear();
+      for (const t of gattReconnectTimersRef.current.values()) clearTimeout(t);
+      gattReconnectTimersRef.current.clear();
       try {
         managerRef.current?.destroy();
       } catch {}
     };
-  }, [loadPairedIds, loadPermDenied, checkAndClearPermDenied, connectGatt, stopScan, flushDevices]);
+  }, [loadPairedIds, loadPermDenied, checkAndClearPermDenied, connectGatt, stopScan, flushDevices, startScan]);
 
   const dismissReconnectBanner = useCallback(() => {
     setReconnectBanner(null);
@@ -700,6 +796,16 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
 
   const setHasActiveCook = useCallback((val: boolean) => {
     hasActiveCookRef.current = val;
+    if (!val) {
+      // Cook ended — cancel all pending GATT reconnect timers and clear the
+      // advertisement watchdog flag so we stop trying to recover probes.
+      for (const timer of gattReconnectTimersRef.current.values()) {
+        clearTimeout(timer);
+      }
+      gattReconnectTimersRef.current.clear();
+      scanningForLostAdvDeviceRef.current = false;
+      if (mountedRef.current) setReconnecting(false);
+    }
   }, []);
 
   return (
@@ -715,6 +821,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         pairDevice,
         unpairDevice,
         setHasActiveCook,
+        reconnecting,
       }}
     >
       {children}

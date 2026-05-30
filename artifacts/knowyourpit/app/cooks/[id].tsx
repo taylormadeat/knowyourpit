@@ -1227,7 +1227,13 @@ export default function CookDetailScreen() {
     reconnectBanner,
     dismissReconnectBanner,
     setHasActiveCook,
+    reconnecting: bleCtxReconnecting,
   } = useBleProbes();
+
+  // Combined reconnecting: true when Inkbird OR any BLE-context device (MEATER,
+  // Govee) is in a recovery cycle. LiveCookSection displays the same
+  // "probe signal lost — reconnecting…" banner for all probe types.
+  const combinedReconnecting = inkbirdReconnecting || bleCtxReconnecting;
 
   // Tell BleProbeContext whether a live cook is active so it knows whether
   // to fire a haptic when a connected probe drops.
@@ -3648,7 +3654,7 @@ export default function CookDetailScreen() {
           onSetProbeLabel={handleSetProbeLabel}
           otherCookAssignments={otherCookAssignments}
           inkbirdScanning={inkbirdScanning}
-          inkbirdReconnecting={inkbirdReconnecting}
+          inkbirdReconnecting={combinedReconnecting}
           liveGraphProbes={liveGraphProbes}
           liveReadings={liveReadings}
           cardWidth={cardWidth}
