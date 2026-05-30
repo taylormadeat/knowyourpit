@@ -48,6 +48,7 @@ interface Props {
   onSetProbeLabel?: (probeKey: string, label: string) => void;
   otherCookAssignments?: Record<string, string>;
   inkbirdScanning?: boolean;
+  inkbirdReconnecting?: boolean;
   liveGraphProbes: ProbeTimeSeries[];
   liveReadings: any[];
   cardWidth: number;
@@ -110,7 +111,7 @@ export function LiveCookSection(p: Props) {
     selectedMeatProbeId, selectedPitProbeId,
     onSelectMeatProbe, onSelectPitProbe,
     probeLabels = {}, onSetProbeLabel,
-    otherCookAssignments = {}, inkbirdScanning = false,
+    otherCookAssignments = {}, inkbirdScanning = false, inkbirdReconnecting = false,
     liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, estimatedFinishMs,
     setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
     targetTempF, cookTempF, nextSpritzMs, onViewDetails,
@@ -415,18 +416,23 @@ export function LiveCookSection(p: Props) {
         </View>
       )}
 
-      {/* Searching indicator — BLE probe assigned but not yet in range */}
-      {tempMode === "probe" && inkbirdScanning && (() => {
+      {/* Searching / reconnecting indicator — BLE probe assigned but not in range.
+          Shows during initial scan (inkbirdScanning) and during auto-reconnect
+          attempts after a mid-cook drop (inkbirdReconnecting). */}
+      {tempMode === "probe" && (inkbirdScanning || inkbirdReconnecting) && (() => {
         const meatMissing = selectedMeatProbeId?.startsWith("ble_") &&
           !inkbirdProbes.find((p) => `ble_${p.deviceId}_${p.probeIndex}` === selectedMeatProbeId);
         const pitMissing = selectedPitProbeId?.startsWith("ble_") &&
           !inkbirdProbes.find((p) => `ble_${p.deviceId}_${p.probeIndex}` === selectedPitProbeId);
         if (!meatMissing && !pitMissing) return null;
+        const isReconnect = inkbirdReconnecting && !inkbirdScanning;
         return (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 14, marginBottom: 10, padding: 10, borderRadius: 8, backgroundColor: "#3b82f612", borderWidth: 1, borderColor: "#3b82f630" }}>
             <ActivityIndicator size="small" color="#3b82f6" />
             <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: "#3b82f6", flex: 1 }}>
-              Searching for probe… Bring it within range.
+              {isReconnect
+                ? "Probe signal lost — reconnecting automatically…"
+                : "Searching for probe… Bring it within range."}
             </Text>
           </View>
         );

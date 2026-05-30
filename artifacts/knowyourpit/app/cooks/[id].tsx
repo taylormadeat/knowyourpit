@@ -1008,9 +1008,18 @@ export default function CookDetailScreen() {
   const selectedThermoworksProbe = selectedThermoworksMeatProbe;
 
   // Inkbird BLE scanning — only when the cook is active and probe mode is on.
-  // scanning is exposed so LiveCookSection can show a "Searching…" indicator.
-  const { probes: inkbirdProbes, scanning: inkbirdScanning } = useInkbirdBLE({
+  // scanning + reconnecting are exposed so LiveCookSection can show the
+  // appropriate "Searching…" / "Reconnecting…" indicator.
+  const bleAssignedProbeKeys = [selectedMeatProbeId, selectedPitProbeId].filter(
+    (k): k is string => k != null && k.startsWith("ble_"),
+  );
+  const {
+    probes: inkbirdProbes,
+    scanning: inkbirdScanning,
+    reconnecting: inkbirdReconnecting,
+  } = useInkbirdBLE({
     enabled: cookStatus === "active" && tempMode === "probe",
+    assignedProbeKeys: bleAssignedProbeKeys,
   });
 
   const selectedInkbirdProbe =
@@ -3440,6 +3449,7 @@ export default function CookDetailScreen() {
           onSetProbeLabel={handleSetProbeLabel}
           otherCookAssignments={otherCookAssignments}
           inkbirdScanning={inkbirdScanning}
+          inkbirdReconnecting={inkbirdReconnecting}
           liveGraphProbes={liveGraphProbes}
           liveReadings={liveReadings}
           cardWidth={cardWidth}
