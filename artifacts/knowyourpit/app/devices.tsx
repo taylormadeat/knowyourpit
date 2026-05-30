@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -330,18 +330,19 @@ export default function DevicesScreen() {
     scan: scanLan,
   } = useLanProbes({ enabled: lanHookEnabled, pollIntervalMs: 30_000 });
 
-  const handleScan = () => {
+  const handleScan = useCallback(() => {
     if (!effectivePro) {
       showPaywall({ trigger: "pro_required", featureName: "Smart Probe Integration" });
       return;
     }
+    setUserScanning(true);
     startBleScan();
     // On iOS, only trigger the LAN scan once the user has acknowledged the
     // local-network permission card. On other platforms no gate is needed.
     if (Platform.OS !== "ios" || lanScanEnabled === true) {
       scanLan();
     }
-  };
+  }, [effectivePro, showPaywall, startBleScan, scanLan, lanScanEnabled]);
 
   // Track whether the permission-denied notice ("No WiFi thermometers found /
   // Open Settings") was visible when the user last left the app.  When they
@@ -376,6 +377,18 @@ export default function DevicesScreen() {
   }, [lanScanEnabled, mdnsAvailable, mdnsScanEmpty, scanLan]);
 
   const isScanning = bleScanning || lanScanning;
+
+  // Tracks whether *the user* initiated the current scan via "Scan for Devices".
+  // Background polls (on mount, on interval) run silently — they should not
+  // change the button label or disable the button until the user taps it.
+  const [userScanning, setUserScanning] = useState(false);
+  const prevIsScanningRef = useRef(false);
+  useEffect(() => {
+    if (prevIsScanningRef.current && !isScanning) {
+      setUserScanning(false);
+    }
+    prevIsScanningRef.current = isScanning;
+  }, [isScanning]);
 
   const handleLinkThermoworks = async () => {
     if (!thermoworksEmail.trim() || !thermoworksPassword.trim()) {
@@ -497,21 +510,21 @@ export default function DevicesScreen() {
           {/* ── Scan Button ── */}
           <Pressable
             onPress={handleScan}
-            disabled={isScanning}
+            disabled={userScanning}
             style={[
               s.scanButton,
-              { backgroundColor: isScanning ? colors.card : colors.primary, borderColor: colors.border },
+              { backgroundColor: userScanning ? colors.card : colors.primary, borderColor: colors.border },
             ]}
           >
-            {isScanning ? (
+            {userScanning ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <Feather name="radio" size={15} color="#fff" />
             )}
-            <Text style={[s.scanButtonText, { color: isScanning ? colors.mutedForeground : "#fff" }]}>
-              {isScanning ? "Scanning…" : "Scan for Devices"}
+            <Text style={[s.scanButtonText, { color: userScanning ? colors.mutedForeground : "#fff" }]}>
+              {userScanning ? "Scanning…" : "Scan for Devices"}
             </Text>
-            <Text style={[s.scanButtonSub, { color: isScanning ? colors.mutedForeground : "#ffffff99" }]}>
+            <Text style={[s.scanButtonSub, { color: userScanning ? colors.mutedForeground : "#ffffff99" }]}>
               BLE + local WiFi
             </Text>
           </Pressable>
