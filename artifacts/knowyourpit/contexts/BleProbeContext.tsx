@@ -829,20 +829,26 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
           startScan();
         }
 
-        // Scan silence watchdog: if no BLE advertisement has been received for
-        // ADV_WATCHDOG_MS (60 s) since the last scan started (or last packet),
-        // iOS may have silently killed startDeviceScan after backgrounding or
-        // screen-lock. Because BleProbeContext scan windows are only 15 s, the
-        // silence is measured across windows (lastScanAdvertisementAtRef is NOT
-        // reset in stopScan — it persists until a new advertisement arrives or
-        // a fresh startScan() initialises it). This means:
-        //   - t=0:  scan starts, lastScanAdvertisementAt = t0
-        //   - t=15s: scan stops (no devices heard) — ref stays at t0
-        //   - t=60s: stale timer fires, condition met → startScan() restarts
-        // Cross-gated with the advertisement watchdog via didRestartScanThisTick
-        // so both paths cannot issue concurrent startScan() calls in one tick.
+        // Scan silence watchdog — active only during recovery mode.
+        //
+        // BleProbeContext scan windows are 15 s (SCAN_DURATION_MS), so a 60 s
+        // silence threshold cannot be measured within a single window. Instead
+        // this watchdog augments the advertisement watchdog above: once
+        // scanningForLostAdvDeviceRef is true (recovery mode, active cook, paired
+        // device missing), the advertisement watchdog calls startScan() every
+        // ~15 s. Each startScan() resets lastScanAdvertisementAtRef to "now".
+        // If iOS has silently killed the underlying scan, no advertisements arrive
+        // across multiple windows and the silence timestamp drifts 60 s behind.
+        // When the stale timer fires mid-window, the condition fires and issues an
+        // explicit restart to jolt the scan back to life.
+        //
+        // Gating on scanningForLostAdvDeviceRef ensures the watchdog only fires
+        // during active recovery mode — it will not trigger unexpected auto-scans
+        // during periods when the user has not initiated any scan.
+        // Cross-gated with didRestartScanThisTick so only one restart per tick.
         if (
           !didRestartScanThisTick &&
+          scanningForLostAdvDeviceRef.current &&
           !scanSilenceRestartingRef.current &&
           lastScanAdvertisementAtRef.current > 0 &&
           now - lastScanAdvertisementAtRef.current > ADV_WATCHDOG_MS
@@ -850,7 +856,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
           scanSilenceRestartingRef.current = true;
           didRestartScanThisTick = true;
           if (__DEV__) {
-            console.warn("[BleProbeContext] No BLE advertisements for 60 s — restarting scan");
+            console.warn("[BleProbeContext] No BLE advertisements for 60 s during recovery scan — restarting");
           }
           lastScanAdvertisementAtRef.current = now; // reset before restart
           (startScan() as Promise<void>).finally(() => {
