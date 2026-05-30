@@ -23,6 +23,7 @@
     "build:backup": "tsx ./src/githubBuildBackup.ts",
     "build:backup:dry-run": "tsx ./src/githubBuildBackup.ts --dry-run",
     "build:backup:check": "tsx ./src/githubBuildBackupCheck.ts",
+    "test:probe-persistence": "tsx ./src/probePersistenceSmoke.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

@@ -85,6 +85,13 @@ import {
   getListCookCheckinsQueryKey,
 } from "@workspace/api-client-react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  loadProbeState,
+  saveMeatProbeId,
+  savePitProbeId,
+  saveProbeLabels,
+  buildUpdatedProbeLabels,
+} from "@/utils/probePersistence";
 import * as Notifications from "expo-notifications";
 import { s } from "@/components/cook-detail/styles";
 import {
@@ -308,25 +315,15 @@ export default function CookDetailScreen() {
 
     (async () => {
       try {
-        // Migrate legacy single-probe key → meat key on first load.
-        const legacy = await AsyncStorage.getItem(`probe_selection_${id}`);
-        if (legacy) {
-          await AsyncStorage.setItem(`probe_meat_${id}`, legacy);
-          await AsyncStorage.removeItem(`probe_selection_${id}`).catch(() => {});
-        }
-        const [meatVal, pitVal, labelsRaw] = await Promise.all([
-          AsyncStorage.getItem(`probe_meat_${id}`),
-          AsyncStorage.getItem(`probe_pit_${id}`),
-          AsyncStorage.getItem(`probe_labels_${id}`),
-        ]);
-        setSelectedMeatProbeId(meatVal ?? null);
-        setSelectedPitProbeId(pitVal ?? null);
-        if (labelsRaw) {
-          try { setProbeLabelsState(JSON.parse(labelsRaw)); } catch { /* ignore */ }
+        const { meatProbeId, pitProbeId, probeLabels } = await loadProbeState(id, AsyncStorage);
+        setSelectedMeatProbeId(meatProbeId);
+        setSelectedPitProbeId(pitProbeId);
+        if (Object.keys(probeLabels).length > 0) {
+          setProbeLabelsState(probeLabels);
         }
         // Only auto-switch to probe mode when the user has NOT explicitly chosen
         // a mode this session — respects a deliberate "Manual Entry" switch.
-        if (meatVal != null && sessionMode == null) {
+        if (meatProbeId != null && sessionMode == null) {
           setTempModeState("probe");
           sessionTempModes.set(String(id), "probe");
         } else if (sessionMode != null) {
@@ -386,34 +383,23 @@ export default function CookDetailScreen() {
   const handleSelectMeatProbe = useCallback((probeId: string | null) => {
     setSelectedMeatProbeId(probeId);
     if (probeId != null) setTempMode("probe");
-    if (Platform.OS === "web" || !id) return;
-    if (probeId == null) {
-      AsyncStorage.removeItem(`probe_meat_${id}`).catch(() => {});
-    } else {
-      AsyncStorage.setItem(`probe_meat_${id}`, probeId).catch(() => {});
+    if (Platform.OS !== "web" && id) {
+      saveMeatProbeId(id, probeId, AsyncStorage);
     }
   }, [id, setTempMode]);
 
   const handleSelectPitProbe = useCallback((probeId: string | null) => {
     setSelectedPitProbeId(probeId);
-    if (Platform.OS === "web" || !id) return;
-    if (probeId == null) {
-      AsyncStorage.removeItem(`probe_pit_${id}`).catch(() => {});
-    } else {
-      AsyncStorage.setItem(`probe_pit_${id}`, probeId).catch(() => {});
+    if (Platform.OS !== "web" && id) {
+      savePitProbeId(id, probeId, AsyncStorage);
     }
   }, [id]);
 
   const handleSetProbeLabel = useCallback((probeKey: string, label: string) => {
     setProbeLabelsState((prev) => {
-      const next = { ...prev };
-      if (label.trim()) {
-        next[probeKey] = label.trim();
-      } else {
-        delete next[probeKey];
-      }
+      const next = buildUpdatedProbeLabels(prev, probeKey, label);
       if (Platform.OS !== "web" && id) {
-        AsyncStorage.setItem(`probe_labels_${id}`, JSON.stringify(next)).catch(() => {});
+        saveProbeLabels(id, next, AsyncStorage);
       }
       return next;
     });
