@@ -184,6 +184,16 @@ const ONBOARDING_FEATURE_LAUNCH_MS = new Date("2026-05-18T00:00:00Z").getTime();
 // Flip to false when beta testing is complete to revert to first-login-only.
 const ONBOARDING_ALWAYS_SHOW = true;
 
+// Session-level flag: set to true when the user explicitly dismisses the
+// tutorial (taps Done / Skip / Let's Go). Prevents the nav guard from
+// bouncing them back into onboarding after they leave — which happens when
+// ONBOARDING_ALWAYS_SHOW=true because the guard otherwise hard-codes
+// hasSeenOnboarding=false for every navigation event.
+let _sessionOnboardingDone = false;
+export function signalOnboardingDone() {
+  _sessionOnboardingDone = true;
+}
+
 // Typed route constant — avoids repeating `as any` at every call site.
 // Expo Router generates Href types from the file system at build time; because
 // the (onboarding) screen was added after the last generation we declare the
@@ -230,7 +240,7 @@ function RootLayoutNav() {
     const meta = getAppMeta(user);
     const hasUsername = !!(meta.username || user?.username);
     const hasSeenOnboarding = ONBOARDING_ALWAYS_SHOW
-      ? false
+      ? _sessionOnboardingDone
       : !!meta.hasSeenOnboarding || localOnboardingSeen;
     // Only show onboarding to accounts created on/after the feature launch date.
     // In beta mode this is bypassed so all accounts see the tutorial every launch.

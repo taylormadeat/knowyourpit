@@ -16,6 +16,7 @@ import { Feather } from "@expo/vector-icons";
 import { useUser } from "@clerk/expo";
 import { type Href, useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { signalOnboardingDone } from "@/app/_layout";
 
 export const ONBOARDING_SEEN_KEY = "knowyourpit:hasSeenOnboarding";
 
@@ -55,6 +56,7 @@ export default function OnboardingScreen() {
 
   async function finish() {
     if (saving) return;
+    signalOnboardingDone();
     if (isReplay) {
       router.replace(MORE_HREF);
       return;
