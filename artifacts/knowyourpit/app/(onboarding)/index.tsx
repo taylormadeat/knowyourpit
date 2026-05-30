@@ -26,13 +26,13 @@ const APP_STORE_URL = "itms-apps://itunes.apple.com/app/id6738518044";
 
 const logoImg = require("@/assets/images/logo.png");
 
-const FEATURES: { icon: string; label: string; color: string }[] = [
+const FEATURES: { icon?: string; emoji?: string; label: string; color: string }[] = [
   { icon: "zap",            label: "AI Cook Plans",    color: "#FCD34D" },
   { icon: "message-circle", label: "PitMaster Coach",  color: "#F97316" },
   { icon: "thermometer",    label: "Live Temperature", color: "#60A5FA" },
   { icon: "book-open",      label: "Cook Logger",      color: "#34D399" },
   { icon: "wind",           label: "Frozen Planning",  color: "#A5F3FC" },
-  { icon: "layers",         label: "Multi-Cook",       color: "#F472B6" },
+  { emoji: "🍢",            label: "Multi-Cook",       color: "#F472B6" },
 ];
 
 export default function OnboardingScreen() {
@@ -140,7 +140,11 @@ export default function OnboardingScreen() {
               <View style={s.featureGrid}>
                 {FEATURES.map((f) => (
                   <View key={f.label} style={s.featureTile}>
-                    <Feather name={f.icon as any} size={18} color={f.color} />
+                    {f.emoji ? (
+                      <Text style={s.featureEmoji}>{f.emoji}</Text>
+                    ) : (
+                      <Feather name={f.icon as any} size={18} color={f.color} />
+                    )}
                     <Text style={s.featureLabel}>{f.label}</Text>
                   </View>
                 ))}
@@ -337,6 +341,10 @@ const s = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     color: "rgba(255,255,255,0.88)",
     flexShrink: 1,
+  },
+  featureEmoji: {
+    fontSize: 18,
+    lineHeight: 22,
   },
   emailBtn: {
     flexDirection: "row",
