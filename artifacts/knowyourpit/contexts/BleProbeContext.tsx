@@ -56,6 +56,14 @@ const STALE_DEVICE_MS = 45_000;
 const SCAN_DURATION_MS = 15_000;
 /** How often to re-read GATT characteristics from connected devices (ms). */
 const GATT_POLL_MS = 15_000;
+/**
+ * Advertisement watchdog threshold: if a paired advertisement-based device
+ * (Govee / Inkbird in BleProbeContext) has not been seen for this long during
+ * an active cook, the stale-timer interval restarts the BLE scan to find it.
+ * Must be > STALE_DEVICE_MS so the device is first marked disconnected, then
+ * the watchdog fires on the next interval tick.
+ */
+const ADV_WATCHDOG_MS = 60_000;
 
 export type BleConnectionState = "scanning" | "connecting" | "connected" | "disconnected";
 
@@ -711,19 +719,43 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
       staleTimerRef.current = setInterval(() => {
         const now = Date.now();
         let changed = false;
+        // True when a paired advertisement device has been silent for ADV_WATCHDOG_MS
+        // and warrants a scan restart.
         let hasMissingPairedAdvDevice = false;
 
         for (const [id, d] of deviceMapRef.current) {
-          if (d.connectionState !== "connected" && now - d.lastSeenMs > STALE_DEVICE_MS) {
-            if (d.paired && (d.adapter === "govee" || d.adapter === "inkbird")) {
-              // Keep paired advertisement devices in the map so the watchdog can
-              // track them, but mark them disconnected to reflect the signal loss.
-              if (d.connectionState !== "disconnected") {
-                deviceMapRef.current.set(id, { ...d, connectionState: "disconnected" });
+          const isAdvAdapter = d.adapter === "govee" || d.adapter === "inkbird";
+
+          if (isAdvAdapter) {
+            // Advertisement-based devices are only visible during an active scan.
+            // Check staleness regardless of current connectionState — a device
+            // can be left as "connected" after a scan window even though it has
+            // since gone silent (this was the original bug: the old
+            // `connectionState !== "connected"` guard skipped these devices).
+            if (now - d.lastSeenMs > STALE_DEVICE_MS) {
+              if (d.paired) {
+                // Keep paired ad-devices in the map so the watchdog can continue
+                // tracking them; mark disconnected to reflect the signal loss.
+                if (d.connectionState !== "disconnected") {
+                  deviceMapRef.current.set(id, { ...d, connectionState: "disconnected" });
+                  changed = true;
+                }
+                // Trigger a scan restart only after ADV_WATCHDOG_MS (60 s) of
+                // silence, giving the device a chance to reappear naturally before
+                // we restart the scan.
+                if (now - d.lastSeenMs > ADV_WATCHDOG_MS) {
+                  hasMissingPairedAdvDevice = true;
+                }
+              } else {
+                // Non-paired stale advertisement device → remove from the map.
+                deviceMapRef.current.delete(id);
                 changed = true;
               }
-              hasMissingPairedAdvDevice = true;
-            } else {
+            }
+          } else {
+            // GATT / unknown adapters: original behaviour — remove if stale and
+            // not currently GATT-connected (GATT state is managed by onDisconnected).
+            if (d.connectionState !== "connected" && now - d.lastSeenMs > STALE_DEVICE_MS) {
               deviceMapRef.current.delete(id);
               changed = true;
             }
@@ -733,8 +765,9 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         if (changed && mountedRef.current) flushDevices();
 
         // Advertisement watchdog: if an active cook is running and a paired
-        // advertisement-based device has gone silent, restart the scan to find it.
-        // Mirrors the Inkbird reconnect watchdog in useInkbirdBLE.
+        // advertisement-based device has gone silent for > ADV_WATCHDOG_MS,
+        // restart the scan to rediscover it.  Mirrors the Inkbird reconnect
+        // watchdog in useInkbirdBLE.
         if (hasMissingPairedAdvDevice && hasActiveCookRef.current && !scanningForLostAdvDeviceRef.current) {
           scanningForLostAdvDeviceRef.current = true;
           if (mountedRef.current) setReconnecting(true);
