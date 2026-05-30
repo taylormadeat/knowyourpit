@@ -1633,10 +1633,7 @@ export function LiveCookSection(p: Props) {
       <BleWizardSheet
         visible={wizardOpen}
         onClose={() => setWizardOpen(false)}
-        onRestartScan={() => {
-          onRestartScan?.();
-          setWizardOpen(false);
-        }}
+        onRestartScan={onRestartScan}
       />
     </View>
   );
