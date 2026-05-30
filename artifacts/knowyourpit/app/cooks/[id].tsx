@@ -17,6 +17,7 @@ import {
   KeyboardAvoidingView,
   LogBox,
   AppState,
+  Animated,
   type AppStateStatus,
 } from "react-native";
 import { fmtMinutes } from "@/utils/duration";
@@ -519,6 +520,8 @@ export default function CookDetailScreen() {
   const [inkbirdReconnectToast, setInkbirdReconnectToast] = useState(false);
   const inkbirdReconnectToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevInkbirdReconnectingRef = useRef(false);
+  const [inkbirdToastMounted, setInkbirdToastMounted] = useState(false);
+  const inkbirdToastAnim = useRef(new Animated.Value(0)).current;
   // BLE context reconnect toast (MEATER / Govee): same pattern, driven by reconnectBanner.
   const [bleReconnectToast, setBleReconnectToast] = useState<string | null>(null);
   const bleReconnectToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1114,6 +1117,27 @@ export default function CookDetailScreen() {
       inkbirdReconnectToastTimerRef.current = setTimeout(() => setInkbirdReconnectToast(false), 3000);
     }
   }, [inkbirdReconnecting]);
+
+  // Animate the Inkbird reconnect toast in (slide-up + fade-in) and out (fade-out).
+  useEffect(() => {
+    if (inkbirdReconnectToast) {
+      setInkbirdToastMounted(true);
+      inkbirdToastAnim.setValue(0);
+      Animated.timing(inkbirdToastAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(inkbirdToastAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) setInkbirdToastMounted(false);
+      });
+    }
+  }, [inkbirdReconnectToast, inkbirdToastAnim]);
 
   const selectedInkbirdProbe =
     selectedMeatProbeId?.startsWith("ble_")
@@ -4207,8 +4231,8 @@ export default function CookDetailScreen() {
       )}
 
       {/* ── Inkbird Reconnect Toast ──────────────────────────── */}
-      {inkbirdReconnectToast && (
-        <View
+      {inkbirdToastMounted && (
+        <Animated.View
           style={{
             position: "absolute",
             bottom: autoCheckinToast != null ? 150 + insets.bottom : 90 + insets.bottom,
@@ -4229,6 +4253,15 @@ export default function CookDetailScreen() {
             shadowRadius: 6,
             elevation: 8,
             zIndex: 9999,
+            opacity: inkbirdToastAnim,
+            transform: [
+              {
+                translateY: inkbirdToastAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [20, 0],
+                }),
+              },
+            ],
           }}
         >
           <Feather name="wifi" size={16} color="#22c55e" />
@@ -4238,7 +4271,7 @@ export default function CookDetailScreen() {
           <Pressable onPress={() => setInkbirdReconnectToast(false)} hitSlop={10}>
             <Feather name="x" size={14} color="#9CA3AF" />
           </Pressable>
-        </View>
+        </Animated.View>
       )}
 
       {/* ── BLE Context Reconnect Toast (MEATER / Govee) ─────── */}
@@ -4248,7 +4281,7 @@ export default function CookDetailScreen() {
             position: "absolute",
             bottom:
               (autoCheckinToast != null ? 60 : 0) +
-              (inkbirdReconnectToast ? 60 : 0) +
+              (inkbirdToastMounted ? 60 : 0) +
               90 + insets.bottom,
             left: 16,
             right: 16,
