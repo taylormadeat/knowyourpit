@@ -434,6 +434,17 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
           connectionState: "connected",
         });
 
+        // Explicitly recompute reconnecting: the 30 s retry timer deletes its
+        // own map entry *before* calling connectGatt, so the "clear pending
+        // timer" block at the top of this function will find no entry and skip
+        // setReconnecting.  Calling it here ensures the state is correct
+        // regardless of whether this is an initial connect or a retry.
+        if (mountedRef.current) {
+          setReconnecting(
+            gattReconnectTimersRef.current.size > 0 || scanningForLostAdvDeviceRef.current,
+          );
+        }
+
         // Initial read immediately after connect
         await readGattCharacteristics(connected, deviceId, adapter);
 
@@ -737,7 +748,12 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
                 // Keep paired ad-devices in the map so the watchdog can continue
                 // tracking them; mark disconnected to reflect the signal loss.
                 if (d.connectionState !== "disconnected") {
-                  deviceMapRef.current.set(id, { ...d, connectionState: "disconnected" });
+                  // Route through upsertDevice so checkReconnect fires, updating
+                  // wasDroppedRef and prevConnectedRef — this is required for the
+                  // reconnect-banner to fire when the device is rediscovered.
+                  upsertDevice(id, { name: d.name, adapter: d.adapter, connectionState: "disconnected" });
+                  // upsertDevice already calls flushDevices; set changed so the
+                  // outer flush is still accurate for other branches in this tick.
                   changed = true;
                 }
                 // Trigger a scan restart only after ADV_WATCHDOG_MS (60 s) of
