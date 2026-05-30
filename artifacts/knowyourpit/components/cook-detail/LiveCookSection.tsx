@@ -222,10 +222,18 @@ export function LiveCookSection(p: Props) {
     () => sortedInkbirdProbes.filter((p) => `ble_${p.deviceId}_${p.probeIndex}` in knownProbeIds),
     [sortedInkbirdProbes, knownProbeIds],
   );
-  const otherInkbirdProbes = React.useMemo(
-    () => sortedInkbirdProbes.filter((p) => !(`ble_${p.deviceId}_${p.probeIndex}` in knownProbeIds)),
-    [sortedInkbirdProbes, knownProbeIds],
-  );
+  const otherInkbirdProbes = React.useMemo(() => {
+    const others = sortedInkbirdProbes.filter(
+      (p) => !(`ble_${p.deviceId}_${p.probeIndex}` in knownProbeIds),
+    );
+    if (!lastKnownInkbirdDeviceId) return others;
+    const lastIdx = others.findIndex((p) => p.deviceId === lastKnownInkbirdDeviceId);
+    if (lastIdx <= 0) return others;
+    const reordered = [...others];
+    const [pinned] = reordered.splice(lastIdx, 1);
+    reordered.unshift(pinned);
+    return reordered;
+  }, [sortedInkbirdProbes, knownProbeIds, lastKnownInkbirdDeviceId]);
   const knownBleContextDevices = React.useMemo(
     () => sortedBleContextDevices.filter((d) => `bleCtx_${d.id}` in knownProbeIds),
     [sortedBleContextDevices, knownProbeIds],
