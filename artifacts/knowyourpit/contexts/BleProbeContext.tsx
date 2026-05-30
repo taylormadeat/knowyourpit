@@ -188,6 +188,17 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
   // Set to true when the stale-timer watchdog triggers a scan restart for a
   // silent paired advertisement-based device (Govee / Inkbird in BleProbeContext).
   const scanningForLostAdvDeviceRef = useRef(false);
+  /**
+   * Timestamp of the last BLE advertisement received in any active scan.
+   * Initialised to Date.now() when a scan starts; reset on every advertisement.
+   * Used by the scan silence watchdog in the stale timer.
+   */
+  const lastScanAdvertisementAtRef = useRef<number>(0);
+  /**
+   * Prevents the scan silence watchdog from triggering overlapping startScan()
+   * calls if the stale timer fires while a restart is already in progress.
+   */
+  const scanSilenceRestartingRef = useRef(false);
 
   const flushDevices = useCallback(() => {
     if (!mountedRef.current) return;
@@ -572,6 +583,13 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    // Reset the scan silence watchdog state. Setting the timestamp to 0 signals
+    // "no scan has started yet" so the watchdog condition (> 0 check) won't
+    // fire between scan windows. Also clear the restarting guard so the next
+    // scan can trigger a restart if needed.
+    lastScanAdvertisementAtRef.current = 0;
+    scanSilenceRestartingRef.current = false;
+
     if (mountedRef.current) setScanning(false);
   }, []);
 
@@ -630,6 +648,10 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
 
       setScanning(true);
 
+      // Initialise the advertisement timestamp at scan-start so the silence
+      // watchdog doesn't fire before any packet has arrived from this scan.
+      lastScanAdvertisementAtRef.current = Date.now();
+
       managerRef.current.startDeviceScan(
         null,
         { allowDuplicates: true },
@@ -655,6 +677,10 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
           const deviceName =
             (device.name ?? device.localName ?? ADAPTER_LABELS[adapter]) as string;
           const now = Date.now();
+
+          // Reset the scan silence watchdog on every valid advertisement so it
+          // only fires during genuine scan silence, not between normal packets.
+          lastScanAdvertisementAtRef.current = now;
 
           const deviceRssi = (device.rssi as number | null | undefined) ?? null;
 
@@ -788,6 +814,27 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
           scanningForLostAdvDeviceRef.current = true;
           if (mountedRef.current) setReconnecting(true);
           startScan();
+        }
+
+        // Scan silence watchdog: if a scan is currently in progress but no
+        // advertisement has arrived for ADV_WATCHDOG_MS (60 s), iOS may have
+        // silently killed startDeviceScan (common after screen-lock or
+        // backgrounding). Restart the scan to restore advertisement delivery.
+        // scanTimerRef.current is non-null only while a scan window is open.
+        if (
+          scanTimerRef.current !== null &&
+          !scanSilenceRestartingRef.current &&
+          lastScanAdvertisementAtRef.current > 0 &&
+          now - lastScanAdvertisementAtRef.current > ADV_WATCHDOG_MS
+        ) {
+          scanSilenceRestartingRef.current = true;
+          if (__DEV__) {
+            console.warn("[BleProbeContext] No BLE advertisements for 60 s during active scan — restarting");
+          }
+          lastScanAdvertisementAtRef.current = now; // reset before restart
+          (startScan() as Promise<void>).finally(() => {
+            if (mountedRef.current) scanSilenceRestartingRef.current = false;
+          });
         }
       }, 15_000);
 

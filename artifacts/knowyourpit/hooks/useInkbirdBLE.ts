@@ -73,6 +73,14 @@ interface UseInkbirdBLEResult {
 
 const STALE_TIMEOUT_MS = 30_000;
 const DEFAULT_RECONNECT_INTERVAL_MS = 30_000;
+/**
+ * Scan silence watchdog threshold: if no BLE advertisement arrives within this
+ * window while a scan is active, the scan is automatically restarted. iOS can
+ * silently kill a BLE scan after the app is backgrounded or the screen locks,
+ * leaving startDeviceScan running in name only. 60 s gives enough margin to
+ * distinguish genuine silence from normal inter-advertisement gaps.
+ */
+const SCAN_SILENCE_WATCHDOG_MS = 60_000;
 
 /**
  * Module-level probe cache so last-seen readings survive unmount/remount.
@@ -140,6 +148,14 @@ export function useInkbirdBLE({
   const managerRef = useRef<any>(null);
   const staleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const silenceWatchdogTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Timestamp of the last received Inkbird BLE advertisement (ms). */
+  const lastAdvertisementAtRef = useRef<number>(0);
+  /**
+   * Prevents overlapping scan restarts when the silence watchdog and the
+   * assigned-probe reconnect timer fire at the same time.
+   */
+  const restartingRef = useRef(false);
 
   // Keep a ref so interval callbacks always see the latest assigned keys
   // without needing them in the effect dependency array.
@@ -186,6 +202,10 @@ export function useInkbirdBLE({
       if (error) return; // Bluetooth disabled / permission revoked
 
       if (!isInkbirdDevice(device)) return;
+
+      // Reset the silence watchdog on every valid advertisement so it only
+      // fires during genuine scan silence, not between normal packets.
+      lastAdvertisementAtRef.current = Date.now();
 
       const deviceName = (device.name ?? device.localName ?? "Inkbird") as string;
       const temps = parseInkbirdTemps(device.manufacturerData as string | null);
@@ -263,6 +283,11 @@ export function useInkbirdBLE({
         }
 
         setScanning(true);
+
+        // Initialise the advertisement timestamp at scan-start so the silence
+        // watchdog doesn't immediately fire before any packet has been received.
+        lastAdvertisementAtRef.current = Date.now();
+
         restartDeviceScan();
 
         // Prune stale entries every 10 s and update reconnecting flag
@@ -284,12 +309,37 @@ export function useInkbirdBLE({
         // Auto-reconnect: when an assigned probe is missing, restart the BLE
         // scan periodically. This recovers from OS-killed scans, adapter
         // resets, and momentary signal drops without requiring a manual "Scan".
+        // Gated with restartingRef to prevent overlapping restarts when the
+        // silence watchdog fires at the same time.
         reconnectTimerRef.current = setInterval(() => {
           if (!mounted || !managerRef.current) return;
+          if (restartingRef.current) return;
           if (hasMissingAssignedProbe()) {
+            restartingRef.current = true;
+            if (__DEV__) console.warn("[useInkbirdBLE] Assigned probe missing — restarting BLE scan");
+            lastAdvertisementAtRef.current = Date.now(); // reset silence timer too
             restartDeviceScan();
+            setTimeout(() => { restartingRef.current = false; }, 2_000);
           }
         }, reconnectIntervalMs);
+
+        // Scan silence watchdog: if the OS has silently killed the scan (common
+        // after backgrounding or screen-lock on iOS), no advertisements arrive
+        // even though startDeviceScan is still "running". Restart the scan when
+        // we detect genuine silence for SCAN_SILENCE_WATCHDOG_MS.
+        silenceWatchdogTimerRef.current = setInterval(() => {
+          if (!mounted || !managerRef.current) return;
+          if (restartingRef.current) return;
+          if (Date.now() - lastAdvertisementAtRef.current > SCAN_SILENCE_WATCHDOG_MS) {
+            restartingRef.current = true;
+            if (__DEV__) {
+              console.warn("[useInkbirdBLE] No BLE advertisements for 60 s — restarting scan");
+            }
+            lastAdvertisementAtRef.current = Date.now(); // reset before restart
+            restartDeviceScan();
+            setTimeout(() => { restartingRef.current = false; }, 2_000);
+          }
+        }, 15_000);
       } catch {
         // BLE unavailable (simulator, Expo Go without dev client, etc.) — fail silently
       }
@@ -307,6 +357,11 @@ export function useInkbirdBLE({
         clearInterval(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
       }
+      if (silenceWatchdogTimerRef.current) {
+        clearInterval(silenceWatchdogTimerRef.current);
+        silenceWatchdogTimerRef.current = null;
+      }
+      restartingRef.current = false;
       if (managerRef.current) {
         try {
           managerRef.current.stopDeviceScan();
