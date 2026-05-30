@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -359,8 +359,25 @@ export default function SessionDetailScreen() {
     AsyncStorage.removeItem(`session_probe_assignments_${sessionId}`).catch(() => {});
   }, [sessionId, allCompleted]);
 
-  const { devices: allBleDevices } = useBleProbes();
+  const { devices: allBleDevices, reconnectBanner, dismissReconnectBanner } = useBleProbes();
   const connectedBleDevices = allBleDevices.filter((d) => d.connectionState === "connected");
+
+  // BLE reconnect toast: fires when a MEATER / Govee probe reappears after a drop.
+  const [bleReconnectToast, setBleReconnectToast] = useState<string | null>(null);
+  const bleReconnectToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevReconnectBannerRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const prevName = prevReconnectBannerRef.current;
+    const currName = reconnectBanner?.deviceName ?? null;
+    prevReconnectBannerRef.current = currName;
+    if (currName != null && prevName == null) {
+      setBleReconnectToast(currName);
+      dismissReconnectBanner();
+      if (bleReconnectToastTimerRef.current) clearTimeout(bleReconnectToastTimerRef.current);
+      bleReconnectToastTimerRef.current = setTimeout(() => setBleReconnectToast(null), 3000);
+    }
+  }, [reconnectBanner, dismissReconnectBanner]);
 
   // helper: get live temp from probe assignment for display in session card
   function getAssignedProbeTemp(cookId: number): string | null {
@@ -1218,6 +1235,41 @@ export default function SessionDetailScreen() {
         editWrapFinish={cookEditWrapFinish}
         setEditWrapFinish={setCookEditWrapFinish}
       />
+
+      {/* ── BLE Reconnect Toast (MEATER / Govee) ─────────────── */}
+      {bleReconnectToast != null && (
+        <View
+          style={{
+            position: "absolute",
+            bottom: 90 + insets.bottom,
+            left: 16,
+            right: 16,
+            backgroundColor: "#1C1C1F",
+            borderColor: "#22c55e",
+            borderWidth: 1,
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.3,
+            shadowRadius: 6,
+            elevation: 8,
+            zIndex: 9999,
+          }}
+        >
+          <Feather name="wifi" size={16} color="#22c55e" />
+          <Text style={{ flex: 1, color: "#F3EDE1", fontFamily: "Inter_400Regular", fontSize: 13 }}>
+            {bleReconnectToast} reconnected ✓
+          </Text>
+          <Pressable onPress={() => setBleReconnectToast(null)} hitSlop={10}>
+            <Feather name="x" size={14} color="#9CA3AF" />
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }
