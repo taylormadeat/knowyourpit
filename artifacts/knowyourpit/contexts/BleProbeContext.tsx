@@ -583,10 +583,11 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Clear the scan silence restarting guard so the next scan window can
+    // Clear the scan silence restarting guard so the next watchdog check can
     // trigger a restart if needed. Do NOT reset lastScanAdvertisementAtRef —
     // it must persist across scan windows so the watchdog can measure total
     // silence time, not just silence within a single 15 s window.
+    scanSilenceRestartingRef.current = false;
 
     if (mountedRef.current) setScanning(false);
   }, []);
@@ -811,12 +812,19 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
 
         if (changed && mountedRef.current) flushDevices();
 
+        // Both restart paths below share a single per-tick guard so they cannot
+        // both call startScan() in the same interval tick even if their separate
+        // persistent refs (scanningForLostAdvDeviceRef, scanSilenceRestartingRef)
+        // have not yet been updated by an earlier async call.
+        let didRestartScanThisTick = false;
+
         // Advertisement watchdog: if an active cook is running and a paired
         // advertisement-based device has gone silent for > ADV_WATCHDOG_MS,
         // restart the scan to rediscover it.  Mirrors the Inkbird reconnect
         // watchdog in useInkbirdBLE.
         if (hasMissingPairedAdvDevice && hasActiveCookRef.current && !scanningForLostAdvDeviceRef.current) {
           scanningForLostAdvDeviceRef.current = true;
+          didRestartScanThisTick = true;
           if (mountedRef.current) setReconnecting(true);
           startScan();
         }
@@ -831,12 +839,16 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         //   - t=0:  scan starts, lastScanAdvertisementAt = t0
         //   - t=15s: scan stops (no devices heard) — ref stays at t0
         //   - t=60s: stale timer fires, condition met → startScan() restarts
+        // Cross-gated with the advertisement watchdog via didRestartScanThisTick
+        // so both paths cannot issue concurrent startScan() calls in one tick.
         if (
+          !didRestartScanThisTick &&
           !scanSilenceRestartingRef.current &&
           lastScanAdvertisementAtRef.current > 0 &&
           now - lastScanAdvertisementAtRef.current > ADV_WATCHDOG_MS
         ) {
           scanSilenceRestartingRef.current = true;
+          didRestartScanThisTick = true;
           if (__DEV__) {
             console.warn("[BleProbeContext] No BLE advertisements for 60 s — restarting scan");
           }
