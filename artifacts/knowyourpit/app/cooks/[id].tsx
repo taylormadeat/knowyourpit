@@ -515,6 +515,10 @@ export default function CookDetailScreen() {
   // Auto-check-in toast: shown briefly after a probe-triggered auto-log fires.
   const [autoCheckinToast, setAutoCheckinToast] = useState<string | null>(null);
   const autoCheckinToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Inkbird reconnect toast: shown briefly when a dropped probe reappears.
+  const [inkbirdReconnectToast, setInkbirdReconnectToast] = useState(false);
+  const inkbirdReconnectToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevInkbirdReconnectingRef = useRef(false);
   // Pending check-in driven by a notification tap — shows the "Check In Now"
   // banner but does NOT auto-open the modal. Cleared when the user taps the
   // banner or dismisses it.
@@ -1095,6 +1099,17 @@ export default function CookDetailScreen() {
     enabled: cookStatus === "active" && tempMode === "probe",
     assignedProbeKeys: bleAssignedProbeKeys,
   });
+
+  // Fire a "Inkbird reconnected ✓" toast when the probe reappears after a drop.
+  useEffect(() => {
+    const wasReconnecting = prevInkbirdReconnectingRef.current;
+    prevInkbirdReconnectingRef.current = inkbirdReconnecting;
+    if (wasReconnecting && !inkbirdReconnecting) {
+      setInkbirdReconnectToast(true);
+      if (inkbirdReconnectToastTimerRef.current) clearTimeout(inkbirdReconnectToastTimerRef.current);
+      inkbirdReconnectToastTimerRef.current = setTimeout(() => setInkbirdReconnectToast(false), 3000);
+    }
+  }, [inkbirdReconnecting]);
 
   const selectedInkbirdProbe =
     selectedMeatProbeId?.startsWith("ble_")
@@ -4168,6 +4183,41 @@ export default function CookDetailScreen() {
             {autoCheckinToast}
           </Text>
           <Pressable onPress={() => setAutoCheckinToast(null)} hitSlop={10}>
+            <Feather name="x" size={14} color="#9CA3AF" />
+          </Pressable>
+        </View>
+      )}
+
+      {/* ── Inkbird Reconnect Toast ──────────────────────────── */}
+      {inkbirdReconnectToast && (
+        <View
+          style={{
+            position: "absolute",
+            bottom: autoCheckinToast != null ? 150 + insets.bottom : 90 + insets.bottom,
+            left: 16,
+            right: 16,
+            backgroundColor: "#1C1C1F",
+            borderColor: "#22c55e",
+            borderWidth: 1,
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.3,
+            shadowRadius: 6,
+            elevation: 8,
+            zIndex: 9999,
+          }}
+        >
+          <Feather name="wifi" size={16} color="#22c55e" />
+          <Text style={{ flex: 1, color: "#F3EDE1", fontFamily: "Inter_400Regular", fontSize: 13 }}>
+            Inkbird reconnected ✓
+          </Text>
+          <Pressable onPress={() => setInkbirdReconnectToast(false)} hitSlop={10}>
             <Feather name="x" size={14} color="#9CA3AF" />
           </Pressable>
         </View>
