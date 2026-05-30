@@ -71,6 +71,8 @@ export interface BleDevice {
   channelTempsF: number[] | null;
   lastSeenMs: number;
   paired: boolean;
+  /** Latest RSSI (dBm) from the most recent advertisement. null for GATT-only devices. */
+  rssi?: number | null;
 }
 
 export interface ReconnectBanner {
@@ -562,6 +564,8 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
             (device.name ?? device.localName ?? ADAPTER_LABELS[adapter]) as string;
           const now = Date.now();
 
+          const deviceRssi = (device.rssi as number | null | undefined) ?? null;
+
           if (GATT_ADAPTERS.includes(adapter)) {
             const existing = deviceMapRef.current.get(device.id);
             if (!existing || existing.connectionState === "disconnected") {
@@ -570,6 +574,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
                 adapter,
                 connectionState: "scanning",
                 lastSeenMs: now,
+                rssi: deviceRssi,
               });
               if (pairedIdsRef.current.has(device.id)) {
                 connectGatt(managerRef.current, device.id, adapter);
@@ -578,6 +583,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
               deviceMapRef.current.set(device.id, {
                 ...existing,
                 lastSeenMs: now,
+                rssi: deviceRssi,
               });
               flushDevices();
             }
@@ -608,6 +614,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
               batteryPct,
               channelTempsF,
               lastSeenMs: now,
+              rssi: deviceRssi,
             });
           }
         },

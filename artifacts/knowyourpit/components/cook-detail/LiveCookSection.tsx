@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, Pressable, ActivityIndicator, Animated, TextInput } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { InkbirdProbeReading } from "@/hooks/useInkbirdBLE";
 import type { BleDevice, ReconnectBanner } from "@/contexts/BleProbeContext";
 import type { LanProbeReading } from "@/hooks/useLanProbes";
@@ -9,6 +10,7 @@ import { TempGraph, ProbeTimeSeries } from "@/components/TempGraph";
 import { weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
 import { fmtElapsed, getOutdoorTempEffect } from "./utils";
 import { CookProgressBar } from "./CookProgressBar";
+import { SignalBars, rssiToStrength } from "@/components/SignalBars";
 
 function fmtCountdown(diffMs: number): string {
   if (diffMs <= 0) return "now";
@@ -127,6 +129,43 @@ export function LiveCookSection(p: Props) {
 
   const [phaseNarrativeExpanded, setPhaseNarrativeExpanded] = React.useState(false);
   const [timelineExpanded, setTimelineExpanded] = React.useState(true);
+
+  // Min-signal filter for BLE probe rows
+  type MinSignal = "any" | "medium" | "strong";
+  const [minSignal, setMinSignalState] = React.useState<MinSignal>("any");
+  const BLE_SIGNAL_KEY = "knowyourpit:ble:minSignal";
+  React.useEffect(() => {
+    AsyncStorage.getItem(BLE_SIGNAL_KEY).then((v) => {
+      if (v === "medium" || v === "strong") setMinSignalState(v);
+    }).catch(() => {});
+  }, []);
+  const setMinSignal = React.useCallback((val: MinSignal) => {
+    setMinSignalState(val);
+    AsyncStorage.setItem(BLE_SIGNAL_KEY, val).catch(() => {});
+  }, []);
+
+  // Helpers for RSSI filtering
+  function meetsMinSignal(rssi: number | null | undefined): boolean {
+    const strength = rssiToStrength(rssi);
+    if (minSignal === "strong") return strength === "strong";
+    if (minSignal === "medium") return strength === "strong" || strength === "medium";
+    return true;
+  }
+
+  // Sorted + filtered Inkbird probes and BLE context devices
+  const sortedInkbirdProbes = React.useMemo(() => {
+    const filtered = inkbirdProbes.filter((p) => meetsMinSignal(p.rssi));
+    return [...filtered].sort((a, b) => (b.rssi ?? -200) - (a.rssi ?? -200));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inkbirdProbes, minSignal]);
+
+  const sortedBleContextDevices = React.useMemo(() => {
+    const filtered = bleContextDevices.filter((d) => meetsMinSignal(d.rssi));
+    return [...filtered].sort((a, b) => (b.rssi ?? -200) - (a.rssi ?? -200));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bleContextDevices, minSignal]);
+
+  const hasBleProbes = sortedInkbirdProbes.length > 0 || sortedBleContextDevices.length > 0;
 
   const flashAnim = React.useRef(new Animated.Value(0)).current;
   const prevLastAnalyzedAtMs = React.useRef<number | null>(null);
@@ -609,8 +648,33 @@ export function LiveCookSection(p: Props) {
         );
       })}
 
+      {/* BLE signal filter — shown when any BLE probes are visible in probe mode */}
+      {tempMode === "probe" && hasBleProbes && (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingBottom: 8 }}>
+          <Feather name="wifi" size={11} color={colors.mutedForeground} />
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>Signal:</Text>
+          {(["any", "medium", "strong"] as const).map((opt) => {
+            const labels = { any: "Any", medium: "Medium+", strong: "Strong" };
+            const active = minSignal === opt;
+            return (
+              <Pressable
+                key={opt}
+                onPress={() => setMinSignal(opt)}
+                style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99, borderWidth: 1,
+                  borderColor: active ? "#3b82f6" : colors.border,
+                  backgroundColor: active ? "#3b82f618" : "transparent" }}
+              >
+                <Text style={{ fontFamily: active ? "Inter_600SemiBold" : "Inter_400Regular", fontSize: 11, color: active ? "#3b82f6" : colors.mutedForeground }}>
+                  {labels[opt]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
       {/* Inkbird BLE rows — each channel can be assigned Meat or Pit */}
-      {tempMode === "probe" && inkbirdProbes.map((probe, i) => {
+      {tempMode === "probe" && sortedInkbirdProbes.map((probe, i) => {
         const probeKey = `ble_${probe.deviceId}_${probe.probeIndex}`;
         const isMeat = selectedMeatProbeId === probeKey;
         const isPit = selectedPitProbeId === probeKey;
@@ -641,6 +705,9 @@ export function LiveCookSection(p: Props) {
                   <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0, flex: 1 }]} numberOfLines={1}>
                     {probeLabels[probeKey] ?? `${probe.deviceName}  ·  Ch ${probe.probeIndex + 1}  ·  Inkbird`}
                   </Text>
+                )}
+                {!isEditing && probe.rssi != null && (
+                  <SignalBars rssi={probe.rssi} size={10} />
                 )}
               </View>
               {!isEditing && (
@@ -687,7 +754,7 @@ export function LiveCookSection(p: Props) {
       })}
 
       {/* BLE context device rows — ambient bundled; user can assign Meat or Pit role */}
-      {tempMode === "probe" && bleContextDevices.map((device, i) => {
+      {tempMode === "probe" && sortedBleContextDevices.map((device, i) => {
         const probeKey = `bleCtx_${device.id}`;
         const isMeat = selectedMeatProbeId === probeKey;
         const isPit = selectedPitProbeId === probeKey;
@@ -723,6 +790,9 @@ export function LiveCookSection(p: Props) {
                     <Feather name="battery" size={9} color={device.batteryPct > 50 ? "#22c55e" : device.batteryPct > 20 ? "#EAB308" : "#ef4444"} />
                     <Text style={{ fontSize: 9, fontFamily: "Inter_600SemiBold", color: device.batteryPct > 50 ? "#22c55e" : device.batteryPct > 20 ? "#EAB308" : "#ef4444" }}>{device.batteryPct}%</Text>
                   </View>
+                )}
+                {!isEditing && device.rssi != null && (
+                  <SignalBars rssi={device.rssi} size={10} />
                 )}
               </View>
               {!isEditing && (

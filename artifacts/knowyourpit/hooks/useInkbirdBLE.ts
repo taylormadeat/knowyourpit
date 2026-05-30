@@ -40,6 +40,7 @@ export interface InkbirdProbeReading {
   probeIndex: number;
   tempF: number | null;
   lastSeenMs: number;
+  rssi?: number | null;
 }
 
 interface UseInkbirdBLEOptions {
@@ -190,6 +191,8 @@ export function useInkbirdBLE({
       const temps = parseInkbirdTemps(device.manufacturerData as string | null);
       const now = Date.now();
 
+      const rssi = (device.rssi as number | null | undefined) ?? null;
+
       if (temps.length === 0) {
         // Device detected but no temp payload — record so the user sees it found
         const key = `${device.id}_0`;
@@ -199,6 +202,7 @@ export function useInkbirdBLE({
           probeIndex: 0,
           tempF: null,
           lastSeenMs: now,
+          rssi,
         });
       } else {
         temps.forEach((tempF, idx) => {
@@ -209,6 +213,7 @@ export function useInkbirdBLE({
             probeIndex: idx,
             tempF,
             lastSeenMs: now,
+            rssi,
           });
         });
       }
