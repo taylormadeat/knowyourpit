@@ -28,11 +28,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Platform, PermissionsAndroid } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   INKBIRD_NAME_PREFIXES,
   INKBIRD_SERVICE_UUIDS,
   parseInkbirdTemps,
 } from "@/hooks/ble/adapters/inkbird";
+import { saveLastInkbird, loadLastInkbird } from "@/utils/probePersistence";
 
 export interface InkbirdProbeReading {
   deviceId: string;
@@ -76,6 +78,12 @@ interface UseInkbirdBLEResult {
    * enabled becomes false.
    */
   reconnecting: boolean;
+  /**
+   * Device ID of the last Inkbird probe that was successfully read during a
+   * cook, persisted across app restarts via AsyncStorage under `ble_last_inkbird`.
+   * Null until the first read or on fresh install.
+   */
+  lastKnownDeviceId: string | null;
 }
 
 const STALE_TIMEOUT_MS = 30_000;
@@ -175,6 +183,15 @@ export function useInkbirdBLE({
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
+  const [lastKnownDeviceId, setLastKnownDeviceId] = useState<string | null>(null);
+
+  // Load persisted last-used Inkbird device on mount.
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    loadLastInkbird(AsyncStorage)
+      .then((data) => { if (data) setLastKnownDeviceId(data.deviceId); })
+      .catch(() => {});
+  }, []);
 
   const managerRef = useRef<any>(null);
   const staleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -288,6 +305,14 @@ export function useInkbirdBLE({
       }
 
       syncState();
+
+      // Persist last-used probe when the device matches an assigned probe for
+      // this cook. This lets the next session highlight it immediately.
+      const deviceId = device.id as string;
+      if (assignedProbeKeysRef.current.some((k) => k.startsWith(`ble_${deviceId}_`))) {
+        saveLastInkbird({ deviceId, deviceName }, AsyncStorage);
+        setLastKnownDeviceId(deviceId);
+      }
     }
 
     /**
@@ -427,5 +452,5 @@ export function useInkbirdBLE({
     };
   }, [enabled, reconnectIntervalMs]);
 
-  return { probes, permissionDenied, scanning, reconnecting };
+  return { probes, permissionDenied, scanning, reconnecting, lastKnownDeviceId };
 }

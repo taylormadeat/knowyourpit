@@ -92,6 +92,7 @@ import {
   savePitProbeId,
   saveProbeLabels,
   buildUpdatedProbeLabels,
+  clearLastInkbird,
 } from "@/utils/probePersistence";
 import * as Notifications from "expo-notifications";
 import { s } from "@/components/cook-detail/styles";
@@ -426,6 +427,11 @@ export default function CookDetailScreen() {
     if (probeId != null) setTempMode("probe");
     if (Platform.OS !== "web" && id) {
       saveMeatProbeId(id, probeId, AsyncStorage);
+      // Clear the cross-session last-inkbird record when the user explicitly
+      // removes a BLE probe assignment.
+      if (probeId === null && selectedMeatProbeId?.startsWith("ble_")) {
+        clearLastInkbird(AsyncStorage);
+      }
       // Sync to server (fire-and-forget) so a pit partner on another device
       // picks up the updated assignment without re-entering it.
       updateCook.mutate({
@@ -445,6 +451,11 @@ export default function CookDetailScreen() {
     setSelectedPitProbeId(probeId);
     if (Platform.OS !== "web" && id) {
       savePitProbeId(id, probeId, AsyncStorage);
+      // Clear the cross-session last-inkbird record when the user explicitly
+      // removes a BLE probe assignment.
+      if (probeId === null && selectedPitProbeId?.startsWith("ble_")) {
+        clearLastInkbird(AsyncStorage);
+      }
       // Sync to server (fire-and-forget).
       updateCook.mutate({
         id: Number(id),
@@ -1170,6 +1181,7 @@ export default function CookDetailScreen() {
     probes: inkbirdProbes,
     scanning: inkbirdScanning,
     reconnecting: inkbirdReconnecting,
+    lastKnownDeviceId: lastKnownInkbirdDeviceId,
   } = useInkbirdBLE({
     enabled: cookStatus === "active" && tempMode === "probe",
     assignedProbeKeys: bleAssignedProbeKeys,
@@ -3697,6 +3709,7 @@ export default function CookDetailScreen() {
           upcomingCheckins={upcomingCheckinsForCard}
           onCheckInPhase={openCheckin}
           knownProbeIds={knownProbeIds}
+          lastKnownInkbirdDeviceId={lastKnownInkbirdDeviceId}
           onRestartScan={handleRestartScan}
         />
         <CookSummaryCard

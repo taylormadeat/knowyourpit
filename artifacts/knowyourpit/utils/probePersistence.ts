@@ -127,3 +127,46 @@ export function buildUpdatedProbeLabels(
   }
   return next;
 }
+
+// ── Last-used Inkbird probe ───────────────────────────────────────────────────
+
+const LAST_INKBIRD_KEY = "ble_last_inkbird";
+
+export interface LastInkbird {
+  deviceId: string;
+  deviceName: string;
+}
+
+/**
+ * Persist the most-recently-used Inkbird device so it can be highlighted the
+ * next time a cook screen opens.
+ */
+export async function saveLastInkbird(
+  lastInkbird: LastInkbird,
+  storage: ProbeStorage,
+): Promise<void> {
+  await storage.setItem(LAST_INKBIRD_KEY, JSON.stringify(lastInkbird)).catch(() => {});
+}
+
+/**
+ * Read back the last-used Inkbird device, or null if none has been saved yet.
+ */
+export async function loadLastInkbird(
+  storage: ProbeStorage,
+): Promise<LastInkbird | null> {
+  try {
+    const raw = await storage.getItem(LAST_INKBIRD_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as LastInkbird;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Remove the last-used Inkbird entry (called when the user unassigns a BLE
+ * probe from a cook).
+ */
+export async function clearLastInkbird(storage: ProbeStorage): Promise<void> {
+  await storage.removeItem(LAST_INKBIRD_KEY).catch(() => {});
+}

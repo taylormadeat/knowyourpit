@@ -59,6 +59,12 @@ interface Props {
    * Keys use the same `ble_` / `bleCtx_` prefix as selectedMeatProbeId etc.
    */
   knownProbeIds?: Record<string, string | null>;
+  /**
+   * Device ID of the last Inkbird probe used across any cook (persisted via
+   * AsyncStorage). When set, the matching probe row in the "Other devices"
+   * section shows a "Last used" chip even when it's not in knownProbeIds.
+   */
+  lastKnownInkbirdDeviceId?: string | null;
   liveGraphProbes: ProbeTimeSeries[];
   liveReadings: any[];
   cardWidth: number;
@@ -123,7 +129,7 @@ export function LiveCookSection(p: Props) {
     onSelectMeatProbe, onSelectPitProbe,
     probeLabels = {}, onSetProbeLabel,
     otherCookAssignments = {}, inkbirdScanning = false, inkbirdReconnecting = false,
-    knownProbeIds = {},
+    knownProbeIds = {}, lastKnownInkbirdDeviceId,
     liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, estimatedFinishMs,
     setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
     targetTempF, cookTempF, nextSpritzMs, onViewDetails,
@@ -1036,6 +1042,11 @@ export function LiveCookSection(p: Props) {
                 )}
                 {!isEditing && (
                   <SignalBars rssi={probe.rssi} size={10} />
+                )}
+                {!isEditing && probe.deviceId === lastKnownInkbirdDeviceId && (
+                  <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 99, backgroundColor: "#F59E0B18", borderWidth: 1, borderColor: "#F59E0B40" }}>
+                    <Text style={{ fontFamily: "Inter_500Medium", fontSize: 9, color: "#F59E0B" }}>Last used</Text>
+                  </View>
                 )}
               </View>
               {!isEditing && (
