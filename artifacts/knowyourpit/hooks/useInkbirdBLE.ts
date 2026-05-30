@@ -41,6 +41,13 @@ export interface InkbirdProbeReading {
   tempF: number | null;
   lastSeenMs: number;
   rssi?: number | null;
+  /** Rolling average of the last 3 RSSI samples (dBm). Null until first sample. */
+  rssiAvg?: number | null;
+  /**
+   * True when the rolling RSSI average is below -85 dBm. Clears when the
+   * average recovers above -80 dBm (hysteresis prevents rapid flicker).
+   */
+  signalWeak?: boolean;
 }
 
 interface UseInkbirdBLEOptions {
@@ -82,11 +89,35 @@ const DEFAULT_RECONNECT_INTERVAL_MS = 30_000;
  */
 const SCAN_SILENCE_WATCHDOG_MS = 60_000;
 
+/** RSSI below this threshold (dBm) triggers the weak-signal warning. */
+const RSSI_WEAK_THRESHOLD = -85;
+/** RSSI must recover above this level (dBm) to clear the warning (hysteresis). */
+const RSSI_RECOVER_THRESHOLD = -80;
+/** Number of samples kept in the rolling RSSI average. */
+const RSSI_BUFFER_SIZE = 3;
+
 /**
  * Module-level probe cache so last-seen readings survive unmount/remount.
  * Cache key = `${deviceId}_${probeIndex}` (no "ble_" prefix).
  */
 const moduleProbeCache = new Map<string, InkbirdProbeReading>();
+/**
+ * Module-level rolling RSSI buffer per device (keyed by deviceId, shared
+ * across all channels of the same device since RSSI is per-advertisement).
+ */
+const moduleRssiBuffers = new Map<string, number[]>();
+
+/**
+ * Derives the weak-signal boolean with hysteresis:
+ * - Goes weak when rssiAvg < RSSI_WEAK_THRESHOLD (-85 dBm)
+ * - Clears when rssiAvg >= RSSI_RECOVER_THRESHOLD (-80 dBm)
+ * - Between the two thresholds the previous value is preserved to prevent flicker.
+ */
+function deriveSignalWeakInkbird(rssiAvg: number | null, prevWeak: boolean): boolean {
+  if (rssiAvg === null) return false;
+  if (prevWeak) return rssiAvg < RSSI_RECOVER_THRESHOLD;
+  return rssiAvg < RSSI_WEAK_THRESHOLD;
+}
 
 function isInkbirdDevice(device: any): boolean {
   const name = ((device?.name ?? device?.localName ?? "") as string).toLowerCase();
@@ -213,6 +244,20 @@ export function useInkbirdBLE({
 
       const rssi = (device.rssi as number | null | undefined) ?? null;
 
+      // Update rolling RSSI buffer (per device — RSSI is the same for all channels).
+      const rssiBuf = moduleRssiBuffers.get(device.id as string) ?? [];
+      if (rssi != null) {
+        rssiBuf.push(rssi);
+        if (rssiBuf.length > RSSI_BUFFER_SIZE) rssiBuf.splice(0, rssiBuf.length - RSSI_BUFFER_SIZE);
+        moduleRssiBuffers.set(device.id as string, rssiBuf);
+      }
+      const rssiAvg = rssiBuf.length > 0
+        ? rssiBuf.reduce((a, b) => a + b, 0) / rssiBuf.length
+        : null;
+      // Use channel-0 entry for hysteresis reference (all channels share the same RSSI).
+      const prevWeak = moduleProbeCache.get(`${device.id}_0`)?.signalWeak ?? false;
+      const signalWeak = deriveSignalWeakInkbird(rssiAvg, prevWeak);
+
       if (temps.length === 0) {
         // Device detected but no temp payload — record so the user sees it found
         const key = `${device.id}_0`;
@@ -223,6 +268,8 @@ export function useInkbirdBLE({
           tempF: null,
           lastSeenMs: now,
           rssi,
+          rssiAvg,
+          signalWeak,
         });
       } else {
         temps.forEach((tempF, idx) => {
@@ -234,6 +281,8 @@ export function useInkbirdBLE({
             tempF,
             lastSeenMs: now,
             rssi,
+            rssiAvg,
+            signalWeak,
           });
         });
       }

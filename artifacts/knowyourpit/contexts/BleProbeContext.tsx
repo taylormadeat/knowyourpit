@@ -56,6 +56,24 @@ const STALE_DEVICE_MS = 45_000;
 const SCAN_DURATION_MS = 15_000;
 /** How often to re-read GATT characteristics from connected devices (ms). */
 const GATT_POLL_MS = 15_000;
+/** RSSI below this threshold (dBm) triggers the weak-signal warning. */
+const RSSI_WEAK_THRESHOLD = -85;
+/** RSSI must recover above this level (dBm) to clear the warning (hysteresis). */
+const RSSI_RECOVER_THRESHOLD = -80;
+/** Number of samples kept in the rolling RSSI average. */
+const RSSI_BUFFER_SIZE = 3;
+
+/**
+ * Derives the weak-signal boolean with hysteresis:
+ * - Goes weak when rssiAvg < -85 dBm
+ * - Clears when rssiAvg >= -80 dBm
+ * - Between the two thresholds the previous value is preserved to prevent flicker.
+ */
+function deriveSignalWeak(rssiAvg: number | null, prevWeak: boolean): boolean {
+  if (rssiAvg === null) return false;
+  if (prevWeak) return rssiAvg < RSSI_RECOVER_THRESHOLD;
+  return rssiAvg < RSSI_WEAK_THRESHOLD;
+}
 /**
  * Advertisement watchdog threshold: if a paired advertisement-based device
  * (Govee / Inkbird in BleProbeContext) has not been seen for this long during
@@ -79,8 +97,15 @@ export interface BleDevice {
   channelTempsF: number[] | null;
   lastSeenMs: number;
   paired: boolean;
-  /** Latest RSSI (dBm) from the most recent advertisement. null for GATT-only devices. */
+  /** Latest RSSI (dBm) from the most recent advertisement or GATT readRSSI(). */
   rssi?: number | null;
+  /** Rolling average of the last 3 RSSI samples (dBm). Null until first sample. */
+  rssiAvg?: number | null;
+  /**
+   * True when the rolling RSSI average is below -85 dBm. Clears when the
+   * average recovers above -80 dBm (hysteresis prevents rapid flicker).
+   */
+  signalWeak?: boolean;
 }
 
 export interface ReconnectBanner {
@@ -185,6 +210,8 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
   const mountedRef = useRef(true);
   // Tracks per-device GATT reconnect timers (MEATER / Weber iGrill)
   const gattReconnectTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  /** Rolling RSSI buffer per device (keyed by device ID). Shared for all probe sources. */
+  const rssiBuffersRef = useRef<Map<string, number[]>>(new Map());
   // Set to true when the stale-timer watchdog triggers a scan restart for a
   // silent paired advertisement-based device (Govee / Inkbird in BleProbeContext).
   const scanningForLostAdvDeviceRef = useRef(false);
@@ -475,6 +502,27 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
           const current = deviceMapRef.current.get(deviceId);
           if (current?.connectionState !== "connected") return;
           await readGattCharacteristics(connected, deviceId, adapter);
+          // Poll RSSI for GATT devices (MEATER, Weber iGrill) and fold into the
+          // rolling buffer so the weak-signal chip works for tethered probes.
+          try {
+            const devWithRssi = await connected.readRSSI();
+            const rssi = (devWithRssi?.rssi as number | null | undefined) ?? null;
+            if (rssi != null && mountedRef.current) {
+              const buf = rssiBuffersRef.current.get(deviceId) ?? [];
+              buf.push(rssi);
+              if (buf.length > RSSI_BUFFER_SIZE) buf.splice(0, buf.length - RSSI_BUFFER_SIZE);
+              rssiBuffersRef.current.set(deviceId, buf);
+              const rssiAvg = buf.reduce((a, b) => a + b, 0) / buf.length;
+              const d = deviceMapRef.current.get(deviceId);
+              if (d) {
+                const signalWeak = deriveSignalWeak(rssiAvg, d.signalWeak ?? false);
+                deviceMapRef.current.set(deviceId, { ...d, rssi, rssiAvg, signalWeak });
+                flushDevices();
+              }
+            }
+          } catch {
+            // readRSSI not supported on all platforms / adapters — ignore
+          }
         }, GATT_POLL_MS);
         gattPollTimersRef.current.set(deviceId, pollTimer);
 
@@ -689,6 +737,21 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
 
           const deviceRssi = (device.rssi as number | null | undefined) ?? null;
 
+          // Update rolling RSSI buffer and derive weak-signal flag for this device.
+          const rssiBuf = rssiBuffersRef.current.get(device.id as string) ?? [];
+          if (deviceRssi != null) {
+            rssiBuf.push(deviceRssi);
+            if (rssiBuf.length > RSSI_BUFFER_SIZE) rssiBuf.splice(0, rssiBuf.length - RSSI_BUFFER_SIZE);
+            rssiBuffersRef.current.set(device.id as string, rssiBuf);
+          }
+          const deviceRssiAvg = rssiBuf.length > 0
+            ? rssiBuf.reduce((a, b) => a + b, 0) / rssiBuf.length
+            : null;
+          const deviceSignalWeak = deriveSignalWeak(
+            deviceRssiAvg,
+            deviceMapRef.current.get(device.id as string)?.signalWeak ?? false,
+          );
+
           if (GATT_ADAPTERS.includes(adapter)) {
             const existing = deviceMapRef.current.get(device.id);
             if (!existing || existing.connectionState === "disconnected") {
@@ -698,6 +761,8 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
                 connectionState: "scanning",
                 lastSeenMs: now,
                 rssi: deviceRssi,
+                rssiAvg: deviceRssiAvg,
+                signalWeak: deviceSignalWeak,
               });
               if (pairedIdsRef.current.has(device.id)) {
                 connectGatt(managerRef.current, device.id, adapter);
@@ -707,6 +772,8 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
                 ...existing,
                 lastSeenMs: now,
                 rssi: deviceRssi,
+                rssiAvg: deviceRssiAvg,
+                signalWeak: deviceSignalWeak,
               });
               flushDevices();
             }
@@ -738,6 +805,8 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
               channelTempsF,
               lastSeenMs: now,
               rssi: deviceRssi,
+              rssiAvg: deviceRssiAvg,
+              signalWeak: deviceSignalWeak,
             });
           }
         },

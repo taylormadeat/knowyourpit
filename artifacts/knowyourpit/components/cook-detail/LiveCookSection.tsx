@@ -816,6 +816,12 @@ export function LiveCookSection(p: Props) {
                 </View>
               </View>
             </View>
+            {probe.signalWeak && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 8, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 7, backgroundColor: "#F59E0B18", borderWidth: 1, borderColor: "#F59E0B50" }}>
+                <Feather name="alert-triangle" size={11} color="#F59E0B" />
+                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: "#F59E0B" }}>Probe signal weak — move closer</Text>
+              </View>
+            )}
             {lockedByOther ? (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: colors.mutedForeground + "12", alignSelf: "flex-start" }}>
                 <Feather name="lock" size={10} color={colors.mutedForeground} />
@@ -935,6 +941,12 @@ export function LiveCookSection(p: Props) {
                 </View>
               )}
             </View>
+            {device.signalWeak && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 8, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 7, backgroundColor: "#F59E0B18", borderWidth: 1, borderColor: "#F59E0B50" }}>
+                <Feather name="alert-triangle" size={11} color="#F59E0B" />
+                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: "#F59E0B" }}>Probe signal weak — move closer</Text>
+              </View>
+            )}
           </View>
         );
       })}
@@ -1000,6 +1012,12 @@ export function LiveCookSection(p: Props) {
                 </View>
               </View>
             </View>
+            {probe.signalWeak && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 8, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 7, backgroundColor: "#F59E0B18", borderWidth: 1, borderColor: "#F59E0B50" }}>
+                <Feather name="alert-triangle" size={11} color="#F59E0B" />
+                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: "#F59E0B" }}>Probe signal weak — move closer</Text>
+              </View>
+            )}
             {lockedByOther ? (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: colors.mutedForeground + "12", alignSelf: "flex-start" }}>
                 <Feather name="lock" size={10} color={colors.mutedForeground} />
@@ -1120,6 +1138,12 @@ export function LiveCookSection(p: Props) {
                 </View>
               )}
             </View>
+            {device.signalWeak && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 8, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 7, backgroundColor: "#F59E0B18", borderWidth: 1, borderColor: "#F59E0B50" }}>
+                <Feather name="alert-triangle" size={11} color="#F59E0B" />
+                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: "#F59E0B" }}>Probe signal weak — move closer</Text>
+              </View>
+            )}
           </View>
         );
       })}
