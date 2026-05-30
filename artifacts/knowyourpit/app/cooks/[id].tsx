@@ -501,19 +501,24 @@ export default function CookDetailScreen() {
   // same grill. Used by LiveCookSection to show a "Previously used" section
   // at the top of the probe scan list so the user can reconnect in one tap.
   const knownProbeIds = useMemo(() => {
-    const result: Record<string, string> = {};
+    // Value: custom label string if one was saved, null if the probe is known
+    // but had no custom label.  Callers check `key in knownProbeIds` to detect
+    // "known", and read the value (when non-null) as the saved display label.
+    const result: Record<string, string | null> = {};
     const cookData = cook as any;
     const grillId = cookData?.grillId;
 
     function addKnown(
       probeKey: string | null | undefined,
       labels: Record<string, string>,
-      fallback: string,
+      skipIfPresent = false,
     ) {
       if (!probeKey) return;
       // Only track BLE probes that require active scan discovery.
       if (!probeKey.startsWith("ble_") && !probeKey.startsWith("bleCtx_")) return;
-      result[probeKey] = labels[probeKey] ?? fallback;
+      // Current cook data is authoritative — never let a previous cook override it.
+      if (skipIfPresent && probeKey in result) return;
+      result[probeKey] = labels[probeKey] ?? null;
     }
 
     // 1. Current cook's server-side probe assignments (authoritative).
@@ -524,11 +529,12 @@ export default function CookDetailScreen() {
     } | null | undefined;
     if (pa) {
       const labels = pa.labels ?? {};
-      addKnown(pa.meatProbeId, labels, "Last used");
-      addKnown(pa.pitProbeId, labels, "Last used");
+      addKnown(pa.meatProbeId, labels);
+      addKnown(pa.pitProbeId, labels);
     }
 
     // 2. Most recent previous cook on the same grill that stored probe assignments.
+    // Uses skipIfPresent=true so the current cook's data always wins.
     if (grillId && allCooksForCount) {
       const prevCooks = (allCooksForCount as any[])
         .filter((c: any) =>
@@ -550,8 +556,8 @@ export default function CookDetailScreen() {
           labels?: Record<string, string>;
         };
         const prevLabels = prevPa.labels ?? {};
-        addKnown(prevPa.meatProbeId, prevLabels, "Previously used");
-        addKnown(prevPa.pitProbeId, prevLabels, "Previously used");
+        addKnown(prevPa.meatProbeId, prevLabels, true);
+        addKnown(prevPa.pitProbeId, prevLabels, true);
       }
     }
 

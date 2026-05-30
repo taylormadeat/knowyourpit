@@ -52,11 +52,12 @@ interface Props {
   inkbirdScanning?: boolean;
   inkbirdReconnecting?: boolean;
   /**
-   * Map of probeKey → display label for BLE probes that were previously
-   * assigned to this cook or the most recent prior cook on the same grill.
+   * Map of probeKey → saved display label (or null when no custom label was
+   * saved) for BLE probes previously assigned to this cook or the most recent
+   * prior cook on the same grill.  Presence of a key signals "known probe".
    * Keys use the same `ble_` / `bleCtx_` prefix as selectedMeatProbeId etc.
    */
-  knownProbeIds?: Record<string, string>;
+  knownProbeIds?: Record<string, string | null>;
   liveGraphProbes: ProbeTimeSeries[];
   liveReadings: any[];
   cardWidth: number;
@@ -736,11 +737,7 @@ export function LiveCookSection(p: Props) {
 
       {/* Searching placeholder rows — known probes not yet detected by the scan */}
       {tempMode === "probe" && inkbirdScanning && missingKnownKeys.map((key) => {
-        const savedLabel = knownProbeIds[key];
-        const displayLabel =
-          savedLabel && savedLabel !== "Last used" && savedLabel !== "Previously used"
-            ? savedLabel
-            : "Last used probe";
+        const displayLabel = knownProbeIds[key] ?? "Last used probe";
         return (
           <View
             key={`searching-${key}`}
@@ -794,7 +791,7 @@ export function LiveCookSection(p: Props) {
                   </View>
                 ) : (
                   <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0, flex: 1 }]} numberOfLines={1}>
-                    {probeLabels[probeKey] ?? `${probe.deviceName}  ·  Ch ${probe.probeIndex + 1}  ·  Inkbird`}
+                    {probeLabels[probeKey] ?? knownProbeIds[probeKey] ?? `${probe.deviceName}  ·  Ch ${probe.probeIndex + 1}  ·  Inkbird`}
                   </Text>
                 )}
                 {!isEditing && <SignalBars rssi={probe.rssi} size={10} />}
@@ -875,7 +872,7 @@ export function LiveCookSection(p: Props) {
                     <Pressable hitSlop={8} onPress={() => setEditingLabelKey(null)}><Feather name="x" size={14} color={colors.mutedForeground} /></Pressable>
                   </View>
                 ) : (
-                  <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>{probeLabels[probeKey] ?? device.name}</Text>
+                  <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>{probeLabels[probeKey] ?? knownProbeIds[probeKey] ?? device.name}</Text>
                 )}
                 {device.batteryPct != null && !isEditing && (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 99, backgroundColor: device.batteryPct > 50 ? "#22c55e20" : device.batteryPct > 20 ? "#EAB30820" : "#ef444420" }}>
