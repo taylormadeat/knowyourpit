@@ -74,6 +74,8 @@ interface Props {
   onRefresh?: () => void;
   activeProbeName?: string | null;
   activePitProbeName?: string;
+  currentInternalTempF?: number | null;
+  currentPitTempF?: number | null;
   nextCheckinMs?: number | null;
   nextCheckinLabel?: string | null;
   upcomingCheckins?: Array<{ id: string; scheduledAt: number; phaseLabel: string }>;
@@ -114,6 +116,7 @@ export function LiveCookSection(p: Props) {
     targetTempF, cookTempF, nextSpritzMs, onViewDetails,
     isMeatOn, pitMasterResult, pitMasterAnalyzing,
     renderDecisions, onCheckIn, onCheckInNext, onOpenChat, lastAnalyzedAtMs, lastCheckinInternalTempF, onRefresh, activeProbeName,
+    currentInternalTempF, currentPitTempF,
     nextCheckinMs, nextCheckinLabel, upcomingCheckins = [], onCheckInPhase,
   } = p;
 
@@ -286,6 +289,30 @@ export function LiveCookSection(p: Props) {
           </View>
         )}
       </View>
+
+      {/* ── Live probe temp readout — shown when a probe is connected and readings are available ── */}
+      {tempMode === "probe" && (currentInternalTempF != null || currentPitTempF != null) && (
+        <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.border }}>
+          {currentInternalTempF != null && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#FF6B2B15", borderWidth: 1, borderColor: "#FF6B2B40" }}>
+              <Feather name="thermometer" size={13} color="#FF6B2B" />
+              <View>
+                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 15, color: "#FF6B2B" }}>{Math.round(currentInternalTempF)}°F</Text>
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#FF6B2B99" }}>Internal</Text>
+              </View>
+            </View>
+          )}
+          {currentPitTempF != null && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#3b82f615", borderWidth: 1, borderColor: "#3b82f640" }}>
+              <Feather name="wind" size={13} color="#3b82f6" />
+              <View>
+                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 15, color: "#3b82f6" }}>{Math.round(currentPitTempF)}°F</Text>
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#3b82f699" }}>Pit</Text>
+              </View>
+            </View>
+          )}
+        </View>
+      )}
 
       {!weather.locationDenied && (weather.loading || weather.tempF != null) && (
         <View style={[s.weatherStrip, { borderTopColor: colors.border, borderBottomColor: colors.border, flexDirection: "column", alignItems: "flex-start", gap: 4 }]}>

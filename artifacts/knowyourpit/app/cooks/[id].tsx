@@ -3480,6 +3480,8 @@ export default function CookDetailScreen() {
           onRefresh={() => analyze()}
           activeProbeName={activeProbeName !== "Probe" ? activeProbeName : null}
           activePitProbeName={activePitProbeName !== "Pit / Ambient" ? activePitProbeName : undefined}
+          currentInternalTempF={autoCheckinProbeReading?.internalTempF ?? null}
+          currentPitTempF={autoCheckinProbeReading?.pitTempF ?? null}
           nextCheckinMs={nextCheckinMs}
           nextCheckinLabel={nextCheckinLabel}
           upcomingCheckins={upcomingCheckinsForCard}

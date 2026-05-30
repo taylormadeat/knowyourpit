@@ -632,16 +632,43 @@ export function UnifiedCheckinSheet({
                 </View>
               </View>
               <View style={{ flex: 1 }}>
-                <Text
-                  style={{
-                    fontFamily: "Inter_500Medium",
-                    fontSize: 11,
-                    color: colors.mutedForeground,
-                    marginBottom: 6,
-                  }}
-                >
-                  Pit Temp
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                  <Text
+                    style={{
+                      fontFamily: "Inter_500Medium",
+                      fontSize: 11,
+                      color: colors.mutedForeground,
+                    }}
+                  >
+                    Pit Temp
+                  </Text>
+                  {currentPitTempF != null && (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 3,
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                        borderRadius: 10,
+                        backgroundColor: "#3b82f618",
+                        borderWidth: 1,
+                        borderColor: "#3b82f640",
+                      }}
+                    >
+                      <Feather name="wind" size={9} color="#3b82f6" />
+                      <Text
+                        style={{
+                          fontFamily: "Inter_600SemiBold",
+                          fontSize: 9,
+                          color: "#3b82f6",
+                        }}
+                      >
+                        Live {Math.round(currentPitTempF)}°F
+                      </Text>
+                    </View>
+                  )}
+                </View>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <TextInput
                     value={pitTempInput}
