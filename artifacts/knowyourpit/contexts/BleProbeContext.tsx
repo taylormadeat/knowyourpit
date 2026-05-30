@@ -189,11 +189,21 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
   // silent paired advertisement-based device (Govee / Inkbird in BleProbeContext).
   const scanningForLostAdvDeviceRef = useRef(false);
   /**
-   * Timestamp of the last BLE advertisement received in any active scan.
-   * Initialised to Date.now() when a scan starts; reset on every advertisement.
-   * Used by the scan silence watchdog in the stale timer.
+   * Timestamp of the last BLE advertisement received during recovery scanning.
+   * Initialised to Date.now() when recovery mode is first entered; updated on
+   * every advertisement in the scan callback; reset to 0 when recovery mode
+   * ends. Never written by startScan() — only actual advertisements and the
+   * recovery-mode state machine update it, so silence accumulates across
+   * consecutive 15 s scan windows rather than resetting at every restart.
    */
   const lastScanAdvertisementAtRef = useRef<number>(0);
+  /**
+   * Persistent recovery-mode indicator. True while a paired advertisement-based
+   * device is missing during an active cook. Unlike scanningForLostAdvDeviceRef
+   * (which is cleared in stopScan every 15 s), this ref survives scan-window
+   * boundaries so the silence watchdog can accumulate silence across them.
+   */
+  const inRecoveryModeRef = useRef(false);
   /**
    * Prevents the scan silence watchdog from triggering overlapping startScan()
    * calls if the stale timer fires while a restart is already in progress.
@@ -647,10 +657,6 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
 
       setScanning(true);
 
-      // Initialise the advertisement timestamp at scan-start so the silence
-      // watchdog doesn't fire before any packet has arrived from this scan.
-      lastScanAdvertisementAtRef.current = Date.now();
-
       managerRef.current.startDeviceScan(
         null,
         { allowDuplicates: true },
@@ -812,19 +818,35 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
 
         if (changed && mountedRef.current) flushDevices();
 
-        // Both restart paths below share a single per-tick guard so they cannot
-        // both call startScan() in the same interval tick even if their separate
-        // persistent refs (scanningForLostAdvDeviceRef, scanSilenceRestartingRef)
-        // have not yet been updated by an earlier async call.
-        let didRestartScanThisTick = false;
+        // Recovery-mode state machine.
+        //
+        // inRecoveryModeRef persists across stopScan() calls (unlike
+        // scanningForLostAdvDeviceRef which is cleared every 15 s) so the
+        // silence watchdog can accumulate silence across consecutive scan windows.
+        //
+        // Entering recovery mode: initialise the silence timestamp once so it
+        // represents "how long since we last heard any advertisement."
+        // Leaving recovery mode: reset both refs so the watchdog won't re-fire.
+        if (hasMissingPairedAdvDevice && hasActiveCookRef.current) {
+          if (!inRecoveryModeRef.current) {
+            inRecoveryModeRef.current = true;
+            // Treat "now" as the start of measured silence so the watchdog fires
+            // after a genuine 60 s window with no advertisements, not immediately.
+            if (lastScanAdvertisementAtRef.current === 0) {
+              lastScanAdvertisementAtRef.current = now;
+            }
+          }
+        } else if (inRecoveryModeRef.current) {
+          // Device found or cook ended — exit recovery mode.
+          inRecoveryModeRef.current = false;
+          lastScanAdvertisementAtRef.current = 0;
+        }
 
         // Advertisement watchdog: if an active cook is running and a paired
         // advertisement-based device has gone silent for > ADV_WATCHDOG_MS,
-        // restart the scan to rediscover it.  Mirrors the Inkbird reconnect
-        // watchdog in useInkbirdBLE.
+        // restart the scan to rediscover it.
         if (hasMissingPairedAdvDevice && hasActiveCookRef.current && !scanningForLostAdvDeviceRef.current) {
           scanningForLostAdvDeviceRef.current = true;
-          didRestartScanThisTick = true;
           if (mountedRef.current) setReconnecting(true);
           startScan();
         }
@@ -832,33 +854,28 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         // Scan silence watchdog — active only during recovery mode.
         //
         // BleProbeContext scan windows are 15 s (SCAN_DURATION_MS), so a 60 s
-        // silence threshold cannot be measured within a single window. Instead
-        // this watchdog augments the advertisement watchdog above: once
-        // scanningForLostAdvDeviceRef is true (recovery mode, active cook, paired
-        // device missing), the advertisement watchdog calls startScan() every
-        // ~15 s. Each startScan() resets lastScanAdvertisementAtRef to "now".
-        // If iOS has silently killed the underlying scan, no advertisements arrive
-        // across multiple windows and the silence timestamp drifts 60 s behind.
-        // When the stale timer fires mid-window, the condition fires and issues an
-        // explicit restart to jolt the scan back to life.
+        // silence threshold cannot be reached within a single window. Instead
+        // this watchdog measures silence across consecutive windows: the adv
+        // watchdog above calls startScan() every ~15 s, and each scan restart
+        // does NOT update lastScanAdvertisementAtRef (only real advertisements
+        // do). If iOS kills the underlying scan, silence accumulates across
+        // windows until 60 s is reached and this path fires.
         //
-        // Gating on scanningForLostAdvDeviceRef ensures the watchdog only fires
-        // during active recovery mode — it will not trigger unexpected auto-scans
-        // during periods when the user has not initiated any scan.
-        // Cross-gated with didRestartScanThisTick so only one restart per tick.
+        // Independent of the advertisement watchdog — each path guards itself
+        // with its own persistent ref (scanningForLostAdvDeviceRef and
+        // scanSilenceRestartingRef respectively) and they can both fire in the
+        // same tick if needed (a second startScan() call safely replaces the
+        // existing scan timer).
         if (
-          !didRestartScanThisTick &&
-          scanningForLostAdvDeviceRef.current &&
+          inRecoveryModeRef.current &&
           !scanSilenceRestartingRef.current &&
           lastScanAdvertisementAtRef.current > 0 &&
           now - lastScanAdvertisementAtRef.current > ADV_WATCHDOG_MS
         ) {
           scanSilenceRestartingRef.current = true;
-          didRestartScanThisTick = true;
           if (__DEV__) {
-            console.warn("[BleProbeContext] No BLE advertisements for 60 s during recovery scan — restarting");
+            console.warn("[BleProbeContext] No BLE advertisements for 60 s during recovery — restarting scan");
           }
-          lastScanAdvertisementAtRef.current = now; // reset before restart
           (startScan() as Promise<void>).finally(() => {
             if (mountedRef.current) scanSilenceRestartingRef.current = false;
           });
@@ -920,13 +937,17 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
   const setHasActiveCook = useCallback((val: boolean) => {
     hasActiveCookRef.current = val;
     if (!val) {
-      // Cook ended — cancel all pending GATT reconnect timers and clear the
-      // advertisement watchdog flag so we stop trying to recover probes.
+      // Cook ended — cancel all pending GATT reconnect timers and clear both
+      // the advertisement watchdog flag and the persistent recovery-mode state
+      // so we stop trying to recover probes after the cook is done.
       for (const timer of gattReconnectTimersRef.current.values()) {
         clearTimeout(timer);
       }
       gattReconnectTimersRef.current.clear();
       scanningForLostAdvDeviceRef.current = false;
+      inRecoveryModeRef.current = false;
+      lastScanAdvertisementAtRef.current = 0;
+      scanSilenceRestartingRef.current = false;
       if (mountedRef.current) setReconnecting(false);
     }
   }, []);
