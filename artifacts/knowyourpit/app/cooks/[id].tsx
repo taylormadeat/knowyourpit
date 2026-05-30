@@ -496,6 +496,68 @@ export default function CookDetailScreen() {
     (c: any) => c?.status === "active",
   ).length;
 
+  // Build the set of known BLE probe keys (ble_ / bleCtx_) from this cook's
+  // own server-side probeAssignments plus the most recent previous cook on the
+  // same grill. Used by LiveCookSection to show a "Previously used" section
+  // at the top of the probe scan list so the user can reconnect in one tap.
+  const knownProbeIds = useMemo(() => {
+    const result: Record<string, string> = {};
+    const cookData = cook as any;
+    const grillId = cookData?.grillId;
+
+    function addKnown(
+      probeKey: string | null | undefined,
+      labels: Record<string, string>,
+      fallback: string,
+    ) {
+      if (!probeKey) return;
+      // Only track BLE probes that require active scan discovery.
+      if (!probeKey.startsWith("ble_") && !probeKey.startsWith("bleCtx_")) return;
+      result[probeKey] = labels[probeKey] ?? fallback;
+    }
+
+    // 1. Current cook's server-side probe assignments (authoritative).
+    const pa = cookData?.probeAssignments as {
+      meatProbeId?: string | null;
+      pitProbeId?: string | null;
+      labels?: Record<string, string>;
+    } | null | undefined;
+    if (pa) {
+      const labels = pa.labels ?? {};
+      addKnown(pa.meatProbeId, labels, "Last used");
+      addKnown(pa.pitProbeId, labels, "Last used");
+    }
+
+    // 2. Most recent previous cook on the same grill that stored probe assignments.
+    if (grillId && allCooksForCount) {
+      const prevCooks = (allCooksForCount as any[])
+        .filter((c: any) =>
+          String(c.id) !== String(id) &&
+          c.grillId === grillId &&
+          c.probeAssignments,
+        )
+        .sort((a: any, b: any) => {
+          const ta = new Date((a.updatedAt ?? a.createdAt) || 0).getTime();
+          const tb = new Date((b.updatedAt ?? b.createdAt) || 0).getTime();
+          return tb - ta;
+        });
+
+      const prev = prevCooks[0];
+      if (prev?.probeAssignments) {
+        const prevPa = prev.probeAssignments as {
+          meatProbeId?: string | null;
+          pitProbeId?: string | null;
+          labels?: Record<string, string>;
+        };
+        const prevLabels = prevPa.labels ?? {};
+        addKnown(prevPa.meatProbeId, prevLabels, "Previously used");
+        addKnown(prevPa.pitProbeId, prevLabels, "Previously used");
+      }
+    }
+
+    return result;
+  }, [cook, id, allCooksForCount]);
+
   // Ambient outdoor weather — Pro-only; free users get null values so no
   // location request is ever triggered for non-subscribers.
   const weather = useAmbientWeather(undefined, { enabled: effectivePro });
@@ -3613,6 +3675,7 @@ export default function CookDetailScreen() {
           nextCheckinLabel={nextCheckinLabel}
           upcomingCheckins={upcomingCheckinsForCard}
           onCheckInPhase={openCheckin}
+          knownProbeIds={knownProbeIds}
         />
         <CookSummaryCard
           c={c}
