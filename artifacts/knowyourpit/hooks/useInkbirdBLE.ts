@@ -49,6 +49,15 @@ interface UseInkbirdBLEResult {
 
 const STALE_TIMEOUT_MS = 30_000;
 
+/**
+ * Module-level probe cache so last-seen readings survive unmount/remount.
+ * When the user navigates away from the live cook screen and returns, the
+ * hook pre-populates from this cache so probes reappear instantly instead of
+ * waiting for the next BLE advertisement cycle (up to ~15 s).
+ * Stale eviction (STALE_TIMEOUT_MS = 30 s) still applies.
+ */
+const moduleProbeCache = new Map<string, InkbirdProbeReading>();
+
 function isInkbirdDevice(device: any): boolean {
   const name = ((device?.name ?? device?.localName ?? "") as string).toLowerCase();
   if (INKBIRD_NAME_PREFIXES.some((p) => name.startsWith(p))) return true;
@@ -94,12 +103,13 @@ async function requestBlePermissionsAndroid(): Promise<boolean> {
 }
 
 export function useInkbirdBLE({ enabled }: UseInkbirdBLEOptions): UseInkbirdBLEResult {
-  const [probes, setProbes] = useState<InkbirdProbeReading[]>([]);
+  // Pre-populate from module cache so probes appear instantly on remount.
+  const [probes, setProbes] = useState<InkbirdProbeReading[]>(
+    () => Array.from(moduleProbeCache.values()),
+  );
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [scanning, setScanning] = useState(false);
 
-  // Internal mutable map: `${deviceId}_${probeIndex}` → reading
-  const probeMapRef = useRef<Map<string, InkbirdProbeReading>>(new Map());
   const managerRef = useRef<any>(null);
   const staleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -155,7 +165,7 @@ export function useInkbirdBLE({ enabled }: UseInkbirdBLEOptions): UseInkbirdBLER
               // Device detected but advertisement doesn't carry temp data —
               // show it so the user knows it was found (tempF = null)
               const key = `${device.id}_0`;
-              probeMapRef.current.set(key, {
+              moduleProbeCache.set(key, {
                 deviceId: device.id as string,
                 deviceName,
                 probeIndex: 0,
@@ -165,7 +175,7 @@ export function useInkbirdBLE({ enabled }: UseInkbirdBLEOptions): UseInkbirdBLER
             } else {
               temps.forEach((tempF, idx) => {
                 const key = `${device.id}_${idx}`;
-                probeMapRef.current.set(key, {
+                moduleProbeCache.set(key, {
                   deviceId: device.id as string,
                   deviceName,
                   probeIndex: idx,
@@ -176,7 +186,7 @@ export function useInkbirdBLE({ enabled }: UseInkbirdBLEOptions): UseInkbirdBLER
             }
 
             if (mounted) {
-              setProbes(Array.from(probeMapRef.current.values()));
+              setProbes(Array.from(moduleProbeCache.values()));
             }
           },
         );
@@ -185,14 +195,14 @@ export function useInkbirdBLE({ enabled }: UseInkbirdBLEOptions): UseInkbirdBLER
         staleTimerRef.current = setInterval(() => {
           const now = Date.now();
           let changed = false;
-          for (const [key, probe] of probeMapRef.current) {
+          for (const [key, probe] of moduleProbeCache) {
             if (now - probe.lastSeenMs > STALE_TIMEOUT_MS) {
-              probeMapRef.current.delete(key);
+              moduleProbeCache.delete(key);
               changed = true;
             }
           }
           if (changed && mounted) {
-            setProbes(Array.from(probeMapRef.current.values()));
+            setProbes(Array.from(moduleProbeCache.values()));
           }
         }, 10_000);
       } catch {
@@ -217,8 +227,8 @@ export function useInkbirdBLE({ enabled }: UseInkbirdBLEOptions): UseInkbirdBLER
         }
         managerRef.current = null;
       }
-      probeMapRef.current.clear();
-      setProbes([]);
+      // Note: do NOT clear moduleProbeCache — last-seen readings survive remounts
+      // so the probe reappears instantly when the user returns to the cook screen.
       setScanning(false);
     };
   }, [enabled]);

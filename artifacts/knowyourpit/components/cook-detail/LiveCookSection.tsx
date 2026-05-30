@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Pressable, ActivityIndicator, Animated } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, Animated, TextInput } from "react-native";
 import type { InkbirdProbeReading } from "@/hooks/useInkbirdBLE";
 import type { BleDevice, ReconnectBanner } from "@/contexts/BleProbeContext";
 import type { LanProbeReading } from "@/hooks/useLanProbes";
@@ -40,8 +40,14 @@ interface Props {
   onDismissReconnectBanner?: () => void;
   tempMode?: "probe" | "manual";
   onSetTempMode?: (mode: "probe" | "manual") => void;
-  selectedProbeId?: string | null;
-  onSelectProbe?: (probeId: string | null) => void;
+  selectedMeatProbeId?: string | null;
+  selectedPitProbeId?: string | null;
+  onSelectMeatProbe?: (probeId: string | null) => void;
+  onSelectPitProbe?: (probeId: string | null) => void;
+  probeLabels?: Record<string, string>;
+  onSetProbeLabel?: (probeKey: string, label: string) => void;
+  otherCookAssignments?: Record<string, string>;
+  inkbirdScanning?: boolean;
   liveGraphProbes: ProbeTimeSeries[];
   liveReadings: any[];
   cardWidth: number;
@@ -67,6 +73,7 @@ interface Props {
   lastCheckinInternalTempF?: number | null;
   onRefresh?: () => void;
   activeProbeName?: string | null;
+  activePitProbeName?: string;
   nextCheckinMs?: number | null;
   nextCheckinLabel?: string | null;
   upcomingCheckins?: Array<{ id: string; scheduledAt: number; phaseLabel: string }>;
@@ -98,7 +105,10 @@ export function LiveCookSection(p: Props) {
     autoAssignBanner, onDismissAutoAssignBanner,
     reconnectBanner, onDismissReconnectBanner,
     tempMode = "manual", onSetTempMode,
-    selectedProbeId, onSelectProbe,
+    selectedMeatProbeId, selectedPitProbeId,
+    onSelectMeatProbe, onSelectPitProbe,
+    probeLabels = {}, onSetProbeLabel,
+    otherCookAssignments = {}, inkbirdScanning = false,
     liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, estimatedFinishMs,
     setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
     targetTempF, cookTempF, nextSpritzMs, onViewDetails,
@@ -106,6 +116,10 @@ export function LiveCookSection(p: Props) {
     renderDecisions, onCheckIn, onCheckInNext, onOpenChat, lastAnalyzedAtMs, lastCheckinInternalTempF, onRefresh, activeProbeName,
     nextCheckinMs, nextCheckinLabel, upcomingCheckins = [], onCheckInPhase,
   } = p;
+
+  // Local state for inline label editing
+  const [editingLabelKey, setEditingLabelKey] = React.useState<string | null>(null);
+  const [labelDraft, setLabelDraft] = React.useState("");
 
   const [phaseNarrativeExpanded, setPhaseNarrativeExpanded] = React.useState(false);
   const [timelineExpanded, setTimelineExpanded] = React.useState(true);
@@ -133,7 +147,7 @@ export function LiveCookSection(p: Props) {
     inkbirdProbes.length > 0 ||
     bleContextDevices.length > 0 ||
     lanProbes.length > 0;
-  const noneSelected = tempMode === "probe" && hasAnyProbe && selectedProbeId == null;
+  const noneSelected = tempMode === "probe" && hasAnyProbe && selectedMeatProbeId == null && selectedPitProbeId == null;
 
   if (c.status !== "active") return null;
 
@@ -148,10 +162,10 @@ export function LiveCookSection(p: Props) {
           <Text style={[s.logSub, { color: colors.mutedForeground }]}>
             {tempMode === "manual"
               ? "Manual entry · log temps during check-in"
-              : hasAnyProbe && selectedProbeId != null
+              : hasAnyProbe && (selectedMeatProbeId != null || selectedPitProbeId != null)
               ? `Tracking ${activeProbeName ?? "selected probe"} · auto-updating every 15s`
               : hasAnyProbe
-              ? "Tap a probe below to track it for this cook"
+              ? "Tap a probe below to assign roles for this cook"
               : "No probe detected · scanning nearby devices"}
           </Text>
         </View>
@@ -366,7 +380,7 @@ export function LiveCookSection(p: Props) {
       )}
 
       {/* Connected Probe mode: show all available probe sources */}
-      {tempMode === "probe" && meaterLinked === true && meaterProbes.length > 0 && selectedProbeId != null && liveReadings.length < 2 && (
+      {tempMode === "probe" && selectedMeatProbeId != null && liveReadings.length < 2 && (
         <View style={[s.liveGraphWrap, { borderTopColor: colors.border }]}>
           <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground, textAlign: "left" }]}>
             📡 Collecting readings — chart will appear shortly
@@ -374,57 +388,84 @@ export function LiveCookSection(p: Props) {
         </View>
       )}
 
+      {/* Searching indicator — BLE probe assigned but not yet in range */}
+      {tempMode === "probe" && inkbirdScanning && (() => {
+        const meatMissing = selectedMeatProbeId?.startsWith("ble_") &&
+          !inkbirdProbes.find((p) => `ble_${p.deviceId}_${p.probeIndex}` === selectedMeatProbeId);
+        const pitMissing = selectedPitProbeId?.startsWith("ble_") &&
+          !inkbirdProbes.find((p) => `ble_${p.deviceId}_${p.probeIndex}` === selectedPitProbeId);
+        if (!meatMissing && !pitMissing) return null;
+        return (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 14, marginBottom: 10, padding: 10, borderRadius: 8, backgroundColor: "#3b82f612", borderWidth: 1, borderColor: "#3b82f630" }}>
+            <ActivityIndicator size="small" color="#3b82f6" />
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: "#3b82f6", flex: 1 }}>
+              Searching for probe… Bring it within range.
+            </Text>
+          </View>
+        );
+      })()}
+
+      {/* MEATER rows — ambient bundled, single "Use" tap assigns meat role */}
       {tempMode === "probe" && meaterLinked === true && meaterProbes.map((probe: any, i: number) => {
         const probeKey = probe.deviceId;
-        const isSelected = selectedProbeId === probeKey;
+        const isMeat = selectedMeatProbeId === probeKey;
+        const otherCook = otherCookAssignments[probeKey];
+        const isEditing = editingLabelKey === probeKey;
         return (
-          <Pressable
+          <View
             key={probe.deviceId + i}
-            onPress={() => onSelectProbe?.(isSelected ? null : probeKey)}
-            style={[
-              s.subSection,
-              {
-                borderTopColor: colors.border,
-                paddingHorizontal: 14,
-                paddingBottom: 12,
-                borderWidth: isSelected ? 1.5 : undefined,
-                borderColor: isSelected ? "#FF6B2B60" : undefined,
-                borderRadius: isSelected ? 10 : undefined,
-                marginHorizontal: isSelected ? 8 : undefined,
-                marginTop: isSelected ? 6 : undefined,
-                backgroundColor: isSelected ? "#FF6B2B08" : undefined,
-              },
-            ]}
+            style={[s.subSection, { borderTopColor: colors.border, paddingHorizontal: 14, paddingBottom: 12,
+              ...(isMeat ? { borderWidth: 1.5, borderColor: "#FF6B2B60", borderRadius: 10, marginHorizontal: 8, marginTop: 6, backgroundColor: "#FF6B2B08" } : {}),
+            }]}
           >
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
-                {probe.deviceName}{probe.cookName ? ` · ${probe.cookName}` : ""}
-              </Text>
-              {isSelected ? (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#FF6B2B20" }}>
-                  <Feather name="check" size={10} color="#FF6B2B" />
-                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#FF6B2B" }}>Tracking</Text>
+              <View style={{ flex: 1 }}>
+                {isEditing ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <TextInput value={labelDraft} onChangeText={setLabelDraft} placeholder={probe.deviceName} placeholderTextColor={colors.mutedForeground}
+                      style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 12, color: colors.foreground, borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 2 }}
+                      autoFocus returnKeyType="done"
+                      onSubmitEditing={() => { onSetProbeLabel?.(probeKey, labelDraft); setEditingLabelKey(null); }} />
+                    <Pressable hitSlop={8} onPress={() => { onSetProbeLabel?.(probeKey, labelDraft); setEditingLabelKey(null); }}><Feather name="check" size={14} color="#22c55e" /></Pressable>
+                    <Pressable hitSlop={8} onPress={() => setEditingLabelKey(null)}><Feather name="x" size={14} color={colors.mutedForeground} /></Pressable>
+                  </View>
+                ) : (
+                  <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
+                    {probeLabels[probeKey] ?? probe.deviceName}{probe.cookName ? ` · ${probe.cookName}` : ""}
+                  </Text>
+                )}
+              </View>
+              {!isEditing && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Pressable hitSlop={8} onPress={() => { setEditingLabelKey(probeKey); setLabelDraft(probeLabels[probeKey] ?? ""); }}>
+                    <Feather name="edit-2" size={12} color={colors.mutedForeground} />
+                  </Pressable>
+                  {otherCook ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: colors.mutedForeground + "15" }}>
+                      <Feather name="lock" size={9} color={colors.mutedForeground} />
+                      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>Used by {otherCook}</Text>
+                    </View>
+                  ) : (
+                    <Pressable onPress={() => onSelectMeatProbe?.(isMeat ? null : probeKey)} style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12" }}>
+                      {isMeat && <Feather name="check" size={10} color="#FF6B2B" />}
+                      <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>{isMeat ? "Tracking" : "Use"}</Text>
+                    </Pressable>
+                  )}
                 </View>
-              ) : (
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>Tap to use</Text>
               )}
             </View>
             <View style={s.meaterTempsRow}>
               <View style={s.meaterTempChip}>
                 <Feather name="thermometer" size={14} color="#FF6B2B" />
                 <View>
-                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
-                    {probe.internalTempF != null ? `${probe.internalTempF}°F` : "—"}
-                  </Text>
+                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{probe.internalTempF != null ? `${probe.internalTempF}°F` : "—"}</Text>
                   <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Internal</Text>
                 </View>
               </View>
               <View style={s.meaterTempChip}>
                 <Feather name="wind" size={14} color="#3b82f6" />
                 <View>
-                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
-                    {probe.ambientTempF != null ? `${probe.ambientTempF}°F` : "—"}
-                  </Text>
+                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{probe.ambientTempF != null ? `${probe.ambientTempF}°F` : "—"}</Text>
                   <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Ambient</Text>
                 </View>
               </View>
@@ -432,179 +473,222 @@ export function LiveCookSection(p: Props) {
                 <View style={s.meaterTempChip}>
                   <Feather name="target" size={14} color="#22c55e" />
                   <View>
-                    <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
-                      {probe.targetMinTempF}–{probe.targetMaxTempF}°F
-                    </Text>
+                    <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{probe.targetMinTempF}–{probe.targetMaxTempF}°F</Text>
                     <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Target</Text>
                   </View>
                 </View>
               )}
             </View>
-          </Pressable>
+          </View>
         );
       })}
 
+      {/* ThermoWorks rows — each channel can be assigned Meat or Pit */}
       {tempMode === "probe" && thermoworksLinked === true && thermoworksProbes.map((probe: any, i: number) => {
         const probeKey = `tw_${probe.deviceId}_${probe.channelNumber}`;
-        const isSelected = selectedProbeId === probeKey;
+        const isMeat = selectedMeatProbeId === probeKey;
+        const isPit = selectedPitProbeId === probeKey;
+        const otherCook = otherCookAssignments[probeKey];
+        const isEditing = editingLabelKey === probeKey;
         return (
-          <Pressable
+          <View
             key={`tw-${probe.deviceId}-${probe.channelNumber}-${i}`}
-            onPress={() => onSelectProbe?.(isSelected ? null : probeKey)}
-            style={[
-              s.subSection,
-              {
-                borderTopColor: colors.border,
-                paddingHorizontal: 14,
-                paddingBottom: 12,
-                borderWidth: isSelected ? 1.5 : undefined,
-                borderColor: isSelected ? "#FF6B2B60" : undefined,
-                borderRadius: isSelected ? 10 : undefined,
-                marginHorizontal: isSelected ? 8 : undefined,
-                marginTop: isSelected ? 6 : undefined,
-                backgroundColor: isSelected ? "#FF6B2B08" : undefined,
-              },
-            ]}
+            style={[s.subSection, { borderTopColor: colors.border, paddingHorizontal: 14, paddingBottom: 12,
+              ...(isMeat ? { borderWidth: 1.5, borderColor: "#FF6B2B60", borderRadius: 10, marginHorizontal: 8, marginTop: 6, backgroundColor: "#FF6B2B08" } :
+                  isPit  ? { borderWidth: 1.5, borderColor: "#3b82f660", borderRadius: 10, marginHorizontal: 8, marginTop: 6, backgroundColor: "#3b82f608" } : {}),
+            }]}
           >
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
-                {probe.deviceName}
-                {probe.channelLabel ? ` · ${probe.channelLabel}` : ` · Ch ${probe.channelNumber}`}
-                {"  ·  ThermoWorks"}
-              </Text>
-              {isSelected ? (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#FF6B2B20" }}>
-                  <Feather name="check" size={10} color="#FF6B2B" />
-                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#FF6B2B" }}>Tracking</Text>
-                </View>
-              ) : (
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>Tap to use</Text>
+              <View style={{ flex: 1 }}>
+                {isEditing ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <TextInput value={labelDraft} onChangeText={setLabelDraft} placeholder={probe.channelLabel ?? `Ch ${probe.channelNumber}`} placeholderTextColor={colors.mutedForeground}
+                      style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 12, color: colors.foreground, borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 2 }}
+                      autoFocus returnKeyType="done"
+                      onSubmitEditing={() => { onSetProbeLabel?.(probeKey, labelDraft); setEditingLabelKey(null); }} />
+                    <Pressable hitSlop={8} onPress={() => { onSetProbeLabel?.(probeKey, labelDraft); setEditingLabelKey(null); }}><Feather name="check" size={14} color="#22c55e" /></Pressable>
+                    <Pressable hitSlop={8} onPress={() => setEditingLabelKey(null)}><Feather name="x" size={14} color={colors.mutedForeground} /></Pressable>
+                  </View>
+                ) : (
+                  <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
+                    {probeLabels[probeKey] ?? (probe.channelLabel ? `${probe.deviceName} · ${probe.channelLabel}` : `${probe.deviceName} · Ch ${probe.channelNumber}`)}
+                    {!probeLabels[probeKey] ? "  ·  ThermoWorks" : ""}
+                  </Text>
+                )}
+              </View>
+              {!isEditing && (
+                <Pressable hitSlop={8} onPress={() => { setEditingLabelKey(probeKey); setLabelDraft(probeLabels[probeKey] ?? ""); }}>
+                  <Feather name="edit-2" size={12} color={colors.mutedForeground} />
+                </Pressable>
               )}
             </View>
-            <View style={s.meaterTempsRow}>
+            <View style={[s.meaterTempsRow, { marginBottom: 8 }]}>
               <View style={s.meaterTempChip}>
                 <Feather name="thermometer" size={14} color="#B22222" />
                 <View>
-                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
-                    {probe.tempF != null ? `${probe.tempF}°F` : "—"}
-                  </Text>
+                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{probe.tempF != null ? `${probe.tempF}°F` : "—"}</Text>
                   <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Temperature</Text>
                 </View>
               </View>
             </View>
-          </Pressable>
+            {otherCook ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: colors.mutedForeground + "12", alignSelf: "flex-start" }}>
+                <Feather name="lock" size={10} color={colors.mutedForeground} />
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>Used by {otherCook}</Text>
+              </View>
+            ) : (
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <Pressable onPress={() => onSelectMeatProbe?.(isMeat ? null : probeKey)}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isMeat ? "#FF6B2B60" : "transparent" }}>
+                  <Feather name="thermometer" size={11} color={isMeat ? "#FF6B2B" : colors.mutedForeground} />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>Meat</Text>
+                  {isMeat && <Feather name="check" size={10} color="#FF6B2B" />}
+                </Pressable>
+                <Pressable onPress={() => onSelectPitProbe?.(isPit ? null : probeKey)}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: isPit ? "#3b82f620" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isPit ? "#3b82f660" : "transparent" }}>
+                  <Feather name="wind" size={11} color={isPit ? "#3b82f6" : colors.mutedForeground} />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isPit ? "#3b82f6" : colors.mutedForeground }}>Pit</Text>
+                  {isPit && <Feather name="check" size={10} color="#3b82f6" />}
+                </Pressable>
+              </View>
+            )}
+          </View>
         );
       })}
 
-      {/* Inkbird BLE probe rows */}
+      {/* Inkbird BLE rows — each channel can be assigned Meat or Pit */}
       {tempMode === "probe" && inkbirdProbes.map((probe, i) => {
         const probeKey = `ble_${probe.deviceId}_${probe.probeIndex}`;
-        const isSelected = selectedProbeId === probeKey;
+        const isMeat = selectedMeatProbeId === probeKey;
+        const isPit = selectedPitProbeId === probeKey;
+        const otherCook = otherCookAssignments[probeKey];
+        const isEditing = editingLabelKey === probeKey;
         return (
-          <Pressable
+          <View
             key={`ble-${probe.deviceId}-${probe.probeIndex}-${i}`}
-            onPress={() => onSelectProbe?.(isSelected ? null : probeKey)}
-            style={[
-              s.subSection,
-              {
-                borderTopColor: colors.border,
-                paddingHorizontal: 14,
-                paddingBottom: 12,
-                borderWidth: isSelected ? 1.5 : undefined,
-                borderColor: isSelected ? "#FF6B2B60" : undefined,
-                borderRadius: isSelected ? 10 : undefined,
-                marginHorizontal: isSelected ? 8 : undefined,
-                marginTop: isSelected ? 6 : undefined,
-                backgroundColor: isSelected ? "#FF6B2B08" : undefined,
-              },
-            ]}
+            style={[s.subSection, { borderTopColor: colors.border, paddingHorizontal: 14, paddingBottom: 12,
+              ...(isMeat ? { borderWidth: 1.5, borderColor: "#FF6B2B60", borderRadius: 10, marginHorizontal: 8, marginTop: 6, backgroundColor: "#FF6B2B08" } :
+                  isPit  ? { borderWidth: 1.5, borderColor: "#3b82f660", borderRadius: 10, marginHorizontal: 8, marginTop: 6, backgroundColor: "#3b82f608" } : {}),
+            }]}
           >
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, flex: 1 }}>
                 <Feather name="bluetooth" size={11} color="#3B82F6" />
-                <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
-                  {probe.deviceName}{`  ·  Ch ${probe.probeIndex + 1}  ·  Inkbird`}
-                  {probe.tempF == null ? "  ·  Searching…" : ""}
-                </Text>
+                {isEditing ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                    <TextInput value={labelDraft} onChangeText={setLabelDraft} placeholder={`${probe.deviceName} Ch ${probe.probeIndex + 1}`} placeholderTextColor={colors.mutedForeground}
+                      style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 12, color: colors.foreground, borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 2 }}
+                      autoFocus returnKeyType="done"
+                      onSubmitEditing={() => { onSetProbeLabel?.(probeKey, labelDraft); setEditingLabelKey(null); }} />
+                    <Pressable hitSlop={8} onPress={() => { onSetProbeLabel?.(probeKey, labelDraft); setEditingLabelKey(null); }}><Feather name="check" size={14} color="#22c55e" /></Pressable>
+                    <Pressable hitSlop={8} onPress={() => setEditingLabelKey(null)}><Feather name="x" size={14} color={colors.mutedForeground} /></Pressable>
+                  </View>
+                ) : (
+                  <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0, flex: 1 }]} numberOfLines={1}>
+                    {probeLabels[probeKey] ?? `${probe.deviceName}  ·  Ch ${probe.probeIndex + 1}  ·  Inkbird`}
+                  </Text>
+                )}
               </View>
-              {isSelected ? (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#FF6B2B20" }}>
-                  <Feather name="check" size={10} color="#FF6B2B" />
-                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#FF6B2B" }}>Tracking</Text>
-                </View>
-              ) : (
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>Tap to use</Text>
+              {!isEditing && (
+                <Pressable hitSlop={8} onPress={() => { setEditingLabelKey(probeKey); setLabelDraft(probeLabels[probeKey] ?? ""); }} style={{ paddingLeft: 8 }}>
+                  <Feather name="edit-2" size={12} color={colors.mutedForeground} />
+                </Pressable>
               )}
             </View>
-            <View style={s.meaterTempsRow}>
+            <View style={[s.meaterTempsRow, { marginBottom: 8 }]}>
               <View style={s.meaterTempChip}>
                 <Feather name="thermometer" size={14} color="#3B82F6" />
                 <View>
-                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
-                    {probe.tempF != null ? `${Math.round(probe.tempF)}°F` : "—"}
-                  </Text>
-                  <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Internal</Text>
+                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{probe.tempF != null ? `${Math.round(probe.tempF)}°F` : "—"}</Text>
+                  <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Temperature</Text>
                 </View>
               </View>
             </View>
-          </Pressable>
+            {otherCook ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: colors.mutedForeground + "12", alignSelf: "flex-start" }}>
+                <Feather name="lock" size={10} color={colors.mutedForeground} />
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>Used by {otherCook}</Text>
+              </View>
+            ) : (
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <Pressable onPress={() => onSelectMeatProbe?.(isMeat ? null : probeKey)}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isMeat ? "#FF6B2B60" : "transparent" }}>
+                  <Feather name="thermometer" size={11} color={isMeat ? "#FF6B2B" : colors.mutedForeground} />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>Meat</Text>
+                  {isMeat && <Feather name="check" size={10} color="#FF6B2B" />}
+                </Pressable>
+                <Pressable onPress={() => onSelectPitProbe?.(isPit ? null : probeKey)}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: isPit ? "#3b82f620" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isPit ? "#3b82f660" : "transparent" }}>
+                  <Feather name="wind" size={11} color={isPit ? "#3b82f6" : colors.mutedForeground} />
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isPit ? "#3b82f6" : colors.mutedForeground }}>Pit</Text>
+                  {isPit && <Feather name="check" size={10} color="#3b82f6" />}
+                </Pressable>
+              </View>
+            )}
+          </View>
         );
       })}
 
-      {/* BLE context device rows (MEATER via BLE, Govee, Weber iGrill) */}
+      {/* BLE context device rows — ambient bundled with internal, single Use tap */}
       {tempMode === "probe" && bleContextDevices.map((device, i) => {
         const probeKey = `bleCtx_${device.id}`;
-        const isSelected = selectedProbeId === probeKey;
+        const isMeat = selectedMeatProbeId === probeKey;
+        const otherCook = otherCookAssignments[probeKey];
+        const isEditing = editingLabelKey === probeKey;
         const hasAmbient = device.ambientTempF != null;
         return (
-          <Pressable
+          <View
             key={`bleCtx-${device.id}-${i}`}
-            onPress={() => onSelectProbe?.(isSelected ? null : probeKey)}
-            style={[
-              s.subSection,
-              {
-                borderTopColor: colors.border,
-                paddingHorizontal: 14,
-                paddingBottom: 12,
-                borderWidth: isSelected ? 1.5 : undefined,
-                borderColor: isSelected ? "#FF6B2B60" : undefined,
-                borderRadius: isSelected ? 10 : undefined,
-                marginHorizontal: isSelected ? 8 : undefined,
-                marginTop: isSelected ? 6 : undefined,
-                backgroundColor: isSelected ? "#FF6B2B08" : undefined,
-              },
-            ]}
+            style={[s.subSection, { borderTopColor: colors.border, paddingHorizontal: 14, paddingBottom: 12,
+              ...(isMeat ? { borderWidth: 1.5, borderColor: "#FF6B2B60", borderRadius: 10, marginHorizontal: 8, marginTop: 6, backgroundColor: "#FF6B2B08" } : {}),
+            }]}
           >
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 5, flex: 1, flexWrap: "wrap" }}>
                 <Feather name="bluetooth" size={11} color="#3B82F6" />
-                <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
-                  {device.name}
-                </Text>
-                {device.batteryPct != null && (
+                {isEditing ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                    <TextInput value={labelDraft} onChangeText={setLabelDraft} placeholder={device.name} placeholderTextColor={colors.mutedForeground}
+                      style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 12, color: colors.foreground, borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 2 }}
+                      autoFocus returnKeyType="done"
+                      onSubmitEditing={() => { onSetProbeLabel?.(probeKey, labelDraft); setEditingLabelKey(null); }} />
+                    <Pressable hitSlop={8} onPress={() => { onSetProbeLabel?.(probeKey, labelDraft); setEditingLabelKey(null); }}><Feather name="check" size={14} color="#22c55e" /></Pressable>
+                    <Pressable hitSlop={8} onPress={() => setEditingLabelKey(null)}><Feather name="x" size={14} color={colors.mutedForeground} /></Pressable>
+                  </View>
+                ) : (
+                  <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>{probeLabels[probeKey] ?? device.name}</Text>
+                )}
+                {device.batteryPct != null && !isEditing && (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 99, backgroundColor: device.batteryPct > 50 ? "#22c55e20" : device.batteryPct > 20 ? "#EAB30820" : "#ef444420" }}>
                     <Feather name="battery" size={9} color={device.batteryPct > 50 ? "#22c55e" : device.batteryPct > 20 ? "#EAB308" : "#ef4444"} />
                     <Text style={{ fontSize: 9, fontFamily: "Inter_600SemiBold", color: device.batteryPct > 50 ? "#22c55e" : device.batteryPct > 20 ? "#EAB308" : "#ef4444" }}>{device.batteryPct}%</Text>
                   </View>
                 )}
               </View>
-              {isSelected ? (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#FF6B2B20" }}>
-                  <Feather name="check" size={10} color="#FF6B2B" />
-                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#FF6B2B" }}>Tracking</Text>
+              {!isEditing && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Pressable hitSlop={8} onPress={() => { setEditingLabelKey(probeKey); setLabelDraft(probeLabels[probeKey] ?? ""); }}>
+                    <Feather name="edit-2" size={12} color={colors.mutedForeground} />
+                  </Pressable>
+                  {otherCook ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: colors.mutedForeground + "15" }}>
+                      <Feather name="lock" size={9} color={colors.mutedForeground} />
+                      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>Used by {otherCook}</Text>
+                    </View>
+                  ) : (
+                    <Pressable onPress={() => onSelectMeatProbe?.(isMeat ? null : probeKey)} style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12" }}>
+                      {isMeat && <Feather name="check" size={10} color="#FF6B2B" />}
+                      <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>{isMeat ? "Tracking" : "Use"}</Text>
+                    </Pressable>
+                  )}
                 </View>
-              ) : (
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>Tap to use</Text>
               )}
             </View>
-            {/* Dual-temp row: internal + ambient side by side */}
             <View style={s.meaterTempsRow}>
               <View style={s.meaterTempChip}>
                 <Feather name="thermometer" size={14} color="#FF6B2B" />
                 <View>
-                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
-                    {device.probeTempF != null ? `${device.probeTempF}°F` : "—"}
-                  </Text>
+                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{device.probeTempF != null ? `${device.probeTempF}°F` : "—"}</Text>
                   <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Internal</Text>
                 </View>
               </View>
@@ -612,15 +696,13 @@ export function LiveCookSection(p: Props) {
                 <View style={s.meaterTempChip}>
                   <Feather name="wind" size={14} color="#3b82f6" />
                   <View>
-                    <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
-                      {device.ambientTempF}°F
-                    </Text>
+                    <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{device.ambientTempF}°F</Text>
                     <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Ambient / Pit</Text>
                   </View>
                 </View>
               )}
             </View>
-          </Pressable>
+          </View>
         );
       })}
 
@@ -628,57 +710,66 @@ export function LiveCookSection(p: Props) {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 14, marginBottom: 12, padding: 10, borderRadius: 8, backgroundColor: "#FF6B2B08", borderWidth: 1, borderColor: "#FF6B2B25" }}>
           <Feather name="info" size={13} color="#FF6B2B" />
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, flex: 1 }}>
-            Tap a probe above to assign it to this cook. Each cook tracks one probe independently.
+            Assign a probe role above — tap Meat for internal temp, Pit for grill temp.
           </Text>
         </View>
       )}
 
-      {/* LAN probe rows (Fireboard, MEATER Block, ThermoWorks Signals) */}
+      {/* LAN probe rows (Fireboard, MEATER Block, ThermoWorks Signals) — ambient bundled */}
       {tempMode === "probe" && lanProbes.map((probe, i) => {
         const probeKey = `lan_${probe.deviceId}`;
-        const isSelected = selectedProbeId === probeKey;
+        const isMeat = selectedMeatProbeId === probeKey;
+        const otherCook = otherCookAssignments[probeKey];
+        const isEditing = editingLabelKey === probeKey;
         return (
-          <Pressable
+          <View
             key={`lan-${probe.deviceId}-${i}`}
-            onPress={() => onSelectProbe?.(isSelected ? null : probeKey)}
-            style={[
-              s.subSection,
-              {
-                borderTopColor: colors.border,
-                paddingHorizontal: 14,
-                paddingBottom: 12,
-                borderWidth: isSelected ? 1.5 : undefined,
-                borderColor: isSelected ? "#FF6B2B60" : undefined,
-                borderRadius: isSelected ? 10 : undefined,
-                marginHorizontal: isSelected ? 8 : undefined,
-                marginTop: isSelected ? 6 : undefined,
-                backgroundColor: isSelected ? "#FF6B2B08" : undefined,
-              },
-            ]}
+            style={[s.subSection, { borderTopColor: colors.border, paddingHorizontal: 14, paddingBottom: 12,
+              ...(isMeat ? { borderWidth: 1.5, borderColor: "#FF6B2B60", borderRadius: 10, marginHorizontal: 8, marginTop: 6, backgroundColor: "#FF6B2B08" } : {}),
+            }]}
           >
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, flex: 1 }}>
                 <Feather name="wifi" size={11} color="#0EA5E9" />
-                <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
-                  {probe.deviceName} · {probe.channelLabel}
-                </Text>
+                {isEditing ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                    <TextInput value={labelDraft} onChangeText={setLabelDraft} placeholder={probe.channelLabel ?? probe.deviceName} placeholderTextColor={colors.mutedForeground}
+                      style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 12, color: colors.foreground, borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 2 }}
+                      autoFocus returnKeyType="done"
+                      onSubmitEditing={() => { onSetProbeLabel?.(probeKey, labelDraft); setEditingLabelKey(null); }} />
+                    <Pressable hitSlop={8} onPress={() => { onSetProbeLabel?.(probeKey, labelDraft); setEditingLabelKey(null); }}><Feather name="check" size={14} color="#22c55e" /></Pressable>
+                    <Pressable hitSlop={8} onPress={() => setEditingLabelKey(null)}><Feather name="x" size={14} color={colors.mutedForeground} /></Pressable>
+                  </View>
+                ) : (
+                  <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
+                    {probeLabels[probeKey] ?? `${probe.deviceName} · ${probe.channelLabel}`}
+                  </Text>
+                )}
               </View>
-              {isSelected ? (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#FF6B2B20" }}>
-                  <Feather name="check" size={10} color="#FF6B2B" />
-                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#FF6B2B" }}>Tracking</Text>
+              {!isEditing && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Pressable hitSlop={8} onPress={() => { setEditingLabelKey(probeKey); setLabelDraft(probeLabels[probeKey] ?? ""); }}>
+                    <Feather name="edit-2" size={12} color={colors.mutedForeground} />
+                  </Pressable>
+                  {otherCook ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: colors.mutedForeground + "15" }}>
+                      <Feather name="lock" size={9} color={colors.mutedForeground} />
+                      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>Used by {otherCook}</Text>
+                    </View>
+                  ) : (
+                    <Pressable onPress={() => onSelectMeatProbe?.(isMeat ? null : probeKey)} style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12" }}>
+                      {isMeat && <Feather name="check" size={10} color="#FF6B2B" />}
+                      <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>{isMeat ? "Tracking" : "Use"}</Text>
+                    </Pressable>
+                  )}
                 </View>
-              ) : (
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>Tap to use</Text>
               )}
             </View>
             <View style={s.meaterTempsRow}>
               <View style={s.meaterTempChip}>
                 <Feather name="thermometer" size={14} color="#0EA5E9" />
                 <View>
-                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
-                    {probe.probeTempF}°F
-                  </Text>
+                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{probe.probeTempF}°F</Text>
                   <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Internal</Text>
                 </View>
               </View>
@@ -686,15 +777,13 @@ export function LiveCookSection(p: Props) {
                 <View style={s.meaterTempChip}>
                   <Feather name="wind" size={14} color="#3b82f6" />
                   <View>
-                    <Text style={[s.meaterTempValue, { color: colors.foreground }]}>
-                      {probe.ambientTempF}°F
-                    </Text>
+                    <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{probe.ambientTempF}°F</Text>
                     <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Ambient / Pit</Text>
                   </View>
                 </View>
               )}
             </View>
-          </Pressable>
+          </View>
         );
       })}
 

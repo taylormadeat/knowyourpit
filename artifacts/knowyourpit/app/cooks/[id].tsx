@@ -262,9 +262,18 @@ export default function CookDetailScreen() {
     }, [])
   );
 
-  // Per-cook probe selection — no probe is selected by default.
-  // Persisted in AsyncStorage so the selection survives navigation.
-  const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
+  // Per-cook probe selections: meat (internal temp) + pit (ambient/grill temp).
+  // Both persisted in AsyncStorage; legacy key probe_selection_${id} is migrated
+  // to probe_meat_${id} on first load for backward compatibility.
+  const [selectedMeatProbeId, setSelectedMeatProbeId] = useState<string | null>(null);
+  const [selectedPitProbeId, setSelectedPitProbeId] = useState<string | null>(null);
+
+  // Custom labels keyed by probeKey, persisted as JSON in AsyncStorage.
+  const [probeLabels, setProbeLabelsState] = useState<Record<string, string>>({});
+
+  // Map of probeKey → foodType for OTHER active cooks so the probe selector
+  // can show "Used by Brisket" when a channel is claimed by a sibling cook.
+  const [otherCookAssignments, setOtherCookAssignments] = useState<Record<string, string>>({});
 
   // "probe" = live BLE/cloud probe drives check-in auto-fill.
   // "manual" = user types temps during check-in.
@@ -283,7 +292,9 @@ export default function CookDetailScreen() {
 
   useEffect(() => {
     // Reset accumulated state whenever the cook id changes.
-    setSelectedProbeId(null);
+    setSelectedMeatProbeId(null);
+    setSelectedPitProbeId(null);
+    setProbeLabelsState({});
     setLiveReadings([]);
     setLivePitReadings([]);
   }, [id]);
@@ -294,43 +305,119 @@ export default function CookDetailScreen() {
     const currentStatus = (cook as any)?.status;
     if (Platform.OS === "web" || !id || currentStatus !== "active") return;
     const sessionMode = sessionTempModes.get(String(id));
-    AsyncStorage.getItem(`probe_selection_${id}`)
-      .then((val) => {
-        setSelectedProbeId(val ?? null);
+
+    (async () => {
+      try {
+        // Migrate legacy single-probe key → meat key on first load.
+        const legacy = await AsyncStorage.getItem(`probe_selection_${id}`);
+        if (legacy) {
+          await AsyncStorage.setItem(`probe_meat_${id}`, legacy);
+          await AsyncStorage.removeItem(`probe_selection_${id}`).catch(() => {});
+        }
+        const [meatVal, pitVal, labelsRaw] = await Promise.all([
+          AsyncStorage.getItem(`probe_meat_${id}`),
+          AsyncStorage.getItem(`probe_pit_${id}`),
+          AsyncStorage.getItem(`probe_labels_${id}`),
+        ]);
+        setSelectedMeatProbeId(meatVal ?? null);
+        setSelectedPitProbeId(pitVal ?? null);
+        if (labelsRaw) {
+          try { setProbeLabelsState(JSON.parse(labelsRaw)); } catch { /* ignore */ }
+        }
         // Only auto-switch to probe mode when the user has NOT explicitly chosen
         // a mode this session — respects a deliberate "Manual Entry" switch.
-        if (val != null && sessionMode == null) {
+        if (meatVal != null && sessionMode == null) {
           setTempModeState("probe");
           sessionTempModes.set(String(id), "probe");
         } else if (sessionMode != null) {
           setTempModeState(sessionMode);
         }
-      })
-      .catch(() => setSelectedProbeId(null));
+      } catch {
+        setSelectedMeatProbeId(null);
+      }
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, (cook as any)?.status]);
 
-  // Reset accumulated probe readings whenever the selection changes so stale
-  // data from a previous probe never leaks into the graph or AI payload.
-  // Also reset the seeded flag so historical data is re-fetched and re-seeded
-  // for the newly selected probe (covers the async AsyncStorage rehydration on
-  // app reopen — probe transitions null→savedId after mount).
+  // Count of globally-active cooks — used to gate auto-probe-assignment so
+  // we never silently assign a probe when multiple cooks are running in parallel
+  // (the user must pick explicitly in that multi-cook situation).
+  const { data: allCooksForCount } = useListCooks(undefined, {
+    query: {
+      queryKey: [...getListCooksQueryKey(), "active_count"],
+      enabled: (cook as any)?.status === "active",
+      staleTime: 30_000,
+    },
+  });
+
+  // Build a map of probeKey → foodType for other active cooks so the probe
+  // selector can mark channels that are already claimed elsewhere.
+  useEffect(() => {
+    if (Platform.OS === "web" || !id || !allCooksForCount) return;
+    const others = (allCooksForCount as any[]).filter(
+      (c: any) => c?.status === "active" && String(c.id) !== String(id),
+    );
+    if (others.length === 0) { setOtherCookAssignments({}); return; }
+    Promise.all(
+      others.map(async (c: any) => ({
+        meatKey: await AsyncStorage.getItem(`probe_meat_${c.id}`).catch(() => null),
+        pitKey: await AsyncStorage.getItem(`probe_pit_${c.id}`).catch(() => null),
+        foodType: (c.foodType ?? "Another cook") as string,
+      }))
+    ).then((results) => {
+      const map: Record<string, string> = {};
+      for (const { meatKey, pitKey, foodType } of results) {
+        if (meatKey) map[meatKey] = foodType;
+        if (pitKey) map[pitKey] = foodType;
+      }
+      setOtherCookAssignments(map);
+    }).catch(() => {});
+  }, [id, allCooksForCount]);
+
+  // Reset accumulated probe readings whenever the meat probe selection changes so
+  // stale data from a previous probe never leaks into the graph or AI payload.
+  // Also reset the seeded flag so historical data is re-fetched for the new probe.
   useEffect(() => {
     setLiveReadings([]);
     setLivePitReadings([]);
     liveReadingsSeededRef.current = false;
-  }, [selectedProbeId]);
+  }, [selectedMeatProbeId]);
 
-  const handleSelectProbe = useCallback((probeId: string | null) => {
-    setSelectedProbeId(probeId);
+  const handleSelectMeatProbe = useCallback((probeId: string | null) => {
+    setSelectedMeatProbeId(probeId);
     if (probeId != null) setTempMode("probe");
     if (Platform.OS === "web" || !id) return;
     if (probeId == null) {
-      AsyncStorage.removeItem(`probe_selection_${id}`).catch(() => {});
+      AsyncStorage.removeItem(`probe_meat_${id}`).catch(() => {});
     } else {
-      AsyncStorage.setItem(`probe_selection_${id}`, probeId).catch(() => {});
+      AsyncStorage.setItem(`probe_meat_${id}`, probeId).catch(() => {});
     }
   }, [id, setTempMode]);
+
+  const handleSelectPitProbe = useCallback((probeId: string | null) => {
+    setSelectedPitProbeId(probeId);
+    if (Platform.OS === "web" || !id) return;
+    if (probeId == null) {
+      AsyncStorage.removeItem(`probe_pit_${id}`).catch(() => {});
+    } else {
+      AsyncStorage.setItem(`probe_pit_${id}`, probeId).catch(() => {});
+    }
+  }, [id]);
+
+  const handleSetProbeLabel = useCallback((probeKey: string, label: string) => {
+    setProbeLabelsState((prev) => {
+      const next = { ...prev };
+      if (label.trim()) {
+        next[probeKey] = label.trim();
+      } else {
+        delete next[probeKey];
+      }
+      if (Platform.OS !== "web" && id) {
+        AsyncStorage.setItem(`probe_labels_${id}`, JSON.stringify(next)).catch(() => {});
+      }
+      return next;
+    });
+  }, [id]);
 
   // Ratings state
   const [rateTenderness, setRateTenderness] = useState<number>(0);
@@ -344,16 +431,6 @@ export default function CookDetailScreen() {
 
   const cookStatus = (cook as any)?.status;
 
-  // Count of globally-active cooks — used to gate auto-probe-assignment so
-  // we never silently assign a probe when multiple cooks are running in parallel
-  // (the user must pick explicitly in that multi-cook situation).
-  const { data: allCooksForCount } = useListCooks(undefined, {
-    query: {
-      queryKey: [...getListCooksQueryKey(), "active_count"],
-      enabled: cookStatus === "active",
-      staleTime: 30_000,
-    },
-  });
   const activeCookCount = (allCooksForCount ?? []).filter(
     (c: any) => c?.status === "active",
   ).length;
@@ -919,28 +996,44 @@ export default function CookDetailScreen() {
   const thermoworksLinked = thermoworksLoading ? null : (thermoworksData?.linked ?? false);
   const thermoworksProbes = thermoworksData?.probes ?? [];
 
-  // Only the probe the user explicitly assigned to this cook. Both are null
-  // until the user taps a probe row in LiveCookSection.
+  // Probe assignments for this cook — meat (internal) and pit (ambient) roles.
+  // Null until the user assigns a probe row in LiveCookSection.
   const selectedMeaterProbe =
-    selectedProbeId != null
-      ? (meaterProbes.find((p) => p.deviceId === selectedProbeId) ?? null)
+    selectedMeatProbeId != null
+      ? (meaterProbes.find((p) => p.deviceId === selectedMeatProbeId) ?? null)
       : null;
-  const selectedThermoworksProbe =
-    selectedProbeId != null
+  const selectedThermoworksMeatProbe =
+    selectedMeatProbeId != null
       ? (thermoworksProbes.find(
-          (p: any) => `tw_${p.deviceId}_${p.channelNumber}` === selectedProbeId,
+          (p: any) => `tw_${p.deviceId}_${p.channelNumber}` === selectedMeatProbeId,
         ) ?? null)
       : null;
+  const selectedThermoworksPitProbe =
+    selectedPitProbeId != null
+      ? (thermoworksProbes.find(
+          (p: any) => `tw_${p.deviceId}_${p.channelNumber}` === selectedPitProbeId,
+        ) ?? null)
+      : null;
+  // Alias used by existing code below that references selectedThermoworksProbe.
+  const selectedThermoworksProbe = selectedThermoworksMeatProbe;
 
-  // Inkbird BLE scanning — only when the cook is active and probe mode is on
-  const { probes: inkbirdProbes } = useInkbirdBLE({
+  // Inkbird BLE scanning — only when the cook is active and probe mode is on.
+  // scanning is exposed so LiveCookSection can show a "Searching…" indicator.
+  const { probes: inkbirdProbes, scanning: inkbirdScanning } = useInkbirdBLE({
     enabled: cookStatus === "active" && tempMode === "probe",
   });
 
   const selectedInkbirdProbe =
-    selectedProbeId != null && selectedProbeId.startsWith("ble_")
+    selectedMeatProbeId?.startsWith("ble_")
       ? (inkbirdProbes.find(
-          (p) => `ble_${p.deviceId}_${p.probeIndex}` === selectedProbeId,
+          (p) => `ble_${p.deviceId}_${p.probeIndex}` === selectedMeatProbeId,
+        ) ?? null)
+      : null;
+
+  const selectedInkbirdPitProbe =
+    selectedPitProbeId?.startsWith("ble_")
+      ? (inkbirdProbes.find(
+          (p) => `ble_${p.deviceId}_${p.probeIndex}` === selectedPitProbeId,
         ) ?? null)
       : null;
 
@@ -970,13 +1063,13 @@ export default function CookDetailScreen() {
   });
 
   const selectedLanProbe: LanProbeReading | null =
-    selectedProbeId != null && selectedProbeId.startsWith("lan_")
-      ? (lanProbes.find((p) => `lan_${p.deviceId}` === selectedProbeId) ?? null)
+    selectedMeatProbeId?.startsWith("lan_")
+      ? (lanProbes.find((p) => `lan_${p.deviceId}` === selectedMeatProbeId) ?? null)
       : null;
 
   const selectedBleContextDevice =
-    selectedProbeId != null && selectedProbeId.startsWith("bleCtx_")
-      ? (bleContextDevices.find((d) => `bleCtx_${d.id}` === selectedProbeId) ?? null)
+    selectedMeatProbeId?.startsWith("bleCtx_")
+      ? (bleContextDevices.find((d) => `bleCtx_${d.id}` === selectedMeatProbeId) ?? null)
       : null;
 
   // Auto-assign: when exactly one probe is available AND this is the only
@@ -986,7 +1079,7 @@ export default function CookDetailScreen() {
   useEffect(() => {
     // Don't auto-assign in multi-cook scenarios — user must pick explicitly.
     if (activeCookCount > 1) return;
-    if (tempMode !== "probe" || selectedProbeId != null || autoAssignFiredRef.current) return;
+    if (tempMode !== "probe" || selectedMeatProbeId != null || autoAssignFiredRef.current) return;
     const allAvailable: string[] = [
       ...inkbirdProbes.map((p) => `ble_${p.deviceId}_${p.probeIndex}`),
       ...bleContextDevices.map((d) => `bleCtx_${d.id}`),
@@ -995,7 +1088,7 @@ export default function CookDetailScreen() {
     if (allAvailable.length === 1) {
       autoAssignFiredRef.current = true;
       const probeKey = allAvailable[0]!;
-      handleSelectProbe(probeKey);
+      handleSelectMeatProbe(probeKey);
       const label = bleContextDevices.find((d) => `bleCtx_${d.id}` === probeKey)?.name
         ?? inkbirdProbes.find((p) => `ble_${p.deviceId}_${p.probeIndex}` === probeKey)?.deviceName
         ?? lanProbes.find((p) => `lan_${p.deviceId}` === probeKey)?.deviceName
@@ -1005,8 +1098,8 @@ export default function CookDetailScreen() {
       return () => clearTimeout(t);
     }
   }, [
-    activeCookCount, tempMode, selectedProbeId,
-    inkbirdProbes, bleContextDevices, lanProbes, handleSelectProbe,
+    activeCookCount, tempMode, selectedMeatProbeId,
+    inkbirdProbes, bleContextDevices, lanProbes, handleSelectMeatProbe,
   ]);
 
   const [nowMs, setNowMs] = useState(Date.now());
@@ -1113,7 +1206,7 @@ export default function CookDetailScreen() {
       if (pitEntries.length > 0) setLivePitReadings(pitEntries);
       liveReadingsSeededRef.current = true;
     }
-  }, [historicalReadings, cook?.actualStartAt, selectedProbeId]);
+  }, [historicalReadings, cook?.actualStartAt, selectedMeatProbeId]);
 
   // Initialize ratings from saved cook data; also re-syncs when server refetches after a save
   const cookRatingT = (cook as any)?.ratingTenderness ?? 0;
@@ -1292,7 +1385,9 @@ export default function CookDetailScreen() {
     if (selectedThermoworksProbe != null && (selectedThermoworksProbe as any).tempF != null) {
       return {
         internalTempF: (selectedThermoworksProbe as any).tempF,
-        pitTempF: null,
+        pitTempF: selectedThermoworksPitProbe != null
+          ? ((selectedThermoworksPitProbe as any).tempF ?? null)
+          : null,
         probeSource: "thermoworks",
         fetchedAtMs: thermoworksDataUpdatedAt,
       };
@@ -1300,7 +1395,7 @@ export default function CookDetailScreen() {
     if (selectedInkbirdProbe?.tempF != null) {
       return {
         internalTempF: selectedInkbirdProbe.tempF,
-        pitTempF: null,
+        pitTempF: selectedInkbirdPitProbe?.tempF ?? null,
         probeSource: "inkbird",
         fetchedAtMs: selectedInkbirdProbe.lastSeenMs,
       };
@@ -1324,7 +1419,8 @@ export default function CookDetailScreen() {
     return null;
   }, [
     tempMode,
-    selectedMeaterProbe, selectedThermoworksProbe, selectedInkbirdProbe,
+    selectedMeaterProbe, selectedThermoworksProbe, selectedThermoworksPitProbe,
+    selectedInkbirdProbe, selectedInkbirdPitProbe,
     selectedBleContextDevice, selectedLanProbe,
     meaterDataUpdatedAt, thermoworksDataUpdatedAt,
   ]);
@@ -1343,13 +1439,25 @@ export default function CookDetailScreen() {
     const cookId = Number(id);
     if (!cookId || cookStatus !== "active") return;
     lastUploadedProbeTs.current = fetchedAtMs;
+
+    const meatKey = selectedMeatProbeId ?? undefined;
+    const pitKey = selectedPitProbeId ?? undefined;
+
     const probeName =
+      (meatKey && probeLabels[meatKey]) ? probeLabels[meatKey] :
       probeSource === "meater" ? (selectedMeaterProbe?.deviceName ?? "MEATER Probe") :
       probeSource === "thermoworks" ? ((selectedThermoworksProbe as any)?.deviceName ?? "ThermoWorks Probe") :
       probeSource === "inkbird" ? (selectedInkbirdProbe?.deviceName ?? "Inkbird Probe") :
       probeSource === "ble" ? (selectedBleContextDevice?.name ?? "BLE Probe") :
       probeSource === "lan" ? (selectedLanProbe?.deviceName ?? "LAN Probe") :
       null;
+
+    const pitProbeName =
+      (pitKey && probeLabels[pitKey]) ? probeLabels[pitKey] :
+      probeSource === "thermoworks" ? ((selectedThermoworksPitProbe as any)?.deviceName ?? "ThermoWorks Pit") :
+      probeSource === "inkbird" ? (selectedInkbirdPitProbe?.deviceName ?? "Inkbird Pit") :
+      "Ambient / Pit";
+
     uploadTemperatureData.mutate({
       data: {
         cookId,
@@ -1364,7 +1472,7 @@ export default function CookDetailScreen() {
           ...(autoCheckinProbeReading.pitTempF != null
             ? [{
                 probeNumber: 1,
-                probeName: "Ambient / Pit",
+                probeName: pitProbeName,
                 tempF: autoCheckinProbeReading.pitTempF,
                 recordedAt: new Date(fetchedAtMs).toISOString(),
               }]
@@ -1372,7 +1480,7 @@ export default function CookDetailScreen() {
         ],
       },
     });
-  }, [autoCheckinProbeReading, id, cookStatus]);
+  }, [autoCheckinProbeReading, id, cookStatus, probeLabels, selectedMeatProbeId, selectedPitProbeId]);
 
   // Auto check-in: when a scheduled milestone time is reached and a live probe
   // reading is available, record the check-in automatically.
@@ -1952,11 +2060,13 @@ export default function CookDetailScreen() {
     qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
     qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
 
-    // Clear the saved probe assignment so a stale pairing never reappears if
+    // Clear the saved probe assignments so a stale pairing never reappears if
     // the user revisits this cook after it has ended.
     if ((status === "completed" || status === "cancelled") && id && Platform.OS !== "web") {
-      setSelectedProbeId(null);
-      AsyncStorage.removeItem(`probe_selection_${id}`).catch(() => {});
+      setSelectedMeatProbeId(null);
+      setSelectedPitProbeId(null);
+      AsyncStorage.removeItem(`probe_meat_${id}`).catch(() => {});
+      AsyncStorage.removeItem(`probe_pit_${id}`).catch(() => {});
     }
 
     // When starting a cook that has no AI plan yet, schedule generic check-in
@@ -2674,16 +2784,22 @@ export default function CookDetailScreen() {
   // Live graph from accumulated readings — works for any selected probe type
   // (MEATER, ThermoWorks, Inkbird BLE, BLE context device, or LAN probe).
   const activeProbeName =
-    selectedMeaterProbe?.deviceName ??
-    (selectedBleContextDevice?.name) ??
-    selectedLanProbe?.deviceName ??
-    selectedInkbirdProbe?.deviceName ??
-    "Probe";
-  const liveGraphProbes = tempMode === "probe" && selectedProbeId != null && liveReadings.length >= 2
+    (selectedMeatProbeId && probeLabels[selectedMeatProbeId])
+      ? probeLabels[selectedMeatProbeId]
+      : (selectedMeaterProbe?.deviceName ??
+        selectedBleContextDevice?.name ??
+        selectedLanProbe?.deviceName ??
+        selectedInkbirdProbe?.deviceName ??
+        "Probe");
+  const activePitProbeName =
+    (selectedPitProbeId && probeLabels[selectedPitProbeId])
+      ? probeLabels[selectedPitProbeId]
+      : "Pit / Ambient";
+  const liveGraphProbes = tempMode === "probe" && selectedMeatProbeId != null && liveReadings.length >= 2
     ? [
         { probeName: activeProbeName, timeSeries: liveReadings, finishingTempF: liveReadings[liveReadings.length - 1]!.tempF },
         ...(livePitReadings.length >= 2
-          ? [{ probeName: "Pit / Ambient", timeSeries: livePitReadings, finishingTempF: livePitReadings[livePitReadings.length - 1]!.tempF }]
+          ? [{ probeName: activePitProbeName, timeSeries: livePitReadings, finishingTempF: livePitReadings[livePitReadings.length - 1]!.tempF }]
           : []),
       ]
     : [];
@@ -3224,8 +3340,14 @@ export default function CookDetailScreen() {
           onDismissReconnectBanner={dismissReconnectBanner}
           tempMode={tempMode}
           onSetTempMode={setTempMode}
-          selectedProbeId={selectedProbeId}
-          onSelectProbe={handleSelectProbe}
+          selectedMeatProbeId={selectedMeatProbeId}
+          selectedPitProbeId={selectedPitProbeId}
+          onSelectMeatProbe={handleSelectMeatProbe}
+          onSelectPitProbe={handleSelectPitProbe}
+          probeLabels={probeLabels}
+          onSetProbeLabel={handleSetProbeLabel}
+          otherCookAssignments={otherCookAssignments}
+          inkbirdScanning={inkbirdScanning}
           liveGraphProbes={liveGraphProbes}
           liveReadings={liveReadings}
           cardWidth={cardWidth}
@@ -3251,6 +3373,7 @@ export default function CookDetailScreen() {
           lastCheckinInternalTempF={lastCheckin?.internalTempF ?? null}
           onRefresh={() => analyze()}
           activeProbeName={activeProbeName !== "Probe" ? activeProbeName : null}
+          activePitProbeName={activePitProbeName !== "Pit / Ambient" ? activePitProbeName : undefined}
           nextCheckinMs={nextCheckinMs}
           nextCheckinLabel={nextCheckinLabel}
           upcomingCheckins={upcomingCheckinsForCard}
@@ -3888,7 +4011,14 @@ export default function CookDetailScreen() {
               ? (selectedMeaterProbe?.internalTempF ?? selectedThermoworksProbe?.tempF ?? selectedInkbirdProbe?.tempF ?? null)
               : null
           }
-          currentPitTempF={tempMode === "probe" ? (selectedMeaterProbe?.ambientTempF ?? null) : null}
+          currentPitTempF={tempMode === "probe"
+            ? (selectedMeaterProbe?.ambientTempF
+                ?? selectedInkbirdPitProbe?.tempF
+                ?? (selectedThermoworksPitProbe != null ? (selectedThermoworksPitProbe as any).tempF ?? null : null)
+                ?? selectedLanProbe?.ambientTempF
+                ?? selectedBleContextDevice?.ambientTempF
+                ?? null)
+            : null}
           probeSource={
             tempMode !== "probe"
               ? null
