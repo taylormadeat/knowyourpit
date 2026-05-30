@@ -1228,6 +1228,7 @@ export default function CookDetailScreen() {
     dismissReconnectBanner,
     setHasActiveCook,
     reconnecting: bleCtxReconnecting,
+    startScan: bleScan,
   } = useBleProbes();
 
   // Combined reconnecting: true when Inkbird OR any BLE-context device (MEATER,
@@ -3688,6 +3689,7 @@ export default function CookDetailScreen() {
           upcomingCheckins={upcomingCheckinsForCard}
           onCheckInPhase={openCheckin}
           knownProbeIds={knownProbeIds}
+          onRestartScan={bleScan}
         />
         <CookSummaryCard
           c={c}

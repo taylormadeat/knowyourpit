@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, Pressable, ActivityIndicator, Animated, TextInput } from "react-native";
+import { BleWizardSheet } from "./BleWizardSheet";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { InkbirdProbeReading } from "@/hooks/useInkbirdBLE";
 import type { BleDevice, ReconnectBanner } from "@/contexts/BleProbeContext";
@@ -90,6 +91,7 @@ interface Props {
   nextCheckinLabel?: string | null;
   upcomingCheckins?: Array<{ id: string; scheduledAt: number; phaseLabel: string }>;
   onCheckInPhase?: (sc: any) => void;
+  onRestartScan?: () => void;
 }
 
 function fmtLastChecked(lastAnalyzedAtMs: number, nowMs: number): string {
@@ -129,6 +131,7 @@ export function LiveCookSection(p: Props) {
     renderDecisions, onCheckIn, onCheckInNext, onOpenChat, lastAnalyzedAtMs, lastCheckinInternalTempF, onRefresh, activeProbeName,
     currentInternalTempF, currentPitTempF,
     nextCheckinMs, nextCheckinLabel, upcomingCheckins = [], onCheckInPhase,
+    onRestartScan,
   } = p;
 
   // Local state for inline label editing
@@ -151,6 +154,36 @@ export function LiveCookSection(p: Props) {
     setMinSignalState(val);
     AsyncStorage.setItem(BLE_SIGNAL_KEY, val).catch(() => {});
   }, []);
+
+  // BLE pairing wizard state
+  const [wizardOpen, setWizardOpen] = React.useState(false);
+  const [showPairingHint, setShowPairingHint] = React.useState(false);
+  const pairingHintTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // After 20 s of scanning in probe mode with no probes visible, surface the
+  // "Not finding your probe?" hint and allow the user to open the wizard.
+  React.useEffect(() => {
+    if (pairingHintTimerRef.current) {
+      clearTimeout(pairingHintTimerRef.current);
+      pairingHintTimerRef.current = null;
+    }
+    const noProbes =
+      inkbirdProbes.length === 0 &&
+      bleContextDevices.length === 0 &&
+      meaterProbes.length === 0 &&
+      thermoworksProbes.length === 0 &&
+      lanProbes.length === 0;
+    const scanActive = tempMode === "probe" && inkbirdScanning;
+    if (scanActive && noProbes) {
+      pairingHintTimerRef.current = setTimeout(() => setShowPairingHint(true), 20_000);
+    } else {
+      setShowPairingHint(false);
+    }
+    return () => {
+      if (pairingHintTimerRef.current) clearTimeout(pairingHintTimerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tempMode, inkbirdScanning, inkbirdProbes.length, bleContextDevices.length, meaterProbes.length, thermoworksProbes.length, lanProbes.length]);
 
   // Helpers for RSSI filtering
   function meetsMinSignal(rssi: number | null | undefined): boolean {
@@ -483,6 +516,14 @@ export function LiveCookSection(p: Props) {
           <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: tempMode === "manual" ? colors.primary : colors.mutedForeground }}>
             Manual Entry
           </Text>
+        </Pressable>
+        {/* Persistent help icon — opens the BLE pairing wizard at any time */}
+        <Pressable
+          hitSlop={8}
+          onPress={() => setWizardOpen(true)}
+          style={{ alignSelf: "center", padding: 7, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}
+        >
+          <Feather name="help-circle" size={16} color={colors.mutedForeground} />
         </Pressable>
       </View>
 
@@ -1254,6 +1295,25 @@ export function LiveCookSection(p: Props) {
         </View>
       )}
 
+      {/* "Not finding your probe?" hint — appears after 20 s of scanning with 0 probes */}
+      {showPairingHint && (
+        <Pressable
+          onPress={() => setWizardOpen(true)}
+          style={{ flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 14, marginBottom: 12, padding: 12, borderRadius: 10, backgroundColor: "#F59E0B10", borderWidth: 1, borderColor: "#F59E0B40" }}
+        >
+          <Feather name="help-circle" size={16} color="#F59E0B" />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: "#F59E0B" }}>
+              Not finding your probe?
+            </Text>
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: "#F59E0B99", marginTop: 1 }}>
+              Tap for brand-specific troubleshooting tips
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={14} color="#F59E0B" />
+        </Pressable>
+      )}
+
       {(targetTempF != null || cookTempF != null) && (
         <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingBottom: 12 }}>
           {targetTempF != null && (
@@ -1568,6 +1628,16 @@ export function LiveCookSection(p: Props) {
           </Pressable>
         )}
       </View>
+
+      {/* BLE pairing troubleshoot wizard */}
+      <BleWizardSheet
+        visible={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onRestartScan={() => {
+          onRestartScan?.();
+          setWizardOpen(false);
+        }}
+      />
     </View>
   );
 }
