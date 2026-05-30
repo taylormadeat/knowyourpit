@@ -1859,6 +1859,20 @@ export default function CookDetailScreen() {
     ]);
   }, [selectedThermoworksProbe]);
 
+  // Accumulate live pit readings for ThermoWorks pit probe (dedicated pit channel).
+  useEffect(() => {
+    if (selectedThermoworksPitProbe == null || (selectedThermoworksPitProbe as any).tempF == null) return;
+    const currentTemp = (selectedThermoworksPitProbe as any).tempF as number;
+    const startAt = cook?.actualStartAt;
+    const elapsedMins = startAt
+      ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000)
+      : 0;
+    setLivePitReadings((prev) => [
+      ...prev,
+      { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: currentTemp },
+    ]);
+  }, [selectedThermoworksPitProbe]);
+
   // Accumulate live readings for Inkbird BLE probes.
   // Fires each time the BLE advertisement scanner delivers a new reading.
   useEffect(() => {
@@ -1873,6 +1887,20 @@ export default function CookDetailScreen() {
       { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: currentTemp },
     ]);
   }, [selectedInkbirdProbe]);
+
+  // Accumulate live pit readings for Inkbird pit probe (dedicated pit channel).
+  useEffect(() => {
+    if (selectedInkbirdPitProbe?.tempF == null) return;
+    const currentTemp = selectedInkbirdPitProbe.tempF;
+    const startAt = cook?.actualStartAt;
+    const elapsedMins = startAt
+      ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000)
+      : 0;
+    setLivePitReadings((prev) => [
+      ...prev,
+      { timeMinutes: Math.round(elapsedMins * 10) / 10, tempF: currentTemp },
+    ]);
+  }, [selectedInkbirdPitProbe]);
 
   // Reconciliation: on screen mount (and when alerts load), mark overdue timer alerts as triggered
   // Handles the case where the app was backgrounded or killed when a scheduled notification fired
