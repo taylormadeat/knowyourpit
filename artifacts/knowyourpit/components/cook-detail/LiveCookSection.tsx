@@ -165,7 +165,9 @@ export function LiveCookSection(p: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bleContextDevices, minSignal]);
 
-  const hasBleProbes = sortedInkbirdProbes.length > 0 || sortedBleContextDevices.length > 0;
+  // Use unfiltered source lengths so the filter toggle is always visible when
+  // BLE probes exist — even if the current threshold hides all of them.
+  const hasBleProbes = inkbirdProbes.length > 0 || bleContextDevices.length > 0;
 
   const flashAnim = React.useRef(new Animated.Value(0)).current;
   const prevLastAnalyzedAtMs = React.useRef<number | null>(null);
@@ -706,7 +708,7 @@ export function LiveCookSection(p: Props) {
                     {probeLabels[probeKey] ?? `${probe.deviceName}  ·  Ch ${probe.probeIndex + 1}  ·  Inkbird`}
                   </Text>
                 )}
-                {!isEditing && probe.rssi != null && (
+                {!isEditing && (
                   <SignalBars rssi={probe.rssi} size={10} />
                 )}
               </View>
@@ -791,7 +793,7 @@ export function LiveCookSection(p: Props) {
                     <Text style={{ fontSize: 9, fontFamily: "Inter_600SemiBold", color: device.batteryPct > 50 ? "#22c55e" : device.batteryPct > 20 ? "#EAB308" : "#ef4444" }}>{device.batteryPct}%</Text>
                   </View>
                 )}
-                {!isEditing && device.rssi != null && (
+                {!isEditing && (
                   <SignalBars rssi={device.rssi} size={10} />
                 )}
               </View>
