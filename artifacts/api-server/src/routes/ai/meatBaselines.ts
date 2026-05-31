@@ -79,6 +79,10 @@ export const MEAT_KB: Array<{ keywords: string[]; baseline: MeatBaseline }> = [
     baseline: { minsPerLb: 20, cookTempF: 275, targetTempF: 145, restMins: 5, wrapRec: "none", wrapNote: "No wrap. Smoke salmon skin-side down on cedar plank or oiled grate. Pull at 140°F — carryover brings to 145°F. Finish is when it flakes easily at the thickest point." },
   },
   {
+    keywords: ["cod"],
+    baseline: { minsPerLb: 18, cookTempF: 275, targetTempF: 145, restMins: 3, wrapRec: "none", wrapNote: "No wrap. Cod is lean and delicate — oil grates well or use a cedar plank. Pull at 140°F; carryover brings to 145°F. Done when it flakes easily and is opaque throughout." },
+  },
+  {
     keywords: ["pork tenderloin"],
     baseline: { minsPerLb: 20, cookTempF: 350, targetTempF: 145, restMins: 10, wrapRec: "none", wrapNote: "No wrap needed. Tenderloin cooks fast — watch temp carefully. Pull at 140°F, rest 10 min. Slice into medallions." },
   },

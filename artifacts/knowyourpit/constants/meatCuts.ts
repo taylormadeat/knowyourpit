@@ -129,6 +129,7 @@ export const MEAT_CUTS: MeatCut[] = [
   { category: "Seafood", name: "Swordfish Steak", targetTempF: 145, cookTempF: 400, minsPerLb: 10, restMins: 3, cookMethod: "Direct Heat" },
   { category: "Seafood", name: "Tuna Steak", targetTempF: 125, cookTempF: 450, minsPerLb: 8, restMins: 3, cookMethod: "Direct Heat" },
   { category: "Seafood", name: "Mahi Mahi", targetTempF: 137, cookTempF: 400, minsPerLb: 10, restMins: 3, cookMethod: "Direct Heat", notes: "Firm, mild — great with citrus & high heat" },
+  { category: "Seafood", name: "Cod Fillet", targetTempF: 145, cookTempF: 275, minsPerLb: 18, restMins: 3, cookMethod: "Indirect", notes: "Lean, delicate white fish — pull at 140°F and rest briefly; flakes easily when done" },
   { category: "Seafood", name: "Halibut", targetTempF: 130, cookTempF: 350, minsPerLb: 12, restMins: 3, cookMethod: "Indirect" },
   { category: "Seafood", name: "Mackerel", targetTempF: 145, cookTempF: 225, minsPerLb: 25, restMins: 5, cookMethod: "Indirect", notes: "Oily fish — takes smoke beautifully" },
   { category: "Seafood", name: "Shrimp (Shell-On)", targetTempF: 145, cookTempF: 400, minsPerLb: 6, restMins: 0, cookMethod: "Direct Heat" },
