@@ -141,6 +141,10 @@ export const MEAT_CUTS: MeatCut[] = [
   { category: "Seafood", name: "Squid / Calamari", targetTempF: 145, cookTempF: 500, minsPerLb: 4, restMins: 0, cookMethod: "Direct Heat", notes: "Seconds per side or 60+ minutes — anything in between is rubber" },
   { category: "Seafood", name: "Crab Legs", targetTempF: 140, cookTempF: 350, minsPerLb: 8, restMins: 0, cookMethod: "Indirect", notes: "Already cooked; warm through and butter-baste" },
   { category: "Seafood", name: "Whole Fish", targetTempF: 145, cookTempF: 350, minsPerLb: 15, restMins: 5, cookMethod: "Indirect" },
+  { category: "Seafood", name: "Red Snapper", targetTempF: 145, cookTempF: 350, minsPerLb: 12, restMins: 3, cookMethod: "Indirect", notes: "Firm white fish — leave skin on for easier handling; score the skin to prevent curling" },
+  { category: "Seafood", name: "Catfish Fillet", targetTempF: 145, cookTempF: 275, minsPerLb: 20, restMins: 5, cookMethod: "Indirect", notes: "Southern classic — takes smoke beautifully; pull when it flakes easily at the thickest point" },
+  { category: "Seafood", name: "Striped Bass", targetTempF: 145, cookTempF: 350, minsPerLb: 12, restMins: 3, cookMethod: "Indirect", notes: "Firm flesh holds up well on grates; score the skin before cooking to prevent curling" },
+  { category: "Seafood", name: "Tilapia Fillet", targetTempF: 145, cookTempF: 375, minsPerLb: 8, restMins: 2, cookMethod: "Direct Heat", notes: "Thin, delicate fillet — use foil or a grill basket to prevent sticking and flaking apart" },
 
   // ── GAME ──────────────────────────────────────────────────────────
   { category: "Game", name: "Venison Roast", targetTempF: 145, cookTempF: 275, minsPerLb: 40, restMins: 20, cookMethod: "Low & Slow" },

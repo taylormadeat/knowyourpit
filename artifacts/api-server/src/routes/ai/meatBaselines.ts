@@ -106,6 +106,22 @@ export const MEAT_KB: Array<{ keywords: string[]; baseline: MeatBaseline }> = [
     keywords: ["bison"],
     baseline: { minsPerLb: 70, cookTempF: 225, targetTempF: 200, restMins: 60, wrapRec: "butcher_paper", wrapAtMins: 240, wrapTempF: 165, wrapNote: "Bison brisket behaves like beef brisket but is leaner. Wrap in butcher paper at 165°F. May probe-tender slightly earlier than beef — start checking at 195°F." },
   },
+  {
+    keywords: ["red snapper", "snapper"],
+    baseline: { minsPerLb: 12, cookTempF: 350, targetTempF: 145, restMins: 3, wrapRec: "none", wrapNote: "No wrap. Grill skin-side down on oiled grates or a cedar plank. Score the skin to prevent curling. Pull at 140°F — carryover brings it to 145°F. Done when flesh is opaque and flakes easily." },
+  },
+  {
+    keywords: ["catfish"],
+    baseline: { minsPerLb: 20, cookTempF: 275, targetTempF: 145, restMins: 5, wrapRec: "none", wrapNote: "No wrap. Catfish takes smoke exceptionally well — hickory or pecan are classic pairings. Cook indirect at 275°F skin-side down. Pull at 140°F internal; carryover finishes it. Done when it flakes easily at the thickest point." },
+  },
+  {
+    keywords: ["striped bass", "striper"],
+    baseline: { minsPerLb: 12, cookTempF: 350, targetTempF: 145, restMins: 3, wrapRec: "none", wrapNote: "No wrap. Striped bass has firm flesh that holds up well on the grate. Score the skin before cooking to prevent curling. Cook skin-side down indirect. Pull at 140°F; rest 3 min before serving." },
+  },
+  {
+    keywords: ["tilapia"],
+    baseline: { minsPerLb: 8, cookTempF: 375, targetTempF: 145, restMins: 2, wrapRec: "none", wrapNote: "No wrap. Tilapia is thin and delicate — use a well-oiled grill basket or foil packet to prevent it from flaking apart. Cook over direct medium-high heat. Pull as soon as it flakes easily and turns opaque; it cooks fast." },
+  },
 ];
 
 export function getMeatBaseline(foodType: string): MeatBaseline | null {
