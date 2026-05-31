@@ -16,7 +16,6 @@
     "backfill-grill-types": "tsx ./src/backfillGrillTypes.ts",
     "backfill-analysis-source": "tsx ./src/backfillAnalysisSource.ts",
     "db:prod-drop-orphans": "tsx ./src/drop-orphan-tables-prod.ts",
-    "cleanup-orphaned-photos": "tsx ./src/cleanup-orphaned-photos.ts",
     "setup-asc-iap": "tsx ./src/createAscIapProducts.ts",
     "checkAscIapState": "tsx ./src/checkAscIapState.ts",
     "knowledge-pdf": "tsx ./src/generate-knowledge-pdf.ts",

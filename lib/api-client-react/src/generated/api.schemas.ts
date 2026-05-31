@@ -492,8 +492,6 @@ export interface Cook {
    * @nullable
    */
   currentTempF?: number | null;
-  /** Number of photos attached to this cook */
-  photoCount?: number;
   /**
    * Server-persisted probe assignments and labels for this cook
    * @nullable
@@ -501,28 +499,6 @@ export interface Cook {
   probeAssignments?: CookProbeAssignments;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface CookPhoto {
-  id: number;
-  cookId: number;
-  userId: string;
-  storageKey: string;
-  /**
-   * Signed URL valid for 1 hour to fetch the photo
-   * @nullable
-   */
-  signedUrl: string | null;
-  /** @nullable */
-  takenAt: string | null;
-  createdAt: string;
-}
-
-export interface CookPhotoUpload {
-  /** Image file (JPEG, PNG, or WebP, max 10 MB) */
-  photo: Blob;
-  /** Optional timestamp when the photo was taken */
-  takenAt?: string;
 }
 
 export type CreateCookBodyStatus =

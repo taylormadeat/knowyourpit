@@ -152,8 +152,6 @@ export interface Cook {
    * @nullable
    */
   currentTempF?: number | null;
-  /** Number of photos attached to this cook */
-  photoCount?: number;
   /**
    * Server-persisted probe assignments and labels for this cook
    * @nullable

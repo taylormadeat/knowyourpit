@@ -71,7 +71,6 @@ import {
   useListCooks,
   useListCookCheckins,
   useCreateCookCheckin,
-  useListCookPhotos,
   useUploadTemperatureData,
   useListTemperatureReadings,
   getListTemperatureReadingsQueryKey,
@@ -165,7 +164,6 @@ import { RateThisCook } from "@/components/cook-detail/RateThisCook";
 import { ShareCookButton } from "@/components/cook-detail/ShareCookButton";
 import { NextUpBanner } from "@/components/NextUpBanner";
 import { CookHealthScoreCard } from "@/components/cook-detail/CookHealthScoreCard";
-import { CookPhotosSection } from "@/components/cook-detail/CookPhotosSection";
 import { useProactiveAlerts } from "@/hooks/useProactiveAlerts";
 import { getListCookEventsQueryKey } from "@workspace/api-client-react";
 
@@ -210,9 +208,6 @@ export default function CookDetailScreen() {
   // user reopening the app for the first time after install would see the
   // paywall blur flash for ~1s before isPro flips to true.
   const { isIdentityLinked } = useSubscription();
-
-  const { data: cookPhotos = [] } = useListCookPhotos(Number(id));
-  const cookPhotoCount = Array.isArray(cookPhotos) ? cookPhotos.length : 0;
 
   const [images, setImages] = useState<PickedImage[]>([]);
   const [cookNotes, setCookNotes] = useState("");
@@ -4091,9 +4086,6 @@ export default function CookDetailScreen() {
           rateSaving={rateSaving}
           saveRatings={saveRatings}
         />
-
-        {/* ── Cook Photos (completed cooks only) ───────────────── */}
-        {cookStatus !== "active" && <CookPhotosSection cookId={Number(id)} colors={colors} />}
 
         {/* ── Share Cook (completed cooks only) ───────────────── */}
         <ShareCookButton cook={c} colors={colors} />

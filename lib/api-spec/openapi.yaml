@@ -544,78 +544,6 @@ paths:
         "404":
           description: Cook or event not found
 
-  /cooks/{id}/photos:
-    get:
-      operationId: listCookPhotos
-      tags: [cooks]
-      summary: List all photos attached to a cook
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: List of cook photos with signed URLs
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/CookPhoto"
-        "404":
-          description: Cook not found
-    post:
-      operationId: uploadCookPhoto
-      tags: [cooks]
-      summary: Upload a photo and attach it to a cook (multipart/form-data, max 10 MB, up to 10 photos per cook)
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              $ref: "#/components/schemas/CookPhotoUpload"
-      responses:
-        "201":
-          description: Photo uploaded and attached
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CookPhoto"
-        "400":
-          description: Validation error (too many photos, bad file type, etc.)
-        "404":
-          description: Cook not found
-
-  /cooks/{id}/photos/{photoId}:
-    delete:
-      operationId: deleteCookPhoto
-      tags: [cooks]
-      summary: Delete a photo from a cook
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: photoId
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "204":
-          description: Photo deleted
-        "404":
-          description: Cook or photo not found
-
   /cooks/{id}/health:
     get:
       operationId: getCookHealth
@@ -1549,9 +1477,6 @@ components:
         currentTempF:
           type: ["number", "null"]
           description: Latest internal probe temperature reading for this cook (null when no readings exist)
-        photoCount:
-          type: integer
-          description: Number of photos attached to this cook
         probeAssignments:
           type: ["object", "null"]
           description: Server-persisted probe assignments and labels for this cook
@@ -1601,49 +1526,6 @@ components:
         - thawMethod
         - createdAt
         - updatedAt
-
-    CookPhoto:
-      type: object
-      properties:
-        id:
-          type: integer
-        cookId:
-          type: integer
-        userId:
-          type: string
-        storageKey:
-          type: string
-        signedUrl:
-          type: ["string", "null"]
-          description: Signed URL valid for 1 hour to fetch the photo
-        takenAt:
-          type: ["string", "null"]
-          format: date-time
-        createdAt:
-          type: string
-          format: date-time
-      required:
-        - id
-        - cookId
-        - userId
-        - storageKey
-        - signedUrl
-        - takenAt
-        - createdAt
-
-    CookPhotoUpload:
-      type: object
-      properties:
-        photo:
-          type: string
-          format: binary
-          description: Image file (JPEG, PNG, or WebP, max 10 MB)
-        takenAt:
-          type: string
-          format: date-time
-          description: Optional timestamp when the photo was taken
-      required:
-        - photo
 
     CreateCookBody:
       type: object

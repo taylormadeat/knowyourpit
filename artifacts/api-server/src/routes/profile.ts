@@ -13,9 +13,7 @@ import {
   subscriptionEntitlements,
   aiAnalyzeEvents,
   temperatureReadingsTable,
-  cookPhotosTable,
 } from "@workspace/db";
-import { deleteFromStorage } from "./cookPhotos";
 import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
@@ -95,16 +93,6 @@ router.delete("/profile/me", requireAuth, async (req: any, res): Promise<void> =
           .delete(temperatureReadingsTable)
           .where(inArray(temperatureReadingsTable.cookId, cookIds));
       }
-
-      // Delete cook photos from object storage (best-effort, outside transaction)
-      const userPhotos = await tx.select().from(cookPhotosTable).where(eq(cookPhotosTable.userId, userId));
-      await tx.delete(cookPhotosTable).where(eq(cookPhotosTable.userId, userId));
-      // Fire-and-forget GCS deletes after transaction
-      setImmediate(() => {
-        for (const p of userPhotos) {
-          deleteFromStorage(p.storageKey).catch(() => {});
-        }
-      });
 
       await tx.delete(aiAnalyzeEvents).where(eq(aiAnalyzeEvents.userId, userId));
       await tx.delete(alertsTable).where(eq(alertsTable.userId, userId));

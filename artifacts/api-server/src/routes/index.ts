@@ -18,7 +18,6 @@ import adminRouter from "./admin";
 import liveActivitiesRouter from "./liveActivities";
 import cookCheckinsRouter from "./cookCheckins";
 import cookEventsRouter from "./cookEvents";
-import cookPhotosRouter from "./cookPhotos";
 
 const router: IRouter = Router();
 
@@ -41,6 +40,5 @@ router.use(adminRouter);
 router.use(liveActivitiesRouter);
 router.use(cookCheckinsRouter);
 router.use(cookEventsRouter);
-router.use(cookPhotosRouter);
 
 export default router;

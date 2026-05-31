@@ -1,7 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc, count } from "drizzle-orm";
-import { db, cooksTable, grillsTable, alertsTable, cookCheckins, temperatureReadingsTable, cookPhotosTable } from "@workspace/db";
-import { deleteFromStorage } from "./cookPhotos";
+import { eq, and, desc } from "drizzle-orm";
+import { db, cooksTable, grillsTable, alertsTable, cookCheckins, temperatureReadingsTable } from "@workspace/db";
 import {
   CreateCookBody,
   UpdateCookBody,
@@ -122,11 +121,7 @@ router.get("/cooks", requireAuth, async (req: any, res): Promise<void> => {
       const [grill] = await db.select({ name: grillsTable.name }).from(grillsTable).where(eq(grillsTable.id, cook.grillId));
       grillName = grill?.name ?? null;
     }
-    const [{ photoCount }] = await db
-      .select({ photoCount: count() })
-      .from(cookPhotosTable)
-      .where(and(eq(cookPhotosTable.cookId, cook.id), eq(cookPhotosTable.userId, req.userId)));
-    return { ...cook, grillName, photoCount: Number(photoCount) };
+    return { ...cook, grillName };
   }));
   res.json(result);
 });
@@ -603,20 +598,8 @@ router.delete("/sessions/:sessionId", requireAuth, async (req: any, res): Promis
     res.status(404).json({ error: "Session not found" });
     return;
   }
-  const photoRowsBySession: { id: number; storageKey: string }[] = [];
   await db.transaction(async (tx) => {
     for (const cook of cooks) {
-      const cookPhotoRows = await tx
-        .select({ id: cookPhotosTable.id, storageKey: cookPhotosTable.storageKey })
-        .from(cookPhotosTable)
-        .where(eq(cookPhotosTable.cookId, cook.id));
-      photoRowsBySession.push(...cookPhotoRows);
-      if (cookPhotoRows.length > 0) {
-        await tx
-          .update(cookPhotosTable)
-          .set({ pendingDelete: true })
-          .where(eq(cookPhotosTable.cookId, cook.id));
-      }
       await tx.delete(temperatureReadingsTable).where(eq(temperatureReadingsTable.cookId, cook.id));
       await tx.delete(cookCheckins).where(eq(cookCheckins.cookId, cook.id));
       await tx.delete(alertsTable).where(eq(alertsTable.cookId, cook.id));
@@ -624,14 +607,6 @@ router.delete("/sessions/:sessionId", requireAuth, async (req: any, res): Promis
     await tx.delete(cooksTable)
       .where(and(eq(cooksTable.sessionId, params.data.sessionId), eq(cooksTable.userId, req.userId)));
   });
-  for (const p of photoRowsBySession) {
-    try {
-      await deleteFromStorage(p.storageKey);
-      await db.delete(cookPhotosTable).where(eq(cookPhotosTable.id, p.id));
-    } catch {
-      req.log.warn({ storageKey: p.storageKey }, "storage delete failed; photo row left pending_delete for cleanup script");
-    }
-  }
   res.sendStatus(204);
 });
 
@@ -647,31 +622,12 @@ router.delete("/cooks/:id", requireAuth, async (req: any, res): Promise<void> =>
     res.status(404).json({ error: "Cook not found" });
     return;
   }
-  let cookPhotoRows: { id: number; storageKey: string }[] = [];
   await db.transaction(async (tx) => {
-    cookPhotoRows = await tx
-      .select({ id: cookPhotosTable.id, storageKey: cookPhotosTable.storageKey })
-      .from(cookPhotosTable)
-      .where(eq(cookPhotosTable.cookId, params.data.id));
-    if (cookPhotoRows.length > 0) {
-      await tx
-        .update(cookPhotosTable)
-        .set({ pendingDelete: true })
-        .where(eq(cookPhotosTable.cookId, params.data.id));
-    }
     await tx.delete(temperatureReadingsTable).where(eq(temperatureReadingsTable.cookId, params.data.id));
     await tx.delete(cookCheckins).where(eq(cookCheckins.cookId, params.data.id));
     await tx.delete(alertsTable).where(eq(alertsTable.cookId, params.data.id));
     await tx.delete(cooksTable).where(eq(cooksTable.id, params.data.id));
   });
-  for (const p of cookPhotoRows) {
-    try {
-      await deleteFromStorage(p.storageKey);
-      await db.delete(cookPhotosTable).where(eq(cookPhotosTable.id, p.id));
-    } catch {
-      req.log.warn({ storageKey: p.storageKey }, "storage delete failed; photo row left pending_delete for cleanup script");
-    }
-  }
   res.sendStatus(204);
 });
 
