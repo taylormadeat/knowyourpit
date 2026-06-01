@@ -25,7 +25,7 @@ import { useBottomInset } from "@/hooks/useBottomInset";
 import { useLayout } from "@/hooks/useLayout";
 import { LogoBackground } from "@/components/LogoBackground";
 
-const logoImg = require("@/assets/images/logo-light.png");
+const logoImg = require("@/assets/images/logo-transparent-light.png");
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -544,9 +544,10 @@ export default function SignInScreen() {
         : null),
     },
     logo: {
-      width: 96,
-      height: 96,
+      width: 115,
+      height: 115,
       marginBottom: 20,
+      alignSelf: "center",
     },
     title: {
       fontSize: 28,

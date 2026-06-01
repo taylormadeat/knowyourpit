@@ -1,7 +1,7 @@
 import React from "react";
 import { Image, StyleSheet, View } from "react-native";
 
-const logoImg = require("@/assets/images/logo-light.png");
+const logoImg = require("@/assets/images/icon-transparent-light.png");
 
 interface LogoBackgroundProps {
   opacity?: number;

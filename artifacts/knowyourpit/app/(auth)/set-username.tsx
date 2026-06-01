@@ -18,7 +18,7 @@ import { useTopInset } from "@/hooks/useTopInset";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { LogoBackground } from "@/components/LogoBackground";
 
-const logoImg = require("@/assets/images/logo.png");
+const logoImg = require("@/assets/images/icon-transparent-dark.png");
 
 const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
 

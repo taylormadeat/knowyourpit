@@ -129,7 +129,7 @@ async function saveLastWrapFinish(cutName: string, v: QpWrapFinishOption): Promi
 type PickerCut = MeatCut & { isCustom?: boolean; customId?: number };
 const COOK_METHODS = ["Low & Slow", "Indirect", "Reverse Sear", "Direct Heat"];
 
-const logoImg = require("@/assets/images/logo.png");
+const logoImg = require("@/assets/images/icon.png");
 
 function formatPickDate(d: Date): string {
   const today = new Date(); today.setHours(0, 0, 0, 0);

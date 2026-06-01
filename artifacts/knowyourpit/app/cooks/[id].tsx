@@ -174,7 +174,7 @@ import { getListCookEventsQueryKey } from "@workspace/api-client-react";
 // other libraries occasionally trigger the same warning.
 LogBox.ignoreLogs(["ref.measureLayout must be called with a ref"]);
 
-const logoImg = require("@/assets/images/logo.png");
+const logoImg = require("@/assets/images/icon-transparent-light.png");
 
 // Per-session temp-mode choices (probe / manual) keyed by cookId string.
 // Module-scope so explicit user choices (probe → manual or vice-versa) survive

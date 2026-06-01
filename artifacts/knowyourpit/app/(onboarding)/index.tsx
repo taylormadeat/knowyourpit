@@ -25,7 +25,7 @@ const BRAND_ORANGE = "#E84820";
 const SUPPORT_EMAIL = "support@knowyourpit.com";
 const APP_STORE_URL = "itms-apps://itunes.apple.com/app/id6738518044";
 
-const logoImg = require("@/assets/images/logo-light.png");
+const logoImg = require("@/assets/images/logo-transparent-light.png");
 
 const FEATURES: { icon?: string; emoji?: string; label: string; color: string }[] = [
   { icon: "zap",            label: "AI Cook Plans",    color: "#FCD34D" },

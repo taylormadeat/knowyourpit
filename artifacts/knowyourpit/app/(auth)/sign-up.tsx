@@ -26,7 +26,7 @@ import { useBottomInset } from "@/hooks/useBottomInset";
 import { useLayout } from "@/hooks/useLayout";
 import { LogoBackground } from "@/components/LogoBackground";
 
-const logoImg = require("@/assets/images/logo-light.png");
+const logoImg = require("@/assets/images/logo-transparent-light.png");
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -484,7 +484,7 @@ export default function SignUpScreen() {
         : null),
     },
     logo: {
-      width: 96, height: 96, marginBottom: 20,
+      width: 115, height: 115, marginBottom: 20, alignSelf: "center",
     },
     title: { fontSize: 28, fontFamily: "Inter_700Bold", color: colors.foreground, marginBottom: 6 },
     subtitle: { fontSize: 15, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginBottom: 36 },
