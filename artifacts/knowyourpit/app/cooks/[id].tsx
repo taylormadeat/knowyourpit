@@ -601,6 +601,9 @@ export default function CookDetailScreen() {
   const [chatModalVisible, setChatModalVisible] = useState(false);
   const [activeCheckin, setActiveCheckin] = useState<ScheduledCheckin | null>(null);
   const createCheckin = useCreateCookCheckin();
+  // Manual check-in saved toast: shown for ~2 s after the user submits a check-in.
+  const [checkinSavedToast, setCheckinSavedToast] = useState<string | null>(null);
+  const checkinSavedToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Auto-check-in toast: shown briefly after a probe-triggered auto-log fires.
   const [autoCheckinToast, setAutoCheckinToast] = useState<string | null>(null);
   const autoCheckinToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -4345,12 +4348,47 @@ export default function CookDetailScreen() {
       />
 
 
+      {/* ── Manual Check-In Saved Toast ──────────────────────── */}
+      {checkinSavedToast != null && (
+        <View
+          style={{
+            position: "absolute",
+            bottom: 90 + insets.bottom,
+            left: 16,
+            right: 16,
+            backgroundColor: "#1C1C1F",
+            borderColor: "#22c55e",
+            borderWidth: 1,
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.3,
+            shadowRadius: 6,
+            elevation: 8,
+            zIndex: 9999,
+          }}
+        >
+          <Feather name="check-circle" size={16} color="#22c55e" />
+          <Text style={{ flex: 1, color: "#F3EDE1", fontFamily: "Inter_400Regular", fontSize: 13 }}>
+            {checkinSavedToast}
+          </Text>
+          <Pressable onPress={() => setCheckinSavedToast(null)} hitSlop={10}>
+            <Feather name="x" size={14} color="#9CA3AF" />
+          </Pressable>
+        </View>
+      )}
+
       {/* ── Auto Check-In Toast ──────────────────────────────── */}
       {autoCheckinToast != null && (
         <View
           style={{
             position: "absolute",
-            bottom: 90 + insets.bottom,
+            bottom: checkinSavedToast != null ? 150 + insets.bottom : 90 + insets.bottom,
             left: 16,
             right: 16,
             backgroundColor: "#1C1C1F",
@@ -4385,7 +4423,10 @@ export default function CookDetailScreen() {
         <Animated.View
           style={{
             position: "absolute",
-            bottom: autoCheckinToast != null ? 150 + insets.bottom : 90 + insets.bottom,
+            bottom:
+              (checkinSavedToast != null ? 60 : 0) +
+              (autoCheckinToast != null ? 60 : 0) +
+              90 + insets.bottom,
             left: 16,
             right: 16,
             backgroundColor: "#1C1C1F",
@@ -4430,6 +4471,7 @@ export default function CookDetailScreen() {
           style={{
             position: "absolute",
             bottom:
+              (checkinSavedToast != null ? 60 : 0) +
               (autoCheckinToast != null ? 60 : 0) +
               (inkbirdToastMounted ? 60 : 0) +
               90 + insets.bottom,
@@ -4532,6 +4574,9 @@ export default function CookDetailScreen() {
           }}
           result={result}
           onCheckinSaved={(savedInternalTempF) => {
+            if (checkinSavedToastTimerRef.current) clearTimeout(checkinSavedToastTimerRef.current);
+            setCheckinSavedToast("Check-in saved ✓");
+            checkinSavedToastTimerRef.current = setTimeout(() => setCheckinSavedToast(null), 2000);
             pendingWrapClearRef.current = true;
             qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
             qc.invalidateQueries({ queryKey: getListCookCheckinsQueryKey(Number(id)) });
