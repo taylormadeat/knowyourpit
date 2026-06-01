@@ -27,3 +27,16 @@ export const VERDICT_SCORE: Record<string, number> = {
   overcooked: 25,
   undercooked: 25,
 };
+
+const GRADE_LETTER_COLORS: Record<string, { color: string; bgColor: string }> = {
+  A: { color: "#22c55e", bgColor: "#22c55e22" },
+  B: { color: "#84cc16", bgColor: "#84cc1622" },
+  C: { color: "#F59E0B", bgColor: "#F59E0B22" },
+  D: { color: "#F97316", bgColor: "#F9731622" },
+  F: { color: "#EF4444", bgColor: "#EF444422" },
+};
+
+export function gradeChipColors(grade: string): { color: string; bgColor: string } {
+  const baseLetter = grade.charAt(0).toUpperCase();
+  return GRADE_LETTER_COLORS[baseLetter] ?? { color: "#F59E0B", bgColor: "#F59E0B22" };
+}

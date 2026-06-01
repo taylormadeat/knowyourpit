@@ -39,7 +39,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { getCookCardBar, type CookCardBar } from "@/utils/cookCardBar";
-import { letterGrade, scoreColor, VERDICT_SCORE } from "@/utils/gradeUtils";
+import { gradeChipColors, letterGrade, scoreColor, VERDICT_SCORE } from "@/utils/gradeUtils";
 import { fmtRemaining, barColor, clamp, AnimatedBarFill } from "@/components/cook-detail/CookProgressBar";
 import { cancelStoredFrozenNotifications } from "@/hooks/useFrozenStageNotifications";
 import { cancelStoredCheckinNotifications } from "@/hooks/useCheckinNotifications";
@@ -1034,13 +1034,22 @@ export default function CooksScreen() {
             );
           })()}
           {(() => {
+            const storedGrade: string | null | undefined = item.healthScore;
+            if (storedGrade) {
+              const { color, bgColor } = gradeChipColors(storedGrade);
+              return (
+                <View style={[s.verdictBadge, { backgroundColor: bgColor }]}>
+                  <Text style={[s.verdictBadgeText, { color, fontSize: 11 }]}>{storedGrade}</Text>
+                </View>
+              );
+            }
             const verdict: string | undefined = item.analysisResult?.assessment?.verdict;
             const score = verdict !== undefined ? VERDICT_SCORE[verdict] : undefined;
             if (score === undefined) return null;
             const grade = letterGrade(score);
-            const color = scoreColor(score);
+            const { color, bgColor } = gradeChipColors(grade);
             return (
-              <View style={[s.verdictBadge, { backgroundColor: color + "22" }]}>
+              <View style={[s.verdictBadge, { backgroundColor: bgColor }]}>
                 <Text style={[s.verdictBadgeText, { color, fontSize: 11 }]}>{grade}</Text>
               </View>
             );
