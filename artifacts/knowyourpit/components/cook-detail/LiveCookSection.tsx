@@ -199,16 +199,45 @@ export function LiveCookSection(p: Props) {
     return true;
   }
 
+  // Stable insertion-order maps so probe rows never reorder while the user is
+  // tapping. We record the first-seen timestamp for each probe key and use it
+  // as the sort key. RSSI still updates the displayed signal-strength bars, but
+  // it no longer causes rows to jump position between renders.
+  const inkbirdInsertionOrderRef = React.useRef<Map<string, number>>(new Map());
+  const bleCtxInsertionOrderRef = React.useRef<Map<string, number>>(new Map());
+
   // Sorted + filtered Inkbird probes and BLE context devices
   const sortedInkbirdProbes = React.useMemo(() => {
     const filtered = inkbirdProbes.filter((p) => meetsMinSignal(p.rssi));
-    return [...filtered].sort((a, b) => (b.rssi ?? -200) - (a.rssi ?? -200));
+    const now = Date.now();
+    for (const p of filtered) {
+      const key = `ble_${p.deviceId}_${p.probeIndex}`;
+      if (!inkbirdInsertionOrderRef.current.has(key)) {
+        inkbirdInsertionOrderRef.current.set(key, now);
+      }
+    }
+    return [...filtered].sort((a, b) => {
+      const tA = inkbirdInsertionOrderRef.current.get(`ble_${a.deviceId}_${a.probeIndex}`) ?? 0;
+      const tB = inkbirdInsertionOrderRef.current.get(`ble_${b.deviceId}_${b.probeIndex}`) ?? 0;
+      return tA - tB;
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inkbirdProbes, minSignal]);
 
   const sortedBleContextDevices = React.useMemo(() => {
     const filtered = bleContextDevices.filter((d) => meetsMinSignal(d.rssi));
-    return [...filtered].sort((a, b) => (b.rssi ?? -200) - (a.rssi ?? -200));
+    const now = Date.now();
+    for (const d of filtered) {
+      const key = `bleCtx_${d.id}`;
+      if (!bleCtxInsertionOrderRef.current.has(key)) {
+        bleCtxInsertionOrderRef.current.set(key, now);
+      }
+    }
+    return [...filtered].sort((a, b) => {
+      const tA = bleCtxInsertionOrderRef.current.get(`bleCtx_${a.id}`) ?? 0;
+      const tB = bleCtxInsertionOrderRef.current.get(`bleCtx_${b.id}`) ?? 0;
+      return tA - tB;
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bleContextDevices, minSignal]);
 
@@ -222,24 +251,8 @@ export function LiveCookSection(p: Props) {
     () => sortedInkbirdProbes.filter((p) => `ble_${p.deviceId}_${p.probeIndex}` in knownProbeIds),
     [sortedInkbirdProbes, knownProbeIds],
   );
-  const otherInkbirdProbes = React.useMemo(() => {
-    const others = sortedInkbirdProbes.filter(
-      (p) => !(`ble_${p.deviceId}_${p.probeIndex}` in knownProbeIds),
-    );
-    if (!lastKnownInkbirdDeviceId) return others;
-    const lastIdx = others.findIndex((p) => p.deviceId === lastKnownInkbirdDeviceId);
-    if (lastIdx <= 0) return others;
-    const reordered = [...others];
-    const [pinned] = reordered.splice(lastIdx, 1);
-    reordered.unshift(pinned);
-    return reordered;
-  }, [sortedInkbirdProbes, knownProbeIds, lastKnownInkbirdDeviceId]);
   const knownBleContextDevices = React.useMemo(
     () => sortedBleContextDevices.filter((d) => `bleCtx_${d.id}` in knownProbeIds),
-    [sortedBleContextDevices, knownProbeIds],
-  );
-  const otherBleContextDevices = React.useMemo(
-    () => sortedBleContextDevices.filter((d) => !(`bleCtx_${d.id}` in knownProbeIds)),
     [sortedBleContextDevices, knownProbeIds],
   );
 
@@ -256,6 +269,35 @@ export function LiveCookSection(p: Props) {
         (k.startsWith("bleCtx_") && !scannedBleCtx.has(k)),
     );
   }, [sortedInkbirdProbes, sortedBleContextDevices, knownProbeIds]);
+
+  const otherInkbirdProbes = React.useMemo(() => {
+    const others = sortedInkbirdProbes.filter(
+      (p) => !(`ble_${p.deviceId}_${p.probeIndex}` in knownProbeIds),
+    );
+    // When the user has a known (previously-used) probe for this cook and has
+    // already made a Meat/Pit selection, hide unrecognised nearby Inkbird
+    // devices. Seeing a stranger device only causes confusion and mis-taps.
+    // We still show them when nothing is known yet (first-time pairing flow).
+    const hasKnownDevices =
+      Object.keys(knownProbeIds).length > 0 &&
+      (knownInkbirdProbes.length > 0 || (inkbirdScanning && missingKnownKeys.length > 0));
+    const hasSelection = selectedMeatProbeId != null || selectedPitProbeId != null;
+    if (hasKnownDevices && hasSelection) return [];
+
+    if (!lastKnownInkbirdDeviceId) return others;
+    const lastIdx = others.findIndex((p) => p.deviceId === lastKnownInkbirdDeviceId);
+    if (lastIdx <= 0) return others;
+    const reordered = [...others];
+    const [pinned] = reordered.splice(lastIdx, 1);
+    reordered.unshift(pinned);
+    return reordered;
+  }, [sortedInkbirdProbes, knownProbeIds, lastKnownInkbirdDeviceId,
+      knownInkbirdProbes, inkbirdScanning, missingKnownKeys,
+      selectedMeatProbeId, selectedPitProbeId]);
+  const otherBleContextDevices = React.useMemo(
+    () => sortedBleContextDevices.filter((d) => !(`bleCtx_${d.id}` in knownProbeIds)),
+    [sortedBleContextDevices, knownProbeIds],
+  );
 
   const hasKnownSection =
     Object.keys(knownProbeIds).length > 0 &&
