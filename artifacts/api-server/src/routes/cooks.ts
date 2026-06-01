@@ -15,6 +15,8 @@ import { requireAuth } from "../middlewares/requireAuth";
 import type { AiCheckinItem } from "@workspace/checkin-schedule";
 import { clearHomeInsightsCache } from "./ai";
 import { endLiveActivitiesForCook } from "../lib/liveActivityPush";
+import { computeCookHealthScore } from "./cookEvents";
+import { getAssessment } from "./ai/shared";
 import {
   FREE_COOK_LIMIT,
   respondPaywall,
@@ -275,9 +277,9 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
   }
   if (req.body.analysisResult !== undefined) {
     updateData.analysisResult = req.body.analysisResult;
-    // Append to history — fetch current history first, then accumulate
+    // Append to history — fetch current history + healthScore first, then accumulate
     const [current] = await db
-      .select({ analysisHistory: cooksTable.analysisHistory })
+      .select({ analysisHistory: cooksTable.analysisHistory, healthScore: cooksTable.healthScore })
       .from(cooksTable)
       .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)));
     const existingHistory = Array.isArray(current?.analysisHistory) ? (current.analysisHistory as unknown[]) : [];
@@ -285,6 +287,23 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
       ...existingHistory,
       { ...req.body.analysisResult, savedAt: new Date().toISOString() },
     ];
+    // If no health score has been stored yet (cook has no check-ins), derive one
+    // from the verdict so the list card shows a consistent grade without waiting
+    // for the first check-in.
+    if (!current?.healthScore) {
+      const verdict = getAssessment(req.body.analysisResult)?.verdict ?? null;
+      if (verdict) {
+        const health = computeCookHealthScore({
+          checkins: [],
+          events: [],
+          cookTempF: null,
+          verdict,
+          planAccuracyScore: null,
+        });
+        updateData.healthScore = String(health.grade);
+        updateData.healthScoreReason = health.reason;
+      }
+    }
   }
   if ("sessionId" in req.body) {
     const sid = req.body.sessionId;
