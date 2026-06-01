@@ -236,6 +236,7 @@ export default function PlanScreen() {
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
       qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       qc.invalidateQueries({ queryKey: getGetCookQueryKey(activeCook.id) });
+      qc.invalidateQueries({ queryKey: ["home", "insights"] });
       setEditTimesVisible(false);
       // Use the freshly returned schedule from the server — not the stale local state.
       const freshSchedule =
@@ -779,6 +780,7 @@ export default function PlanScreen() {
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
       qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: ["home", "insights"] });
       resetMultiForm();
       resetForm();
       setPlanMode("single");
@@ -962,6 +964,7 @@ export default function PlanScreen() {
         qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
         qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
         qc.invalidateQueries({ queryKey: getGetCookQueryKey(replanCookIdNum) });
+        qc.invalidateQueries({ queryKey: ["home", "insights"] });
         resetForm();
         router.push(`/cooks/${replanCookIdNum}` as any);
         return;
@@ -1097,6 +1100,7 @@ export default function PlanScreen() {
       qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
       qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
+      qc.invalidateQueries({ queryKey: ["home", "insights"] });
       const usedCooksBefore = paywallUsage?.usage?.cooks ?? 0;
       const isFreeAccount = !!paywallUsage && !paywallUsage.unlimited;
       const plannedFood = selectedCut?.name ?? null;

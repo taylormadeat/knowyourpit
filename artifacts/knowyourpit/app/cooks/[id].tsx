@@ -2369,6 +2369,7 @@ export default function CookDetailScreen() {
             qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
             qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
             qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
+            qc.invalidateQueries({ queryKey: ["home", "insights"] });
             goBack();
           } catch (e: any) {
             Alert.alert("Delete Failed", e?.message ?? "Could not delete this cook. Please try again.");
@@ -2399,6 +2400,7 @@ export default function CookDetailScreen() {
     qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
     qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
     qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+    qc.invalidateQueries({ queryKey: ["home", "insights"] });
 
     // Clear the saved probe assignments so a stale pairing never reappears if
     // the user revisits this cook after it has ended.
