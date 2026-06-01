@@ -32,7 +32,7 @@ import { ThawStatusBanner } from "@/components/cook-detail/ThawStatusBanner";
 import { PitMasterChatModal } from "@/components/PitMasterChatModal";
 import { ActiveCookCard } from "@/components/home/ActiveCookCard";
 
-const logoImg = require("@/assets/images/logo.png");
+const logoImg = require("@/assets/images/logo-light.png");
 
 const STATUS_COLOR: Record<string, string> = {
   planned: "#3b82f6",

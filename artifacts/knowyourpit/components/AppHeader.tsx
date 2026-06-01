@@ -7,7 +7,7 @@ import { useColors } from "@/hooks/useColors";
 import { useTopInset } from "@/hooks/useTopInset";
 import { LogoBackground } from "@/components/LogoBackground";
 
-const logoImg = require("@/assets/images/logo.png");
+const logoImg = require("@/assets/images/logo-light.png");
 
 interface AppHeaderProps {
   title: string;

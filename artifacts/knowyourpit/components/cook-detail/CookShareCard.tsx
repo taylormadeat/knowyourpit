@@ -3,7 +3,7 @@ import { View, Text, Image, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import ViewShot, { type ViewShotRef } from "react-native-view-shot";
 
-const logoImg = require("@/assets/images/logo.png");
+const logoImg = require("@/assets/images/logo-light.png");
 
 const CARD_SIZE = 1080;
 

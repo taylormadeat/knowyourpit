@@ -25,7 +25,7 @@ import { useBottomInset } from "@/hooks/useBottomInset";
 import { useLayout } from "@/hooks/useLayout";
 import { LogoBackground } from "@/components/LogoBackground";
 
-const logoImg = require("@/assets/images/logo.png");
+const logoImg = require("@/assets/images/logo-light.png");
 
 WebBrowser.maybeCompleteAuthSession();
 
