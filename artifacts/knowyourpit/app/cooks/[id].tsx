@@ -83,6 +83,7 @@ import {
   getGetMeaterReadingsQueryKey,
   getGetThermoworksReadingsQueryKey,
   getListCookCheckinsQueryKey,
+  getGetCookHealthQueryKey,
 } from "@workspace/api-client-react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -1763,6 +1764,7 @@ export default function CookDetailScreen() {
       }
       qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
       qc.invalidateQueries({ queryKey: getListCookCheckinsQueryKey(Number(id)) });
+      qc.invalidateQueries({ queryKey: getGetCookHealthQueryKey(Number(id)) });
       const first = cookSeqData?.schedule?.[0];
       if (first?.meatOnAt && first?.estimatedFinishAt) {
         const completedKeys = new Set(
