@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import type { ComponentProps } from "react";
 import { View, Text, Pressable, Modal, ScrollView } from "react-native";
 import type { DimensionValue } from "react-native";
@@ -40,6 +40,21 @@ const GRADE_CONFIG: Record<string, { color: string; bgColor: string; label: stri
   F: { color: "#EF4444", bgColor: "#EF444420", label: "Critical" },
 };
 
+const F_GRADE_QUIPS = [
+  "Honestly? The raccoons would turn this down. Let it go.",
+  "Even the dog walked away. That says everything.",
+  "This is a medical waste situation, not a BBQ.",
+  "At this point it's a fire hazard, not a meal.",
+  "PitMaster's official recommendation: cut your losses and order pizza.",
+  "This cook is done. Not in the good way.",
+  "The smoke detector called — it's filing a complaint.",
+  "Your grill tried its best. This one's not salvageable.",
+];
+
+export function getFGradeQuip(cookId: number): string {
+  return F_GRADE_QUIPS[cookId % F_GRADE_QUIPS.length];
+}
+
 const GRADE_SCORE: Record<string, number> = { A: 1, B: 0.8, C: 0.6, D: 0.4, F: 0.2 };
 
 interface Props {
@@ -48,9 +63,10 @@ interface Props {
   cookStatus: string | undefined;
   checkinCount: number;
   lastDecision?: LastDecision | null;
+  onGradeChange?: (grade: string, quip: string | null) => void;
 }
 
-export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, lastDecision }: Props) {
+export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, lastDecision, onGradeChange }: Props) {
   const [breakdownVisible, setBreakdownVisible] = useState(false);
 
   const { data: health, isLoading } = useGetCookHealth(cookId, {
@@ -61,12 +77,21 @@ export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, 
     },
   });
 
+  const grade = health?.grade as string | undefined;
+
+  useEffect(() => {
+    if (!onGradeChange || !grade) return;
+    onGradeChange(grade, grade === "F" ? getFGradeQuip(cookId) : null);
+  }, [grade, cookId, onGradeChange]);
+
   if (cookStatus !== "active" && cookStatus !== "completed") return null;
   if (isLoading || !health) return null;
 
-  const grade = health.grade as string;
-  const cfg = GRADE_CONFIG[grade] ?? GRADE_CONFIG.C;
-  const score = GRADE_SCORE[grade] ?? 0.5;
+  const resolvedGrade = health.grade as string;
+  const cfg = GRADE_CONFIG[resolvedGrade] ?? GRADE_CONFIG.C;
+  const score = GRADE_SCORE[resolvedGrade] ?? 0.5;
+  const fQuip = resolvedGrade === "F" ? getFGradeQuip(cookId) : null;
+  const displayReason = fQuip ?? health.reason;
 
   return (
     <>
@@ -94,7 +119,7 @@ export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, 
               justifyContent: "center",
             }}
           >
-            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 26, color: cfg.color }}>{grade}</Text>
+            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 26, color: cfg.color }}>{resolvedGrade}</Text>
           </View>
 
           <View style={{ flex: 1 }}>
@@ -106,8 +131,8 @@ export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, 
                 <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: cfg.color }}>{cfg.label}</Text>
               </View>
             </View>
-            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground as string, marginTop: 3, lineHeight: 17 }}>
-              {health.reason}
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: resolvedGrade === "F" ? "#EF4444" : colors.mutedForeground as string, marginTop: 3, lineHeight: 17 }}>
+              {displayReason}
             </Text>
             <View style={{ height: 5, borderRadius: 3, backgroundColor: colors.border as string, marginTop: 8, overflow: "hidden" }}>
               <View style={{ width: `${score * 100}%` as DimensionValue, height: 5, borderRadius: 3, backgroundColor: cfg.color }} />
@@ -205,11 +230,11 @@ export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, 
                   marginBottom: 10,
                 }}
               >
-                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 44, color: cfg.color }}>{grade}</Text>
+                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 44, color: cfg.color }}>{resolvedGrade}</Text>
               </View>
               <Text style={{ fontFamily: "Inter_700Bold", fontSize: 20, color: cfg.color }}>{cfg.label}</Text>
-              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 14, color: colors.mutedForeground as string, marginTop: 4, textAlign: "center" }}>
-                {health.reason}
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 14, color: resolvedGrade === "F" ? "#EF4444" : colors.mutedForeground as string, marginTop: 4, textAlign: "center" }}>
+                {displayReason}
               </Text>
             </View>
 

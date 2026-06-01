@@ -211,6 +211,7 @@ export default function CookDetailScreen() {
 
   const [images, setImages] = useState<PickedImage[]>([]);
   const [cookNotes, setCookNotes] = useState("");
+  const [fGradeQuip, setFGradeQuip] = useState<string | null>(null);
 
   // Quick-pick chip state for the scanner "describe the cook" section
   const [qpMethod, setQpMethod] = useState<string | null>(null);
@@ -3645,6 +3646,46 @@ export default function CookDetailScreen() {
           </View>
         )}
 
+        {/* ── F-Grade PitMaster Roast Banner ──────────────────── */}
+        {fGradeQuip && cookStatus === "active" && (
+          <View
+            style={{
+              backgroundColor: "#EF444415",
+              borderRadius: colors.radius as number,
+              borderWidth: 1,
+              borderColor: "#EF444450",
+              padding: 14,
+              flexDirection: "row",
+              gap: 10,
+              alignItems: "flex-start",
+            }}
+          >
+            <Feather name="alert-octagon" size={16} color="#EF4444" style={{ marginTop: 1 }} />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontFamily: "Inter_700Bold",
+                  fontSize: 13,
+                  color: "#EF4444",
+                  marginBottom: 4,
+                }}
+              >
+                PitMaster Says: Cut Your Losses
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 13,
+                  color: colors.foreground as string,
+                  lineHeight: 18,
+                }}
+              >
+                {fGradeQuip}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* ── Cook Health Score (active / completed, and only once meat is on) ── */}
         {(cookStatus === "active" || cookStatus === "completed") && (cookStatus !== "active" || isMeatOn) && (
           <CookHealthScoreCard
@@ -3653,6 +3694,11 @@ export default function CookDetailScreen() {
             cookStatus={cookStatus}
             checkinCount={(cookCheckins as CookCheckin[]).length}
             lastDecision={cookStatus === "active" ? (c.analysisResult?.decisions?.[0] ?? null) : null}
+            onGradeChange={(grade, quip) => {
+              if (cookStatus === "active") {
+                setFGradeQuip(grade === "F" ? quip : null);
+              }
+            }}
           />
         )}
 

@@ -15,10 +15,12 @@ import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useCreateCookCheckin,
   useCreateCookEvent,
   useUpdateCook,
+  getGetCookHealthQueryKey,
 } from "@workspace/api-client-react";
 import type { CreateCookEventBodyEventType } from "@workspace/api-client-react";
 import {
@@ -156,6 +158,7 @@ export function UnifiedCheckinSheet({
   const createCheckin = useCreateCookCheckin();
   const createEvent = useCreateCookEvent();
   const updateCook = useUpdateCook();
+  const queryClient = useQueryClient();
 
   const [stage, setStage] = useState<Stage>("form");
 
@@ -245,6 +248,8 @@ export function UnifiedCheckinSheet({
           phaseKey: phase.key,
         },
       });
+
+      queryClient.invalidateQueries({ queryKey: getGetCookHealthQueryKey(cookId) });
 
       for (const eventType of selectedEvents) {
         await createEvent.mutateAsync({
