@@ -108,9 +108,9 @@ export default function Home() {
             className="mb-6 md:mb-8"
           >
             <img
-              src={`${BASE}icon.png`}
+              src={`${BASE}logo-transparent-light.png`}
               alt="knowyourpit"
-              className="w-44 sm:w-56 md:w-80 lg:w-96 rounded-3xl [filter:drop-shadow(0_0_60px_rgba(210,80,30,0.5))]"
+              className="w-44 sm:w-56 md:w-80 lg:w-96 [filter:drop-shadow(0_0_60px_rgba(210,80,30,0.5))]"
             />
           </motion.div>
 
