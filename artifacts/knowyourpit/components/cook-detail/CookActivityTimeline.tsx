@@ -73,11 +73,21 @@ interface AnalysisHistoryEntry {
 
 // ─── Unified activity event model ────────────────────────────────────────────
 
+/** AI analysis payload merged from a nearby cook_events ai_analysis row. */
+interface MergedCookEventAnalysis {
+  verdict: string;
+  verdictColor: string;
+  verdictLabel: string;
+  summary?: string;
+  decisions?: string[];
+}
+
 /**
  * A single check-in event that may carry data from either or both of:
  * - CookCheckin  (new system: phaseKey, temps, note, photo, aiGuidanceShown)
  * - AnalysisHistoryEntry  (legacy: verdict, summary, decisions)
- * Merging by time proximity prevents the same check-in appearing twice.
+ * - MergedCookEventAnalysis  (cook_events ai_analysis rows absorbed within 15 min)
+ * Merging by time proximity prevents the same moment appearing as multiple rows.
  */
 interface UnifiedCheckinEvent {
   kind: "checkin";
@@ -90,6 +100,8 @@ interface UnifiedCheckinEvent {
   historyEntry: AnalysisHistoryEntry | null;
   /** 0 = most recent; used for Pro paywall gating */
   ageRank: number;
+  /** Most severe ai_analysis cook event absorbed into this check-in row */
+  mergedCookEventAnalysis?: MergedCookEventAnalysis;
 }
 
 interface JournalEvent {
@@ -201,6 +213,16 @@ const VERDICT_COLORS: Record<string, string> = {
   overcooked:  "#EF4444",
   undercooked: "#3B82F6",
 };
+
+/** Severity rank for ai_analysis verdict keys — higher wins when merging duplicates. */
+const VERDICT_SEVERITY: Record<string, number> = {
+  action_needed: 3,
+  watch:         2,
+  on_track:      1,
+};
+
+/** Max time gap between an ai_analysis cook event and a check-in to be merged into it. */
+const ANALYSIS_MATCH_WINDOW_MS = 15 * 60 * 1000;
 
 const URGENCY_COLORS: Record<string, string> = {
   now:        "#EF4444",
@@ -441,7 +463,13 @@ function CheckinRow({
     ci?.internalTempF != null || ci?.pitTempF != null || ci?.userNote ||
     ci?.aiGuidanceShown || ci?.photoKey ||
     he?.assessment?.verdict || he?.assessment?.summary ||
-    (he?.decisions?.length ?? 0) > 0
+    (he?.decisions?.length ?? 0) > 0 ||
+    event.mergedCookEventAnalysis
+  );
+
+  const hasAnalysis = !!(
+    he?.assessment?.verdict || he?.assessment?.summary ||
+    event.mergedCookEventAnalysis
   );
 
   // Pro lock: on completed cooks, non-Pro users with confirmed identity can only
@@ -454,7 +482,7 @@ function CheckinRow({
     event.ageRank > 0 &&
     totalCheckinCount > 1;
 
-  // One-line collapsed preview
+  // One-line collapsed preview — always surface the verdict alongside temperature
   const collapsedPreview = (() => {
     const bits: string[] = [];
     const srcLabel = probeSourceLabel(ci?.probeSource);
@@ -464,9 +492,9 @@ function CheckinRow({
       const cfg = STATUS_FLAG_CONFIG[ci.statusFlag];
       if (cfg) bits.push(cfg.label);
     }
-    if (bits.length === 0 && he?.assessment?.verdict) {
-      bits.push(he.assessment.verdict.replace(/_/g, " "));
-    }
+    // Show verdict from either source alongside (not instead of) temperature
+    const verdict = he?.assessment?.verdict ?? event.mergedCookEventAnalysis?.verdict ?? null;
+    if (verdict) bits.push(verdict.replace(/_/g, " "));
     if (bits.length === 0 && ci?.userNote) bits.push(ci.userNote.slice(0, 60));
     return bits.join(" · ");
   })();
@@ -509,6 +537,13 @@ function CheckinRow({
               {collapsedPreview}
             </Text>
           ) : null}
+
+          {/* Tap hint — only shown when analysis content exists and the row is collapsed */}
+          {!isExpanded && hasAnalysis && (
+            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: colors.primary as string, marginTop: 1 }}>
+              Tap to view analysis
+            </Text>
+          )}
 
           {/* Expanded detail */}
           {isExpanded && hasExpandableContent && (
@@ -686,6 +721,48 @@ function CheckinRow({
                   />
                 )
               )}
+
+              {/* ── Merged cook event analysis (shown when no analysisHistory entry covers this moment) ── */}
+              {!he && event.mergedCookEventAnalysis && (() => {
+                const mca = event.mergedCookEventAnalysis;
+                return (
+                  <View style={{ gap: 6 }}>
+                    <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                      <View style={{
+                        paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
+                        backgroundColor: mca.verdictColor + "22",
+                      }}>
+                        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: mca.verdictColor }}>
+                          {mca.verdictLabel}
+                        </Text>
+                      </View>
+                    </View>
+                    {mca.summary ? (
+                      <Text style={{
+                        fontFamily: "Inter_400Regular", fontSize: 12,
+                        color: colors.mutedForeground as string, lineHeight: 18,
+                      }} numberOfLines={5}>
+                        {mca.summary}
+                      </Text>
+                    ) : null}
+                    {(mca.decisions?.length ?? 0) > 0 ? (
+                      <View style={{ gap: 4 }}>
+                        {mca.decisions!.map((d, dIdx) => (
+                          <View key={dIdx} style={{ flexDirection: "row", gap: 6, alignItems: "flex-start" }}>
+                            <Text style={{ color: mca.verdictColor, fontSize: 11, lineHeight: 17 }}>›</Text>
+                            <Text style={{
+                              fontFamily: "Inter_400Regular", fontSize: 11,
+                              color: colors.mutedForeground as string, lineHeight: 17, flex: 1,
+                            }}>
+                              {d}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })()}
             </View>
           )}
         </View>
@@ -965,7 +1042,13 @@ export function CookActivityTimeline({
 
   // ── Build all past events ────────────────────────────────────────────────────
   const pastEvents: PastEvent[] = React.useMemo(() => {
-    const list: PastEvent[] = [...unifiedCheckinEvents];
+    // Shallow-copy check-in events so we can attach mergedCookEventAnalysis without
+    // mutating the objects from the unifiedCheckinEvents memo.
+    const mutableCheckins: UnifiedCheckinEvent[] = unifiedCheckinEvents.map(e => ({ ...e }));
+    // Track the occurredAt ms of the most recently merged event per check-in id,
+    // used as a tiebreaker when two ai_analysis events have equal severity.
+    const mergedAtMs = new Map<string, number>();
+    const list: PastEvent[] = [...mutableCheckins];
 
     // Cook events from journal
     for (const evt of cookEvents as any[]) {
@@ -974,6 +1057,7 @@ export function CookActivityTimeline({
       if (evt.eventType === "ai_analysis") {
         const meta = evt.metadata as { verdict?: string; summary?: string; decisions?: string[] } | null;
         const verdict = meta?.verdict ?? "";
+        const evtMs = new Date(evt.occurredAt).getTime();
         const verdictColor =
           verdict === "on_track"     ? "#22c55e" :
           verdict === "watch"        ? "#F59E0B" :
@@ -984,10 +1068,42 @@ export function CookActivityTimeline({
           verdict === "action_needed" ? "Action Needed" :
           verdict || "Analysis";
         const decisions = Array.isArray(meta?.decisions) ? meta.decisions.filter(Boolean) : [];
+
+        // Find the nearest check-in within the match window and absorb this event into it.
+        let bestCheckin: UnifiedCheckinEvent | null = null;
+        let bestDiff = Infinity;
+        for (const ce of mutableCheckins) {
+          const diff = Math.abs(ce.occurredAt - evtMs);
+          if (diff < ANALYSIS_MATCH_WINDOW_MS && diff < bestDiff) {
+            bestDiff = diff;
+            bestCheckin = ce;
+          }
+        }
+
+        if (bestCheckin) {
+          // Keep the most severe verdict; break ties by choosing the more recent event.
+          const existingSeverity = VERDICT_SEVERITY[bestCheckin.mergedCookEventAnalysis?.verdict ?? ""] ?? 0;
+          const newSeverity = VERDICT_SEVERITY[verdict] ?? 0;
+          const existingMs = mergedAtMs.get(bestCheckin.id) ?? -Infinity;
+          if (!bestCheckin.mergedCookEventAnalysis || newSeverity > existingSeverity ||
+              (newSeverity === existingSeverity && evtMs > existingMs)) {
+            bestCheckin.mergedCookEventAnalysis = {
+              verdict,
+              verdictColor,
+              verdictLabel,
+              summary: meta?.summary ?? evt.note ?? undefined,
+              decisions: decisions.length > 0 ? decisions : undefined,
+            };
+            mergedAtMs.set(bestCheckin.id, evtMs);
+          }
+          continue;
+        }
+
+        // No nearby check-in — show as a standalone row.
         list.push({
           kind: "ai-analysis",
           id: `event-${evt.id}`,
-          occurredAt: new Date(evt.occurredAt).getTime(),
+          occurredAt: evtMs,
           icon: cfg.icon,
           color: verdictColor,
           summary: `PitMaster Analysis — ${verdictLabel}`,
@@ -1100,7 +1216,9 @@ export function CookActivityTimeline({
     const eligible = pastEvents
       .filter((e): e is AiAnalysisEvent | UnifiedCheckinEvent => {
         if (e.kind === "ai-analysis") return true;
-        if (e.kind === "checkin" && !!e.historyEntry?.assessment?.verdict) return true;
+        if (e.kind === "checkin" && (
+          !!e.historyEntry?.assessment?.verdict || !!e.mergedCookEventAnalysis?.verdict
+        )) return true;
         return false;
       })
       .slice()
@@ -1124,13 +1242,17 @@ export function CookActivityTimeline({
       return { color, label };
     }
 
-    if (latest.kind === "checkin" && latest.historyEntry?.assessment?.verdict) {
-      const verdict = latest.historyEntry.assessment.verdict;
-      // Derive color directly from the verdict key — never use the composite checkin
-      // color which may reflect a statusFlag (e.g. purple for low_fuel) instead.
-      const color = VERDICT_COLORS[verdict] ?? "#22c55e";
-      const label = verdict.replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
-      return { color, label };
+    if (latest.kind === "checkin") {
+      // Prefer the historyEntry verdict; fall back to the merged cook event analysis.
+      const verdict = latest.historyEntry?.assessment?.verdict ?? latest.mergedCookEventAnalysis?.verdict ?? null;
+      if (verdict) {
+        // Use the pre-computed verdictColor when available (avoids re-deriving for non-VERDICT_COLORS keys).
+        const color = latest.mergedCookEventAnalysis?.verdict === verdict
+          ? (latest.mergedCookEventAnalysis.verdictColor ?? (VERDICT_COLORS[verdict] ?? "#22c55e"))
+          : (VERDICT_COLORS[verdict] ?? "#22c55e");
+        const label = verdict.replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
+        return { color, label };
+      }
     }
 
     return null;
