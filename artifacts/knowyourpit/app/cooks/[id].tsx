@@ -652,7 +652,6 @@ export default function CookDetailScreen() {
     }
   }, [cookStatus, (cook as any)?.id]);
   const [techsExpanded, setTechsExpanded] = useState(false);
-  const [planSheetVisible, setPlanSheetVisible] = useState(false);
   const [addToSessionOpen, setAddToSessionOpen] = useState(false);
   const [removedPlannedKeys, setRemovedPlannedKeys] = useState<Set<string>>(new Set());
   const [markingThaw, setMarkingThaw] = useState(false);
@@ -3458,7 +3457,6 @@ export default function CookDetailScreen() {
           nowMs={nowMs}
           thawMethod={(c as any).thawMethod ?? null}
           actualThawStartAt={(c as any).actualThawStartAt ? new Date((c as any).actualThawStartAt).toISOString() : null}
-          onPress={() => setPlanSheetVisible(true)}
           onMarkThawStarted={handleMarkThawStarted}
           markingThaw={markingThaw}
           colors={colors}
@@ -3749,7 +3747,6 @@ export default function CookDetailScreen() {
           targetTempF={c.targetTempF ?? null}
           cookTempF={c.cookTempF ?? null}
           nextSpritzMs={nextSpritzMs}
-          onViewDetails={cookStatus === "active" ? () => setPlanSheetVisible(true) : undefined}
           isMeatOn={isMeatOn}
           pitMasterResult={result}
           pitMasterAnalyzing={analyzing}
@@ -3777,8 +3774,6 @@ export default function CookDetailScreen() {
           colors={colors}
           cookStatus={cookStatus}
           nowMs={nowMs}
-          planSheetVisible={planSheetVisible}
-          setPlanSheetVisible={setPlanSheetVisible}
         />
 
         {/* ── Cook Timeline (planned cooks only) ── */}

@@ -78,7 +78,6 @@ interface Props {
   targetTempF?: number | null;
   cookTempF?: number | null;
   nextSpritzMs?: number | null;
-  onViewDetails?: () => void;
   isMeatOn?: boolean;
   pitMasterResult?: any;
   pitMasterAnalyzing?: boolean;
@@ -132,7 +131,7 @@ export function LiveCookSection(p: Props) {
     knownProbeIds = {}, lastKnownInkbirdDeviceId,
     liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, estimatedFinishMs,
     setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
-    targetTempF, cookTempF, nextSpritzMs, onViewDetails,
+    targetTempF, cookTempF, nextSpritzMs,
     isMeatOn, pitMasterResult, pitMasterAnalyzing,
     renderDecisions, onCheckIn, onCheckInNext, onOpenChat, lastAnalyzedAtMs, lastCheckinInternalTempF, onRefresh, activeProbeName,
     currentInternalTempF, currentPitTempF,
@@ -1679,15 +1678,6 @@ export function LiveCookSection(p: Props) {
             </View>
           )}
         </Pressable>
-        {onViewDetails && (
-          <Pressable
-            style={[s.setAlertBtn, { backgroundColor: colors.primary + "12", borderColor: colors.primary + "30", borderRadius: colors.radius }]}
-            onPress={onViewDetails}
-          >
-            <Feather name="file-text" size={14} color={colors.primary} />
-            <Text style={[s.setAlertBtnText, { color: colors.primary }]}>View full details</Text>
-          </Pressable>
-        )}
       </View>
 
       {/* BLE pairing troubleshoot wizard */}
