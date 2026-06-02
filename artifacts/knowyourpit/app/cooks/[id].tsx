@@ -4013,7 +4013,7 @@ export default function CookDetailScreen() {
         {cookStatus !== "planned" && (
           <>
             <FrozenTimeline c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs} />
-            <SequenceSchedule
+            {cookStatus !== "completed" && <SequenceSchedule
               c={c}
               colors={colors}
               cookStatus={cookStatus}
@@ -4038,44 +4038,12 @@ export default function CookDetailScreen() {
               cookCheckins={cookCheckins as CookCheckin[]}
               onCheckinPress={cookStatus === "active" ? openCheckin : undefined}
               nextCheckinSc={cookStatus === "active" ? nextCheckinSc : null}
-            />
+            />}
             {/* For active cooks with no AI sequence plan (Cook Now path), SequenceSchedule
                 returns null. Show PlannedCookTimeline instead so check-in checkpoints
                 and the cook timeline are still visible. It self-guards and returns null
                 when sequenceData is present, so it never duplicates the SequenceSchedule. */}
             <PlannedCookTimeline c={c} colors={colors} cookStatus={cookStatus} estimatedFinishMs={estimatedFinishMs} />
-            {/* Activity timeline for completed cooks — shown here, right after the cook timeline */}
-            {cookStatus === "completed" && (
-              <CookActivityTimeline
-                c={c}
-                colors={colors}
-                cookStatus={cookStatus}
-                nowMs={nowMs}
-                cookId={Number(id)}
-                cookSeqData={cookSeqData as SequenceData | null}
-                checkins={cookCheckins as CookCheckin[]}
-                checkinsLoading={checkinsLoading}
-                onOpenCheckin={openCheckin}
-                triggeredAlerts={activeCookAlerts
-                  .filter((a) => a.triggeredAt != null)
-                  .map((a) => ({ id: a.id, message: a.message ?? "Temperature alert triggered", triggeredAt: a.triggeredAt as string }))}
-                stepConfirmations={(() => {
-                  const schedule = (cookSeqData?.schedule ?? []) as Array<{ phaseKey?: string | null; phaseLabel?: string | null; confirmedAt?: string | null }>;
-                  return schedule
-                    .filter((item) => item.confirmedAt != null)
-                    .map((item, i) => ({
-                      id: `step-${item.phaseKey ?? i}`,
-                      label: item.phaseLabel ?? "Step complete",
-                      confirmedAt: item.confirmedAt as string,
-                    }));
-                })()}
-                liveReadingMilestones={[]}
-                effectivePro={effectivePro}
-                isIdentityLinked={isIdentityLinked}
-                showPaywall={showPaywall}
-                plannedCheckins={[]}
-              />
-            )}
           </>
         )}
 
@@ -4121,6 +4089,57 @@ export default function CookDetailScreen() {
           showPaywall={showPaywall}
           onCardLayout={onCardLayout}
         />}
+
+        {/* ── Completed cook: Cook Timeline + Activity (after PitMaster analysis, consecutive) ── */}
+        {cookStatus === "completed" && (
+          <>
+            <SequenceSchedule
+              c={c}
+              colors={colors}
+              cookStatus={cookStatus}
+              nowMs={nowMs}
+              nextStep={null}
+              seqScheduleExpanded={seqScheduleExpanded}
+              setSeqScheduleExpanded={setSeqScheduleExpanded}
+              confirmedSteps={confirmedSteps}
+              toggleConfirmedStep={toggleConfirmedStep}
+              scheduleListYRef={scheduleListYRef}
+              itemYRef={itemYRef}
+              timelineYRef={timelineYRef}
+              rowYRef={rowYRef}
+              cookCheckins={cookCheckins as CookCheckin[]}
+            />
+            <CookActivityTimeline
+              c={c}
+              colors={colors}
+              cookStatus={cookStatus}
+              nowMs={nowMs}
+              cookId={Number(id)}
+              cookSeqData={cookSeqData as SequenceData | null}
+              checkins={cookCheckins as CookCheckin[]}
+              checkinsLoading={checkinsLoading}
+              onOpenCheckin={openCheckin}
+              triggeredAlerts={activeCookAlerts
+                .filter((a) => a.triggeredAt != null)
+                .map((a) => ({ id: a.id, message: a.message ?? "Temperature alert triggered", triggeredAt: a.triggeredAt as string }))}
+              stepConfirmations={(() => {
+                const schedule = (cookSeqData?.schedule ?? []) as Array<{ phaseKey?: string | null; phaseLabel?: string | null; confirmedAt?: string | null }>;
+                return schedule
+                  .filter((item) => item.confirmedAt != null)
+                  .map((item, i) => ({
+                    id: `step-${item.phaseKey ?? i}`,
+                    label: item.phaseLabel ?? "Step complete",
+                    confirmedAt: item.confirmedAt as string,
+                  }));
+              })()}
+              liveReadingMilestones={[]}
+              effectivePro={effectivePro}
+              isIdentityLinked={isIdentityLinked}
+              showPaywall={showPaywall}
+              plannedCheckins={[]}
+            />
+          </>
+        )}
 
         {/* ── Standalone Temperature History (completed cooks with probe data but no AI analysis) ── */}
         {cookStatus === "completed" && !storedAnalysis && completedCookReadingsProbes.length > 0 && (
