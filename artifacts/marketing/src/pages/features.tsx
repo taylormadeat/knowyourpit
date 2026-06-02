@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarClock, Zap, ChefHat, Camera, BookOpen, ClipboardList } from "lucide-react";
+import { CalendarClock, Zap, ChefHat, Camera, BookOpen, ClipboardList, Snowflake, Droplets } from "lucide-react";
 
 const FEATURES = [
   {
@@ -13,7 +13,7 @@ const FEATURES = [
     icon: Zap,
     title: "Live Cook Decisions",
     shortTitle: "Live Decisions",
-    body: "During an active cook, PitMaster reads your temperature curve in real time and ranks your next moves — hold steady, wrap now, raise pit temp — with the reasoning behind each call. It flags the stall before it peaks, catches plan drift early, and returns a clear action while there's still time to use it. Not generic reminders. Decisions from what's happening in your pit right now.",
+    body: "During an active cook, PitMaster reads your temperature curve in real time and tells you what to do next — hold steady, wrap now, raise pit temp — with the reasoning behind the call. It flags the stall before it peaks, catches plan drift early, and gives you a clear action while there's still time to use it. Not generic reminders. A call from what's happening in your pit right now.",
   },
   {
     icon: ChefHat,
@@ -31,13 +31,25 @@ const FEATURES = [
     icon: Camera,
     title: "Any Thermometer. Any Data Source.",
     shortTitle: "Any Thermometer",
-    body: "Already using MEATER or ThermoWorks? Link them directly. Running an analog gauge? Take a photo and PitMaster reads it. Prefer to log temperatures by hand? That works too. No required hardware — knowyourpit pulls data from wherever it lives and runs the same analysis regardless of how you're monitoring your cook.",
+    body: "Connect any Bluetooth or WiFi probe and your readings flow straight into PitMaster — no manual logging required. MEATER and ThermoWorks Signals link directly, with support for additional brands. Running an analog gauge? Take a photo and PitMaster reads it. Prefer to log by hand? That works too. No specific hardware required.",
   },
   {
     icon: BookOpen,
     title: "Cook History & Debrief",
     shortTitle: "Cook History",
     body: "After every session, PitMaster runs through your temperature data and tells you what happened — where you hit your plan, where you fell off, and what likely caused the difference. Rate tenderness, flavor, and bark, and that feedback carries forward into every future cook. Over time, PitMaster's understanding of how your pit runs gets sharper with every session.",
+  },
+  {
+    icon: Snowflake,
+    title: "Frozen Meat Planning",
+    shortTitle: "Frozen Planning",
+    body: "Flag a cut as frozen and choose your thaw method — refrigerator, cold-water, microwave, counter, or cook-from-frozen. PitMaster calculates the thaw window, adds a temper time, and folds both into your cook plan so your start schedule accounts for the full timeline. Thaw countdown and notifications fire automatically when each window opens.",
+  },
+  {
+    icon: Droplets,
+    title: "Technique Memory",
+    shortTitle: "Technique",
+    body: "Set a spritz cadence, mop schedule, or injection preference and PitMaster remembers it for that cut across every cook. Spritz reminders fire on schedule during a live session, mop steps appear in your cook timeline, and it all feeds into your AI analysis — so guidance is based on how you actually cook, not a generic playbook.",
   },
 ];
 
