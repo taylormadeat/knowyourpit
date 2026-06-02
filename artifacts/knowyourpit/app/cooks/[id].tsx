@@ -1453,6 +1453,33 @@ export default function CookDetailScreen() {
     }
   }, [historicalReadings, cook?.actualStartAt, selectedMeatProbeId]);
 
+  // Seed liveReadings from historical check-in temperatures for manual-mode cooks.
+  // Only fires when the probe seeding above found nothing (liveReadingsSeededRef still false),
+  // which is the normal case for a cook that has never had a hardware probe attached.
+  // Uses cook_checkins.internalTempF sorted by createdAt so the graph history
+  // is restored when the user reopens the app mid-cook in manual mode.
+  useEffect(() => {
+    if (liveReadingsSeededRef.current) return;
+    if (tempMode !== "manual") return;
+    if (!cook?.actualStartAt) return;
+    if (!Array.isArray(cookCheckins) || cookCheckins.length === 0) return;
+
+    const startMs = new Date(cook.actualStartAt).getTime();
+    const entries = (cookCheckins as any[])
+      .filter((ci: any) => ci.internalTempF != null)
+      .map((ci: any) => ({
+        timeMinutes:
+          Math.round(Math.max(0, (new Date(ci.createdAt).getTime() - startMs) / 60000) * 10) / 10,
+        tempF: ci.internalTempF as number,
+      }))
+      .sort((a, b) => a.timeMinutes - b.timeMinutes);
+
+    if (entries.length > 0) {
+      setLiveReadings(entries);
+      liveReadingsSeededRef.current = true;
+    }
+  }, [cookCheckins, cook?.actualStartAt, tempMode]);
+
   // Initialize ratings from saved cook data; also re-syncs when server refetches after a save
   const cookRatingT = (cook as any)?.ratingTenderness ?? 0;
   const cookRatingF = (cook as any)?.ratingFlavor ?? 0;
@@ -3137,14 +3164,22 @@ export default function CookDetailScreen() {
     (selectedPitProbeId && probeLabels[selectedPitProbeId])
       ? probeLabels[selectedPitProbeId]
       : "Pit / Ambient";
-  const liveGraphProbes = tempMode === "probe" && selectedMeatProbeId != null && liveReadings.length >= 2
-    ? [
+  const liveGraphProbes = (() => {
+    if (tempMode === "probe" && selectedMeatProbeId != null && liveReadings.length >= 2) {
+      return [
         { probeName: activeProbeName, timeSeries: liveReadings, finishingTempF: liveReadings[liveReadings.length - 1]!.tempF },
         ...(livePitReadings.length >= 2
           ? [{ probeName: activePitProbeName, timeSeries: livePitReadings, finishingTempF: livePitReadings[livePitReadings.length - 1]!.tempF }]
           : []),
-      ]
-    : [];
+      ];
+    }
+    if (tempMode === "manual" && liveReadings.length >= 2) {
+      return [
+        { probeName: "Manual entries", timeSeries: liveReadings, finishingTempF: liveReadings[liveReadings.length - 1]!.tempF },
+      ];
+    }
+    return [];
+  })();
 
   // Stored analysis from DB
   const storedAnalysis = c.analysisResult as AnalysisResult | null | undefined;
@@ -4660,6 +4695,15 @@ export default function CookDetailScreen() {
           }}
           result={result}
           onCheckinSaved={(savedInternalTempF) => {
+            // Optimistically append the manual temp to liveReadings so the graph
+            // updates immediately without waiting for the checkins refetch to settle.
+            if (savedInternalTempF != null && tempMode === "manual" && cook?.actualStartAt) {
+              const startMs = new Date(cook.actualStartAt).getTime();
+              const elapsedMins =
+                Math.round(Math.max(0, (Date.now() - startMs) / 60000) * 10) / 10;
+              setLiveReadings((prev) => [...prev, { timeMinutes: elapsedMins, tempF: savedInternalTempF }]);
+              liveReadingsSeededRef.current = true;
+            }
             if (checkinSavedToastTimerRef.current) clearTimeout(checkinSavedToastTimerRef.current);
             setCheckinSavedToast("Check-in saved ✓");
             checkinSavedToastTimerRef.current = setTimeout(() => setCheckinSavedToast(null), 2000);
