@@ -11,8 +11,6 @@ import {
   ScrollView,
   Modal,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
   TouchableOpacity,
   Animated,
   Alert,
@@ -44,6 +42,7 @@ import { fmtRemaining, barColor, clamp, AnimatedBarFill } from "@/components/coo
 import { cancelStoredFrozenNotifications } from "@/hooks/useFrozenStageNotifications";
 import { cancelStoredCheckinNotifications } from "@/hooks/useCheckinNotifications";
 import { cancelStoredSpritzNotifications } from "@/hooks/useSpritzNotifications";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
@@ -1371,8 +1370,7 @@ export default function CooksScreen() {
         animationType="fade"
         onRequestClose={() => setEditingSession(null)}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        <AppKeyboardAvoidingView
           style={s.modalOverlay}
         >
           <TouchableOpacity
@@ -1426,7 +1424,7 @@ export default function CooksScreen() {
               </Pressable>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </AppKeyboardAvoidingView>
       </Modal>
 
       <Modal

@@ -6,7 +6,6 @@ import {
   Pressable,
   StyleSheet,
   Platform,
-  KeyboardAvoidingView,
   ScrollView,
   ActivityIndicator,
   Image,
@@ -24,6 +23,7 @@ import { useTopInset } from "@/hooks/useTopInset";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { useLayout } from "@/hooks/useLayout";
 import { LogoBackground } from "@/components/LogoBackground";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 
 const logoImg = require("@/assets/images/logo-transparent-light.png");
 
@@ -734,9 +734,8 @@ export default function SignInScreen() {
 
   if (step === "forgot_request") {
     return (
-      <KeyboardAvoidingView
+      <AppKeyboardAvoidingView
         style={styles.outer}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <LogoBackground opacity={0.04} />
         <ScrollView
@@ -785,15 +784,14 @@ export default function SignInScreen() {
             <Text style={styles.backLinkText}>Back to sign in</Text>
           </Pressable>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     );
   }
 
   if (step === "forgot_verify") {
     return (
-      <KeyboardAvoidingView
+      <AppKeyboardAvoidingView
         style={styles.outer}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <LogoBackground opacity={0.04} />
         <ScrollView
@@ -858,15 +856,14 @@ export default function SignInScreen() {
             <Text style={styles.backLinkText}>Back to sign in</Text>
           </Pressable>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     );
   }
 
   if (step === "second_factor") {
     return (
-      <KeyboardAvoidingView
+      <AppKeyboardAvoidingView
         style={styles.outer}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <LogoBackground opacity={0.04} />
         <ScrollView
@@ -914,14 +911,13 @@ export default function SignInScreen() {
             <Text style={styles.backLinkText}>Back to sign in</Text>
           </Pressable>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     );
   }
 
   return (
-    <KeyboardAvoidingView
+    <AppKeyboardAvoidingView
       style={styles.outer}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <LogoBackground opacity={0.04} />
       <ScrollView
@@ -1071,6 +1067,6 @@ export default function SignInScreen() {
           </Link>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </AppKeyboardAvoidingView>
   );
 }

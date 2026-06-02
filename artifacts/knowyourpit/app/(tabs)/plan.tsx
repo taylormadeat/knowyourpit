@@ -9,9 +9,9 @@ import {
   Modal,
   FlatList,
   ScrollView,
-  KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { fmtMinutes } from "@/utils/duration";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -2289,7 +2289,7 @@ export default function PlanScreen() {
                       style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}
                       onPress={() => { setNotes(notesSheetDraft); setActiveSheet(null); }}
                     />
-                    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
+                    <AppKeyboardAvoidingView>
                     <View
                       style={{
                         backgroundColor: colors.card,
@@ -2334,7 +2334,7 @@ export default function PlanScreen() {
                         autoFocus
                       />
                     </View>
-                    </KeyboardAvoidingView>
+                    </AppKeyboardAvoidingView>
                   </Modal>
                 </View>
               )}

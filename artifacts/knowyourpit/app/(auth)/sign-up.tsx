@@ -6,7 +6,6 @@ import {
   Pressable,
   StyleSheet,
   Platform,
-  KeyboardAvoidingView,
   ScrollView,
   ActivityIndicator,
   Image,
@@ -25,6 +24,7 @@ import { useTopInset } from "@/hooks/useTopInset";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { useLayout } from "@/hooks/useLayout";
 import { LogoBackground } from "@/components/LogoBackground";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 
 const logoImg = require("@/assets/images/logo-transparent-light.png");
 
@@ -584,7 +584,7 @@ export default function SignUpScreen() {
 
   if (pendingVerification) {
     return (
-      <KeyboardAvoidingView style={styles.outer} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <AppKeyboardAvoidingView style={styles.outer}>
         <LogoBackground opacity={0.04} />
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <Image source={logoImg} style={styles.logo} resizeMode="contain" />
@@ -633,12 +633,12 @@ export default function SignUpScreen() {
             </Pressable>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     );
   }
 
   return (
-    <KeyboardAvoidingView style={styles.outer} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <AppKeyboardAvoidingView style={styles.outer}>
       <LogoBackground opacity={0.04} />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <Image source={logoImg} style={styles.logo} resizeMode="contain" />
@@ -750,6 +750,6 @@ export default function SignUpScreen() {
           </Link>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </AppKeyboardAvoidingView>
   );
 }

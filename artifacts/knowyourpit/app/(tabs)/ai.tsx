@@ -5,15 +5,14 @@ import {
   FlatList,
   StyleSheet,
   Pressable,
-  Platform,
   ActivityIndicator,
   TextInput,
-  KeyboardAvoidingView,
   Alert,
   Modal,
   ScrollView,
   RefreshControl,
 } from "react-native";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
@@ -707,6 +706,7 @@ export default function AIScreen() {
       transparent
       onRequestClose={() => setRenameTarget(null)}
     >
+      <AppKeyboardAvoidingView style={{ flex: 1 }}>
       <Pressable
         style={s.renameOverlay}
         onPress={() => setRenameTarget(null)}
@@ -760,6 +760,7 @@ export default function AIScreen() {
           </View>
         </Pressable>
       </Pressable>
+      </AppKeyboardAvoidingView>
     </Modal>
   );
 
@@ -796,9 +797,8 @@ export default function AIScreen() {
       {historyPanel}
       {renameModal}
 
-      <KeyboardAvoidingView
+      <AppKeyboardAvoidingView
         style={[{ flex: 1 }, isTablet && { width: "100%", maxWidth: contentMaxWidth, alignSelf: "center" }]}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={0}
       >
         {messages.length === 0 && !loading && (
@@ -836,6 +836,8 @@ export default function AIScreen() {
           }}
           showsVerticalScrollIndicator={false}
           scrollEnabled={messages.length > 0}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           onContentSizeChange={() => {
             if (messages.length > 0) listRef.current?.scrollToEnd({ animated: true });
           }}
@@ -922,7 +924,7 @@ export default function AIScreen() {
             </Pressable>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     </View>
   );
 }

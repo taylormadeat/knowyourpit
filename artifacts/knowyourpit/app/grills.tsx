@@ -5,14 +5,13 @@ import {
   StyleSheet,
   Pressable,
   TextInput,
-  Platform,
   ActivityIndicator,
   Alert,
   Modal,
   ScrollView,
-  KeyboardAvoidingView,
   Image,
 } from "react-native";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { Feather } from "@expo/vector-icons";
@@ -775,9 +774,8 @@ export default function GrillsScreen() {
         presentationStyle="formSheet"
         onRequestClose={() => setShowAddModal(false)}
       >
-        <KeyboardAvoidingView
+        <AppKeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
           <View style={[s.modal, { backgroundColor: colors.background }]}>
             {/* Modal header */}
@@ -1050,7 +1048,7 @@ export default function GrillsScreen() {
               )}
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
+        </AppKeyboardAvoidingView>
       </Modal>
 
       <PitMasterChatModal

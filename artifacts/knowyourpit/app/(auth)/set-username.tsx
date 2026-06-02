@@ -5,8 +5,6 @@ import {
   TextInput,
   Pressable,
   StyleSheet,
-  Platform,
-  KeyboardAvoidingView,
   ScrollView,
   ActivityIndicator,
   Image,
@@ -17,6 +15,7 @@ import { useAuthColors } from "@/hooks/useAuthColors";
 import { useTopInset } from "@/hooks/useTopInset";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { LogoBackground } from "@/components/LogoBackground";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 
 const logoImg = require("@/assets/images/icon-transparent-dark.png");
 
@@ -153,9 +152,8 @@ export default function SetUsernameScreen() {
   });
 
   return (
-    <KeyboardAvoidingView
+    <AppKeyboardAvoidingView
       style={styles.outer}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <LogoBackground opacity={0.04} />
       <ScrollView
@@ -211,6 +209,6 @@ export default function SetUsernameScreen() {
 
         {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </AppKeyboardAvoidingView>
   );
 }
