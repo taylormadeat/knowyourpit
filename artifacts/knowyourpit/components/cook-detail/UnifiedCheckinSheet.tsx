@@ -97,6 +97,7 @@ interface UnifiedCheckinSheetProps {
   scheduledAt: number;
   foodType?: string | null;
   weightLbs?: number | null;
+  sizingLabel?: string | null;
   currentInternalTempF?: number | null;
   currentPitTempF?: number | null;
   probeSource?: "meater" | "thermoworks" | "inkbird" | null;
@@ -142,6 +143,7 @@ export function UnifiedCheckinSheet({
   scheduledAt,
   foodType,
   weightLbs,
+  sizingLabel,
   currentInternalTempF,
   currentPitTempF,
   probeSource,
@@ -352,7 +354,7 @@ export function UnifiedCheckinSheet({
                 }}
               >
                 {foodType}
-                {weightLbs != null ? ` · ${weightLbs} lbs` : ""}
+                {sizingLabel ? ` · ${sizingLabel}` : weightLbs != null ? ` · ${weightLbs} lbs` : ""}
               </Text>
             )}
           </View>

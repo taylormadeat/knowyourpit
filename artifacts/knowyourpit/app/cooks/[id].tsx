@@ -4565,6 +4565,7 @@ export default function CookDetailScreen() {
           scheduledAt={activeCheckin.scheduledAt}
           foodType={cook?.foodType}
           weightLbs={cook?.weightLbs ?? null}
+          sizingLabel={cook?.sizingLabel ?? null}
           currentInternalTempF={
             tempMode === "probe"
               ? (selectedMeaterProbe?.internalTempF

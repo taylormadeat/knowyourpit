@@ -677,7 +677,7 @@ export default function PlanScreen() {
           wrapFinish: qpWrapFinish ?? undefined,
           notes: notes.trim() || undefined,
           pieceCount: sizeOutput.pieceCount ?? undefined,
-          isIndividualCook: (selectedCut as any).isIndividualCook ?? undefined,
+          isIndividualCook: selectedCut.isIndividualCook ?? undefined,
           sizingLabel: sizeOutput.sizingLabel ?? undefined,
         },
       });
