@@ -129,7 +129,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           >
-            PitMaster analyzes your live probe and pit temperatures, ranks your next moves with the reasoning behind each call, and sequences multi-cook spreads so everything finishes at once. Cooking from frozen? It folds in thaw time and temper windows so the full schedule is accounted for — not just the smoke.
+            PitMaster analyzes your live probe and pit temperatures, tells you what to do next with the reasoning behind the call, and sequences multi-cook spreads so everything finishes at once. Cooking from frozen? It folds in thaw time and temper windows so the full schedule is accounted for — not just the smoke.
           </motion.p>
 
           <motion.div
