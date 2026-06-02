@@ -127,14 +127,14 @@ async function persistHost(type: ZeroconfDeviceType, host: string): Promise<void
   }
 }
 
-function addHost(map: DiscoveredHosts, type: ZeroconfDeviceType, host: string): DiscoveredHosts {
+export function addHost(map: DiscoveredHosts, type: ZeroconfDeviceType, host: string): DiscoveredHosts {
   if (type === "unknown") return map;
   const existing = map[type] ?? [];
   if (existing.includes(host)) return map;
   return { ...map, [type]: [...existing, host] };
 }
 
-function removeHost(map: DiscoveredHosts, type: ZeroconfDeviceType, host: string): DiscoveredHosts {
+export function removeHost(map: DiscoveredHosts, type: ZeroconfDeviceType, host: string): DiscoveredHosts {
   const existing = map[type];
   if (!existing) return map;
   const next = existing.filter((h) => h !== host);
