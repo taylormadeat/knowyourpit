@@ -120,7 +120,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.15, ease: "easeOut" }}
           >
-            Live analysis while you cook. Know exactly what to do next.
+            Plan it. Cook it. Know exactly what to do at every step.
           </motion.h2>
 
           <motion.p
@@ -129,7 +129,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           >
-            PitMaster analyzes your live probe and pit temperatures, diagnoses what's happening with your curve, and tells you your next move — with the reasoning, not just the recommendation. Planning ribs, brisket, and chicken for the same table? Set one serve time and it sequences the whole cook from start to finish.
+            PitMaster analyzes your live probe and pit temperatures, ranks your next moves with the reasoning behind each call, and sequences multi-cook spreads so everything finishes at once. Cooking from frozen? It folds in thaw time and temper windows so the full schedule is accounted for — not just the smoke.
           </motion.p>
 
           <motion.div
