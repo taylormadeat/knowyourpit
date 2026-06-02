@@ -17,13 +17,13 @@ function NativeTabLayout() {
         <Icon sf={{ default: "house", selected: "house.fill" }} />
         <Label>Home</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="cooks">
-        <Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
-        <Label>Cook Log</Label>
-      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="plan">
         <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
         <Label>Plan</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="cooks">
+        <Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
+        <Label>Cook Log</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="more">
         <Icon sf={{ default: "ellipsis.circle", selected: "ellipsis.circle.fill" }} />
@@ -88,18 +88,6 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="cooks"
-        options={{
-          title: "Cook Log",
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="list.bullet" tintColor={color} size={22} />
-            ) : (
-              <Feather name="list" size={22} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
         name="plan"
         options={{
           title: "Plan",
@@ -108,6 +96,18 @@ function ClassicTabLayout() {
               <SymbolView name="plus.circle.fill" tintColor={color} size={22} />
             ) : (
               <Feather name="plus-circle" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="cooks"
+        options={{
+          title: "Cook Log",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="list.bullet" tintColor={color} size={22} />
+            ) : (
+              <Feather name="list" size={22} color={color} />
             ),
         }}
       />
