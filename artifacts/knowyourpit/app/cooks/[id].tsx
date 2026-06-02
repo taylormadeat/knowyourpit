@@ -152,6 +152,7 @@ import { CheckinPreviewSheet } from "@/components/cook-detail/CheckinPreviewShee
 import { PitMasterChatModal } from "@/components/PitMasterChatModal";
 import { CookActivityTimeline } from "@/components/cook-detail/CookActivityTimeline";
 import { LiveCookSection } from "@/components/cook-detail/LiveCookSection";
+import { type QualFactor } from "@/components/CookFactorsSheet";
 import { useInkbirdBLE } from "@/hooks/useInkbirdBLE";
 import { useBleProbes } from "@/contexts/BleProbeContext";
 import { useLanProbes, type LanProbeReading } from "@/hooks/useLanProbes";
@@ -3786,6 +3787,20 @@ export default function CookDetailScreen() {
           lastKnownInkbirdDeviceId={lastKnownInkbirdDeviceId}
           onRestartScan={handleRestartScan}
           factorBreakdown={cookSeqData?.factorBreakdown ?? null}
+          qualFactors={(() => {
+            const items: QualFactor[] = [];
+            const breakdown = cookSeqData?.factorBreakdown ?? [];
+            const hasSlower = breakdown.some(f => f.label === "Learned Pace (Slower)");
+            const fpSrc = cookSeqData?.fingerprintSource;
+            if (fpSrc === "grill" || fpSrc === "user") {
+              if (!hasSlower) items.push({ label: "Faster Pace", colorHex: "#22C55E", icon: "trending-down" });
+              items.push({ label: "Grill Tuned", colorHex: "#22C55E", icon: "activity" });
+            }
+            if ((c as any).fromFrozen) items.push({ label: "Frozen", colorHex: "#3B82F6", icon: "box" });
+            if ((c as any).injection) items.push({ label: "Injection", colorHex: "#8B5CF6", icon: "droplet" });
+            if ((c as any).wrapMethod) items.push({ label: "Wrap", colorHex: "#F97316", icon: "package" });
+            return items;
+          })()}
         />
         <CookSummaryCard
           c={c}

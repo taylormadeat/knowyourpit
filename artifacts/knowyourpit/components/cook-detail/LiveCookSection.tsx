@@ -1,5 +1,5 @@
 import React from "react";
-import { CookFactorsSheet } from "@/components/CookFactorsSheet";
+import { CookFactorsSheet, type QualFactor } from "@/components/CookFactorsSheet";
 import type { FactorBreakdownItem } from "@/components/cook-detail/types";
 import { View, Text, Pressable, ActivityIndicator, Animated, TextInput } from "react-native";
 import { BleWizardSheet } from "./BleWizardSheet";
@@ -101,6 +101,7 @@ interface Props {
   onCheckInPhase?: (sc: any) => void;
   onRestartScan?: () => void;
   factorBreakdown?: FactorBreakdownItem[] | null;
+  qualFactors?: QualFactor[];
 }
 
 function fmtLastChecked(lastAnalyzedAtMs: number, nowMs: number): string {
@@ -142,6 +143,7 @@ export function LiveCookSection(p: Props) {
     nextCheckinMs, nextCheckinLabel, upcomingCheckins = [], onCheckInPhase,
     onRestartScan,
     factorBreakdown,
+    qualFactors,
   } = p;
 
   const [cookFactorsSheetOpen, setCookFactorsSheetOpen] = React.useState(false);
@@ -504,6 +506,7 @@ export function LiveCookSection(p: Props) {
           visible={cookFactorsSheetOpen}
           onClose={() => setCookFactorsSheetOpen(false)}
           factorBreakdown={factorBreakdown}
+          qualFactors={qualFactors}
           colors={colors}
         />
       )}

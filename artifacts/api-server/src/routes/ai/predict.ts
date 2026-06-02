@@ -630,14 +630,17 @@ ${userHistorySection}${fingerprintGuidance}`;
     });
   }
 
-  if (Math.abs(fingerprintAddMins) >= 10) {
-    const isFaster = fingerprintAddMins < 0;
+  // Only include a Learned Pace segment when the fingerprint ADDS time (slower
+  // than baseline). A faster grill reduces the estimate directly — the base
+  // already reflects the calibrated pace so there is no additive segment to
+  // show; the faster-pace fact is communicated via a qualitative chip in the UI.
+  if (fingerprintAddMins >= 10) {
     factorItems.push({
-      label: isFaster ? "Learned Pace (Faster)" : "Learned Pace (Slower)",
-      minutes: Math.abs(fingerprintAddMins),
-      colorHex: isFaster ? "#22C55E" : "#F59E0B",
-      description: `Your ${calibrationSource === "grill" ? "grill's" : "historical"} actual pace of ${calibratedMinsPerLb} min/lb ${isFaster ? "beats" : "runs slower than"} the ${baseline?.minsPerLb ?? "baseline"} min/lb reference — based on ${calibrationSampleSize} cook${calibrationSampleSize === 1 ? "" : "s"}.`,
-      icon: isFaster ? "trending-down" : "trending-up",
+      label: "Learned Pace (Slower)",
+      minutes: fingerprintAddMins,
+      colorHex: "#F59E0B",
+      description: `Your ${calibrationSource === "grill" ? "grill's" : "historical"} actual pace of ${calibratedMinsPerLb} min/lb runs slower than the ${baseline?.minsPerLb ?? "baseline"} min/lb reference — based on ${calibrationSampleSize} cook${calibrationSampleSize === 1 ? "" : "s"}.`,
+      icon: "trending-up",
     });
   }
 

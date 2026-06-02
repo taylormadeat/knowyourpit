@@ -57,7 +57,7 @@ import { NextUpBanner, getStepTargetMs } from "@/components/NextUpBanner";
 import { computeNextStep } from "@/components/cook-detail/utils";
 import { fmtRemaining } from "@/components/cook-detail/CookProgressBar";
 import type { SequenceData, FactorBreakdownItem } from "@/components/cook-detail/types";
-import { CookFactorsSheet } from "@/components/CookFactorsSheet";
+import { CookFactorsSheet, type QualFactor } from "@/components/CookFactorsSheet";
 import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
 import {
   MEAT_CUTS,
@@ -3090,6 +3090,20 @@ export default function PlanScreen() {
         visible={factorsSheetOpen}
         onClose={() => setFactorsSheetOpen(false)}
         factorBreakdown={(aiResult as any)?.factorBreakdown ?? []}
+        qualFactors={(() => {
+          const items: QualFactor[] = [];
+          const breakdown: any[] = (aiResult as any)?.factorBreakdown ?? [];
+          const fingerprintSource = (aiResult as any)?.fingerprintSource;
+          if (fingerprintSource === "grill" || fingerprintSource === "user") {
+            const hasSlower = breakdown.some((f: any) => f.label === "Learned Pace (Slower)");
+            if (!hasSlower) items.push({ label: "Faster Pace", colorHex: "#22C55E", icon: "trending-down" });
+            items.push({ label: "Grill Tuned", colorHex: "#22C55E", icon: "activity" });
+          }
+          if (frozenEnabled) items.push({ label: "Frozen", colorHex: "#3B82F6", icon: "box" });
+          if (qpInjection) items.push({ label: "Injection", colorHex: "#8B5CF6", icon: "droplet" });
+          if (qpWrapFinish) items.push({ label: "Wrap Method", colorHex: "#F97316", icon: "package" });
+          return items;
+        })()}
         colors={colors}
       />
 
