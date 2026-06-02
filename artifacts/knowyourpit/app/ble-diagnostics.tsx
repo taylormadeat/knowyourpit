@@ -15,6 +15,7 @@ import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { ADAPTER_LABELS, detectAdapter } from "@/hooks/ble/adapters";
+import { parseInkbirdTemps } from "@/hooks/ble/adapters/inkbird";
 
 interface RawBleDevice {
   id: string;
@@ -23,6 +24,8 @@ interface RawBleDevice {
   rssi: number | null;
   adapter: string;
   manufacturerDataHex: string | null;
+  /** Raw base64 manufacturer data — kept for in-app Inkbird payload decoding. */
+  manufacturerDataBase64: string | null;
   serviceUUIDs: string[];
   lastSeenMs: number;
 }
@@ -206,6 +209,34 @@ function DeviceRow({ device, colors }: { device: RawBleDevice; colors: any }) {
           >
             {device.manufacturerDataHex ?? "none"}
           </Text>
+
+          {device.adapter === "inkbird" && device.manufacturerDataBase64 != null && (() => {
+            const decoded = parseInkbirdTemps(device.manufacturerDataBase64, device.name ?? undefined);
+            if (decoded.temps.length === 0 && decoded.batteryPct == null) return null;
+            return (
+              <>
+                <Text style={[s.expandedLabel, { color: "#3B82F6", marginTop: 8 }]}>
+                  Inkbird Decoded
+                </Text>
+                {decoded.temps.map((t, idx) => (
+                  <View key={idx} style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 2 }}>
+                    <Feather name="thermometer" size={11} color="#3B82F6" />
+                    <Text style={[s.expandedValue, { color: colors.foreground }]}>
+                      {`Ch ${idx + 1}: ${Math.round(t * 10) / 10}°F  (${Math.round(((t - 32) * 5) / 9 * 10) / 10}°C)`}
+                    </Text>
+                  </View>
+                ))}
+                {decoded.batteryPct != null && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 2 }}>
+                    <Feather name="battery" size={11} color={decoded.batteryPct > 50 ? "#22c55e" : decoded.batteryPct > 20 ? "#EAB308" : "#ef4444"} />
+                    <Text style={[s.expandedValue, { color: colors.foreground }]}>
+                      {`Battery: ${decoded.batteryPct}%`}
+                    </Text>
+                  </View>
+                )}
+              </>
+            );
+          })()}
         </View>
       )}
     </Pressable>
@@ -346,6 +377,7 @@ export default function BleDiagnosticsScreen() {
 
           const existing = deviceMapRef.current.get(device.id as string);
           const incomingServiceUUIDs: string[] = (device.serviceUUIDs as string[] | null) ?? [];
+          const rawBase64 = (device.manufacturerData as string | null) ?? null;
           deviceMapRef.current.set(device.id as string, {
             id: device.id as string,
             name: (device.name as string | null) ?? existing?.name ?? null,
@@ -353,6 +385,7 @@ export default function BleDiagnosticsScreen() {
             rssi: (device.rssi as number | null) ?? existing?.rssi ?? null,
             adapter: adapter ?? "unknown",
             manufacturerDataHex: hex ?? existing?.manufacturerDataHex ?? null,
+            manufacturerDataBase64: rawBase64 ?? existing?.manufacturerDataBase64 ?? null,
             serviceUUIDs: incomingServiceUUIDs.length > 0 ? incomingServiceUUIDs : (existing?.serviceUUIDs ?? []),
             lastSeenMs: Date.now(),
           });

@@ -5,15 +5,13 @@
  * in every BLE advertisement packet — no GATT connection is required.
  *
  * Byte format (after base64 decode):
- *   [0:1] = manufacturer ID (skipped)
- *   [2:3] = probe channel 0 temp (little-endian uint16)
- *   [4:5] = probe channel 1 temp
- *   … up to 6 channels (IBT-6XS)
+ *   [0:1]  = manufacturer ID (skipped)
+ *   [2:3]  = probe channel 0 temp (little-endian uint16, 1/10 °C or 1/10 °F)
+ *   [4:5]  = probe channel 1 temp
+ *   …      up to N channels (2 for IBT-2X, 4 for IBT-4XS/IBT-4XP, 6 for IBT-6XS/IBT-6XP)
+ *   [2+N*2]   = unit flag: 0x00 → °C (default), 0xFF/0x01 → °F
+ *   [2+N*2+1] = battery percentage (0–100, may be absent on older firmware)
  *   0xFFFF / 0xFFFE = probe not inserted
- *
- * Temperature unit: firmware sends values in 1/10 °C by default.
- * Some older firmware revisions report 1/10 °F — detected via flag byte or
- * plausibility heuristic (see parseInkbirdTemps).
  */
 
 /**
@@ -64,8 +62,12 @@ export const INKBIRD_SERVICE_UUIDS = [
 ];
 
 // Plausible BBQ temperature bounds in Celsius.
-const MAX_PLAUSIBLE_CELSIUS = 650;
-const MIN_PLAUSIBLE_CELSIUS = -50;
+// Tightened to 0°C–600°C (32°F–1112°F) to match realistic BBQ ranges.
+// Most low-and-slow cooks run 107–135°C (225–275°F); high-heat searing up to
+// ~315°C (600°F); anything above 600°C (1112°F) or below 0°C (32°F) is
+// certainly garbage data from an unplugged/faulty channel.
+const MAX_PLAUSIBLE_CELSIUS = 600;
+const MIN_PLAUSIBLE_CELSIUS = 0;
 
 function base64ToBytes(b64: string): number[] {
   try {
@@ -79,14 +81,51 @@ function base64ToBytes(b64: string): number[] {
 // Plausible BBQ temperature bounds in Fahrenheit (derived from Celsius bounds).
 // Any computed tempF outside this range is treated as a no-probe / garbage reading
 // and filtered out, regardless of the declared unit.
-const MIN_PLAUSIBLE_F = (MIN_PLAUSIBLE_CELSIUS * 9) / 5 + 32; // ≈ -58 °F
-const MAX_PLAUSIBLE_F = (MAX_PLAUSIBLE_CELSIUS * 9) / 5 + 32; // ≈ 1202 °F
+const MIN_PLAUSIBLE_F = MIN_PLAUSIBLE_CELSIUS * 9 / 5 + 32; // 32 °F
+const MAX_PLAUSIBLE_F = MAX_PLAUSIBLE_CELSIUS * 9 / 5 + 32; // 1112 °F
 
 /**
- * Parse probe temperatures from an Inkbird IBT-series BLE advertisement.
+ * Returns the maximum number of probe channels for the given device model.
  *
- * Handles both 2/4-channel (IBT-2X, IBT-4XS) and 6-channel (IBT-6XS) formats.
- * The wire format is identical — the 6-channel devices simply carry more pairs.
+ * IBT-2X    → 2 channels
+ * IBT-4XS / IBT-4XP / IBT-4X → 4 channels
+ * IBT-6XS / IBT-6XP           → 6 channels
+ * Unknown / IBS-TH             → 6 (safe upper bound; empty channels are filtered)
+ *
+ * Exported so the UI can display the model-cap label (e.g. "IBT-4XS · 4 probes")
+ * alongside each device group header, confirming the correct device was detected.
+ */
+export function getChannelCap(deviceName: string): number {
+  const lower = deviceName.toLowerCase();
+  // Match 2-channel variants: ibt-2, ibt_2, ibt2
+  if (/ibt[-_]?2/.test(lower)) return 2;
+  // Match 4-channel variants: ibt-4, ibt_4, ibt4, ibt-4xs, ibt-4xp
+  if (/ibt[-_]?4/.test(lower)) return 4;
+  // Match 6-channel variants: ibt-6, ibt_6, ibt6, ibt-6xs, ibt-6xp
+  if (/ibt[-_]?6/.test(lower)) return 6;
+  return 6; // Safe default — sentinel + range checks filter empty slots anyway
+}
+
+export interface InkbirdParseResult {
+  /** Temperatures in °F for channels with a physical probe inserted. */
+  temps: number[];
+  /**
+   * Battery percentage (0–100) parsed from the byte immediately after the unit
+   * flag in the manufacturer data payload:
+   *   byte 2+N*2   = unit flag (N = channel count cap)
+   *   byte 2+N*2+1 = battery %
+   * Null when the byte is absent (short payload) or out of the 0–100 range.
+   */
+  batteryPct: number | null;
+}
+
+/**
+ * Parse probe temperatures and battery level from an Inkbird IBT-series BLE
+ * advertisement.
+ *
+ * Handles 2/4/6-channel devices. The channel count is capped per deviceName
+ * to prevent phantom channels: IBT-4XS/IBT-4XP → 4, IBT-6XS/IBT-6XP → 6,
+ * IBT-2X → 2. When deviceName is omitted the cap defaults to 6.
  *
  * Unit detection (in priority order):
  *  1. Unit flag byte — the byte immediately after all channel pairs, when present:
@@ -94,29 +133,40 @@ const MAX_PLAUSIBLE_F = (MAX_PLAUSIBLE_CELSIUS * 9) / 5 + 32; // ≈ 1202 °F
  *       0xFF/0x01  → source is °F (some regional/older firmware)
  *  2. Default → assume °C.
  *
- * Returns an array of tempF values, one per channel with a valid probe reading.
- * Channels are omitted when:
- *   - raw value ≥ 0xFFFE   (device sentinel for "no probe inserted")
- *   - computed tempF is outside –58 °F … 1202 °F  (garbage / no-probe data
- *     that did not use the sentinel, common on some IBT-4XS firmware)
+ * Returns an object with:
+ *  - `temps`: array of tempF values, one per channel with a valid probe reading.
+ *    Channels are omitted when:
+ *      - raw value ≥ 0xFFFE   (device sentinel for "no probe inserted")
+ *      - computed tempF is outside 32°F–1112°F (garbage / no-probe data
+ *        that did not use the sentinel, common on some IBT-4XS firmware)
+ *  - `batteryPct`: 0–100 or null if absent / invalid.
  */
-export function parseInkbirdTemps(manufacturerData: string | null): number[] {
-  if (!manufacturerData) return [];
+export function parseInkbirdTemps(
+  manufacturerData: string | null,
+  deviceName?: string,
+): InkbirdParseResult {
+  if (!manufacturerData) return { temps: [], batteryPct: null };
   const bytes = base64ToBytes(manufacturerData);
-  if (bytes.length < 4) return [];
+  if (bytes.length < 4) return { temps: [], batteryPct: null };
 
-  const maxChannels = 6;
+  const channelCap = deviceName ? getChannelCap(deviceName) : 6;
+
   const rawValues: number[] = [];
   for (
     let i = 2, ch = 0;
-    i + 1 < bytes.length && ch < maxChannels;
+    i + 1 < bytes.length && ch < channelCap;
     i += 2, ch++
   ) {
     const raw = (bytes[i] ?? 0) | ((bytes[i + 1] ?? 0) << 8);
     rawValues.push(raw);
   }
 
+  // Unit flag byte: immediately after all channel pairs.
+  // Battery byte: one byte after the unit flag.
+  // Layout: [0:1] mfr ID · [2 .. 2+N*2-1] channel pairs · [2+N*2] unit flag · [2+N*2+1] battery %.
   const unitFlagIdx = 2 + rawValues.length * 2;
+  const batteryIdx = unitFlagIdx + 1;
+
   let sourceIsCelsius = true;
   if (unitFlagIdx < bytes.length) {
     const flag = bytes[unitFlagIdx];
@@ -126,6 +176,11 @@ export function parseInkbirdTemps(manufacturerData: string | null): number[] {
       sourceIsCelsius = true;
     }
   }
+
+  // Battery byte is 0–100 when present. Values outside that range (e.g. 0xFF)
+  // indicate the byte is not a battery reading on this firmware variant.
+  const rawBattery = batteryIdx < bytes.length ? (bytes[batteryIdx] ?? null) : null;
+  const batteryPct = rawBattery != null && rawBattery <= 100 ? rawBattery : null;
 
   const temps: number[] = [];
   for (const raw of rawValues) {
@@ -139,7 +194,7 @@ export function parseInkbirdTemps(manufacturerData: string | null): number[] {
       // If the Celsius value is outside the plausible range the raw bytes are
       // garbage (some firmware variants send non-sentinel junk for empty slots).
       // Drop the channel rather than re-interpreting it as Fahrenheit — that
-      // was the previous behaviour and caused readings like 5661 °F / 3103 °F.
+      // was the previous behaviour and caused readings like 5661°F / 3103°F.
       if (value > MAX_PLAUSIBLE_CELSIUS || value < MIN_PLAUSIBLE_CELSIUS) continue;
       tempF = (value * 9) / 5 + 32;
     } else {
@@ -151,22 +206,31 @@ export function parseInkbirdTemps(manufacturerData: string | null): number[] {
 
     temps.push(Math.round(tempF * 10) / 10);
   }
-  return temps;
+
+  return { temps, batteryPct };
 }
 
 /**
  * Returns true if the scanned BLE device is an Inkbird thermometer.
  *
- * Detection is name-only. Service UUID fallback was intentionally removed:
- * 0xFFF0 and 0xFFE0 are generic UUIDs shared by hundreds of unrelated device
- * categories (fitness bands, smart plugs, generic sensors). Using them as a
- * detection signal caused every nearby device advertising those UUIDs to appear
- * as an Inkbird thermometer in the Connected Devices list.
+ * Detection uses two guards:
+ *  1. Name-prefix match: device name must start with one of INKBIRD_NAME_PREFIXES.
+ *  2. Manufacturer data length: the payload must be ≥ 6 bytes (2-byte manufacturer
+ *     ID + at least 2 channel pairs). Non-Inkbird BLE devices whose names happen
+ *     to share a prefix (fitness trackers, smart plugs, etc.) typically carry no
+ *     manufacturer data or carry very short payloads and are rejected here.
  *
- * In practice all Inkbird BBQ probes broadcast a recognisable name
- * (iBBQ, IBT-4XS, Inkbird …) so name-only matching is sufficient.
+ * Service UUID fallback was intentionally removed: 0xFFF0 and 0xFFE0 are generic
+ * UUIDs shared by hundreds of unrelated device categories (fitness bands, smart
+ * plugs, generic sensors). Using them as a detection signal caused every nearby
+ * device advertising those UUIDs to appear as an Inkbird thermometer.
  */
 export function isInkbirdDevice(device: any): boolean {
   const name = ((device?.name ?? device?.localName ?? "") as string).toLowerCase();
-  return INKBIRD_NAME_PREFIXES.some((p) => name.startsWith(p));
+  if (!INKBIRD_NAME_PREFIXES.some((p) => name.startsWith(p))) return false;
+  // Secondary guard: Inkbird thermometers always carry manufacturer data of at
+  // least 6 bytes (2-byte manufacturer ID + at least 2 channel pairs = 4 bytes).
+  const mfr = device?.manufacturerData as string | null | undefined;
+  if (!mfr) return false;
+  return base64ToBytes(mfr).length >= 6;
 }

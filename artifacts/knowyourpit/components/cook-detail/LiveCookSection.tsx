@@ -3,6 +3,7 @@ import { View, Text, Pressable, ActivityIndicator, Animated, TextInput } from "r
 import { BleWizardSheet } from "./BleWizardSheet";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { InkbirdProbeReading } from "@/hooks/useInkbirdBLE";
+import { getChannelCap } from "@/hooks/ble/adapters/inkbird";
 import type { BleDevice, ReconnectBanner } from "@/contexts/BleProbeContext";
 import type { LanProbeReading } from "@/hooks/useLanProbes";
 import { Feather } from "@expo/vector-icons";
@@ -246,10 +247,17 @@ export function LiveCookSection(p: Props) {
 
   // Split sorted probe lists into "previously used" and "other" groups so the
   // "Previously used" section renders first in the scan list.
-  const knownInkbirdProbes = React.useMemo(
-    () => sortedInkbirdProbes.filter((p) => `ble_${p.deviceId}_${p.probeIndex}` in knownProbeIds),
-    [sortedInkbirdProbes, knownProbeIds],
-  );
+  const knownInkbirdProbes = React.useMemo(() => {
+    // Classify at device granularity: if ANY channel of a device has been
+    // assigned to this cook (present in knownProbeIds), ALL channels of that
+    // device belong in the "Previously used" section so they stay together.
+    const knownDeviceIds = new Set<string>(
+      sortedInkbirdProbes
+        .filter((p) => `ble_${p.deviceId}_${p.probeIndex}` in knownProbeIds)
+        .map((p) => p.deviceId),
+    );
+    return sortedInkbirdProbes.filter((p) => knownDeviceIds.has(p.deviceId));
+  }, [sortedInkbirdProbes, knownProbeIds]);
   const knownBleContextDevices = React.useMemo(
     () => sortedBleContextDevices.filter((d) => `bleCtx_${d.id}` in knownProbeIds),
     [sortedBleContextDevices, knownProbeIds],
@@ -270,8 +278,15 @@ export function LiveCookSection(p: Props) {
   }, [sortedInkbirdProbes, sortedBleContextDevices, knownProbeIds]);
 
   const otherInkbirdProbes = React.useMemo(() => {
+    // Mirror of knownInkbirdProbes: exclude all channels of any device that has
+    // at least one channel in knownProbeIds (device-granular, not per-channel).
+    const knownDeviceIds = new Set<string>(
+      sortedInkbirdProbes
+        .filter((p) => `ble_${p.deviceId}_${p.probeIndex}` in knownProbeIds)
+        .map((p) => p.deviceId),
+    );
     const others = sortedInkbirdProbes.filter(
-      (p) => !(`ble_${p.deviceId}_${p.probeIndex}` in knownProbeIds),
+      (p) => !knownDeviceIds.has(p.deviceId),
     );
     // When the user has a known (previously-used) probe for this cook and has
     // already made a Meat/Pit selection, hide unrecognised nearby Inkbird
@@ -858,14 +873,30 @@ export function LiveCookSection(p: Props) {
       })}
 
       {/* Known Inkbird BLE rows — "Previously used" section */}
-      {tempMode === "probe" && knownInkbirdProbes.map((probe, i) => {
-        const probeKey = `ble_${probe.deviceId}_${probe.probeIndex}`;
-        const isMeat = selectedMeatProbeId === probeKey;
-        const isPit = selectedPitProbeId === probeKey;
-        const otherCook = otherCookAssignments[probeKey];
-        const lockedByOther = !!otherCook && !isMeat && !isPit;
-        const isEditing = editingLabelKey === probeKey;
-        return (
+      {tempMode === "probe" && (() => {
+        let lastKnownDevId: string | null = null;
+        return knownInkbirdProbes.flatMap((probe, i) => {
+          const probeKey = `ble_${probe.deviceId}_${probe.probeIndex}`;
+          const isMeat = selectedMeatProbeId === probeKey;
+          const isPit = selectedPitProbeId === probeKey;
+          const otherCook = otherCookAssignments[probeKey];
+          const lockedByOther = !!otherCook && !isMeat && !isPit;
+          const isEditing = editingLabelKey === probeKey;
+          const isNewDevice = probe.deviceId !== lastKnownDevId;
+          lastKnownDevId = probe.deviceId;
+          const items: React.ReactNode[] = [];
+          if (isNewDevice) {
+            const modelCap = getChannelCap(probe.deviceName);
+            items.push(
+              <View key={`dev-hdr-known-${probe.deviceId}`} style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 }}>
+                <Feather name="cpu" size={10} color={colors.mutedForeground} />
+                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: colors.mutedForeground }}>
+                  {`${probe.deviceName}  ·  ${modelCap} probe${modelCap !== 1 ? "s" : ""}`}
+                </Text>
+              </View>
+            );
+          }
+          items.push(
           <View
             key={`ble-known-${probe.deviceId}-${probe.probeIndex}-${i}`}
             style={[s.subSection, { borderTopColor: colors.border, paddingHorizontal: 14, paddingBottom: 12,
@@ -878,7 +909,7 @@ export function LiveCookSection(p: Props) {
                 <Feather name="bluetooth" size={11} color="#3B82F6" />
                 {isEditing ? (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
-                    <TextInput value={labelDraft} onChangeText={setLabelDraft} placeholder={`${probe.deviceName} Ch ${probe.probeIndex + 1}`} placeholderTextColor={colors.mutedForeground}
+                    <TextInput value={labelDraft} onChangeText={setLabelDraft} placeholder={`Ch ${probe.probeIndex + 1}`} placeholderTextColor={colors.mutedForeground}
                       style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 12, color: colors.foreground, borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 2 }}
                       autoFocus returnKeyType="done"
                       onSubmitEditing={() => { onSetProbeLabel?.(probeKey, labelDraft); setEditingLabelKey(null); }} />
@@ -887,10 +918,16 @@ export function LiveCookSection(p: Props) {
                   </View>
                 ) : (
                   <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0, flex: 1 }]} numberOfLines={1}>
-                    {probeLabels[probeKey] ?? knownProbeIds[probeKey] ?? `${probe.deviceName}  ·  Ch ${probe.probeIndex + 1}  ·  Inkbird`}
+                    {probeLabels[probeKey] ?? knownProbeIds[probeKey] ?? `Ch ${probe.probeIndex + 1}`}
                   </Text>
                 )}
                 {!isEditing && <SignalBars rssi={probe.rssi} size={10} />}
+                {!isEditing && probe.batteryPct != null && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 99, backgroundColor: probe.batteryPct > 50 ? "#22c55e20" : probe.batteryPct > 20 ? "#EAB30820" : "#ef444420" }}>
+                    <Feather name="battery" size={9} color={probe.batteryPct > 50 ? "#22c55e" : probe.batteryPct > 20 ? "#EAB308" : "#ef4444"} />
+                    <Text style={{ fontSize: 9, fontFamily: "Inter_600SemiBold", color: probe.batteryPct > 50 ? "#22c55e" : probe.batteryPct > 20 ? "#EAB308" : "#ef4444" }}>{probe.batteryPct}%</Text>
+                  </View>
+                )}
                 {!isEditing && (
                   <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 99, backgroundColor: "#F59E0B18", borderWidth: 1, borderColor: "#F59E0B40" }}>
                     <Text style={{ fontFamily: "Inter_500Medium", fontSize: 9, color: "#F59E0B" }}>Last used</Text>
@@ -941,8 +978,10 @@ export function LiveCookSection(p: Props) {
               </View>
             )}
           </View>
-        );
-      })}
+          );
+          return items;
+        });
+      })()}
 
       {/* Known BLE context device rows — "Previously used" section */}
       {tempMode === "probe" && knownBleContextDevices.map((device, i) => {
@@ -1057,14 +1096,30 @@ export function LiveCookSection(p: Props) {
       )}
 
       {/* ── Other Inkbird BLE rows — each channel can be assigned Meat or Pit */}
-      {tempMode === "probe" && otherInkbirdProbes.map((probe, i) => {
-        const probeKey = `ble_${probe.deviceId}_${probe.probeIndex}`;
-        const isMeat = selectedMeatProbeId === probeKey;
-        const isPit = selectedPitProbeId === probeKey;
-        const otherCook = otherCookAssignments[probeKey];
-        const lockedByOther = !!otherCook && !isMeat && !isPit;
-        const isEditing = editingLabelKey === probeKey;
-        return (
+      {tempMode === "probe" && (() => {
+        let lastOtherDevId: string | null = null;
+        return otherInkbirdProbes.flatMap((probe, i) => {
+          const probeKey = `ble_${probe.deviceId}_${probe.probeIndex}`;
+          const isMeat = selectedMeatProbeId === probeKey;
+          const isPit = selectedPitProbeId === probeKey;
+          const otherCook = otherCookAssignments[probeKey];
+          const lockedByOther = !!otherCook && !isMeat && !isPit;
+          const isEditing = editingLabelKey === probeKey;
+          const isNewDevice = probe.deviceId !== lastOtherDevId;
+          lastOtherDevId = probe.deviceId;
+          const items: React.ReactNode[] = [];
+          if (isNewDevice) {
+            const modelCap = getChannelCap(probe.deviceName);
+            items.push(
+              <View key={`dev-hdr-other-${probe.deviceId}`} style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 }}>
+                <Feather name="cpu" size={10} color={colors.mutedForeground} />
+                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: colors.mutedForeground }}>
+                  {`${probe.deviceName}  ·  ${modelCap} probe${modelCap !== 1 ? "s" : ""}`}
+                </Text>
+              </View>
+            );
+          }
+          items.push(
           <View
             key={`ble-${probe.deviceId}-${probe.probeIndex}-${i}`}
             style={[s.subSection, { borderTopColor: colors.border, paddingHorizontal: 14, paddingBottom: 12,
@@ -1077,7 +1132,7 @@ export function LiveCookSection(p: Props) {
                 <Feather name="bluetooth" size={11} color="#3B82F6" />
                 {isEditing ? (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
-                    <TextInput value={labelDraft} onChangeText={setLabelDraft} placeholder={`${probe.deviceName} Ch ${probe.probeIndex + 1}`} placeholderTextColor={colors.mutedForeground}
+                    <TextInput value={labelDraft} onChangeText={setLabelDraft} placeholder={`Ch ${probe.probeIndex + 1}`} placeholderTextColor={colors.mutedForeground}
                       style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 12, color: colors.foreground, borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 2 }}
                       autoFocus returnKeyType="done"
                       onSubmitEditing={() => { onSetProbeLabel?.(probeKey, labelDraft); setEditingLabelKey(null); }} />
@@ -1086,11 +1141,15 @@ export function LiveCookSection(p: Props) {
                   </View>
                 ) : (
                   <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0, flex: 1 }]} numberOfLines={1}>
-                    {probeLabels[probeKey] ?? `${probe.deviceName}  ·  Ch ${probe.probeIndex + 1}  ·  Inkbird`}
+                    {probeLabels[probeKey] ?? `Ch ${probe.probeIndex + 1}`}
                   </Text>
                 )}
-                {!isEditing && (
-                  <SignalBars rssi={probe.rssi} size={10} />
+                {!isEditing && <SignalBars rssi={probe.rssi} size={10} />}
+                {!isEditing && probe.batteryPct != null && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 99, backgroundColor: probe.batteryPct > 50 ? "#22c55e20" : probe.batteryPct > 20 ? "#EAB30820" : "#ef444420" }}>
+                    <Feather name="battery" size={9} color={probe.batteryPct > 50 ? "#22c55e" : probe.batteryPct > 20 ? "#EAB308" : "#ef4444"} />
+                    <Text style={{ fontSize: 9, fontFamily: "Inter_600SemiBold", color: probe.batteryPct > 50 ? "#22c55e" : probe.batteryPct > 20 ? "#EAB308" : "#ef4444" }}>{probe.batteryPct}%</Text>
+                  </View>
                 )}
                 {!isEditing && probe.deviceId === lastKnownInkbirdDeviceId && (
                   <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 99, backgroundColor: "#F59E0B18", borderWidth: 1, borderColor: "#F59E0B40" }}>
@@ -1144,8 +1203,10 @@ export function LiveCookSection(p: Props) {
               </View>
             )}
           </View>
-        );
-      })}
+          );
+          return items;
+        });
+      })()}
 
       {/* Other BLE context device rows — ambient bundled; user can assign Meat or Pit role */}
       {tempMode === "probe" && otherBleContextDevices.map((device, i) => {

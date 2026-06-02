@@ -811,11 +811,14 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
               probeTempF = reading.probeTempF;
               batteryPct = reading.batteryPct;
             } else if (adapter === "inkbird") {
-              const temps = parseInkbirdTemps(device.manufacturerData ?? null);
-              if (temps.length > 0) {
-                channelTempsF = temps;
-                probeTempF = temps[0] ?? null;
+              const deviceName =
+                (device.name ?? device.localName ?? ADAPTER_LABELS[adapter]) as string;
+              const parsed = parseInkbirdTemps(device.manufacturerData ?? null, deviceName);
+              if (parsed.temps.length > 0) {
+                channelTempsF = parsed.temps;
+                probeTempF = parsed.temps[0] ?? null;
               }
+              batteryPct = parsed.batteryPct;
             }
 
             upsertDevice(device.id, {

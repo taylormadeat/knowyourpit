@@ -7,15 +7,16 @@
  *
  * Inkbird IBT-series devices broadcast manufacturer data in their BLE
  * advertisement packets. Byte format (after base64 decode):
- *   [0:1] = manufacturer ID (skipped)
- *   [2:3] = probe channel 0 temp (little-endian uint16)
- *   [4:5] = probe channel 1 temp
- *   … up to 6 channels (IBT-6XS)
+ *   [0:1]  = manufacturer ID (skipped)
+ *   [2:3]  = probe channel 0 temp (little-endian uint16)
+ *   [4:5]  = probe channel 1 temp
+ *   …      up to N channels (2/4/6 depending on model)
+ *   [2+N*2]   = unit flag: 0x00 → °C, 0xFF/0x01 → °F
+ *   [2+N*2+1] = battery % (0–100, may be absent on older firmware)
  *   0xFFFF / 0xFFFE = probe not inserted
  *
  * Temperature unit: Inkbird firmware sends values in 1/10 °C by default.
- * Some older firmware revisions report 1/10 °F — toggle
- * INKBIRD_TEMP_UNIT_IS_CELSIUS below if readings look ~32 °F too low.
+ * Some older firmware revisions report 1/10 °F.
  *
  * IBS-TH1/TH2 (temperature + humidity sensors) use the same advertisement
  * structure; their single channel carries ambient temperature.
@@ -31,7 +32,6 @@ import { Platform, PermissionsAndroid } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   INKBIRD_NAME_PREFIXES,
-  INKBIRD_SERVICE_UUIDS,
   parseInkbirdTemps,
 } from "@/hooks/ble/adapters/inkbird";
 import { saveLastInkbird, loadLastInkbird } from "@/utils/probePersistence";
@@ -50,6 +50,8 @@ export interface InkbirdProbeReading {
    * average recovers above -80 dBm (hysteresis prevents rapid flicker).
    */
   signalWeak?: boolean;
+  /** Battery percentage (0–100) parsed from the advertisement payload. Null when unavailable. */
+  batteryPct?: number | null;
 }
 
 interface UseInkbirdBLEOptions {
@@ -86,16 +88,23 @@ interface UseInkbirdBLEResult {
   lastKnownDeviceId: string | null;
 }
 
-const STALE_TIMEOUT_MS = 30_000;
+/**
+ * Stale-probe timeout: channels not seen for this long are evicted from the
+ * module cache. Reduced from 30 s → 20 s so dropped channels clear faster
+ * and the user sees a more accurate probe list.
+ */
+const STALE_TIMEOUT_MS = 20_000;
 const DEFAULT_RECONNECT_INTERVAL_MS = 30_000;
 /**
  * Scan silence watchdog threshold: if no BLE advertisement arrives within this
  * window while a scan is active, the scan is automatically restarted. iOS can
  * silently kill a BLE scan after the app is backgrounded or the screen locks,
- * leaving startDeviceScan running in name only. 60 s gives enough margin to
- * distinguish genuine silence from normal inter-advertisement gaps.
+ * leaving startDeviceScan running in name only.
+ *
+ * Reduced from 60 s → 30 s: IBT-4XS re-advertises every ~1 s, so 30 s of
+ * genuine silence is an unambiguous signal that the OS has killed the scan.
  */
-const SCAN_SILENCE_WATCHDOG_MS = 60_000;
+const SCAN_SILENCE_WATCHDOG_MS = 30_000;
 
 /** RSSI below this threshold (dBm) triggers the weak-signal warning. */
 const RSSI_WEAK_THRESHOLD = -85;
@@ -127,17 +136,30 @@ function deriveSignalWeakInkbird(rssiAvg: number | null, prevWeak: boolean): boo
   return rssiAvg < RSSI_WEAK_THRESHOLD;
 }
 
+/**
+ * Returns true when the scanned BLE device is an Inkbird thermometer.
+ *
+ * Two-stage guard:
+ *  1. Name-prefix match against INKBIRD_NAME_PREFIXES.
+ *  2. Manufacturer data must be ≥ 6 bytes (2-byte mfr ID + ≥ 2 channel pairs).
+ *     Non-Inkbird devices whose names share a prefix typically carry no or
+ *     very short manufacturer data payloads.
+ *
+ * Service UUID fallback removed: 0xFFF0 / 0xFFE0 are generic UUIDs shared by
+ * hundreds of unrelated BLE categories and caused false positives.
+ */
 function isInkbirdDevice(device: any): boolean {
   const name = ((device?.name ?? device?.localName ?? "") as string).toLowerCase();
-  if (INKBIRD_NAME_PREFIXES.some((p) => name.startsWith(p))) return true;
-
-  const serviceUUIDs: string[] = device?.serviceUUIDs ?? [];
-  const lowerUUIDs = serviceUUIDs.map((u: string) => u.toLowerCase());
-  if (INKBIRD_SERVICE_UUIDS.some((uuid) => lowerUUIDs.includes(uuid))) return true;
-
-  const serviceData: Record<string, string> = device?.serviceData ?? {};
-  const lowerKeys = Object.keys(serviceData).map((k) => k.toLowerCase());
-  return INKBIRD_SERVICE_UUIDS.some((uuid) => lowerKeys.includes(uuid));
+  if (!INKBIRD_NAME_PREFIXES.some((p) => name.startsWith(p))) return false;
+  // Require ≥ 6 bytes of manufacturer data to reject non-Inkbird devices
+  // that happen to match a name prefix (fitness trackers, speakers, etc.).
+  const mfr = device?.manufacturerData as string | null | undefined;
+  if (!mfr) return false;
+  try {
+    return atob(mfr).length >= 6;
+  } catch {
+    return false;
+  }
 }
 
 async function requestBlePermissionsAndroid(): Promise<boolean> {
@@ -256,7 +278,10 @@ export function useInkbirdBLE({
       lastAdvertisementAtRef.current = Date.now();
 
       const deviceName = (device.name ?? device.localName ?? "Inkbird") as string;
-      const temps = parseInkbirdTemps(device.manufacturerData as string | null);
+      const { temps, batteryPct } = parseInkbirdTemps(
+        device.manufacturerData as string | null,
+        deviceName,
+      );
       const now = Date.now();
 
       const rssi = (device.rssi as number | null | undefined) ?? null;
@@ -275,20 +300,11 @@ export function useInkbirdBLE({
       const prevWeak = moduleProbeCache.get(`${device.id}_0`)?.signalWeak ?? false;
       const signalWeak = deriveSignalWeakInkbird(rssiAvg, prevWeak);
 
-      if (temps.length === 0) {
-        // Device detected but no temp payload — record so the user sees it found
-        const key = `${device.id}_0`;
-        moduleProbeCache.set(key, {
-          deviceId: device.id as string,
-          deviceName,
-          probeIndex: 0,
-          tempF: null,
-          lastSeenMs: now,
-          rssi,
-          rssiAvg,
-          signalWeak,
-        });
-      } else {
+      if (temps.length > 0) {
+        // Only store channels with a physically inserted probe.
+        // Do NOT emit a placeholder row for devices where no valid temps were
+        // decoded — this prevents phantom "Ch 1: —" rows in the probe list
+        // when the advertisement carries garbage or sentinel-only values.
         temps.forEach((tempF, idx) => {
           const key = `${device.id}_${idx}`;
           moduleProbeCache.set(key, {
@@ -300,6 +316,7 @@ export function useInkbirdBLE({
             rssi,
             rssiAvg,
             signalWeak,
+            batteryPct: batteryPct ?? null,
           });
         });
       }
@@ -318,8 +335,10 @@ export function useInkbirdBLE({
     /**
      * (Re)starts the BLE device scan on the existing manager. Safe to call
      * multiple times — stops any in-progress scan before starting a new one.
+     * No-op on web (BLE manager is never initialised there).
      */
     function restartDeviceScan() {
+      if (Platform.OS === "web") return;
       if (!managerRef.current) return;
       try {
         managerRef.current.stopDeviceScan();
@@ -354,6 +373,29 @@ export function useInkbirdBLE({
           managerRef.current.destroy();
           managerRef.current = null;
           return;
+        }
+
+        // Monitor Bluetooth state changes on iOS so we can surface the
+        // permissionDenied banner when the user toggles Bluetooth off mid-cook
+        // or the app is denied Bluetooth access.
+        if (Platform.OS === "ios" && managerRef.current) {
+          managerRef.current.onStateChange((state: string) => {
+            if (!mounted) return;
+            if (state === "Unauthorized") {
+              // App was denied Bluetooth permission — user must go to Settings.
+              setPermissionDenied(true);
+            } else if (state === "PoweredOff" || state === "Unsupported") {
+              // Bluetooth is off or unavailable — surface the same banner so
+              // the user knows probes will not be detected until it is turned
+              // back on. The banner will clear if the user re-enables BT and
+              // the hook reinitialises (enabled prop cycles false → true).
+              setPermissionDenied(true);
+            } else if (state === "PoweredOn") {
+              // Bluetooth came back on — clear the denied banner so scanning
+              // can resume without requiring the user to leave and re-enter.
+              setPermissionDenied(false);
+            }
+          }, true);
         }
 
         setScanning(true);
@@ -400,14 +442,14 @@ export function useInkbirdBLE({
         // Scan silence watchdog: if the OS has silently killed the scan (common
         // after backgrounding or screen-lock on iOS), no advertisements arrive
         // even though startDeviceScan is still "running". Restart the scan when
-        // we detect genuine silence for SCAN_SILENCE_WATCHDOG_MS.
+        // we detect genuine silence for SCAN_SILENCE_WATCHDOG_MS (30 s).
         silenceWatchdogTimerRef.current = setInterval(() => {
           if (!mounted || !managerRef.current) return;
           if (restartingRef.current) return;
           if (Date.now() - lastAdvertisementAtRef.current > SCAN_SILENCE_WATCHDOG_MS) {
             restartingRef.current = true;
             if (__DEV__) {
-              console.warn("[useInkbirdBLE] No BLE advertisements for 60 s — restarting scan");
+              console.warn("[useInkbirdBLE] No BLE advertisements for 30 s — restarting scan");
             }
             lastAdvertisementAtRef.current = Date.now(); // reset before restart
             restartDeviceScan();
