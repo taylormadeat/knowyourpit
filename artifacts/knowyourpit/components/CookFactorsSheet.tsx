@@ -120,9 +120,18 @@ export function CookFactorsSheet({ visible, onClose, factorBreakdown, qualFactor
                         borderBottomRightRadius: i === segments.length - 1 ? 8 : 0,
                         borderBottomWidth: isSelected ? 3 : 0,
                         borderBottomColor: "#fff",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        overflow: "hidden",
                       },
                     ]}
-                  />
+                  >
+                    {seg.pct >= 18 && (
+                      <Text numberOfLines={1} style={s.segmentLabel}>
+                        {seg.label.split(" ")[0]}
+                      </Text>
+                    )}
+                  </Pressable>
                 );
               })}
             </View>
@@ -265,6 +274,7 @@ const s = StyleSheet.create({
   barWrapper: { gap: 10, marginBottom: 4 },
   bar: { flexDirection: "row", height: 28, borderRadius: 8, overflow: "hidden" },
   barSegment: { height: "100%" as any },
+  segmentLabel: { fontFamily: "Inter_600SemiBold", fontSize: 9, color: "#fff", paddingHorizontal: 3 },
   legendRow: {
     flexDirection: "row",
     flexWrap: "wrap",

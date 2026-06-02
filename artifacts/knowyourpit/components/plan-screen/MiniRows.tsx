@@ -50,6 +50,7 @@ export function ScheduleRow({
   sub,
   colors,
   highlight,
+  trailing,
 }: {
   icon: any;
   label: string;
@@ -57,6 +58,7 @@ export function ScheduleRow({
   sub: string;
   colors: any;
   highlight?: boolean;
+  trailing?: React.ReactNode;
 }) {
   return (
     <View style={s.scheduleRow}>
@@ -88,9 +90,12 @@ export function ScheduleRow({
         >
           {value}
         </Text>
-        <Text style={[s.scheduleSub, { color: colors.mutedForeground }]}>
-          {sub}
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Text style={[s.scheduleSub, { color: colors.mutedForeground }]}>
+            {sub}
+          </Text>
+          {trailing}
+        </View>
       </View>
     </View>
   );

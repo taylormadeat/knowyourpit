@@ -2571,16 +2571,21 @@ export default function PlanScreen() {
                 value={formatDateTime(schedule.meatOnAt)}
                 sub={`~${fmtDuration(schedule.cookMins)} cook time`}
                 colors={colors}
+                trailing={
+                  Array.isArray((aiResult as any)?.factorBreakdown) && (aiResult as any).factorBreakdown.length > 0
+                    ? (
+                      <Pressable
+                        onPress={() => setFactorsSheetOpen(true)}
+                        style={{ flexDirection: "row", alignItems: "center", gap: 3 }}
+                        hitSlop={8}
+                      >
+                        <Text style={{ color: "#8B5CF6", fontSize: 11, fontFamily: "Inter_600SemiBold" }}>What&apos;s driving this?</Text>
+                        <Feather name="chevron-right" size={10} color="#8B5CF6" />
+                      </Pressable>
+                    )
+                    : undefined
+                }
               />
-              {Array.isArray((aiResult as any)?.factorBreakdown) && (aiResult as any).factorBreakdown.length > 0 && (
-                <Pressable
-                  onPress={() => setFactorsSheetOpen(true)}
-                  style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: 46, paddingTop: 2, paddingBottom: 6 }}
-                >
-                  <Text style={{ color: "#8B5CF6", fontSize: 12, fontFamily: "Inter_600SemiBold" }}>What&apos;s driving this?</Text>
-                  <Feather name="chevron-right" size={12} color="#8B5CF6" />
-                </Pressable>
-              )}
               {schedule.wrap && (
                 <>
                   <View style={[s.scheduleLine, { backgroundColor: colors.border }]} />
@@ -3099,6 +3104,8 @@ export default function PlanScreen() {
             if (!hasSlower) items.push({ label: "Faster Pace", colorHex: "#22C55E", icon: "trending-down" });
             items.push({ label: "Grill Tuned", colorHex: "#22C55E", icon: "activity" });
           }
+          if (breakdown.some((f: any) => f.label === "Cold Weather")) items.push({ label: "Cold Weather", colorHex: "#38BDF8", icon: "thermometer" });
+          if (breakdown.some((f: any) => f.label === "Grill Load")) items.push({ label: "Grill Load", colorHex: "#F97316", icon: "layers" });
           if (frozenEnabled) items.push({ label: "Frozen", colorHex: "#3B82F6", icon: "box" });
           if (qpInjection) items.push({ label: "Injection", colorHex: "#8B5CF6", icon: "droplet" });
           if (qpWrapFinish) items.push({ label: "Wrap Method", colorHex: "#F97316", icon: "package" });

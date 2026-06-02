@@ -489,17 +489,20 @@ export function LiveCookSection(p: Props) {
             </View>
           </View>
         )}
+        {Array.isArray(factorBreakdown) && factorBreakdown.length > 0 && (
+          <Pressable
+            onPress={() => setCookFactorsSheetOpen(true)}
+            style={[s.timerChip, { backgroundColor: "#8B5CF618", borderColor: "#8B5CF630", flexDirection: "row", alignItems: "center", gap: 4 }]}
+            hitSlop={6}
+          >
+            <Feather name="bar-chart-2" size={13} color="#8B5CF6" />
+            <View>
+              <Text style={[s.timerValue, { color: "#8B5CF6" }]}>Factors</Text>
+              <Text style={[s.timerLabel, { color: colors.mutedForeground }]}>What&apos;s driving this?</Text>
+            </View>
+          </Pressable>
+        )}
       </View>
-
-      {Array.isArray(factorBreakdown) && factorBreakdown.length > 0 && (
-        <Pressable
-          onPress={() => setCookFactorsSheetOpen(true)}
-          style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 14, paddingTop: 6, paddingBottom: 4 }}
-        >
-          <Text style={{ color: "#8B5CF6", fontSize: 12, fontFamily: "Inter_600SemiBold" }}>What&apos;s driving this?</Text>
-          <Feather name="chevron-right" size={12} color="#8B5CF6" />
-        </Pressable>
-      )}
 
       {Array.isArray(factorBreakdown) && factorBreakdown.length > 0 && (
         <CookFactorsSheet

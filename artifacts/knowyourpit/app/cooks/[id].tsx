@@ -3796,6 +3796,8 @@ export default function CookDetailScreen() {
               if (!hasSlower) items.push({ label: "Faster Pace", colorHex: "#22C55E", icon: "trending-down" });
               items.push({ label: "Grill Tuned", colorHex: "#22C55E", icon: "activity" });
             }
+            if (breakdown.some(f => f.label === "Cold Weather")) items.push({ label: "Cold Weather", colorHex: "#38BDF8", icon: "thermometer" });
+            if (breakdown.some(f => f.label === "Grill Load")) items.push({ label: "Grill Load", colorHex: "#F97316", icon: "layers" });
             if ((c as any).fromFrozen) items.push({ label: "Frozen", colorHex: "#3B82F6", icon: "box" });
             if ((c as any).injection) items.push({ label: "Injection", colorHex: "#8B5CF6", icon: "droplet" });
             if ((c as any).wrapMethod) items.push({ label: "Wrap", colorHex: "#F97316", icon: "package" });
