@@ -646,15 +646,12 @@ ${userHistorySection}${fingerprintGuidance}`;
     let approxThawMins = 0;
     if (thawMethod === "fridge") {
       approxThawMins = Math.max(24 * 60, Math.ceil(weightLbs / 5) * 24 * 60);
-    } else if (thawMethod === "cold_water") {
-      approxThawMins = Math.round(weightLbs * 30);
-    } else if (thawMethod === "microwave") {
-      approxThawMins = 30;
     } else {
+      // cold_water or unknown: ~30 min per lb
       approxThawMins = Math.round(weightLbs * 30);
     }
     const approxTemperMins = 45;
-    const thawLabel = thawMethod === "fridge" ? "Fridge thaw" : thawMethod === "cold_water" ? "Cold-water thaw" : thawMethod === "microwave" ? "Microwave thaw" : "Thaw";
+    const thawLabel = thawMethod === "fridge" ? "Fridge thaw" : thawMethod === "cold_water" ? "Cold-water thaw" : "Thaw";
     factorItems.push({
       label: "Thaw + Temper",
       minutes: approxThawMins + approxTemperMins,

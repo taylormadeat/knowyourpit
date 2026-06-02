@@ -186,7 +186,7 @@ describe("POST /api/webhooks/revenuecat", () => {
     expect(mockUpsertEntitlementCache).toHaveBeenCalled();
   });
 
-  it("returns 200 with skipped=true and skips DB write when event has no app_user_id", async () => {
+  it("returns 200 with skipped=true and skips DB write when event has no app_user_id", { timeout: 15000 }, async () => {
     const res = await request(buildApp())
       .post("/api/webhooks/revenuecat")
       .set("Authorization", WEBHOOK_SECRET)

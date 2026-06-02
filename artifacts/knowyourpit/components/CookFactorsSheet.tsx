@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -6,9 +6,11 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
+  Animated,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
 import type { FactorBreakdownItem } from "@/components/cook-detail/types";
 
 function fmtMins(mins: number): string {
@@ -26,6 +28,23 @@ interface Props {
 }
 
 export function CookFactorsSheet({ visible, onClose, factorBreakdown, colors }: Props) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const barAnim = useRef(new Animated.Value(0)).current;
+  const chipsAnim = useRef(new Animated.Value(0)).current;
+
+  // Reset selection and animate in when sheet opens
+  useEffect(() => {
+    if (visible) {
+      setSelectedIndex(0);
+      barAnim.setValue(0);
+      chipsAnim.setValue(0);
+      Animated.stagger(60, [
+        Animated.spring(barAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 12 }),
+        Animated.spring(chipsAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 12 }),
+      ]).start();
+    }
+  }, [visible]);
+
   const totalMins = useMemo(
     () => factorBreakdown.reduce((s, f) => s + f.minutes, 0),
     [factorBreakdown]
@@ -33,16 +52,26 @@ export function CookFactorsSheet({ visible, onClose, factorBreakdown, colors }: 
 
   const segments = useMemo(
     () =>
-      factorBreakdown.map((f) => ({
+      factorBreakdown.map((f, i) => ({
         ...f,
         pct: totalMins > 0 ? (f.minutes / totalMins) * 100 : 0,
+        index: i,
       })),
     [factorBreakdown, totalMins]
   );
 
-  const handleOverlayPress = useCallback(() => {
-    onClose();
-  }, [onClose]);
+  // Qualitative chips: all items except "Base Cook Time"
+  const qualChips = useMemo(
+    () => factorBreakdown.filter((f) => f.label !== "Base Cook Time"),
+    [factorBreakdown]
+  );
+
+  const selectedItem = factorBreakdown[selectedIndex] ?? factorBreakdown[0];
+
+  const handleSegmentPress = useCallback((index: number) => {
+    setSelectedIndex(index);
+    Haptics.selectionAsync();
+  }, []);
 
   if (!visible || factorBreakdown.length === 0) return null;
 
@@ -53,198 +82,316 @@ export function CookFactorsSheet({ visible, onClose, factorBreakdown, colors }: 
       animationType="slide"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.overlay} onPress={handleOverlayPress}>
-        <Pressable
-          onPress={(e) => e.stopPropagation()}
-          style={[
-            styles.sheet,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
+      <Pressable style={s.overlay} onPress={onClose} />
+      <View
+        style={[
+          s.sheet,
+          { backgroundColor: colors.card, borderTopColor: colors.border + "60" },
+        ]}
+      >
+        {/* Drag handle */}
+        <View style={[s.handle, { backgroundColor: colors.mutedForeground + "55" }]} />
+
+        {/* Header */}
+        <View style={s.header}>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.headerTitle, { color: colors.foreground }]}>
+              What&apos;s Driving This?
+            </Text>
+            <Text style={[s.headerSub, { color: colors.mutedForeground }]}>
+              Total: {fmtMins(totalMins)}
+            </Text>
+          </View>
+          <Pressable onPress={onClose} style={s.closeBtn} hitSlop={12}>
+            <Feather name="x" size={18} color={colors.mutedForeground} />
+          </Pressable>
+        </View>
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={s.scrollContent}
         >
-          <LinearGradient
-            colors={["#E84820", "#FF6B2B"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.header}
+          {/* ── Stacked bar ─────────────────────────────────────────── */}
+          <Animated.View
+            style={[
+              s.barWrapper,
+              {
+                opacity: barAnim,
+                transform: [
+                  {
+                    translateY: barAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [12, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
           >
-            <View style={{ flex: 1 }}>
-              <Text style={styles.headerTitle}>What&apos;s Driving This?</Text>
-              <Text style={styles.headerSub}>Total: {fmtMins(totalMins)}</Text>
-            </View>
-            <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={12}>
-              <Feather name="x" size={18} color="#fff" />
-            </Pressable>
-          </LinearGradient>
-
-          <ScrollView
-            style={styles.body}
-            contentContainerStyle={styles.bodyContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.barRow}>
-              {segments.map((seg, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.barSegment,
-                    {
-                      width: `${seg.pct}%` as any,
-                      backgroundColor: seg.colorHex,
-                      borderTopLeftRadius: i === 0 ? 6 : 0,
-                      borderBottomLeftRadius: i === 0 ? 6 : 0,
-                      borderTopRightRadius: i === segments.length - 1 ? 6 : 0,
-                      borderBottomRightRadius: i === segments.length - 1 ? 6 : 0,
-                    },
-                  ]}
-                />
-              ))}
-            </View>
-
-            <View style={[styles.legendRow]}>
-              {segments.map((seg, i) => (
-                <View key={i} style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: seg.colorHex }]} />
-                  <Text
-                    style={[styles.legendLabel, { color: colors.mutedForeground }]}
-                    numberOfLines={1}
-                  >
-                    {seg.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-            {factorBreakdown.map((item, i) => (
-              <View key={i} style={styles.factorRow}>
-                <View
-                  style={[styles.factorIconWrap, { backgroundColor: item.colorHex + "22" }]}
-                >
-                  <Feather
-                    name={item.icon as any}
-                    size={16}
-                    color={item.colorHex}
+            <View style={[s.bar, { backgroundColor: colors.muted }]}>
+              {segments.map((seg, i) => {
+                const isSelected = selectedIndex === i;
+                return (
+                  <Pressable
+                    key={i}
+                    onPress={() => handleSegmentPress(i)}
+                    style={({ pressed }) => [
+                      s.barSegment,
+                      {
+                        width: `${seg.pct}%` as any,
+                        backgroundColor: seg.colorHex,
+                        opacity: pressed ? 0.75 : isSelected ? 1 : 0.55,
+                        borderTopLeftRadius: i === 0 ? 8 : 0,
+                        borderBottomLeftRadius: i === 0 ? 8 : 0,
+                        borderTopRightRadius: i === segments.length - 1 ? 8 : 0,
+                        borderBottomRightRadius: i === segments.length - 1 ? 8 : 0,
+                        borderBottomWidth: isSelected ? 3 : 0,
+                        borderBottomColor: isSelected ? "#fff" : "transparent",
+                      },
+                    ]}
                   />
-                </View>
+                );
+              })}
+            </View>
+
+            {/* Selected item explanation */}
+            {selectedItem && (
+              <View
+                style={[
+                  s.explanationBox,
+                  {
+                    backgroundColor: selectedItem.colorHex + "18",
+                    borderColor: selectedItem.colorHex + "40",
+                  },
+                ]}
+              >
+                <View style={[s.explanationDot, { backgroundColor: selectedItem.colorHex }]} />
                 <View style={{ flex: 1 }}>
-                  <View style={styles.factorTopRow}>
-                    <Text
-                      style={[styles.factorLabel, { color: colors.foreground }]}
-                    >
-                      {item.label}
-                    </Text>
-                    <Text
-                      style={[styles.factorTime, { color: item.colorHex }]}
-                    >
-                      {fmtMins(item.minutes)}
-                    </Text>
-                  </View>
-                  <Text
-                    style={[styles.factorDesc, { color: colors.mutedForeground }]}
-                  >
-                    {item.description}
+                  <Text style={[s.explanationLabel, { color: selectedItem.colorHex }]}>
+                    {selectedItem.label} · {fmtMins(selectedItem.minutes)}
+                  </Text>
+                  <Text style={[s.explanationText, { color: colors.foreground }]}>
+                    {selectedItem.description}
                   </Text>
                 </View>
               </View>
-            ))}
+            )}
+          </Animated.View>
 
-            <Text style={[styles.footerNote, { color: colors.mutedForeground }]}>
-              Segment sizes are proportional to time contribution. Thaw + temper time (when present) falls outside the active cook window.
-            </Text>
-          </ScrollView>
-        </Pressable>
-      </Pressable>
+          {/* ── Qualitative factor chips ─────────────────────────────── */}
+          {qualChips.length > 0 && (
+            <Animated.View
+              style={[
+                s.chipsSection,
+                {
+                  opacity: chipsAnim,
+                  transform: [
+                    {
+                      translateY: chipsAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [12, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Text style={[s.sectionLabel, { color: colors.mutedForeground }]}>
+                ACTIVE FACTORS
+              </Text>
+              <View style={s.chipsRow}>
+                {qualChips.map((chip, i) => (
+                  <Pressable
+                    key={i}
+                    onPress={() => {
+                      const idx = factorBreakdown.findIndex((f) => f.label === chip.label);
+                      if (idx !== -1) handleSegmentPress(idx);
+                    }}
+                    style={[
+                      s.chip,
+                      {
+                        backgroundColor: chip.colorHex + "18",
+                        borderColor: chip.colorHex + "40",
+                        borderRadius: colors.radius ?? 8,
+                      },
+                    ]}
+                  >
+                    <Feather name={chip.icon as any} size={11} color={chip.colorHex} />
+                    <Text style={[s.chipText, { color: chip.colorHex }]}>{chip.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </Animated.View>
+          )}
+
+          {/* ── Factor detail rows ───────────────────────────────────── */}
+          <View style={[s.divider, { backgroundColor: colors.border }]} />
+
+          {factorBreakdown.map((item, i) => {
+            const isSelected = selectedIndex === i;
+            return (
+              <Pressable
+                key={i}
+                onPress={() => handleSegmentPress(i)}
+                style={[
+                  s.factorRow,
+                  isSelected && { backgroundColor: item.colorHex + "0D", borderRadius: 10 },
+                  { paddingHorizontal: isSelected ? 8 : 0 },
+                ]}
+              >
+                <View
+                  style={[
+                    s.factorIconWrap,
+                    { backgroundColor: item.colorHex + (isSelected ? "30" : "18") },
+                  ]}
+                >
+                  <Feather name={item.icon as any} size={16} color={item.colorHex} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={s.factorTopRow}>
+                    <Text style={[s.factorLabel, { color: colors.foreground }]}>
+                      {item.label}
+                    </Text>
+                    <Text style={[s.factorTime, { color: item.colorHex }]}>
+                      {fmtMins(item.minutes)}
+                    </Text>
+                  </View>
+                  {isSelected && (
+                    <Text style={[s.factorDesc, { color: colors.mutedForeground }]}>
+                      {item.description}
+                    </Text>
+                  )}
+                </View>
+              </Pressable>
+            );
+          })}
+
+          <Text style={[s.footerNote, { color: colors.mutedForeground }]}>
+            Tap a bar segment or row to see what drives that part of the estimate.
+          </Text>
+        </ScrollView>
+      </View>
     </Modal>
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   sheet: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderWidth: 1,
-    maxHeight: "78%",
-    overflow: "hidden",
+    borderTopWidth: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 8,
+    maxHeight: "80%",
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 8,
   },
   header: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
+    alignItems: "flex-start",
+    paddingHorizontal: 18,
+    marginBottom: 14,
   },
   headerTitle: {
     fontFamily: "Inter_700Bold",
-    fontSize: 16,
-    color: "#fff",
+    fontSize: 17,
   },
   headerSub: {
     fontFamily: "Inter_400Regular",
     fontSize: 12,
-    color: "rgba(255,255,255,0.8)",
     marginTop: 2,
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.18)",
-    alignItems: "center",
-    justifyContent: "center",
+    padding: 4,
   },
-  body: {
-    flex: 1,
-  },
-  bodyContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+  scrollContent: {
+    paddingHorizontal: 18,
+    paddingBottom: 40,
     gap: 0,
   },
-  barRow: {
+  barWrapper: {
+    gap: 10,
+    marginBottom: 4,
+  },
+  bar: {
     flexDirection: "row",
-    height: 20,
-    borderRadius: 6,
+    height: 28,
+    borderRadius: 8,
     overflow: "hidden",
-    marginBottom: 10,
   },
   barSegment: {
     height: "100%",
   },
-  legendRow: {
+  explanationBox: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 14,
+    gap: 10,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "flex-start",
   },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  legendDot: {
+  explanationDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
+    marginTop: 5,
+    flexShrink: 0,
   },
-  legendLabel: {
+  explanationLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  explanationText: {
     fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  chipsSection: {
+    marginTop: 14,
+    gap: 6,
+  },
+  sectionLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 10,
+    letterSpacing: 0.8,
+  },
+  chipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontFamily: "Inter_600SemiBold",
     fontSize: 11,
   },
   divider: {
     height: 1,
+    marginTop: 16,
     marginBottom: 14,
   },
   factorRow: {
     flexDirection: "row",
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 12,
     alignItems: "flex-start",
+    paddingVertical: 6,
   },
   factorIconWrap: {
     width: 36,
@@ -258,7 +405,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 3,
+    paddingTop: 2,
   },
   factorLabel: {
     fontFamily: "Inter_600SemiBold",
@@ -274,12 +421,13 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 12,
     lineHeight: 18,
+    marginTop: 4,
   },
   footerNote: {
     fontFamily: "Inter_400Regular",
     fontSize: 11,
     lineHeight: 16,
-    marginTop: 4,
-    marginBottom: 8,
+    marginTop: 8,
+    marginBottom: 4,
   },
 });
