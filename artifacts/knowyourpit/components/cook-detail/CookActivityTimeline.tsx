@@ -482,7 +482,7 @@ function CheckinRow({
     event.ageRank > 0 &&
     totalCheckinCount > 1;
 
-  // One-line collapsed preview — always surface the verdict alongside temperature
+  // One-line collapsed preview (temperature, probe source, status — verdict shown separately as a badge)
   const collapsedPreview = (() => {
     const bits: string[] = [];
     const srcLabel = probeSourceLabel(ci?.probeSource);
@@ -492,11 +492,23 @@ function CheckinRow({
       const cfg = STATUS_FLAG_CONFIG[ci.statusFlag];
       if (cfg) bits.push(cfg.label);
     }
-    // Show verdict from either source alongside (not instead of) temperature
-    const verdict = he?.assessment?.verdict ?? event.mergedCookEventAnalysis?.verdict ?? null;
-    if (verdict) bits.push(verdict.replace(/_/g, " "));
     if (bits.length === 0 && ci?.userNote) bits.push(ci.userNote.slice(0, 60));
     return bits.join(" · ");
+  })();
+
+  // Colored verdict badge shown below the one-liner when the row is collapsed
+  const collapsedVerdictBadge = (() => {
+    if (!hasAnalysis) return null;
+    const verdict = he?.assessment?.verdict ?? event.mergedCookEventAnalysis?.verdict ?? null;
+    if (!verdict) return null;
+    // Prefer the pre-computed color from the merged event (handles on_track / watch / action_needed)
+    const color = (event.mergedCookEventAnalysis?.verdict === verdict)
+      ? (event.mergedCookEventAnalysis.verdictColor ?? (VERDICT_COLORS[verdict] ?? "#22c55e"))
+      : (VERDICT_COLORS[verdict] ?? "#22c55e");
+    const label = (event.mergedCookEventAnalysis?.verdict === verdict)
+      ? (event.mergedCookEventAnalysis.verdictLabel ?? verdict.replace(/_/g, " "))
+      : verdict.replace(/_/g, " ");
+    return { color, label };
   })();
 
   return (
@@ -524,8 +536,15 @@ function CheckinRow({
                 {fmtTime(event.occurredAt)}
               </Text>
               {hasExpandableContent && (
-                <Feather name={isExpanded ? "chevron-up" : "chevron-down"} size={13}
-                  color={colors.mutedForeground as string} />
+                isExpanded ? (
+                  <Feather name="chevron-up" size={13} color={colors.mutedForeground as string} />
+                ) : hasAnalysis ? (
+                  <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: colors.primary as string }}>
+                    View analysis ›
+                  </Text>
+                ) : (
+                  <Feather name="chevron-down" size={13} color={colors.mutedForeground as string} />
+                )
               )}
             </View>
           </View>
@@ -538,11 +557,18 @@ function CheckinRow({
             </Text>
           ) : null}
 
-          {/* Tap hint — only shown when analysis content exists and the row is collapsed */}
-          {!isExpanded && hasAnalysis && (
-            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: colors.primary as string, marginTop: 1 }}>
-              Tap to view analysis
-            </Text>
+          {/* Collapsed verdict badge — colored chip shown below the one-liner when analysis is available */}
+          {!isExpanded && collapsedVerdictBadge && (
+            <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4 }}>
+              <View style={{
+                paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8,
+                backgroundColor: collapsedVerdictBadge.color + "22",
+              }}>
+                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: collapsedVerdictBadge.color }}>
+                  {collapsedVerdictBadge.label}
+                </Text>
+              </View>
+            </View>
           )}
 
           {/* Expanded detail */}
@@ -722,11 +748,18 @@ function CheckinRow({
                 )
               )}
 
-              {/* ── Merged cook event analysis (shown when no analysisHistory entry covers this moment) ── */}
-              {!he && event.mergedCookEventAnalysis && (() => {
+              {/* ── Merged cook event analysis (shown when historyEntry is absent or has no verdict) ── */}
+              {(!he || !he.assessment?.verdict) && event.mergedCookEventAnalysis && (() => {
                 const mca = event.mergedCookEventAnalysis;
                 return (
                   <View style={{ gap: 6 }}>
+                    <Text style={{
+                      fontFamily: "Inter_600SemiBold", fontSize: 10,
+                      color: colors.primary as string,
+                      textTransform: "uppercase", letterSpacing: 0.5,
+                    }}>
+                      PitMaster says:
+                    </Text>
                     <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
                       <View style={{
                         paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
