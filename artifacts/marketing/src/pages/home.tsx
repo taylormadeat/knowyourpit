@@ -309,7 +309,7 @@ export default function Home() {
                 {[
                   "One serve time drives the whole plan — PitMaster sequences backwards from there",
                   "Each cut gets its own step timeline: light, load, wrap, and pull",
-                  "Assign items across multiple grills and the sequence accounts for each one",
+                  "Mix fresh and frozen cuts in the same spread — thaw time is factored into the sequence automatically",
                 ].map((point) => (
                   <li key={point} className="flex items-start gap-3">
                     <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
