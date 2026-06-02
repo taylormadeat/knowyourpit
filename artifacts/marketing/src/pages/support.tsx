@@ -78,7 +78,13 @@ export default function Support() {
             <AccordionItem value="item-3">
               <AccordionTrigger>Why isn't my probe temperature showing up?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Check that your thermometer is powered on and within Bluetooth range of the MEATER Block or Link. Also confirm your MEATER credentials are saved correctly in Settings. If the problem persists, remove the device connection and re-add it.
+                For MEATER: confirm your credentials are saved in Settings and the Block or Link is powered on. For Bluetooth probes (Inkbird, Govee, and others): open the Devices tab, make sure Bluetooth is enabled on your phone, and tap Scan. For ThermoWorks Signals: confirm your account is linked in Settings. If a device still won't connect, remove it and re-add it.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="item-ble">
+              <AccordionTrigger>How do I connect a Bluetooth probe?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Open the <strong>Devices</strong> tab and tap <strong>Scan</strong>. Make sure your probe is powered on and within a few feet of your phone. Detected devices appear in the list — tap one to connect. The app will ask for Bluetooth permission on first use; this is required for probe discovery.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-4">
@@ -87,10 +93,22 @@ export default function Support() {
                 You can set a target temperature alert on the Cook screen. When your probe hits that temperature, the app sends a local notification — even when the app is in the background. Make sure notifications are enabled for knowyourpit in your iPhone Settings.
               </AccordionContent>
             </AccordionItem>
+            <AccordionItem value="item-frozen">
+              <AccordionTrigger>How does frozen meat planning work?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                When planning a cook, toggle <strong>Frozen</strong> and select your thaw method (refrigerator, cold-water, microwave, counter, or cook-from-frozen). PitMaster calculates the thaw duration and adds a temper window, then sets your start schedule to account for both. You'll get a notification when your thaw window opens and another when temper time is up.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="item-photos">
+              <AccordionTrigger>Can I attach photos to a cook?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Yes — open any cook and tap the photo section to add images from your camera roll or take a new one. PitMaster can also analyze the photo to pull temperature readings from probe graphs or analog gauges automatically.
+              </AccordionContent>
+            </AccordionItem>
             <AccordionItem value="item-5">
               <AccordionTrigger>How do I delete my account or my data?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Email us at <a href="mailto:support@knowyourpit.com" className="text-primary hover:underline">support@knowyourpit.com</a> with the subject line "Delete my account" and we will permanently remove your account and all associated data within 7 days.
+                Go to the <strong>More</strong> tab and tap <strong>Delete account</strong>. This immediately and permanently removes all your cooks, temperature data, grill profiles, and account — it cannot be undone. You can also email <a href="mailto:support@knowyourpit.com" className="text-primary hover:underline">support@knowyourpit.com</a> if you need assistance.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-6">
