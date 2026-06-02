@@ -271,13 +271,8 @@ export default function HomeScreen() {
     ? `${(upcomingCook as any).foodType || "Your cook"} is coming up — time to prep`
     : "Ready to fire it up?";
 
-  // New title every time the home screen is focused (login, tab switch, app foreground)
-  const [titleSeed, setTitleSeed] = useState(() => Math.random());
-  useFocusEffect(
-    useCallback(() => {
-      setTitleSeed(Math.random());
-    }, [])
-  );
+  // Stable seed for the full app session — re-randomizes only on app restart
+  const [titleSeed] = useState(() => Math.random());
   const randomTitle = useMemo(() => {
     if (!insights) return null;
     if ((insights.scoreBreakdown?.cookCount ?? 0) === 0) return null;
