@@ -15,13 +15,13 @@ const SHOTS = [
   {
     src: "ss-plan-cook.png",
     title: "A plan built for your pit — or your whole spread",
-    caption: "Tell PitMaster what you're cooking and when you want to serve. It builds a step-by-step schedule tailored to your rig and history. Running multiple cuts across different grills? Switch to Multi-Cook and it sequences every start time so everything finishes at once.",
+    caption: "Tell PitMaster what you're cooking and when you want to serve. It builds a step-by-step schedule tailored to your rig and history. Flag a cut as frozen and it folds in thaw time and a temper window automatically — so the plan accounts for the full timeline, not just the smoke.",
     alt: "Plan a Cook screen with Pulled Pork selected and a prep guide open",
   },
   {
     src: "ss-cook-detail.png",
-    title: "Live analysis. Ranked moves. Actual reasoning.",
-    caption: "PitMaster reads your temperature curve in real time, detects stalls and climbs, and gives you a ranked list of next moves — each with the reasoning behind it. Not a generic suggestion. A call from what's happening in your pit right now.",
+    title: "Live analysis. Clear next step. Actual reasoning.",
+    caption: "PitMaster reads your temperature curve in real time, detects stalls and climbs, and tells you what to do next — with the reasoning behind it. Not a generic suggestion. A call from what's happening in your pit right now.",
     alt: "Cook detail screen showing PitMaster analysis and temperature graph",
   },
   {
