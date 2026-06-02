@@ -236,16 +236,16 @@ export default function Home() {
                 Live Cook
               </span>
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-                Live probe data. Stall detected. Next move ranked.
+                Live probe data. Stall detected. Next move clear.
               </h2>
               <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-6">
-                PitMaster reads your probe and pit temperatures the moment a session starts. It detects stalls and climbs from the actual data, ranks what to do next with the reasoning behind each call, and keeps your predicted finish time updated as the cook evolves.
+                PitMaster reads your probe and pit temperatures the moment a session starts. It detects stalls and climbs from the actual data, tells you what to do next with the reasoning behind the call, and updates its read as your cook evolves.
               </p>
               <ul className="space-y-3 text-sm md:text-base text-muted-foreground mb-8 text-left w-full max-w-sm md:max-w-none">
                 {[
                   "Live probe and pit temps feed the analysis — stall and climb detection from real data",
-                  "Ranked next moves with the reasoning behind each, not just a recommendation",
-                  "Predicted finish time updates as your curve changes — no manual math",
+                  "PitMaster tells you what to do next and explains why — based on what's actually happening in your pit",
+                  "Check in at any point for a fresh read — the recommendation updates against your current curve",
                 ].map((point) => (
                   <li key={point} className="flex items-start gap-3">
                     <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
