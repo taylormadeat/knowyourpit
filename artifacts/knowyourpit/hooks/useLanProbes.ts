@@ -90,11 +90,11 @@ const DEFAULT_FIREBOARD_HOST = "fireboard.local";
  * Multiple well-known hostnames tried in parallel on every poll cycle.
  * Different MEATER Block firmware versions use different names.
  */
-const DEFAULT_MEATER_BLOCK_HOSTS = ["meaterblock.local", "meater-block.local"];
+const DEFAULT_MEATER_BLOCK_HOSTS = ["meaterblock.local", "meater-block.local", "MEATER_block.local"];
 const DEFAULT_SIGNALS_HOSTS = ["thermoworks-signals.local", "signals.local"];
 
 /** AsyncStorage key for user-supplied MEATER Block IP/hostname entries */
-const MANUAL_MEATER_KEY = "@knowyourpit/lan/manual_meater";
+const MANUAL_MEATER_KEY = "@knowyourpit/lan/manual";
 
 /**
  * Number of consecutive failed polls against a cached (mDNS-discovered) host
