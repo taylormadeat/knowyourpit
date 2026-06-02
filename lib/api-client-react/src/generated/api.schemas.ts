@@ -1155,6 +1155,19 @@ export interface AiCheckinItem {
   expectedInternalTempRange?: number[] | null;
 }
 
+export interface FactorBreakdownItem {
+  /** Short display label for this factor (e.g. "Base Cook Time", "Stall Allowance") */
+  label: string;
+  /** Time contribution in minutes (always positive) */
+  minutes: number;
+  /** Hex color string used to render this segment in the stacked bar */
+  colorHex: string;
+  /** One-sentence explanation shown in the detail sheet */
+  description: string;
+  /** Feather icon name for this factor */
+  icon: string;
+}
+
 export type AiPredictResponseConfidence =
   (typeof AiPredictResponseConfidence)[keyof typeof AiPredictResponseConfidence];
 
@@ -1231,6 +1244,8 @@ export interface AiPredictResponse {
    * @nullable
    */
   recommendedServeReason?: string | null;
+  /** Ordered list of time-contribution factors explaining what drives the cook time estimate. Present when enough context exists to build a meaningful breakdown; absent for minimal-input requests. The first item is always the base cook time; subsequent items are identified add-ons (stall, grill load, cold weather, learned pace, thaw+temper). */
+  factorBreakdown?: FactorBreakdownItem[];
 }
 
 /**

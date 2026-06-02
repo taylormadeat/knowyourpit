@@ -54,6 +54,7 @@ export * from "./createCustomMeatCutBody";
 export * from "./createGrillBody";
 export * from "./customMeatCut";
 export * from "./dashboardSummary";
+export * from "./factorBreakdownItem";
 export * from "./grill";
 export * from "./grillFingerprint";
 export * from "./grillFingerprintConfidenceLevel";

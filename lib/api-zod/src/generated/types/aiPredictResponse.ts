@@ -8,6 +8,7 @@
 import type { AiCheckinItem } from "./aiCheckinItem";
 import type { AiPredictResponseConfidence } from "./aiPredictResponseConfidence";
 import type { AiPredictResponseFingerprintSource } from "./aiPredictResponseFingerprintSource";
+import type { FactorBreakdownItem } from "./factorBreakdownItem";
 import type { WrapRecommendation } from "./wrapRecommendation";
 
 export interface AiPredictResponse {
@@ -63,4 +64,6 @@ export interface AiPredictResponse {
    * @nullable
    */
   recommendedServeReason?: string | null;
+  /** Ordered list of time-contribution factors explaining what drives the cook time estimate. Present when enough context exists to build a meaningful breakdown; absent for minimal-input requests. The first item is always the base cook time; subsequent items are identified add-ons (stall, grill load, cold weather, learned pace, thaw+temper). */
+  factorBreakdown?: FactorBreakdownItem[];
 }

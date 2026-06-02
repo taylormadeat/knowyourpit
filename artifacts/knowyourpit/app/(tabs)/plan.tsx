@@ -56,7 +56,8 @@ import {
 import { NextUpBanner, getStepTargetMs } from "@/components/NextUpBanner";
 import { computeNextStep } from "@/components/cook-detail/utils";
 import { fmtRemaining } from "@/components/cook-detail/CookProgressBar";
-import type { SequenceData } from "@/components/cook-detail/types";
+import type { SequenceData, FactorBreakdownItem } from "@/components/cook-detail/types";
+import { CookFactorsSheet } from "@/components/CookFactorsSheet";
 import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
 import {
   MEAT_CUTS,
@@ -441,6 +442,7 @@ export default function PlanScreen() {
   const aiPredict = useAiPredict();
   const [aiResult, setAiResult] = useState<any | null>(null);
   const [aiResultOpen, setAiResultOpen] = useState(false);
+  const [factorsSheetOpen, setFactorsSheetOpen] = useState(false);
   const [planChatOpen, setPlanChatOpen] = useState(false);
   const [planChatSeed, setPlanChatSeed] = useState<string | undefined>(undefined);
   // AI schedule overrides: set when the user applies a PitMaster plan,
@@ -932,6 +934,7 @@ export default function PlanScreen() {
           ...(hasFingerprint
             ? { fingerprintSource: aiResult!.fingerprintSource, fingerprintNote: aiResult!.fingerprintNote ?? null }
             : {}),
+          ...(aiResult?.factorBreakdown?.length ? { factorBreakdown: aiResult.factorBreakdown } : {}),
         };
         await updateCook.mutateAsync({
           id: replanCookIdNum,
@@ -1012,17 +1015,19 @@ export default function PlanScreen() {
               ...(aiResult?.fingerprintSource === "grill" || aiResult?.fingerprintSource === "user"
                 ? { fingerprintSource: aiResult.fingerprintSource, fingerprintNote: aiResult.fingerprintNote ?? null }
                 : {}),
+              ...(aiResult?.factorBreakdown?.length ? { factorBreakdown: aiResult.factorBreakdown } : {}),
             },
             fromFrozen: true,
             thawMethod: frozenForCook.method,
           }),
-          ...(!frozenForCook && (aiResult?.checkins?.length || aiResult?.fingerprintSource === "grill" || aiResult?.fingerprintSource === "user") && {
+          ...(!frozenForCook && (aiResult?.checkins?.length || aiResult?.fingerprintSource === "grill" || aiResult?.fingerprintSource === "user" || aiResult?.factorBreakdown?.length) && {
             sequenceData: {
               schedule: [],
               ...(aiResult?.checkins?.length ? { aiCheckins: aiResult.checkins } : {}),
               ...(aiResult?.fingerprintSource === "grill" || aiResult?.fingerprintSource === "user"
                 ? { fingerprintSource: aiResult.fingerprintSource, fingerprintNote: aiResult.fingerprintNote ?? null }
                 : {}),
+              ...(aiResult?.factorBreakdown?.length ? { factorBreakdown: aiResult.factorBreakdown } : {}),
             },
           }),
           // Technique quick-picks from the Plan screen
@@ -2567,6 +2572,15 @@ export default function PlanScreen() {
                 sub={`~${fmtDuration(schedule.cookMins)} cook time`}
                 colors={colors}
               />
+              {Array.isArray((aiResult as any)?.factorBreakdown) && (aiResult as any).factorBreakdown.length > 0 && (
+                <Pressable
+                  onPress={() => setFactorsSheetOpen(true)}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: 46, paddingTop: 2, paddingBottom: 6 }}
+                >
+                  <Text style={{ color: "#8B5CF6", fontSize: 12, fontFamily: "Inter_600SemiBold" }}>What&apos;s driving this?</Text>
+                  <Feather name="chevron-right" size={12} color="#8B5CF6" />
+                </Pressable>
+              )}
               {schedule.wrap && (
                 <>
                   <View style={[s.scheduleLine, { backgroundColor: colors.border }]} />
@@ -3070,6 +3084,13 @@ export default function PlanScreen() {
         onClose={() => setPlanChatOpen(false)}
         seedMessage={planChatSeed}
         contextLabel="Asking about this plan"
+      />
+
+      <CookFactorsSheet
+        visible={factorsSheetOpen}
+        onClose={() => setFactorsSheetOpen(false)}
+        factorBreakdown={(aiResult as any)?.factorBreakdown ?? []}
+        colors={colors}
       />
 
     </View>

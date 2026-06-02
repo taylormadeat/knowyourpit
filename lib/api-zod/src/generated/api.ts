@@ -1884,6 +1884,32 @@ export const AiPredictResponse = zod.object({
     .describe(
       "Human-readable explanation for the recommendedServeAt adjustment (e.g., why thawing requires more lead time).",
     ),
+  factorBreakdown: zod
+    .array(
+      zod.object({
+        label: zod
+          .string()
+          .describe(
+            'Short display label for this factor (e.g. \"Base Cook Time\", \"Stall Allowance\")',
+          ),
+        minutes: zod
+          .number()
+          .describe("Time contribution in minutes (always positive)"),
+        colorHex: zod
+          .string()
+          .describe(
+            "Hex color string used to render this segment in the stacked bar",
+          ),
+        description: zod
+          .string()
+          .describe("One-sentence explanation shown in the detail sheet"),
+        icon: zod.string().describe("Feather icon name for this factor"),
+      }),
+    )
+    .optional()
+    .describe(
+      "Ordered list of time-contribution factors explaining what drives the cook time estimate. Present when enough context exists to build a meaningful breakdown; absent for minimal-input requests. The first item is always the base cook time; subsequent items are identified add-ons (stall, grill load, cold weather, learned pace, thaw+temper).",
+    ),
 });
 
 /**

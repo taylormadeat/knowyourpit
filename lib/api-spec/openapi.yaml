@@ -2158,6 +2158,31 @@ components:
         - coachingNote
         - visualCues
 
+    FactorBreakdownItem:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Short display label for this factor (e.g. "Base Cook Time", "Stall Allowance")
+        minutes:
+          type: integer
+          description: Time contribution in minutes (always positive)
+        colorHex:
+          type: string
+          description: Hex color string used to render this segment in the stacked bar
+        description:
+          type: string
+          description: One-sentence explanation shown in the detail sheet
+        icon:
+          type: string
+          description: Feather icon name for this factor
+      required:
+        - label
+        - minutes
+        - colorHex
+        - description
+        - icon
+
     AiPredictResponse:
       type: object
       properties:
@@ -2216,6 +2241,11 @@ components:
         recommendedServeReason:
           type: ["string", "null"]
           description: Human-readable explanation for the recommendedServeAt adjustment (e.g., why thawing requires more lead time).
+        factorBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/FactorBreakdownItem"
+          description: Ordered list of time-contribution factors explaining what drives the cook time estimate. Present when enough context exists to build a meaningful breakdown; absent for minimal-input requests. The first item is always the base cook time; subsequent items are identified add-ons (stall, grill load, cold weather, learned pace, thaw+temper).
       required:
         - estimatedDurationMinutes
         - preheatMinutes

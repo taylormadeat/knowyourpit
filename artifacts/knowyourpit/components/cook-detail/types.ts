@@ -93,6 +93,14 @@ export interface FrozenStageInfo {
 import type { AiCheckinItem } from "@workspace/checkin-schedule";
 export type { AiCheckinItem };
 
+export interface FactorBreakdownItem {
+  label: string;
+  minutes: number;
+  colorHex: string;
+  description: string;
+  icon: string;
+}
+
 export interface SequenceData {
   schedule: ScheduleItem[];
   serveAt?: string;
@@ -101,6 +109,7 @@ export interface SequenceData {
   aiCheckins?: AiCheckinItem[] | null;
   fingerprintSource?: "grill" | "user" | "pit_bias_only" | null;
   fingerprintNote?: string | null;
+  factorBreakdown?: FactorBreakdownItem[] | null;
 }
 
 export type NextStepKey = "grillLight" | "meatOn" | "wrap" | "pullOff" | "serve";

@@ -3785,6 +3785,7 @@ export default function CookDetailScreen() {
           knownProbeIds={knownProbeIds}
           lastKnownInkbirdDeviceId={lastKnownInkbirdDeviceId}
           onRestartScan={handleRestartScan}
+          factorBreakdown={cookSeqData?.factorBreakdown ?? null}
         />
         <CookSummaryCard
           c={c}

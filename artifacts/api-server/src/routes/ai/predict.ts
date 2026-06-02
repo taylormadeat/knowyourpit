@@ -72,6 +72,8 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
   let grillContext = "";
   let grillType = "";
   let grillTempContext = "";
+  let grillLoadLevel: string | null = null;
+  let grillLoadAddMins = 0;
 
   if (grillId) {
     const [grill] = await db.select().from(grillsTable)
@@ -107,6 +109,10 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
           loadNote = "Heavily loaded grill — add 60–90 min to estimated cook time; stagger or rotate pieces to ensure even cook.";
         }
         grillContext += `\nGrill load: ${pieceCount} pieces on ${grill.cookingSurfaceSqIn} sq in (${densityLbsPerSqIn.toFixed(3)} lbs/sq in) — ${loadLevel} density. ${loadNote}`;
+        if (loadLevel !== "low") {
+          grillLoadLevel = loadLevel;
+          grillLoadAddMins = loadLevel === "medium" ? 37 : 75;
+        }
       }
     }
 
@@ -540,6 +546,128 @@ ${userHistorySection}${fingerprintGuidance}`;
           ? "pit_bias_only"
           : null;
 
+  // ── Cook Factors Breakdown ────────────────────────────────────────────────
+  // Constructs an ordered list of time-contribution segments that explain what
+  // drives the estimated cook duration. The first item is always the "base"
+  // (estimate minus identified add-ons); subsequent items are named add-ons.
+  // Frozen thaw+temper is appended as an additional context segment since it
+  // falls outside the active cook window.
+  const finalDurationMins = prediction.estimatedDurationMinutes;
+
+  const STALL_KEYWORDS = ["brisket", "pork butt", "pork shoulder", "pulled pork", "chuck roast", "beef short rib", "beef cheek", "picnic shoulder", "whole hog"];
+  const isStallCut = STALL_KEYWORDS.some(k => foodType.toLowerCase().includes(k));
+  const effectiveCookTempF = cookTempF ?? 225;
+
+  let stallMins = 0;
+  if (isStallCut && effectiveCookTempF <= 275) {
+    stallMins = effectiveCookTempF <= 240 ? 75 : 45;
+  }
+
+  let fingerprintAddMins = 0;
+  if (calibratedMinsPerLb != null && weightLbs && weightLbs > 0 && baseline) {
+    const baselineMins = Math.round(baseline.minsPerLb * weightLbs);
+    const calibratedMins = Math.round(calibratedMinsPerLb * weightLbs);
+    fingerprintAddMins = calibratedMins - baselineMins;
+  }
+
+  let outdoorTempAddMins = 0;
+  if (outdoorTempF != null) {
+    if (outdoorTempF < 32) outdoorTempAddMins = 25;
+    else if (outdoorTempF < 45) outdoorTempAddMins = 15;
+    else if (outdoorTempF < 55) outdoorTempAddMins = 8;
+  }
+
+  const positiveAddons = stallMins + Math.max(0, fingerprintAddMins) + grillLoadAddMins + outdoorTempAddMins;
+  const baseMins = Math.max(finalDurationMins - positiveAddons, 30);
+
+  interface FactorBreakdownItem {
+    label: string;
+    minutes: number;
+    colorHex: string;
+    description: string;
+    icon: string;
+  }
+
+  const factorItems: FactorBreakdownItem[] = [];
+
+  factorItems.push({
+    label: "Base Cook Time",
+    minutes: baseMins,
+    colorHex: "#E84820",
+    description: baseline
+      ? `Core cook time from the ${baseline.minsPerLb} min/lb baseline for ${foodType}.`
+      : `Core cook time estimate for ${foodType} based on technique and grill context.`,
+    icon: "zap",
+  });
+
+  if (stallMins > 0) {
+    factorItems.push({
+      label: "Stall Allowance",
+      minutes: stallMins,
+      colorHex: "#8B5CF6",
+      description: `Large cuts plateau around 160°F as surface moisture evaporates. Your plan builds in ${stallMins} min for the stall.`,
+      icon: "pause-circle",
+    });
+  }
+
+  if (grillLoadAddMins > 0 && grillLoadLevel) {
+    factorItems.push({
+      label: "Grill Load",
+      minutes: grillLoadAddMins,
+      colorHex: "#F97316",
+      description: `A ${grillLoadLevel}-density grill load restricts airflow and extends cook time for even results.`,
+      icon: "layers",
+    });
+  }
+
+  if (outdoorTempAddMins > 0 && outdoorTempF != null) {
+    factorItems.push({
+      label: "Cold Weather",
+      minutes: outdoorTempAddMins,
+      colorHex: "#38BDF8",
+      description: `${outdoorTempF}°F ambient temp means the grill works harder to hold target temperature.`,
+      icon: "thermometer",
+    });
+  }
+
+  if (Math.abs(fingerprintAddMins) >= 10) {
+    const isFaster = fingerprintAddMins < 0;
+    factorItems.push({
+      label: isFaster ? "Learned Pace (Faster)" : "Learned Pace (Slower)",
+      minutes: Math.abs(fingerprintAddMins),
+      colorHex: isFaster ? "#22C55E" : "#F59E0B",
+      description: `Your ${calibrationSource === "grill" ? "grill's" : "historical"} actual pace of ${calibratedMinsPerLb} min/lb ${isFaster ? "beats" : "runs slower than"} the ${baseline?.minsPerLb ?? "baseline"} min/lb reference — based on ${calibrationSampleSize} cook${calibrationSampleSize === 1 ? "" : "s"}.`,
+      icon: isFaster ? "trending-down" : "trending-up",
+    });
+  }
+
+  // Frozen thaw + temper: additional time outside the active cook window
+  if (fromFrozen && weightLbs && weightLbs > 0) {
+    let approxThawMins = 0;
+    if (thawMethod === "fridge") {
+      approxThawMins = Math.max(24 * 60, Math.ceil(weightLbs / 5) * 24 * 60);
+    } else if (thawMethod === "cold_water") {
+      approxThawMins = Math.round(weightLbs * 30);
+    } else if (thawMethod === "microwave") {
+      approxThawMins = 30;
+    } else {
+      approxThawMins = Math.round(weightLbs * 30);
+    }
+    const approxTemperMins = 45;
+    const thawLabel = thawMethod === "fridge" ? "Fridge thaw" : thawMethod === "cold_water" ? "Cold-water thaw" : thawMethod === "microwave" ? "Microwave thaw" : "Thaw";
+    factorItems.push({
+      label: "Thaw + Temper",
+      minutes: approxThawMins + approxTemperMins,
+      colorHex: "#3B82F6",
+      description: `${thawLabel} (~${Math.round(approxThawMins / 60)}h) + ${approxTemperMins} min counter temper. This happens before the active cook clock starts.`,
+      icon: "box",
+    });
+  }
+
+  // Only emit a breakdown when there's more than just the base item — a bare
+  // base-only breakdown adds no insight.
+  const factorBreakdown: FactorBreakdownItem[] = factorItems.length > 1 ? factorItems : [];
+
   const now = new Date();
   const cookMs = prediction.estimatedDurationMinutes * 60000;
   const preheatMs = preheatMinutes * 60000;
@@ -627,6 +755,7 @@ ${userHistorySection}${fingerprintGuidance}`;
         ? prediction.recommendedServeReason.trim().slice(0, 500)
         : null)
       : null,
+    ...(factorBreakdown.length > 0 ? { factorBreakdown } : {}),
   });
 });
 

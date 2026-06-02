@@ -1,4 +1,6 @@
 import React from "react";
+import { CookFactorsSheet } from "@/components/CookFactorsSheet";
+import type { FactorBreakdownItem } from "@/components/cook-detail/types";
 import { View, Text, Pressable, ActivityIndicator, Animated, TextInput } from "react-native";
 import { BleWizardSheet } from "./BleWizardSheet";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -98,6 +100,7 @@ interface Props {
   upcomingCheckins?: Array<{ id: string; scheduledAt: number; phaseLabel: string }>;
   onCheckInPhase?: (sc: any) => void;
   onRestartScan?: () => void;
+  factorBreakdown?: FactorBreakdownItem[] | null;
 }
 
 function fmtLastChecked(lastAnalyzedAtMs: number, nowMs: number): string {
@@ -138,7 +141,10 @@ export function LiveCookSection(p: Props) {
     currentInternalTempF, currentPitTempF,
     nextCheckinMs, nextCheckinLabel, upcomingCheckins = [], onCheckInPhase,
     onRestartScan,
+    factorBreakdown,
   } = p;
+
+  const [cookFactorsSheetOpen, setCookFactorsSheetOpen] = React.useState(false);
 
   // Local state for inline label editing
   const [editingLabelKey, setEditingLabelKey] = React.useState<string | null>(null);
@@ -482,6 +488,25 @@ export function LiveCookSection(p: Props) {
           </View>
         )}
       </View>
+
+      {Array.isArray(factorBreakdown) && factorBreakdown.length > 0 && (
+        <Pressable
+          onPress={() => setCookFactorsSheetOpen(true)}
+          style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 14, paddingTop: 6, paddingBottom: 4 }}
+        >
+          <Text style={{ color: "#8B5CF6", fontSize: 12, fontFamily: "Inter_600SemiBold" }}>What&apos;s driving this?</Text>
+          <Feather name="chevron-right" size={12} color="#8B5CF6" />
+        </Pressable>
+      )}
+
+      {Array.isArray(factorBreakdown) && factorBreakdown.length > 0 && (
+        <CookFactorsSheet
+          visible={cookFactorsSheetOpen}
+          onClose={() => setCookFactorsSheetOpen(false)}
+          factorBreakdown={factorBreakdown}
+          colors={colors}
+        />
+      )}
 
       {/* ── Live probe temp readout — shown when a probe is connected and readings are available ── */}
       {tempMode === "probe" && (currentInternalTempF != null || currentPitTempF != null) && (
