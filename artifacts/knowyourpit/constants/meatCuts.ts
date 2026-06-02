@@ -27,6 +27,15 @@ export interface MeatCut {
   avgRackWeightLbs?: number;
 }
 
+/**
+ * All built-in cuts must carry the sizing metadata fields.
+ * Using this intersection in the MEAT_CUTS array gives a compile-time
+ * error if any entry is missing `avgPieceWeightLbs`, `defaultSizeMode`,
+ * or `isIndividualCook`. Custom cuts (from the DB) use plain `MeatCut`
+ * which keeps those fields optional.
+ */
+export type BuiltinMeatCut = MeatCut & Required<Pick<MeatCut, "avgPieceWeightLbs" | "defaultSizeMode" | "isIndividualCook">>;
+
 export const MEAT_CATEGORIES = [
   "Beef",
   "Pork",
@@ -36,7 +45,7 @@ export const MEAT_CATEGORIES = [
   "Game",
 ] as const;
 
-export const MEAT_CUTS: MeatCut[] = [
+export const MEAT_CUTS: BuiltinMeatCut[] = [
   // ── BEEF ──────────────────────────────────────────────────────────
   { category: "Beef", name: "Brisket (Whole Packer)", targetTempF: 203, cookTempF: 225, minsPerLb: 75, restMins: 60, cookMethod: "Low & Slow", notes: "Probe should slide like butter", avgPieceWeightLbs: 14, defaultSizeMode: "weight", isIndividualCook: false },
   { category: "Beef", name: "Brisket (Flat)", targetTempF: 200, cookTempF: 225, minsPerLb: 65, restMins: 45, cookMethod: "Low & Slow", avgPieceWeightLbs: 6, defaultSizeMode: "weight", isIndividualCook: false },

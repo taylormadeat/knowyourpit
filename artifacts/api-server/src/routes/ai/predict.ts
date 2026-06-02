@@ -52,6 +52,9 @@ function makePredictCacheKey(userId: string, p: ReturnType<typeof AiPredictBody.
     ot: p.outdoorTempF ?? null,
     n: p.notes ?? null,
     df: p.desiredFinishAt ?? null,
+    pc: p.pieceCount ?? null,
+    ic: p.isIndividualCook ?? null,
+    sl: p.sizingLabel ?? null,
   });
 }
 
