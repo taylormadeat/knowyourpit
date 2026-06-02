@@ -1357,9 +1357,9 @@ export default function CooksScreen() {
         right={
           <Pressable
             onPress={() => router.push("/cooks/log" as any)}
-            style={s.addBtn}
+            style={[s.addBtn, { backgroundColor: colors.primary as string }]}
           >
-            <Feather name="plus" size={22} color="#fff" />
+            <Text style={s.addBtnText}>+ Log Past Cook</Text>
           </Pressable>
         }
       />
@@ -2008,8 +2008,11 @@ const s = StyleSheet.create({
   },
   scanBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff" },
   addBtn: {
-    width: 36, height: 36, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10,
     alignItems: "center", justifyContent: "center",
+  },
+  addBtnText: {
+    fontFamily: "Inter_600SemiBold", fontSize: 13, color: "#fff",
   },
   controls: {
     borderBottomWidth: 1,
