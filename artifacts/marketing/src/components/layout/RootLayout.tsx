@@ -75,6 +75,14 @@ export function RootLayout({ children }: { children: React.ReactNode }) {
                 {link.label}
               </Link>
             ))}
+            <a
+              href="https://apps.apple.com/app/id6763445064"
+              target="_blank"
+              rel="noreferrer"
+              className="ml-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
+            >
+              Download on iOS
+            </a>
           </nav>
 
           <button
