@@ -4043,7 +4043,7 @@ export default function CookDetailScreen() {
                 returns null. Show PlannedCookTimeline instead so check-in checkpoints
                 and the cook timeline are still visible. It self-guards and returns null
                 when sequenceData is present, so it never duplicates the SequenceSchedule. */}
-            <PlannedCookTimeline c={c} colors={colors} cookStatus={cookStatus} estimatedFinishMs={estimatedFinishMs} />
+            {cookStatus !== "completed" && <PlannedCookTimeline c={c} colors={colors} cookStatus={cookStatus} estimatedFinishMs={estimatedFinishMs} />}
           </>
         )}
 
@@ -4093,6 +4093,7 @@ export default function CookDetailScreen() {
         {/* ── Completed cook: Cook Timeline + Activity (after PitMaster analysis, consecutive) ── */}
         {cookStatus === "completed" && (
           <>
+            {/* SequenceSchedule renders when seqData present; PlannedCookTimeline is the fallback for Cook Now cooks (self-guards when seqData present) */}
             <SequenceSchedule
               c={c}
               colors={colors}
@@ -4109,6 +4110,7 @@ export default function CookDetailScreen() {
               rowYRef={rowYRef}
               cookCheckins={cookCheckins as CookCheckin[]}
             />
+            <PlannedCookTimeline c={c} colors={colors} cookStatus={cookStatus} estimatedFinishMs={estimatedFinishMs} />
             <CookActivityTimeline
               c={c}
               colors={colors}

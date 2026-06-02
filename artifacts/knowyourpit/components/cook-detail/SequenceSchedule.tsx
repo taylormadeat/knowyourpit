@@ -141,7 +141,7 @@ export function SequenceSchedule(p: Props) {
         <Feather name={seqScheduleExpanded ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
       </Pressable>
 
-      {/* Completed cook collapsed step summary — only confirmed steps, with ✓ markers and their planned times */}
+      {/* Completed cook collapsed step summary — only confirmed steps, with ✓ markers and actual confirmation timestamps */}
       {!seqScheduleExpanded && cookStatus === "completed" && currentIdx >= 0 && (() => {
         const item = seqData.schedule[currentIdx];
         if (!item) return null;
@@ -149,22 +149,25 @@ export function SequenceSchedule(p: Props) {
         const wrapAtMin = (item.wrapAtMinutes ?? 0) > 0 ? Math.round(item.wrapAtMinutes) : null;
         const meatOnMs = item.meatOnAt ? new Date(item.meatOnAt).getTime() : null;
         const wrapMs = meatOnMs && wrapAtMin ? meatOnMs + wrapAtMin * 60_000 : null;
-        const fmt = (t: string | number | null | undefined) => t != null
-          ? new Date(typeof t === "number" ? t : t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-          : "";
+        // confirmedSteps values are ISO timestamp strings of when the user tapped confirm
+        const fmtTs = (key: string, fallback?: string | null) => {
+          const ts = confirmedSteps[key];
+          if (ts && typeof ts === "string") {
+            return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          }
+          return fallback ? new Date(fallback).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+        };
         const steps: { label: string; time: string; color: string }[] = [];
         if (confirmedSteps[`${currentIdx}_grillLight`] && item.grillLightAt)
-          steps.push({ label: "Light Grill", time: fmt(item.grillLightAt), color: "#f59e0b" });
+          steps.push({ label: "Light Grill", time: fmtTs(`${currentIdx}_grillLight`, item.grillLightAt), color: "#f59e0b" });
         if (confirmedSteps[`${currentIdx}_meatOn`] && item.meatOnAt)
-          steps.push({ label: "Meat On", time: fmt(item.meatOnAt), color: "#EB6C2B" });
+          steps.push({ label: "Meat On", time: fmtTs(`${currentIdx}_meatOn`, item.meatOnAt), color: "#EB6C2B" });
         if (confirmedSteps[`${currentIdx}_wrap`] && hasWrap && wrapMs)
-          steps.push({ label: "Wrap", time: fmt(wrapMs), color: "#A855F7" });
+          steps.push({ label: "Wrap", time: fmtTs(`${currentIdx}_wrap`), color: "#A855F7" });
         if (confirmedSteps[`${currentIdx}_pullOff`] && item.estimatedFinishAt)
-          steps.push({ label: "Pull Off", time: fmt(item.estimatedFinishAt), color: "#22c55e" });
-        if (confirmedSteps[`${currentIdx}_serve`] && item.estimatedFinishAt && (item.restMinutes ?? 0) > 0) {
-          const serveMs = new Date(item.estimatedFinishAt).getTime() + item.restMinutes * 60_000;
-          steps.push({ label: "Serve", time: fmt(serveMs), color: "#6366f1" });
-        }
+          steps.push({ label: "Pull Off", time: fmtTs(`${currentIdx}_pullOff`, item.estimatedFinishAt), color: "#22c55e" });
+        if (confirmedSteps[`${currentIdx}_serve`] && item.estimatedFinishAt && (item.restMinutes ?? 0) > 0)
+          steps.push({ label: "Serve", time: fmtTs(`${currentIdx}_serve`), color: "#6366f1" });
         return (
           <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
             {steps.length > 0 ? (
