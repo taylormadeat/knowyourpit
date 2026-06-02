@@ -167,24 +167,6 @@ export function StoredAiAnalysis(p: Props) {
         </View>
       )}
 
-      {(storedAnalysis?.probes?.length ?? 0) > 0 && (
-        <View style={[s.subSection, { borderTopColor: colors.border }]}>
-          <Text style={[s.subLabel, { color: colors.mutedForeground }]}>Probe Readings</Text>
-          {storedAnalysis!.probes.map((pr: any, i: number) => (
-            <View key={i} style={[s.probeRow, { borderTopColor: colors.border }]}>
-              <View>
-                <Text style={[s.probeName, { color: colors.foreground }]}>{pr.probeName}</Text>
-                {(pr.minTempF != null || pr.maxTempF != null) && (
-                  <Text style={[s.probeRange, { color: colors.mutedForeground }]}>
-                    {pr.minTempF ?? "?"}°F → {pr.maxTempF ?? "?"}°F
-                  </Text>
-                )}
-              </View>
-              <Text style={[s.probeFinish, { color: "#A855F7" }]}>{pr.finishingTempF}°F</Text>
-            </View>
-          ))}
-        </View>
-      )}
 
       {(storedAnalysis?.events?.length ?? 0) > 0 && (() => {
         const isOpen = expandedStoredSections.has("timeline");
