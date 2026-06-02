@@ -1,4 +1,4 @@
-import { ChefHat, Volume2, VolumeX, ChevronLeft, ChevronRight, Thermometer, Timer, Trophy, Layers } from "lucide-react";
+import { ChefHat, Volume2, VolumeX, ChevronLeft, ChevronRight, Thermometer, Timer, Layers, Snowflake, Wifi, BrainCircuit } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
 import { useState } from "react";
@@ -150,8 +150,10 @@ export default function Home() {
             {[
               { icon: <Thermometer className="w-4 h-4" />, label: "Live temp curve analysis" },
               { icon: <Layers className="w-4 h-4" />, label: "Multi-cook sequencing" },
+              { icon: <Snowflake className="w-4 h-4" />, label: "Frozen meat planning" },
+              { icon: <Wifi className="w-4 h-4" />, label: "Bluetooth & WiFi probe support" },
               { icon: <Timer className="w-4 h-4" />, label: "Stall & climb detection" },
-              { icon: <Trophy className="w-4 h-4" />, label: "Ranked next moves" },
+              { icon: <BrainCircuit className="w-4 h-4" />, label: "AI check-in analysis" },
             ].map(({ icon, label }) => (
               <div key={label} className="flex items-center gap-2">
                 <span className="text-primary">{icon}</span>
