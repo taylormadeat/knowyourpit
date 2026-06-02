@@ -609,8 +609,13 @@ export default function DevicesScreen() {
                     </Text>
                     <Text style={[s.emptySubText, { color: colors.mutedForeground }]}>
                       {mdnsAvailable
-                        ? "Auto-discovery (mDNS) is active — make sure your device is on the same WiFi network. Supported: Fireboard 2/Drive, MEATER Block, ThermoWorks Signals"
-                        : "Supported: Fireboard 2/Drive, MEATER Block, ThermoWorks Signals"}
+                        ? "Auto-discovery (mDNS) is active — make sure your device is on the same WiFi network. Supported: Fireboard 2/Drive, MEATER Block base station, ThermoWorks Signals"
+                        : "Supported: Fireboard 2/Drive, MEATER Block base station, ThermoWorks Signals"}
+                    </Text>
+                    <Text style={[s.emptySubText, { color: colors.mutedForeground, marginTop: 4 }]}>
+                      Using MEATER probes with the MEATER app? Link your MEATER account in the{" "}
+                      <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.foreground }}>Cloud Integrations</Text>
+                      {" "}section below to pull in live probe temperatures.
                     </Text>
                   </View>
                 ) : (

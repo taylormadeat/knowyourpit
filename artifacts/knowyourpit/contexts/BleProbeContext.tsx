@@ -311,10 +311,33 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
   const markPermDenied = useCallback(async () => {
     permissionDeniedRef.current = true;
     if (mountedRef.current) setPermissionDenied(true);
+
+    // Stop any active scan immediately so stale nearby devices stop showing.
+    if (scanTimerRef.current) {
+      clearTimeout(scanTimerRef.current);
+      scanTimerRef.current = null;
+    }
+    try { managerRef.current?.stopDeviceScan(); } catch {}
+    if (mountedRef.current) setScanning(false);
+
+    // Remove non-paired advertisement-based devices from the map — we cannot
+    // scan for them anymore, so there is no point keeping them visible.
+    let changed = false;
+    for (const [id, d] of deviceMapRef.current) {
+      if (
+        !pairedIdsRef.current.has(id) &&
+        (d.adapter === "govee" || d.adapter === "inkbird")
+      ) {
+        deviceMapRef.current.delete(id);
+        changed = true;
+      }
+    }
+    if (changed && mountedRef.current) flushDevices();
+
     try {
       await AsyncStorage.setItem(PERM_DENIED_KEY, "1");
     } catch {}
-  }, []);
+  }, [flushDevices]);
 
   const clearPermDenied = useCallback(async () => {
     permissionDeniedRef.current = false;
