@@ -74,9 +74,6 @@ interface Props {
   elapsedMs: number;
   remainingMs: number | null;
   estimatedFinishMs: number | null;
-  setAlertSheetVisible: (v: boolean) => void;
-  setAlertMode: (m: "temp" | "timer") => void;
-  activeCookAlerts: any[];
   nowMs?: number;
   targetTempF?: number | null;
   cookTempF?: number | null;
@@ -135,7 +132,7 @@ export function LiveCookSection(p: Props) {
     otherCookAssignments = {}, inkbirdScanning = false, inkbirdReconnecting = false,
     knownProbeIds = {}, lastKnownInkbirdDeviceId,
     liveGraphProbes, liveReadings, cardWidth, elapsedMs, remainingMs, estimatedFinishMs,
-    setAlertSheetVisible, setAlertMode, activeCookAlerts, nowMs,
+    nowMs,
     targetTempF, cookTempF, nextSpritzMs,
     isMeatOn, pitMasterResult, pitMasterAnalyzing,
     renderDecisions, onCheckIn, onCheckInNext, onOpenChat, lastAnalyzedAtMs, lastCheckinInternalTempF, onRefresh, activeProbeName,
@@ -1756,21 +1753,6 @@ export function LiveCookSection(p: Props) {
           </View>
         </View>
       )}
-
-      <View style={[s.alertBtnRow, { borderTopColor: colors.border }]}>
-        <Pressable
-          style={[s.setAlertBtn, { backgroundColor: "#EF444412", borderColor: "#EF444430", borderRadius: colors.radius }]}
-          onPress={() => { setAlertSheetVisible(true); setAlertMode("temp"); }}
-        >
-          <Feather name="bell"  size={14} color="#EF4444" />
-          <Text style={[s.setAlertBtnText, { color: "#EF4444" }]}>Set Alert</Text>
-          {activeCookAlerts.length > 0 && (
-            <View style={[s.alertCountBadge, { backgroundColor: "#EF4444" }]}>
-              <Text style={s.alertCountText}>{activeCookAlerts.length}</Text>
-            </View>
-          )}
-        </Pressable>
-      </View>
 
       {/* BLE pairing troubleshoot wizard */}
       <BleWizardSheet

@@ -3793,9 +3793,6 @@ export default function CookDetailScreen() {
           elapsedMs={elapsedMs}
           remainingMs={remainingMs}
           estimatedFinishMs={estimatedFinishMs}
-          setAlertSheetVisible={setAlertSheetVisible}
-          setAlertMode={setAlertMode}
-          activeCookAlerts={activeCookAlerts}
           nowMs={nowMs}
           targetTempF={c.targetTempF ?? null}
           cookTempF={c.cookTempF ?? null}

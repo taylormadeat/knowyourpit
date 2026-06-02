@@ -106,11 +106,7 @@ export const s = StyleSheet.create({
   decisionInstruction: { fontSize: 15, fontFamily: "Inter_600SemiBold", lineHeight: 22 },
   decisionRationale: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 20 },
 
-  alertBtnRow: { borderTopWidth: 1, padding: 12, flexDirection: "row" },
-  setAlertBtn: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 8 },
-  setAlertBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  alertCountBadge: { minWidth: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
-  alertCountText: { fontSize: 11, fontFamily: "Inter_700Bold", color: "#fff" },
+
   alertSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, gap: 16, maxHeight: "85%" },
   alertSheetHeader: { flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, paddingBottom: 14 },
   alertModeRow: { flexDirection: "row", padding: 3, gap: 2 },
