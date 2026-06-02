@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -271,14 +271,39 @@ export default function HomeScreen() {
     ? `${(upcomingCook as any).foodType || "Your cook"} is coming up — time to prep`
     : "Ready to fire it up?";
 
-  // Stable seed for the full app session — re-randomizes only on app restart
-  const [titleSeed] = useState(() => Math.random());
-  const randomTitle = useMemo(() => {
-    if (!insights) return null;
-    if ((insights.scoreBreakdown?.cookCount ?? 0) === 0) return null;
-    const tier = PITMASTER_TITLES.find((t) => insights.pitMasterScore >= t.minScore) ?? PITMASTER_TITLES[PITMASTER_TITLES.length - 1];
-    return tier.titles[Math.floor(titleSeed * tier.titles.length)];
-  }, [insights?.pitMasterScore, insights?.scoreBreakdown?.cookCount, titleSeed]);
+  // Persisted pitmaster title — survives app restarts, only re-randomizes on tier change
+  const [persistedTitle, setPersistedTitle] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!insights) return;
+    if ((insights.scoreBreakdown?.cookCount ?? 0) === 0) return;
+
+    const tier =
+      PITMASTER_TITLES.find((t) => insights.pitMasterScore >= t.minScore) ??
+      PITMASTER_TITLES[PITMASTER_TITLES.length - 1];
+    const tierIndex = PITMASTER_TITLES.indexOf(tier);
+
+    (async () => {
+      const [storedTitle, storedTier] = await Promise.all([
+        AsyncStorage.getItem("pitmaster_title"),
+        AsyncStorage.getItem("pitmaster_tier_index"),
+      ]);
+
+      if (storedTitle && storedTier === String(tierIndex)) {
+        // Same tier — restore the earned title
+        setPersistedTitle(storedTitle);
+      } else {
+        // First launch or tier crossed a boundary — pick a fresh title
+        const newTitle =
+          tier.titles[Math.floor(Math.random() * tier.titles.length)];
+        setPersistedTitle(newTitle);
+        await Promise.all([
+          AsyncStorage.setItem("pitmaster_title", newTitle),
+          AsyncStorage.setItem("pitmaster_tier_index", String(tierIndex)),
+        ]);
+      }
+    })();
+  }, [insights?.pitMasterScore, insights?.scoreBreakdown?.cookCount]);
 
   const scrollRef = useRef<ScrollView>(null);
   const [tipsExpanded, setTipsExpanded] = useState(false);
@@ -489,8 +514,8 @@ export default function HomeScreen() {
 
                         {/* Right column */}
                         <View style={s.gradeRight}>
-                          {randomTitle ? (
-                            <Text style={s.gradeLabel}>{randomTitle}</Text>
+                          {persistedTitle ? (
+                            <Text style={s.gradeLabel}>{persistedTitle}</Text>
                           ) : (
                             <Text style={[s.gradeLabel, { color: "#96908A", fontStyle: "italic" }]}>Log a cook to earn your title</Text>
                           )}
