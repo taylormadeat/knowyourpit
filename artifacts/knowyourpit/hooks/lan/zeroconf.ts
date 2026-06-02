@@ -1,16 +1,18 @@
 /**
  * Zeroconf / mDNS browser — thin wrapper around react-native-zeroconf.
  *
- * Scans for `_http._tcp` services on the local network and resolves each
- * service to a { host, port, name } record.  Falls back silently on web or
- * when the native module is unavailable (e.g. Expo Go without a dev-client
- * rebuild).
+ * Scans both `_http._tcp` and `_meater._tcp` services on the local network.
+ * Falls back silently on web or when the native module is unavailable
+ * (e.g. Expo Go without a dev-client rebuild).
  *
- * Device identification heuristics
- * ---------------------------------
+ * Device identification heuristics (applied to `_http._tcp` services only)
+ * -------------------------------------------------------------------------
  * MEATER Block  — port 2345, or name/host contains "meater"
  * Fireboard     — name/host contains "fireboard"
  * ThermoWorks   — name/host contains "thermoworks" or "signals"
+ *
+ * All `_meater._tcp` services are unconditionally classified as `meater_block`
+ * by the caller — `classifyService` is not invoked for those events.
  *
  * The caller is responsible for passing the discovered host to the
  * appropriate polling adapter (pollMeaterBlock, pollFireboard, etc.).

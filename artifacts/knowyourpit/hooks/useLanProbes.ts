@@ -27,6 +27,7 @@
  * than waiting up to 24 hours for the TTL to expire.
  */
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { pollFireboard } from "./lan/fireboard";
@@ -53,6 +54,8 @@ export interface LanDeviceStatus {
   connected: boolean;
   lastSeenMs: number | null;
   probes: LanProbeReading[];
+  /** True for entries the user manually added by IP/hostname */
+  isManual?: boolean;
 }
 
 interface UseLanProbesOptions {
@@ -72,13 +75,26 @@ interface UseLanProbesResult {
    */
   mdnsScanEmpty: boolean;
   scan: () => void;
+  /** User-supplied MEATER Block hosts (IPs or hostnames), persisted across sessions */
+  manualHosts: string[];
+  /** Add a host to the manual poll list and persist it */
+  addManualHost: (host: string) => Promise<void>;
+  /** Remove a host from the manual poll list */
+  removeManualHost: (host: string) => Promise<void>;
 }
 
 const DEFAULT_POLL_INTERVAL_MS = 15_000;
 
 const DEFAULT_FIREBOARD_HOST = "fireboard.local";
-const DEFAULT_MEATER_BLOCK_HOST = "meaterblock.local";
+/**
+ * Multiple well-known hostnames tried in parallel on every poll cycle.
+ * Different MEATER Block firmware versions use different names.
+ */
+const DEFAULT_MEATER_BLOCK_HOSTS = ["meaterblock.local", "meater-block.local"];
 const DEFAULT_SIGNALS_HOSTS = ["thermoworks-signals.local", "signals.local"];
+
+/** AsyncStorage key for user-supplied MEATER Block IP/hostname entries */
+const MANUAL_MEATER_KEY = "@knowyourpit/lan/manual_meater";
 
 /**
  * Number of consecutive failed polls against a cached (mDNS-discovered) host
@@ -112,6 +128,10 @@ export function useLanProbes({
    */
   const failCountsRef = useRef<Map<string, number>>(new Map());
 
+  /** User-supplied MEATER Block hosts — persisted to AsyncStorage */
+  const [manualHosts, setManualHosts] = useState<string[]>([]);
+  const manualHostsRef = useRef<string[]>([]);
+
   const {
     discovered,
     mdnsAvailable,
@@ -124,6 +144,39 @@ export function useLanProbes({
   // Keep the ref in sync so doPoll always sees the latest discovered map
   // without needing it in its dependency array.
   discoveredRef.current = discovered;
+
+  // Load persisted manual MEATER Block hosts on mount
+  useEffect(() => {
+    if (!enabled) return;
+    AsyncStorage.getItem(MANUAL_MEATER_KEY).then((raw) => {
+      if (!raw) return;
+      try {
+        const hosts: string[] = JSON.parse(raw);
+        if (Array.isArray(hosts)) {
+          manualHostsRef.current = hosts;
+          setManualHosts(hosts);
+        }
+      } catch { /* ignore malformed data */ }
+    });
+  }, [enabled]);
+
+  const addManualHost = useCallback(async (host: string) => {
+    const trimmed = host.trim();
+    if (!trimmed) return;
+    const next = [...new Set([...manualHostsRef.current, trimmed])];
+    manualHostsRef.current = next;
+    setManualHosts(next);
+    await AsyncStorage.setItem(MANUAL_MEATER_KEY, JSON.stringify(next));
+    // Poll immediately so the new host is checked right away
+    doPollRef.current();
+  }, []);
+
+  const removeManualHost = useCallback(async (host: string) => {
+    const next = manualHostsRef.current.filter((h) => h !== host);
+    manualHostsRef.current = next;
+    setManualHosts(next);
+    await AsyncStorage.setItem(MANUAL_MEATER_KEY, JSON.stringify(next));
+  }, []);
 
   // Stable ref to doPoll so the interval effect doesn't need doPoll as a dep.
   const doPollRef = useRef<() => Promise<void>>(async () => {});
@@ -153,7 +206,8 @@ export function useLanProbes({
 
       const meaterHosts = dedup([
         ...(snap.meater_block ?? []),
-        DEFAULT_MEATER_BLOCK_HOST,
+        ...DEFAULT_MEATER_BLOCK_HOSTS,
+        ...manualHostsRef.current,
       ]);
 
       // Build a deduplicated list that includes mDNS hosts + the two
@@ -270,6 +324,24 @@ export function useLanProbes({
         }
       }
 
+      // Ensure every manually-added host appears in the device list even when
+      // offline so users can see its status and remove stale entries.
+      for (const host of manualHostsRef.current) {
+        if (!deviceMap.has(host)) {
+          deviceMap.set(host, {
+            host,
+            deviceName: "MEATER Block",
+            connected: false,
+            lastSeenMs: null,
+            probes: [],
+            isManual: true,
+          });
+        } else {
+          const existing = deviceMap.get(host)!;
+          deviceMap.set(host, { ...existing, isManual: true });
+        }
+      }
+
       setDevices(Array.from(deviceMap.values()));
       setProbes(deduped);
     } finally {
@@ -314,5 +386,8 @@ export function useLanProbes({
     mdnsAvailable,
     mdnsScanEmpty,
     scan: scanAll,
+    manualHosts,
+    addManualHost,
+    removeManualHost,
   };
 }

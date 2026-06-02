@@ -207,10 +207,23 @@ function isIpAddress(host: string): boolean {
   return /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(":");
 }
 
-function LanDeviceCard({ device, colors }: { device: LanDeviceStatus; colors: any }) {
+function LanDeviceCard({ device, colors, onRemove }: { device: LanDeviceStatus; colors: any; onRemove?: () => void }) {
   const autoDiscovered = isIpAddress(device.host);
+  const isOfflineManual = device.isManual && !device.connected;
+
+  const handleRemove = () => {
+    Alert.alert(
+      "Remove Device",
+      `Remove ${device.deviceName} (${device.host}) from your device list?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Remove", style: "destructive", onPress: onRemove },
+      ],
+    );
+  };
+
   return (
-    <View style={[s.deviceCard, { backgroundColor: colors.card, borderColor: device.connected ? "#22c55e40" : colors.border, borderRadius: colors.radius }]}>
+    <View style={[s.deviceCard, { backgroundColor: colors.card, borderColor: device.connected ? "#22c55e40" : (isOfflineManual ? "#EAB30840" : colors.border), borderRadius: colors.radius }]}>
       <View style={s.deviceRow}>
         <View style={[s.deviceIcon, { backgroundColor: "#0EA5E920" }]}>
           <Feather name="wifi" size={20} color="#0EA5E9" />
@@ -219,7 +232,7 @@ function LanDeviceCard({ device, colors }: { device: LanDeviceStatus; colors: an
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             <Text style={[s.deviceName, { color: colors.foreground }]}>{device.deviceName}</Text>
             <ConnectionTypeBadge type="lan" />
-            {autoDiscovered && (
+            {autoDiscovered && !device.isManual && (
               <View style={{
                 flexDirection: "row", alignItems: "center", gap: 3,
                 paddingHorizontal: 6, paddingVertical: 2, borderRadius: 99,
@@ -231,17 +244,35 @@ function LanDeviceCard({ device, colors }: { device: LanDeviceStatus; colors: an
                 </Text>
               </View>
             )}
+            {device.isManual && (
+              <View style={{
+                flexDirection: "row", alignItems: "center", gap: 3,
+                paddingHorizontal: 6, paddingVertical: 2, borderRadius: 99,
+                backgroundColor: "#6b728020",
+              }}>
+                <Feather name="edit-2" size={9} color={colors.mutedForeground} />
+                <Text style={{ fontSize: 9.5, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground }}>
+                  Manual
+                </Text>
+              </View>
+            )}
           </View>
           <Text style={[s.deviceSub, { color: colors.mutedForeground }]}>
             {device.host}
             {device.connected && " · Connected"}
-            {!device.connected && device.lastSeenMs && ` · Last seen ${fmtLastSeen(device.lastSeenMs)}`}
+            {!device.connected && device.lastSeenMs != null && ` · Last seen ${fmtLastSeen(device.lastSeenMs)}`}
+            {isOfflineManual && device.lastSeenMs == null && " · Not reachable"}
           </Text>
         </View>
         {device.connected ? (
           <View style={s.connectedBadge}>
             <Feather name="check-circle" size={13} color="#22c55e" />
             <Text style={s.connectedText}>Active</Text>
+          </View>
+        ) : isOfflineManual ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 99, backgroundColor: "#EAB30820" }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#EAB308" }} />
+            <Text style={{ fontSize: 10, fontFamily: "Inter_500Medium", color: "#EAB308" }}>Offline</Text>
           </View>
         ) : null}
       </View>
@@ -260,6 +291,14 @@ function LanDeviceCard({ device, colors }: { device: LanDeviceStatus; colors: an
               )}
             </View>
           ))}
+        </View>
+      )}
+
+      {onRemove && (
+        <View style={[s.deviceActions, { borderTopColor: colors.border }]}>
+          <Pressable onPress={handleRemove} style={[s.unlinkBtn, { borderColor: colors.border }]}>
+            <Text style={s.unlinkText}>Remove</Text>
+          </Pressable>
         </View>
       )}
     </View>
@@ -328,7 +367,26 @@ export default function DevicesScreen() {
     mdnsAvailable,
     mdnsScanEmpty,
     scan: scanLan,
+    addManualHost,
+    removeManualHost,
   } = useLanProbes({ enabled: lanHookEnabled, pollIntervalMs: 30_000 });
+
+  const [showAddManual, setShowAddManual] = useState(false);
+  const [manualInput, setManualInput] = useState("");
+  const [addingManual, setAddingManual] = useState(false);
+
+  const handleAddManual = useCallback(async () => {
+    const trimmed = manualInput.trim();
+    if (!trimmed) return;
+    setAddingManual(true);
+    try {
+      await addManualHost(trimmed);
+      setManualInput("");
+      setShowAddManual(false);
+    } finally {
+      setAddingManual(false);
+    }
+  }, [manualInput, addManualHost]);
 
   const handleScan = useCallback(() => {
     if (!effectivePro) {
@@ -620,8 +678,66 @@ export default function DevicesScreen() {
                   </View>
                 ) : (
                   lanDevices.map((device) => (
-                    <LanDeviceCard key={device.host} device={device} colors={colors} />
+                    <LanDeviceCard
+                      key={device.host}
+                      device={device}
+                      colors={colors}
+                      onRemove={device.isManual ? () => removeManualHost(device.host) : undefined}
+                    />
                   ))
+                )}
+
+                {/* ── Add MEATER Block by IP ── */}
+                {!showAddManual ? (
+                  <Pressable
+                    onPress={() => setShowAddManual(true)}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6, alignSelf: "flex-start" }}
+                  >
+                    <Feather name="plus-circle" size={13} color={colors.mutedForeground} />
+                    <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
+                      Add MEATER Block by IP
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, gap: 10 }]}>
+                    <Text style={[s.emptyText, { color: colors.foreground, textAlign: "left" }]}>
+                      Add MEATER Block manually
+                    </Text>
+                    <Text style={[s.emptySubText, { color: colors.mutedForeground, textAlign: "left" }]}>
+                      Enter the IP address or hostname of your MEATER Block base station (e.g. 192.168.1.42 or meaterblock.local).
+                    </Text>
+                    <TextInput
+                      value={manualInput}
+                      onChangeText={setManualInput}
+                      placeholder="192.168.1.42 or meaterblock.local"
+                      placeholderTextColor={colors.mutedForeground}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      keyboardType="url"
+                      returnKeyType="done"
+                      onSubmitEditing={handleAddManual}
+                      style={[s.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
+                    />
+                    <View style={{ flexDirection: "row", gap: 8 }}>
+                      <Pressable
+                        onPress={() => { setShowAddManual(false); setManualInput(""); }}
+                        style={[s.cancelBtn, { borderColor: colors.border, flex: 1 }]}
+                      >
+                        <Text style={[s.cancelBtnText, { color: colors.mutedForeground }]}>Cancel</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={handleAddManual}
+                        disabled={addingManual || !manualInput.trim()}
+                        style={[s.confirmLinkBtn, { backgroundColor: "#0EA5E9", flex: 1, opacity: (!manualInput.trim() || addingManual) ? 0.5 : 1 }]}
+                      >
+                        {addingManual ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <Text style={s.linkBtnText}>Add Device</Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  </View>
                 )}
 
               </>
