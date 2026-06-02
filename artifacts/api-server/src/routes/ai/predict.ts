@@ -62,7 +62,7 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
     return;
   }
 
-  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast, fromFrozen, thawMethod, cookingMethod, injection, spritzFrequency, wrapFinish, meatStartTemp, notes } = parsed.data;
+  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast, fromFrozen, thawMethod, cookingMethod, injection, spritzFrequency, wrapFinish, meatStartTemp, notes, pieceCount, isIndividualCook, sizingLabel } = parsed.data;
 
   const baseline = getMeatBaseline(foodType);
 
@@ -88,6 +88,23 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
         `total cooks logged: ${grill.totalCooks}`,
       ].filter(Boolean) as string[];
       grillContext = `Grill: ${specs.join(" · ")}`;
+
+      if (grill.cookingSurfaceSqIn != null && pieceCount != null && pieceCount > 1 && isIndividualCook === false && weightLbs != null && weightLbs > 0) {
+        const densityLbsPerSqIn = weightLbs / grill.cookingSurfaceSqIn;
+        let loadLevel: string;
+        let loadNote: string;
+        if (densityLbsPerSqIn < 0.04) {
+          loadLevel = "low";
+          loadNote = "No significant impact on airflow or cook time.";
+        } else if (densityLbsPerSqIn < 0.06) {
+          loadLevel = "medium";
+          loadNote = "Crowded grill — add 30–45 min to estimated cook time; rotate pieces for even cooking.";
+        } else {
+          loadLevel = "high";
+          loadNote = "Heavily loaded grill — add 60–90 min to estimated cook time; stagger or rotate pieces to ensure even cook.";
+        }
+        grillContext += `\nGrill load: ${pieceCount} pieces on ${grill.cookingSurfaceSqIn} sq in (${densityLbsPerSqIn.toFixed(3)} lbs/sq in) — ${loadLevel} density. ${loadNote}`;
+      }
     }
 
     const grillReadings = await db.select().from(temperatureReadingsTable)
@@ -403,7 +420,7 @@ FROZEN-MEAT RULES (apply only when "Starting from frozen" is true in the user pr
 
   const userPrompt = `Plan this cook:
 Food: ${foodType}
-Weight: ${weightLbs ? `${weightLbs} lbs` : "unknown — use baseline minsPerLb with a 10 lb estimate"}
+${sizingLabel ? `Size: ${sizingLabel}` : `Weight: ${weightLbs ? `${weightLbs} lbs` : "unknown — use baseline minsPerLb with a 10 lb estimate"}`}
 Cook temperature: ${cookTempF ? `${cookTempF}°F` : "unknown"}
 Target internal temp: ${targetTempF ? `${targetTempF}°F` : "unknown"}
 Preheat time (tracked separately, not in estimatedDurationMinutes): ${preheatMinutes} min${cookNotesSection}

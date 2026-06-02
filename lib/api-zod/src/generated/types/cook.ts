@@ -157,6 +157,11 @@ export interface Cook {
    * @nullable
    */
   probeAssignments?: CookProbeAssignments;
+  /**
+   * Human-readable size label saved at planning/log time (e.g. "6 thighs · ≈ 2.4 lbs est." or "2 racks · ≈ 4.5 lbs est.")
+   * @nullable
+   */
+  sizingLabel?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

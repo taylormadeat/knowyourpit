@@ -74,4 +74,19 @@ export interface AiPredictBody {
    * @nullable
    */
   notes?: string | null;
+  /**
+   * Number of individual pieces or racks being cooked. Used to compute grill load density when the grill's cooking surface area is known.
+   * @nullable
+   */
+  pieceCount?: number | null;
+  /**
+   * True when each piece cooks independently and additional pieces do not extend cook time (e.g. steaks, chops, sausage). False for large single-mass cuts where total weight drives cook time.
+   * @nullable
+   */
+  isIndividualCook?: boolean | null;
+  /**
+   * Human-readable size description chosen by the user (e.g. "6 thighs · ≈ 2.4 lbs est." or "2 racks · ≈ 4.5 lbs est."). Included in the prompt when provided.
+   * @nullable
+   */
+  sizingLabel?: string | null;
 }

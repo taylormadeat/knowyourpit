@@ -1490,6 +1490,9 @@ components:
               additionalProperties:
                 type: string
           additionalProperties: true
+        sizingLabel:
+          type: ["string", "null"]
+          description: Human-readable size label saved at planning/log time (e.g. "6 thighs · ≈ 2.4 lbs est." or "2 racks · ≈ 4.5 lbs est.")
         createdAt:
           type: string
           format: date-time
@@ -1612,6 +1615,9 @@ components:
               additionalProperties:
                 type: string
           additionalProperties: true
+        sizingLabel:
+          type: ["string", "null"]
+          description: Human-readable size label (e.g. "6 thighs · ≈ 2.4 lbs est." or "2 racks · ≈ 4.5 lbs est.")
       required:
         - foodType
 
@@ -1710,6 +1716,9 @@ components:
               additionalProperties:
                 type: string
           additionalProperties: true
+        sizingLabel:
+          type: ["string", "null"]
+          description: Human-readable size label (e.g. "6 thighs · ≈ 2.4 lbs est." or "2 racks · ≈ 4.5 lbs est.")
 
     TemperatureReading:
       type: object
@@ -2080,6 +2089,15 @@ components:
         notes:
           type: ["string", "null"]
           description: Optional free-text cook notes from the user (e.g. wood choice, rub details, special instructions). PitMaster factors these into timing, technique, and tip recommendations.
+        pieceCount:
+          type: ["integer", "null"]
+          description: Number of individual pieces or racks being cooked. Used to compute grill load density when the grill's cooking surface area is known.
+        isIndividualCook:
+          type: ["boolean", "null"]
+          description: True when each piece cooks independently and additional pieces do not extend cook time (e.g. steaks, chops, sausage). False for large single-mass cuts where total weight drives cook time.
+        sizingLabel:
+          type: ["string", "null"]
+          description: Human-readable size description chosen by the user (e.g. "6 thighs · ≈ 2.4 lbs est." or "2 racks · ≈ 4.5 lbs est."). Included in the prompt when provided.
       required:
         - foodType
 

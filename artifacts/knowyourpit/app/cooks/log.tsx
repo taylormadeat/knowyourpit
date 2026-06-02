@@ -57,6 +57,7 @@ import {
 } from "@/constants/cookQuickPicks";
 import { SettingsRow } from "@/components/plan-screen/SettingsRow";
 import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
+import { SizeInputRow, SizeInputRowOutput } from "@/components/plan-screen/SizeInputRow";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
 
@@ -244,7 +245,14 @@ export default function LogCookScreen() {
   const [grillPickerVisible, setGrillPickerVisible] = useState(false);
   const [targetTempF, setTargetTempF] = useState("");
   const [cookTempF, setCookTempF] = useState("");
-  const [weightLbs, setWeightLbs] = useState("");
+  const [sizeOutput, setSizeOutput] = useState<SizeInputRowOutput>({
+    effectiveWeightLbs: null,
+    sizingLabel: null,
+    isEstimated: false,
+    pieceCount: null,
+    mode: "weight",
+  });
+  const [detectedWeightLbs, setDetectedWeightLbs] = useState<number | null>(null);
   const [cookNotes, setCookNotes] = useState("");
 
   // Quick-pick state for the scanner "describe the cook" section
@@ -325,6 +333,11 @@ export default function LogCookScreen() {
     }));
     return [...customs, ...builtin];
   }, [customCuts]);
+
+  const logCut = useMemo(
+    () => allMeatCuts.find((c) => c.name === foodType) ?? null,
+    [allMeatCuts, foodType],
+  );
 
   const meatCutsForCategory = useMemo(() => {
     return allMeatCuts.filter((c) => c.category === meatCatTab);
@@ -513,7 +526,7 @@ export default function LogCookScreen() {
       if (foodType.trim()) contextPayload.foodType = foodType.trim();
       if (targetTempF.trim()) contextPayload.targetTempF = parseFloat(targetTempF);
       if (cookTempF.trim()) contextPayload.cookTempF = parseFloat(cookTempF);
-      if (weightLbs.trim()) contextPayload.weightLbs = parseFloat(weightLbs);
+      if (sizeOutput.effectiveWeightLbs != null && sizeOutput.effectiveWeightLbs > 0) contextPayload.weightLbs = sizeOutput.effectiveWeightLbs;
 
       const combinedNotes = [scanNotes.trim(), cookNotes.trim()].filter(Boolean).join("\n") || null;
       const data: any = await analyzeMutation.mutateAsync({
@@ -596,7 +609,7 @@ export default function LogCookScreen() {
           if (!cookTempF.trim()) setCookTempF(String(cutMatch.cookTempF));
         }
       }
-      if (data.detectedWeightLbs != null && !weightLbs.trim()) setWeightLbs(String(data.detectedWeightLbs));
+      if (data.detectedWeightLbs != null) setDetectedWeightLbs(data.detectedWeightLbs);
       if (data.detectedCookTempF != null && !cookTempF.trim()) setCookTempF(String(Math.round(data.detectedCookTempF)));
       if (data.detectedTargetTempF != null && !targetTempF.trim()) setTargetTempF(String(Math.round(data.detectedTargetTempF)));
       if (data.detectedGrillBrand && selectedGrillId == null && grills.length > 0) {
@@ -666,7 +679,7 @@ export default function LogCookScreen() {
           if (foodType.trim()) contextPayload.foodType = foodType.trim();
           if (targetTempF.trim()) contextPayload.targetTempF = parseFloat(targetTempF);
           if (cookTempF.trim()) contextPayload.cookTempF = parseFloat(cookTempF);
-          if (weightLbs.trim()) contextPayload.weightLbs = parseFloat(weightLbs);
+          if (sizeOutput.effectiveWeightLbs != null && sizeOutput.effectiveWeightLbs > 0) contextPayload.weightLbs = sizeOutput.effectiveWeightLbs;
           const aiNotes = [scanNotes.trim(), cookNotes.trim()].filter(Boolean).join("\n") || null;
           autoResult = await analyzeMutation.mutateAsync({
             data: {
@@ -702,7 +715,10 @@ export default function LogCookScreen() {
       if (selectedGrillId != null) payload.grillId = selectedGrillId;
       if (targetTempF.trim() && !isNaN(parseFloat(targetTempF))) payload.targetTempF = parseFloat(targetTempF);
       if (cookTempF.trim() && !isNaN(parseFloat(cookTempF))) payload.cookTempF = parseFloat(cookTempF);
-      if (weightLbs.trim() && !isNaN(parseFloat(weightLbs))) payload.weightLbs = parseFloat(weightLbs);
+      if (sizeOutput.effectiveWeightLbs != null && sizeOutput.effectiveWeightLbs > 0) {
+        payload.weightLbs = sizeOutput.effectiveWeightLbs;
+        if (sizeOutput.sizingLabel) payload.sizingLabel = sizeOutput.sizingLabel;
+      }
       // Prefer user-entered start time; fall back to AI-detected date
       if (actualStartDate) {
         payload.actualStartAt = actualStartDate.toISOString();
@@ -1160,26 +1176,13 @@ export default function LogCookScreen() {
               </Pressable>
             </View>
 
-            {/* ── Weight ── */}
-            <View style={s.fieldWrap}>
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>Weight (lbs)</Text>
-                {aiScanned && !weightLbs.trim() && (
-                  <View style={s.needsFillBadge}>
-                    <Feather name="alert-circle" size={11} color="#F59E0B" />
-                    <Text style={s.needsFillText}>Fill this in</Text>
-                  </View>
-                )}
-              </View>
-              <TextInput
-                style={[s.input, { backgroundColor: colors.background, borderColor: aiScanned && !weightLbs.trim() ? "#F59E0B" : colors.border, color: colors.foreground, borderRadius: colors.radius }]}
-                placeholder="14"
-                placeholderTextColor={colors.mutedForeground}
-                value={weightLbs}
-                onChangeText={setWeightLbs}
-                keyboardType="decimal-pad"
-              />
-            </View>
+            {/* ── Size ── */}
+            <SizeInputRow
+              cut={logCut}
+              colors={colors}
+              onChange={setSizeOutput}
+              detectedWeightLbs={detectedWeightLbs ?? undefined}
+            />
 
             {/* ── Grill (full-width own row) ── */}
             <View style={s.fieldWrap}>

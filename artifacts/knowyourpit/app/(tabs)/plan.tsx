@@ -102,6 +102,7 @@ import {
   getMeatPrep,
 } from "@/components/plan-screen/prepGuides";
 import { Label, StatCell, ScheduleRow } from "@/components/plan-screen/MiniRows";
+import { SizeInputRow, SizeInputRowOutput } from "@/components/plan-screen/SizeInputRow";
 import { SettingsRow } from "@/components/plan-screen/SettingsRow";
 import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
 import { MeatPickerModal } from "@/components/plan-screen/MeatPickerModal";
@@ -350,7 +351,13 @@ export default function PlanScreen() {
   // ── Form state ───────────────────────────────────────────────────────
   const [cookName, setCookName] = useState("");
   const [selectedCut, setSelectedCut] = useState<MeatCut | null>(null);
-  const [weightLbs, setWeightLbs] = useState("");
+  const [sizeOutput, setSizeOutput] = useState<SizeInputRowOutput>({
+    effectiveWeightLbs: null,
+    sizingLabel: null,
+    isEstimated: false,
+    pieceCount: null,
+    mode: "weight",
+  });
   const [grillId, setGrillId] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [targetTempF, setTargetTempF] = useState("");
@@ -518,7 +525,7 @@ export default function PlanScreen() {
   const resetForm = () => {
     setCookName("");
     setSelectedCut(null);
-    setWeightLbs("");
+    setSizeOutput({ effectiveWeightLbs: null, sizingLabel: null, isEstimated: false, pieceCount: null, mode: "weight" });
     setNotes("");
     setTargetTempF("");
     setCookTempF("");
@@ -582,13 +589,13 @@ export default function PlanScreen() {
     });
   }, [multiResult, multiItems, grillId, grills]);
 
-  const parsedWeight = parseFloat(weightLbs) || 0;
+  const effectiveWeightLbs = sizeOutput.effectiveWeightLbs ?? 0;
   const schedule = useMemo(() => {
-    if (!selectedCut || parsedWeight <= 0 || !serveAt) return null;
+    if (!selectedCut || effectiveWeightLbs <= 0 || !serveAt) return null;
     return calcSchedule(
       serveAt,
       selectedCut,
-      parsedWeight,
+      effectiveWeightLbs,
       selectedGrill,
       { enabled: frozenEnabled, method: thawMethod },
       {
@@ -596,7 +603,7 @@ export default function PlanScreen() {
         preheatMinsOverride: aiPreheatMins ?? undefined,
       },
     );
-  }, [selectedCut, parsedWeight, serveAt, selectedGrill, frozenEnabled, thawMethod, aiCookMins, aiPreheatMins]);
+  }, [selectedCut, effectiveWeightLbs, serveAt, selectedGrill, frozenEnabled, thawMethod, aiCookMins, aiPreheatMins]);
 
   // Edge case: if frozen toggle is on and the calculated thaw start is in the
   // past, the serve time is too soon for a full thaw. We surface a warning
@@ -614,7 +621,6 @@ export default function PlanScreen() {
     !frozenStartInPast &&
     schedule.frozen.thawEndAt.getTime() > schedule.startAt.getTime();
 
-  const weightInputRef = useRef<TextInput>(null);
   // True while "Begin Thawing Now" is the user's chosen action; false once
   // the pitmaster switches intent to "Save Cook Plan". Drives callout visibility.
   // Resets to true whenever the user re-enters the frozen + Cook Now state.
@@ -642,9 +648,6 @@ export default function PlanScreen() {
     loadLastInjection(cut.name).then(v => { setQpInjection(v); setLastUsedInjection(v); });
     loadLastSpritz(cut.name).then(v => { setQpSpritz(v); setLastUsedSpritz(v); });
     loadLastWrapFinish(cut.name).then(v => { setQpWrapFinish(v); setLastUsedWrapFinish(v); });
-    // Wait for the modal slide-out animation to finish before focusing the
-    // weight field so KeyboardAwareScrollView can scroll it into view.
-    setTimeout(() => weightInputRef.current?.focus(), 420);
   };
 
   // ── AI Plan ──────────────────────────────────────────────────────────
@@ -657,7 +660,7 @@ export default function PlanScreen() {
       const result = await aiPredict.mutateAsync({
         data: {
           foodType: selectedCut.name,
-          weightLbs: parsedWeight > 0 ? parsedWeight : undefined,
+          weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : undefined,
           cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
           targetTempF: targetTempF ? Number(targetTempF) : selectedCut.targetTempF,
           grillId: grillId ?? undefined,
@@ -673,6 +676,9 @@ export default function PlanScreen() {
           spritzFrequency: qpSpritz ?? undefined,
           wrapFinish: qpWrapFinish ?? undefined,
           notes: notes.trim() || undefined,
+          pieceCount: sizeOutput.pieceCount ?? undefined,
+          isIndividualCook: (selectedCut as any).isIndividualCook ?? undefined,
+          sizingLabel: sizeOutput.sizingLabel ?? undefined,
         },
       });
       setAiResult(result);
@@ -813,10 +819,6 @@ export default function PlanScreen() {
 
     if (!selectedCut) {
       Alert.alert("Required", "Please select a meat cut");
-      return;
-    }
-    if (!weightLbs || parsedWeight <= 0) {
-      Alert.alert("Required", "Please enter the weight in lbs");
       return;
     }
     // Free-tier pre-checks — fire paywall before any API work. Pass the
@@ -974,7 +976,8 @@ export default function PlanScreen() {
       const createdCook = await createCook.mutateAsync({
         data: {
           foodType: selectedCut.name,
-          weightLbs: parsedWeight,
+          weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : undefined,
+          sizingLabel: sizeOutput.sizingLabel ?? undefined,
           targetTempF: targetTempF ? Number(targetTempF) : selectedCut.targetTempF,
           cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
           grillId: grillId ?? undefined,
@@ -1539,20 +1542,12 @@ export default function PlanScreen() {
           <Feather name="chevron-down" size={18} color={colors.mutedForeground} />
         </Pressable>
 
-        {/* ── Weight ── */}
-        <Label colors={colors}>Weight (lbs) *</Label>
-        <View style={[s.inputWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-          <TextInput
-            ref={weightInputRef}
-            style={[s.input, { color: colors.foreground }]}
-            placeholder="e.g. 12.5"
-            placeholderTextColor={colors.mutedForeground}
-            value={weightLbs}
-            onChangeText={(v) => { setWeightLbs(v); clearAiScheduleOverride(); }}
-            keyboardType="decimal-pad"
-          />
-          <Text style={[s.inputUnit, { color: colors.mutedForeground }]}>lbs</Text>
-        </View>
+        {/* ── Size ── */}
+        <SizeInputRow
+          cut={selectedCut}
+          colors={colors}
+          onChange={(output) => { setSizeOutput(output); clearAiScheduleOverride(); }}
+        />
 
         {/* ── Serve By (Plan for Later only) ── */}
         {cookNowMode === "later" && (
@@ -2416,7 +2411,8 @@ export default function PlanScreen() {
             onPress={() => {
               const parts: string[] = [];
               if (selectedCut) parts.push(`Meat: ${selectedCut.name}`);
-              if (weightLbs) parts.push(`Weight: ${weightLbs} lbs`);
+              if (sizeOutput.sizingLabel) parts.push(`Size: ${sizeOutput.sizingLabel}`);
+              else if (effectiveWeightLbs > 0) parts.push(`Weight: ${effectiveWeightLbs} lbs`);
               if (qpCookMethod) parts.push(`Method: ${qpCookMethod}`);
               if (cookTempF) parts.push(`Pit temp: ${cookTempF}°F`);
               if (targetTempF) parts.push(`Target internal: ${targetTempF}°F`);
@@ -2485,7 +2481,7 @@ export default function PlanScreen() {
             <View style={{ flex: 1 }}>
               <Text style={s.frozenWarningTitle}>Serve time is too soon</Text>
               <Text style={s.frozenWarningBody}>
-                A full {schedule.frozen.method === "fridge" ? "fridge thaw" : "cold-water thaw"} for {parsedWeight} lbs needs about {fmtDuration(schedule.frozen.thawMins)}. Push the serve time later
+                A full {schedule.frozen.method === "fridge" ? "fridge thaw" : "cold-water thaw"} for {effectiveWeightLbs} lbs needs about {fmtDuration(schedule.frozen.thawMins)}. Push the serve time later
                 {schedule.frozen.method === "fridge" ? " or switch to cold-water thaw" : ""}.
               </Text>
             </View>

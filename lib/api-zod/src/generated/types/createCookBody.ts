@@ -100,4 +100,9 @@ export interface CreateCookBody {
    * @nullable
    */
   probeAssignments?: CreateCookBodyProbeAssignments;
+  /**
+   * Human-readable size label (e.g. "6 thighs · ≈ 2.4 lbs est." or "2 racks · ≈ 4.5 lbs est.")
+   * @nullable
+   */
+  sizingLabel?: string | null;
 }

@@ -670,6 +670,12 @@ export const ListCooksResponseItem = zod.object({
     })
     .nullish()
     .describe("Server-persisted probe assignments and labels for this cook"),
+  sizingLabel: zod
+    .string()
+    .nullish()
+    .describe(
+      'Human-readable size label saved at planning\/log time (e.g. \"6 thighs · ≈ 2.4 lbs est.\" or \"2 racks · ≈ 4.5 lbs est.\")',
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -773,6 +779,12 @@ export const CreateCookBody = zod.object({
     })
     .nullish()
     .describe("Server-persisted probe assignments and labels for this cook"),
+  sizingLabel: zod
+    .string()
+    .nullish()
+    .describe(
+      'Human-readable size label (e.g. \"6 thighs · ≈ 2.4 lbs est.\" or \"2 racks · ≈ 4.5 lbs est.\")',
+    ),
 });
 
 /**
@@ -926,6 +938,12 @@ export const GetCookResponse = zod.object({
     })
     .nullish()
     .describe("Server-persisted probe assignments and labels for this cook"),
+  sizingLabel: zod
+    .string()
+    .nullish()
+    .describe(
+      'Human-readable size label saved at planning\/log time (e.g. \"6 thighs · ≈ 2.4 lbs est.\" or \"2 racks · ≈ 4.5 lbs est.\")',
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1034,6 +1052,12 @@ export const UpdateCookBody = zod.object({
     })
     .nullish()
     .describe("Server-persisted probe assignments and labels for this cook"),
+  sizingLabel: zod
+    .string()
+    .nullish()
+    .describe(
+      'Human-readable size label (e.g. \"6 thighs · ≈ 2.4 lbs est.\" or \"2 racks · ≈ 4.5 lbs est.\")',
+    ),
 });
 
 export const UpdateCookResponse = zod.object({
@@ -1180,6 +1204,12 @@ export const UpdateCookResponse = zod.object({
     })
     .nullish()
     .describe("Server-persisted probe assignments and labels for this cook"),
+  sizingLabel: zod
+    .string()
+    .nullish()
+    .describe(
+      'Human-readable size label saved at planning\/log time (e.g. \"6 thighs · ≈ 2.4 lbs est.\" or \"2 racks · ≈ 4.5 lbs est.\")',
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1713,6 +1743,24 @@ export const AiPredictBody = zod.object({
     .describe(
       "Optional free-text cook notes from the user (e.g. wood choice, rub details, special instructions). PitMaster factors these into timing, technique, and tip recommendations.",
     ),
+  pieceCount: zod
+    .number()
+    .nullish()
+    .describe(
+      "Number of individual pieces or racks being cooked. Used to compute grill load density when the grill's cooking surface area is known.",
+    ),
+  isIndividualCook: zod
+    .boolean()
+    .nullish()
+    .describe(
+      "True when each piece cooks independently and additional pieces do not extend cook time (e.g. steaks, chops, sausage). False for large single-mass cuts where total weight drives cook time.",
+    ),
+  sizingLabel: zod
+    .string()
+    .nullish()
+    .describe(
+      'Human-readable size description chosen by the user (e.g. \"6 thighs · ≈ 2.4 lbs est.\" or \"2 racks · ≈ 4.5 lbs est.\"). Included in the prompt when provided.',
+    ),
 });
 
 export const aiPredictResponseCheckinsItemExpectedInternalTempRangeMin = 2;
@@ -2214,6 +2262,12 @@ export const GetRecentCooksResponseItem = zod.object({
     })
     .nullish()
     .describe("Server-persisted probe assignments and labels for this cook"),
+  sizingLabel: zod
+    .string()
+    .nullish()
+    .describe(
+      'Human-readable size label saved at planning\/log time (e.g. \"6 thighs · ≈ 2.4 lbs est.\" or \"2 racks · ≈ 4.5 lbs est.\")',
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
