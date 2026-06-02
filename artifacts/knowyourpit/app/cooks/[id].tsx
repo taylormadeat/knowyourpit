@@ -3360,6 +3360,23 @@ export default function CookDetailScreen() {
         <View style={[s.statusBar, { backgroundColor: statusColor + "18", borderRadius: colors.radius }]}>
           <View style={[s.statusDot, { backgroundColor: statusColor }]} />
           <Text style={[s.statusText, { color: statusColor }]}>{c.status?.toUpperCase()}</Text>
+          {(() => {
+            const sizeText: string | null =
+              (c.sizingLabel as string | null | undefined) ??
+              (typeof c.weightLbs === "number" ? `${c.weightLbs} lbs` : null);
+            if (!sizeText) return null;
+            return (
+              <View style={{
+                flexDirection: "row", alignItems: "center", gap: 4,
+                backgroundColor: colors.card, borderRadius: 6,
+                paddingHorizontal: 7, paddingVertical: 3,
+                borderWidth: 1, borderColor: colors.border,
+                marginLeft: 4,
+              }}>
+                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: colors.foreground }}>{sizeText}</Text>
+              </View>
+            );
+          })()}
           {(c.ratingTenderness || c.ratingBark || c.ratingFlavor) ? (
             <View style={s.ratingsSummary}>
               {[

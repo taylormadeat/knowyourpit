@@ -822,6 +822,17 @@ export default function CooksScreen() {
           <Text style={[s.meta, { color: colors.mutedForeground }]}>
             {item.grillName || "No grill"}
           </Text>
+          {(() => {
+            const sizeText: string | null =
+              (item.sizingLabel as string | null | undefined) ??
+              (typeof item.weightLbs === "number" ? `${item.weightLbs} lbs` : null);
+            if (!sizeText) return null;
+            return (
+              <Text style={[s.meta, { color: colors.mutedForeground, marginTop: 1 }]}>
+                {sizeText}
+              </Text>
+            );
+          })()}
           {(item.cookingMethod || item.spritzFrequency) ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 3 }}>
               {item.cookingMethod ? (
