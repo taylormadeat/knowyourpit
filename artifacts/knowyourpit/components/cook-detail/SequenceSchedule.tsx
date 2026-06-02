@@ -141,6 +141,40 @@ export function SequenceSchedule(p: Props) {
         <Feather name={seqScheduleExpanded ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
       </Pressable>
 
+      {/* Completed cook collapsed step summary — step pills with ✓ markers and actual times */}
+      {!seqScheduleExpanded && cookStatus === "completed" && currentIdx >= 0 && (() => {
+        const item = seqData.schedule[currentIdx];
+        if (!item) return null;
+        const hasWrap = !!(item.wrapMethod && item.wrapMethod !== "none");
+        const wrapAtMin = (item.wrapAtMinutes ?? 0) > 0 ? Math.round(item.wrapAtMinutes) : null;
+        const meatOnMs = item.meatOnAt ? new Date(item.meatOnAt).getTime() : null;
+        const wrapMs = meatOnMs && wrapAtMin ? meatOnMs + wrapAtMin * 60_000 : null;
+        const fmt = (t: string | number | null | undefined) => t != null
+          ? new Date(typeof t === "number" ? t : t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : "";
+        const steps: { label: string; time: string; color: string; confirmed: boolean }[] = [];
+        if (item.grillLightAt) steps.push({ label: "Light Grill", time: fmt(item.grillLightAt), color: "#f59e0b", confirmed: !!confirmedSteps[`${currentIdx}_grillLight`] });
+        if (item.meatOnAt) steps.push({ label: "Meat On", time: fmt(item.meatOnAt), color: "#EB6C2B", confirmed: !!confirmedSteps[`${currentIdx}_meatOn`] });
+        if (hasWrap && wrapMs) steps.push({ label: "Wrap", time: fmt(wrapMs), color: "#A855F7", confirmed: !!confirmedSteps[`${currentIdx}_wrap`] });
+        if (item.estimatedFinishAt) steps.push({ label: "Pull Off", time: fmt(item.estimatedFinishAt), color: "#22c55e", confirmed: !!confirmedSteps[`${currentIdx}_pullOff`] });
+        if (item.estimatedFinishAt && (item.restMinutes ?? 0) > 0) {
+          const serveMs = new Date(item.estimatedFinishAt).getTime() + item.restMinutes * 60_000;
+          steps.push({ label: "Serve", time: fmt(serveMs), color: "#6366f1", confirmed: !!confirmedSteps[`${currentIdx}_serve`] });
+        }
+        if (steps.length === 0) return null;
+        return (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.border }}>
+            {steps.map((step, si) => (
+              <View key={si} style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: step.color + "18", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5, borderWidth: 1, borderColor: step.color + "35" }}>
+                <Feather name={step.confirmed ? "check-circle" : "clock"} size={10} color={step.confirmed ? step.color : colors.mutedForeground} />
+                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: step.confirmed ? step.color : colors.mutedForeground }}>{step.label}</Text>
+                {step.time ? <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>{step.time}</Text> : null}
+              </View>
+            ))}
+          </View>
+        );
+      })()}
+
       {seqScheduleExpanded && (
         <View
           style={{ padding: 12, gap: 10 }}

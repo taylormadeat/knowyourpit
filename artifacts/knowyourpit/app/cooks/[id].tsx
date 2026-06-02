@@ -4044,6 +4044,38 @@ export default function CookDetailScreen() {
                 and the cook timeline are still visible. It self-guards and returns null
                 when sequenceData is present, so it never duplicates the SequenceSchedule. */}
             <PlannedCookTimeline c={c} colors={colors} cookStatus={cookStatus} estimatedFinishMs={estimatedFinishMs} />
+            {/* Activity timeline for completed cooks — shown here, right after the cook timeline */}
+            {cookStatus === "completed" && (
+              <CookActivityTimeline
+                c={c}
+                colors={colors}
+                cookStatus={cookStatus}
+                nowMs={nowMs}
+                cookId={Number(id)}
+                cookSeqData={cookSeqData as SequenceData | null}
+                checkins={cookCheckins as CookCheckin[]}
+                checkinsLoading={checkinsLoading}
+                onOpenCheckin={openCheckin}
+                triggeredAlerts={activeCookAlerts
+                  .filter((a) => a.triggeredAt != null)
+                  .map((a) => ({ id: a.id, message: a.message ?? "Temperature alert triggered", triggeredAt: a.triggeredAt as string }))}
+                stepConfirmations={(() => {
+                  const schedule = (cookSeqData?.schedule ?? []) as Array<{ phaseKey?: string | null; phaseLabel?: string | null; confirmedAt?: string | null }>;
+                  return schedule
+                    .filter((item) => item.confirmedAt != null)
+                    .map((item, i) => ({
+                      id: `step-${item.phaseKey ?? i}`,
+                      label: item.phaseLabel ?? "Step complete",
+                      confirmedAt: item.confirmedAt as string,
+                    }));
+                })()}
+                liveReadingMilestones={[]}
+                effectivePro={effectivePro}
+                isIdentityLinked={isIdentityLinked}
+                showPaywall={showPaywall}
+                plannedCheckins={[]}
+              />
+            )}
           </>
         )}
 
@@ -4144,8 +4176,8 @@ export default function CookDetailScreen() {
         <ShareCookButton cook={c} colors={colors} />
 
 
-        {/* ── Activity Timeline (unified: check-ins, journal events, alerts, milestones) */}
-        <CookActivityTimeline
+        {/* ── Activity Timeline (active/planned cooks — completed cooks show this above, right after the cook timeline) */}
+        {cookStatus !== "completed" && <CookActivityTimeline
           c={c}
           colors={colors}
           cookStatus={cookStatus}
@@ -4195,7 +4227,7 @@ export default function CookDetailScreen() {
             setRemovedPlannedKeys((prev) => new Set([...prev, phaseKey]));
             cancelCheckinNotificationForPhase(Number(id), phaseKey).catch(() => {});
           }}
-        />
+        />}
 
         {/* Status action button — hidden for planned (the prominent Start Cook CTA above handles that) */}
         {nextStatus && cookStatus !== "planned" && (

@@ -1156,7 +1156,7 @@ export function CookActivityTimeline({
   const hasAnyContent =
     allRows.length > 0 || checkinsLoading || eventsLoading;
 
-  if (!hasAnyContent) return null;
+  if (!hasAnyContent && !isCompleted) return null;
 
   const meatOnAtMs = meatOnAt ? new Date(meatOnAt).getTime() : null;
   const isMeatOnYet = meatOnAtMs == null || meatOnAtMs <= nowMs;
@@ -1245,6 +1245,15 @@ export function CookActivityTimeline({
         <View style={{ padding: 16 }}>
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground as string, textAlign: "center" }}>
             Check-ins, quick logs, and alerts will appear here
+          </Text>
+        </View>
+      )}
+
+      {/* Empty completed state */}
+      {!checkinsLoading && !eventsLoading && isCompleted && !hasAnyContent && (
+        <View style={{ padding: 16 }}>
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground as string, textAlign: "center" }}>
+            No check-ins recorded during this cook
           </Text>
         </View>
       )}
