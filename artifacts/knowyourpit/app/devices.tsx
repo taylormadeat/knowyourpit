@@ -26,7 +26,12 @@ import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { LockedFeatureCard } from "@/components/LockedFeatureCard";
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { useBleProbes, type BleDevice } from "@/contexts/BleProbeContext";
-import { useLanProbes, type LanDeviceStatus } from "@/hooks/useLanProbes";
+import {
+  useLanProbes,
+  type LanDeviceStatus,
+  type ManualDeviceType,
+  MANUAL_DEVICE_LABELS,
+} from "@/hooks/useLanProbes";
 import { ADAPTER_LABELS } from "@/hooks/ble/adapters";
 import {
   useGetMeaterStatus,
@@ -374,19 +379,20 @@ export default function DevicesScreen() {
   const [showAddManual, setShowAddManual] = useState(false);
   const [manualInput, setManualInput] = useState("");
   const [addingManual, setAddingManual] = useState(false);
+  const [selectedDeviceType, setSelectedDeviceType] = useState<ManualDeviceType>("meater_block");
 
   const handleAddManual = useCallback(async () => {
     const trimmed = manualInput.trim();
     if (!trimmed) return;
     setAddingManual(true);
     try {
-      await addManualHost(trimmed);
+      await addManualHost(trimmed, selectedDeviceType);
       setManualInput("");
       setShowAddManual(false);
     } finally {
       setAddingManual(false);
     }
-  }, [manualInput, addManualHost]);
+  }, [manualInput, selectedDeviceType, addManualHost]);
 
   const handleScan = useCallback(() => {
     if (!effectivePro) {
@@ -687,7 +693,7 @@ export default function DevicesScreen() {
                   ))
                 )}
 
-                {/* ── Add MEATER Block by IP ── */}
+                {/* ── Add device manually by IP ── */}
                 {!showAddManual ? (
                   <Pressable
                     onPress={() => setShowAddManual(true)}
@@ -695,21 +701,51 @@ export default function DevicesScreen() {
                   >
                     <Feather name="plus-circle" size={13} color={colors.mutedForeground} />
                     <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
-                      Add MEATER Block by IP
+                      Add device manually
                     </Text>
                   </Pressable>
                 ) : (
                   <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, gap: 10 }]}>
                     <Text style={[s.emptyText, { color: colors.foreground, textAlign: "left" }]}>
-                      Add MEATER Block manually
+                      Add device manually
                     </Text>
                     <Text style={[s.emptySubText, { color: colors.mutedForeground, textAlign: "left" }]}>
-                      Enter the IP address or hostname of your MEATER Block base station (e.g. 192.168.1.42 or meaterblock.local).
+                      Select the device type, then enter its IP address or hostname (e.g. 192.168.1.42 or fireboard.local).
                     </Text>
+
+                    {/* Device type picker */}
+                    <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                      {(["meater_block", "fireboard", "thermoworks_signals"] as ManualDeviceType[]).map((type) => {
+                        const isSelected = selectedDeviceType === type;
+                        return (
+                          <Pressable
+                            key={type}
+                            onPress={() => setSelectedDeviceType(type)}
+                            style={{
+                              paddingHorizontal: 10,
+                              paddingVertical: 5,
+                              borderRadius: 99,
+                              borderWidth: 1,
+                              borderColor: isSelected ? "#0EA5E9" : colors.border,
+                              backgroundColor: isSelected ? "#0EA5E920" : "transparent",
+                            }}
+                          >
+                            <Text style={{
+                              fontSize: 12,
+                              fontFamily: isSelected ? "Inter_600SemiBold" : "Inter_400Regular",
+                              color: isSelected ? "#0EA5E9" : colors.mutedForeground,
+                            }}>
+                              {MANUAL_DEVICE_LABELS[type]}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+
                     <TextInput
                       value={manualInput}
                       onChangeText={setManualInput}
-                      placeholder="192.168.1.42 or meaterblock.local"
+                      placeholder="192.168.1.42 or device.local"
                       placeholderTextColor={colors.mutedForeground}
                       autoCapitalize="none"
                       autoCorrect={false}

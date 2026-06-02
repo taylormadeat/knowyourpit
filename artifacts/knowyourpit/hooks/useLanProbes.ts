@@ -58,6 +58,22 @@ export interface LanDeviceStatus {
   isManual?: boolean;
 }
 
+/** Device type for a manually-added LAN device */
+export type ManualDeviceType = "meater_block" | "fireboard" | "thermoworks_signals";
+
+/** A user-supplied manual LAN entry persisted across sessions */
+export interface ManualEntry {
+  host: string;
+  type: ManualDeviceType;
+}
+
+/** Human-readable label for each manual device type */
+export const MANUAL_DEVICE_LABELS: Record<ManualDeviceType, string> = {
+  meater_block: "MEATER Block",
+  fireboard: "Fireboard",
+  thermoworks_signals: "ThermoWorks Signals",
+};
+
 interface UseLanProbesOptions {
   enabled: boolean;
   pollIntervalMs?: number;
@@ -75,10 +91,10 @@ interface UseLanProbesResult {
    */
   mdnsScanEmpty: boolean;
   scan: () => void;
-  /** User-supplied MEATER Block hosts (IPs or hostnames), persisted across sessions */
-  manualHosts: string[];
+  /** User-supplied manual device entries (host + type), persisted across sessions */
+  manualEntries: ManualEntry[];
   /** Add a host to the manual poll list and persist it */
-  addManualHost: (host: string) => Promise<void>;
+  addManualHost: (host: string, type: ManualDeviceType) => Promise<void>;
   /** Remove a host from the manual poll list */
   removeManualHost: (host: string) => Promise<void>;
 }
@@ -93,8 +109,17 @@ const DEFAULT_FIREBOARD_HOST = "fireboard.local";
 const DEFAULT_MEATER_BLOCK_HOSTS = ["meaterblock.local", "meater-block.local", "MEATER_block.local"];
 const DEFAULT_SIGNALS_HOSTS = ["thermoworks-signals.local", "signals.local"];
 
-/** AsyncStorage key for user-supplied MEATER Block IP/hostname entries */
-const MANUAL_MEATER_KEY = "@knowyourpit/lan/manual";
+/**
+ * AsyncStorage key for user-supplied manual device entries.
+ * Format: ManualEntry[]
+ */
+const MANUAL_DEVICES_KEY = "@knowyourpit/lan/manual_v2";
+
+/**
+ * Legacy key used before typed entries were introduced (stored string[]).
+ * Read once on first mount to migrate existing MEATER Block manual hosts.
+ */
+const LEGACY_MANUAL_KEY = "@knowyourpit/lan/manual";
 
 /**
  * Number of consecutive failed polls against a cached (mDNS-discovered) host
@@ -128,9 +153,9 @@ export function useLanProbes({
    */
   const failCountsRef = useRef<Map<string, number>>(new Map());
 
-  /** User-supplied MEATER Block hosts — persisted to AsyncStorage */
-  const [manualHosts, setManualHosts] = useState<string[]>([]);
-  const manualHostsRef = useRef<string[]>([]);
+  /** User-supplied manual device entries — persisted to AsyncStorage */
+  const [manualEntries, setManualEntries] = useState<ManualEntry[]>([]);
+  const manualEntriesRef = useRef<ManualEntry[]>([]);
 
   const {
     discovered,
@@ -145,37 +170,73 @@ export function useLanProbes({
   // without needing it in its dependency array.
   discoveredRef.current = discovered;
 
-  // Load persisted manual MEATER Block hosts on mount
+  // Load persisted manual device entries on mount.
+  // One-time migration: if the new key is absent, check the legacy key and
+  // promote any saved MEATER Block hosts to typed ManualEntry records, then
+  // delete the old key so this only runs once per installation.
   useEffect(() => {
     if (!enabled) return;
-    AsyncStorage.getItem(MANUAL_MEATER_KEY).then((raw) => {
-      if (!raw) return;
+
+    (async () => {
       try {
-        const hosts: string[] = JSON.parse(raw);
-        if (Array.isArray(hosts)) {
-          manualHostsRef.current = hosts;
-          setManualHosts(hosts);
+        const raw = await AsyncStorage.getItem(MANUAL_DEVICES_KEY);
+
+        if (raw) {
+          // New key exists — parse and use it
+          const parsed: unknown = JSON.parse(raw);
+          if (!Array.isArray(parsed)) return;
+          const entries: ManualEntry[] = parsed.map((item) =>
+            typeof item === "string"
+              ? { host: item, type: "meater_block" as ManualDeviceType }
+              : (item as ManualEntry),
+          );
+          manualEntriesRef.current = entries;
+          setManualEntries(entries);
+        } else {
+          // New key absent — attempt one-time migration from legacy key
+          const legacyRaw = await AsyncStorage.getItem(LEGACY_MANUAL_KEY);
+          if (legacyRaw) {
+            try {
+              const legacyHosts: unknown = JSON.parse(legacyRaw);
+              if (Array.isArray(legacyHosts)) {
+                const entries: ManualEntry[] = (legacyHosts as string[])
+                  .filter((h) => typeof h === "string" && h.trim())
+                  .map((h) => ({ host: h.trim(), type: "meater_block" as ManualDeviceType }));
+                if (entries.length > 0) {
+                  manualEntriesRef.current = entries;
+                  setManualEntries(entries);
+                  await AsyncStorage.setItem(MANUAL_DEVICES_KEY, JSON.stringify(entries));
+                }
+              }
+            } catch { /* ignore malformed legacy data */ }
+            // Remove old key regardless so migration only runs once
+            await AsyncStorage.removeItem(LEGACY_MANUAL_KEY);
+          }
         }
-      } catch { /* ignore malformed data */ }
-    });
+      } catch { /* ignore storage errors */ }
+    })();
   }, [enabled]);
 
-  const addManualHost = useCallback(async (host: string) => {
+  const addManualHost = useCallback(async (host: string, type: ManualDeviceType) => {
     const trimmed = host.trim();
     if (!trimmed) return;
-    const next = [...new Set([...manualHostsRef.current, trimmed])];
-    manualHostsRef.current = next;
-    setManualHosts(next);
-    await AsyncStorage.setItem(MANUAL_MEATER_KEY, JSON.stringify(next));
+    // Deduplicate by host string — a host can only be in the list once
+    const next: ManualEntry[] = [
+      ...manualEntriesRef.current.filter((e) => e.host !== trimmed),
+      { host: trimmed, type },
+    ];
+    manualEntriesRef.current = next;
+    setManualEntries(next);
+    await AsyncStorage.setItem(MANUAL_DEVICES_KEY, JSON.stringify(next));
     // Poll immediately so the new host is checked right away
     doPollRef.current();
   }, []);
 
   const removeManualHost = useCallback(async (host: string) => {
-    const next = manualHostsRef.current.filter((h) => h !== host);
-    manualHostsRef.current = next;
-    setManualHosts(next);
-    await AsyncStorage.setItem(MANUAL_MEATER_KEY, JSON.stringify(next));
+    const next = manualEntriesRef.current.filter((e) => e.host !== host);
+    manualEntriesRef.current = next;
+    setManualEntries(next);
+    await AsyncStorage.setItem(MANUAL_DEVICES_KEY, JSON.stringify(next));
   }, []);
 
   // Stable ref to doPoll so the interval effect doesn't need doPoll as a dep.
@@ -199,15 +260,21 @@ export function useLanProbes({
 
       const snap = discoveredRef.current;
 
+      // Partition manual entries by device type so each goes to the right adapter
+      const manualMeater = manualEntriesRef.current.filter((e) => e.type === "meater_block").map((e) => e.host);
+      const manualFireboard = manualEntriesRef.current.filter((e) => e.type === "fireboard").map((e) => e.host);
+      const manualSignals = manualEntriesRef.current.filter((e) => e.type === "thermoworks_signals").map((e) => e.host);
+
       const fireboardHosts = dedup([
         ...(snap.fireboard ?? []),
         DEFAULT_FIREBOARD_HOST,
+        ...manualFireboard,
       ]);
 
       const meaterHosts = dedup([
         ...(snap.meater_block ?? []),
         ...DEFAULT_MEATER_BLOCK_HOSTS,
-        ...manualHostsRef.current,
+        ...manualMeater,
       ]);
 
       // Build a deduplicated list that includes mDNS hosts + the two
@@ -216,6 +283,7 @@ export function useLanProbes({
       const signalsHosts = dedup([
         ...(snap.thermoworks_signals ?? []),
         ...DEFAULT_SIGNALS_HOSTS,
+        ...manualSignals,
       ]);
 
       // ── Poll all hosts, tracking per-host results ──────────────────────────
@@ -326,19 +394,19 @@ export function useLanProbes({
 
       // Ensure every manually-added host appears in the device list even when
       // offline so users can see its status and remove stale entries.
-      for (const host of manualHostsRef.current) {
-        if (!deviceMap.has(host)) {
-          deviceMap.set(host, {
-            host,
-            deviceName: "MEATER Block",
+      for (const entry of manualEntriesRef.current) {
+        if (!deviceMap.has(entry.host)) {
+          deviceMap.set(entry.host, {
+            host: entry.host,
+            deviceName: MANUAL_DEVICE_LABELS[entry.type],
             connected: false,
             lastSeenMs: null,
             probes: [],
             isManual: true,
           });
         } else {
-          const existing = deviceMap.get(host)!;
-          deviceMap.set(host, { ...existing, isManual: true });
+          const existing = deviceMap.get(entry.host)!;
+          deviceMap.set(entry.host, { ...existing, isManual: true });
         }
       }
 
@@ -386,7 +454,7 @@ export function useLanProbes({
     mdnsAvailable,
     mdnsScanEmpty,
     scan: scanAll,
-    manualHosts,
+    manualEntries,
     addManualHost,
     removeManualHost,
   };

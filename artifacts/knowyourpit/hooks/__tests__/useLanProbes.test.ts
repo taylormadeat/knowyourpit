@@ -10,7 +10,7 @@
  */
 
 import { renderHook, act } from "@testing-library/react-native";
-import type { LanProbeReading } from "../useLanProbes";
+import type { LanProbeReading, ManualEntry } from "../useLanProbes";
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -286,33 +286,34 @@ describe("consecutive-failure eviction", () => {
 // ── Manual host add / remove / persist ───────────────────────────────────
 
 describe("manual host add / remove / persist", () => {
-  const MANUAL_KEY = "@knowyourpit/lan/manual";
+  const MANUAL_KEY = "@knowyourpit/lan/manual_v2";
 
-  it("addManualHost persists the new host to AsyncStorage", async () => {
+  it("addManualHost persists the new entry to AsyncStorage", async () => {
     const { result, unmount } = renderHook(() => useLanProbes({ enabled: true, pollIntervalMs: 60_000 }));
     await act(async () => { await Promise.resolve(); });
 
     await act(async () => {
-      await result.current.addManualHost("192.168.1.99");
+      await result.current.addManualHost("192.168.1.99", "meater_block");
     });
 
-    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
-      MANUAL_KEY,
-      JSON.stringify(["192.168.1.99"]),
-    );
+    const expected: ManualEntry[] = [{ host: "192.168.1.99", type: "meater_block" }];
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(MANUAL_KEY, JSON.stringify(expected));
 
     unmount();
   });
 
-  it("addManualHost adds the host to the manualHosts state list", async () => {
+  it("addManualHost adds the entry to manualEntries state", async () => {
     const { result, unmount } = renderHook(() => useLanProbes({ enabled: true, pollIntervalMs: 60_000 }));
     await act(async () => { await Promise.resolve(); });
 
     await act(async () => {
-      await result.current.addManualHost("192.168.1.99");
+      await result.current.addManualHost("192.168.1.99", "fireboard");
     });
 
-    expect(result.current.manualHosts).toContain("192.168.1.99");
+    const hosts = result.current.manualEntries.map((e) => e.host);
+    expect(hosts).toContain("192.168.1.99");
+    const entry = result.current.manualEntries.find((e) => e.host === "192.168.1.99");
+    expect(entry?.type).toBe("fireboard");
 
     unmount();
   });
@@ -322,11 +323,15 @@ describe("manual host add / remove / persist", () => {
     await act(async () => { await Promise.resolve(); });
 
     await act(async () => {
-      await result.current.addManualHost("192.168.1.99");
-      await result.current.addManualHost("192.168.1.99");
+      await result.current.addManualHost("192.168.1.99", "meater_block");
+      await result.current.addManualHost("192.168.1.99", "fireboard");
     });
 
-    expect(result.current.manualHosts.filter((h) => h === "192.168.1.99")).toHaveLength(1);
+    const count = result.current.manualEntries.filter((e) => e.host === "192.168.1.99").length;
+    expect(count).toBe(1);
+    // Second call with different type should replace the first entry
+    const entry = result.current.manualEntries.find((e) => e.host === "192.168.1.99");
+    expect(entry?.type).toBe("fireboard");
 
     unmount();
   });
@@ -336,11 +341,12 @@ describe("manual host add / remove / persist", () => {
     await act(async () => { await Promise.resolve(); });
 
     await act(async () => {
-      await result.current.addManualHost("  192.168.1.99  ");
+      await result.current.addManualHost("  192.168.1.99  ", "thermoworks_signals");
     });
 
-    expect(result.current.manualHosts).toContain("192.168.1.99");
-    expect(result.current.manualHosts).not.toContain("  192.168.1.99  ");
+    const hosts = result.current.manualEntries.map((e) => e.host);
+    expect(hosts).toContain("192.168.1.99");
+    expect(hosts).not.toContain("  192.168.1.99  ");
 
     unmount();
   });
@@ -349,25 +355,26 @@ describe("manual host add / remove / persist", () => {
     const { result, unmount } = renderHook(() => useLanProbes({ enabled: true, pollIntervalMs: 60_000 }));
     await act(async () => { await Promise.resolve(); });
 
-    const lengthBefore = result.current.manualHosts.length;
+    const lengthBefore = result.current.manualEntries.length;
 
     await act(async () => {
-      await result.current.addManualHost("   ");
+      await result.current.addManualHost("   ", "meater_block");
     });
 
-    expect(result.current.manualHosts).toHaveLength(lengthBefore);
+    expect(result.current.manualEntries).toHaveLength(lengthBefore);
 
     unmount();
   });
 
-  it("removeManualHost removes the host and updates AsyncStorage", async () => {
+  it("removeManualHost removes the entry and updates AsyncStorage", async () => {
     const { result, unmount } = renderHook(() => useLanProbes({ enabled: true, pollIntervalMs: 60_000 }));
     await act(async () => { await Promise.resolve(); });
 
-    await act(async () => { await result.current.addManualHost("192.168.1.99"); });
+    await act(async () => { await result.current.addManualHost("192.168.1.99", "meater_block"); });
     await act(async () => { await result.current.removeManualHost("192.168.1.99"); });
 
-    expect(result.current.manualHosts).not.toContain("192.168.1.99");
+    const hosts = result.current.manualEntries.map((e) => e.host);
+    expect(hosts).not.toContain("192.168.1.99");
     expect(AsyncStorage.setItem).toHaveBeenLastCalledWith(MANUAL_KEY, JSON.stringify([]));
 
     unmount();
@@ -377,42 +384,118 @@ describe("manual host add / remove / persist", () => {
     const { result, unmount } = renderHook(() => useLanProbes({ enabled: true, pollIntervalMs: 60_000 }));
     await act(async () => { await Promise.resolve(); });
 
-    const beforeCount = result.current.manualHosts.length;
+    const beforeCount = result.current.manualEntries.length;
 
     await act(async () => {
       await result.current.removeManualHost("192.168.1.77");
     });
 
-    expect(result.current.manualHosts).toHaveLength(beforeCount);
+    expect(result.current.manualEntries).toHaveLength(beforeCount);
 
     unmount();
   });
 
-  it("loads persisted manual hosts from AsyncStorage on mount", async () => {
-    // Pre-seed storage before the hook mounts
-    storageData[MANUAL_KEY] = JSON.stringify(["192.168.1.88", "192.168.1.89"]);
+  it("loads persisted ManualEntry[] from AsyncStorage on mount", async () => {
+    const seeded: ManualEntry[] = [
+      { host: "192.168.1.88", type: "fireboard" },
+      { host: "192.168.1.89", type: "thermoworks_signals" },
+    ];
+    storageData[MANUAL_KEY] = JSON.stringify(seeded);
 
     const { result, unmount } = renderHook(() => useLanProbes({ enabled: true, pollIntervalMs: 60_000 }));
     await act(async () => { await Promise.resolve(); });
 
-    expect(result.current.manualHosts).toContain("192.168.1.88");
-    expect(result.current.manualHosts).toContain("192.168.1.89");
+    const hosts = result.current.manualEntries.map((e) => e.host);
+    expect(hosts).toContain("192.168.1.88");
+    expect(hosts).toContain("192.168.1.89");
+    expect(result.current.manualEntries.find((e) => e.host === "192.168.1.88")?.type).toBe("fireboard");
+    expect(result.current.manualEntries.find((e) => e.host === "192.168.1.89")?.type).toBe("thermoworks_signals");
 
     unmount();
   });
 
-  it("offline manual host appears in devices list with connected=false and isManual=true", async () => {
+  it("routes manual fireboard entry to pollFireboard adapter", async () => {
+    const { result, unmount } = renderHook(() => useLanProbes({ enabled: true, pollIntervalMs: 60_000 }));
+    await act(async () => { await Promise.resolve(); });
+    // Clear calls from initial poll
+    mockPollFireboard.mockClear();
+
+    await act(async () => { await result.current.addManualHost("192.168.1.55", "fireboard"); });
+
+    const calledHosts = mockPollFireboard.mock.calls.map(([h]) => h);
+    expect(calledHosts).toContain("192.168.1.55");
+
+    unmount();
+  });
+
+  it("routes manual thermoworks_signals entry to pollThermoworksSignals adapter", async () => {
+    const { result, unmount } = renderHook(() => useLanProbes({ enabled: true, pollIntervalMs: 60_000 }));
+    await act(async () => { await Promise.resolve(); });
+    mockPollThermoworksSignals.mockClear();
+
+    await act(async () => { await result.current.addManualHost("192.168.1.56", "thermoworks_signals"); });
+
+    const calledHosts = mockPollThermoworksSignals.mock.calls.map(([h]) => h);
+    expect(calledHosts).toContain("192.168.1.56");
+
+    unmount();
+  });
+
+  it("offline manual host appears in devices list with correct deviceName per type", async () => {
     mockPollMeaterBlock.mockResolvedValue([]);
+    mockPollFireboard.mockResolvedValue([]);
 
     const { result, unmount } = renderHook(() => useLanProbes({ enabled: true, pollIntervalMs: 60_000 }));
     await act(async () => { await Promise.resolve(); });
 
-    await act(async () => { await result.current.addManualHost("192.168.1.77"); });
+    await act(async () => { await result.current.addManualHost("192.168.1.77", "fireboard"); });
 
     const device = result.current.devices.find((d) => d.host === "192.168.1.77");
     expect(device).toBeDefined();
     expect(device?.connected).toBe(false);
     expect(device?.isManual).toBe(true);
+    expect(device?.deviceName).toBe("Fireboard");
+
+    unmount();
+  });
+
+  it("migrates legacy string[] entries from old key to typed ManualEntry[] on first mount", async () => {
+    const LEGACY_KEY = "@knowyourpit/lan/manual";
+    storageData[LEGACY_KEY] = JSON.stringify(["192.168.1.10", "192.168.1.11"]);
+
+    const { result, unmount } = renderHook(() => useLanProbes({ enabled: true, pollIntervalMs: 60_000 }));
+    await act(async () => { await Promise.resolve(); });
+
+    const hosts = result.current.manualEntries.map((e) => e.host);
+    expect(hosts).toContain("192.168.1.10");
+    expect(hosts).toContain("192.168.1.11");
+    expect(result.current.manualEntries.every((e) => e.type === "meater_block")).toBe(true);
+
+    // Legacy key should have been removed after migration
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith(LEGACY_KEY);
+    // New key should have been written with typed entries
+    const expected: ManualEntry[] = [
+      { host: "192.168.1.10", type: "meater_block" },
+      { host: "192.168.1.11", type: "meater_block" },
+    ];
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(MANUAL_KEY, JSON.stringify(expected));
+
+    unmount();
+  });
+
+  it("does not migrate if the new key already exists", async () => {
+    const LEGACY_KEY = "@knowyourpit/lan/manual";
+    // Both keys present — new key wins, legacy is not touched
+    const existing: ManualEntry[] = [{ host: "192.168.1.77", type: "fireboard" }];
+    storageData[MANUAL_KEY] = JSON.stringify(existing);
+    storageData[LEGACY_KEY] = JSON.stringify(["192.168.1.99"]);
+
+    const { result, unmount } = renderHook(() => useLanProbes({ enabled: true, pollIntervalMs: 60_000 }));
+    await act(async () => { await Promise.resolve(); });
+
+    const hosts = result.current.manualEntries.map((e) => e.host);
+    expect(hosts).toContain("192.168.1.77");
+    expect(hosts).not.toContain("192.168.1.99");
 
     unmount();
   });
