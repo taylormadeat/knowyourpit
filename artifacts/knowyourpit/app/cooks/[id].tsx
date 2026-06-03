@@ -3944,12 +3944,8 @@ export default function CookDetailScreen() {
             return verdict !== undefined ? letterGrade(VERDICT_SCORE[verdict] ?? 50) : null;
           })()}
           rating={(() => {
-            const vals = [
-              (c as any).ratingTenderness,
-              (c as any).ratingFlavor,
-              (c as any).ratingBark,
-            ].filter((v) => typeof v === "number" && v > 0) as number[];
-            if (vals.length > 0) return vals.reduce((a, b) => a + b, 0) / vals.length;
+            const liveVals = [rateTenderness, rateFlavor, rateBark].filter((v) => v > 0);
+            if (liveVals.length > 0) return liveVals.reduce((a, b) => a + b, 0) / liveVals.length;
             const r = (c as any).rating;
             return typeof r === "number" && r > 0 ? r : null;
           })()}
