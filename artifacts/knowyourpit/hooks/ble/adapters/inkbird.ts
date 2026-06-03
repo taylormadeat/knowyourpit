@@ -66,6 +66,10 @@ export const INKBIRD_SERVICE_UUIDS = [
 // Most low-and-slow cooks run 107–135°C (225–275°F); high-heat searing up to
 // ~315°C (600°F); anything above 600°C (1112°F) or below 0°C (32°F) is
 // certainly garbage data from an unplugged/faulty channel.
+// NOTE: 0°C (32°F) is treated as a disconnected-probe sentinel for iBBQ
+// devices — unplugged channels report exactly 0°C rather than the 0xFFFF
+// sentinel used by IBT-series firmware. The lower bound is therefore exclusive
+// (values must be strictly greater than 0°C to be considered valid).
 const MAX_PLAUSIBLE_CELSIUS = 600;
 const MIN_PLAUSIBLE_CELSIUS = 0;
 
@@ -79,9 +83,10 @@ function base64ToBytes(b64: string): number[] {
 }
 
 // Plausible BBQ temperature bounds in Fahrenheit (derived from Celsius bounds).
-// Any computed tempF outside this range is treated as a no-probe / garbage reading
-// and filtered out, regardless of the declared unit.
-const MIN_PLAUSIBLE_F = MIN_PLAUSIBLE_CELSIUS * 9 / 5 + 32; // 32 °F
+// Any computed tempF at or below MIN_PLAUSIBLE_F (32°F / 0°C) is treated as a
+// no-probe / disconnected-channel reading and filtered out, regardless of the
+// declared unit. Exactly 32°F is the open-circuit sentinel on iBBQ devices.
+const MIN_PLAUSIBLE_F = MIN_PLAUSIBLE_CELSIUS * 9 / 5 + 32; // 32 °F (exclusive lower bound)
 const MAX_PLAUSIBLE_F = MAX_PLAUSIBLE_CELSIUS * 9 / 5 + 32; // 1112 °F
 
 /**
@@ -195,14 +200,16 @@ export function parseInkbirdTemps(
       // garbage (some firmware variants send non-sentinel junk for empty slots).
       // Drop the channel rather than re-interpreting it as Fahrenheit — that
       // was the previous behaviour and caused readings like 5661°F / 3103°F.
-      if (value > MAX_PLAUSIBLE_CELSIUS || value < MIN_PLAUSIBLE_CELSIUS) continue;
+      if (value > MAX_PLAUSIBLE_CELSIUS || value <= MIN_PLAUSIBLE_CELSIUS) continue;
       tempF = (value * 9) / 5 + 32;
     } else {
       tempF = value;
     }
 
     // Final bounds gate — catches any remaining outliers regardless of unit flag.
-    if (tempF < MIN_PLAUSIBLE_F || tempF > MAX_PLAUSIBLE_F) continue;
+    // Uses <= for the lower bound so that exactly 32°F (0°C open-circuit reads
+    // on iBBQ devices) is excluded along with sub-freezing garbage values.
+    if (tempF <= MIN_PLAUSIBLE_F || tempF > MAX_PLAUSIBLE_F) continue;
 
     temps.push(Math.round(tempF * 10) / 10);
   }
