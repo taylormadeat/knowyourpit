@@ -30,6 +30,7 @@ import {
   useUpdateSession,
   useDeleteCook,
   useDismissCookOutlier,
+  useUpdateCook,
   getListCooksQueryKey,
   useGetCookTechniqueStats,
 } from "@workspace/api-client-react";
@@ -356,11 +357,14 @@ export default function CooksScreen() {
   const [seqItemOffsets, setSeqItemOffsets] = useState<Record<number, number>>({});
   const [seqSaveError, setSeqSaveError] = useState<string | null>(null);
   const [outlierReviewCookId, setOutlierReviewCookId] = useState<number | null>(null);
+  const [reviewNote, setReviewNote] = useState("");
+  const [reviewRating, setReviewRating] = useState<number | null>(null);
   const { data: cooks, isLoading, refetch } = useListCooks();
   const { data: techniqueStats } = useGetCookTechniqueStats();
   const updateSession = useUpdateSession();
   const deleteCook = useDeleteCook();
   const dismissOutlier = useDismissCookOutlier();
+  const updateCook = useUpdateCook();
   const qc = useQueryClient();
   const openSwipeableRef = useRef<Swipeable | null>(null);
   const swipeableRefs = useRef<Record<number, Swipeable>>({});
@@ -1047,9 +1051,15 @@ export default function CooksScreen() {
             );
           })()}
           {(() => {
-            // Hide grade chip for active outliers — the cook is excluded from
-            // fingerprint calculations so the grade would be misleading.
-            if (item.isOutlier && !item.outlierDismissed) return null;
+            // Show neutral "—" chip for active outliers instead of a grade
+            // derived from unreliable data.
+            if (item.isOutlier && !item.outlierDismissed) {
+              return (
+                <View style={[s.verdictBadge, { backgroundColor: "#f59e0b18" }]}>
+                  <Text style={[s.verdictBadgeText, { color: "#f59e0b", fontSize: 11 }]}>—</Text>
+                </View>
+              );
+            }
             const storedGrade: string | null | undefined = item.healthScore;
             if (storedGrade) {
               const { color, bgColor } = gradeChipColors(storedGrade);
@@ -2004,16 +2014,17 @@ export default function CooksScreen() {
 
       {/* ── Outlier review sheet ────────────────────────────────────────────
            Opened when the user taps the amber REVIEW chip on a cook card.
-           Explains why the cook was flagged and offers a one-tap dismiss.   */}
+           Explains why the cook was flagged; lets the user add a rating and
+           note before dismissing, or navigate to the full detail view.      */}
       <Modal
         visible={outlierReviewCookId !== null}
         transparent
         animationType="fade"
-        onRequestClose={() => setOutlierReviewCookId(null)}
+        onRequestClose={() => { setOutlierReviewCookId(null); setReviewNote(""); setReviewRating(null); }}
       >
         <Pressable
           style={{ flex: 1, backgroundColor: "#00000077", justifyContent: "flex-end" }}
-          onPress={() => setOutlierReviewCookId(null)}
+          onPress={() => { setOutlierReviewCookId(null); setReviewNote(""); setReviewRating(null); }}
         >
           <Pressable
             style={{
@@ -2035,16 +2046,88 @@ export default function CooksScreen() {
               This cook had few or no check-ins and its duration differed significantly from the AI prediction. It has been excluded from your grill fingerprint so future predictions stay accurate.
             </Text>
             <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, lineHeight: 19 }}>
-              If the data is correct — you just forgot to log check-ins — tap below to restore it.
+              If the data looks correct — you just forgot to log check-ins — optionally add a rating or note below, then tap to restore it.
             </Text>
+
+            {/* Optional rating */}
+            <View style={{ gap: 6 }}>
+              <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: colors.mutedForeground }}>
+                Add a rating (optional)
+              </Text>
+              <View style={{ flexDirection: "row", gap: 6 }}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Pressable
+                    key={star}
+                    onPress={() => setReviewRating(reviewRating === star ? null : star)}
+                    hitSlop={6}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 8,
+                      backgroundColor: reviewRating !== null && star <= reviewRating ? "#f59e0b20" : colors.background,
+                      borderWidth: 1,
+                      borderColor: reviewRating !== null && star <= reviewRating ? "#f59e0b" : colors.border,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Feather
+                      name="star"
+                      size={16}
+                      color={reviewRating !== null && star <= reviewRating ? "#f59e0b" : colors.mutedForeground}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            {/* Optional note */}
+            <View style={{ gap: 6 }}>
+              <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: colors.mutedForeground }}>
+                Add a note (optional)
+              </Text>
+              <TextInput
+                value={reviewNote}
+                onChangeText={setReviewNote}
+                placeholder="e.g. Forgot to log check-ins but cook went perfectly"
+                placeholderTextColor={colors.mutedForeground}
+                multiline
+                numberOfLines={2}
+                style={{
+                  backgroundColor: colors.background,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 8,
+                  padding: 10,
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 13,
+                  color: colors.foreground,
+                  minHeight: 56,
+                  textAlignVertical: "top",
+                }}
+              />
+            </View>
+
             <View style={{ gap: 8, marginTop: 4 }}>
               <Pressable
                 onPress={async () => {
                   if (outlierReviewCookId === null) return;
                   try {
+                    // Save rating/note if provided before dismissing the flag
+                    if (reviewRating !== null || reviewNote.trim()) {
+                      await updateCook.mutateAsync({
+                        id: outlierReviewCookId,
+                        data: {
+                          ...(reviewRating !== null ? { rating: reviewRating } : {}),
+                          ...(reviewNote.trim() ? { notes: reviewNote.trim() } : {}),
+                        },
+                      });
+                    }
                     await dismissOutlier.mutateAsync({ id: outlierReviewCookId });
                     qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
                     setOutlierReviewCookId(null);
+                    setReviewNote("");
+                    setReviewRating(null);
                   } catch {
                     Alert.alert("Error", "Could not update this cook. Please try again.");
                   }
@@ -2069,6 +2152,8 @@ export default function CooksScreen() {
                 onPress={() => {
                   const id = outlierReviewCookId;
                   setOutlierReviewCookId(null);
+                  setReviewNote("");
+                  setReviewRating(null);
                   if (id !== null) router.push(`/cooks/${id}` as any);
                 }}
                 style={({ pressed }) => ({

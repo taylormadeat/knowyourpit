@@ -10,7 +10,10 @@ import type { CookHealthScoreGrade } from "./cookHealthScoreGrade";
 
 export interface CookHealthScore {
   cookId: number;
-  /** Letter grade: A, B, C, D, or F */
+  /**
+   * Letter grade: A, B, C, D, or F — null when the cook is flagged as an outlier pending review
+   * @nullable
+   */
   grade: CookHealthScoreGrade;
   /** One-line plain-English explanation of the grade */
   reason: string;

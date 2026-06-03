@@ -1416,8 +1416,18 @@ export const GetCookHealthParams = zod.object({
 export const GetCookHealthResponse = zod.object({
   cookId: zod.number(),
   grade: zod
-    .enum(["A", "B", "C", "D", "F"])
-    .describe("Letter grade: A, B, C, D, or F"),
+    .union([
+      zod.literal("A"),
+      zod.literal("B"),
+      zod.literal("C"),
+      zod.literal("D"),
+      zod.literal("F"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe(
+      "Letter grade: A, B, C, D, or F — null when the cook is flagged as an outlier pending review",
+    ),
   reason: zod
     .string()
     .describe("One-line plain-English explanation of the grade"),

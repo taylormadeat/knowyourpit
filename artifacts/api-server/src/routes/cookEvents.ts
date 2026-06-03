@@ -351,12 +351,28 @@ router.get("/cooks/:id/health", requireAuth, async (req: any, res): Promise<void
       actualEndAt: cooksTable.actualEndAt,
       fromFrozen: cooksTable.fromFrozen,
       sequenceData: cooksTable.sequenceData,
+      isOutlier: cooksTable.isOutlier,
+      outlierDismissed: cooksTable.outlierDismissed,
     })
     .from(cooksTable)
     .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)));
 
   if (!cook) {
     res.status(404).json({ error: "Cook not found" });
+    return;
+  }
+
+  // Outlier cooks that haven't been dismissed have unreliable data — return a
+  // neutral grade so the score card communicates "review pending" instead of
+  // a misleading letter grade derived from incomplete cook history.
+  if (cook.isOutlier && !cook.outlierDismissed) {
+    res.json({
+      cookId: params.data.id,
+      grade: null,
+      reason: "This cook has been flagged for review. Check-ins or duration data appear unusual. Dismiss the flag to restore scoring.",
+      factors: { issueCount: 0, stallDetected: false, pitDrift: false },
+      computedAt: new Date().toISOString(),
+    });
     return;
   }
 

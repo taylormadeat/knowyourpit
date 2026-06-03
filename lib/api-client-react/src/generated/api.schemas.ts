@@ -1785,10 +1785,12 @@ export interface CreateCookEventBody {
 }
 
 /**
- * Letter grade: A, B, C, D, or F
+ * Letter grade: A, B, C, D, or F — null when the cook is flagged as an outlier pending review
+ * @nullable
  */
 export type CookHealthScoreGrade =
-  (typeof CookHealthScoreGrade)[keyof typeof CookHealthScoreGrade];
+  | (typeof CookHealthScoreGrade)[keyof typeof CookHealthScoreGrade]
+  | null;
 
 export const CookHealthScoreGrade = {
   A: "A",
@@ -1820,7 +1822,10 @@ export type CookHealthScoreFactors = {
 
 export interface CookHealthScore {
   cookId: number;
-  /** Letter grade: A, B, C, D, or F */
+  /**
+   * Letter grade: A, B, C, D, or F — null when the cook is flagged as an outlier pending review
+   * @nullable
+   */
   grade: CookHealthScoreGrade;
   /** One-line plain-English explanation of the grade */
   reason: string;

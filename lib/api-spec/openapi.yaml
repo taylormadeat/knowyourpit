@@ -3004,9 +3004,9 @@ components:
         cookId:
           type: integer
         grade:
-          type: string
-          description: "Letter grade: A, B, C, D, or F"
-          enum: [A, B, C, D, F]
+          type: ["string", "null"]
+          description: "Letter grade: A, B, C, D, or F — null when the cook is flagged as an outlier pending review"
+          enum: [A, B, C, D, F, null]
         reason:
           type: string
           description: One-line plain-English explanation of the grade

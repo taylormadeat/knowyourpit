@@ -87,6 +87,49 @@ export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, 
   if (cookStatus !== "active" && cookStatus !== "completed") return null;
   if (isLoading || !health) return null;
 
+  // Outlier cooks get grade: null from the server — render a neutral "review
+  // pending" card so the user sees the data quality note rather than a grade.
+  if (health.grade === null) {
+    return (
+      <View
+        style={{
+          backgroundColor: "#f59e0b0a",
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: "#f59e0b40",
+          padding: 14,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+        }}
+      >
+        <View
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: 14,
+            backgroundColor: "#f59e0b18",
+            borderWidth: 2,
+            borderColor: "#f59e0b",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 26, color: "#f59e0b" }}>—</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 14, color: "#f59e0b" }}>
+            Cook Health — Under Review
+          </Text>
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: "#f59e0b99", marginTop: 3, lineHeight: 17 }}>
+            {health.reason}
+          </Text>
+        </View>
+        <Feather name="alert-triangle" size={16} color="#f59e0b" />
+      </View>
+    );
+  }
+
   const resolvedGrade = health.grade as string;
   const cfg = GRADE_CONFIG[resolvedGrade] ?? GRADE_CONFIG.C;
   const score = GRADE_SCORE[resolvedGrade] ?? 0.5;

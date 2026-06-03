@@ -3838,10 +3838,9 @@ export default function CookDetailScreen() {
         )}
 
         {/* ── Cook Health Score (active / completed, and only once meat is on) ──
-             Hidden for outlier cooks that haven't been dismissed — the grade
-             would be computed from unreliable data and would mislead the user. */}
-        {(cookStatus === "active" || cookStatus === "completed") && (cookStatus !== "active" || isMeatOn) &&
-         !(cookStatus === "completed" && c.isOutlier && !c.outlierDismissed) && (
+             For outlier cooks the API returns grade: null so the card renders
+             a neutral "review pending" indicator instead of a misleading grade. */}
+        {(cookStatus === "active" || cookStatus === "completed") && (cookStatus !== "active" || isMeatOn) && (
           <CookHealthScoreCard
             cookId={Number(id)}
             colors={colors}
