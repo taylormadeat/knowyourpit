@@ -658,6 +658,18 @@ export default function PlanScreen() {
       Alert.alert("Select a Meat Cut First", "Choose a meat cut so PitMaster can tailor the plan.");
       return;
     }
+    // Pre-check: verify the Clerk session is still valid before firing the
+    // AI call. getToken() returns null when the session has expired or been
+    // revoked. Catching this here avoids a confusing "HTTP 401" error dialog
+    // appearing on top of the sign-in screen after Clerk redirects the user.
+    const sessionToken = await getToken().catch(() => null);
+    if (!sessionToken) {
+      Alert.alert(
+        "Session Expired",
+        "Your session has expired. Please sign out from the More tab and sign in again.",
+      );
+      return;
+    }
     try {
       const result = await aiPredict.mutateAsync({
         data: {
@@ -686,6 +698,13 @@ export default function PlanScreen() {
       setAiResult(result);
       setAiResultOpen(true);
     } catch (e: any) {
+      if (e?.status === 401) {
+        Alert.alert(
+          "Session Expired",
+          "Your session has expired. Please sign out from the More tab and sign in again.",
+        );
+        return;
+      }
       Alert.alert("PitMaster Error", e?.message || "Could not get PitMaster prediction. Try again.");
     }
   };
@@ -731,6 +750,13 @@ export default function PlanScreen() {
       setMultiResult(result as any);
       setMultiResultOpen(true);
     } catch (e: any) {
+      if (e?.status === 401) {
+        Alert.alert(
+          "Session Expired",
+          "Your session has expired. Please sign out from the More tab and sign in again.",
+        );
+        return;
+      }
       // 402 (pro_required) shouldn't happen post-effectivePro check, but a stale
       // entitlement state is possible. Fall through to the modal in that case.
       if (parseAndShowFromError(e)) return;
@@ -794,6 +820,13 @@ export default function PlanScreen() {
       setPlanMode("single");
       router.push("/(tabs)/cooks");
     } catch (e: any) {
+      if (e?.status === 401) {
+        Alert.alert(
+          "Session Expired",
+          "Your session has expired. Please sign out from the More tab and sign in again.",
+        );
+        return;
+      }
       // Free user hit the cook cap mid-multi-save → paywall.
       if (parseAndShowFromError(e)) return;
       Alert.alert("Error", e?.message || "Failed to save cooks.");
