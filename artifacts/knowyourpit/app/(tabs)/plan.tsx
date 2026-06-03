@@ -658,11 +658,12 @@ export default function PlanScreen() {
       Alert.alert("Select a Meat Cut First", "Choose a meat cut so PitMaster can tailor the plan.");
       return;
     }
-    // Pre-check: verify the Clerk session is still valid before firing the
-    // AI call. getToken() returns null when the session has expired or been
-    // revoked. Catching this here avoids a confusing "HTTP 401" error dialog
-    // appearing on top of the sign-in screen after Clerk redirects the user.
-    const sessionToken = await getToken().catch(() => null);
+    // Pre-check: force-refresh the Clerk token before firing the AI call.
+    // skipCache: true bypasses the in-memory token cache so we always send a
+    // freshly issued JWT, not one that may be about to expire.  Returns null
+    // when the session has expired or been revoked — catching that here avoids
+    // a confusing "HTTP 401" dialog on top of the sign-in screen.
+    const sessionToken = await getToken({ skipCache: true }).catch(() => null);
     if (!sessionToken) {
       Alert.alert(
         "Session Expired",
