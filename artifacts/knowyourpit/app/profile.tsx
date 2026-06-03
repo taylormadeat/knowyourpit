@@ -334,7 +334,6 @@ export default function ProfileScreen() {
         <View style={s.statsRow}>
           {[
             { label: "Grills", value: (grills as any[])?.length ?? 0 },
-            { label: "Recipes Saved", value: "—" },
             { label: "Cooks Done", value: "—" },
           ].map((stat) => (
             <View
