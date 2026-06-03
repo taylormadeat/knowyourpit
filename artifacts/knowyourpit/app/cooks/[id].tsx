@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { PROBE_POLL_INTERVAL_MS } from "@/constants/polling";
+import { getProbePollingIntervalMs } from "@/constants/polling";
 import {
   View,
   Text,
@@ -1137,11 +1137,29 @@ export default function CookDetailScreen() {
     );
   }, [cookCheckins]);
 
+  // ── Tiered probe polling interval ─────────────────────────────────────
+  // 15 min when this cook is under 2 h and a probe is actively assigned;
+  // 20 min in all other cases (long cook, no AI plan, or no probe selected).
+  // Derive planned duration from plannedStartAt / plannedEndAt (same values
+  // the AI plan sets; estimatedDurationMinutes is not stored on the cook row).
+  const plannedDurationMinutes =
+    cook?.plannedStartAt && cook?.plannedEndAt
+      ? Math.round(
+          (new Date(cook.plannedEndAt).getTime() -
+            new Date(cook.plannedStartAt).getTime()) /
+            60000,
+        )
+      : null;
+  const probeIntervalMs = getProbePollingIntervalMs(
+    plannedDurationMinutes,
+    selectedMeatProbeId != null || selectedPitProbeId != null,
+  );
+
   const { data: meaterData, isLoading: meaterLoading, dataUpdatedAt: meaterDataUpdatedAt } = useGetMeaterReadings({
     query: {
       queryKey: getGetMeaterReadingsQueryKey(),
       enabled: cookStatus === "active",
-      refetchInterval: cookStatus === "active" ? PROBE_POLL_INTERVAL_MS : false,
+      refetchInterval: cookStatus === "active" ? probeIntervalMs : false,
     },
   });
   // null = still loading (don't show placeholder yet), true/false = resolved
@@ -1152,7 +1170,7 @@ export default function CookDetailScreen() {
     query: {
       queryKey: getGetThermoworksReadingsQueryKey(),
       enabled: cookStatus === "active",
-      refetchInterval: cookStatus === "active" ? PROBE_POLL_INTERVAL_MS : false,
+      refetchInterval: cookStatus === "active" ? probeIntervalMs : false,
     },
   });
   const thermoworksLinked = thermoworksLoading ? null : (thermoworksData?.linked ?? false);

@@ -23,6 +23,7 @@
     "build:backup:dry-run": "tsx ./src/githubBuildBackup.ts --dry-run",
     "build:backup:check": "tsx ./src/githubBuildBackupCheck.ts",
     "test:probe-persistence": "tsx ./src/probePersistenceSmoke.ts",
+    "db:purge-temp-readings": "tsx ./src/purgeOldTemperatureReadings.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
