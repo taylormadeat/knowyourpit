@@ -106,6 +106,7 @@ import {
   computeNextStep,
   rippleScheduleTimestamps,
 } from "@/components/cook-detail/utils";
+import { letterGrade, VERDICT_SCORE } from "@/utils/gradeUtils";
 import type {
   PickedImage,
   Assessment,
@@ -3936,6 +3937,22 @@ export default function CookDetailScreen() {
           colors={colors}
           cookStatus={cookStatus}
           nowMs={nowMs}
+          healthGrade={(() => {
+            const stored: string | null | undefined = (c as any).healthScore;
+            if (stored) return stored;
+            const verdict: string | undefined = (c as any).analysisResult?.assessment?.verdict;
+            return verdict !== undefined ? letterGrade(VERDICT_SCORE[verdict] ?? 50) : null;
+          })()}
+          rating={(() => {
+            const vals = [
+              (c as any).ratingTenderness,
+              (c as any).ratingFlavor,
+              (c as any).ratingBark,
+            ].filter((v) => typeof v === "number" && v > 0) as number[];
+            if (vals.length > 0) return vals.reduce((a, b) => a + b, 0) / vals.length;
+            const r = (c as any).rating;
+            return typeof r === "number" && r > 0 ? r : null;
+          })()}
         />
 
         {/* ── Cook Timeline (planned cooks only) ── */}
