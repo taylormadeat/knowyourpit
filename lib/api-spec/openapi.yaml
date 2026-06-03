@@ -565,6 +565,32 @@ paths:
         "404":
           description: Cook not found
 
+  /cooks/{id}/outlier-dismiss:
+    post:
+      operationId: dismissCookOutlier
+      tags: [cooks]
+      summary: Dismiss the outlier flag and restore this cook to grill fingerprint calculations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Outlier flag dismissed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required:
+                  - ok
+        "404":
+          description: Cook not found
+
   /cooks/{id}/live-activity:
     post:
       operationId: registerCookLiveActivity

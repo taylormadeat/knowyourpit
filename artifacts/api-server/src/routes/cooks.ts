@@ -626,6 +626,25 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
   res.json({ ...cook, grillName });
 });
 
+router.post("/cooks/:id/outlier-dismiss", requireAuth, async (req: any, res): Promise<void> => {
+  const params = GetCookParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [cook] = await db
+    .update(cooksTable)
+    .set({ outlierDismissed: true })
+    .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)))
+    .returning();
+  if (!cook) {
+    res.status(404).json({ error: "Cook not found" });
+    return;
+  }
+  clearHomeInsightsCache(req.userId);
+  res.json({ ok: true });
+});
+
 router.get("/sessions/:sessionId", requireAuth, async (req: any, res): Promise<void> => {
   const params = UpdateSessionParams.safeParse(req.params);
   if (!params.success) {

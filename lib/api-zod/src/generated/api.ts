@@ -1456,6 +1456,17 @@ export const GetCookHealthResponse = zod.object({
 });
 
 /**
+ * @summary Dismiss the outlier flag and restore this cook to grill fingerprint calculations
+ */
+export const DismissCookOutlierParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DismissCookOutlierResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
  * @summary Register or update an iOS Live Activity push token for a cook
  */
 export const RegisterCookLiveActivityParams = zod.object({

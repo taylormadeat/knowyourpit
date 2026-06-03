@@ -59,6 +59,7 @@ import {
   useDeleteCook,
   useUpdateCook,
   useAnalyzeCook,
+  useDismissCookOutlier,
   useListGrills,
   type Cook,
   type Grill,
@@ -197,6 +198,7 @@ export default function CookDetailScreen() {
   const { data: cook, isLoading, dataUpdatedAt: cookDataUpdatedAt } = useGetCook(Number(id));
   const deleteCook = useDeleteCook();
   const updateCook = useUpdateCook();
+  const dismissCookOutlier = useDismissCookOutlier();
   const analyzeMutation = useAnalyzeCook();
   const { showPaywall, parseAndShowFromError } = usePaywall();
   const { data: paywallUsage } = usePaywallUsage();
@@ -3464,7 +3466,7 @@ export default function CookDetailScreen() {
         {c.status === "completed" && c.isOutlier && !c.outlierDismissed && (() => {
           const handleDismiss = async () => {
             try {
-              await updateCook.mutateAsync({ id: c.id, data: { outlierDismissed: true } });
+              await dismissCookOutlier.mutateAsync({ id: c.id });
               qc.invalidateQueries({ queryKey: getGetCookQueryKey(c.id) });
               qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
             } catch {
@@ -3835,8 +3837,11 @@ export default function CookDetailScreen() {
           </View>
         )}
 
-        {/* ── Cook Health Score (active / completed, and only once meat is on) ── */}
-        {(cookStatus === "active" || cookStatus === "completed") && (cookStatus !== "active" || isMeatOn) && (
+        {/* ── Cook Health Score (active / completed, and only once meat is on) ──
+             Hidden for outlier cooks that haven't been dismissed — the grade
+             would be computed from unreliable data and would mislead the user. */}
+        {(cookStatus === "active" || cookStatus === "completed") && (cookStatus !== "active" || isMeatOn) &&
+         !(cookStatus === "completed" && c.isOutlier && !c.outlierDismissed) && (
           <CookHealthScoreCard
             cookId={Number(id)}
             colors={colors}

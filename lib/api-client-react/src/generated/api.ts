@@ -37,6 +37,7 @@ import type {
   CreateGrillBody,
   CustomMeatCut,
   DashboardSummary,
+  DismissCookOutlier200,
   Grill,
   GrillFingerprint,
   GrillInsights,
@@ -2366,6 +2367,90 @@ export function useGetCookHealth<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Dismiss the outlier flag and restore this cook to grill fingerprint calculations
+ */
+export const getDismissCookOutlierUrl = (id: number) => {
+  return `/api/cooks/${id}/outlier-dismiss`;
+};
+
+export const dismissCookOutlier = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DismissCookOutlier200> => {
+  return customFetch<DismissCookOutlier200>(getDismissCookOutlierUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getDismissCookOutlierMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dismissCookOutlier>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof dismissCookOutlier>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["dismissCookOutlier"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof dismissCookOutlier>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return dismissCookOutlier(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DismissCookOutlierMutationResult = NonNullable<
+  Awaited<ReturnType<typeof dismissCookOutlier>>
+>;
+
+export type DismissCookOutlierMutationError = ErrorType<void>;
+
+/**
+ * @summary Dismiss the outlier flag and restore this cook to grill fingerprint calculations
+ */
+export const useDismissCookOutlier = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dismissCookOutlier>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof dismissCookOutlier>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDismissCookOutlierMutationOptions(options));
+};
 
 /**
  * @summary Register or update an iOS Live Activity push token for a cook

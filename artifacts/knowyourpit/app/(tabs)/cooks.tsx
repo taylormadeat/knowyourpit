@@ -29,6 +29,7 @@ import {
   useListCooks,
   useUpdateSession,
   useDeleteCook,
+  useDismissCookOutlier,
   getListCooksQueryKey,
   useGetCookTechniqueStats,
 } from "@workspace/api-client-react";
@@ -354,10 +355,12 @@ export default function CooksScreen() {
   const [seqOffsetMinutes, setSeqOffsetMinutes] = useState(0);
   const [seqItemOffsets, setSeqItemOffsets] = useState<Record<number, number>>({});
   const [seqSaveError, setSeqSaveError] = useState<string | null>(null);
+  const [outlierReviewCookId, setOutlierReviewCookId] = useState<number | null>(null);
   const { data: cooks, isLoading, refetch } = useListCooks();
   const { data: techniqueStats } = useGetCookTechniqueStats();
   const updateSession = useUpdateSession();
   const deleteCook = useDeleteCook();
+  const dismissOutlier = useDismissCookOutlier();
   const qc = useQueryClient();
   const openSwipeableRef = useRef<Swipeable | null>(null);
   const swipeableRefs = useRef<Record<number, Swipeable>>({});
@@ -1074,10 +1077,14 @@ export default function CooksScreen() {
             </View>
           )}
           {item.isOutlier && !item.outlierDismissed && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8, backgroundColor: "#f59e0b18", borderWidth: 1, borderColor: "#f59e0b50" }}>
+            <Pressable
+              onPress={(e) => { e.stopPropagation?.(); setOutlierReviewCookId(item.id); }}
+              hitSlop={8}
+              style={{ flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8, backgroundColor: "#f59e0b18", borderWidth: 1, borderColor: "#f59e0b50" }}
+            >
               <Feather name="alert-triangle" size={9} color="#f59e0b" />
               <Text style={{ color: "#f59e0b", fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 0.2 }}>REVIEW</Text>
-            </View>
+            </Pressable>
           )}
           <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
         </View>
@@ -1994,6 +2001,98 @@ export default function CooksScreen() {
           </Pressable>
         </Animated.View>
       )}
+
+      {/* ── Outlier review sheet ────────────────────────────────────────────
+           Opened when the user taps the amber REVIEW chip on a cook card.
+           Explains why the cook was flagged and offers a one-tap dismiss.   */}
+      <Modal
+        visible={outlierReviewCookId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOutlierReviewCookId(null)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: "#00000077", justifyContent: "flex-end" }}
+          onPress={() => setOutlierReviewCookId(null)}
+        >
+          <Pressable
+            style={{
+              backgroundColor: colors.card,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              padding: 20,
+              gap: 12,
+            }}
+            onPress={() => {}}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Feather name="alert-triangle" size={16} color="#f59e0b" />
+              <Text style={{ fontFamily: "Inter_700Bold", fontSize: 15, color: "#f59e0b" }}>
+                Cook flagged for review
+              </Text>
+            </View>
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, lineHeight: 19 }}>
+              This cook had few or no check-ins and its duration differed significantly from the AI prediction. It has been excluded from your grill fingerprint so future predictions stay accurate.
+            </Text>
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground, lineHeight: 19 }}>
+              If the data is correct — you just forgot to log check-ins — tap below to restore it.
+            </Text>
+            <View style={{ gap: 8, marginTop: 4 }}>
+              <Pressable
+                onPress={async () => {
+                  if (outlierReviewCookId === null) return;
+                  try {
+                    await dismissOutlier.mutateAsync({ id: outlierReviewCookId });
+                    qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+                    setOutlierReviewCookId(null);
+                  } catch {
+                    Alert.alert("Error", "Could not update this cook. Please try again.");
+                  }
+                }}
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  backgroundColor: "#f59e0b",
+                  borderRadius: 10,
+                  paddingVertical: 13,
+                  opacity: pressed ? 0.8 : 1,
+                })}
+              >
+                <Feather name="check" size={15} color="#fff" />
+                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 14, color: "#fff" }}>
+                  Mark as accurate
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  const id = outlierReviewCookId;
+                  setOutlierReviewCookId(null);
+                  if (id !== null) router.push(`/cooks/${id}` as any);
+                }}
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  backgroundColor: colors.background,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  paddingVertical: 13,
+                  opacity: pressed ? 0.7 : 1,
+                })}
+              >
+                <Feather name="eye" size={14} color={colors.mutedForeground} />
+                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.mutedForeground }}>
+                  View cook details
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
     </View>
   );

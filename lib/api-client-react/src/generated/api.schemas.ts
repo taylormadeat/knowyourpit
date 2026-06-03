@@ -1851,6 +1851,10 @@ export const ListCooksStatus = {
   cancelled: "cancelled",
 } as const;
 
+export type DismissCookOutlier200 = {
+  ok: boolean;
+};
+
 export type ListTemperatureReadingsParams = {
   cookId: number;
 };
