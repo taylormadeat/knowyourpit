@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, avg, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, cooksTable, temperatureReadingsTable } from "@workspace/db";
 
 const PIT_PROBE_KEYWORDS = ["pit", "ambient", "grill", "chamber", "dome", "lid"];
@@ -85,28 +85,39 @@ export async function computeSmokerInsights(userId: string, grillId?: number): P
   const pitBiases: number[] = [];
 
   if (cookIdsWithPitTarget.length > 0) {
-    const pitReadings = await db
+    // ── Aggregate pit temps in SQL (replaces unbounded SELECT cook_id, temp_f, probe_name) ──
+    const pitKeywordSql = sql`(${temperatureReadingsTable.probeName} ILIKE '%pit%'
+      OR ${temperatureReadingsTable.probeName} ILIKE '%ambient%'
+      OR ${temperatureReadingsTable.probeName} ILIKE '%grill%'
+      OR ${temperatureReadingsTable.probeName} ILIKE '%chamber%'
+      OR ${temperatureReadingsTable.probeName} ILIKE '%dome%'
+      OR ${temperatureReadingsTable.probeName} ILIKE '%lid%')`;
+
+    const pitAvgRows = await db
       .select({
         cookId: temperatureReadingsTable.cookId,
-        tempF: temperatureReadingsTable.tempF,
-        probeName: temperatureReadingsTable.probeName,
+        avgPitF: avg(temperatureReadingsTable.tempF),
+        readingCount: count(),
       })
       .from(temperatureReadingsTable)
-      .where(inArray(temperatureReadingsTable.cookId, cookIdsWithPitTarget));
+      .where(and(
+        inArray(temperatureReadingsTable.cookId, cookIdsWithPitTarget),
+        pitKeywordSql,
+      ))
+      .groupBy(temperatureReadingsTable.cookId);
 
-    const pitByCook: Record<number, number[]> = {};
-    for (const r of pitReadings) {
-      if (!isPitProbeByName(r.probeName)) continue;
-      if (!pitByCook[r.cookId]) pitByCook[r.cookId] = [];
-      pitByCook[r.cookId].push(r.tempF);
+    const pitAvgByCook: Record<number, { avgF: number; n: number }> = {};
+    for (const row of pitAvgRows) {
+      if (row.avgPitF != null) {
+        pitAvgByCook[row.cookId] = { avgF: parseFloat(row.avgPitF), n: row.readingCount };
+      }
     }
 
     for (const cook of completedCooks) {
       if (cook.cookTempF == null) continue;
-      const readings = pitByCook[cook.id];
-      if (!readings || readings.length < 5) continue;
-      const avg = readings.reduce((s, v) => s + v, 0) / readings.length;
-      pitBiases.push(avg - cook.cookTempF);
+      const data = pitAvgByCook[cook.id];
+      if (!data || data.n < 5) continue;
+      pitBiases.push(data.avgF - cook.cookTempF);
     }
   }
 

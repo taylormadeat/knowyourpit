@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, avg, min, max, count, sql, inArray } from "drizzle-orm";
 import { db, cooksTable, grillsTable, temperatureReadingsTable } from "@workspace/db";
 import { AiPredictBody } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
@@ -116,32 +116,44 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
       }
     }
 
-    const grillReadings = await db.select().from(temperatureReadingsTable)
-      .where(eq(temperatureReadingsTable.grillId, grillId));
+    // ── Pit-probe SQL filter (matches the isPitProbe keyword list) ─────────
+    const pitProbeSql = sql`(${temperatureReadingsTable.probeName} ILIKE '%pit%'
+      OR ${temperatureReadingsTable.probeName} ILIKE '%ambient%'
+      OR ${temperatureReadingsTable.probeName} ILIKE '%grill%'
+      OR ${temperatureReadingsTable.probeName} ILIKE '%chamber%'
+      OR ${temperatureReadingsTable.probeName} ILIKE '%dome%'
+      OR ${temperatureReadingsTable.probeName} ILIKE '%lid%')`;
 
-    if (grillReadings.length > 0) {
-      const pitReadings = grillReadings.filter(r => isPitProbe(r.probeName));
+    // ── Aggregate pit stats in one SQL pass (replaces unbounded SELECT *) ──
+    const [pitStats] = await db.select({
+      avgPit: avg(temperatureReadingsTable.tempF),
+      minPit: min(temperatureReadingsTable.tempF),
+      maxPit: max(temperatureReadingsTable.tempF),
+      totalReadings: count(),
+    }).from(temperatureReadingsTable)
+      .where(and(eq(temperatureReadingsTable.grillId, grillId), pitProbeSql));
 
-      if (pitReadings.length > 0) {
-        const avgPit = pitReadings.reduce((s, r) => s + r.tempF, 0) / pitReadings.length;
-        const maxPit = Math.max(...pitReadings.map(r => r.tempF));
-        const minPit = Math.min(...pitReadings.map(r => r.tempF));
+    // Per-cook swing (MAX - MIN pit temp) grouped in SQL — used for variance.
+    const perCookSwing = await db.select({
+      cookId: temperatureReadingsTable.cookId,
+      swing: sql<number>`MAX(${temperatureReadingsTable.tempF}) - MIN(${temperatureReadingsTable.tempF})`,
+    }).from(temperatureReadingsTable)
+      .where(and(eq(temperatureReadingsTable.grillId, grillId), pitProbeSql))
+      .groupBy(temperatureReadingsTable.cookId);
 
-        const byCook: Record<number, number[]> = {};
-        for (const r of pitReadings) {
-          if (!byCook[r.cookId]) byCook[r.cookId] = [];
-          byCook[r.cookId].push(r.tempF);
-        }
-        const variances = Object.values(byCook).map(t => Math.max(...t) - Math.min(...t));
-        const avgVariance = variances.reduce((a, b) => a + b, 0) / variances.length;
+    if (pitStats && pitStats.totalReadings > 0) {
+      const avgPit = parseFloat(pitStats.avgPit ?? "0");
+      const minPit = pitStats.minPit ?? 0;
+      const maxPit = pitStats.maxPit ?? 0;
+      const variances = perCookSwing.map(r => r.swing ?? 0);
+      const avgVariance = variances.reduce((a, b) => a + b, 0) / Math.max(variances.length, 1);
 
-        grillTempContext = `
-Grill historical temperature performance (${grillReadings.length} readings across ${Object.keys(byCook).length} cooks):
+      grillTempContext = `
+Grill historical temperature performance (${pitStats.totalReadings} pit-probe readings across ${perCookSwing.length} cooks):
 - Average pit/ambient temperature achieved: ${avgPit.toFixed(1)}°F
 - Pit temp range across all readings: ${minPit.toFixed(1)}°F – ${maxPit.toFixed(1)}°F
 - Average per-cook temperature swing: ±${(avgVariance / 2).toFixed(1)}°F
 Note: Factor this grill's real-world temperature behavior into your estimate.`;
-      }
     }
 
     const recentCooksOnGrill = await db.select().from(cooksTable)
@@ -155,16 +167,27 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
 
     if (recentCooksOnGrill.length > 0) {
       const recentCookIds = recentCooksOnGrill.map(c => c.id);
-      const recentReadings = await db.select().from(temperatureReadingsTable)
-        .where(eq(temperatureReadingsTable.grillId, grillId));
+
+      // ── Peak meat-probe temp: scoped to the 15 recent cook IDs only ───────
+      // Replaces a second full-grill SELECT * that was filtered in JS.
+      const notPitProbeSql = sql`(${temperatureReadingsTable.probeName} IS NULL
+        OR (${temperatureReadingsTable.probeName} NOT ILIKE '%pit%'
+        AND ${temperatureReadingsTable.probeName} NOT ILIKE '%ambient%'
+        AND ${temperatureReadingsTable.probeName} NOT ILIKE '%grill%'
+        AND ${temperatureReadingsTable.probeName} NOT ILIKE '%chamber%'
+        AND ${temperatureReadingsTable.probeName} NOT ILIKE '%dome%'
+        AND ${temperatureReadingsTable.probeName} NOT ILIKE '%lid%'))`;
+
+      const peakProbeRows = await db.select({
+        cookId: temperatureReadingsTable.cookId,
+        peakTempF: max(temperatureReadingsTable.tempF),
+      }).from(temperatureReadingsTable)
+        .where(and(inArray(temperatureReadingsTable.cookId, recentCookIds), notPitProbeSql))
+        .groupBy(temperatureReadingsTable.cookId);
 
       const peakProbeByCook: Record<number, number> = {};
-      for (const r of recentReadings) {
-        if (!recentCookIds.includes(r.cookId)) continue;
-        if (isPitProbe(r.probeName)) continue;
-        if (peakProbeByCook[r.cookId] == null || r.tempF > peakProbeByCook[r.cookId]) {
-          peakProbeByCook[r.cookId] = r.tempF;
-        }
+      for (const row of peakProbeRows) {
+        if (row.peakTempF != null) peakProbeByCook[row.cookId] = row.peakTempF;
       }
 
       const cookSummary = (c: typeof recentCooksOnGrill[0]) => {
