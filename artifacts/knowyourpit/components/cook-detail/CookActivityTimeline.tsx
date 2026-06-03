@@ -1006,12 +1006,17 @@ interface Props {
   showPaywall: (opts?: ShowOptions) => void;
   plannedCheckins?: ScheduledCheckin[];
   onRemovePlanned?: (phaseKey: string) => void;
+  /** Refetch interval in ms for active-cook event polling. Defaults to the
+   *  20-min baseline; pass the cook-screen's computed probe interval so the
+   *  timeline stays in sync with probe polling cadence. */
+  refetchIntervalMs?: number;
 }
 
 export function CookActivityTimeline({
   c, colors, cookStatus, nowMs, cookId, cookSeqData, checkins, checkinsLoading,
   onOpenCheckin, triggeredAlerts = [], stepConfirmations = [], liveReadingMilestones = [],
   effectivePro, isIdentityLinked, showPaywall, plannedCheckins = [], onRemovePlanned,
+  refetchIntervalMs = PROBE_POLL_INTERVAL_MS,
 }: Props) {
   const [expanded, setExpanded] = useState(cookStatus === "active");
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -1027,7 +1032,7 @@ export function CookActivityTimeline({
     query: {
       queryKey: getListCookEventsQueryKey(cookId),
       enabled: isActive || isCompleted,
-      refetchInterval: isActive ? PROBE_POLL_INTERVAL_MS : false,
+      refetchInterval: isActive ? refetchIntervalMs : false,
     },
   });
 

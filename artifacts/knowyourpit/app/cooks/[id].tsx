@@ -1137,23 +1137,33 @@ export default function CookDetailScreen() {
     );
   }, [cookCheckins]);
 
-  // ── Tiered probe polling interval ─────────────────────────────────────
-  // 15 min when this cook is under 2 h and a probe is actively assigned;
-  // 20 min in all other cases (long cook, no AI plan, or no probe selected).
-  // Derive planned duration from plannedStartAt / plannedEndAt (same values
-  // the AI plan sets; estimatedDurationMinutes is not stored on the cook row).
-  const plannedDurationMinutes =
-    cook?.plannedStartAt && cook?.plannedEndAt
-      ? Math.round(
-          (new Date(cook.plannedEndAt).getTime() -
-            new Date(cook.plannedStartAt).getTime()) /
-            60000,
-        )
-      : null;
-  const probeIntervalMs = getProbePollingIntervalMs(
-    plannedDurationMinutes,
-    selectedMeatProbeId != null || selectedPitProbeId != null,
-  );
+  // ── Tiered probe polling interval — locked once, never changes mid-cook ──
+  // Computed from the cook's saved data when it first loads, then frozen.
+  // A ref is used so mid-cook probe reassignments in React state don't alter
+  // the interval (the tier should be stable for the life of the screen).
+  const probeIntervalRef = useRef<number>(getProbePollingIntervalMs(null, false));
+  const probeIntervalSet = useRef(false);
+  if (!probeIntervalSet.current && cook != null) {
+    probeIntervalSet.current = true;
+    const durMins =
+      cook.plannedStartAt && cook.plannedEndAt
+        ? Math.round(
+            (new Date(cook.plannedEndAt).getTime() -
+              new Date(cook.plannedStartAt).getTime()) /
+              60000,
+          )
+        : null;
+    // Read probe assignments from the saved cook record (not React state) so
+    // the tier is correct immediately on first render after data loads.
+    const pa = (cook as any)?.probeAssignments as
+      | { meatProbeId?: string | null; pitProbeId?: string | null }
+      | null;
+    probeIntervalRef.current = getProbePollingIntervalMs(
+      durMins,
+      pa?.meatProbeId != null || pa?.pitProbeId != null,
+    );
+  }
+  const probeIntervalMs = probeIntervalRef.current;
 
   const { data: meaterData, isLoading: meaterLoading, dataUpdatedAt: meaterDataUpdatedAt } = useGetMeaterReadings({
     query: {
@@ -4219,6 +4229,7 @@ export default function CookDetailScreen() {
               isIdentityLinked={isIdentityLinked}
               showPaywall={showPaywall}
               plannedCheckins={[]}
+              refetchIntervalMs={probeIntervalMs}
             />
           </>
         )}
@@ -4314,6 +4325,7 @@ export default function CookDetailScreen() {
           effectivePro={effectivePro}
           isIdentityLinked={isIdentityLinked}
           showPaywall={showPaywall}
+          refetchIntervalMs={probeIntervalMs}
           plannedCheckins={(() => {
             if (cookStatus !== "active") return [];
             const hasPlan = !!cookSeqData?.schedule?.length;

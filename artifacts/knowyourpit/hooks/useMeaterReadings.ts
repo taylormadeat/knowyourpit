@@ -20,7 +20,7 @@ export type MeaterReadingsResponse = {
   error?: string;
 };
 
-export function useMeaterReadings(enabled = true) {
+export function useMeaterReadings(enabled = true, intervalMs: number = PROBE_POLL_INTERVAL_MS) {
   const { getToken } = useAuth();
 
   const baseUrl =
@@ -37,7 +37,7 @@ export function useMeaterReadings(enabled = true) {
       if (!res.ok) throw new Error("Failed to fetch MEATER readings");
       return res.json() as Promise<MeaterReadingsResponse>;
     },
-    refetchInterval: PROBE_POLL_INTERVAL_MS,
+    refetchInterval: intervalMs,
     staleTime: 10000,
     enabled,
   });
