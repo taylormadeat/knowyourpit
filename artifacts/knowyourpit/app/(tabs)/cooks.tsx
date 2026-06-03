@@ -39,7 +39,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { getCookCardBar, type CookCardBar } from "@/utils/cookCardBar";
-import { gradeChipColors, letterGrade, scoreColor, VERDICT_SCORE } from "@/utils/gradeUtils";
+import { gradeChipColors, letterGrade, scoreColor, VERDICT_SCORE, computeOverallGrade } from "@/utils/gradeUtils";
 import { fmtRemaining, barColor, clamp, AnimatedBarFill } from "@/components/cook-detail/CookProgressBar";
 import { cancelStoredFrozenNotifications } from "@/hooks/useFrozenStageNotifications";
 import { cancelStoredCheckinNotifications } from "@/hooks/useCheckinNotifications";
@@ -1051,8 +1051,7 @@ export default function CooksScreen() {
             );
           })()}
           {(() => {
-            // Show neutral "—" chip for active outliers instead of a grade
-            // derived from unreliable data.
+            // Outlier cooks show a neutral "—" until the user reviews them.
             if (item.isOutlier && !item.outlierDismissed) {
               return (
                 <View style={[s.verdictBadge, { backgroundColor: "#f59e0b18" }]}>
@@ -1060,23 +1059,23 @@ export default function CooksScreen() {
                 </View>
               );
             }
+            // Best available health signal: stored grade, or fall back to the
+            // AI verdict-derived grade for cooks predating the health system.
             const storedGrade: string | null | undefined = item.healthScore;
-            if (storedGrade) {
-              const { color, bgColor } = gradeChipColors(storedGrade);
-              return (
-                <View style={[s.verdictBadge, { backgroundColor: bgColor }]}>
-                  <Text style={[s.verdictBadgeText, { color, fontSize: 11 }]}>{storedGrade}</Text>
-                </View>
-              );
-            }
             const verdict: string | undefined = item.analysisResult?.assessment?.verdict;
-            const score = verdict !== undefined ? VERDICT_SCORE[verdict] : undefined;
-            if (score === undefined) return null;
-            const grade = letterGrade(score);
-            const { color, bgColor } = gradeChipColors(grade);
+            const healthGrade: string | null = storedGrade
+              ? storedGrade
+              : verdict !== undefined
+              ? letterGrade(VERDICT_SCORE[verdict] ?? 50)
+              : null;
+            // Overall grade = 30% health + 70% user star rating.
+            const rating = avgRating(item);
+            const overall = computeOverallGrade(healthGrade, rating > 0 ? rating : null);
+            if (!overall) return null;
+            const { color, bgColor } = gradeChipColors(overall);
             return (
               <View style={[s.verdictBadge, { backgroundColor: bgColor }]}>
-                <Text style={[s.verdictBadgeText, { color, fontSize: 11 }]}>{grade}</Text>
+                <Text style={[s.verdictBadgeText, { color, fontSize: 11 }]}>{overall}</Text>
               </View>
             );
           })()}
