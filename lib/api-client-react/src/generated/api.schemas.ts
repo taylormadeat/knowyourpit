@@ -502,6 +502,10 @@ export interface Cook {
    * @nullable
    */
   sizingLabel?: string | null;
+  /** True when the cook was auto-detected as an outlier on completion (missing check-ins and/or large duration deviation) */
+  isOutlier?: boolean;
+  /** True when the user has manually marked this cook as accurate, overriding the outlier flag */
+  outlierDismissed?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -809,6 +813,11 @@ export interface UpdateCookBody {
    * @nullable
    */
   sizingLabel?: string | null;
+  /**
+   * Set to true to dismiss the outlier flag and restore this cook to fingerprint calculations
+   * @nullable
+   */
+  outlierDismissed?: boolean | null;
 }
 
 export interface TemperatureReading {

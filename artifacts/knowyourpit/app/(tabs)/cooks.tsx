@@ -1044,6 +1044,9 @@ export default function CooksScreen() {
             );
           })()}
           {(() => {
+            // Hide grade chip for active outliers — the cook is excluded from
+            // fingerprint calculations so the grade would be misleading.
+            if (item.isOutlier && !item.outlierDismissed) return null;
             const storedGrade: string | null | undefined = item.healthScore;
             if (storedGrade) {
               const { color, bgColor } = gradeChipColors(storedGrade);
@@ -1068,6 +1071,12 @@ export default function CooksScreen() {
             <View style={{ flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: 5, paddingVertical: 3, borderRadius: 8, backgroundColor: "#3b82f615", borderWidth: 1, borderColor: "#3b82f630" }}>
               <Feather name="camera" size={10} color="#3b82f6" />
               <Text style={{ color: "#3b82f6", fontFamily: "Inter_700Bold", fontSize: 10 }}>{item.photoCount}</Text>
+            </View>
+          )}
+          {item.isOutlier && !item.outlierDismissed && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8, backgroundColor: "#f59e0b18", borderWidth: 1, borderColor: "#f59e0b50" }}>
+              <Feather name="alert-triangle" size={9} color="#f59e0b" />
+              <Text style={{ color: "#f59e0b", fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 0.2 }}>REVIEW</Text>
             </View>
           )}
           <Feather name="chevron-right" size={16} color={colors.mutedForeground} />

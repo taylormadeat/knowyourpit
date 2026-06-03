@@ -676,6 +676,18 @@ export const ListCooksResponseItem = zod.object({
     .describe(
       'Human-readable size label saved at planning\/log time (e.g. \"6 thighs · ≈ 2.4 lbs est.\" or \"2 racks · ≈ 4.5 lbs est.\")',
     ),
+  isOutlier: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the cook was auto-detected as an outlier on completion (missing check-ins and\/or large duration deviation)",
+    ),
+  outlierDismissed: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the user has manually marked this cook as accurate, overriding the outlier flag",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -944,6 +956,18 @@ export const GetCookResponse = zod.object({
     .describe(
       'Human-readable size label saved at planning\/log time (e.g. \"6 thighs · ≈ 2.4 lbs est.\" or \"2 racks · ≈ 4.5 lbs est.\")',
     ),
+  isOutlier: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the cook was auto-detected as an outlier on completion (missing check-ins and\/or large duration deviation)",
+    ),
+  outlierDismissed: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the user has manually marked this cook as accurate, overriding the outlier flag",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1057,6 +1081,12 @@ export const UpdateCookBody = zod.object({
     .nullish()
     .describe(
       'Human-readable size label (e.g. \"6 thighs · ≈ 2.4 lbs est.\" or \"2 racks · ≈ 4.5 lbs est.\")',
+    ),
+  outlierDismissed: zod
+    .boolean()
+    .nullish()
+    .describe(
+      "Set to true to dismiss the outlier flag and restore this cook to fingerprint calculations",
     ),
 });
 
@@ -1209,6 +1239,18 @@ export const UpdateCookResponse = zod.object({
     .nullish()
     .describe(
       'Human-readable size label saved at planning\/log time (e.g. \"6 thighs · ≈ 2.4 lbs est.\" or \"2 racks · ≈ 4.5 lbs est.\")',
+    ),
+  isOutlier: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the cook was auto-detected as an outlier on completion (missing check-ins and\/or large duration deviation)",
+    ),
+  outlierDismissed: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the user has manually marked this cook as accurate, overriding the outlier flag",
     ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -2293,6 +2335,18 @@ export const GetRecentCooksResponseItem = zod.object({
     .nullish()
     .describe(
       'Human-readable size label saved at planning\/log time (e.g. \"6 thighs · ≈ 2.4 lbs est.\" or \"2 racks · ≈ 4.5 lbs est.\")',
+    ),
+  isOutlier: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the cook was auto-detected as an outlier on completion (missing check-ins and\/or large duration deviation)",
+    ),
+  outlierDismissed: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the user has manually marked this cook as accurate, overriding the outlier flag",
     ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),

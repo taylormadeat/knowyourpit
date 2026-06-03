@@ -109,4 +109,9 @@ export interface UpdateCookBody {
    * @nullable
    */
   sizingLabel?: string | null;
+  /**
+   * Set to true to dismiss the outlier flag and restore this cook to fingerprint calculations
+   * @nullable
+   */
+  outlierDismissed?: boolean | null;
 }

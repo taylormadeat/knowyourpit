@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, count } from "drizzle-orm";
 import { db, cooksTable, grillsTable, alertsTable, cookCheckins, temperatureReadingsTable } from "@workspace/db";
 import {
   CreateCookBody,
@@ -28,6 +28,55 @@ import {
 } from "../lib/paywall";
 
 const router: IRouter = Router();
+
+// ── Outlier detection ──────────────────────────────────────────────────────
+// A completed cook is flagged as an outlier if it meets at least 2 of:
+//   1. Zero check-ins logged during a cook that lasted > 45 minutes.
+//   2. Actual duration deviates > 40% from the AI-predicted end time.
+//   3. No rating provided at the moment of completion.
+// Outlier cooks are excluded from grill fingerprint calculations until
+// the user dismisses the flag ("Mark as accurate").
+async function detectOutlier(cookId: number, cook: {
+  actualStartAt: Date | null;
+  actualEndAt: Date | null;
+  plannedEndAt: Date | null;
+  ratingTenderness: number | null;
+  ratingBark: number | null;
+  ratingFlavor: number | null;
+  rating: number | null;
+}): Promise<boolean> {
+  let criteriaCount = 0;
+
+  // Criterion 1: zero check-ins for a cook > 45 minutes
+  const actualMs =
+    cook.actualStartAt && cook.actualEndAt
+      ? new Date(cook.actualEndAt).getTime() - new Date(cook.actualStartAt).getTime()
+      : null;
+  if (actualMs !== null && actualMs > 45 * 60_000) {
+    const [{ n }] = await db
+      .select({ n: count() })
+      .from(cookCheckins)
+      .where(eq(cookCheckins.cookId, cookId));
+    if (n === 0) criteriaCount++;
+  }
+
+  // Criterion 2: actual duration deviates > 40% from planned end
+  if (cook.actualStartAt && cook.actualEndAt && cook.plannedEndAt) {
+    const actual = new Date(cook.actualEndAt).getTime() - new Date(cook.actualStartAt).getTime();
+    const planned = new Date(cook.plannedEndAt).getTime() - new Date(cook.actualStartAt).getTime();
+    if (planned > 0 && Math.abs(actual - planned) / planned > 0.40) criteriaCount++;
+  }
+
+  // Criterion 3: no rating at all
+  const hasRating =
+    (typeof cook.ratingTenderness === "number" && cook.ratingTenderness > 0) ||
+    (typeof cook.ratingBark       === "number" && cook.ratingBark       > 0) ||
+    (typeof cook.ratingFlavor     === "number" && cook.ratingFlavor     > 0) ||
+    (typeof cook.rating           === "number" && cook.rating           > 0);
+  if (!hasRating) criteriaCount++;
+
+  return criteriaCount >= 2;
+}
 
 router.get("/cooks/technique-stats", requireAuth, async (req: any, res): Promise<void> => {
   const userId = req.userId as string;
@@ -546,6 +595,33 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
     void endLiveActivitiesForCook(cook.id).catch((err) =>
       req.log.warn({ err: err.message, cookId: cook.id }, "endLiveActivitiesForCook failed")
     );
+  }
+  // ── Outlier detection (fire-and-forget, only on fresh completions) ─────────
+  // Only evaluate when the cook just transitioned to completed AND hasn't already
+  // been dismissed by the user. Re-evaluating on every PATCH would re-flag a cook
+  // the user deliberately marked as accurate.
+  if (cook.status === "completed" && !cook.outlierDismissed) {
+    void (async () => {
+      try {
+        const outlier = await detectOutlier(cook.id, {
+          actualStartAt: cook.actualStartAt,
+          actualEndAt: cook.actualEndAt,
+          plannedEndAt: cook.plannedEndAt,
+          ratingTenderness: cook.ratingTenderness,
+          ratingBark: cook.ratingBark,
+          ratingFlavor: cook.ratingFlavor,
+          rating: cook.rating,
+        });
+        if (outlier !== cook.isOutlier) {
+          await db
+            .update(cooksTable)
+            .set({ isOutlier: outlier })
+            .where(and(eq(cooksTable.id, cook.id), eq(cooksTable.userId, req.userId)));
+        }
+      } catch (err: unknown) {
+        req.log.warn({ err, cookId: cook.id }, "detectOutlier failed");
+      }
+    })();
   }
   res.json({ ...cook, grillName });
 });

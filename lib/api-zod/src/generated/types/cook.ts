@@ -162,6 +162,10 @@ export interface Cook {
    * @nullable
    */
   sizingLabel?: string | null;
+  /** True when the cook was auto-detected as an outlier on completion (missing check-ins and/or large duration deviation) */
+  isOutlier?: boolean;
+  /** True when the user has manually marked this cook as accurate, overriding the outlier flag */
+  outlierDismissed?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

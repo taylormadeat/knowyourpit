@@ -65,7 +65,14 @@ export function confidenceLevelFor(cookCount: number): ConfidenceLevel {
 }
 
 export async function computeSmokerInsights(userId: string, grillId?: number): Promise<SmokerInsights> {
-  const baseConditions = [eq(cooksTable.userId, userId), eq(cooksTable.status, "completed")];
+  const baseConditions = [
+    eq(cooksTable.userId, userId),
+    eq(cooksTable.status, "completed"),
+    // Exclude cooks flagged as outliers unless the user has explicitly dismissed
+    // the flag. This prevents unreliable data points from polluting the
+    // grill fingerprint and skewing future AI time predictions.
+    sql`NOT (${cooksTable.isOutlier} = true AND ${cooksTable.outlierDismissed} = false)`,
+  ];
   if (grillId != null) baseConditions.push(eq(cooksTable.grillId, grillId));
 
   const completedCooks = await db

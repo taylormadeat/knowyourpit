@@ -3457,6 +3457,69 @@ export default function CookDetailScreen() {
           ) : null}
         </View>
 
+        {/* ── Outlier cook callout ──────────────────────────────────────────
+             Shown on completed cooks flagged as outliers (missing check-ins
+             or unusual duration). User can dismiss it to restore this cook
+             to grill fingerprint calculations.                              */}
+        {c.status === "completed" && c.isOutlier && !c.outlierDismissed && (() => {
+          const handleDismiss = async () => {
+            try {
+              await updateCook.mutateAsync({ id: c.id, data: { outlierDismissed: true } });
+              qc.invalidateQueries({ queryKey: getGetCookQueryKey(c.id) });
+              qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+            } catch {
+              Alert.alert("Error", "Could not update this cook. Please try again.");
+            }
+          };
+          return (
+            <View
+              style={{
+                borderRadius: colors.radius,
+                backgroundColor: "#f59e0b12",
+                borderWidth: 1,
+                borderColor: "#f59e0b40",
+                paddingHorizontal: 14,
+                paddingVertical: 11,
+                gap: 8,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+                <Feather name="alert-triangle" size={14} color="#f59e0b" />
+                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: "#f59e0b" }}>
+                  Cook flagged for review
+                </Text>
+              </View>
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, lineHeight: 17 }}>
+                This cook had few or no check-ins and its duration differed significantly from the AI prediction. It's been excluded from your grill fingerprint to keep your future predictions accurate.
+              </Text>
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, lineHeight: 17 }}>
+                If the data looks right — you just forgot to log check-ins — tap below to restore it.
+              </Text>
+              <Pressable
+                onPress={handleDismiss}
+                style={({ pressed }) => ({
+                  alignSelf: "flex-start",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 5,
+                  backgroundColor: "#f59e0b18",
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: "#f59e0b55",
+                  paddingHorizontal: 12,
+                  paddingVertical: 7,
+                  opacity: pressed ? 0.7 : 1,
+                })}
+              >
+                <Feather name="check" size={13} color="#f59e0b" />
+                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: "#f59e0b" }}>
+                  Mark as accurate
+                </Text>
+              </Pressable>
+            </View>
+          );
+        })()}
+
         {/* ── No-check-in-yet nudge (active cooks, zero saved check-ins) ── */}
         {cookStatus === "active" &&
           !checkinsLoading &&

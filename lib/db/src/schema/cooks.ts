@@ -46,6 +46,8 @@ export const cooksTable = pgTable("cooks", {
   healthScoreReason: text("health_score_reason"),
   probeAssignments: jsonb("probe_assignments"),
   sizingLabel: text("sizing_label"),
+  isOutlier: boolean("is_outlier").notNull().default(false),
+  outlierDismissed: boolean("outlier_dismissed").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

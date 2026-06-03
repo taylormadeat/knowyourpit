@@ -1493,6 +1493,12 @@ components:
         sizingLabel:
           type: ["string", "null"]
           description: Human-readable size label saved at planning/log time (e.g. "6 thighs · ≈ 2.4 lbs est." or "2 racks · ≈ 4.5 lbs est.")
+        isOutlier:
+          type: boolean
+          description: True when the cook was auto-detected as an outlier on completion (missing check-ins and/or large duration deviation)
+        outlierDismissed:
+          type: boolean
+          description: True when the user has manually marked this cook as accurate, overriding the outlier flag
         createdAt:
           type: string
           format: date-time
@@ -1719,6 +1725,9 @@ components:
         sizingLabel:
           type: ["string", "null"]
           description: Human-readable size label (e.g. "6 thighs · ≈ 2.4 lbs est." or "2 racks · ≈ 4.5 lbs est.")
+        outlierDismissed:
+          type: ["boolean", "null"]
+          description: Set to true to dismiss the outlier flag and restore this cook to fingerprint calculations
 
     TemperatureReading:
       type: object
