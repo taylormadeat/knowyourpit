@@ -576,7 +576,9 @@ export function MultiCookAddItemModal(p: Props) {
                       )}
                     </View>
                     <Text style={[s.cutMeta, { color: colors.mutedForeground }]}>
-                      Internal target {item.targetTempF}°F · Pit: {item.cookTempF}°F · ~{item.minsPerLb} min/lb
+                      {item.targetTempF === 0
+                        ? `Time-based · Pit: ${item.cookTempF}°F · ~${item.minsPerLb} min/lb`
+                        : `Internal target ${item.targetTempF}°F · Pit: ${item.cookTempF}°F · ~${item.minsPerLb} min/lb`}
                     </Text>
                   </View>
                   {item.isCustom && (
