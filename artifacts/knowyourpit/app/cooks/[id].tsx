@@ -160,6 +160,7 @@ import { PlannedCookTimeline } from "@/components/cook-detail/PlannedCookTimelin
 import { ThawStatusBanner } from "@/components/cook-detail/ThawStatusBanner";
 import { StoredAiAnalysis } from "@/components/cook-detail/StoredAiAnalysis";
 import { RateThisCook } from "@/components/cook-detail/RateThisCook";
+import { RateCookSheet } from "@/components/cook-detail/RateCookSheet";
 import { ShareCookButton } from "@/components/cook-detail/ShareCookButton";
 import { NextUpBanner } from "@/components/NextUpBanner";
 import { CookHealthScoreCard } from "@/components/cook-detail/CookHealthScoreCard";
@@ -504,6 +505,8 @@ export default function CookDetailScreen() {
   const [rateFlavor, setRateFlavor] = useState<number>(0);
   const [rateBark, setRateBark] = useState<number>(0);
   const [rateSaving, setRateSaving] = useState(false);
+  // Rating prompt shown once immediately after a cook is marked complete
+  const [showRatingPrompt, setShowRatingPrompt] = useState(false);
 
   const uploadTemperatureData = useUploadTemperatureData();
 
@@ -2284,6 +2287,13 @@ export default function CookDetailScreen() {
     qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
     qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
     qc.invalidateQueries({ queryKey: ["home", "insights"] });
+
+    // Show the rating prompt when a cook is marked complete and has no rating yet.
+    // Gate on !(cook as any)?.rating so re-opening an already-rated completed cook
+    // never re-triggers the sheet.
+    if (status === "completed" && !(cook as any)?.rating) {
+      setShowRatingPrompt(true);
+    }
 
     // Clear the saved probe assignments so a stale pairing never reappears if
     // the user revisits this cook after it has ended.
@@ -4664,6 +4674,17 @@ export default function CookDetailScreen() {
       <PitMasterChatModal
         visible={chatModalVisible}
         onClose={() => setChatModalVisible(false)}
+      />
+
+      <RateCookSheet
+        visible={showRatingPrompt}
+        colors={colors}
+        saving={rateSaving}
+        onSave={async (t, f, b) => {
+          await saveRatings(t, f, b);
+          setShowRatingPrompt(false);
+        }}
+        onSkip={() => setShowRatingPrompt(false)}
       />
     </View>
   );
