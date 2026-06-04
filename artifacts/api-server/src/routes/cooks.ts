@@ -15,6 +15,7 @@ import { requireAuth } from "../middlewares/requireAuth";
 import type { AiCheckinItem } from "@workspace/checkin-schedule";
 import { clearHomeInsightsCache } from "./ai";
 import { endLiveActivitiesForCook } from "../lib/liveActivityPush";
+import { thinTemperatureReadings } from "../lib/thinTemperatureReadings";
 import { computeCookHealthScore } from "./cookEvents";
 import { getAssessment } from "./ai/shared";
 import {
@@ -590,6 +591,14 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
   if (cook.status === "completed" || cook.status === "cancelled") {
     void endLiveActivitiesForCook(cook.id).catch((err) =>
       req.log.warn({ err: err.message, cookId: cook.id }, "endLiveActivitiesForCook failed")
+    );
+  }
+  // ── Temperature thinning (fire-and-forget, only on completion) ────────────
+  // Bucket the cook's readings down to 1 per 15-min window per probe so the
+  // table stays bounded without any impact on chart quality or calibration.
+  if (cook.status === "completed") {
+    void thinTemperatureReadings(cook.id).catch((err: Error) =>
+      req.log.warn({ err: err.message, cookId: cook.id }, "thinTemperatureReadings failed")
     );
   }
   // ── Outlier detection (fire-and-forget, only on fresh completions) ─────────

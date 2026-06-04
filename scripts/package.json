@@ -25,6 +25,7 @@
     "test:probe-persistence": "tsx ./src/probePersistenceSmoke.ts",
     "db:purge-temp-readings": "tsx ./src/purgeOldTemperatureReadings.ts",
     "db:seed-technique-presets": "tsx ./src/seedTechniquePresets.ts",
+    "db:thin-temp-readings": "tsx ./src/thinAllCompletedReadings.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
