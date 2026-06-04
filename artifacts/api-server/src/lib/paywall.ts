@@ -413,6 +413,18 @@ export async function countAiAnalyzesToday(userId: string): Promise<number> {
 
 /** Records that the user invoked an AI analyze (call after the analysis succeeds). */
 export async function recordAiAnalyzeEvent(userId: string): Promise<void> {
+  // Sweep stale rows for this user before inserting the new one.
+  // ai_analyze_events is only ever read to count today's calls, so anything
+  // older than 2 days is dead weight. Running the delete at write-time keeps
+  // the table bounded without a cron job or schema change.
+  await db
+    .delete(aiAnalyzeEvents)
+    .where(
+      and(
+        eq(aiAnalyzeEvents.userId, userId),
+        sql`${aiAnalyzeEvents.createdAt} < now() - interval '2 days'`,
+      ),
+    );
   await db.insert(aiAnalyzeEvents).values({ userId });
 }
 
