@@ -1396,7 +1396,7 @@ components:
           description: True when this cook was planned starting from frozen meat (Frozen-to-Table mode)
         thawMethod:
           type: ["string", "null"]
-          enum: [fridge, cold_water, null]
+          enum: [fridge, cold_water, microwave, counter, cook_from_frozen, null]
           description: Selected thaw method when fromFrozen is true
         actualThawStartAt:
           type: ["string", "null"]
@@ -1548,7 +1548,7 @@ components:
           description: True when planning the cook starting from frozen meat
         thawMethod:
           type: ["string", "null"]
-          enum: [fridge, cold_water, null]
+          enum: [fridge, cold_water, microwave, counter, cook_from_frozen, null]
           description: Selected thaw method when fromFrozen is true
         cookingMethod:
           type: ["string", "null"]
@@ -1640,7 +1640,7 @@ components:
           description: True when planning the cook starting from frozen meat
         thawMethod:
           type: ["string", "null"]
-          enum: [fridge, cold_water, null]
+          enum: [fridge, cold_water, microwave, counter, cook_from_frozen, null]
           description: Selected thaw method when fromFrozen is true
         actualThawStartAt:
           type: ["string", "null"]
@@ -2032,7 +2032,7 @@ components:
           description: True when the meat is starting from a fully frozen state and needs to be thawed before cooking. PitMaster will factor in thaw timing, surface drying, and dry-brine adjustments.
         thawMethod:
           type: ["string", "null"]
-          enum: [fridge, cold_water, null]
+          enum: [fridge, cold_water, microwave, counter, cook_from_frozen, null]
           description: Chosen thaw method when fromFrozen is true. "fridge" is slow and safest; "cold_water" is faster but requires more attention. Used to tailor PitMaster's thaw and surface-dry guidance.
         cookingMethod:
           type: ["string", "null"]
@@ -2249,7 +2249,7 @@ components:
           description: True when this item is starting from a fully frozen state. PitMaster will factor in thaw lead-time when scheduling backwards from the serve time.
         thawMethod:
           type: ["string", "null"]
-          enum: [fridge, cold_water, null]
+          enum: [fridge, cold_water, microwave, counter, cook_from_frozen, null]
           description: Chosen thaw method when fromFrozen is true. "fridge" is slow and safest (~24h / 4–5 lbs); "cold_water" is faster (~1h per lb).
         notes:
           type: ["string", "null"]

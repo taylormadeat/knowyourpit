@@ -608,6 +608,9 @@ export const ListCooksResponseItem = zod.object({
     .union([
       zod.literal("fridge"),
       zod.literal("cold_water"),
+      zod.literal("microwave"),
+      zod.literal("counter"),
+      zod.literal("cook_from_frozen"),
       zod.literal(null),
     ])
     .nullable()
@@ -757,6 +760,9 @@ export const CreateCookBody = zod.object({
     .union([
       zod.literal("fridge"),
       zod.literal("cold_water"),
+      zod.literal("microwave"),
+      zod.literal("counter"),
+      zod.literal("cook_from_frozen"),
       zod.literal(null),
     ])
     .nullish()
@@ -888,6 +894,9 @@ export const GetCookResponse = zod.object({
     .union([
       zod.literal("fridge"),
       zod.literal("cold_water"),
+      zod.literal("microwave"),
+      zod.literal("counter"),
+      zod.literal("cook_from_frozen"),
       zod.literal(null),
     ])
     .nullable()
@@ -1030,6 +1039,9 @@ export const UpdateCookBody = zod.object({
     .union([
       zod.literal("fridge"),
       zod.literal("cold_water"),
+      zod.literal("microwave"),
+      zod.literal("counter"),
+      zod.literal("cook_from_frozen"),
       zod.literal(null),
     ])
     .nullish()
@@ -1172,6 +1184,9 @@ export const UpdateCookResponse = zod.object({
     .union([
       zod.literal("fridge"),
       zod.literal("cold_water"),
+      zod.literal("microwave"),
+      zod.literal("counter"),
+      zod.literal("cook_from_frozen"),
       zod.literal(null),
     ])
     .nullable()
@@ -1764,6 +1779,9 @@ export const AiPredictBody = zod.object({
     .union([
       zod.literal("fridge"),
       zod.literal("cold_water"),
+      zod.literal("microwave"),
+      zod.literal("counter"),
+      zod.literal("cook_from_frozen"),
       zod.literal(null),
     ])
     .nullish()
@@ -2009,6 +2027,9 @@ export const AiMultiCookBody = zod.object({
           .union([
             zod.literal("fridge"),
             zod.literal("cold_water"),
+            zod.literal("microwave"),
+            zod.literal("counter"),
+            zod.literal("cook_from_frozen"),
             zod.literal(null),
           ])
           .nullish()
@@ -2209,6 +2230,9 @@ export const GetRecentCooksResponseItem = zod.object({
     .union([
       zod.literal("fridge"),
       zod.literal("cold_water"),
+      zod.literal("microwave"),
+      zod.literal("counter"),
+      zod.literal("cook_from_frozen"),
       zod.literal(null),
     ])
     .nullable()

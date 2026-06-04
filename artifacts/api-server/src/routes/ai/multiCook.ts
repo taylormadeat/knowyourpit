@@ -41,7 +41,14 @@ router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): P
       item.targetTempF ? `target internal ${item.targetTempF}°F` : "",
       `preheat ${preheat} min`,
       item.cookingMethod ? `cooking method: ${item.cookingMethod}` : "",
-      item.fromFrozen ? `starting from frozen · thaw method: ${item.thawMethod === "cold_water" ? "cold water (~1h per lb)" : "refrigerator (~24h / 4–5 lbs)"}` : "",
+      item.fromFrozen ? `starting from frozen · thaw method: ${
+        item.thawMethod === "cold_water" ? "cold water (~1h per lb)" :
+        item.thawMethod === "fridge" ? "refrigerator (~24h / 4–5 lbs)" :
+        item.thawMethod === "microwave" ? "microwave (cook immediately after)" :
+        item.thawMethod === "counter" ? "counter thaw (cook immediately after)" :
+        item.thawMethod === "cook_from_frozen" ? "cook from frozen (no thaw, +50% time)" :
+        "not specified"
+      }` : "",
     ].filter(Boolean);
     return parts.join(" · ");
   }).join("\n");

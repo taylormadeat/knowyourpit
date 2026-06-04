@@ -17,4 +17,7 @@ export type CreateCookBodyThawMethod =
 export const CreateCookBodyThawMethod = {
   fridge: "fridge",
   cold_water: "cold_water",
+  microwave: "microwave",
+  counter: "counter",
+  cook_from_frozen: "cook_from_frozen",
 } as const;

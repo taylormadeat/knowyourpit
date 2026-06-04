@@ -336,6 +336,9 @@ export type CookThawMethod =
 export const CookThawMethod = {
   fridge: "fridge",
   cold_water: "cold_water",
+  microwave: "microwave",
+  counter: "counter",
+  cook_from_frozen: "cook_from_frozen",
 } as const;
 
 /**
@@ -544,6 +547,9 @@ export type CreateCookBodyThawMethod =
 export const CreateCookBodyThawMethod = {
   fridge: "fridge",
   cold_water: "cold_water",
+  microwave: "microwave",
+  counter: "counter",
+  cook_from_frozen: "cook_from_frozen",
 } as const;
 
 /**
@@ -694,6 +700,9 @@ export type UpdateCookBodyThawMethod =
 export const UpdateCookBodyThawMethod = {
   fridge: "fridge",
   cold_water: "cold_water",
+  microwave: "microwave",
+  counter: "counter",
+  cook_from_frozen: "cook_from_frozen",
 } as const;
 
 /**
@@ -1029,6 +1038,9 @@ export type AiPredictBodyThawMethod =
 export const AiPredictBodyThawMethod = {
   fridge: "fridge",
   cold_water: "cold_water",
+  microwave: "microwave",
+  counter: "counter",
+  cook_from_frozen: "cook_from_frozen",
 } as const;
 
 export interface AiPredictBody {
@@ -1268,6 +1280,9 @@ export type MultiCookItemThawMethod =
 export const MultiCookItemThawMethod = {
   fridge: "fridge",
   cold_water: "cold_water",
+  microwave: "microwave",
+  counter: "counter",
+  cook_from_frozen: "cook_from_frozen",
 } as const;
 
 export interface MultiCookItem {

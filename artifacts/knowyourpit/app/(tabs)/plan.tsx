@@ -52,6 +52,7 @@ import {
   ListCooksStatus,
   type Cook,
   type MultiCookScheduleItem,
+  type MultiCookItemThawMethod,
 } from "@workspace/api-client-react";
 import { NextUpBanner, getStepTargetMs } from "@/components/NextUpBanner";
 import { computeNextStep } from "@/components/cook-detail/utils";
@@ -736,7 +737,7 @@ export default function PlanScreen() {
               preheatMinutes: preheatMinsForGrill(itemGrill),
               cookingMethod: item.cookMethod ?? undefined,
               fromFrozen: item.isFrozen || undefined,
-              thawMethod: item.isFrozen ? item.thawMethod as any : undefined,
+              thawMethod: item.isFrozen ? item.thawMethod as MultiCookItemThawMethod : undefined,
               notes: item.notes || undefined,
             };
           }),
