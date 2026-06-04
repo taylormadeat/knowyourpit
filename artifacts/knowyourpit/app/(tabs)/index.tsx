@@ -21,7 +21,7 @@ import { useTopInset } from "@/hooks/useTopInset";
 import { useLayout } from "@/hooks/useLayout";
 import { LogoBackground } from "@/components/LogoBackground";
 import { useGetDashboardSummary, useGetRecentCooks, getGetRecentCooksQueryKey } from "@workspace/api-client-react";
-import { useHomeInsights } from "@/hooks/useHomeInsights";
+import { useHomeInsights, useHomeTips } from "@/hooks/useHomeInsights";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePaywall } from "@/contexts/PaywallContext";
@@ -310,6 +310,12 @@ export default function HomeScreen() {
   const [scoreExpanded, setScoreExpanded] = useState(false);
   const [pitMasterChatOpen, setPitMasterChatOpen] = useState(false);
 
+  const hasCooksForTips = (insights?.scoreBreakdown?.cookCount ?? 0) >= 2;
+  const { data: tipsData, isFetching: tipsFetching } = useHomeTips(
+    tipsExpanded && effectivePro && hasCooksForTips
+  );
+  const tips = tipsData?.tips ?? [];
+
   const toggleTips = (expand?: boolean) => {
     setTipsExpanded((prev) => (expand !== undefined ? expand : !prev));
   };
@@ -574,19 +580,23 @@ export default function HomeScreen() {
                       </View>
 
                       {/* Tips — render inside the gradient card */}
-                      {tipsExpanded && insights.tips?.length > 0 && (
+                      {tipsExpanded && (
                         <View style={[s.tipsInCard, { borderTopColor: color + "30" }]}>
-                          {insights.tips.map((tip, i) => (
-                            <View
-                              key={i}
-                              style={[s.tipRow, i < insights.tips.length - 1 && { borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)" }]}
-                            >
-                              <View style={[s.tipIconWrap, { backgroundColor: "#E8482015" }]}>
-                                <Feather name="zap" size={13} color="#E84820" />
+                          {tipsFetching && tips.length === 0 ? (
+                            <ActivityIndicator color="#E84820" style={{ paddingVertical: 16 }} />
+                          ) : tips.length > 0 ? (
+                            tips.map((tip, i) => (
+                              <View
+                                key={i}
+                                style={[s.tipRow, i < tips.length - 1 && { borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)" }]}
+                              >
+                                <View style={[s.tipIconWrap, { backgroundColor: "#E8482015" }]}>
+                                  <Feather name="zap" size={13} color="#E84820" />
+                                </View>
+                                <Text style={[s.tipText, { color: "#F3EDE1" }]}>{tip}</Text>
                               </View>
-                              <Text style={[s.tipText, { color: "#F3EDE1" }]}>{tip}</Text>
-                            </View>
-                          ))}
+                            ))
+                          ) : null}
                         </View>
                       )}
                     </LinearGradient>

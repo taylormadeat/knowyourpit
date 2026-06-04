@@ -18,8 +18,6 @@ interface HomeInsights {
     cookCount: number;
   };
   unratedCount: number;
-  tips: string[];
-  tipsGeneratedAt: string;
 }
 
 // Map stored letter grade to a representative numeric score (midpoint of each band)
@@ -27,11 +25,17 @@ const HEALTH_GRADE_SCORE: Record<string, number> = {
   A: 95, B: 82, C: 67, D: 52, F: 22,
 };
 
-const homeInsightsCache = new Map<string, { data: HomeInsights; expiresAt: number }>();
+// Score cache — pure DB math, cheap to recompute, but cache to avoid redundant
+// queries on rapid tab switches. Short TTL since ratings change frequently.
+const scoreCache = new Map<string, { data: HomeInsights; expiresAt: number }>();
+
+// Tips cache — expensive (OpenAI call). 4-hour TTL per user.
+const tipsCache = new Map<string, { tips: string[]; expiresAt: number }>();
 
 export function clearHomeInsightsCache(userId: string): void {
-  homeInsightsCache.delete(`${userId}:pro`);
-  homeInsightsCache.delete(`${userId}:free`);
+  scoreCache.delete(userId);
+  tipsCache.delete(`${userId}:pro`);
+  tipsCache.delete(`${userId}:free`);
 }
 
 function getPitMasterLabel(score: number): string {
@@ -53,14 +57,10 @@ router.get("/ai/smoker-profile", requireAuth, async (req: any, res): Promise<voi
   }
 });
 
+// ── Score endpoint — pure DB math, responds in <50ms ─────────────────────────
 router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void> => {
-  // Score computation is free for everyone — it's pure math from their cook data.
-  // AI tips (OpenAI call) are Pro-only. isProUser gates that section below.
-  const isProUser = await userBypassesPaywall(req);
-
   try {
-    const cacheKey = `${req.userId}:${isProUser ? "pro" : "free"}`;
-    const cached = homeInsightsCache.get(cacheKey);
+    const cached = scoreCache.get(req.userId);
     if (cached && cached.expiresAt > Date.now()) {
       res.json(cached.data);
       return;
@@ -83,9 +83,6 @@ router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void
         : null;
     const avgRatingScore = avgRating != null ? (avgRating / 5) * 100 : null;
 
-    // Cook Health: average stored health grade (letter→numeric) across all cooks that have one.
-    // The stored grade is a blended score (AI verdict 60% + check-in process 25% + plan 15%)
-    // computed and saved whenever a check-in is submitted or analysis is run.
     const healthScores = cooks
       .filter((c) => c.healthScore != null)
       .map((c) => HEALTH_GRADE_SCORE[c.healthScore!])
@@ -100,8 +97,55 @@ router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void
     if (avgRatingScore != null) { weightedSum += avgRatingScore  * 0.70; totalWeight += 0.70; }
     const pitMasterScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
 
+    const result: HomeInsights = {
+      pitMasterScore,
+      scoreLabel: getPitMasterLabel(pitMasterScore),
+      scoreBreakdown: { avgRating, avgHealthScore, cookCount },
+      unratedCount,
+    };
+
+    // 15-minute cache — short TTL since ratings change often
+    scoreCache.set(req.userId, {
+      data: result,
+      expiresAt: Date.now() + 15 * 60 * 1000,
+    });
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to compute home insights" });
+  }
+});
+
+// ── Tips endpoint — AI call, only hit when the user opens the tips panel ──────
+router.get("/ai/home-insights/tips", requireAuth, async (req: any, res): Promise<void> => {
+  const isProUser = await userBypassesPaywall(req);
+
+  // Non-Pro users never get tips; return empty array immediately.
+  if (!isProUser) {
+    res.json({ tips: [] });
+    return;
+  }
+
+  try {
+    const cacheKey = `${req.userId}:pro`;
+    const cached = tipsCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      res.json({ tips: cached.tips });
+      return;
+    }
+
+    const cooks = await db
+      .select()
+      .from(cooksTable)
+      .where(and(eq(cooksTable.userId, req.userId), eq(cooksTable.status, "completed")))
+      .orderBy(desc(cooksTable.createdAt))
+      .limit(50);
+
+    const cookCount = cooks.length;
+
     let tips: string[] = [];
-    if (cookCount >= 2 && isProUser) {
+
+    if (cookCount >= 2) {
       const summaryLines = cooks.slice(0, 12).map((c) => {
         const parts = [c.foodType || "unknown"];
         if (c.rating) parts.push(`rated ${c.rating}/5`);
@@ -136,7 +180,20 @@ Respond ONLY with a JSON array of exactly 3 strings: ["tip1", "tip2", "tip3"]`;
       } catch { /* fall through to defaults */ }
     }
 
+    // Fallback static tips when AI fails or user has <2 cooks
     if (tips.length === 0) {
+      const rated = cooks.filter((c) => c.rating != null);
+      const avgRating = rated.length > 0
+        ? rated.reduce((s, c) => s + c.rating!, 0) / rated.length
+        : null;
+      const healthScores = cooks
+        .filter((c) => c.healthScore != null)
+        .map((c) => HEALTH_GRADE_SCORE[c.healthScore!])
+        .filter((s): s is number => s != null);
+      const avgHealthScore = healthScores.length > 0
+        ? Math.round(healthScores.reduce((s, v) => s + v, 0) / healthScores.length)
+        : null;
+
       if (avgRating != null && avgRating < 3.5) {
         tips.push("Focus on nailing internal temp — it's the single biggest factor in your ratings.");
       }
@@ -147,23 +204,14 @@ Respond ONLY with a JSON array of exactly 3 strings: ["tip1", "tip2", "tip3"]`;
       tips = tips.slice(0, 3);
     }
 
-    const result: HomeInsights = {
-      pitMasterScore,
-      scoreLabel: getPitMasterLabel(pitMasterScore),
-      scoreBreakdown: { avgRating, avgHealthScore, cookCount },
-      unratedCount,
+    tipsCache.set(cacheKey, {
       tips,
-      tipsGeneratedAt: new Date().toISOString(),
-    };
-
-    homeInsightsCache.set(cacheKey, {
-      data: result,
       expiresAt: Date.now() + 4 * 60 * 60 * 1000,
     });
 
-    res.json(result);
+    res.json({ tips });
   } catch (err) {
-    res.status(500).json({ error: "Failed to compute home insights" });
+    res.status(500).json({ error: "Failed to generate tips" });
   }
 });
 
