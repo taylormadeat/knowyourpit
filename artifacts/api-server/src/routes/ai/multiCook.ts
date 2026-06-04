@@ -127,16 +127,30 @@ ${itemLines}
 ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      max_completion_tokens: 2048,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    });
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), 50_000);
+    let response: Awaited<ReturnType<typeof openai.chat.completions.create>> | null = null;
+    try {
+      response = await openai.chat.completions.create(
+        {
+          model: "gpt-4.1-mini",
+          max_completion_tokens: 2048,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+        },
+        { signal: abortController.signal },
+      );
+    } catch (aiErr: any) {
+      req.log.warn({ err: aiErr }, "multi-cook AI timeout or error");
+      res.status(504).json({ error: "AI sequencer timed out. Please try again." });
+      return;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
-    const content = response.choices[0]?.message?.content ?? "{}";
+    const content = response?.choices[0]?.message?.content ?? "{}";
     const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
 
     let result: { schedule: any[]; serveAt: string; summary: string };
