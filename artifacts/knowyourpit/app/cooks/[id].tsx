@@ -1327,6 +1327,17 @@ export default function CookDetailScreen() {
       ? (bleContextDevices.find((d) => `bleCtx_${d.id}` === selectedPitProbeId) ?? null)
       : null;
 
+  // True when any live connected probe is actively providing temperature data.
+  // Used to gate the 30-min auto-analyze timer so it only fires during
+  // probe-connected sessions; manual check-in users are not charged AI quota
+  // automatically between check-ins.
+  const hasActiveProbe =
+    selectedMeaterProbe?.internalTempF != null ||
+    (selectedThermoworksProbe != null && (selectedThermoworksProbe as any).tempF != null) ||
+    selectedInkbirdProbe?.tempF != null ||
+    selectedBleContextDevice?.probeTempF != null ||
+    selectedLanProbe?.probeTempF != null;
+
   // Auto-assign: when exactly one probe is available AND this is the only
   // active cook (so we're sure the probe belongs to this cook), auto-select it.
   const [autoAssignBanner, setAutoAssignBanner] = useState<string | null>(null);
@@ -2761,9 +2772,10 @@ export default function CookDetailScreen() {
     lastCheckinInternalTempF: number | null;
     selectedMeaterProbe: any | null;
     analyzing: boolean;
-  }>({ analyze, scanNotes, lastCheckinInternalTempF: lastCheckin?.internalTempF ?? null, selectedMeaterProbe, analyzing });
+    hasActiveProbe: boolean;
+  }>({ analyze, scanNotes, lastCheckinInternalTempF: lastCheckin?.internalTempF ?? null, selectedMeaterProbe, analyzing, hasActiveProbe });
   useEffect(() => {
-    autoTickRef.current = { analyze, scanNotes, lastCheckinInternalTempF: lastCheckin?.internalTempF ?? null, selectedMeaterProbe, analyzing };
+    autoTickRef.current = { analyze, scanNotes, lastCheckinInternalTempF: lastCheckin?.internalTempF ?? null, selectedMeaterProbe, analyzing, hasActiveProbe };
   });
 
   useEffect(() => {
@@ -2791,6 +2803,13 @@ export default function CookDetailScreen() {
       const hasMeaterTemp = cur.selectedMeaterProbe?.internalTempF != null;
       const hasNotes = cur.scanNotes.trim().length > 0;
       if (!hasCheckinTemp && !hasMeaterTemp && !hasNotes) {
+        timer = setTimeout(tick, AUTO_GRADE_INTERVAL_MS);
+        return;
+      }
+      // In manual mode (no live probe), skip the auto-analyze tick. Analysis
+      // will fire when the user submits a check-in — that is the appropriate
+      // trigger when there is no continuous probe data stream.
+      if (!cur.hasActiveProbe) {
         timer = setTimeout(tick, AUTO_GRADE_INTERVAL_MS);
         return;
       }
@@ -3749,6 +3768,7 @@ export default function CookDetailScreen() {
           knownProbeIds={knownProbeIds}
           lastKnownInkbirdDeviceId={lastKnownInkbirdDeviceId}
           onRestartScan={handleRestartScan}
+          hasActiveProbe={hasActiveProbe}
           factorBreakdown={cookSeqData?.factorBreakdown ?? null}
           qualFactors={(() => {
             const items: QualFactor[] = [];

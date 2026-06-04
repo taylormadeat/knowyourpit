@@ -99,6 +99,13 @@ interface Props {
   onRestartScan?: () => void;
   factorBreakdown?: FactorBreakdownItem[] | null;
   qualFactors?: QualFactor[];
+  /**
+   * True when at least one live connected probe is providing temperature data
+   * (MEATER, ThermoWorks, Inkbird, BLE context, or LAN probe). When false the
+   * auto-analyze timer is suppressed and a hint is shown prompting the user to
+   * check in manually to get a fresh analysis.
+   */
+  hasActiveProbe?: boolean;
 }
 
 function fmtLastChecked(lastAnalyzedAtMs: number, nowMs: number): string {
@@ -141,6 +148,7 @@ export function LiveCookSection(p: Props) {
     onRestartScan,
     factorBreakdown,
     qualFactors,
+    hasActiveProbe = false,
   } = p;
 
   const [cookFactorsSheetOpen, setCookFactorsSheetOpen] = React.useState(false);
@@ -1713,6 +1721,15 @@ export function LiveCookSection(p: Props) {
               </View>
             );
           })()}
+          {/* Manual-mode hint: no probe connected → analysis only fires on check-in */}
+          {!hasActiveProbe && !pitMasterAnalyzing && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 6, paddingHorizontal: 2 }}>
+              <Feather name="edit-3" size={11} color={colors.mutedForeground} />
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>
+                Check in to get your next analysis
+              </Text>
+            </View>
+          )}
           <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
             <Pressable
               onPress={onCheckIn}
