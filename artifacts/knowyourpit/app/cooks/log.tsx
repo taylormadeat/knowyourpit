@@ -475,6 +475,7 @@ export default function LogCookScreen() {
       allowsMultipleSelection: true,
       quality: 0.7,
       base64: true,
+      exif: true,
       preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
     });
     if (!res.canceled) {
@@ -484,6 +485,29 @@ export default function LogCookScreen() {
         .slice(0, 5);
       setImages((prev) => [...prev, ...picked].slice(0, 5));
       setResult(null);
+
+      // Auto-fill cook date from EXIF if not already set
+      if (!actualStartDate) {
+        for (const asset of res.assets) {
+          const exifDate: string | undefined =
+            (asset.exif as any)?.DateTimeOriginal ?? (asset.exif as any)?.DateTime;
+          if (exifDate) {
+            // EXIF format: "YYYY:MM:DD HH:MM:SS"
+            const match = exifDate.match(/^(\d{4}):(\d{2}):(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/);
+            if (match) {
+              const [, year, month, day, hour, minute, second] = match;
+              const parsed = new Date(
+                Number(year), Number(month) - 1, Number(day),
+                Number(hour), Number(minute), Number(second)
+              );
+              if (!isNaN(parsed.getTime())) {
+                setActualStartDate(parsed);
+                break;
+              }
+            }
+          }
+        }
+      }
     }
   };
 
