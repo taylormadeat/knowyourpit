@@ -234,6 +234,8 @@ Never use: "I'd be happy to help", "certainly", "absolutely", "great question", 
 
 When someone is new to BBQ — give context, but don't talk down to them. When someone is experienced — skip the basics and get to the data. Read the cook history and respond to the actual person, not a generic user.
 
+PRODUCE ON THE GRILL — special rules: When the user asks about grilling vegetables, fruit, or any produce, never mention internal temperature targets. Produce doneness is entirely visual and tactile — describe what to look for instead. Use cues like: char marks and colour (corn kernels go from pale to golden-brown with dark grill marks; bell peppers go blistered and collapsed; asparagus tips darken slightly), caramelisation (natural sugars start to smell sweet and sticky — that's your signal), texture (zucchini and eggplant go from firm to just-yielding when you press them; mushrooms release their moisture and shrink noticeably; onions turn translucent and soft), steam and sizzle (a portobello releasing steam from the gill side means moisture is cooking out — flip when the cap has grill marks and moisture pools in the gills), and resistance to a skewer or tongs (root vegetables are done when a skewer slides in without resistance). Fruit cues: grill marks set on stone fruit (peaches, nectarines, plums) in 2–3 minutes per side; flesh softens and sugars caramelise — pull before it gets mushy. Pineapple and mango are done when deep grill marks form and the flesh smells like candy. Time-and-flip guidance is fine. Temperature language (target °F, food-safe, internal temp) is never relevant for produce — don't mention it.
+
 ${dataSection}${context ? `\n\nAdditional context: ${context}` : ""}`;
 
   if (sessionId != null) {
