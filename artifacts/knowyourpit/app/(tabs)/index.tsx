@@ -496,11 +496,11 @@ export default function HomeScreen() {
               return (
                 <>
                   <Pressable
-                    onPress={effectivePro ? () => {
+                    onPress={effectivePro && hasCooksForTips ? () => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       toggleTips();
                     } : undefined}
-                    style={({ pressed }) => [{ opacity: pressed && effectivePro ? 0.88 : 1 }]}
+                    style={({ pressed }) => [{ opacity: pressed && effectivePro && hasCooksForTips ? 0.88 : 1 }]}
                   >
                     {/* LinearGradient IS the card — it's a View with a gradient background.
                         flexDirection:"column" (from gradeCard) stacks the score row then tips. */}
@@ -560,22 +560,27 @@ export default function HomeScreen() {
                             )}
                           </View>
 
-                          {/* Tap hint — Pro + ≥2 cooks: expand tips; Free: upgrade nudge */}
-                          {effectivePro && hasCooksForTips ? (
-                            <View style={s.gradeHint}>
-                              <Feather name={tipsExpanded ? "chevron-up" : "chevron-down"} size={10} color={color + "99"} />
-                              <Text style={[s.gradeHintText, { color: color + "99" }]}>Tips from PitMaster</Text>
-                            </View>
-                          ) : (
-                            <Pressable
-                              onPress={() => showPaywall({ trigger: "pro_required", featureName: "PitMaster Score" })}
-                              style={s.gradeHint}
-                            >
-                              <Feather name="lock" size={10} color="#F59E0B99" />
-                              <Text style={[s.gradeHintText, { color: "#F59E0B99" }]}>Unlock AI tips — Pro</Text>
-                              <Feather name="chevron-right" size={10} color="#F59E0B99" />
-                            </Pressable>
-                          )}
+                          {/* Tap hint:
+                              - Pro + ≥2 cooks → expand/collapse tips
+                              - Free + ≥2 cooks → Pro upsell nudge
+                              - < 2 cooks (any plan) → nothing */}
+                          {hasCooksForTips ? (
+                            effectivePro ? (
+                              <View style={s.gradeHint}>
+                                <Feather name={tipsExpanded ? "chevron-up" : "chevron-down"} size={10} color={color + "99"} />
+                                <Text style={[s.gradeHintText, { color: color + "99" }]}>Tips from PitMaster</Text>
+                              </View>
+                            ) : (
+                              <Pressable
+                                onPress={() => showPaywall({ trigger: "pro_required", featureName: "PitMaster Score" })}
+                                style={s.gradeHint}
+                              >
+                                <Feather name="lock" size={10} color="#F59E0B99" />
+                                <Text style={[s.gradeHintText, { color: "#F59E0B99" }]}>Unlock AI tips — Pro</Text>
+                                <Feather name="chevron-right" size={10} color="#F59E0B99" />
+                              </Pressable>
+                            )
+                          ) : null}
                         </View>
                       </View>
 
