@@ -1327,16 +1327,21 @@ export default function CookDetailScreen() {
       ? (bleContextDevices.find((d) => `bleCtx_${d.id}` === selectedPitProbeId) ?? null)
       : null;
 
-  // True when any live connected probe is actively providing temperature data.
-  // Used to gate the 30-min auto-analyze timer so it only fires during
-  // probe-connected sessions; manual check-in users are not charged AI quota
-  // automatically between check-ins.
+  // True when any live connected probe (meat or pit role) is actively providing
+  // temperature data. Used to gate the 30-min auto-analyze timer so it only
+  // fires during probe-connected sessions; manual check-in users are not
+  // charged AI quota automatically between check-ins.
   const hasActiveProbe =
     selectedMeaterProbe?.internalTempF != null ||
+    selectedMeaterPitProbe?.internalTempF != null ||
     (selectedThermoworksProbe != null && (selectedThermoworksProbe as any).tempF != null) ||
+    (selectedThermoworksPitProbe != null && (selectedThermoworksPitProbe as any).tempF != null) ||
     selectedInkbirdProbe?.tempF != null ||
+    selectedInkbirdPitProbe?.tempF != null ||
     selectedBleContextDevice?.probeTempF != null ||
-    selectedLanProbe?.probeTempF != null;
+    selectedBleContextPitDevice?.probeTempF != null ||
+    selectedLanProbe?.probeTempF != null ||
+    selectedLanPitProbe?.probeTempF != null;
 
   // Auto-assign: when exactly one probe is available AND this is the only
   // active cook (so we're sure the probe belongs to this cook), auto-select it.
