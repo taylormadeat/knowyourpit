@@ -2144,6 +2144,12 @@ export const AiPredictResponse = zod.object({
     .describe(
       "Ordered list of time-contribution factors explaining what drives the cook time estimate. Present when enough context exists to build a meaningful breakdown; absent for minimal-input requests. The first item is always the base cook time; subsequent items are identified add-ons (stall, grill load, cold weather, learned pace, thaw+temper).",
     ),
+  timedOut: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the AI prediction call timed out and a fallback estimate was used instead of a live AI response.",
+    ),
 });
 
 /**

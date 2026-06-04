@@ -77,6 +77,34 @@ export function AiResultsModal(p: Props) {
           <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 40 }}>
             {aiResult && (
               <>
+                {/* ── Timeout notice ── */}
+                {aiResult.timedOut && (
+                  <View style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                    marginTop: 14,
+                    marginBottom: 2,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    backgroundColor: "#F59E0B18",
+                    borderWidth: 1,
+                    borderColor: "#F59E0B40",
+                    borderRadius: 10,
+                  }}>
+                    <Feather name="clock" size={14} color="#F59E0B" />
+                    <Text style={{
+                      flex: 1,
+                      fontFamily: "Inter_400Regular",
+                      fontSize: 12,
+                      color: "#D97706",
+                      lineHeight: 17,
+                    }}>
+                      {"Taking longer than usual — here's a rough estimate. Tap \"Apply\" or try again for a personalized plan."}
+                    </Text>
+                  </View>
+                )}
+
                 {/* ── Technique selections echo ── */}
                 {activeChips.length > 0 && (
                   <View style={{

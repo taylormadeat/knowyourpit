@@ -472,6 +472,7 @@ ${userHistorySection}${fingerprintGuidance}`;
   const cached = predictionAiCache.get(cacheKey);
 
   let prediction: PredictionAiOutput;
+  let timedOut = false;
 
   if (cached && Date.now() - cached.cachedAt < PREDICTION_CACHE_TTL_MS) {
     prediction = cached.output as typeof prediction;
@@ -493,6 +494,7 @@ ${userHistorySection}${fingerprintGuidance}`;
       );
     } catch (aiErr: any) {
       req.log.warn({ err: aiErr }, "AI predict timeout or error — using fallback prediction");
+      timedOut = true;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -801,6 +803,7 @@ ${userHistorySection}${fingerprintGuidance}`;
         : null)
       : null,
     ...(factorBreakdown.length > 0 ? { factorBreakdown } : {}),
+    timedOut,
   });
 });
 
