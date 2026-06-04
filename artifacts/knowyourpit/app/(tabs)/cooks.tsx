@@ -1032,7 +1032,28 @@ export default function CooksScreen() {
           {(() => {
             if (item.status !== "completed") return null;
             const avg = avgRating(item);
-            if (avg === 0) return null;
+            if (avg === 0) {
+              return (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 3,
+                    paddingHorizontal: 6,
+                    paddingVertical: 3,
+                    borderRadius: 8,
+                    backgroundColor: "#eab30815",
+                    borderWidth: 1,
+                    borderColor: "#eab30840",
+                  }}
+                >
+                  <Text style={{ fontSize: 9, color: "#eab308" }}>☆</Text>
+                  <Text style={{ color: "#eab308", fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 0.2 }}>
+                    RATE
+                  </Text>
+                </View>
+              );
+            }
             return (
               <View style={s.avgBadge}>
                 <Text style={s.avgBadgeText}>★ {avg.toFixed(1)}</Text>
