@@ -560,8 +560,8 @@ export default function HomeScreen() {
                             )}
                           </View>
 
-                          {/* Tap hint — Pro: expand tips; Free: upgrade nudge */}
-                          {effectivePro ? (
+                          {/* Tap hint — Pro + ≥2 cooks: expand tips; Free: upgrade nudge */}
+                          {effectivePro && hasCooksForTips ? (
                             <View style={s.gradeHint}>
                               <Feather name={tipsExpanded ? "chevron-up" : "chevron-down"} size={10} color={color + "99"} />
                               <Text style={[s.gradeHintText, { color: color + "99" }]}>Tips from PitMaster</Text>
@@ -579,8 +579,8 @@ export default function HomeScreen() {
                         </View>
                       </View>
 
-                      {/* Tips — render inside the gradient card */}
-                      {tipsExpanded && (
+                      {/* Tips — render inside the gradient card; only when ≥2 cooks */}
+                      {tipsExpanded && hasCooksForTips && (
                         <View style={[s.tipsInCard, { borderTopColor: color + "30" }]}>
                           {tipsFetching && tips.length === 0 ? (
                             <ActivityIndicator color="#E84820" style={{ paddingVertical: 16 }} />

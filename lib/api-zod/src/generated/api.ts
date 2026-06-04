@@ -1852,6 +1852,27 @@ export const ListTemperatureReadingsResponse = zod.array(
 );
 
 /**
+ * @summary Get the user's PitMaster Score and cook breakdown (no AI call — instant)
+ */
+export const GetHomeInsightsResponse = zod.object({
+  pitMasterScore: zod.number(),
+  scoreLabel: zod.string(),
+  scoreBreakdown: zod.object({
+    avgRating: zod.number().nullable(),
+    avgHealthScore: zod.number().nullable(),
+    cookCount: zod.number(),
+  }),
+  unratedCount: zod.number(),
+});
+
+/**
+ * @summary Get AI-generated coaching tips (Pro only — triggers OpenAI call on cache miss)
+ */
+export const GetHomeInsightsTipsResponse = zod.object({
+  tips: zod.array(zod.string()),
+});
+
+/**
  * @summary Send a message to the AI assistant
  */
 export const AiChatBody = zod.object({

@@ -44,6 +44,8 @@ import type {
   GrillStats,
   GrillTemperatureHistory,
   HealthStatus,
+  HomeInsights,
+  HomeInsightsTips,
   ListCooksParams,
   ListTemperatureReadingsParams,
   ListUserTechniquePresetsParams,
@@ -3358,6 +3360,156 @@ export function useListTemperatureReadings<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListTemperatureReadingsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get the user's PitMaster Score and cook breakdown (no AI call — instant)
+ */
+export const getGetHomeInsightsUrl = () => {
+  return `/api/ai/home-insights`;
+};
+
+export const getHomeInsights = async (
+  options?: RequestInit,
+): Promise<HomeInsights> => {
+  return customFetch<HomeInsights>(getGetHomeInsightsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetHomeInsightsQueryKey = () => {
+  return [`/api/ai/home-insights`] as const;
+};
+
+export const getGetHomeInsightsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHomeInsights>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getHomeInsights>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetHomeInsightsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getHomeInsights>>> = ({
+    signal,
+  }) => getHomeInsights({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHomeInsights>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHomeInsightsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHomeInsights>>
+>;
+export type GetHomeInsightsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the user's PitMaster Score and cook breakdown (no AI call — instant)
+ */
+
+export function useGetHomeInsights<
+  TData = Awaited<ReturnType<typeof getHomeInsights>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getHomeInsights>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHomeInsightsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get AI-generated coaching tips (Pro only — triggers OpenAI call on cache miss)
+ */
+export const getGetHomeInsightsTipsUrl = () => {
+  return `/api/ai/home-insights/tips`;
+};
+
+export const getHomeInsightsTips = async (
+  options?: RequestInit,
+): Promise<HomeInsightsTips> => {
+  return customFetch<HomeInsightsTips>(getGetHomeInsightsTipsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetHomeInsightsTipsQueryKey = () => {
+  return [`/api/ai/home-insights/tips`] as const;
+};
+
+export const getGetHomeInsightsTipsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHomeInsightsTips>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getHomeInsightsTips>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetHomeInsightsTipsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getHomeInsightsTips>>
+  > = ({ signal }) => getHomeInsightsTips({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHomeInsightsTips>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHomeInsightsTipsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHomeInsightsTips>>
+>;
+export type GetHomeInsightsTipsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get AI-generated coaching tips (Pro only — triggers OpenAI call on cache miss)
+ */
+
+export function useGetHomeInsightsTips<
+  TData = Awaited<ReturnType<typeof getHomeInsightsTips>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getHomeInsightsTips>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHomeInsightsTipsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

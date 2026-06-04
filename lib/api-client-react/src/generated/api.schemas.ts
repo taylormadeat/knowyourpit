@@ -91,6 +91,25 @@ export interface CreateUserTechniquePresetBody {
   targetTempF?: number | null;
 }
 
+export type HomeInsightsScoreBreakdown = {
+  /** @nullable */
+  avgRating: number | null;
+  /** @nullable */
+  avgHealthScore: number | null;
+  cookCount: number;
+};
+
+export interface HomeInsights {
+  pitMasterScore: number;
+  scoreLabel: string;
+  scoreBreakdown: HomeInsightsScoreBreakdown;
+  unratedCount: number;
+}
+
+export interface HomeInsightsTips {
+  tips: string[];
+}
+
 export interface HealthStatus {
   status: string;
 }

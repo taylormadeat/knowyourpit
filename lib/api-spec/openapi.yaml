@@ -790,6 +790,32 @@ paths:
                 items:
                   $ref: "#/components/schemas/TemperatureReading"
 
+  /ai/home-insights:
+    get:
+      operationId: getHomeInsights
+      tags: [ai]
+      summary: Get the user's PitMaster Score and cook breakdown (no AI call — instant)
+      responses:
+        "200":
+          description: PitMaster Score and breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomeInsights"
+
+  /ai/home-insights/tips:
+    get:
+      operationId: getHomeInsightsTips
+      tags: [ai]
+      summary: Get AI-generated coaching tips (Pro only — triggers OpenAI call on cache miss)
+      responses:
+        "200":
+          description: AI coaching tips
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomeInsightsTips"
+
   /ai/chat:
     post:
       operationId: aiChat
@@ -1129,6 +1155,44 @@ components:
       required:
         - cutName
         - label
+
+    HomeInsights:
+      type: object
+      properties:
+        pitMasterScore:
+          type: integer
+        scoreLabel:
+          type: string
+        scoreBreakdown:
+          type: object
+          properties:
+            avgRating:
+              type: ["number", "null"]
+            avgHealthScore:
+              type: ["integer", "null"]
+            cookCount:
+              type: integer
+          required:
+            - avgRating
+            - avgHealthScore
+            - cookCount
+        unratedCount:
+          type: integer
+      required:
+        - pitMasterScore
+        - scoreLabel
+        - scoreBreakdown
+        - unratedCount
+
+    HomeInsightsTips:
+      type: object
+      properties:
+        tips:
+          type: array
+          items:
+            type: string
+      required:
+        - tips
 
     HealthStatus:
       type: object
