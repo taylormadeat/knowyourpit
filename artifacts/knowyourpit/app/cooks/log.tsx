@@ -42,7 +42,7 @@ import {
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
 } from "@workspace/api-client-react";
-import { MEAT_CATEGORIES, MEAT_CUTS, MEAT_CUTS_BY_CATEGORY, type MeatCut } from "@/constants/meatCuts";
+import { MEAT_CATEGORIES, MEAT_CUTS, MEAT_CUTS_BY_CATEGORY, isProduce, type MeatCut } from "@/constants/meatCuts";
 import {
   QP_COOK_METHODS,
   QP_MEAT_START_TEMPS,
@@ -633,7 +633,11 @@ export default function LogCookScreen() {
         setFoodType(resolvedFoodType);
         // Auto-set temps from matched cut if still empty
         if (cutMatch) {
-          if (!targetTempF.trim()) setTargetTempF(String(cutMatch.targetTempF));
+          if (cutMatch.targetTempF === 0) {
+            setTargetTempF("");
+          } else if (!targetTempF.trim()) {
+            setTargetTempF(String(cutMatch.targetTempF));
+          }
           if (!cookTempF.trim()) setCookTempF(String(cutMatch.cookTempF));
         }
       }
@@ -1197,7 +1201,7 @@ export default function LogCookScreen() {
                   </View>
                 ) : (
                   <Text style={{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
-                    Select a meat cut…
+                    Select a food…
                   </Text>
                 )}
                 <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
@@ -1268,25 +1272,34 @@ export default function LogCookScreen() {
                   keyboardType="decimal-pad"
                 />
               </View>
-              <View style={[s.fieldWrap, { flex: 1 }]}>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                  <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>Internal Target (°F)</Text>
-                  {aiScanned && !targetTempF.trim() && (
-                    <View style={s.needsFillBadge}>
-                      <Feather name="alert-circle" size={11} color="#F59E0B" />
-                      <Text style={s.needsFillText}>Fill</Text>
-                    </View>
-                  )}
+              {isProduce(logCut?.category ?? "") ? (
+                <View style={[s.fieldWrap, { flex: 1 }]}>
+                  <Text style={[s.fieldLabel, { color: colors.mutedForeground }]}>Internal Target</Text>
+                  <View style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius, justifyContent: "center" }]}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14 }}>Time-based</Text>
+                  </View>
                 </View>
-                <TextInput
-                  style={[s.input, { backgroundColor: colors.background, borderColor: aiScanned && !targetTempF.trim() ? "#F59E0B" : colors.border, color: colors.foreground, borderRadius: colors.radius }]}
-                  placeholder="203"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={targetTempF}
-                  onChangeText={setTargetTempF}
-                  keyboardType="decimal-pad"
-                />
-              </View>
+              ) : (
+                <View style={[s.fieldWrap, { flex: 1 }]}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                    <Text style={[s.fieldLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>Internal Target (°F)</Text>
+                    {aiScanned && !targetTempF.trim() && (
+                      <View style={s.needsFillBadge}>
+                        <Feather name="alert-circle" size={11} color="#F59E0B" />
+                        <Text style={s.needsFillText}>Fill</Text>
+                      </View>
+                    )}
+                  </View>
+                  <TextInput
+                    style={[s.input, { backgroundColor: colors.background, borderColor: aiScanned && !targetTempF.trim() ? "#F59E0B" : colors.border, color: colors.foreground, borderRadius: colors.radius }]}
+                    placeholder="203"
+                    placeholderTextColor={colors.mutedForeground}
+                    value={targetTempF}
+                    onChangeText={setTargetTempF}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              )}
             </View>
 
             {/* ── Technique quick-picks ── */}
@@ -1599,7 +1612,11 @@ export default function LogCookScreen() {
                   style={[gp.row, isSelected && { backgroundColor: "#E84820" + "12" }]}
                   onPress={() => {
                     setFoodType(item.name);
-                    if (!targetTempF.trim()) setTargetTempF(String(item.targetTempF));
+                    if (item.targetTempF === 0) {
+                      setTargetTempF("");
+                    } else if (!targetTempF.trim()) {
+                      setTargetTempF(String(item.targetTempF));
+                    }
                     if (!cookTempF.trim()) setCookTempF(String(item.cookTempF));
                     setMeatPickerVisible(false);
                     loadLastCookMethod(item.name).then(method => {
@@ -1622,7 +1639,7 @@ export default function LogCookScreen() {
                       )}
                     </View>
                     <Text style={[gp.rowSub, { color: colors.mutedForeground }]}>
-                      {item.cookMethod ? `${item.cookMethod} · ` : ""}Target {item.targetTempF}°F
+                      {item.cookMethod ? `${item.cookMethod} · ` : ""}{item.targetTempF === 0 ? "Time-based" : `Target ${item.targetTempF}°F`}
                     </Text>
                   </View>
                   {item.isCustom && (

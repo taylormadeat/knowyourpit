@@ -3526,7 +3526,7 @@ export default function CookDetailScreen() {
           }
           return (
             <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
-              {c.targetTempF != null && (
+              {c.targetTempF != null && c.targetTempF > 0 && (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: "#22c55e12", borderWidth: 1, borderColor: "#22c55e30" }}>
                   <Feather name="thermometer" size={11} color="#22c55e" />
                   <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#22c55e" }}>{c.targetTempF}°F</Text>
@@ -4627,6 +4627,7 @@ export default function CookDetailScreen() {
               : null
           }
           targetCookTempF={cook?.cookTempF ?? null}
+          targetFoodTempF={cook?.targetTempF ?? null}
           weatherTempF={weather?.tempF ?? null}
           weatherWindSpeedMph={weather?.windSpeedMph ?? null}
           cookSpritzFrequency={(cook as any)?.spritzFrequency ?? null}

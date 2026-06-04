@@ -154,6 +154,8 @@ export function LiveCookSection(p: Props) {
     planTimedOut,
   } = p;
 
+  const isProduceCook = targetTempF === 0;
+
   const [cookFactorsSheetOpen, setCookFactorsSheetOpen] = React.useState(false);
 
   // Local state for inline label editing
@@ -753,12 +755,14 @@ export function LiveCookSection(p: Props) {
                       {otherCook && (
                         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>⚠ {otherCook}</Text>
                       )}
+                      {!isProduceCook && (
                       <Pressable onPress={() => onSelectMeatProbe?.(isMeat ? null : probeKey)}
                         style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isMeat ? "#FF6B2B60" : "transparent" }}>
                         <Feather name="thermometer" size={11} color={isMeat ? "#FF6B2B" : colors.mutedForeground} />
                         <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>Meat</Text>
                         {isMeat && <Feather name="check" size={10} color="#FF6B2B" />}
                       </Pressable>
+                      )}
                       <Pressable onPress={() => onSelectPitProbe?.(isPit ? null : probeKey)}
                         style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: isPit ? "#3b82f620" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isPit ? "#3b82f660" : "transparent" }}>
                         <Feather name="wind" size={11} color={isPit ? "#3b82f6" : colors.mutedForeground} />
@@ -771,6 +775,7 @@ export function LiveCookSection(p: Props) {
               )}
             </View>
             <View style={s.meaterTempsRow}>
+              {!isProduceCook && (
               <View style={s.meaterTempChip}>
                 <Feather name="thermometer" size={14} color="#FF6B2B" />
                 <View>
@@ -778,6 +783,7 @@ export function LiveCookSection(p: Props) {
                   <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Internal</Text>
                 </View>
               </View>
+              )}
               <View style={s.meaterTempChip}>
                 <Feather name="wind" size={14} color="#3b82f6" />
                 <View>
@@ -1108,12 +1114,14 @@ export function LiveCookSection(p: Props) {
                   ) : (
                     <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
                       {otherCook && <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>⚠ {otherCook}</Text>}
+                      {!isProduceCook && (
                       <Pressable onPress={() => onSelectMeatProbe?.(isMeat ? null : probeKey)}
                         style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isMeat ? "#FF6B2B60" : "transparent" }}>
                         <Feather name="thermometer" size={11} color={isMeat ? "#FF6B2B" : colors.mutedForeground} />
                         <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>Meat</Text>
                         {isMeat && <Feather name="check" size={10} color="#FF6B2B" />}
                       </Pressable>
+                      )}
                       <Pressable onPress={() => onSelectPitProbe?.(isPit ? null : probeKey)}
                         style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: isPit ? "#3b82f620" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isPit ? "#3b82f660" : "transparent" }}>
                         <Feather name="wind" size={11} color={isPit ? "#3b82f6" : colors.mutedForeground} />
@@ -1332,12 +1340,14 @@ export function LiveCookSection(p: Props) {
                       {otherCook && (
                         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>⚠ {otherCook}</Text>
                       )}
+                      {!isProduceCook && (
                       <Pressable onPress={() => onSelectMeatProbe?.(isMeat ? null : probeKey)}
                         style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isMeat ? "#FF6B2B60" : "transparent" }}>
                         <Feather name="thermometer" size={11} color={isMeat ? "#FF6B2B" : colors.mutedForeground} />
                         <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>Meat</Text>
                         {isMeat && <Feather name="check" size={10} color="#FF6B2B" />}
                       </Pressable>
+                      )}
                       <Pressable onPress={() => onSelectPitProbe?.(isPit ? null : probeKey)}
                         style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: isPit ? "#3b82f620" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isPit ? "#3b82f660" : "transparent" }}>
                         <Feather name="wind" size={11} color={isPit ? "#3b82f6" : colors.mutedForeground} />
@@ -1381,7 +1391,9 @@ export function LiveCookSection(p: Props) {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 14, marginBottom: 12, padding: 10, borderRadius: 8, backgroundColor: "#FF6B2B08", borderWidth: 1, borderColor: "#FF6B2B25" }}>
           <Feather name="info" size={13} color="#FF6B2B" />
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, flex: 1 }}>
-            Assign a probe role above — tap Meat for internal temp, Pit for grill temp.
+            {isProduceCook
+              ? "Tap Pit above to track grill temp for this cook."
+              : "Assign a probe role above — tap Meat for internal temp, Pit for grill temp."}
           </Text>
         </View>
       )}
@@ -1435,12 +1447,14 @@ export function LiveCookSection(p: Props) {
                       {otherCook && (
                         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>⚠ {otherCook}</Text>
                       )}
+                      {!isProduceCook && (
                       <Pressable onPress={() => onSelectMeatProbe?.(isMeat ? null : probeKey)}
                         style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isMeat ? "#FF6B2B60" : "transparent" }}>
                         <Feather name="thermometer" size={11} color={isMeat ? "#FF6B2B" : colors.mutedForeground} />
                         <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>Meat</Text>
                         {isMeat && <Feather name="check" size={10} color="#FF6B2B" />}
                       </Pressable>
+                      )}
                       <Pressable onPress={() => onSelectPitProbe?.(isPit ? null : probeKey)}
                         style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: isPit ? "#3b82f620" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isPit ? "#3b82f660" : "transparent" }}>
                         <Feather name="wind" size={11} color={isPit ? "#3b82f6" : colors.mutedForeground} />
@@ -1502,9 +1516,9 @@ export function LiveCookSection(p: Props) {
         </Pressable>
       )}
 
-      {(targetTempF != null || cookTempF != null) && (
+      {((targetTempF != null && targetTempF > 0) || cookTempF != null) && (
         <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingBottom: 12 }}>
-          {targetTempF != null && (
+          {targetTempF != null && targetTempF > 0 && (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#22c55e12", borderWidth: 1, borderColor: "#22c55e30" }}>
               <Feather name="thermometer" size={12} color="#22c55e" />
               <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: "#22c55e" }}>{targetTempF}°F</Text>

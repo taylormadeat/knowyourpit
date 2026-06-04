@@ -122,6 +122,111 @@ export const MEAT_KB: Array<{ keywords: string[]; baseline: MeatBaseline }> = [
     keywords: ["tilapia"],
     baseline: { minsPerLb: 8, cookTempF: 375, targetTempF: 145, restMins: 2, wrapRec: "none", wrapNote: "No wrap. Tilapia is thin and delicate — use a well-oiled grill basket or foil packet to prevent it from flaking apart. Cook over direct medium-high heat. Pull as soon as it flakes easily and turns opaque; it cooks fast." },
   },
+
+  // ── VEGETABLES ────────────────────────────────────────────────────
+  // targetTempF: 0 = time-based / visual doneness
+  {
+    keywords: ["corn on the cob", "corn"],
+    baseline: { minsPerLb: 20, cookTempF: 400, targetTempF: 0, restMins: 2, wrapRec: "none", wrapNote: "No wrap. Husks on: rotate every 5 min for 15 min. Husked & oiled: 10 min on high, turning often. Done when kernels are bright yellow and grill marks appear — no internal temp." },
+  },
+  {
+    keywords: ["bell pepper", "sweet pepper"],
+    baseline: { minsPerLb: 16, cookTempF: 400, targetTempF: 0, restMins: 0, wrapRec: "none", wrapNote: "No wrap. Halved and oiled directly on grates. Done when skin blisters black and flesh is fully tender — about 8 min per side over high heat." },
+  },
+  {
+    keywords: ["portobello", "mushroom"],
+    baseline: { minsPerLb: 18, cookTempF: 375, targetTempF: 0, restMins: 2, wrapRec: "none", wrapNote: "No wrap. Gill-side up with olive oil and garlic. Done when cap is deeply caramelized and liquid has evaporated — about 6–8 min per side." },
+  },
+  {
+    keywords: ["asparagus"],
+    baseline: { minsPerLb: 12, cookTempF: 450, targetTempF: 0, restMins: 0, wrapRec: "none", wrapNote: "No wrap. Oil well and season. Done when spears are bright green with charred tips and tender when pierced — 4–6 min over screaming hot grates." },
+  },
+  {
+    keywords: ["sweet potato"],
+    baseline: { minsPerLb: 60, cookTempF: 375, targetTempF: 0, restMins: 5, wrapRec: "none", wrapNote: "No wrap (or foil-wrap for soft-skin finish). Done when a skewer slides through with no resistance — 45–60 min indirect at 375°F." },
+  },
+  {
+    keywords: ["zucchini", "squash"],
+    baseline: { minsPerLb: 14, cookTempF: 400, targetTempF: 0, restMins: 0, wrapRec: "none", wrapNote: "No wrap. Halved lengthwise, oiled. Done when cut face has golden grill marks and flesh is just tender — about 4–5 min per side." },
+  },
+  {
+    keywords: ["onion"],
+    baseline: { minsPerLb: 30, cookTempF: 375, targetTempF: 0, restMins: 2, wrapRec: "none", wrapNote: "No wrap. Halved through the root, oiled. Done when layers are caramelized and tender — 20–30 min indirect, then 5 min direct for char." },
+  },
+  {
+    keywords: ["eggplant"],
+    baseline: { minsPerLb: 20, cookTempF: 375, targetTempF: 0, restMins: 2, wrapRec: "none", wrapNote: "No wrap. Sliced 1/2\" thick, oiled. Done when grill marks appear and flesh is soft and creamy when pressed — about 8–10 min per side." },
+  },
+  {
+    keywords: ["jalapeño", "jalapeno"],
+    baseline: { minsPerLb: 30, cookTempF: 300, targetTempF: 0, restMins: 2, wrapRec: "none", wrapNote: "No wrap. Stuffed peppers indirect at 300°F. Done when peppers are blistered and filling is bubbly and lightly browned — about 25–30 min." },
+  },
+  {
+    keywords: ["beet"],
+    baseline: { minsPerLb: 60, cookTempF: 350, targetTempF: 0, restMins: 5, wrapRec: "foil", wrapAtMins: 0, wrapNote: "Wrap in foil with olive oil and herbs from the start. Done when a skewer slides through with no resistance — 45–75 min depending on size." },
+  },
+  {
+    keywords: ["brussels sprout"],
+    baseline: { minsPerLb: 20, cookTempF: 400, targetTempF: 0, restMins: 0, wrapRec: "none", wrapNote: "No wrap. Halved and oiled on skewers or grill basket. Done when cut face is deeply charred and outer leaves are crispy — about 10–12 min over high heat." },
+  },
+  {
+    keywords: ["cauliflower"],
+    baseline: { minsPerLb: 45, cookTempF: 350, targetTempF: 0, restMins: 5, wrapRec: "none", wrapNote: "No wrap. Oil and season the whole head. Done when a skewer slides through the core and outer florets are caramelized — 40–60 min indirect." },
+  },
+  {
+    keywords: ["romaine", "lettuce"],
+    baseline: { minsPerLb: 6, cookTempF: 450, targetTempF: 0, restMins: 0, wrapRec: "none", wrapNote: "No wrap. Brushed with oil on screaming hot grates. Done when grill marks appear and outer leaves are just wilted — 2–3 min per side. Serve immediately." },
+  },
+  {
+    keywords: ["tomato"],
+    baseline: { minsPerLb: 90, cookTempF: 225, targetTempF: 0, restMins: 0, wrapRec: "none", wrapNote: "No wrap. Halved cut-side up in the smoker. Done when skin blisters and flesh collapses into a jammy consistency — 1.5–2 hr low & slow." },
+  },
+  {
+    keywords: ["potato"],
+    baseline: { minsPerLb: 70, cookTempF: 375, targetTempF: 0, restMins: 3, wrapRec: "foil", wrapAtMins: 0, wrapNote: "Wrap in foil from the start. Done when a fork slides into the center with no resistance — 60–75 min indirect at 375°F." },
+  },
+
+  // ── FRUIT ─────────────────────────────────────────────────────────
+  {
+    keywords: ["peach"],
+    baseline: { minsPerLb: 10, cookTempF: 400, targetTempF: 0, restMins: 2, wrapRec: "none", wrapNote: "No wrap. Pit removed, cut-side down on oiled grates. Done when grill marks are caramelized and fruit gives slightly when pressed — about 4–5 min per side." },
+  },
+  {
+    keywords: ["pineapple"],
+    baseline: { minsPerLb: 12, cookTempF: 400, targetTempF: 0, restMins: 0, wrapRec: "none", wrapNote: "No wrap. Sliced 3/4\" thick. Done when edges caramelize and char marks appear — about 3–4 min per side. Brush with honey for extra lacquer." },
+  },
+  {
+    keywords: ["watermelon"],
+    baseline: { minsPerLb: 6, cookTempF: 450, targetTempF: 0, restMins: 0, wrapRec: "none", wrapNote: "No wrap. High heat, dry grates. Done when deep grill marks appear and flesh just starts to soften — 2–3 min per side. Serve immediately." },
+  },
+  {
+    keywords: ["mango"],
+    baseline: { minsPerLb: 10, cookTempF: 400, targetTempF: 0, restMins: 0, wrapRec: "none", wrapNote: "No wrap. Scored crosshatch, flesh-side down. Done when caramelized and golden — about 4–5 min flesh-side, then 2 min skin-side." },
+  },
+  {
+    keywords: ["avocado"],
+    baseline: { minsPerLb: 8, cookTempF: 400, targetTempF: 0, restMins: 0, wrapRec: "none", wrapNote: "No wrap. Flesh-side down on oiled grates. Done when grill marks set and flesh is warm and slightly softened — 3–4 min flesh-side only." },
+  },
+  {
+    keywords: ["banana", "plantain"],
+    baseline: { minsPerLb: 14, cookTempF: 350, targetTempF: 0, restMins: 2, wrapRec: "none", wrapNote: "No wrap. Unpeeled on the grate. Done when peel is fully black and interior is caramelized and soft — 5–7 min per side." },
+  },
+  {
+    keywords: ["fig"],
+    baseline: { minsPerLb: 10, cookTempF: 400, targetTempF: 0, restMins: 0, wrapRec: "none", wrapNote: "No wrap. Halved, flesh-side down. Done when grill marks are caramelized and flesh is jammy — about 3–4 min flesh-side only." },
+  },
+  {
+    keywords: ["pear"],
+    baseline: { minsPerLb: 14, cookTempF: 375, targetTempF: 0, restMins: 2, wrapRec: "none", wrapNote: "No wrap. Halved, cored, flesh-side down. Done when grill marks appear and flesh is tender when pierced — 5–6 min flesh-side, 2–3 min skin-side." },
+  },
+  {
+    keywords: ["citrus", "lemon", "lime", "orange"],
+    baseline: { minsPerLb: 8, cookTempF: 450, targetTempF: 0, restMins: 0, wrapRec: "none", wrapNote: "No wrap. Cut-side down on screaming hot dry grates. Done when flesh is caramelized and deeply charred — about 3–4 min. Squeeze over finished proteins or salads." },
+  },
+  {
+    keywords: ["strawberr"],
+    baseline: { minsPerLb: 8, cookTempF: 400, targetTempF: 0, restMins: 0, wrapRec: "none", wrapNote: "No wrap. Skewered and lightly oiled. Done when skin chars slightly and berries are warm and juicy — about 3–4 min per side." },
+  },
 ];
 
 export function getMeatBaseline(foodType: string): MeatBaseline | null {

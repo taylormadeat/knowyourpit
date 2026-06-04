@@ -6,7 +6,7 @@ import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQueryClient } from "@tanstack/react-query";
 import { planStyles as s } from "./styles";
-import { MEAT_CATEGORIES, MEAT_CUTS_BY_CATEGORY, type MeatCut } from "@/constants/meatCuts";
+import { MEAT_CATEGORIES, MEAT_CUTS_BY_CATEGORY, isProduce, type MeatCut } from "@/constants/meatCuts";
 import {
   useListCustomMeatCuts,
   useDeleteCustomMeatCut,
@@ -665,6 +665,16 @@ export function MultiCookAddItemModal(p: Props) {
 
                 {/* Target temp + Cook temp overrides */}
                 <View style={{ flexDirection: "row", gap: 10 }}>
+                  {isProduce(multiPickedCut.category) ? (
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                        Internal Target
+                      </Text>
+                      <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                        <Text style={[s.input, { color: colors.mutedForeground, paddingVertical: 12 }]}>Time-based</Text>
+                      </View>
+                    </View>
+                  ) : (
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
                       Target Temp
@@ -681,6 +691,7 @@ export function MultiCookAddItemModal(p: Props) {
                       <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginRight: 10 }}>°F</Text>
                     </View>
                   </View>
+                  )}
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
                       Pit Temp
@@ -945,7 +956,8 @@ export function MultiCookAddItemModal(p: Props) {
                   </Pressable>
                 )}
 
-                {/* From Freezer toggle */}
+                {/* From Freezer toggle — not shown for produce (no thaw needed) */}
+                {!isProduce(multiPickedCut.category) && (
                 <View style={{ borderRadius: 10, borderWidth: 1, borderColor: isFrozen ? "#3B82F660" : colors.border, backgroundColor: colors.background, paddingHorizontal: 12, overflow: "hidden" }}>
                   <Pressable
                     onPress={() => {
@@ -1023,6 +1035,7 @@ export function MultiCookAddItemModal(p: Props) {
                     </View>
                   )}
                 </View>
+                )}
 
                 {/* Notes */}
                 <View>

@@ -29,7 +29,7 @@ export function MeatPickerModal(p: Props) {
         <View style={[s.modalSheet, { backgroundColor: colors.card }]}>
           <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
           <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[s.modalTitle, { color: colors.foreground }]}>Select a Meat Cut</Text>
+            <Text style={[s.modalTitle, { color: colors.foreground }]}>Select a Food</Text>
             <Pressable onPress={onClose} hitSlop={10}>
               <Feather name="x" size={22} color={colors.mutedForeground} />
             </Pressable>
@@ -77,7 +77,9 @@ export function MeatPickerModal(p: Props) {
                 <View style={{ flex: 1 }}>
                   <Text style={[s.cutName, { color: colors.foreground }]}>{item.name}</Text>
                   <Text style={[s.cutMeta, { color: colors.mutedForeground }]}>
-                    Internal target {item.targetTempF}°F · Pit: {item.cookTempF}°F · ~{item.minsPerLb} min/lb
+                    {item.targetTempF === 0
+                      ? `Time-based · Pit: ${item.cookTempF}°F · ~${item.minsPerLb} min/lb`
+                      : `Internal target ${item.targetTempF}°F · Pit: ${item.cookTempF}°F · ~${item.minsPerLb} min/lb`}
                   </Text>
                   {item.notes && (
                     <Text style={[s.cutNote, { color: colors.mutedForeground }]}>{item.notes}</Text>

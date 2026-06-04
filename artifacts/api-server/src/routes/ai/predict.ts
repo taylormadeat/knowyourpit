@@ -278,7 +278,7 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
   const baselineSection = baseline ? `
 VERIFIED BASELINE for "${foodType}" (from BBQ knowledge database):
 - Standard cook time: ~${baseline.minsPerLb} min/lb at ${baseline.cookTempF}°F pit temp
-- Target internal temp: ${baseline.targetTempF}°F
+- Target internal temp: ${baseline.targetTempF === 0 ? "time-based (visual doneness — no internal temp target, apply PRODUCE RULES)" : `${baseline.targetTempF}°F`}
 - Recommended rest: ${baseline.restMins} min
 - Wrap recommendation: ${baseline.wrapRec}${baseline.wrapAtMins ? ` at ~${baseline.wrapAtMins} min into cook` : ""}${baseline.wrapTempF ? ` / ${baseline.wrapTempF}°F internal` : ""}
 ${baseline.wrapNote ? `- Wrap guidance: ${baseline.wrapNote}` : ""}
@@ -435,7 +435,18 @@ FROZEN-MEAT RULES (apply only when "Starting from frozen" is true in the user pr
 - Cook time: previously frozen meat that has fully thawed cooks at the same pace as fresh — do NOT add cook time for the frozen state itself. The thaw + temper happens BEFORE estimatedDurationMinutes starts.
 - Tips MUST reference: thaw method timing, surface drying / pat-dry, when to apply rub or dry brine (after thaw), and any food-safety pitfalls relevant to the chosen thaw method.
 - recommendedServeAt: if a desiredFinishAt is provided AND the time between "now" and desiredFinishAt is too short to fit (thaw + temper + preheat + cook + rest), return an ISO timestamp for the EARLIEST realistic serve time that fits the full schedule, plus a short recommendedServeReason. Otherwise return null for both fields.
-- When NOT starting from frozen, ALWAYS return null for both recommendedServeAt and recommendedServeReason.`;
+- When NOT starting from frozen, ALWAYS return null for both recommendedServeAt and recommendedServeReason.
+
+PRODUCE RULES (apply when "Target internal temp" is "time-based"):
+- Vegetables and fruits have no food-safety internal temperature target. Doneness is 100% visual and tactile.
+- Do NOT mention an internal temp target or suggest one in rationale or tips.
+- estimatedDurationMinutes is purely time-based; reference the specific visual cues for the item (char, caramelisation, softness, colour change, peel blackening, etc.).
+- wrap.method should be "none" for almost all produce — exception: foil-wrapped whole vegetables (beet, potato, corn with toppings) where wrapping is part of the technique.
+- wrap.restMinutes: very short (0–5 min) for most produce; a few minutes for larger items like corn or squash.
+- expectedInternalTempRange: set null for EVERY check-in on produce items. Probe readings are not used.
+- tips: focus on visual/tactile cues, grill marks, caramelisation, char, texture changes. No food-safety temp language.
+- Produce cooks fast — keep check-in count low (2–3 for quick items, 3–4 for longer indirect cooks).
+- Labels must reference the produce item specifically: "First Turn", "Caramel Check", "Char & Flip", "Peek & Pull", "Grill Mark Lock", etc. Not generic.`;
 
   const techniqueLines: string[] = [];
   if (cookingStylePreset) techniqueLines.push(`Cooking style preset selected by user: "${cookingStylePreset}" (all technique fields below reflect this preset's settings)`);
@@ -456,7 +467,7 @@ FROZEN-MEAT RULES (apply only when "Starting from frozen" is true in the user pr
 Food: ${foodType}
 ${sizingLabel ? `Size: ${sizingLabel}` : `Weight: ${weightLbs ? `${weightLbs} lbs` : "unknown — use baseline minsPerLb with a 10 lb estimate"}`}
 Cook temperature: ${cookTempF ? `${cookTempF}°F` : "unknown"}
-Target internal temp: ${targetTempF ? `${targetTempF}°F` : "unknown"}
+Target internal temp: ${targetTempF && targetTempF > 0 ? `${targetTempF}°F` : targetTempF === 0 ? "time-based (visual doneness — no internal temp target, apply PRODUCE RULES)" : "unknown"}
 Preheat time (tracked separately, not in estimatedDurationMinutes): ${preheatMinutes} min${isIndividualCook === true ? `\nCook note: this is an individually-cooked cut — cook time is driven by piece thickness, not total quantity. Each piece cooks in the same time regardless of how many are on the grill; do NOT multiply cook time by piece count.` : isIndividualCook === false && pieceCount != null && pieceCount > 1 ? `\nCook note: this is a weight-driven cut — total effective weight determines cook time. Multiple pieces cook as a combined load.` : ""}${cookNotesSection}
 ${outdoorTempF != null ? `Outdoor ambient temperature: ${outdoorTempF}°F (${outdoorTempIsForecast ? "forecast for cook day" : "current"}) — factor this into your estimate. Cold weather (below 40°F) increases cook time and preheat duration; hot weather (above 90°F) may reduce time or cause temperature spikes.` : ""}
 ${desiredFinishAt ? `Desired serve time: ${new Date(desiredFinishAt).toLocaleString()}` : ""}
@@ -499,18 +510,23 @@ ${userHistorySection}${fingerprintGuidance}`;
       clearTimeout(timeoutId);
     }
 
+    const isProduceFallback = targetTempF === 0;
     const fallbackPrediction: PredictionAiOutput = {
-      estimatedDurationMinutes: 240,
+      estimatedDurationMinutes: isProduceFallback ? 30 : 240,
       confidence: "low",
       rationale: "Could not get PitMaster prediction in time — using default estimate.",
-      tips: ["Monitor internal temperature closely", "Use a reliable meat thermometer", "Rest meat after cooking"],
-      wrap: {
-        wrapAtMinutes: 180,
-        method: "foil",
-        wrapTempF: 165,
-        reason: "Wrap in foil at around 165°F internal temp to push through the stall faster and keep moisture in. Add a splash of apple juice or beef tallow before sealing.",
-        restMinutes: 60,
-      },
+      tips: isProduceFallback
+        ? ["Watch for visual cues — grill marks, caramelisation, and char signal doneness", "Check frequently; produce cooks quickly and can go from done to burnt fast", "Use tongs to test texture — softness indicates doneness for most vegetables"]
+        : ["Monitor internal temperature closely", "Use a reliable meat thermometer", "Rest meat after cooking"],
+      wrap: isProduceFallback
+        ? { wrapAtMinutes: 0, method: "none", wrapTempF: null, reason: "No wrap needed — produce cooks by direct heat, visual doneness only.", restMinutes: 0 }
+        : {
+          wrapAtMinutes: 180,
+          method: "foil",
+          wrapTempF: 165,
+          reason: "Wrap in foil at around 165°F internal temp to push through the stall faster and keep moisture in. Add a splash of apple juice or beef tallow before sealing.",
+          restMinutes: 60,
+        },
       recommendedServeAt: null,
       recommendedServeReason: null,
     };

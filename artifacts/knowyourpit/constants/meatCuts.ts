@@ -43,7 +43,20 @@ export const MEAT_CATEGORIES = [
   "Lamb & Goat",
   "Seafood",
   "Game",
+  "Vegetables",
+  "Fruit",
 ] as const;
+
+/**
+ * Categories where doneness is determined by visual cues / time rather than
+ * an internal temperature target. `targetTempF: 0` is the sentinel value.
+ */
+export const PRODUCE_CATEGORIES: ReadonlyArray<string> = ["Vegetables", "Fruit"];
+
+/** Returns true when the given category is a produce (vegetable or fruit) category. */
+export function isProduce(category: string): boolean {
+  return PRODUCE_CATEGORIES.includes(category);
+}
 
 export const MEAT_CUTS: BuiltinMeatCut[] = [
   // ── BEEF ──────────────────────────────────────────────────────────
@@ -190,6 +203,40 @@ export const MEAT_CUTS: BuiltinMeatCut[] = [
   { category: "Game", name: "Wild Turkey", targetTempF: 165, cookTempF: 325, minsPerLb: 18, restMins: 20, cookMethod: "Indirect", notes: "Leaner than farmed birds — brine and bard", avgPieceWeightLbs: 10, defaultSizeMode: "weight", isIndividualCook: false },
   { category: "Game", name: "Alligator", targetTempF: 160, cookTempF: 275, minsPerLb: 30, restMins: 10, cookMethod: "Indirect", notes: "Tail meat is mild and chicken-like; Cajun rub works great", avgPieceWeightLbs: 1.5, defaultSizeMode: "count", isIndividualCook: true },
   { category: "Game", name: "Wild Hog Loin", targetTempF: 145, cookTempF: 275, minsPerLb: 25, restMins: 10, cookMethod: "Indirect", avgPieceWeightLbs: 1.5, defaultSizeMode: "weight", isIndividualCook: false },
+
+  // ── VEGETABLES ────────────────────────────────────────────────────
+  // targetTempF: 0 = time-based / visual doneness; no internal-temp target
+  { category: "Vegetables", name: "Corn on the Cob", targetTempF: 0, cookTempF: 400, minsPerLb: 20, restMins: 2, cookMethod: "Direct Heat", notes: "Husks on: 15 min turning; husked & oiled: 10 min on hot grates. Done when kernels are bright yellow and slightly charred.", avgPieceWeightLbs: 0.5, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Vegetables", name: "Bell Peppers", targetTempF: 0, cookTempF: 400, minsPerLb: 16, restMins: 0, cookMethod: "Direct Heat", notes: "Halved & oiled. Done when skin blisters and chars and flesh is tender — about 8 min per side over high heat.", avgPieceWeightLbs: 0.4, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Vegetables", name: "Portobello Mushrooms", targetTempF: 0, cookTempF: 375, minsPerLb: 18, restMins: 2, cookMethod: "Direct Heat", notes: "Gill-side up with olive oil & garlic. Done when caps are deeply caramelized and liquid has fully evaporated — about 6–8 min per side.", avgPieceWeightLbs: 0.3, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Vegetables", name: "Asparagus", targetTempF: 0, cookTempF: 450, minsPerLb: 12, restMins: 0, cookMethod: "Direct Heat", notes: "Oiled and seasoned. Done when spears are bright green with charred tips and tender when pierced with a knife — about 4–6 min over high heat.", avgPieceWeightLbs: 0.5, defaultSizeMode: "weight", isIndividualCook: true },
+  { category: "Vegetables", name: "Sweet Potato", targetTempF: 0, cookTempF: 375, minsPerLb: 60, restMins: 5, cookMethod: "Indirect", notes: "Whole, unpeeled. Done when a skewer slides in with no resistance and skin is papery — about 45–60 min indirect. Can finish directly on coals for extra char.", avgPieceWeightLbs: 0.6, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Vegetables", name: "Zucchini / Summer Squash", targetTempF: 0, cookTempF: 400, minsPerLb: 14, restMins: 0, cookMethod: "Direct Heat", notes: "Halved lengthwise, oiled. Done when cut face has golden grill marks and flesh is just tender — about 4–5 min per side.", avgPieceWeightLbs: 0.4, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Vegetables", name: "Onions (Halved)", targetTempF: 0, cookTempF: 375, minsPerLb: 30, restMins: 2, cookMethod: "Indirect", notes: "Halved through the root, oiled. Done when layers are caramelized and tender throughout — 20–30 min indirect, then 5 min direct for char.", avgPieceWeightLbs: 0.5, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Vegetables", name: "Eggplant", targetTempF: 0, cookTempF: 375, minsPerLb: 20, restMins: 2, cookMethod: "Direct Heat", notes: "Sliced 1/2\" thick, oiled. Done when grill marks appear and flesh is soft and creamy when pressed — about 8–10 min per side.", avgPieceWeightLbs: 0.75, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Vegetables", name: "Jalapeños (Stuffed)", targetTempF: 0, cookTempF: 300, minsPerLb: 30, restMins: 2, cookMethod: "Indirect", notes: "Halved & cream cheese-filled. Done when peppers are blistered and filling is bubbly and lightly browned — about 25–30 min indirect.", avgPieceWeightLbs: 0.1, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Vegetables", name: "Beets (Whole)", targetTempF: 0, cookTempF: 350, minsPerLb: 60, restMins: 5, cookMethod: "Indirect", notes: "Wrapped in foil with olive oil & herbs. Done when a skewer meets no resistance through the center — about 45–75 min depending on size.", avgPieceWeightLbs: 0.3, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Vegetables", name: "Brussels Sprouts", targetTempF: 0, cookTempF: 400, minsPerLb: 20, restMins: 0, cookMethod: "Direct Heat", notes: "Halved, oiled, on skewers or in a basket. Done when cut face is deeply charred and outer leaves are crispy — about 10–12 min over high heat.", avgPieceWeightLbs: 0.06, defaultSizeMode: "weight", isIndividualCook: true },
+  { category: "Vegetables", name: "Cauliflower (Whole Head)", targetTempF: 0, cookTempF: 350, minsPerLb: 45, restMins: 5, cookMethod: "Indirect", notes: "Rubbed with oil and seasoning. Done when a skewer slides through the core with no resistance and outer florets are caramelized — about 40–60 min indirect.", avgPieceWeightLbs: 2, defaultSizeMode: "weight", isIndividualCook: false },
+  { category: "Vegetables", name: "Romaine Lettuce (Halved)", targetTempF: 0, cookTempF: 450, minsPerLb: 6, restMins: 0, cookMethod: "Direct Heat", notes: "Brushed with oil. Done when cut face has char marks and outer leaves are just wilted — about 2–3 min per side over screaming hot grates.", avgPieceWeightLbs: 0.5, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Vegetables", name: "Smoked Tomatoes", targetTempF: 0, cookTempF: 225, minsPerLb: 90, restMins: 0, cookMethod: "Low & Slow", notes: "Halved, cut-side up. Done when skin blisters and flesh collapses into a jammy consistency — about 1.5–2 hr low & slow.", avgPieceWeightLbs: 0.3, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Vegetables", name: "Loaded Potato (Foil Packet)", targetTempF: 0, cookTempF: 375, minsPerLb: 70, restMins: 3, cookMethod: "Indirect", notes: "Whole potato wrapped in foil with toppings. Done when a fork slides into the center with no resistance — about 60–75 min indirect.", avgPieceWeightLbs: 0.5, defaultSizeMode: "count", isIndividualCook: true },
+
+  // ── FRUIT ─────────────────────────────────────────────────────────
+  // targetTempF: 0 = time-based / visual doneness; no internal-temp target
+  { category: "Fruit", name: "Peaches (Halved)", targetTempF: 0, cookTempF: 400, minsPerLb: 10, restMins: 2, cookMethod: "Direct Heat", notes: "Pit removed, cut-side down on oiled grates. Done when grill marks are caramelized and fruit gives slightly when pressed — about 4–5 min per side.", avgPieceWeightLbs: 0.3, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Fruit", name: "Pineapple Rings", targetTempF: 0, cookTempF: 400, minsPerLb: 12, restMins: 0, cookMethod: "Direct Heat", notes: "Sliced 3/4\" thick, lightly oiled. Done when edges caramelize and char marks appear — about 3–4 min per side. Brush with honey for extra lacquer.", avgPieceWeightLbs: 0.2, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Fruit", name: "Watermelon Wedge", targetTempF: 0, cookTempF: 450, minsPerLb: 6, restMins: 0, cookMethod: "Direct Heat", notes: "Thick wedge, dry grates, high heat. Done when deep grill marks appear and flesh just starts to soften — about 2–3 min per side. Serve immediately.", avgPieceWeightLbs: 0.75, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Fruit", name: "Mango (Halved)", targetTempF: 0, cookTempF: 400, minsPerLb: 10, restMins: 0, cookMethod: "Direct Heat", notes: "Scored in crosshatch, flesh-side down. Done when skin is charred and flesh is golden and caramelized — about 4–5 min flesh-side, then 2 min skin-side.", avgPieceWeightLbs: 0.5, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Fruit", name: "Avocado (Halved)", targetTempF: 0, cookTempF: 400, minsPerLb: 8, restMins: 0, cookMethod: "Direct Heat", notes: "Pit removed, flesh-side down on oiled grates. Done when grill marks are set and flesh is warm and slightly softened — about 3–4 min flesh-side only.", avgPieceWeightLbs: 0.3, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Fruit", name: "Banana (in Peel)", targetTempF: 0, cookTempF: 350, minsPerLb: 14, restMins: 2, cookMethod: "Direct Heat", notes: "Unpeeled, placed directly on grate. Done when peel is fully black and interior is soft and caramelized — about 5–7 min per side.", avgPieceWeightLbs: 0.25, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Fruit", name: "Plantains (Ripe)", targetTempF: 0, cookTempF: 375, minsPerLb: 16, restMins: 2, cookMethod: "Direct Heat", notes: "Unpeeled or halved lengthwise. Done when peel blackens and flesh is deeply caramelized and soft — about 6–8 min per side.", avgPieceWeightLbs: 0.3, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Fruit", name: "Figs (Halved)", targetTempF: 0, cookTempF: 400, minsPerLb: 10, restMins: 0, cookMethod: "Direct Heat", notes: "Halved, flesh-side down. Done when grill marks are caramelized and flesh is jammy — about 3–4 min flesh-side only. Drizzle with honey or balsamic.", avgPieceWeightLbs: 0.06, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Fruit", name: "Pears (Halved)", targetTempF: 0, cookTempF: 375, minsPerLb: 14, restMins: 2, cookMethod: "Direct Heat", notes: "Halved, cored, flesh-side down. Done when grill marks appear and flesh is tender when pierced — about 5–6 min flesh-side, 2–3 min skin-side.", avgPieceWeightLbs: 0.4, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Fruit", name: "Citrus (Halved)", targetTempF: 0, cookTempF: 450, minsPerLb: 8, restMins: 0, cookMethod: "Direct Heat", notes: "Lemon, lime, or orange halved cut-side down. Done when flesh is caramelized and deeply charred — about 3–4 min on screaming hot dry grates. Squeeze over fish, chicken, or salads.", avgPieceWeightLbs: 0.2, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Fruit", name: "Strawberries (Skewered)", targetTempF: 0, cookTempF: 400, minsPerLb: 8, restMins: 0, cookMethod: "Direct Heat", notes: "On soaked skewers, lightly oiled. Done when skin chars slightly and berries are warm and juicy — about 3–4 min per side. Serve with cream or over shortcake.", avgPieceWeightLbs: 0.04, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Fruit", name: "Stone Fruit Skewers", targetTempF: 0, cookTempF: 400, minsPerLb: 10, restMins: 0, cookMethod: "Direct Heat", notes: "Peach/plum/nectarine chunks on soaked skewers. Done when edges caramelize and fruit softens — about 4–5 min per side. Great with vanilla ice cream.", avgPieceWeightLbs: 0.15, defaultSizeMode: "count", isIndividualCook: true },
+  { category: "Fruit", name: "Pineapple (Whole Spear)", targetTempF: 0, cookTempF: 375, minsPerLb: 20, restMins: 2, cookMethod: "Direct Heat", notes: "Quartered lengthwise with core intact. Done when edges are deeply charred and flesh is tender throughout — about 8–10 min per side.", avgPieceWeightLbs: 0.5, defaultSizeMode: "count", isIndividualCook: true },
 ];
 
 export const MEAT_CUTS_BY_CATEGORY = MEAT_CATEGORIES.reduce<Record<string, MeatCut[]>>(

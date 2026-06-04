@@ -528,7 +528,7 @@ export default function ProfileScreen() {
                   ) : showByMeatType ? (
                     <>
                       <Text style={[s.qualitySubtitle, { color: colors.mutedForeground }]}>
-                        Based on {ratedCooks.length} rated {ratedCooks.length === 1 ? "cook" : "cooks"} · by meat type
+                        Based on {ratedCooks.length} rated {ratedCooks.length === 1 ? "cook" : "cooks"} · by food type
                       </Text>
                       {meatTypes.map((meatType, idx) => {
                         const pool = meatTypeMap[meatType];

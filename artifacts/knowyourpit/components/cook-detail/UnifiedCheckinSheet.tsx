@@ -103,6 +103,7 @@ interface UnifiedCheckinSheetProps {
   probeSource?: "meater" | "thermoworks" | "inkbird" | null;
   lastCheckinInternalTempF?: number | null;
   targetCookTempF?: number | null;
+  targetFoodTempF?: number | null;
   weatherTempF?: number | null;
   weatherWindSpeedMph?: number | null;
   onCheckinSaved?: (savedInternalTempF: number | null) => void;
@@ -149,6 +150,7 @@ export function UnifiedCheckinSheet({
   probeSource,
   lastCheckinInternalTempF,
   targetCookTempF,
+  targetFoodTempF,
   weatherTempF,
   weatherWindSpeedMph,
   onCheckinSaved,
@@ -216,9 +218,9 @@ export function UnifiedCheckinSheet({
 
   const isColdOutside = weatherTempF != null && weatherTempF < 45;
 
+  const isProduceCook = targetFoodTempF === 0;
   const canSubmit =
-    parsedInternal != null &&
-    !isNaN(parsedInternal) &&
+    (isProduceCook || (parsedInternal != null && !isNaN(parsedInternal))) &&
     parsedPit != null &&
     !isNaN(parsedPit);
 
@@ -595,6 +597,7 @@ export function UnifiedCheckinSheet({
                 )}
             </View>
             <View style={{ flexDirection: "row", gap: 12 }}>
+              {!isProduceCook && (
               <View style={{ flex: 1 }}>
                 <Text
                   style={{
@@ -638,6 +641,7 @@ export function UnifiedCheckinSheet({
                   </Text>
                 </View>
               </View>
+              )}
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
                   <Text
@@ -709,7 +713,7 @@ export function UnifiedCheckinSheet({
                 </View>
               </View>
             </View>
-            {phase.expectedInternalTempRange != null && (
+            {!isProduceCook && phase.expectedInternalTempRange != null && (
               <Text
                 style={{
                   fontFamily: "Inter_400Regular",
@@ -730,7 +734,7 @@ export function UnifiedCheckinSheet({
                   marginTop: 2,
                 }}
               >
-                Enter both internal and pit temps to check in
+                {isProduceCook ? "Enter pit temp to check in" : "Enter both internal and pit temps to check in"}
               </Text>
             )}
 

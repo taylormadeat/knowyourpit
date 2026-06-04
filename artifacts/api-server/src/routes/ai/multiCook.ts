@@ -38,7 +38,7 @@ router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): P
       `${i + 1}. ${item.foodType}`,
       item.weightLbs ? `${item.weightLbs} lbs` : "weight unknown",
       item.cookTempF ? `cook at ${item.cookTempF}°F` : "cook temp unknown",
-      item.targetTempF ? `target internal ${item.targetTempF}°F` : "",
+      item.targetTempF && item.targetTempF > 0 ? `target internal ${item.targetTempF}°F` : item.targetTempF === 0 ? "time-based / visual doneness (no internal temp target)" : "",
       `preheat ${preheat} min`,
       item.cookingMethod ? `cooking method: ${item.cookingMethod}` : "",
       item.cookingStylePreset ? `style preset: "${item.cookingStylePreset}"` : "",
@@ -92,6 +92,7 @@ Wrap guidance by cut:
 - Salmon / fish: none
 - Sausage / hot dogs: none
 - Other lean cuts (tri-tip, flat iron): none or butcher_paper briefly if stalling
+- Vegetables / fruit: almost always none; exception is foil-wrapped whole vegetables (potato, beet, corn in husk) where foil is part of the technique
 
 Return ONLY valid JSON, no markdown:
 {

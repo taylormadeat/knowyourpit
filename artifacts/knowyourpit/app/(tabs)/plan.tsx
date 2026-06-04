@@ -115,6 +115,7 @@ import { SizeInputRow, SizeInputRowOutput } from "@/components/plan-screen/SizeI
 import { SettingsRow } from "@/components/plan-screen/SettingsRow";
 import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
 import { MeatPickerModal } from "@/components/plan-screen/MeatPickerModal";
+import { isProduce } from "@/constants/meatCuts";
 import { DatePickerModal, TimePickerModal } from "@/components/plan-screen/DateTimePickerModals";
 import { AiResultsModal } from "@/components/plan-screen/AiResultsModal";
 import { MultiCookResultModal } from "@/components/plan-screen/MultiCookResultModal";
@@ -729,8 +730,9 @@ export default function PlanScreen() {
   // When user picks a meat cut, auto-fill temps and restore per-cut quick-picks
   const handlePickCut = (cut: MeatCut) => {
     setSelectedCut(cut);
-    setTargetTempF(String(cut.targetTempF));
+    setTargetTempF(cut.targetTempF === 0 ? "" : String(cut.targetTempF));
     setCookTempF(String(cut.cookTempF));
+    if (isProduce(cut.category)) setFrozenEnabled(false);
     clearAiScheduleOverride();
     setActivePreset(null);
     setMeatPickerOpen(false);
@@ -749,7 +751,7 @@ export default function PlanScreen() {
   // ── AI Plan ──────────────────────────────────────────────────────────
   const handleAiPlan = async () => {
     if (!selectedCut) {
-      Alert.alert("Select a Meat Cut First", "Choose a meat cut so PitMaster can tailor the plan.");
+      Alert.alert("Select a Food First", "Choose a food so PitMaster can tailor the plan.");
       return;
     }
     // Pre-check: force-refresh the Clerk token before firing the AI call.
@@ -776,8 +778,8 @@ export default function PlanScreen() {
         preheatMinutes: preheatMinsForGrill(selectedGrill),
         outdoorTempF: weather.tempF ?? undefined,
         outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
-        fromFrozen: frozenEnabled || undefined,
-        thawMethod: frozenEnabled ? thawMethod : undefined,
+        fromFrozen: (frozenEnabled && !isProduce(selectedCut.category)) || undefined,
+        thawMethod: (frozenEnabled && !isProduce(selectedCut.category)) ? thawMethod : undefined,
         cookingMethod: qpCookMethod ?? undefined,
         meatStartTemp: qpMeatStartTemp ?? undefined,
         injection: qpInjection ?? undefined,
@@ -849,8 +851,8 @@ export default function PlanScreen() {
               grillId: item.grillId ?? grillId ?? undefined,
               preheatMinutes: preheatMinsForGrill(itemGrill),
               cookingMethod: item.cookMethod ?? undefined,
-              fromFrozen: item.isFrozen || undefined,
-              thawMethod: item.isFrozen ? item.thawMethod as MultiCookItemThawMethod : undefined,
+              fromFrozen: (item.isFrozen && !isProduce(item.cut.category)) || undefined,
+              thawMethod: (item.isFrozen && !isProduce(item.cut.category)) ? item.thawMethod as MultiCookItemThawMethod : undefined,
               notes: item.notes || undefined,
               cookingStylePreset: item.cookingStylePreset ?? undefined,
             };
@@ -1704,12 +1706,12 @@ export default function PlanScreen() {
               <>
                 <Text style={[s.dropdownValue, { color: colors.foreground }]}>{selectedCut.name}</Text>
                 <Text style={[s.dropdownSub, { color: colors.mutedForeground }]}>
-                  {selectedCut.category} · Target {selectedCut.targetTempF}°F · {selectedCut.cookMethod}
+                  {selectedCut.category} · {selectedCut.targetTempF === 0 ? "Time-based" : `Target ${selectedCut.targetTempF}°F`} · {selectedCut.cookMethod}
                 </Text>
               </>
             ) : (
               <Text style={[s.dropdownPlaceholder, { color: colors.mutedForeground }]}>
-                Select a cut of meat…
+                Select a food…
               </Text>
             )}
           </View>
@@ -1865,20 +1867,29 @@ export default function PlanScreen() {
 
         {/* ── Temp overrides ── */}
         <View style={s.tempRow}>
-          <View style={{ flex: 1 }}>
-            <Label colors={colors}>Internal Target (°F)</Label>
-            <View style={[s.inputWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-              <TextInput
-                style={[s.input, { color: colors.foreground }]}
-                placeholder={selectedCut ? String(selectedCut.targetTempF) : "203"}
-                placeholderTextColor={colors.mutedForeground}
-                value={targetTempF}
-                onChangeText={(v) => { setTargetTempF(v); setActivePreset(null); }}
-                keyboardType="number-pad"
-              />
-              <Text style={[s.inputUnit, { color: colors.mutedForeground }]}>°F</Text>
+          {selectedCut && isProduce(selectedCut.category) ? (
+            <View style={{ flex: 1 }}>
+              <Label colors={colors}>Internal Target</Label>
+              <View style={[s.inputWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                <Text style={[s.input, { color: colors.mutedForeground, paddingVertical: 12 }]}>Time-based</Text>
+              </View>
             </View>
-          </View>
+          ) : (
+            <View style={{ flex: 1 }}>
+              <Label colors={colors}>Internal Target (°F)</Label>
+              <View style={[s.inputWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                <TextInput
+                  style={[s.input, { color: colors.foreground }]}
+                  placeholder={selectedCut ? String(selectedCut.targetTempF) : "203"}
+                  placeholderTextColor={colors.mutedForeground}
+                  value={targetTempF}
+                  onChangeText={(v) => { setTargetTempF(v); setActivePreset(null); }}
+                  keyboardType="number-pad"
+                />
+                <Text style={[s.inputUnit, { color: colors.mutedForeground }]}>°F</Text>
+              </View>
+            </View>
+          )}
           <View style={{ width: 12 }} />
           <View style={{ flex: 1 }}>
             <Label colors={colors}>Pit Temp (°F)</Label>
@@ -2054,6 +2065,8 @@ export default function PlanScreen() {
                   })()}
 
                   {/* ── Frozen-to-Table Toggle + Thaw Method (compact grouped rows) ── */}
+                  {/* Frozen planning is not applicable to produce (no thaw needed) */}
+                  {!isProduce(selectedCut?.category ?? "") && (
                   <View
                     style={{
                       marginTop: 10,
@@ -2186,9 +2199,10 @@ export default function PlanScreen() {
                       />
                     )}
                   </View>
+                  )}
 
                   {/* ── Live MEATER probes ── */}
-                  {activeProbes.length > 0 && (
+                  {activeProbes.length > 0 && !isProduce(selectedCut?.category ?? "") && (
                     <View style={[sp.probeCard, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
                       <View style={sp.probeHeader}>
                         <View style={[sp.probeIconWrap, { backgroundColor: "#E8482018" }]}>
@@ -2778,7 +2792,7 @@ export default function PlanScreen() {
                   <Text style={s.aiBtnSub}>
                     {selectedCut
                       ? `Get PitMaster timing, wrap tips & rest guidance for ${selectedCut.name}`
-                      : "Select a meat cut first"}
+                      : "Select a food first"}
                   </Text>
                 </View>
                 <Feather name="chevron-right" size={16} color="rgba(255,255,255,0.7)" />
@@ -3206,7 +3220,7 @@ export default function PlanScreen() {
                     </View>
                     <Text style={[s.multiItemMeta, { color: colors.mutedForeground }]}>
                       {item.sizeOutput.sizingLabel ?? "weight not set"}
-                      {" · "}Pit: {item.cookTempF || item.cut.cookTempF}°F · Target: {item.targetTempF || item.cut.targetTempF}°F
+                      {" · "}Pit: {item.cookTempF || item.cut.cookTempF}°F{item.cut.targetTempF === 0 ? " · Time-based" : ` · Target: ${item.targetTempF || item.cut.targetTempF}°F`}
                     </Text>
                     {(grills as any[] | undefined)?.length ? (
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
