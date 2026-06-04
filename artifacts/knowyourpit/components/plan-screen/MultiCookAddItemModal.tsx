@@ -1,11 +1,17 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, Modal, Pressable, FlatList, TextInput, ScrollView } from "react-native";
+import React, { useState, useEffect, useMemo } from "react";
+import { View, Text, Modal, Pressable, FlatList, TextInput, ScrollView, Alert } from "react-native";
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { planStyles as s } from "./styles";
-import { MEAT_CATEGORIES, MEAT_CUTS_BY_CATEGORY, type MeatCut } from "@/constants/meatCuts";
+import { MEAT_CATEGORIES, MEAT_CUTS_BY_CATEGORY, MEAT_CUTS, type MeatCut } from "@/constants/meatCuts";
+import {
+  useListCustomMeatCuts,
+  useDeleteCustomMeatCut,
+  useListGrills,
+} from "@workspace/api-client-react";
+import { SizeInputRow, type SizeInputRowOutput } from "@/components/plan-screen/SizeInputRow";
 import {
   QP_COOK_METHODS, type QpCookMethod,
   QP_MEAT_START_TEMPS, type QpMeatStartTemp,
@@ -78,9 +84,19 @@ async function saveLastWrapFinish(cutName: string, v: QpWrapFinishOption): Promi
 
 type Colors = any;
 
+type PickerCut = MeatCut & { isCustom?: boolean; customId?: number };
+
+const EMPTY_SIZE_OUTPUT: SizeInputRowOutput = {
+  effectiveWeightLbs: null,
+  sizingLabel: null,
+  isEstimated: false,
+  pieceCount: null,
+  mode: "weight",
+};
+
 export interface MultiItem {
   cut: MeatCut;
-  weightLbs: string;
+  sizeOutput: SizeInputRowOutput;
   grillId: number | null;
   cookMethod: QpCookMethod | null;
   meatStartTemp: QpMeatStartTemp | null;
@@ -90,6 +106,8 @@ export interface MultiItem {
   isFrozen: boolean;
   thawMethod: ThawMethod;
   notes?: string;
+  targetTempF: string;
+  cookTempF: string;
 }
 
 interface Props {
@@ -100,8 +118,6 @@ interface Props {
   setMultiAddCat: (cat: string) => void;
   multiPickedCut: MeatCut | null;
   setMultiPickedCut: (c: MeatCut | null) => void;
-  multiAddWeightInput: string;
-  setMultiAddWeightInput: (v: string) => void;
   setMultiItems: (updater: (prev: MultiItem[]) => MultiItem[]) => void;
   editItem?: MultiItem | null;
   editIndex?: number | null;
@@ -163,7 +179,7 @@ function ChipRow<T extends string>({
 export function MultiCookAddItemModal(p: Props) {
   const {
     visible, onClose, colors, multiAddCat, setMultiAddCat,
-    multiPickedCut, setMultiPickedCut, multiAddWeightInput, setMultiAddWeightInput, setMultiItems,
+    multiPickedCut, setMultiPickedCut, setMultiItems,
     editItem, editIndex,
     effectivePro = false,
     frozenTrialAvailable = false,
@@ -171,6 +187,32 @@ export function MultiCookAddItemModal(p: Props) {
   } = p;
 
   const isEditMode = editIndex != null && editItem != null;
+
+  const { data: customCutsData } = useListCustomMeatCuts();
+  const deleteCustomCut = useDeleteCustomMeatCut();
+  const customCuts: any[] = Array.isArray(customCutsData) ? customCutsData : [];
+
+  const { data: grillsList } = useListGrills();
+  const grills: any[] = Array.isArray(grillsList) ? grillsList : [];
+
+  const cutsForCategory = useMemo((): PickerCut[] => {
+    const builtin: PickerCut[] = (MEAT_CUTS_BY_CATEGORY[multiAddCat] ?? []).map(c => ({ ...c }));
+    const customs: PickerCut[] = customCuts
+      .filter((c: any) => c.category === multiAddCat)
+      .map((c: any) => ({
+        name: c.name,
+        category: c.category,
+        targetTempF: c.targetTempF,
+        cookTempF: c.cookTempF,
+        minsPerLb: c.minsPerLb,
+        restMins: c.restMins,
+        cookMethod: c.cookMethod ?? undefined,
+        notes: c.notes ?? undefined,
+        isCustom: true as const,
+        customId: c.id as number,
+      }));
+    return [...customs, ...builtin];
+  }, [customCuts, multiAddCat]);
 
   const [selectedCookMethod, setSelectedCookMethod] = useState<QpCookMethod | null>(null);
   const [lastUsedMethod, setLastUsedMethod] = useState<QpCookMethod | null>(null);
@@ -181,6 +223,17 @@ export function MultiCookAddItemModal(p: Props) {
   const [isFrozen, setIsFrozen] = useState(false);
   const [thawMethod, setThawMethod] = useState<ThawMethod>("fridge");
   const [itemNotes, setItemNotes] = useState("");
+  const [selectedGrillId, setSelectedGrillId] = useState<number | null>(null);
+  const [targetTempFInput, setTargetTempFInput] = useState("");
+  const [cookTempFInput, setCookTempFInput] = useState("");
+  const [localSizeOutput, setLocalSizeOutput] = useState<SizeInputRowOutput>(EMPTY_SIZE_OUTPUT);
+
+  const editWeightForPrefill = useMemo(() => {
+    if (isEditMode && editItem.cut.name === multiPickedCut?.name) {
+      return editItem.sizeOutput.effectiveWeightLbs;
+    }
+    return null;
+  }, [isEditMode, editItem?.cut.name, multiPickedCut?.name, editItem?.sizeOutput.effectiveWeightLbs]);
 
   useEffect(() => {
     if (!multiPickedCut) {
@@ -193,6 +246,10 @@ export function MultiCookAddItemModal(p: Props) {
       setIsFrozen(false);
       setThawMethod("fridge");
       setItemNotes("");
+      setSelectedGrillId(null);
+      setTargetTempFInput("");
+      setCookTempFInput("");
+      setLocalSizeOutput(EMPTY_SIZE_OUTPUT);
       return;
     }
 
@@ -206,6 +263,9 @@ export function MultiCookAddItemModal(p: Props) {
       setIsFrozen(editItem.isFrozen);
       setThawMethod(editItem.thawMethod);
       setItemNotes(editItem.notes ?? "");
+      setSelectedGrillId(editItem.grillId);
+      setTargetTempFInput(editItem.targetTempF);
+      setCookTempFInput(editItem.cookTempF);
       return;
     }
 
@@ -219,6 +279,10 @@ export function MultiCookAddItemModal(p: Props) {
     loadLastWrapFinish(multiPickedCut.name).then(v => setSelectedWrapFinish(v));
     setIsFrozen(false);
     setThawMethod("fridge");
+    setSelectedGrillId(null);
+    setTargetTempFInput("");
+    setCookTempFInput("");
+    setLocalSizeOutput(EMPTY_SIZE_OUTPUT);
   }, [multiPickedCut?.name, editItem]);
 
   const resetFields = () => {
@@ -231,6 +295,10 @@ export function MultiCookAddItemModal(p: Props) {
     setIsFrozen(false);
     setThawMethod("fridge");
     setItemNotes("");
+    setSelectedGrillId(null);
+    setTargetTempFInput("");
+    setCookTempFInput("");
+    setLocalSizeOutput(EMPTY_SIZE_OUTPUT);
   };
 
   const handleClose = () => {
@@ -247,8 +315,8 @@ export function MultiCookAddItemModal(p: Props) {
 
     const newItem: MultiItem = {
       cut: multiPickedCut,
-      weightLbs: multiAddWeightInput,
-      grillId: isEditMode ? editItem.grillId : null,
+      sizeOutput: localSizeOutput,
+      grillId: selectedGrillId,
       cookMethod: selectedCookMethod,
       meatStartTemp: selectedMeatStartTemp,
       injection: selectedInjection,
@@ -257,6 +325,8 @@ export function MultiCookAddItemModal(p: Props) {
       isFrozen,
       thawMethod,
       notes: itemNotes.trim() || undefined,
+      targetTempF: targetTempFInput,
+      cookTempF: cookTempFInput,
     };
 
     if (isEditMode) {
@@ -268,8 +338,30 @@ export function MultiCookAddItemModal(p: Props) {
     resetFields();
     onClose();
     setMultiPickedCut(null);
-    setMultiAddWeightInput("");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleDeleteCustomCut = (cut: PickerCut) => {
+    if (!cut.customId) return;
+    Alert.alert(
+      "Delete custom cut?",
+      `Remove "${cut.name}" from your custom cuts.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteCustomCut.mutateAsync({ id: cut.customId! });
+              if (multiPickedCut?.name === cut.name) setMultiPickedCut(null);
+            } catch {
+              Alert.alert("Delete failed", "Could not delete the custom cut.");
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -303,7 +395,7 @@ export function MultiCookAddItemModal(p: Props) {
           </View>
           <FlatList
             style={{ flex: 1 }}
-            data={MEAT_CUTS_BY_CATEGORY[multiAddCat] ?? []}
+            data={cutsForCategory}
             keyExtractor={item => item.name}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 20 }}
@@ -318,11 +410,27 @@ export function MultiCookAddItemModal(p: Props) {
                 ]}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={[s.cutName, { color: colors.foreground }]}>{item.name}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={[s.cutName, { color: colors.foreground }]}>{item.name}</Text>
+                    {item.isCustom && (
+                      <View style={{ backgroundColor: colors.primary + "20", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 }}>
+                        <Text style={{ fontSize: 10, fontFamily: "Inter_600SemiBold", color: colors.primary }}>Custom</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={[s.cutMeta, { color: colors.mutedForeground }]}>
                     Internal target {item.targetTempF}°F · Pit: {item.cookTempF}°F · ~{item.minsPerLb} min/lb
                   </Text>
                 </View>
+                {item.isCustom && (
+                  <Pressable
+                    onPress={() => handleDeleteCustomCut(item)}
+                    hitSlop={10}
+                    style={{ padding: 6 }}
+                  >
+                    <Feather name="trash-2" size={14} color={colors.mutedForeground} />
+                  </Pressable>
+                )}
                 {multiPickedCut?.name === item.name && (
                   <Feather name="check-circle" size={18} color={colors.primary} />
                 )}
@@ -330,7 +438,101 @@ export function MultiCookAddItemModal(p: Props) {
             )}
           />
           {multiPickedCut && (
-            <View style={{ padding: 14, borderTopWidth: 1, borderTopColor: colors.border, gap: 12 }}>
+            <ScrollView
+              style={{ maxHeight: 480 }}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ padding: 14, gap: 12 }}
+            >
+              {/* Size input */}
+              <View>
+                <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  Size
+                </Text>
+                <SizeInputRow
+                  cut={multiPickedCut}
+                  colors={colors}
+                  onChange={setLocalSizeOutput}
+                  detectedWeightLbs={editWeightForPrefill}
+                />
+              </View>
+
+              {/* Grill picker */}
+              {grills.length > 0 && (
+                <View>
+                  <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    Grill (optional)
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={{ flexDirection: "row", gap: 8 }}>
+                      {grills.map((g: any) => {
+                        const active = selectedGrillId === g.id;
+                        return (
+                          <Pressable
+                            key={g.id}
+                            onPress={() => {
+                              setSelectedGrillId(active ? null : g.id);
+                              Haptics.selectionAsync();
+                            }}
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 5,
+                              paddingHorizontal: 12,
+                              paddingVertical: 7,
+                              borderRadius: 20,
+                              borderWidth: 1,
+                              borderColor: active ? colors.primary : colors.border,
+                              backgroundColor: active ? colors.primary + "18" : colors.muted,
+                            }}
+                          >
+                            <Feather name="wind" size={12} color={active ? colors.primary : colors.mutedForeground} />
+                            <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
+                              {g.name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Target temp + Cook temp overrides */}
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    Target Temp
+                  </Text>
+                  <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                    <TextInput
+                      style={[s.input, { color: colors.foreground }]}
+                      placeholder={String(multiPickedCut.targetTempF)}
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="decimal-pad"
+                      value={targetTempFInput}
+                      onChangeText={setTargetTempFInput}
+                    />
+                    <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginRight: 10 }}>°F</Text>
+                  </View>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    Pit Temp
+                  </Text>
+                  <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                    <TextInput
+                      style={[s.input, { color: colors.foreground }]}
+                      placeholder={String(multiPickedCut.cookTempF)}
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="decimal-pad"
+                      value={cookTempFInput}
+                      onChangeText={setCookTempFInput}
+                    />
+                    <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginRight: 10 }}>°F</Text>
+                  </View>
+                </View>
+              </View>
+
               {/* Cooking method chips */}
               <View>
                 <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
@@ -508,16 +710,7 @@ export function MultiCookAddItemModal(p: Props) {
                 )}
               </View>
 
-              <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
-                <TextInput
-                  style={[s.input, { color: colors.foreground }]}
-                  placeholder={`Weight in lbs (optional)`}
-                  placeholderTextColor={colors.mutedForeground}
-                  keyboardType="decimal-pad"
-                  value={multiAddWeightInput}
-                  onChangeText={setMultiAddWeightInput}
-                />
-              </View>
+              {/* Notes */}
               <View>
                 <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
                   Notes (optional)
@@ -533,6 +726,7 @@ export function MultiCookAddItemModal(p: Props) {
                   />
                 </View>
               </View>
+
               <Pressable
                 onPress={handleSave}
                 style={[s.submitBtn, { backgroundColor: "#6C3BF5", borderRadius: colors.radius }]}
@@ -542,7 +736,7 @@ export function MultiCookAddItemModal(p: Props) {
                   {isEditMode ? `Save ${multiPickedCut.name}` : `Add ${multiPickedCut.name}`}
                 </Text>
               </Pressable>
-            </View>
+            </ScrollView>
           )}
         </View>
       </AppKeyboardAvoidingView>

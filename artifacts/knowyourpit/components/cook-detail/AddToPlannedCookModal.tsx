@@ -22,7 +22,7 @@ import {
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
 } from "@workspace/api-client-react";
-import { MultiCookAddItemModal } from "@/components/plan-screen/MultiCookAddItemModal";
+import { MultiCookAddItemModal, type MultiItem } from "@/components/plan-screen/MultiCookAddItemModal";
 import { DatePickerModal, TimePickerModal } from "@/components/plan-screen/DateTimePickerModals";
 import { planStyles as s } from "@/components/plan-screen/styles";
 import {
@@ -37,18 +37,6 @@ import { fmtMinutes } from "@/utils/duration";
 type Colors = any;
 type Insets = { top: number; bottom: number; left: number; right: number };
 
-interface MultiItem {
-  cut: MeatCut;
-  weightLbs: string;
-  grillId: number | null;
-  cookMethod: import("@/constants/cookQuickPicks").QpCookMethod | null;
-  meatStartTemp: import("@/constants/cookQuickPicks").QpMeatStartTemp | null;
-  injection: import("@/constants/cookQuickPicks").QpInjectionOption | null;
-  spritz: import("@/constants/cookQuickPicks").QpSpritzFrequency | null;
-  wrapFinish: import("@/constants/cookQuickPicks").QpWrapFinishOption | null;
-  isFrozen: boolean;
-  thawMethod: import("@/components/plan-screen/frozenSchedule").ThawMethod;
-}
 
 interface Props {
   visible: boolean;
@@ -102,7 +90,6 @@ export function AddToPlannedCookModal(p: Props) {
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [multiAddCat, setMultiAddCat] = useState("Beef");
   const [multiPickedCut, setMultiPickedCut] = useState<MeatCut | null>(null);
-  const [multiAddWeightInput, setMultiAddWeightInput] = useState("");
   const [saving, setSaving] = useState(false);
 
   const upcomingDates = useMemo(() => getUpcomingDates(), []);
@@ -137,7 +124,6 @@ export function AddToPlannedCookModal(p: Props) {
     setAiResult(null);
     setMultiAddCat("Beef");
     setMultiPickedCut(null);
-    setMultiAddWeightInput("");
   };
 
   const handleClose = () => {
@@ -177,12 +163,9 @@ export function AddToPlannedCookModal(p: Props) {
               : anchorGrill;
           return {
             foodType: item.cut.name,
-            weightLbs:
-              parseFloat(item.weightLbs) > 0
-                ? parseFloat(item.weightLbs)
-                : undefined,
-            cookTempF: item.cut.cookTempF,
-            targetTempF: item.cut.targetTempF,
+            weightLbs: (item.sizeOutput.effectiveWeightLbs ?? 0) > 0 ? item.sizeOutput.effectiveWeightLbs! : undefined,
+            cookTempF: item.cookTempF ? parseFloat(item.cookTempF) : item.cut.cookTempF,
+            targetTempF: item.targetTempF ? parseFloat(item.targetTempF) : item.cut.targetTempF,
             grillId: item.grillId ?? cookGrillId ?? undefined,
             preheatMinutes: preheatMinsForGrill(itemGrill),
           };
@@ -245,9 +228,7 @@ export function AddToPlannedCookModal(p: Props) {
         );
         const inputItem =
           inputIdx >= 0 ? remainingItems.splice(inputIdx, 1)[0] : undefined;
-        const inputWeightLbs = inputItem
-          ? parseFloat(inputItem.weightLbs) || undefined
-          : undefined;
+        const inputWeightLbs = inputItem?.sizeOutput?.effectiveWeightLbs ?? undefined;
         const resolvedGrillId =
           inputItem?.grillId ?? cookGrillId ?? undefined;
         const matchedCut = MEAT_CUTS.find(
@@ -267,8 +248,8 @@ export function AddToPlannedCookModal(p: Props) {
           data: {
             foodType: scheduleItem.foodType,
             weightLbs: inputWeightLbs,
-            cookTempF: matchedCut?.cookTempF ?? undefined,
-            targetTempF: matchedCut?.targetTempF ?? undefined,
+            cookTempF: (inputItem?.cookTempF ? parseFloat(inputItem.cookTempF) : null) ?? inputItem?.cut?.cookTempF ?? matchedCut?.cookTempF ?? undefined,
+            targetTempF: (inputItem?.targetTempF ? parseFloat(inputItem.targetTempF) : null) ?? inputItem?.cut?.targetTempF ?? matchedCut?.targetTempF ?? undefined,
             grillId: resolvedGrillId,
             plannedStartAt: new Date(
               scheduleItem.meatOnAt,
@@ -523,7 +504,7 @@ export function AddToPlannedCookModal(p: Props) {
                               >
                                 {item.cut.name}
                               </Text>
-                              {item.weightLbs ? (
+                              {item.sizeOutput.sizingLabel ? (
                                 <Text
                                   style={{
                                     fontFamily: "Inter_400Regular",
@@ -531,7 +512,7 @@ export function AddToPlannedCookModal(p: Props) {
                                     color: colors.mutedForeground,
                                   }}
                                 >
-                                  {item.weightLbs} lbs
+                                  {item.sizeOutput.sizingLabel}
                                 </Text>
                               ) : null}
                             </View>
@@ -1131,8 +1112,6 @@ export function AddToPlannedCookModal(p: Props) {
         setMultiAddCat={setMultiAddCat}
         multiPickedCut={multiPickedCut}
         setMultiPickedCut={setMultiPickedCut}
-        multiAddWeightInput={multiAddWeightInput}
-        setMultiAddWeightInput={setMultiAddWeightInput}
         setMultiItems={setAdditionalItems}
       />
 

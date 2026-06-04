@@ -517,7 +517,6 @@ export default function PlanScreen() {
   const [multiResultOpen, setMultiResultOpen] = useState(false);
   const [multiAddOpen, setMultiAddOpen] = useState(false);
   const [multiAddCat, setMultiAddCat] = useState<string>(MEAT_CATEGORIES[0]);
-  const [multiAddWeightInput, setMultiAddWeightInput] = useState("");
   const [multiPickedCut, setMultiPickedCut] = useState<MeatCut | null>(null);
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
 
@@ -552,7 +551,6 @@ export default function PlanScreen() {
     setMultiResultOpen(false);
     setMultiAddOpen(false);
     setMultiAddCat(MEAT_CATEGORIES[0]);
-    setMultiAddWeightInput("");
     setMultiPickedCut(null);
   };
 
@@ -731,9 +729,9 @@ export default function PlanScreen() {
               : selectedGrill;
             return {
               foodType: item.cut.name,
-              weightLbs: parseFloat(item.weightLbs) > 0 ? parseFloat(item.weightLbs) : undefined,
-              cookTempF: item.cut.cookTempF,
-              targetTempF: item.cut.targetTempF,
+              weightLbs: (item.sizeOutput.effectiveWeightLbs ?? 0) > 0 ? item.sizeOutput.effectiveWeightLbs! : undefined,
+              cookTempF: item.cookTempF ? parseFloat(item.cookTempF) : item.cut.cookTempF,
+              targetTempF: item.targetTempF ? parseFloat(item.targetTempF) : item.cut.targetTempF,
               grillId: item.grillId ?? grillId ?? undefined,
               preheatMinutes: preheatMinsForGrill(itemGrill),
               cookingMethod: item.cookMethod ?? undefined,
@@ -775,7 +773,7 @@ export default function PlanScreen() {
 
         const inputIdx = remainingItems.findIndex(m => m.cut.name.toLowerCase() === item.foodType.toLowerCase());
         const inputItem: MultiItem | undefined = inputIdx >= 0 ? remainingItems.splice(inputIdx, 1)[0] : undefined;
-        const inputWeightLbs = inputItem ? parseFloat(inputItem.weightLbs) || undefined : undefined;
+        const inputWeightLbs = inputItem?.sizeOutput?.effectiveWeightLbs ?? undefined;
         const resolvedGrillId = inputItem?.grillId ?? grillId ?? undefined;
 
         const wrapMethodDb =
@@ -793,8 +791,8 @@ export default function PlanScreen() {
           data: {
             foodType: item.foodType,
             weightLbs: inputWeightLbs,
-            cookTempF: matchedCut?.cookTempF ?? undefined,
-            targetTempF: matchedCut?.targetTempF ?? undefined,
+            cookTempF: (inputItem?.cookTempF ? parseFloat(inputItem.cookTempF) : null) ?? inputItem?.cut?.cookTempF ?? matchedCut?.cookTempF ?? undefined,
+            targetTempF: (inputItem?.targetTempF ? parseFloat(inputItem.targetTempF) : null) ?? inputItem?.cut?.targetTempF ?? matchedCut?.targetTempF ?? undefined,
             grillId: resolvedGrillId ?? undefined,
             plannedStartAt: new Date(item.meatOnAt),
             sessionId,
@@ -2849,8 +2847,8 @@ export default function PlanScreen() {
                       )}
                     </View>
                     <Text style={[s.multiItemMeta, { color: colors.mutedForeground }]}>
-                      {parseFloat(item.weightLbs) > 0 ? `${item.weightLbs} lbs` : "weight not set"}
-                      {" · "}Pit: {item.cut.cookTempF}°F · Internal target: {item.cut.targetTempF}°F
+                      {item.sizeOutput.sizingLabel ?? "weight not set"}
+                      {" · "}Pit: {item.cookTempF || item.cut.cookTempF}°F · Target: {item.targetTempF || item.cut.targetTempF}°F
                     </Text>
                     {(grills as any[] | undefined)?.length ? (
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
@@ -2896,7 +2894,6 @@ export default function PlanScreen() {
                         const item = multiItems[idx];
                         setMultiPickedCut(item.cut);
                         setMultiAddCat(item.cut.category);
-                        setMultiAddWeightInput(item.weightLbs);
                         setEditingItemIdx(idx);
                         setMultiAddOpen(true);
                       }}
@@ -2924,7 +2921,6 @@ export default function PlanScreen() {
           <Pressable
             onPress={() => {
               setMultiPickedCut(null);
-              setMultiAddWeightInput("");
               setMultiAddCat(MEAT_CATEGORIES[0]);
               setEditingItemIdx(null);
               setMultiAddOpen(true);
@@ -3081,8 +3077,6 @@ export default function PlanScreen() {
         setMultiAddCat={setMultiAddCat}
         multiPickedCut={multiPickedCut}
         setMultiPickedCut={setMultiPickedCut}
-        multiAddWeightInput={multiAddWeightInput}
-        setMultiAddWeightInput={setMultiAddWeightInput}
         setMultiItems={setMultiItems}
         editItem={editingItemIdx != null ? multiItems[editingItemIdx] : null}
         editIndex={editingItemIdx}
