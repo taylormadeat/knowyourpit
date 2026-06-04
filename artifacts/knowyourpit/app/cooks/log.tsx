@@ -486,8 +486,9 @@ export default function LogCookScreen() {
       setImages((prev) => [...prev, ...picked].slice(0, 5));
       setResult(null);
 
-      // Auto-fill cook date from EXIF if not already set
+      // Auto-fill cook date from EXIF if not already set — use earliest date across all assets
       if (!actualStartDate) {
+        const parsedDates: Date[] = [];
         for (const asset of res.assets) {
           const exifDate: string | undefined =
             (asset.exif as any)?.DateTimeOriginal ?? (asset.exif as any)?.DateTime;
@@ -501,11 +502,14 @@ export default function LogCookScreen() {
                 Number(hour), Number(minute), Number(second)
               );
               if (!isNaN(parsed.getTime())) {
-                setActualStartDate(parsed);
-                break;
+                parsedDates.push(parsed);
               }
             }
           }
+        }
+        if (parsedDates.length > 0) {
+          const earliest = parsedDates.reduce((min, d) => d < min ? d : min);
+          setActualStartDate(earliest);
         }
       }
     }
