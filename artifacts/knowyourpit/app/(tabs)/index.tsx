@@ -612,8 +612,8 @@ export default function HomeScreen() {
                   {/* Score breakdown panel */}
                   {scoreExpanded && (() => {
                     const sb = insights.scoreBreakdown;
-                    const healthPts = sb.avgHealthScore != null ? Math.round(sb.avgHealthScore * 0.7) : null;
-                    const ratingPts = sb.avgRating != null ? Math.round((sb.avgRating / 5) * 100 * 0.3) : null;
+                    const healthPts = sb.avgHealthScore != null ? Math.round(sb.avgHealthScore * 0.3) : null;
+                    const ratingPts = sb.avgRating != null ? Math.round((sb.avgRating / 5) * 100 * 0.7) : null;
                     return (
                       <View style={[s.scoreCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
                         {/* Row: Cook Health */}
@@ -633,10 +633,10 @@ export default function HomeScreen() {
                           </View>
                           <View style={s.scoreRowRight}>
                             <View style={[s.weightBadge, { backgroundColor: color + "22", borderColor: color + "44" }]}>
-                              <Text style={[s.weightText, { color }]}>70%</Text>
+                              <Text style={[s.weightText, { color }]}>30%</Text>
                             </View>
                             <Text style={[s.scorePts, { color: healthPts != null ? colors.foreground : colors.mutedForeground }]}>
-                              {healthPts != null ? `${healthPts} / 70 pts` : "—"}
+                              {healthPts != null ? `${healthPts} / 30 pts` : "—"}
                             </Text>
                           </View>
                         </View>
@@ -656,10 +656,10 @@ export default function HomeScreen() {
                           </View>
                           <View style={s.scoreRowRight}>
                             <View style={[s.weightBadge, { backgroundColor: "rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.12)" }]}>
-                              <Text style={[s.weightText, { color: "#96908A" }]}>30%</Text>
+                              <Text style={[s.weightText, { color: "#96908A" }]}>70%</Text>
                             </View>
                             <Text style={[s.scorePts, { color: ratingPts != null ? colors.foreground : colors.mutedForeground }]}>
-                              {ratingPts != null ? `${ratingPts} / 30 pts` : "—"}
+                              {ratingPts != null ? `${ratingPts} / 70 pts` : "—"}
                             </Text>
                           </View>
                         </View>
@@ -668,7 +668,7 @@ export default function HomeScreen() {
                         <View style={[s.scoreNote, { borderTopWidth: 1, borderTopColor: colors.border }]}>
                           <Feather name="info" size={12} color={colors.mutedForeground} style={{ marginTop: 1 }} />
                           <Text style={[s.scoreNoteText, { color: colors.mutedForeground }]}>
-                            Cook Health drives 70% of your score — it blends the AI verdict on your food, your process (check-ins, drift, issues), and plan adherence. Your ratings add the remaining 30%.
+                            Your ratings drive 70% of your score — a true pitmaster knows how to adjust and reads the cook. Cook Health adds the remaining 30%, tracking process and AI verdict.
                           </Text>
                         </View>
                       </View>

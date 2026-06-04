@@ -94,8 +94,8 @@ router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void
 
     let weightedSum = 0;
     let totalWeight = 0;
-    if (avgHealthScore != null) { weightedSum += avgHealthScore  * 0.70; totalWeight += 0.70; }
-    if (avgRatingScore != null) { weightedSum += avgRatingScore  * 0.30; totalWeight += 0.30; }
+    if (avgHealthScore != null) { weightedSum += avgHealthScore  * 0.30; totalWeight += 0.30; }
+    if (avgRatingScore != null) { weightedSum += avgRatingScore  * 0.70; totalWeight += 0.70; }
     const pitMasterScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
 
     let tips: string[] = [];
