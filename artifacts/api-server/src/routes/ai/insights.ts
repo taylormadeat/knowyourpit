@@ -17,6 +17,7 @@ interface HomeInsights {
     avgHealthScore: number | null;
     cookCount: number;
   };
+  unratedCount: number;
   tips: string[];
   tipsGeneratedAt: string;
 }
@@ -73,6 +74,7 @@ router.get("/ai/home-insights", requireAuth, async (req: any, res): Promise<void
       .limit(50);
 
     const cookCount = cooks.length;
+    const unratedCount = cooks.filter((c) => c.rating == null).length;
 
     const rated = cooks.filter((c) => c.rating != null);
     const avgRating =
@@ -149,6 +151,7 @@ Respond ONLY with a JSON array of exactly 3 strings: ["tip1", "tip2", "tip3"]`;
       pitMasterScore,
       scoreLabel: getPitMasterLabel(pitMasterScore),
       scoreBreakdown: { avgRating, avgHealthScore, cookCount },
+      unratedCount,
       tips,
       tipsGeneratedAt: new Date().toISOString(),
     };

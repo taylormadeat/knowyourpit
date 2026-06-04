@@ -11,6 +11,7 @@ export interface HomeInsights {
     avgHealthScore: number | null;
     cookCount: number;
   };
+  unratedCount: number;
   tips: string[];
   tipsGeneratedAt: string;
 }

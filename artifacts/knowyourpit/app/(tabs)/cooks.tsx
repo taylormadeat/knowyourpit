@@ -19,7 +19,7 @@ import {
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { fmtMinutes } from "@/utils/duration";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -335,9 +335,11 @@ function TechniquePerformanceSection({ stats, activeFilter, onSelect, colors }: 
 export default function CooksScreen() {
   const colors = useColors();
   const router = useRouter();
+  const params = useLocalSearchParams<{ filter?: string }>();
   const [refreshing, setRefreshing] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("date-desc");
   const [ratedOnly, setRatedOnly] = useState(false);
+  const [unratedOnly, setUnratedOnly] = useState(false);
   const [techniqueFilter, setTechniqueFilter] = useState<string | null>(null);
   const [showTechniquePicker, setShowTechniquePicker] = useState(false);
   const [meatTypeFilter, setMeatTypeFilter] = useState<string | null>(null);
@@ -411,6 +413,9 @@ export default function CooksScreen() {
     if (ratedOnly) {
       list = list.filter((item) => avgRating(item) > 0);
     }
+    if (unratedOnly) {
+      list = list.filter((item) => item.status === "completed" && avgRating(item) === 0);
+    }
     if (techniqueFilter) {
       list = list.filter((item) => item.cookingMethod === techniqueFilter);
     }
@@ -441,7 +446,7 @@ export default function CooksScreen() {
     });
 
     return list;
-  }, [cooks, sortKey, ratedOnly, techniqueFilter, meatTypeFilter]);
+  }, [cooks, sortKey, ratedOnly, unratedOnly, techniqueFilter, meatTypeFilter]);
 
   const sessionGroups = useMemo((): SessionGroup[] => {
     const all: any[] = (cooks as any[]) || [];
@@ -472,6 +477,26 @@ export default function CooksScreen() {
         }
       }
     }
+    if (ratedOnly) {
+      for (const sid of Object.keys(grouped)) {
+        const rated = grouped[sid].filter((c: any) => avgRating(c) > 0);
+        if (rated.length === 0) {
+          delete grouped[sid];
+        } else {
+          grouped[sid] = rated;
+        }
+      }
+    }
+    if (unratedOnly) {
+      for (const sid of Object.keys(grouped)) {
+        const unrated = grouped[sid].filter((c: any) => c.status === "completed" && avgRating(c) === 0);
+        if (unrated.length === 0) {
+          delete grouped[sid];
+        } else {
+          grouped[sid] = unrated;
+        }
+      }
+    }
     const groups: SessionGroup[] = Object.entries(grouped).map(([sessionId, sessionCooks]) => {
       const dates = sessionCooks
         .map((c) => c.plannedStartAt ? new Date(c.plannedStartAt) : null)
@@ -499,7 +524,7 @@ export default function CooksScreen() {
       return b.earliestStart.getTime() - a.earliestStart.getTime();
     });
     return groups;
-  }, [cooks, sortKey, techniqueFilter, meatTypeFilter]);
+  }, [cooks, sortKey, ratedOnly, unratedOnly, techniqueFilter, meatTypeFilter]);
 
   type UnifiedItem =
     | { type: "cook"; data: any }
@@ -581,6 +606,15 @@ export default function CooksScreen() {
   useEffect(() => {
     pendingDeleteGroupRef.current = pendingDeleteGroup;
   }, [pendingDeleteGroup]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (params.filter === "unrated") {
+        setUnratedOnly(true);
+        setRatedOnly(false);
+      }
+    }, [params.filter])
+  );
 
   useEffect(() => {
     return () => {
@@ -1863,7 +1897,10 @@ export default function CooksScreen() {
           })}
 
           <Pressable
-            onPress={() => setRatedOnly((v) => !v)}
+            onPress={() => {
+              setRatedOnly((v) => !v);
+              setUnratedOnly(false);
+            }}
             style={[
               s.pill,
               ratedOnly
@@ -1873,6 +1910,23 @@ export default function CooksScreen() {
           >
             <Text style={[s.pillText, { color: ratedOnly ? "#fff" : colors.mutedForeground }]}>
               ★ Rated only
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              setUnratedOnly((v) => !v);
+              setRatedOnly(false);
+            }}
+            style={[
+              s.pill,
+              unratedOnly
+                ? { backgroundColor: "#6C3BF5" }
+                : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
+            ]}
+          >
+            <Text style={[s.pillText, { color: unratedOnly ? "#fff" : colors.mutedForeground }]}>
+              ☆ Unrated only
             </Text>
           </Pressable>
 
@@ -1984,20 +2038,24 @@ export default function CooksScreen() {
               <Text style={[s.emptyTitle, { color: colors.foreground }]}>
                 {ratedOnly
                   ? "No rated cooks found"
-                  : meatTypeFilter
-                    ? `No "${meatTypeFilter}" cooks found`
-                    : techniqueFilter
-                      ? `No "${techniqueFilter}" cooks found`
-                      : "No cooks logged yet"}
+                  : unratedOnly
+                    ? "All cooks are rated!"
+                    : meatTypeFilter
+                      ? `No "${meatTypeFilter}" cooks found`
+                      : techniqueFilter
+                        ? `No "${techniqueFilter}" cooks found`
+                        : "No cooks logged yet"}
               </Text>
               <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
                 {ratedOnly
                   ? "Try removing the \"Rated only\" filter to see all cooks"
-                  : meatTypeFilter
-                    ? "Try a different meat type or tap the pill to clear"
-                    : techniqueFilter
-                      ? "Try a different technique or tap the pill to clear"
-                      : "Hit + to log your first cook. Your data starts here."}
+                  : unratedOnly
+                    ? "Every completed cook has a rating — great work!"
+                    : meatTypeFilter
+                      ? "Try a different meat type or tap the pill to clear"
+                      : techniqueFilter
+                        ? "Try a different technique or tap the pill to clear"
+                        : "Hit + to log your first cook. Your data starts here."}
               </Text>
             </View>
           }

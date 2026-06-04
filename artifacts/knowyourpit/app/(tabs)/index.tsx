@@ -609,6 +609,40 @@ export default function HomeScreen() {
                     <Feather name={scoreExpanded ? "chevron-up" : "chevron-down"} size={11} color={color + "AA"} />
                   </Pressable>
 
+                  {/* Unrated cooks nudge — shown when ≥1 completed cook has no rating */}
+                  {(insights.unratedCount ?? 0) > 0 && (
+                    <Pressable
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.push("/(tabs)/cooks?filter=unrated" as any);
+                      }}
+                      style={({ pressed }) => [
+                        s.unratedNudge,
+                        { backgroundColor: colors.card, borderColor: "#eab30844", borderRadius: colors.radius },
+                        pressed && { opacity: 0.8 },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${insights.unratedCount} unrated ${insights.unratedCount === 1 ? "cook" : "cooks"} — tap to rate them`}
+                    >
+                      <View style={s.unratedNudgeLeft}>
+                        <View style={[s.unratedNudgeIcon, { backgroundColor: "#eab30818" }]}>
+                          <Feather name="star" size={14} color="#eab308" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[s.unratedNudgeTitle, { color: colors.foreground }]}>
+                            {insights.unratedCount === 1
+                              ? "1 unrated cook"
+                              : `${insights.unratedCount} unrated cooks`}
+                          </Text>
+                          <Text style={[s.unratedNudgeSub, { color: colors.mutedForeground }]}>
+                            Rate {insights.unratedCount === 1 ? "it" : "them"} to strengthen your PitMaster Score
+                          </Text>
+                        </View>
+                      </View>
+                      <Feather name="chevron-right" size={14} color="#eab30899" />
+                    </Pressable>
+                  )}
+
                   {/* Score breakdown panel */}
                   {scoreExpanded && (() => {
                     const sb = insights.scoreBreakdown;
@@ -1349,6 +1383,40 @@ const s = StyleSheet.create({
   },
   pitMasterChatSub: {
     fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 1,
+  },
+
+  /* Unrated cooks nudge */
+  unratedNudge: {
+    marginHorizontal: 20,
+    marginBottom: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  unratedNudgeLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  unratedNudgeIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  unratedNudgeTitle: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  unratedNudgeSub: {
+    fontSize: 11,
     fontFamily: "Inter_400Regular",
     marginTop: 1,
   },
