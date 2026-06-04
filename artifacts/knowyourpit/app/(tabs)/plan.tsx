@@ -477,6 +477,7 @@ export default function PlanScreen() {
   const aiPredict = useAiPredict();
   const [aiResult, setAiResult] = useState<any | null>(null);
   const [aiResultOpen, setAiResultOpen] = useState(false);
+  const [aiRetrying, setAiRetrying] = useState(false);
   const [factorsSheetOpen, setFactorsSheetOpen] = useState(false);
   const [planChatOpen, setPlanChatOpen] = useState(false);
   const [planChatSeed, setPlanChatSeed] = useState<string | undefined>(undefined);
@@ -765,33 +766,50 @@ export default function PlanScreen() {
       return;
     }
     try {
-      const result = await aiPredict.mutateAsync({
-        data: {
-          foodType: selectedCut.name,
-          weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : undefined,
-          cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
-          targetTempF: targetTempF ? Number(targetTempF) : selectedCut.targetTempF,
-          grillId: grillId ?? undefined,
-          desiredFinishAt: serveAt ? serveAt.toISOString() : undefined,
-          preheatMinutes: preheatMinsForGrill(selectedGrill),
-          outdoorTempF: weather.tempF ?? undefined,
-          outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
-          fromFrozen: frozenEnabled || undefined,
-          thawMethod: frozenEnabled ? thawMethod : undefined,
-          cookingMethod: qpCookMethod ?? undefined,
-          meatStartTemp: qpMeatStartTemp ?? undefined,
-          injection: qpInjection ?? undefined,
-          spritzFrequency: qpSpritz ?? undefined,
-          wrapFinish: qpWrapFinish ?? undefined,
-          notes: notes.trim() || undefined,
-          pieceCount: sizeOutput.pieceCount ?? undefined,
-          isIndividualCook: selectedCut.isIndividualCook ?? undefined,
-          sizingLabel: sizeOutput.sizingLabel ?? undefined,
-          cookingStylePreset: activePreset ?? undefined,
-        },
-      });
+      const predictPayload = {
+        foodType: selectedCut.name,
+        weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : undefined,
+        cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
+        targetTempF: targetTempF ? Number(targetTempF) : selectedCut.targetTempF,
+        grillId: grillId ?? undefined,
+        desiredFinishAt: serveAt ? serveAt.toISOString() : undefined,
+        preheatMinutes: preheatMinsForGrill(selectedGrill),
+        outdoorTempF: weather.tempF ?? undefined,
+        outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
+        fromFrozen: frozenEnabled || undefined,
+        thawMethod: frozenEnabled ? thawMethod : undefined,
+        cookingMethod: qpCookMethod ?? undefined,
+        meatStartTemp: qpMeatStartTemp ?? undefined,
+        injection: qpInjection ?? undefined,
+        spritzFrequency: qpSpritz ?? undefined,
+        wrapFinish: qpWrapFinish ?? undefined,
+        notes: notes.trim() || undefined,
+        pieceCount: sizeOutput.pieceCount ?? undefined,
+        isIndividualCook: selectedCut.isIndividualCook ?? undefined,
+        sizingLabel: sizeOutput.sizingLabel ?? undefined,
+        cookingStylePreset: activePreset ?? undefined,
+      };
+      const result = await aiPredict.mutateAsync({ data: predictPayload });
       setAiResult(result);
       setAiResultOpen(true);
+
+      // If the first request timed out, fire a silent background retry.
+      // The server will not serve the cached fallback for timed-out responses,
+      // so the retry goes straight to the AI. If it resolves within 30 s the
+      // modal updates in-place and the timeout banner is dismissed automatically.
+      if (result.timedOut) {
+        setAiRetrying(true);
+        aiPredict.mutateAsync({ data: predictPayload })
+          .then((retryResult) => {
+            setAiRetrying(false);
+            if (!retryResult.timedOut) {
+              setAiResult(retryResult);
+            }
+          })
+          .catch(() => {
+            setAiRetrying(false);
+          });
+      }
     } catch (e: any) {
       if (e?.status === 401) {
         Alert.alert(
@@ -3383,6 +3401,7 @@ export default function PlanScreen() {
         aiResult={aiResult}
         applyAiPlan={applyAiPlan}
         grillName={selectedGrill?.name}
+        retrying={aiRetrying}
         selectedChips={{
           cookingMethod: qpCookMethod,
           meatStartTemp: qpMeatStartTemp,

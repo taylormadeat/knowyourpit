@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, Modal, Pressable, ScrollView } from "react-native";
+import { View, Text, Modal, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { planStyles as s } from "./styles";
@@ -24,6 +24,7 @@ interface Props {
   applyAiPlan: () => void;
   grillName?: string;
   selectedChips?: SelectedChips;
+  retrying?: boolean;
 }
 
 const CHIP_LABELS: { key: keyof SelectedChips; label: string }[] = [
@@ -35,7 +36,7 @@ const CHIP_LABELS: { key: keyof SelectedChips; label: string }[] = [
 ];
 
 export function AiResultsModal(p: Props) {
-  const { visible, onClose, colors, aiResult, applyAiPlan, grillName, selectedChips } = p;
+  const { visible, onClose, colors, aiResult, applyAiPlan, grillName, selectedChips, retrying } = p;
 
   const activeChips = selectedChips
     ? CHIP_LABELS.filter((c) => selectedChips[c.key])
@@ -92,7 +93,11 @@ export function AiResultsModal(p: Props) {
                     borderColor: "#F59E0B40",
                     borderRadius: 10,
                   }}>
-                    <Feather name="clock" size={14} color="#F59E0B" />
+                    {retrying ? (
+                      <ActivityIndicator size="small" color="#F59E0B" />
+                    ) : (
+                      <Feather name="clock" size={14} color="#F59E0B" />
+                    )}
                     <Text style={{
                       flex: 1,
                       fontFamily: "Inter_400Regular",
@@ -100,7 +105,9 @@ export function AiResultsModal(p: Props) {
                       color: "#D97706",
                       lineHeight: 17,
                     }}>
-                      {"Taking longer than usual — here's a rough estimate. Tap \"Apply\" or try again for a personalized plan."}
+                      {retrying
+                        ? "Getting your personalized plan — updating in a moment…"
+                        : "Taking longer than usual — here's a rough estimate. Tap \"Apply\" or try again for a personalized plan."}
                     </Text>
                   </View>
                 )}

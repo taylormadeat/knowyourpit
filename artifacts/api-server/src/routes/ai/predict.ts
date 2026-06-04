@@ -530,20 +530,24 @@ ${userHistorySection}${fingerprintGuidance}`;
       }
     }
 
-    // Store in cache for subsequent identical requests.
-    predictionAiCache.set(cacheKey, {
-      output: {
-        estimatedDurationMinutes: prediction.estimatedDurationMinutes,
-        confidence: prediction.confidence,
-        rationale: prediction.rationale,
-        tips: prediction.tips,
-        wrap: prediction.wrap,
-        checkins: prediction.checkins ?? null,
-        recommendedServeAt: prediction.recommendedServeAt ?? null,
-        recommendedServeReason: prediction.recommendedServeReason ?? null,
-      },
-      cachedAt: Date.now(),
-    });
+    // Only cache successful (non-timed-out) predictions. Caching a fallback
+    // would cause all retries within the TTL window to hit the cache and
+    // return the same rough estimate instead of getting a real AI response.
+    if (!timedOut) {
+      predictionAiCache.set(cacheKey, {
+        output: {
+          estimatedDurationMinutes: prediction.estimatedDurationMinutes,
+          confidence: prediction.confidence,
+          rationale: prediction.rationale,
+          tips: prediction.tips,
+          wrap: prediction.wrap,
+          checkins: prediction.checkins ?? null,
+          recommendedServeAt: prediction.recommendedServeAt ?? null,
+          recommendedServeReason: prediction.recommendedServeReason ?? null,
+        },
+        cachedAt: Date.now(),
+      });
+    }
   }
 
   const wrap = prediction.wrap ?? {
