@@ -972,6 +972,19 @@ export default function PlanScreen() {
         return;
       }
     }
+    // Pre-check: force-refresh the Clerk token before any API call.
+    // Mirrors the same guard in handleAiPlan — if the session expired during
+    // a long AI wait the user sees a clear "Session Expired" message instead
+    // of a confusing generic "Failed to create cook" alert.
+    const sessionToken = await getToken({ skipCache: true }).catch(() => null);
+    if (!sessionToken) {
+      Alert.alert(
+        "Session Expired",
+        "Your session has expired. Please sign out from the More tab and sign in again.",
+      );
+      return;
+    }
+
     const preheatMins = preheatMinsForGrill(selectedGrill);
     const wrap = aiResult?.wrap ?? null;
 
@@ -1293,7 +1306,14 @@ export default function PlanScreen() {
     } catch (e: any) {
       // Free user hit the cook cap → upgrade modal instead of generic error.
       if (parseAndShowFromError(e)) return;
-      Alert.alert("Error", e?.message || "Failed to create cook");
+      if (e?.status === 401) {
+        Alert.alert(
+          "Session Expired",
+          "Your session has expired. Please sign out from the More tab and sign in again.",
+        );
+        return;
+      }
+      Alert.alert("Error", e?.message || "Failed to save cook. Please try again.");
     }
   };
 

@@ -476,36 +476,56 @@ ${userHistorySection}${fingerprintGuidance}`;
   if (cached && Date.now() - cached.cachedAt < PREDICTION_CACHE_TTL_MS) {
     prediction = cached.output as typeof prediction;
   } else {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      max_completion_tokens: 2048,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    });
-
-    const content = response.choices[0]?.message?.content ?? "{}";
-    const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
-
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), 50_000);
+    let aiResponse: Awaited<ReturnType<typeof openai.chat.completions.create>> | null = null;
     try {
-      prediction = JSON.parse(cleaned);
-    } catch {
-      prediction = {
-        estimatedDurationMinutes: 240,
-        confidence: "low",
-        rationale: "Could not parse prediction, using default estimate.",
-        tips: ["Monitor internal temperature closely", "Use a reliable meat thermometer", "Rest meat after cooking"],
-        wrap: {
-          wrapAtMinutes: 180,
-          method: "foil",
-          wrapTempF: 165,
-          reason: "Wrap in foil at around 165°F internal temp to push through the stall faster and keep moisture in. Add a splash of apple juice or beef tallow before sealing.",
-          restMinutes: 60,
+      aiResponse = await openai.chat.completions.create(
+        {
+          model: "gpt-4.1-mini",
+          max_completion_tokens: 2048,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
         },
-        recommendedServeAt: null,
-        recommendedServeReason: null,
-      };
+        { signal: abortController.signal },
+      );
+    } catch (aiErr: any) {
+      req.log.warn({ err: aiErr }, "AI predict timeout or error — using fallback prediction");
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    const fallbackPrediction: PredictionAiOutput = {
+      estimatedDurationMinutes: 240,
+      confidence: "low",
+      rationale: "Could not get PitMaster prediction in time — using default estimate.",
+      tips: ["Monitor internal temperature closely", "Use a reliable meat thermometer", "Rest meat after cooking"],
+      wrap: {
+        wrapAtMinutes: 180,
+        method: "foil",
+        wrapTempF: 165,
+        reason: "Wrap in foil at around 165°F internal temp to push through the stall faster and keep moisture in. Add a splash of apple juice or beef tallow before sealing.",
+        restMinutes: 60,
+      },
+      recommendedServeAt: null,
+      recommendedServeReason: null,
+    };
+
+    if (aiResponse === null) {
+      // Timeout or network error — use the hardcoded fallback directly so
+      // downstream date math never receives undefined/NaN values.
+      prediction = fallbackPrediction;
+    } else {
+      const content = aiResponse.choices[0]?.message?.content ?? "{}";
+      const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+
+      try {
+        prediction = JSON.parse(cleaned);
+      } catch {
+        prediction = fallbackPrediction;
+      }
     }
 
     // Store in cache for subsequent identical requests.
