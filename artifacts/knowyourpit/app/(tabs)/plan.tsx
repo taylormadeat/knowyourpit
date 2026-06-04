@@ -441,11 +441,15 @@ export default function PlanScreen() {
   const weatherTargetDate = isFutureCookDay ? serveAt : null;
   const weather = useAmbientWeather(weatherTargetDate, { enabled: effectivePro });
 
-  // ── Technique presets — fetched when a cut is selected ───────────────
-  const { data: cutPresets } = useGetTechniquePresets(
-    selectedCut ? { cutName: selectedCut.name } : {},
+  // ── Technique presets — fetched once, filtered client-side ───────────
+  const { data: allPresets } = useGetTechniquePresets(
+    {},
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { query: { enabled: !!selectedCut, staleTime: 10 * 60 * 1000 } as any },
+    { query: { staleTime: 10 * 60 * 1000 } as any },
+  );
+  const cutPresets = useMemo(
+    () => allPresets?.filter(p => p.cutName === selectedCut?.name) ?? [],
+    [allPresets, selectedCut?.name],
   );
 
   // ── AI predict state ──────────────────────────────────────────────────
@@ -1754,7 +1758,7 @@ export default function PlanScreen() {
                 placeholder={selectedCut ? String(selectedCut.targetTempF) : "203"}
                 placeholderTextColor={colors.mutedForeground}
                 value={targetTempF}
-                onChangeText={setTargetTempF}
+                onChangeText={(v) => { setTargetTempF(v); setActivePreset(null); }}
                 keyboardType="number-pad"
               />
               <Text style={[s.inputUnit, { color: colors.mutedForeground }]}>°F</Text>
@@ -1769,7 +1773,7 @@ export default function PlanScreen() {
                 placeholder={selectedCut ? String(selectedCut.cookTempF) : "225"}
                 placeholderTextColor={colors.mutedForeground}
                 value={cookTempF}
-                onChangeText={setCookTempF}
+                onChangeText={(v) => { setCookTempF(v); setActivePreset(null); }}
                 keyboardType="number-pad"
               />
               <Text style={[s.inputUnit, { color: colors.mutedForeground }]}>°F</Text>
@@ -2224,7 +2228,7 @@ export default function PlanScreen() {
                       value={qpCookMethod}
                       placeholder="Any"
                       onPress={() => setActiveSheet("cookMethod")}
-                      onClear={() => setQpCookMethod(null)}
+                      onClear={() => { setQpCookMethod(null); setActivePreset(null); }}
                       colors={colors}
                     />
                     <SettingsRow
@@ -2233,7 +2237,7 @@ export default function PlanScreen() {
                       value={qpMeatStartTemp}
                       placeholder="Any"
                       onPress={() => setActiveSheet("meatStartTemp")}
-                      onClear={() => setQpMeatStartTemp(null)}
+                      onClear={() => { setQpMeatStartTemp(null); setActivePreset(null); }}
                       colors={colors}
                     />
                     <SettingsRow
@@ -2242,7 +2246,7 @@ export default function PlanScreen() {
                       value={qpInjection}
                       placeholder="Any"
                       onPress={() => setActiveSheet("injection")}
-                      onClear={() => setQpInjection(null)}
+                      onClear={() => { setQpInjection(null); setActivePreset(null); }}
                       colors={colors}
                     />
                     <SettingsRow
@@ -2251,7 +2255,7 @@ export default function PlanScreen() {
                       value={qpSpritz}
                       placeholder="Any"
                       onPress={() => setActiveSheet("spritz")}
-                      onClear={() => setQpSpritz(null)}
+                      onClear={() => { setQpSpritz(null); setActivePreset(null); }}
                       colors={colors}
                     />
                     <SettingsRow
@@ -2260,7 +2264,7 @@ export default function PlanScreen() {
                       value={qpWrapFinish}
                       placeholder="Any"
                       onPress={() => setActiveSheet("wrapFinish")}
-                      onClear={() => setQpWrapFinish(null)}
+                      onClear={() => { setQpWrapFinish(null); setActivePreset(null); }}
                       colors={colors}
                       isLast
                     />
@@ -2321,6 +2325,7 @@ export default function PlanScreen() {
                       const val = v as QpMeatStartTemp | null;
                       setQpMeatStartTemp(val);
                       setLastUsedMeatStartTemp(null);
+                      setActivePreset(null);
                       if (selectedCut && val) saveLastMeatStartTemp(selectedCut.name, val);
                     }}
                     onClose={() => setActiveSheet(null)}

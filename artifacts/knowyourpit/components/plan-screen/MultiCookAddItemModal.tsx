@@ -232,11 +232,15 @@ export function MultiCookAddItemModal(p: Props) {
     return [...customs, ...builtin];
   }, [customCuts, multiAddCat]);
 
-  // ── Technique presets — fetched when a cut is selected ───────────────
-  const { data: cutPresets } = useGetTechniquePresets(
-    multiPickedCut ? { cutName: multiPickedCut.name } : {},
+  // ── Technique presets — fetched once, filtered client-side ───────────
+  const { data: allPresets } = useGetTechniquePresets(
+    {},
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { query: { enabled: !!multiPickedCut, staleTime: 10 * 60 * 1000 } as any },
+    { query: { staleTime: 10 * 60 * 1000 } as any },
+  );
+  const cutPresets = useMemo(
+    () => allPresets?.filter(p => p.cutName === multiPickedCut?.name) ?? [],
+    [allPresets, multiPickedCut?.name],
   );
 
   // ── Item fields ──────────────────────────────────────────────────────
@@ -311,6 +315,7 @@ export function MultiCookAddItemModal(p: Props) {
 
   useEffect(() => {
     if (!multiPickedCut) {
+      setActivePreset(null);
       setSelectedCookMethod(null);
       setLastUsedMethod(null);
       setSelectedMeatStartTemp(null);
@@ -328,6 +333,7 @@ export function MultiCookAddItemModal(p: Props) {
     }
 
     if (isEditMode && editItem.cut.name === multiPickedCut.name) {
+      setActivePreset(editItem.cookingStylePreset ?? null);
       setSelectedCookMethod(editItem.cookMethod);
       setLastUsedMethod(null);
       setSelectedMeatStartTemp(editItem.meatStartTemp);
@@ -343,6 +349,7 @@ export function MultiCookAddItemModal(p: Props) {
       return;
     }
 
+    setActivePreset(null);
     loadLastCookMethod(multiPickedCut.name).then(method => {
       setSelectedCookMethod(method);
       setLastUsedMethod(method);
@@ -596,7 +603,7 @@ export function MultiCookAddItemModal(p: Props) {
                         placeholderTextColor={colors.mutedForeground}
                         keyboardType="decimal-pad"
                         value={targetTempFInput}
-                        onChangeText={setTargetTempFInput}
+                        onChangeText={(v) => { setTargetTempFInput(v); setActivePreset(null); }}
                       />
                       <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginRight: 10 }}>°F</Text>
                     </View>
@@ -612,7 +619,7 @@ export function MultiCookAddItemModal(p: Props) {
                         placeholderTextColor={colors.mutedForeground}
                         keyboardType="decimal-pad"
                         value={cookTempFInput}
-                        onChangeText={setCookTempFInput}
+                        onChangeText={(v) => { setCookTempFInput(v); setActivePreset(null); }}
                       />
                       <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginRight: 10 }}>°F</Text>
                     </View>
@@ -730,6 +737,7 @@ export function MultiCookAddItemModal(p: Props) {
                   colors={colors}
                   onSelect={(v) => {
                     setSelectedMeatStartTemp(v);
+                    setActivePreset(null);
                     if (multiPickedCut && v) saveLastMeatStartTemp(multiPickedCut.name, v);
                   }}
                 />
