@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
-import type { MeatCut, SizeMode } from "@/constants/meatCuts";
+import { isProduce, type MeatCut, type SizeMode } from "@/constants/meatCuts";
 
 export type { SizeMode };
 
@@ -36,6 +36,33 @@ function getDefaultMode(cut: MeatCut | null): DisplayMode {
 
 function getPieceUnit(cut: MeatCut): string {
   const n = cut.name.toLowerCase();
+  // ── Vegetables ────────────────────────────────────────────────────
+  if (n.includes("corn") || n.includes("cob")) return "ears";
+  if (n.includes("bell pepper")) return "peppers";
+  if (n.includes("portobello") || n.includes("mushroom")) return "mushrooms";
+  if (n.includes("sweet potato")) return "sweet potatoes";
+  if (n.includes("zucchini") || n.includes("squash")) return "zucchini";
+  if (n.includes("onion")) return "onions";
+  if (n.includes("eggplant")) return "eggplants";
+  if (n.includes("jalapeño") || n.includes("jalapeno") || n.includes("stuffed")) return "peppers";
+  if (n.includes("beet")) return "beets";
+  if (n.includes("romaine") || n.includes("lettuce")) return "heads";
+  if (n.includes("tomato")) return "tomatoes";
+  if (n.includes("potato")) return "potatoes";
+  // ── Fruit ─────────────────────────────────────────────────────────
+  if (n.includes("peach")) return "peaches";
+  if (n.includes("pineapple ring")) return "rings";
+  if (n.includes("pineapple") && n.includes("spear")) return "spears";
+  if (n.includes("watermelon")) return "wedges";
+  if (n.includes("mango")) return "mangoes";
+  if (n.includes("avocado")) return "avocados";
+  if (n.includes("banana")) return "bananas";
+  if (n.includes("plantain")) return "plantains";
+  if (n.includes("fig")) return "figs";
+  if (n.includes("pear")) return "pears";
+  if (n.includes("citrus")) return "halves";
+  if (n.includes("strawberr") || n.includes("stone fruit")) return "skewers";
+  // ── Meat / Poultry / Seafood ───────────────────────────────────────
   if (n.includes("wing")) return "wings";
   if (n.includes("thigh")) return "thighs";
   if (n.includes("drumstick")) return "drumsticks";
@@ -262,9 +289,11 @@ export function SizeInputRow({ cut, colors, onChange, detectedWeightLbs, onClear
           {out.isEstimated && cut && (
             <View style={{ marginTop: 6 }}>
               <Text style={[styles.estimateText, { color: colors.mutedForeground }]}>
-                ≈ {out.effectiveWeightLbs?.toFixed(1)} lbs total ({countInput} × {cut.avgPieceWeightLbs} lbs avg) — estimate only
+                {isProduce(cut.category)
+                  ? `${countInput} × ≈ ${cut.avgPieceWeightLbs} lbs each · ≈ ${out.effectiveWeightLbs?.toFixed(1)} lbs total — estimate only`
+                  : `≈ ${out.effectiveWeightLbs?.toFixed(1)} lbs total (${countInput} × ${cut.avgPieceWeightLbs} lbs avg) — estimate only`}
               </Text>
-              {cut.isIndividualCook && (
+              {cut.isIndividualCook && !isProduce(cut.category) && (
                 <Text style={[styles.estimateText, { color: colors.mutedForeground, marginTop: 2, fontStyle: "italic" }]}>
                   Cook time is based on individual piece size, not total quantity.
                 </Text>
@@ -309,7 +338,9 @@ export function SizeInputRow({ cut, colors, onChange, detectedWeightLbs, onClear
 
       {mode === "skip" && (
         <Text style={[styles.skipNote, { color: colors.mutedForeground, marginTop: 8 }]}>
-          Using a typical size estimate — entering weight improves accuracy.
+          {cut && isProduce(cut.category)
+            ? "Using a typical size estimate — entering count improves accuracy."
+            : "Using a typical size estimate — entering weight improves accuracy."}
         </Text>
       )}
     </View>
