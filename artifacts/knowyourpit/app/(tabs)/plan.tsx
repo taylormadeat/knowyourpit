@@ -46,6 +46,10 @@ import {
   useAiMultiCook,
   useListCooks,
   useGetTechniquePresets,
+  useListUserTechniquePresets,
+  useCreateUserTechniquePreset,
+  useDeleteUserTechniquePreset,
+  getListUserTechniquePresetsQueryKey,
   getListCooksQueryKey,
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
@@ -55,6 +59,7 @@ import {
   type MultiCookScheduleItem,
   type MultiCookItemThawMethod,
   type TechniquePreset,
+  type UserTechniquePreset,
 } from "@workspace/api-client-react";
 import { NextUpBanner, getStepTargetMs } from "@/components/NextUpBanner";
 import { computeNextStep } from "@/components/cook-detail/utils";
@@ -452,6 +457,22 @@ export default function PlanScreen() {
     [allPresets, selectedCut?.name],
   );
 
+  // ── User-created custom technique presets ─────────────────────────────
+  const { data: allUserPresets, refetch: refetchUserPresets } = useListUserTechniquePresets(
+    {},
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { query: { staleTime: 5 * 60 * 1000 } as any },
+  );
+  const cutUserPresets = useMemo(
+    () => allUserPresets?.filter(p => p.cutName === selectedCut?.name) ?? [],
+    [allUserPresets, selectedCut?.name],
+  );
+  const createUserPreset = useCreateUserTechniquePreset();
+  const deleteUserPreset = useDeleteUserTechniquePreset();
+  const [savePresetModalVisible, setSavePresetModalVisible] = useState(false);
+  const [savePresetLabel, setSavePresetLabel] = useState("");
+  const [savePresetSaving, setSavePresetSaving] = useState(false);
+
   // ── AI predict state ──────────────────────────────────────────────────
   const aiPredict = useAiPredict();
   const [aiResult, setAiResult] = useState<any | null>(null);
@@ -484,6 +505,60 @@ export default function PlanScreen() {
   const [lastUsedSpritz, setLastUsedSpritz] = useState<QpSpritzFrequency | null>(null);
   const [qpWrapFinish, setQpWrapFinish] = useState<QpWrapFinishOption | null>(null);
   const [lastUsedWrapFinish, setLastUsedWrapFinish] = useState<QpWrapFinishOption | null>(null);
+
+  // ── User preset handlers (depend on qp* state declared above) ─────────
+  const hasAnyQuickPick = !!(qpCookMethod || qpInjection || qpSpritz || qpWrapFinish || qpMeatStartTemp);
+
+  const handleSavePreset = async () => {
+    if (!selectedCut || !savePresetLabel.trim()) return;
+    setSavePresetSaving(true);
+    try {
+      await createUserPreset.mutateAsync({
+        data: {
+          cutName: selectedCut.name,
+          label: savePresetLabel.trim(),
+          cookMethod: qpCookMethod ?? null,
+          wrapFinish: qpWrapFinish ?? null,
+          spritzFrequency: qpSpritz ?? null,
+          injection: qpInjection ?? null,
+          cookTempF: cookTempF ? Number(cookTempF) : null,
+          targetTempF: targetTempF ? Number(targetTempF) : null,
+        },
+      });
+      await refetchUserPresets();
+      setSavePresetModalVisible(false);
+      setSavePresetLabel("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Alert.alert("Error", "Could not save preset. Please try again.");
+    } finally {
+      setSavePresetSaving(false);
+    }
+  };
+
+  const handleDeleteUserPreset = (preset: UserTechniquePreset) => {
+    Alert.alert(
+      "Delete Preset",
+      `Delete "${preset.label}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteUserPreset.mutateAsync({ id: preset.id });
+              await refetchUserPresets();
+              if (activePreset === preset.label) setActivePreset(null);
+              Haptics.selectionAsync();
+            } catch {
+              Alert.alert("Error", "Could not delete preset.");
+            }
+          },
+        },
+      ],
+    );
+  };
 
   // On mount: restore the last-used technique quick-picks so the user's
   // preferred options are already selected when they open the Plan screen.
@@ -2156,13 +2231,80 @@ export default function PlanScreen() {
                   )}
 
                   {/* ── Cooking Style Presets ── */}
-                  {cutPresets && cutPresets.length > 0 && (
+                  {((cutUserPresets && cutUserPresets.length > 0) || (cutPresets && cutPresets.length > 0)) && (
                     <View style={{ marginTop: 12 }}>
                       <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
                         Cooking Style
                       </Text>
                       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         <View style={{ flexDirection: "row", gap: 8 }}>
+                          {cutUserPresets.map((preset: UserTechniquePreset) => {
+                            const active = activePreset === preset.label;
+                            return (
+                              <View key={`user-${preset.id}`} style={{ flexDirection: "row", alignItems: "center" }}>
+                                <Pressable
+                                  onPress={() => {
+                                    if (active) {
+                                      setActivePreset(null);
+                                      return;
+                                    }
+                                    setActivePreset(preset.label);
+                                    if (preset.cookMethod && (QP_COOK_METHODS as readonly string[]).includes(preset.cookMethod)) {
+                                      setQpCookMethod(preset.cookMethod as QpCookMethod);
+                                    }
+                                    if (preset.injection && (QP_INJECTION_OPTIONS as readonly string[]).includes(preset.injection)) {
+                                      setQpInjection(preset.injection as QpInjectionOption);
+                                    }
+                                    if (preset.spritzFrequency && (QP_SPRITZ_FREQUENCIES as readonly string[]).includes(preset.spritzFrequency)) {
+                                      setQpSpritz(preset.spritzFrequency as QpSpritzFrequency);
+                                    }
+                                    if (preset.wrapFinish && (QP_WRAP_FINISH_OPTIONS as readonly string[]).includes(preset.wrapFinish)) {
+                                      setQpWrapFinish(preset.wrapFinish as QpWrapFinishOption);
+                                    }
+                                    if (preset.cookTempF != null) setCookTempF(String(preset.cookTempF));
+                                    if (preset.targetTempF != null) setTargetTempF(String(preset.targetTempF));
+                                    Haptics.selectionAsync();
+                                  }}
+                                  style={{
+                                    paddingLeft: 14,
+                                    paddingRight: 6,
+                                    paddingVertical: 8,
+                                    borderRadius: 20,
+                                    borderTopRightRadius: 0,
+                                    borderBottomRightRadius: 0,
+                                    borderWidth: 1,
+                                    borderRightWidth: 0,
+                                    borderColor: active ? colors.primary : colors.border,
+                                    backgroundColor: active ? colors.primary + "18" : colors.muted,
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    gap: 4,
+                                  }}
+                                >
+                                  <Feather name="bookmark" size={11} color={active ? colors.primary : colors.mutedForeground} />
+                                  <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
+                                    {preset.label}
+                                  </Text>
+                                </Pressable>
+                                <Pressable
+                                  onPress={() => handleDeleteUserPreset(preset)}
+                                  style={{
+                                    paddingHorizontal: 8,
+                                    paddingVertical: 8,
+                                    borderRadius: 20,
+                                    borderTopLeftRadius: 0,
+                                    borderBottomLeftRadius: 0,
+                                    borderWidth: 1,
+                                    borderLeftWidth: 0,
+                                    borderColor: active ? colors.primary : colors.border,
+                                    backgroundColor: active ? colors.primary + "18" : colors.muted,
+                                  }}
+                                >
+                                  <Feather name="x" size={12} color={colors.mutedForeground} />
+                                </Pressable>
+                              </View>
+                            );
+                          })}
                           {cutPresets.map((preset: TechniquePreset) => {
                             const active = activePreset === preset.label;
                             return (
@@ -2269,6 +2411,31 @@ export default function PlanScreen() {
                       isLast
                     />
                   </View>
+
+                  {/* ── Save as preset ── */}
+                  {selectedCut && hasAnyQuickPick && (
+                    <Pressable
+                      onPress={() => { setSavePresetLabel(""); setSavePresetModalVisible(true); }}
+                      style={{
+                        marginTop: 10,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                        alignSelf: "flex-start",
+                        paddingHorizontal: 12,
+                        paddingVertical: 7,
+                        borderRadius: 20,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        backgroundColor: colors.muted,
+                      }}
+                    >
+                      <Feather name="bookmark" size={13} color={colors.mutedForeground} />
+                      <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
+                        Save as preset
+                      </Text>
+                    </Pressable>
+                  )}
 
                   {/* ── Notes (compact row → bottom sheet) ── */}
                   <View
@@ -2447,6 +2614,75 @@ export default function PlanScreen() {
                         multiline
                         autoFocus
                       />
+                    </View>
+                    </AppKeyboardAvoidingView>
+                  </Modal>
+
+                  {/* ── Save Preset Modal ── */}
+                  <Modal
+                    visible={savePresetModalVisible}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setSavePresetModalVisible(false)}
+                  >
+                    <Pressable
+                      style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}
+                      onPress={() => setSavePresetModalVisible(false)}
+                    />
+                    <AppKeyboardAvoidingView>
+                    <View
+                      style={{
+                        backgroundColor: colors.card,
+                        borderTopWidth: 1,
+                        borderTopColor: colors.border + "60",
+                        borderTopLeftRadius: 20,
+                        borderTopRightRadius: 20,
+                        paddingTop: 8,
+                        paddingHorizontal: 18,
+                        paddingBottom: 40,
+                        gap: 14,
+                      }}
+                    >
+                      <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.mutedForeground + "55", alignSelf: "center", marginBottom: 4 }} />
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                        <Text style={{ fontSize: 17, fontFamily: "Inter_700Bold", color: colors.foreground }}>Save Preset</Text>
+                        <Pressable
+                          onPress={handleSavePreset}
+                          disabled={!savePresetLabel.trim() || savePresetSaving}
+                          style={{
+                            backgroundColor: (!savePresetLabel.trim() || savePresetSaving) ? colors.muted : colors.primary,
+                            paddingHorizontal: 16,
+                            paddingVertical: 7,
+                            borderRadius: 8,
+                          }}
+                        >
+                          <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: (!savePresetLabel.trim() || savePresetSaving) ? colors.mutedForeground : "#fff" }}>
+                            {savePresetSaving ? "Saving…" : "Save"}
+                          </Text>
+                        </Pressable>
+                      </View>
+                      <TextInput
+                        style={{
+                          backgroundColor: colors.background,
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                          borderRadius: colors.radius,
+                          color: colors.foreground,
+                          fontSize: 15,
+                          fontFamily: "Inter_400Regular",
+                          padding: 14,
+                        }}
+                        placeholder="e.g. My Overnight Style"
+                        placeholderTextColor={colors.mutedForeground}
+                        value={savePresetLabel}
+                        onChangeText={setSavePresetLabel}
+                        autoFocus
+                        returnKeyType="done"
+                        onSubmitEditing={handleSavePreset}
+                      />
+                      <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
+                        Saves your current method, injection, spritz, wrap, and temperature settings as a one-tap preset for {selectedCut?.name ?? "this cut"}.
+                      </Text>
                     </View>
                     </AppKeyboardAvoidingView>
                   </Modal>

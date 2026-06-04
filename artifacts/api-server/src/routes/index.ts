@@ -18,6 +18,7 @@ import liveActivitiesRouter from "./liveActivities";
 import cookCheckinsRouter from "./cookCheckins";
 import cookEventsRouter from "./cookEvents";
 import techniquePresetsRouter from "./techniquePresets";
+import userTechniquePresetsRouter from "./userTechniquePresets";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(liveActivitiesRouter);
 router.use(cookCheckinsRouter);
 router.use(cookEventsRouter);
 router.use(techniquePresetsRouter);
+router.use(userTechniquePresetsRouter);
 
 export default router;

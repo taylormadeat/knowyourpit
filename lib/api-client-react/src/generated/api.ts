@@ -33,6 +33,7 @@ import type {
   CreateCookEventBody,
   CreateCustomMeatCutBody,
   CreateGrillBody,
+  CreateUserTechniquePresetBody,
   CustomMeatCut,
   DashboardSummary,
   DismissCookOutlier200,
@@ -45,6 +46,7 @@ import type {
   HealthStatus,
   ListCooksParams,
   ListTemperatureReadingsParams,
+  ListUserTechniquePresetsParams,
   LiveActivityRegistration,
   MeaterLinkBody,
   MeaterLinkedResponse,
@@ -68,6 +70,7 @@ import type {
   UpdateCookBody,
   UpdateCustomMeatCutBody,
   UpdateGrillBody,
+  UserTechniquePreset,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -1088,6 +1091,280 @@ export function useGetTechniquePresets<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List the authenticated user's custom cooking style presets
+ */
+export const getListUserTechniquePresetsUrl = (
+  params?: ListUserTechniquePresetsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/user-technique-presets?${stringifiedParams}`
+    : `/api/user-technique-presets`;
+};
+
+export const listUserTechniquePresets = async (
+  params?: ListUserTechniquePresetsParams,
+  options?: RequestInit,
+): Promise<UserTechniquePreset[]> => {
+  return customFetch<UserTechniquePreset[]>(
+    getListUserTechniquePresetsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListUserTechniquePresetsQueryKey = (
+  params?: ListUserTechniquePresetsParams,
+) => {
+  return [`/api/user-technique-presets`, ...(params ? [params] : [])] as const;
+};
+
+export const getListUserTechniquePresetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listUserTechniquePresets>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListUserTechniquePresetsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listUserTechniquePresets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListUserTechniquePresetsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listUserTechniquePresets>>
+  > = ({ signal }) =>
+    listUserTechniquePresets(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listUserTechniquePresets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListUserTechniquePresetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listUserTechniquePresets>>
+>;
+export type ListUserTechniquePresetsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the authenticated user's custom cooking style presets
+ */
+
+export function useListUserTechniquePresets<
+  TData = Awaited<ReturnType<typeof listUserTechniquePresets>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListUserTechniquePresetsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listUserTechniquePresets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListUserTechniquePresetsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a custom cooking style preset
+ */
+export const getCreateUserTechniquePresetUrl = () => {
+  return `/api/user-technique-presets`;
+};
+
+export const createUserTechniquePreset = async (
+  createUserTechniquePresetBody: CreateUserTechniquePresetBody,
+  options?: RequestInit,
+): Promise<UserTechniquePreset> => {
+  return customFetch<UserTechniquePreset>(getCreateUserTechniquePresetUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createUserTechniquePresetBody),
+  });
+};
+
+export const getCreateUserTechniquePresetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createUserTechniquePreset>>,
+    TError,
+    { data: BodyType<CreateUserTechniquePresetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createUserTechniquePreset>>,
+  TError,
+  { data: BodyType<CreateUserTechniquePresetBody> },
+  TContext
+> => {
+  const mutationKey = ["createUserTechniquePreset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createUserTechniquePreset>>,
+    { data: BodyType<CreateUserTechniquePresetBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createUserTechniquePreset(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateUserTechniquePresetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createUserTechniquePreset>>
+>;
+export type CreateUserTechniquePresetMutationBody =
+  BodyType<CreateUserTechniquePresetBody>;
+export type CreateUserTechniquePresetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a custom cooking style preset
+ */
+export const useCreateUserTechniquePreset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createUserTechniquePreset>>,
+    TError,
+    { data: BodyType<CreateUserTechniquePresetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createUserTechniquePreset>>,
+  TError,
+  { data: BodyType<CreateUserTechniquePresetBody> },
+  TContext
+> => {
+  return useMutation(getCreateUserTechniquePresetMutationOptions(options));
+};
+
+/**
+ * @summary Delete a user's custom cooking style preset
+ */
+export const getDeleteUserTechniquePresetUrl = (id: number) => {
+  return `/api/user-technique-presets/${id}`;
+};
+
+export const deleteUserTechniquePreset = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteUserTechniquePresetUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteUserTechniquePresetMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteUserTechniquePreset>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteUserTechniquePreset>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteUserTechniquePreset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteUserTechniquePreset>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteUserTechniquePreset(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteUserTechniquePresetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteUserTechniquePreset>>
+>;
+
+export type DeleteUserTechniquePresetMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a user's custom cooking style preset
+ */
+export const useDeleteUserTechniquePreset = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteUserTechniquePreset>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteUserTechniquePreset>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteUserTechniquePresetMutationOptions(options));
+};
 
 /**
  * @summary Get the learned per-grill calibration profile (fingerprint)

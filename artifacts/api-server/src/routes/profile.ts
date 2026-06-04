@@ -12,6 +12,7 @@ import {
   subscriptionEntitlements,
   aiAnalyzeEvents,
   temperatureReadingsTable,
+  userTechniquePresetsTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 
@@ -96,6 +97,7 @@ router.delete("/profile/me", requireAuth, async (req: any, res): Promise<void> =
       await tx.delete(aiAnalyzeEvents).where(eq(aiAnalyzeEvents.userId, userId));
       await tx.delete(conversations).where(eq(conversations.userId, userId));
       await tx.delete(customMeatCutsTable).where(eq(customMeatCutsTable.userId, userId));
+      await tx.delete(userTechniquePresetsTable).where(eq(userTechniquePresetsTable.userId, userId));
       await tx.delete(cooksTable).where(eq(cooksTable.userId, userId));
       await tx.delete(grillsTable).where(eq(grillsTable.userId, userId));
       await tx.delete(meaterCredentialsTable).where(eq(meaterCredentialsTable.userId, userId));

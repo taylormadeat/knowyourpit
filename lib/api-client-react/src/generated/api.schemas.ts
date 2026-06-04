@@ -49,6 +49,48 @@ export interface TechniquePreset {
   createdAt: string;
 }
 
+/**
+ * A user-created custom cooking style preset.
+ */
+export interface UserTechniquePreset {
+  id: number;
+  userId: string;
+  /** The meat cut name this preset applies to. */
+  cutName: string;
+  /** User-given name for this preset (e.g. "My Overnight Style"). */
+  label: string;
+  /** @nullable */
+  cookMethod?: string | null;
+  /** @nullable */
+  wrapFinish?: string | null;
+  /** @nullable */
+  spritzFrequency?: string | null;
+  /** @nullable */
+  injection?: string | null;
+  /** @nullable */
+  cookTempF?: number | null;
+  /** @nullable */
+  targetTempF?: number | null;
+  createdAt: string;
+}
+
+export interface CreateUserTechniquePresetBody {
+  cutName: string;
+  label: string;
+  /** @nullable */
+  cookMethod?: string | null;
+  /** @nullable */
+  wrapFinish?: string | null;
+  /** @nullable */
+  spritzFrequency?: string | null;
+  /** @nullable */
+  injection?: string | null;
+  /** @nullable */
+  cookTempF?: number | null;
+  /** @nullable */
+  targetTempF?: number | null;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -1848,6 +1890,13 @@ export interface CookHealthScore {
 export type GetTechniquePresetsParams = {
   /**
    * Filter presets to a specific meat cut name (e.g. "Baby Back Ribs").
+   */
+  cutName?: string;
+};
+
+export type ListUserTechniquePresetsParams = {
+  /**
+   * Filter presets to a specific meat cut name.
    */
   cutName?: string;
 };

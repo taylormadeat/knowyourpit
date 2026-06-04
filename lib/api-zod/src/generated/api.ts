@@ -439,6 +439,60 @@ export const GetTechniquePresetsResponse = zod.array(
 );
 
 /**
+ * @summary List the authenticated user's custom cooking style presets
+ */
+export const ListUserTechniquePresetsQueryParams = zod.object({
+  cutName: zod.coerce
+    .string()
+    .optional()
+    .describe("Filter presets to a specific meat cut name."),
+});
+
+export const ListUserTechniquePresetsResponseItem = zod
+  .object({
+    id: zod.number(),
+    userId: zod.string(),
+    cutName: zod.string().describe("The meat cut name this preset applies to."),
+    label: zod
+      .string()
+      .describe(
+        'User-given name for this preset (e.g. \"My Overnight Style\").',
+      ),
+    cookMethod: zod.string().nullish(),
+    wrapFinish: zod.string().nullish(),
+    spritzFrequency: zod.string().nullish(),
+    injection: zod.string().nullish(),
+    cookTempF: zod.number().nullish(),
+    targetTempF: zod.number().nullish(),
+    createdAt: zod.coerce.date(),
+  })
+  .describe("A user-created custom cooking style preset.");
+export const ListUserTechniquePresetsResponse = zod.array(
+  ListUserTechniquePresetsResponseItem,
+);
+
+/**
+ * @summary Create a custom cooking style preset
+ */
+export const CreateUserTechniquePresetBody = zod.object({
+  cutName: zod.string(),
+  label: zod.string(),
+  cookMethod: zod.string().nullish(),
+  wrapFinish: zod.string().nullish(),
+  spritzFrequency: zod.string().nullish(),
+  injection: zod.string().nullish(),
+  cookTempF: zod.number().nullish(),
+  targetTempF: zod.number().nullish(),
+});
+
+/**
+ * @summary Delete a user's custom cooking style preset
+ */
+export const DeleteUserTechniquePresetParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary Get the learned per-grill calibration profile (fingerprint)
  */
 export const GetGrillFingerprintParams = zod.object({

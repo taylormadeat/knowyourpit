@@ -27,6 +27,8 @@ tags:
     description: User-defined custom meat cuts
   - name: techniquePresets
     description: DB-seeded cook technique presets per meat cut
+  - name: userTechniquePresets
+    description: User-created custom cooking style presets
 
 paths:
   /healthz:
@@ -246,6 +248,62 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/TechniquePreset"
+
+  /user-technique-presets:
+    get:
+      operationId: listUserTechniquePresets
+      tags: [userTechniquePresets]
+      summary: List the authenticated user's custom cooking style presets
+      parameters:
+        - name: cutName
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter presets to a specific meat cut name.
+      responses:
+        "200":
+          description: List of user technique presets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserTechniquePreset"
+    post:
+      operationId: createUserTechniquePreset
+      tags: [userTechniquePresets]
+      summary: Create a custom cooking style preset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserTechniquePresetBody"
+      responses:
+        "201":
+          description: Created preset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserTechniquePreset"
+
+  /user-technique-presets/{id}:
+    delete:
+      operationId: deleteUserTechniquePreset
+      tags: [userTechniquePresets]
+      summary: Delete a user's custom cooking style preset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
 
   /grills/{id}/fingerprint:
     get:
@@ -1012,6 +1070,65 @@ components:
         - label
         - sortOrder
         - createdAt
+
+    UserTechniquePreset:
+      type: object
+      description: A user-created custom cooking style preset.
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        cutName:
+          type: string
+          description: The meat cut name this preset applies to.
+        label:
+          type: string
+          description: User-given name for this preset (e.g. "My Overnight Style").
+        cookMethod:
+          type: ["string", "null"]
+        wrapFinish:
+          type: ["string", "null"]
+        spritzFrequency:
+          type: ["string", "null"]
+        injection:
+          type: ["string", "null"]
+        cookTempF:
+          type: ["integer", "null"]
+        targetTempF:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - cutName
+        - label
+        - createdAt
+
+    CreateUserTechniquePresetBody:
+      type: object
+      properties:
+        cutName:
+          type: string
+        label:
+          type: string
+        cookMethod:
+          type: ["string", "null"]
+        wrapFinish:
+          type: ["string", "null"]
+        spritzFrequency:
+          type: ["string", "null"]
+        injection:
+          type: ["string", "null"]
+        cookTempF:
+          type: ["integer", "null"]
+        targetTempF:
+          type: ["integer", "null"]
+      required:
+        - cutName
+        - label
 
     HealthStatus:
       type: object
