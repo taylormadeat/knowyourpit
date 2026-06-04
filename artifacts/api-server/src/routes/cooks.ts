@@ -162,18 +162,14 @@ router.get("/cooks", requireAuth, async (req: any, res): Promise<void> => {
   if (grillId != null) conditions.push(eq(cooksTable.grillId, grillId));
   if (status != null) conditions.push(eq(cooksTable.status, status));
 
-  const cooks = await db.select().from(cooksTable)
+  const rows = await db
+    .select({ cook: cooksTable, grillName: grillsTable.name })
+    .from(cooksTable)
+    .leftJoin(grillsTable, eq(grillsTable.id, cooksTable.grillId))
     .where(and(...conditions))
     .orderBy(cooksTable.createdAt);
 
-  const result = await Promise.all(cooks.map(async (cook) => {
-    let grillName: string | null = null;
-    if (cook.grillId) {
-      const [grill] = await db.select({ name: grillsTable.name }).from(grillsTable).where(eq(grillsTable.id, cook.grillId));
-      grillName = grill?.name ?? null;
-    }
-    return { ...cook, grillName };
-  }));
+  const result = rows.map(({ cook, grillName }) => ({ ...cook, grillName: grillName ?? null }));
   res.json(result);
 });
 
