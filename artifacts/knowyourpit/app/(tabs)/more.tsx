@@ -45,7 +45,6 @@ const MENU_SECTIONS = [
       { icon: "user", label: "Profile", route: "/profile" },
       { icon: "bluetooth", label: "Connected Devices", route: "/devices" },
       { icon: "activity", label: "BLE Diagnostics", route: "/ble-diagnostics" },
-      { icon: "bell", label: "Alerts", route: "/alerts" },
     ],
   },
 ];

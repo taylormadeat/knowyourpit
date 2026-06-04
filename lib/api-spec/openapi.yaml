@@ -17,8 +17,6 @@ tags:
     description: Temperature data upload and monitoring
   - name: ai
     description: AI assistant and predictions
-  - name: alerts
-    description: Temperature alerts
   - name: dashboard
     description: Dashboard summary data
   - name: meater
@@ -765,76 +763,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MultiCookResponse"
-
-  /alerts:
-    get:
-      operationId: listAlerts
-      tags: [alerts]
-      summary: List temperature alerts
-      responses:
-        "200":
-          description: List of alerts
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Alert"
-    post:
-      operationId: createAlert
-      tags: [alerts]
-      summary: Create a temperature alert
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateAlertBody"
-      responses:
-        "201":
-          description: Created alert
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Alert"
-
-  /alerts/{id}:
-    patch:
-      operationId: patchAlert
-      tags: [alerts]
-      summary: Update an alert (mark triggered or store scheduled notification ID)
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PatchAlertBody"
-      responses:
-        "200":
-          description: Updated alert
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Alert"
-    delete:
-      operationId: deleteAlert
-      tags: [alerts]
-      summary: Delete an alert
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "204":
-          description: Deleted
 
   /dashboard/summary:
     get:
@@ -2424,72 +2352,6 @@ components:
         - serveAt
         - summary
 
-    Alert:
-      type: object
-      properties:
-        id:
-          type: integer
-        cookId:
-          type: ["integer", "null"]
-        probeNumber:
-          type: ["integer", "null"]
-        alertType:
-          type: string
-          enum: [min_temp, max_temp, target_reached, stall_detected, time_before_serve]
-        thresholdTempF:
-          type: number
-        message:
-          type: string
-        isActive:
-          type: boolean
-        triggeredAt:
-          type: ["string", "null"]
-          format: date-time
-        scheduledNotificationId:
-          type: ["string", "null"]
-        createdAt:
-          type: string
-          format: date-time
-      required:
-        - id
-        - cookId
-        - probeNumber
-        - alertType
-        - thresholdTempF
-        - message
-        - isActive
-        - triggeredAt
-        - createdAt
-
-    CreateAlertBody:
-      type: object
-      properties:
-        cookId:
-          type: ["integer", "null"]
-        probeNumber:
-          type: ["integer", "null"]
-        alertType:
-          type: string
-          enum: [min_temp, max_temp, target_reached, stall_detected, time_before_serve]
-        thresholdTempF:
-          type: number
-        message:
-          type: string
-        scheduledNotificationId:
-          type: ["string", "null"]
-      required:
-        - alertType
-        - thresholdTempF
-        - message
-
-    PatchAlertBody:
-      type: object
-      properties:
-        triggered:
-          type: boolean
-        scheduledNotificationId:
-          type: ["string", "null"]
-
     TechniqueStatsItem:
       type: object
       properties:
@@ -2528,8 +2390,6 @@ components:
           type: ["string", "null"]
         totalHoursCooking:
           type: number
-        activeAlerts:
-          type: integer
       required:
         - totalCooks
         - totalGrills
@@ -2538,7 +2398,6 @@ components:
         - mostUsedGrill
         - favoriteFood
         - totalHoursCooking
-        - activeAlerts
 
     MeaterLinkBody:
       type: object

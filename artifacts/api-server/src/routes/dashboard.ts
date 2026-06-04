@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, sql, desc, and, inArray } from "drizzle-orm";
-import { db, grillsTable, cooksTable, alertsTable, temperatureReadingsTable } from "@workspace/db";
+import { db, grillsTable, cooksTable, temperatureReadingsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
@@ -24,11 +24,6 @@ router.get("/dashboard/summary", requireAuth, async (req: any, res): Promise<voi
     .select({ count: sql<number>`count(*)` })
     .from(cooksTable)
     .where(and(eq(cooksTable.userId, userId), eq(cooksTable.status, "active")));
-  const [alertCount] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(alertsTable)
-    .where(and(eq(alertsTable.userId, userId), eq(alertsTable.isActive, true)));
-
   const ratedCooks = await db
     .select({ rating: cooksTable.rating })
     .from(cooksTable)
@@ -88,7 +83,6 @@ router.get("/dashboard/summary", requireAuth, async (req: any, res): Promise<voi
     mostUsedGrill,
     favoriteFood,
     totalHoursCooking,
-    activeAlerts: Number(alertCount.count),
   });
 });
 

@@ -66,9 +66,6 @@ import {
   type UpdateCookBody,
   useGetMeaterReadings,
   useGetThermoworksReadings,
-  useListAlerts,
-  useCreateAlert,
-  usePatchAlert,
   useListCooks,
   useListCookCheckins,
   useCreateCookCheckin,
@@ -80,7 +77,6 @@ import {
   getGetCookQueryKey,
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
-  getListAlertsQueryKey,
   getGetMeaterReadingsQueryKey,
   getGetThermoworksReadingsQueryKey,
   getListCookCheckinsQueryKey,
@@ -148,7 +144,6 @@ import { ActualVsPlannedRecap } from "@/components/cook-detail/ActualVsPlannedRe
 import { EditCookModal } from "@/components/cook-detail/EditCookModal";
 import { EditCookTimesSheet } from "@/components/cook-detail/EditCookTimesSheet";
 import { AddToPlannedCookModal } from "@/components/cook-detail/AddToPlannedCookModal";
-import { AlertSheet } from "@/components/cook-detail/AlertSheet";
 import { UnifiedCheckinSheet } from "@/components/cook-detail/UnifiedCheckinSheet";
 import { CheckinPreviewSheet } from "@/components/cook-detail/CheckinPreviewSheet";
 import { PitMasterChatModal } from "@/components/PitMasterChatModal";
@@ -510,8 +505,6 @@ export default function CookDetailScreen() {
   const [rateBark, setRateBark] = useState<number>(0);
   const [rateSaving, setRateSaving] = useState(false);
 
-  const createAlert = useCreateAlert();
-  const patchAlert = usePatchAlert();
   const uploadTemperatureData = useUploadTemperatureData();
 
   const cookStatus = (cook as any)?.status;
@@ -592,14 +585,6 @@ export default function CookDetailScreen() {
   // location request is ever triggered for non-subscribers.
   const weather = useAmbientWeather(undefined, { enabled: effectivePro });
 
-  // Alerts for this cook (active ones, used for MEATER threshold checking)
-  const { data: cookAlerts } = useListAlerts({
-    query: { queryKey: getListAlertsQueryKey(), enabled: cookStatus === "active" },
-  });
-  const activeCookAlerts = ((cookAlerts as any[]) ?? []).filter(
-    (a: any) => a.cookId === Number(id) && a.isActive,
-  );
-
   // Check-in modal state
   const [checkinModalVisible, setCheckinModalVisible] = useState(false);
   const [chatModalVisible, setChatModalVisible] = useState(false);
@@ -632,14 +617,6 @@ export default function CookDetailScreen() {
     setActiveCheckin(sc);
     setCheckinModalVisible(true);
   }, []);
-
-  // Alert sheet state
-  const [alertSheetVisible, setAlertSheetVisible] = useState(false);
-  const [alertMode, setAlertMode] = useState<"temp" | "timer">("temp");
-  const [alertThreshold, setAlertThreshold] = useState("");
-  const [alertLabel, setAlertLabel] = useState("");
-  const [alertMinutesBefore, setAlertMinutesBefore] = useState("30");
-  const [alertSaving, setAlertSaving] = useState(false);
 
   // Technique picker sheet state (inline edit on cook detail)
   const [techMethodSheetOpen, setTechMethodSheetOpen] = useState(false);
@@ -700,10 +677,9 @@ export default function CookDetailScreen() {
       return next;
     });
   };
-  const firedAlertIds = useRef<Set<number>>(new Set());
   const proactiveAlerts = useProactiveAlerts();
-  // Reset per-cook fired state whenever the viewed cook changes so alerts
-  // are not silenced when navigating between cooks in the same session.
+  // Reset proactive alert state whenever the viewed cook changes so stale
+  // alerts from a previous cook are not surfaced in the new one.
   useEffect(() => {
     proactiveAlerts.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2100,28 +2076,6 @@ export default function CookDetailScreen() {
         foodType: (cook as any)?.foodType ?? null,
       });
 
-      // Check active temperature threshold alerts for this cook
-      for (const alert of activeCookAlerts) {
-        if (alert.alertType === "target_reached" && !firedAlertIds.current.has(alert.id)) {
-          if (currentTemp >= alert.thresholdTempF) {
-            firedAlertIds.current.add(alert.id);
-            const foodType = (cook as any)?.foodType ?? "meat";
-            if (Platform.OS !== "web") {
-              Notifications.scheduleNotificationAsync({
-                content: {
-                  title: "🔥 Temperature Alert!",
-                  body: alert.message || `${foodType} hit ${alert.thresholdTempF}°F`,
-                  sound: true,
-                },
-                trigger: null,
-              }).catch(() => {});
-            }
-            patchAlert.mutate({ id: alert.id, data: { triggered: true } }, {
-              onSuccess: () => qc.invalidateQueries({ queryKey: getListAlertsQueryKey() }),
-            });
-          }
-        }
-      }
     }
   }, [selectedMeaterProbe]);
 
@@ -2272,138 +2226,9 @@ export default function CookDetailScreen() {
     ]);
   }, [selectedInkbirdPitProbe]);
 
-  // Reconciliation: on screen mount (and when alerts load), mark overdue timer alerts as triggered
-  // Handles the case where the app was backgrounded or killed when a scheduled notification fired
-  useEffect(() => {
-    if (!activeCookAlerts.length || !cook) return;
-    const c = cook as any;
-    for (const alert of activeCookAlerts) {
-      if (alert.alertType === "time_before_serve" && c.plannedEndAt) {
-        const fireAt = new Date(c.plannedEndAt).getTime() - alert.thresholdTempF * 60 * 1000;
-        if (fireAt <= Date.now() && !firedAlertIds.current.has(alert.id)) {
-          firedAlertIds.current.add(alert.id);
-          patchAlert.mutate(
-            { id: alert.id, data: { triggered: true } },
-            { onSuccess: () => qc.invalidateQueries({ queryKey: getListAlertsQueryKey() }) },
-          );
-        }
-      }
-    }
-  }, [activeCookAlerts.length, cook]);
-
-  // When a wrap-temp adjustment shifts the estimated finish time, reschedule any
-  // pending "time before serve" push notifications so they fire at the correct time.
-  useEffect(() => {
-    if (Platform.OS === "web") return;
-    if (!wrapAdjustedFinishMs) return;
-    const tbsAlerts = activeCookAlerts.filter(
-      (a: any) => a.alertType === "time_before_serve" && a.isActive && !a.triggered,
-    );
-    if (!tbsAlerts.length) return;
-
-    (async () => {
-      for (const alert of tbsAlerts) {
-        if (alert.scheduledNotificationId) {
-          await Notifications.cancelScheduledNotificationAsync(alert.scheduledNotificationId).catch(() => {});
-        }
-        const minutesBefore = alert.thresholdTempF as number;
-        const fireAt = wrapAdjustedFinishMs - minutesBefore * 60 * 1000;
-        if (fireAt <= Date.now()) continue;
-        const label = (alert.message as string | null) ?? `${fmtMinutes(minutesBefore)} before serve time`;
-        try {
-          const notificationId = await Notifications.scheduleNotificationAsync({
-            content: {
-              title: "⏱ Serve Time Approaching",
-              body: label,
-              sound: true,
-              data: { alertId: alert.id, cookId: Number(id) },
-            },
-            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(fireAt) },
-          });
-          await patchAlert.mutateAsync({ id: alert.id, data: { scheduledNotificationId: notificationId } });
-        } catch {
-          // Best-effort — don't block the wrap confirmation flow
-        }
-      }
-    })();
-  }, [wrapAdjustedFinishMs, activeCookAlerts, id]);
-
   const topPad = useTopInset();
   const botPad = useBottomInset();
   const { isTablet, detailMaxWidth } = useLayout();
-
-  const saveAlert = async () => {
-    setAlertSaving(true);
-    try {
-      const c = cook as any;
-      if (alertMode === "temp") {
-        const threshold = parseFloat(alertThreshold);
-        if (isNaN(threshold) || threshold <= 0) {
-          Alert.alert("Invalid temperature", "Enter a valid temperature threshold.");
-          return;
-        }
-        const foodType = c?.foodType ?? "meat";
-        const label = alertLabel.trim() || `${foodType} hits ${threshold}°F`;
-        await createAlert.mutateAsync({
-          data: {
-            cookId: Number(id),
-            alertType: "target_reached",
-            thresholdTempF: threshold,
-            message: `🔥 ${label} — time to pull!`,
-          },
-        });
-      } else {
-        const minutesBefore = parseInt(alertMinutesBefore, 10);
-        if (!c?.plannedEndAt) {
-          Alert.alert("No serve time set", "Set a planned serve time in Edit Cook to use a timer alert.");
-          return;
-        }
-        const serveTime = new Date(c.plannedEndAt).getTime();
-        const fireAt = serveTime - minutesBefore * 60 * 1000;
-        if (fireAt <= Date.now()) {
-          Alert.alert("Too late to schedule", "That serve time has already passed or the alert would fire immediately.");
-          return;
-        }
-        const foodType = c?.foodType ?? "cook";
-        const label = alertLabel.trim() || `${fmtMinutes(minutesBefore)} before ${foodType} serve time`;
-
-        // Create DB record first to get the alert ID, then schedule with it embedded in data
-        const savedAlert = await createAlert.mutateAsync({
-          data: {
-            cookId: Number(id),
-            alertType: "time_before_serve",
-            thresholdTempF: minutesBefore,
-            message: label,
-          },
-        });
-
-        if (Platform.OS !== "web" && savedAlert?.id) {
-          const notificationId = await Notifications.scheduleNotificationAsync({
-            content: {
-              title: "⏱ Serve Time Approaching",
-              body: label,
-              sound: true,
-              data: { alertId: savedAlert.id, cookId: Number(id) },
-            },
-            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(fireAt) },
-          });
-          // Store the notification identifier so it can be cancelled on delete
-          await patchAlert.mutateAsync({ id: savedAlert.id, data: { scheduledNotificationId: notificationId } });
-        }
-      }
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      qc.invalidateQueries({ queryKey: getListAlertsQueryKey() });
-      setAlertSheetVisible(false);
-      setAlertThreshold("");
-      setAlertLabel("");
-      setAlertMinutesBefore("30");
-      setAlertMode("temp");
-    } catch {
-      Alert.alert("Failed to save alert", "Please try again.");
-    } finally {
-      setAlertSaving(false);
-    }
-  };
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -4291,9 +4116,7 @@ export default function CookDetailScreen() {
               checkins={cookCheckins as CookCheckin[]}
               checkinsLoading={checkinsLoading}
               onOpenCheckin={openCheckin}
-              triggeredAlerts={activeCookAlerts
-                .filter((a) => a.triggeredAt != null)
-                .map((a) => ({ id: a.id, message: a.message ?? "Temperature alert triggered", triggeredAt: a.triggeredAt as string }))}
+              triggeredAlerts={[]}
               stepConfirmations={(() => {
                 const schedule = (cookSeqData?.schedule ?? []) as Array<{ phaseKey?: string | null; phaseLabel?: string | null; confirmedAt?: string | null }>;
                 return schedule
@@ -4379,9 +4202,7 @@ export default function CookDetailScreen() {
           checkins={cookCheckins as CookCheckin[]}
           checkinsLoading={checkinsLoading}
           onOpenCheckin={openCheckin}
-          triggeredAlerts={activeCookAlerts
-            .filter((a) => a.triggeredAt != null)
-            .map((a) => ({ id: a.id, message: a.message ?? "Temperature alert triggered", triggeredAt: a.triggeredAt as string }))}
+          triggeredAlerts={[]}
           stepConfirmations={(() => {
             interface StepItem {
               phaseKey?: string | null;
@@ -4554,26 +4375,6 @@ export default function CookDetailScreen() {
           colors={colors}
         />
       )}
-
-      {/* ── Set Alert Sheet ─────────────────────────────────── */}
-      {/* (banner component is defined below the screen export) */}
-      <AlertSheet
-        visible={alertSheetVisible}
-        onClose={() => setAlertSheetVisible(false)}
-        colors={colors}
-        cook={cook}
-        alertMode={alertMode}
-        setAlertMode={setAlertMode}
-        alertThreshold={alertThreshold}
-        setAlertThreshold={setAlertThreshold}
-        alertLabel={alertLabel}
-        setAlertLabel={setAlertLabel}
-        alertMinutesBefore={alertMinutesBefore}
-        setAlertMinutesBefore={setAlertMinutesBefore}
-        alertSaving={alertSaving}
-        saveAlert={saveAlert}
-      />
-
 
       {/* ── Manual Check-In Saved Toast ──────────────────────── */}
       {checkinSavedToast != null && (

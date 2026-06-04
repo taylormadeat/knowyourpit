@@ -1,7 +1,6 @@
 export * from "./grills";
 export * from "./cooks";
 export * from "./temperature_readings";
-export * from "./alerts";
 export * from "./conversations";
 export * from "./messages";
 export * from "./meater_credentials";

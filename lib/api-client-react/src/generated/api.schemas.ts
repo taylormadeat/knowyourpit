@@ -1391,63 +1391,6 @@ export interface MultiCookResponse {
   summary: string;
 }
 
-export type AlertAlertType =
-  (typeof AlertAlertType)[keyof typeof AlertAlertType];
-
-export const AlertAlertType = {
-  min_temp: "min_temp",
-  max_temp: "max_temp",
-  target_reached: "target_reached",
-  stall_detected: "stall_detected",
-  time_before_serve: "time_before_serve",
-} as const;
-
-export interface Alert {
-  id: number;
-  /** @nullable */
-  cookId: number | null;
-  /** @nullable */
-  probeNumber: number | null;
-  alertType: AlertAlertType;
-  thresholdTempF: number;
-  message: string;
-  isActive: boolean;
-  /** @nullable */
-  triggeredAt: string | null;
-  /** @nullable */
-  scheduledNotificationId?: string | null;
-  createdAt: string;
-}
-
-export type CreateAlertBodyAlertType =
-  (typeof CreateAlertBodyAlertType)[keyof typeof CreateAlertBodyAlertType];
-
-export const CreateAlertBodyAlertType = {
-  min_temp: "min_temp",
-  max_temp: "max_temp",
-  target_reached: "target_reached",
-  stall_detected: "stall_detected",
-  time_before_serve: "time_before_serve",
-} as const;
-
-export interface CreateAlertBody {
-  /** @nullable */
-  cookId?: number | null;
-  /** @nullable */
-  probeNumber?: number | null;
-  alertType: CreateAlertBodyAlertType;
-  thresholdTempF: number;
-  message: string;
-  /** @nullable */
-  scheduledNotificationId?: string | null;
-}
-
-export interface PatchAlertBody {
-  triggered?: boolean;
-  /** @nullable */
-  scheduledNotificationId?: string | null;
-}
-
 export interface TechniqueStatsItem {
   /** Cooking technique name (e.g. Low & Slow, Hot & Fast) */
   technique: string;
@@ -1473,7 +1416,6 @@ export interface DashboardSummary {
   /** @nullable */
   favoriteFood: string | null;
   totalHoursCooking: number;
-  activeAlerts: number;
 }
 
 export interface MeaterLinkBody {

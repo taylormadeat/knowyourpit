@@ -17,5 +17,4 @@ export interface DashboardSummary {
   /** @nullable */
   favoriteFood: string | null;
   totalHoursCooking: number;
-  activeAlerts: number;
 }

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc, count } from "drizzle-orm";
-import { db, cooksTable, grillsTable, alertsTable, cookCheckins, temperatureReadingsTable } from "@workspace/db";
+import { db, cooksTable, grillsTable, cookCheckins, temperatureReadingsTable } from "@workspace/db";
 import {
   CreateCookBody,
   UpdateCookBody,
@@ -716,7 +716,6 @@ router.delete("/sessions/:sessionId", requireAuth, async (req: any, res): Promis
     for (const cook of cooks) {
       await tx.delete(temperatureReadingsTable).where(eq(temperatureReadingsTable.cookId, cook.id));
       await tx.delete(cookCheckins).where(eq(cookCheckins.cookId, cook.id));
-      await tx.delete(alertsTable).where(eq(alertsTable.cookId, cook.id));
     }
     await tx.delete(cooksTable)
       .where(and(eq(cooksTable.sessionId, params.data.sessionId), eq(cooksTable.userId, req.userId)));
@@ -739,7 +738,6 @@ router.delete("/cooks/:id", requireAuth, async (req: any, res): Promise<void> =>
   await db.transaction(async (tx) => {
     await tx.delete(temperatureReadingsTable).where(eq(temperatureReadingsTable.cookId, params.data.id));
     await tx.delete(cookCheckins).where(eq(cookCheckins.cookId, params.data.id));
-    await tx.delete(alertsTable).where(eq(alertsTable.cookId, params.data.id));
     await tx.delete(cooksTable).where(eq(cooksTable.id, params.data.id));
   });
   res.sendStatus(204);

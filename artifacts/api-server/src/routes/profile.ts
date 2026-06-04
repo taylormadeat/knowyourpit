@@ -4,7 +4,6 @@ import { clerkClient } from "@clerk/express";
 import {
   db,
   cooksTable,
-  alertsTable,
   conversations,
   customMeatCutsTable,
   grillsTable,
@@ -95,7 +94,6 @@ router.delete("/profile/me", requireAuth, async (req: any, res): Promise<void> =
       }
 
       await tx.delete(aiAnalyzeEvents).where(eq(aiAnalyzeEvents.userId, userId));
-      await tx.delete(alertsTable).where(eq(alertsTable.userId, userId));
       await tx.delete(conversations).where(eq(conversations.userId, userId));
       await tx.delete(customMeatCutsTable).where(eq(customMeatCutsTable.userId, userId));
       await tx.delete(cooksTable).where(eq(cooksTable.userId, userId));

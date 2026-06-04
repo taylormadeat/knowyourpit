@@ -17,7 +17,7 @@ import { AppState, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { setBaseUrl, setAuthTokenGetter, patchAlert, listAlerts } from "@workspace/api-client-react";
+import { setBaseUrl, setAuthTokenGetter } from "@workspace/api-client-react";
 import { isCookDetailVisible, getCurrentCookId } from "@/hooks/cookDetailVisibility";
 import { setPendingCheckin } from "@/lib/pendingCheckinNotif";
 
@@ -283,58 +283,24 @@ function RootLayoutNav() {
     requestNotificationPermissions();
   }, []);
 
-  // Startup reconciliation: mark any timer alerts whose scheduled notification already fired
+  // Global notification listeners — route check-in taps to the correct cook detail screen
   useEffect(() => {
     if (Platform.OS === "web") return;
-    async function reconcileOverdueTimerAlerts() {
-      try {
-        const [activeAlerts, scheduled] = await Promise.all([
-          listAlerts(),
-          Notifications.getAllScheduledNotificationsAsync(),
-        ]);
-        const scheduledIds = new Set(scheduled.map((n) => n.identifier));
-        const overdue = activeAlerts.filter(
-          (a) =>
-            a.alertType === "time_before_serve" &&
-            a.isActive &&
-            a.scheduledNotificationId != null &&
-            !scheduledIds.has(a.scheduledNotificationId),
-        );
-        for (const alert of overdue) {
-          await patchAlert(alert.id, { triggered: true }).catch(() => {});
-        }
-      } catch {
-        // Non-critical — ignore errors
-      }
-    }
-    reconcileOverdueTimerAlerts();
-  }, []);
-
-  // Global notification listeners — mark timer alerts triggered regardless of which screen is open
-  useEffect(() => {
-    if (Platform.OS === "web") return;
-
-    function markAlertTriggered(alertId: number) {
-      patchAlert(alertId, { triggered: true }).catch(() => {});
-    }
 
     // Fired when a notification is received while the app is in the foreground
-    const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
-      const data = notification.request.content.data as { alertId?: number } | undefined;
-      if (data?.alertId) markAlertTriggered(data.alertId);
+    const receivedSub = Notifications.addNotificationReceivedListener((_notification) => {
+      // No foreground action required after alert removal
     });
 
     // Fired when the user taps a notification from the background or lock screen
     const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as {
-        alertId?: number;
         checkin?: boolean;
         cookId?: number;
         phaseKey?: string;
         phaseLabel?: string;
         scheduledAt?: number;
       } | undefined;
-      if (data?.alertId) markAlertTriggered(data.alertId);
 
       // Route check-in notification taps to the correct cook detail screen.
       // useCheckinDeepLink in [id].tsx handles the foreground case (user already

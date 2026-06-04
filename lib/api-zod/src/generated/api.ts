@@ -2112,85 +2112,6 @@ export const AiMultiCookResponse = zod.object({
 });
 
 /**
- * @summary List temperature alerts
- */
-export const ListAlertsResponseItem = zod.object({
-  id: zod.number(),
-  cookId: zod.number().nullable(),
-  probeNumber: zod.number().nullable(),
-  alertType: zod.enum([
-    "min_temp",
-    "max_temp",
-    "target_reached",
-    "stall_detected",
-    "time_before_serve",
-  ]),
-  thresholdTempF: zod.number(),
-  message: zod.string(),
-  isActive: zod.boolean(),
-  triggeredAt: zod.coerce.date().nullable(),
-  scheduledNotificationId: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-});
-export const ListAlertsResponse = zod.array(ListAlertsResponseItem);
-
-/**
- * @summary Create a temperature alert
- */
-export const CreateAlertBody = zod.object({
-  cookId: zod.number().nullish(),
-  probeNumber: zod.number().nullish(),
-  alertType: zod.enum([
-    "min_temp",
-    "max_temp",
-    "target_reached",
-    "stall_detected",
-    "time_before_serve",
-  ]),
-  thresholdTempF: zod.number(),
-  message: zod.string(),
-  scheduledNotificationId: zod.string().nullish(),
-});
-
-/**
- * @summary Update an alert (mark triggered or store scheduled notification ID)
- */
-export const PatchAlertParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const PatchAlertBody = zod.object({
-  triggered: zod.boolean().optional(),
-  scheduledNotificationId: zod.string().nullish(),
-});
-
-export const PatchAlertResponse = zod.object({
-  id: zod.number(),
-  cookId: zod.number().nullable(),
-  probeNumber: zod.number().nullable(),
-  alertType: zod.enum([
-    "min_temp",
-    "max_temp",
-    "target_reached",
-    "stall_detected",
-    "time_before_serve",
-  ]),
-  thresholdTempF: zod.number(),
-  message: zod.string(),
-  isActive: zod.boolean(),
-  triggeredAt: zod.coerce.date().nullable(),
-  scheduledNotificationId: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-});
-
-/**
- * @summary Delete an alert
- */
-export const DeleteAlertParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-/**
  * @summary Get dashboard summary stats
  */
 export const GetDashboardSummaryResponse = zod.object({
@@ -2201,7 +2122,6 @@ export const GetDashboardSummaryResponse = zod.object({
   mostUsedGrill: zod.string().nullable(),
   favoriteFood: zod.string().nullable(),
   totalHoursCooking: zod.number(),
-  activeAlerts: zod.number(),
 });
 
 /**
