@@ -736,7 +736,7 @@ export default function PlanScreen() {
               preheatMinutes: preheatMinsForGrill(itemGrill),
               cookingMethod: item.cookMethod ?? undefined,
               fromFrozen: item.isFrozen || undefined,
-              thawMethod: item.isFrozen ? item.thawMethod : undefined,
+              thawMethod: item.isFrozen ? item.thawMethod as any : undefined,
               notes: item.notes || undefined,
             };
           }),

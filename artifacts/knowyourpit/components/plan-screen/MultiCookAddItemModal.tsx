@@ -4,12 +4,15 @@ import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useQueryClient } from "@tanstack/react-query";
 import { planStyles as s } from "./styles";
-import { MEAT_CATEGORIES, MEAT_CUTS_BY_CATEGORY, MEAT_CUTS, type MeatCut } from "@/constants/meatCuts";
+import { MEAT_CATEGORIES, MEAT_CUTS_BY_CATEGORY, type MeatCut } from "@/constants/meatCuts";
 import {
   useListCustomMeatCuts,
   useDeleteCustomMeatCut,
+  useUpdateCustomMeatCut,
   useListGrills,
+  getListCustomMeatCutsQueryKey,
 } from "@workspace/api-client-react";
 import { SizeInputRow, type SizeInputRowOutput } from "@/components/plan-screen/SizeInputRow";
 import {
@@ -20,6 +23,8 @@ import {
   QP_WRAP_FINISH_OPTIONS, type QpWrapFinishOption,
 } from "@/constants/cookQuickPicks";
 import { type ThawMethod } from "@/components/plan-screen/frozenSchedule";
+
+type AnyThawMethod = ThawMethod | "microwave" | "counter" | "cook_from_frozen";
 
 const COOK_METHOD_STORAGE_PREFIX = "@knowyourpit:cookMethod:";
 const MEAT_START_TEMP_STORAGE_PREFIX = "@knowyourpit:meatStartTemp:";
@@ -94,6 +99,14 @@ const EMPTY_SIZE_OUTPUT: SizeInputRowOutput = {
   mode: "weight",
 };
 
+const THAW_CHIPS: { value: AnyThawMethod; label: string }[] = [
+  { value: "fridge", label: "Refrigerator  (~24h / 4–5 lbs)" },
+  { value: "cold_water", label: "Cold Water  (~1h per lb)" },
+  { value: "microwave", label: "Microwave  (cook immediately)" },
+  { value: "counter", label: "Counter Thaw" },
+  { value: "cook_from_frozen", label: "Cook from Frozen  (+~50% time)" },
+];
+
 export interface MultiItem {
   cut: MeatCut;
   sizeOutput: SizeInputRowOutput;
@@ -104,7 +117,7 @@ export interface MultiItem {
   spritz: QpSpritzFrequency | null;
   wrapFinish: QpWrapFinishOption | null;
   isFrozen: boolean;
-  thawMethod: ThawMethod;
+  thawMethod: AnyThawMethod;
   notes?: string;
   targetTempF: string;
   cookTempF: string;
@@ -188,8 +201,10 @@ export function MultiCookAddItemModal(p: Props) {
 
   const isEditMode = editIndex != null && editItem != null;
 
+  const qc = useQueryClient();
   const { data: customCutsData } = useListCustomMeatCuts();
   const deleteCustomCut = useDeleteCustomMeatCut();
+  const updateCustomCut = useUpdateCustomMeatCut();
   const customCuts: any[] = Array.isArray(customCutsData) ? customCutsData : [];
 
   const { data: grillsList } = useListGrills();
@@ -214,6 +229,7 @@ export function MultiCookAddItemModal(p: Props) {
     return [...customs, ...builtin];
   }, [customCuts, multiAddCat]);
 
+  // ── Item fields ──────────────────────────────────────────────────────
   const [selectedCookMethod, setSelectedCookMethod] = useState<QpCookMethod | null>(null);
   const [lastUsedMethod, setLastUsedMethod] = useState<QpCookMethod | null>(null);
   const [selectedMeatStartTemp, setSelectedMeatStartTemp] = useState<QpMeatStartTemp | null>(null);
@@ -221,12 +237,59 @@ export function MultiCookAddItemModal(p: Props) {
   const [selectedSpritz, setSelectedSpritz] = useState<QpSpritzFrequency | null>(null);
   const [selectedWrapFinish, setSelectedWrapFinish] = useState<QpWrapFinishOption | null>(null);
   const [isFrozen, setIsFrozen] = useState(false);
-  const [thawMethod, setThawMethod] = useState<ThawMethod>("fridge");
+  const [thawMethod, setThawMethod] = useState<AnyThawMethod>("fridge");
   const [itemNotes, setItemNotes] = useState("");
   const [selectedGrillId, setSelectedGrillId] = useState<number | null>(null);
   const [targetTempFInput, setTargetTempFInput] = useState("");
   const [cookTempFInput, setCookTempFInput] = useState("");
   const [localSizeOutput, setLocalSizeOutput] = useState<SizeInputRowOutput>(EMPTY_SIZE_OUTPUT);
+
+  // ── Custom cut editor ─────────────────────────────────────────────────
+  const [cutEditorVisible, setCutEditorVisible] = useState(false);
+  const [editingCutId, setEditingCutId] = useState<number | null>(null);
+  const [ccName, setCcName] = useState("");
+  const [ccCategory, setCcCategory] = useState("Beef");
+  const [ccTargetTempF, setCcTargetTempF] = useState("");
+  const [ccCookTempF, setCcCookTempF] = useState("");
+  const [ccMinsPerLb, setCcMinsPerLb] = useState("");
+  const [ccRestMins, setCcRestMins] = useState("");
+  const [ccCookMethod, setCcCookMethod] = useState("");
+
+  const openCutEditor = (cut: PickerCut) => {
+    setEditingCutId(cut.customId ?? null);
+    setCcName(cut.name);
+    setCcCategory(cut.category);
+    setCcTargetTempF(String(cut.targetTempF));
+    setCcCookTempF(String(cut.cookTempF));
+    setCcMinsPerLb(String(cut.minsPerLb));
+    setCcRestMins(String(cut.restMins));
+    setCcCookMethod(cut.cookMethod ?? "");
+    setCutEditorVisible(true);
+  };
+
+  const saveCutEdit = async () => {
+    const name = ccName.trim();
+    const targetT = parseFloat(ccTargetTempF);
+    const cookT = parseFloat(ccCookTempF);
+    const mpl = parseFloat(ccMinsPerLb);
+    const rm = parseInt(ccRestMins, 10);
+    if (!name) { Alert.alert("Name required", "Give your cut a name."); return; }
+    if (isNaN(targetT) || isNaN(cookT) || isNaN(mpl) || isNaN(rm)) {
+      Alert.alert("Numbers required", "Target temp, pit temp, mins/lb, and rest mins must be numbers.");
+      return;
+    }
+    try {
+      await updateCustomCut.mutateAsync({
+        id: editingCutId!,
+        data: { name, category: ccCategory, targetTempF: targetT, cookTempF: cookT, minsPerLb: mpl, restMins: rm, cookMethod: ccCookMethod.trim() || null },
+      });
+      qc.invalidateQueries({ queryKey: getListCustomMeatCutsQueryKey() });
+      setCutEditorVisible(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Alert.alert("Save failed", "Could not save the custom cut.");
+    }
+  };
 
   const editWeightForPrefill = useMemo(() => {
     if (isEditMode && editItem.cut.name === multiPickedCut?.name) {
@@ -365,341 +428,139 @@ export function MultiCookAddItemModal(p: Props) {
   };
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={handleClose}
-    >
-      <AppKeyboardAvoidingView style={s.modalOverlay}>
-        <View style={[s.modalSheet, { backgroundColor: colors.card }]}>
-          <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
-          <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[s.modalTitle, { color: colors.foreground }]}>
-              {isEditMode ? "Edit Item" : "Add Item"}
-            </Text>
-            <Pressable onPress={handleClose} hitSlop={10}>
-              <Feather name="x" size={22} color={colors.mutedForeground} />
-            </Pressable>
-          </View>
-          <View style={s.catTabRow}>
-            {MEAT_CATEGORIES.map(cat => (
-              <Pressable
-                key={cat}
-                onPress={() => setMultiAddCat(cat)}
-                style={[s.catTab, { backgroundColor: multiAddCat === cat ? colors.primary : colors.muted, borderRadius: 20 }]}
-              >
-                <Text style={[s.catTabText, { color: multiAddCat === cat ? "#fff" : colors.mutedForeground }]}>{cat}</Text>
+    <>
+      <Modal
+        visible={visible}
+        animationType="slide"
+        transparent
+        onRequestClose={handleClose}
+      >
+        <AppKeyboardAvoidingView style={s.modalOverlay}>
+          <View style={[s.modalSheet, { backgroundColor: colors.card }]}>
+            <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
+            <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[s.modalTitle, { color: colors.foreground }]}>
+                {isEditMode ? "Edit Item" : "Add Item"}
+              </Text>
+              <Pressable onPress={handleClose} hitSlop={10}>
+                <Feather name="x" size={22} color={colors.mutedForeground} />
               </Pressable>
-            ))}
-          </View>
-          <FlatList
-            style={{ flex: 1 }}
-            data={cutsForCategory}
-            keyExtractor={item => item.name}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 20 }}
-            ItemSeparatorComponent={() => <View style={[s.cutSep, { backgroundColor: colors.border }]} />}
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => setMultiPickedCut(item)}
-                style={({ pressed }) => [
-                  s.cutRow,
-                  pressed && { opacity: 0.7 },
-                  multiPickedCut?.name === item.name && { backgroundColor: colors.primary + "12" },
-                ]}
-              >
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Text style={[s.cutName, { color: colors.foreground }]}>{item.name}</Text>
-                    {item.isCustom && (
-                      <View style={{ backgroundColor: colors.primary + "20", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 }}>
-                        <Text style={{ fontSize: 10, fontFamily: "Inter_600SemiBold", color: colors.primary }}>Custom</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={[s.cutMeta, { color: colors.mutedForeground }]}>
-                    Internal target {item.targetTempF}°F · Pit: {item.cookTempF}°F · ~{item.minsPerLb} min/lb
-                  </Text>
-                </View>
-                {item.isCustom && (
-                  <Pressable
-                    onPress={() => handleDeleteCustomCut(item)}
-                    hitSlop={10}
-                    style={{ padding: 6 }}
-                  >
-                    <Feather name="trash-2" size={14} color={colors.mutedForeground} />
-                  </Pressable>
-                )}
-                {multiPickedCut?.name === item.name && (
-                  <Feather name="check-circle" size={18} color={colors.primary} />
-                )}
-              </Pressable>
-            )}
-          />
-          {multiPickedCut && (
-            <ScrollView
-              style={{ maxHeight: 480 }}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ padding: 14, gap: 12 }}
-            >
-              {/* Size input */}
-              <View>
-                <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                  Size
-                </Text>
-                <SizeInputRow
-                  cut={multiPickedCut}
-                  colors={colors}
-                  onChange={setLocalSizeOutput}
-                  detectedWeightLbs={editWeightForPrefill}
-                />
-              </View>
-
-              {/* Grill picker */}
-              {grills.length > 0 && (
-                <View>
-                  <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                    Grill (optional)
-                  </Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={{ flexDirection: "row", gap: 8 }}>
-                      {grills.map((g: any) => {
-                        const active = selectedGrillId === g.id;
-                        return (
-                          <Pressable
-                            key={g.id}
-                            onPress={() => {
-                              setSelectedGrillId(active ? null : g.id);
-                              Haptics.selectionAsync();
-                            }}
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              gap: 5,
-                              paddingHorizontal: 12,
-                              paddingVertical: 7,
-                              borderRadius: 20,
-                              borderWidth: 1,
-                              borderColor: active ? colors.primary : colors.border,
-                              backgroundColor: active ? colors.primary + "18" : colors.muted,
-                            }}
-                          >
-                            <Feather name="wind" size={12} color={active ? colors.primary : colors.mutedForeground} />
-                            <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
-                              {g.name}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </ScrollView>
-                </View>
-              )}
-
-              {/* Target temp + Cook temp overrides */}
-              <View style={{ flexDirection: "row", gap: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                    Target Temp
-                  </Text>
-                  <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
-                    <TextInput
-                      style={[s.input, { color: colors.foreground }]}
-                      placeholder={String(multiPickedCut.targetTempF)}
-                      placeholderTextColor={colors.mutedForeground}
-                      keyboardType="decimal-pad"
-                      value={targetTempFInput}
-                      onChangeText={setTargetTempFInput}
-                    />
-                    <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginRight: 10 }}>°F</Text>
-                  </View>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                    Pit Temp
-                  </Text>
-                  <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
-                    <TextInput
-                      style={[s.input, { color: colors.foreground }]}
-                      placeholder={String(multiPickedCut.cookTempF)}
-                      placeholderTextColor={colors.mutedForeground}
-                      keyboardType="decimal-pad"
-                      value={cookTempFInput}
-                      onChangeText={setCookTempFInput}
-                    />
-                    <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginRight: 10 }}>°F</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Cooking method chips */}
-              <View>
-                <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                  Cooking Method
-                </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={{ flexDirection: "row", gap: 8 }}>
-                    {QP_COOK_METHODS.map(method => {
-                      const active = selectedCookMethod === method;
-                      const showLastUsed = lastUsedMethod === method && active;
-                      return (
-                        <Pressable
-                          key={method}
-                          onPress={() => {
-                            const next = active ? null : method;
-                            setSelectedCookMethod(next);
-                            setLastUsedMethod(null);
-                            if (multiPickedCut && next) {
-                              saveLastCookMethod(multiPickedCut.name, next);
-                            }
-                            Haptics.selectionAsync();
-                          }}
-                          style={{
-                            paddingHorizontal: 12,
-                            paddingVertical: showLastUsed ? 5 : 7,
-                            borderRadius: 20,
-                            borderWidth: 1,
-                            borderColor: active ? colors.primary : colors.border,
-                            backgroundColor: active ? colors.primary + "18" : colors.muted,
-                            alignItems: "center",
-                          }}
-                        >
-                          <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
-                            {method}
-                          </Text>
-                          {showLastUsed && (
-                            <Text style={{ fontSize: 9, fontFamily: "Inter_500Medium", color: colors.primary, opacity: 0.75, marginTop: 1 }}>
-                              Last used
-                            </Text>
-                          )}
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </ScrollView>
-              </View>
-
-              {/* Meat start temp chips */}
-              <ChipRow
-                label="Meat Starting Temp"
-                options={QP_MEAT_START_TEMPS}
-                selected={selectedMeatStartTemp}
-                colors={colors}
-                onSelect={(v) => {
-                  setSelectedMeatStartTemp(v);
-                  if (multiPickedCut && v) saveLastMeatStartTemp(multiPickedCut.name, v);
-                }}
-              />
-
-              {/* Injection chips */}
-              <ChipRow
-                label="Injection"
-                options={QP_INJECTION_OPTIONS}
-                selected={selectedInjection}
-                colors={colors}
-                onSelect={(v) => {
-                  setSelectedInjection(v);
-                  if (multiPickedCut && v) saveLastInjection(multiPickedCut.name, v);
-                }}
-              />
-
-              {/* Spritz chips */}
-              <ChipRow
-                label="Spritz"
-                options={QP_SPRITZ_FREQUENCIES}
-                selected={selectedSpritz}
-                colors={colors}
-                onSelect={(v) => {
-                  setSelectedSpritz(v);
-                  if (multiPickedCut && v) saveLastSpritz(multiPickedCut.name, v);
-                }}
-              />
-
-              {/* Wrap / finish chips */}
-              <ChipRow
-                label="Wrap / Finish"
-                options={QP_WRAP_FINISH_OPTIONS}
-                selected={selectedWrapFinish}
-                colors={colors}
-                onSelect={(v) => {
-                  setSelectedWrapFinish(v);
-                  if (multiPickedCut && v) saveLastWrapFinish(multiPickedCut.name, v);
-                }}
-              />
-
-              {/* From Freezer toggle */}
-              <View style={{ borderRadius: 10, borderWidth: 1, borderColor: isFrozen ? "#3B82F660" : colors.border, backgroundColor: colors.background, paddingHorizontal: 12, overflow: "hidden" }}>
+            </View>
+            <View style={s.catTabRow}>
+              {MEAT_CATEGORIES.map(cat => (
                 <Pressable
-                  onPress={() => {
-                    if (isFrozen) {
-                      setIsFrozen(false);
-                      Haptics.selectionAsync();
-                      return;
-                    }
-                    if (!effectivePro && !frozenTrialAvailable) {
-                      showPaywall({ trigger: "frozen_timeline_limit_reached", featureName: "Frozen-to-Table Timeline" });
-                      return;
-                    }
-                    setIsFrozen(true);
-                    Haptics.selectionAsync();
-                  }}
+                  key={cat}
+                  onPress={() => setMultiAddCat(cat)}
+                  style={[s.catTab, { backgroundColor: multiAddCat === cat ? colors.primary : colors.muted, borderRadius: 20 }]}
+                >
+                  <Text style={[s.catTabText, { color: multiAddCat === cat ? "#fff" : colors.mutedForeground }]}>{cat}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <FlatList
+              style={{ flex: 1 }}
+              data={cutsForCategory}
+              keyExtractor={item => item.name}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 20 }}
+              ItemSeparatorComponent={() => <View style={[s.cutSep, { backgroundColor: colors.border }]} />}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => setMultiPickedCut(item)}
                   style={({ pressed }) => [
-                    {
-                      flexDirection: "row",
-                      alignItems: "center",
-                      paddingVertical: 11,
-                      gap: 10,
-                      minHeight: 44,
-                      borderBottomWidth: isFrozen ? 0.5 : 0,
-                      borderBottomColor: colors.border,
-                    },
-                    pressed && { opacity: 0.65 },
+                    s.cutRow,
+                    pressed && { opacity: 0.7 },
+                    multiPickedCut?.name === item.name && { backgroundColor: colors.primary + "12" },
                   ]}
                 >
-                  <View style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: "#3B82F620", alignItems: "center", justifyContent: "center" }}>
-                    <Feather name="cloud-snow" size={14} color="#3B82F6" />
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Text style={[s.cutName, { color: colors.foreground }]}>{item.name}</Text>
+                      {item.isCustom && (
+                        <View style={{ backgroundColor: colors.primary + "20", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 }}>
+                          <Text style={{ fontSize: 10, fontFamily: "Inter_600SemiBold", color: colors.primary }}>Custom</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[s.cutMeta, { color: colors.mutedForeground }]}>
+                      Internal target {item.targetTempF}°F · Pit: {item.cookTempF}°F · ~{item.minsPerLb} min/lb
+                    </Text>
                   </View>
-                  <Text style={{ flex: 1, fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground }}>
-                    Starting from frozen?
-                  </Text>
-                  {!effectivePro && !frozenTrialAvailable && (
-                    <View style={s.proPill}>
-                      <Feather name="star" size={9} color="#fff" />
-                      <Text style={s.proPillText}>PRO</Text>
+                  {item.isCustom && (
+                    <View style={{ flexDirection: "row", gap: 2 }}>
+                      <Pressable
+                        onPress={() => openCutEditor(item)}
+                        hitSlop={10}
+                        style={{ padding: 6 }}
+                      >
+                        <Feather name="edit-2" size={14} color={colors.primary} />
+                      </Pressable>
+                      <Pressable
+                        onPress={() => handleDeleteCustomCut(item)}
+                        hitSlop={10}
+                        style={{ padding: 6 }}
+                      >
+                        <Feather name="trash-2" size={14} color={colors.mutedForeground} />
+                      </Pressable>
                     </View>
                   )}
-                  <View style={[s.toggleTrack, { backgroundColor: isFrozen ? "#3B82F6" : colors.muted, borderColor: isFrozen ? "#3B82F6" : colors.border }]}>
-                    <View style={[s.toggleThumb, { backgroundColor: "#fff", transform: [{ translateX: isFrozen ? 18 : 0 }] }]} />
-                  </View>
+                  {multiPickedCut?.name === item.name && (
+                    <Feather name="check-circle" size={18} color={colors.primary} />
+                  )}
                 </Pressable>
-                {isFrozen && (
-                  <View style={{ paddingBottom: 12, paddingTop: 8 }}>
+              )}
+            />
+            {multiPickedCut && (
+              <ScrollView
+                style={{ maxHeight: 480 }}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ padding: 14, gap: 12 }}
+              >
+                {/* Size input */}
+                <View>
+                  <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    Size
+                  </Text>
+                  <SizeInputRow
+                    cut={multiPickedCut}
+                    colors={colors}
+                    onChange={setLocalSizeOutput}
+                    detectedWeightLbs={editWeightForPrefill}
+                  />
+                </View>
+
+                {/* Grill picker */}
+                {grills.length > 0 && (
+                  <View>
                     <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                      Thaw Method
+                      Grill (optional)
                     </Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                       <View style={{ flexDirection: "row", gap: 8 }}>
-                        {([
-                          { value: "fridge" as ThawMethod, label: "Refrigerator  (~24h / 4–5 lbs)" },
-                          { value: "cold_water" as ThawMethod, label: "Cold Water  (~1h per lb)" },
-                        ] as const).map(opt => {
-                          const active = thawMethod === opt.value;
+                        {grills.map((g: any) => {
+                          const active = selectedGrillId === g.id;
                           return (
                             <Pressable
-                              key={opt.value}
-                              onPress={() => { setThawMethod(opt.value); Haptics.selectionAsync(); }}
+                              key={g.id}
+                              onPress={() => {
+                                setSelectedGrillId(active ? null : g.id);
+                                Haptics.selectionAsync();
+                              }}
                               style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 5,
                                 paddingHorizontal: 12,
                                 paddingVertical: 7,
                                 borderRadius: 20,
                                 borderWidth: 1,
-                                borderColor: active ? "#3B82F6" : colors.border,
-                                backgroundColor: active ? "#3B82F620" : colors.muted,
+                                borderColor: active ? colors.primary : colors.border,
+                                backgroundColor: active ? colors.primary + "18" : colors.muted,
                               }}
                             >
-                              <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? "#3B82F6" : colors.mutedForeground }}>
-                                {opt.label}
+                              <Feather name="wind" size={12} color={active ? colors.primary : colors.mutedForeground} />
+                              <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
+                                {g.name}
                               </Text>
                             </Pressable>
                           );
@@ -708,38 +569,307 @@ export function MultiCookAddItemModal(p: Props) {
                     </ScrollView>
                   </View>
                 )}
-              </View>
 
-              {/* Notes */}
-              <View>
-                <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                  Notes (optional)
-                </Text>
-                <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
-                  <TextInput
-                    style={[s.input, { color: colors.foreground, minHeight: 72, textAlignVertical: "top", paddingTop: 10 }]}
-                    placeholder="Rub recipe, wood choice, injection brine, special instructions…"
-                    placeholderTextColor={colors.mutedForeground}
-                    multiline
-                    value={itemNotes}
-                    onChangeText={setItemNotes}
-                  />
+                {/* Target temp + Cook temp overrides */}
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                      Target Temp
+                    </Text>
+                    <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                      <TextInput
+                        style={[s.input, { color: colors.foreground }]}
+                        placeholder={String(multiPickedCut.targetTempF)}
+                        placeholderTextColor={colors.mutedForeground}
+                        keyboardType="decimal-pad"
+                        value={targetTempFInput}
+                        onChangeText={setTargetTempFInput}
+                      />
+                      <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginRight: 10 }}>°F</Text>
+                    </View>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                      Pit Temp
+                    </Text>
+                    <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                      <TextInput
+                        style={[s.input, { color: colors.foreground }]}
+                        placeholder={String(multiPickedCut.cookTempF)}
+                        placeholderTextColor={colors.mutedForeground}
+                        keyboardType="decimal-pad"
+                        value={cookTempFInput}
+                        onChangeText={setCookTempFInput}
+                      />
+                      <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginRight: 10 }}>°F</Text>
+                    </View>
+                  </View>
                 </View>
-              </View>
 
+                {/* Cooking method chips */}
+                <View>
+                  <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    Cooking Method
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={{ flexDirection: "row", gap: 8 }}>
+                      {QP_COOK_METHODS.map(method => {
+                        const active = selectedCookMethod === method;
+                        const showLastUsed = lastUsedMethod === method && active;
+                        return (
+                          <Pressable
+                            key={method}
+                            onPress={() => {
+                              const next = active ? null : method;
+                              setSelectedCookMethod(next);
+                              setLastUsedMethod(null);
+                              if (multiPickedCut && next) {
+                                saveLastCookMethod(multiPickedCut.name, next);
+                              }
+                              Haptics.selectionAsync();
+                            }}
+                            style={{
+                              paddingHorizontal: 12,
+                              paddingVertical: showLastUsed ? 5 : 7,
+                              borderRadius: 20,
+                              borderWidth: 1,
+                              borderColor: active ? colors.primary : colors.border,
+                              backgroundColor: active ? colors.primary + "18" : colors.muted,
+                              alignItems: "center",
+                            }}
+                          >
+                            <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
+                              {method}
+                            </Text>
+                            {showLastUsed && (
+                              <Text style={{ fontSize: 9, fontFamily: "Inter_500Medium", color: colors.primary, opacity: 0.75, marginTop: 1 }}>
+                                Last used
+                              </Text>
+                            )}
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                </View>
+
+                {/* Meat start temp chips */}
+                <ChipRow
+                  label="Meat Starting Temp"
+                  options={QP_MEAT_START_TEMPS}
+                  selected={selectedMeatStartTemp}
+                  colors={colors}
+                  onSelect={(v) => {
+                    setSelectedMeatStartTemp(v);
+                    if (multiPickedCut && v) saveLastMeatStartTemp(multiPickedCut.name, v);
+                  }}
+                />
+
+                {/* Injection chips */}
+                <ChipRow
+                  label="Injection"
+                  options={QP_INJECTION_OPTIONS}
+                  selected={selectedInjection}
+                  colors={colors}
+                  onSelect={(v) => {
+                    setSelectedInjection(v);
+                    if (multiPickedCut && v) saveLastInjection(multiPickedCut.name, v);
+                  }}
+                />
+
+                {/* Spritz chips */}
+                <ChipRow
+                  label="Spritz"
+                  options={QP_SPRITZ_FREQUENCIES}
+                  selected={selectedSpritz}
+                  colors={colors}
+                  onSelect={(v) => {
+                    setSelectedSpritz(v);
+                    if (multiPickedCut && v) saveLastSpritz(multiPickedCut.name, v);
+                  }}
+                />
+
+                {/* Wrap / finish chips */}
+                <ChipRow
+                  label="Wrap / Finish"
+                  options={QP_WRAP_FINISH_OPTIONS}
+                  selected={selectedWrapFinish}
+                  colors={colors}
+                  onSelect={(v) => {
+                    setSelectedWrapFinish(v);
+                    if (multiPickedCut && v) saveLastWrapFinish(multiPickedCut.name, v);
+                  }}
+                />
+
+                {/* From Freezer toggle */}
+                <View style={{ borderRadius: 10, borderWidth: 1, borderColor: isFrozen ? "#3B82F660" : colors.border, backgroundColor: colors.background, paddingHorizontal: 12, overflow: "hidden" }}>
+                  <Pressable
+                    onPress={() => {
+                      if (isFrozen) {
+                        setIsFrozen(false);
+                        Haptics.selectionAsync();
+                        return;
+                      }
+                      if (!effectivePro && !frozenTrialAvailable) {
+                        showPaywall({ trigger: "frozen_timeline_limit_reached", featureName: "Frozen-to-Table Timeline" });
+                        return;
+                      }
+                      setIsFrozen(true);
+                      Haptics.selectionAsync();
+                    }}
+                    style={({ pressed }) => [
+                      {
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingVertical: 11,
+                        gap: 10,
+                        minHeight: 44,
+                        borderBottomWidth: isFrozen ? 0.5 : 0,
+                        borderBottomColor: colors.border,
+                      },
+                      pressed && { opacity: 0.65 },
+                    ]}
+                  >
+                    <View style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: "#3B82F620", alignItems: "center", justifyContent: "center" }}>
+                      <Feather name="cloud-snow" size={14} color="#3B82F6" />
+                    </View>
+                    <Text style={{ flex: 1, fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground }}>
+                      Starting from frozen?
+                    </Text>
+                    {!effectivePro && !frozenTrialAvailable && (
+                      <View style={s.proPill}>
+                        <Feather name="star" size={9} color="#fff" />
+                        <Text style={s.proPillText}>PRO</Text>
+                      </View>
+                    )}
+                    <View style={[s.toggleTrack, { backgroundColor: isFrozen ? "#3B82F6" : colors.muted, borderColor: isFrozen ? "#3B82F6" : colors.border }]}>
+                      <View style={[s.toggleThumb, { backgroundColor: "#fff", transform: [{ translateX: isFrozen ? 18 : 0 }] }]} />
+                    </View>
+                  </Pressable>
+                  {isFrozen && (
+                    <View style={{ paddingBottom: 12, paddingTop: 8 }}>
+                      <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                        Thaw Method
+                      </Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          {THAW_CHIPS.map(opt => {
+                            const active = thawMethod === opt.value;
+                            return (
+                              <Pressable
+                                key={opt.value}
+                                onPress={() => { setThawMethod(opt.value); Haptics.selectionAsync(); }}
+                                style={{
+                                  paddingHorizontal: 12,
+                                  paddingVertical: 7,
+                                  borderRadius: 20,
+                                  borderWidth: 1,
+                                  borderColor: active ? "#3B82F6" : colors.border,
+                                  backgroundColor: active ? "#3B82F620" : colors.muted,
+                                }}
+                              >
+                                <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? "#3B82F6" : colors.mutedForeground }}>
+                                  {opt.label}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+
+                {/* Notes */}
+                <View>
+                  <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    Notes (optional)
+                  </Text>
+                  <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                    <TextInput
+                      style={[s.input, { color: colors.foreground, minHeight: 72, textAlignVertical: "top", paddingTop: 10 }]}
+                      placeholder="Rub recipe, wood choice, injection brine, special instructions…"
+                      placeholderTextColor={colors.mutedForeground}
+                      multiline
+                      value={itemNotes}
+                      onChangeText={setItemNotes}
+                    />
+                  </View>
+                </View>
+
+                <Pressable
+                  onPress={handleSave}
+                  style={[s.submitBtn, { backgroundColor: "#6C3BF5", borderRadius: colors.radius }]}
+                >
+                  <Feather name={isEditMode ? "check" : "plus"} size={16} color="#fff" />
+                  <Text style={s.submitText}>
+                    {isEditMode ? `Save ${multiPickedCut.name}` : `Add ${multiPickedCut.name}`}
+                  </Text>
+                </Pressable>
+              </ScrollView>
+            )}
+          </View>
+        </AppKeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Custom cut editor (inner modal) ──────────────────────────── */}
+      <Modal
+        visible={cutEditorVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setCutEditorVisible(false)}
+      >
+        <AppKeyboardAvoidingView style={s.modalOverlay}>
+          <View style={[s.modalSheet, { backgroundColor: colors.card, maxHeight: "85%" }]}>
+            <View style={[s.modalHandle, { backgroundColor: colors.border }]} />
+            <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[s.modalTitle, { color: colors.foreground }]}>Edit Custom Cut</Text>
+              <Pressable onPress={() => setCutEditorVisible(false)} hitSlop={10}>
+                <Feather name="x" size={22} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ padding: 16, gap: 14 }}
+            >
+              {[
+                { label: "Name", value: ccName, set: setCcName, placeholder: "e.g. Wagyu Brisket", keyboard: "default" as const },
+                { label: "Internal Target Temp (°F)", value: ccTargetTempF, set: setCcTargetTempF, placeholder: "e.g. 205", keyboard: "decimal-pad" as const },
+                { label: "Pit Temp (°F)", value: ccCookTempF, set: setCcCookTempF, placeholder: "e.g. 225", keyboard: "decimal-pad" as const },
+                { label: "Mins Per Lb", value: ccMinsPerLb, set: setCcMinsPerLb, placeholder: "e.g. 60", keyboard: "decimal-pad" as const },
+                { label: "Rest Mins", value: ccRestMins, set: setCcRestMins, placeholder: "e.g. 60", keyboard: "decimal-pad" as const },
+                { label: "Cook Method (optional)", value: ccCookMethod, set: setCcCookMethod, placeholder: "e.g. Low & Slow", keyboard: "default" as const },
+              ].map(field => (
+                <View key={field.label}>
+                  <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    {field.label}
+                  </Text>
+                  <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                    <TextInput
+                      style={[s.input, { color: colors.foreground }]}
+                      placeholder={field.placeholder}
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType={field.keyboard}
+                      value={field.value}
+                      onChangeText={field.set}
+                    />
+                  </View>
+                </View>
+              ))}
               <Pressable
-                onPress={handleSave}
-                style={[s.submitBtn, { backgroundColor: "#6C3BF5", borderRadius: colors.radius }]}
+                onPress={saveCutEdit}
+                disabled={updateCustomCut.isPending}
+                style={[s.submitBtn, { backgroundColor: "#6C3BF5", borderRadius: colors.radius, opacity: updateCustomCut.isPending ? 0.6 : 1 }]}
               >
-                <Feather name={isEditMode ? "check" : "plus"} size={16} color="#fff" />
+                <Feather name="check" size={16} color="#fff" />
                 <Text style={s.submitText}>
-                  {isEditMode ? `Save ${multiPickedCut.name}` : `Add ${multiPickedCut.name}`}
+                  {updateCustomCut.isPending ? "Saving…" : "Save Changes"}
                 </Text>
               </Pressable>
             </ScrollView>
-          )}
-        </View>
-      </AppKeyboardAvoidingView>
-    </Modal>
+          </View>
+        </AppKeyboardAvoidingView>
+      </Modal>
+    </>
   );
 }

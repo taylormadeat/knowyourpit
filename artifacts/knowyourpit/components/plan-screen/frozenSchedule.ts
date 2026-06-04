@@ -24,6 +24,7 @@ export function calcThawMinutes(
   method: ThawMethod,
 ): number {
   if (weightLbs <= 0) return 0;
+  // Quick-thaw and no-thaw methods don't need a schedule buffer.
   const rawHours =
     method === "fridge"
       ? weightLbs * THAW_FRIDGE_HOURS_PER_LB
