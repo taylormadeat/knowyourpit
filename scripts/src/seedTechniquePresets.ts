@@ -184,9 +184,13 @@ const PRESETS: PresetRow[] = [
   { cutName: "Ham (Cured/Twice-Smoked)", label: "Low & Slow Smoke", cookMethod: "Low & Slow", wrapFinish: "No Wrap", spritzFrequency: "Every 2 Hours", injection: "Not Injected", cookTempF: 275, targetTempF: 140, sortOrder: 0 },
   { cutName: "Ham (Cured/Twice-Smoked)", label: "Foil Boat Finish", cookMethod: "Low & Slow", wrapFinish: "Foil Boat", spritzFrequency: "Every 2 Hours", injection: "Not Injected", cookTempF: 275, targetTempF: 140, sortOrder: 1 },
 
-  // ── Bratwurst / Italian Sausage ───────────────────────────────────────────
-  { cutName: "Bratwurst / Italian Sausage", label: "Indirect then Sear", cookMethod: "Indirect Heat", wrapFinish: "No Wrap", spritzFrequency: "No Spritz", injection: "Not Injected", cookTempF: 300, targetTempF: 160, sortOrder: 0 },
-  { cutName: "Bratwurst / Italian Sausage", label: "Low & Slow", cookMethod: "Low & Slow", wrapFinish: "No Wrap", spritzFrequency: "No Spritz", injection: "Not Injected", cookTempF: 225, targetTempF: 160, sortOrder: 1 },
+  // ── Bratwurst ─────────────────────────────────────────────────────────────
+  { cutName: "Bratwurst", label: "Indirect then Sear", cookMethod: "Indirect Heat", wrapFinish: "No Wrap", spritzFrequency: "No Spritz", injection: "Not Injected", cookTempF: 300, targetTempF: 160, sortOrder: 0 },
+  { cutName: "Bratwurst", label: "Low & Slow", cookMethod: "Low & Slow", wrapFinish: "No Wrap", spritzFrequency: "No Spritz", injection: "Not Injected", cookTempF: 225, targetTempF: 160, sortOrder: 1 },
+
+  // ── Italian Sausage ───────────────────────────────────────────────────────
+  { cutName: "Italian Sausage", label: "Indirect then Sear", cookMethod: "Indirect Heat", wrapFinish: "No Wrap", spritzFrequency: "No Spritz", injection: "Not Injected", cookTempF: 300, targetTempF: 160, sortOrder: 0 },
+  { cutName: "Italian Sausage", label: "Low & Slow", cookMethod: "Low & Slow", wrapFinish: "No Wrap", spritzFrequency: "No Spritz", injection: "Not Injected", cookTempF: 225, targetTempF: 160, sortOrder: 1 },
 
   // ── Smoked Sausage Links ──────────────────────────────────────────────────
   { cutName: "Smoked Sausage Links", label: "Low & Slow Indirect", cookMethod: "Low & Slow", wrapFinish: "No Wrap", spritzFrequency: "No Spritz", injection: "Not Injected", cookTempF: 225, targetTempF: 160, sortOrder: 0 },

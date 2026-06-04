@@ -55,6 +55,7 @@ function makePredictCacheKey(userId: string, p: ReturnType<typeof AiPredictBody.
     pc: p.pieceCount ?? null,
     ic: p.isIndividualCook ?? null,
     sl: p.sizingLabel ?? null,
+    csp: p.cookingStylePreset ?? null,
   });
 }
 
