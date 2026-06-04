@@ -36,6 +36,7 @@ import type {
   CustomMeatCut,
   DashboardSummary,
   DismissCookOutlier200,
+  GetTechniquePresetsParams,
   Grill,
   GrillFingerprint,
   GrillInsights,
@@ -52,6 +53,7 @@ import type {
   MultiCookBody,
   MultiCookResponse,
   RegisterLiveActivityBody,
+  TechniquePreset,
   TechniqueStatsItem,
   TemperatureHistorySummary,
   TemperatureReading,
@@ -985,6 +987,107 @@ export const useDeleteCustomMeatCut = <
 > => {
   return useMutation(getDeleteCustomMeatCutMutationOptions(options));
 };
+
+/**
+ * Returns seeded technique presets. Pass an optional `cutName` query parameter to filter by meat cut.
+ * @summary List cook technique presets
+ */
+export const getGetTechniquePresetsUrl = (
+  params?: GetTechniquePresetsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/technique-presets?${stringifiedParams}`
+    : `/api/technique-presets`;
+};
+
+export const getTechniquePresets = async (
+  params?: GetTechniquePresetsParams,
+  options?: RequestInit,
+): Promise<TechniquePreset[]> => {
+  return customFetch<TechniquePreset[]>(getGetTechniquePresetsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTechniquePresetsQueryKey = (
+  params?: GetTechniquePresetsParams,
+) => {
+  return [`/api/technique-presets`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetTechniquePresetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTechniquePresets>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetTechniquePresetsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTechniquePresets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTechniquePresetsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTechniquePresets>>
+  > = ({ signal }) =>
+    getTechniquePresets(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTechniquePresets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTechniquePresetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTechniquePresets>>
+>;
+export type GetTechniquePresetsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List cook technique presets
+ */
+
+export function useGetTechniquePresets<
+  TData = Awaited<ReturnType<typeof getTechniquePresets>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetTechniquePresetsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTechniquePresets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTechniquePresetsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get the learned per-grill calibration profile (fingerprint)

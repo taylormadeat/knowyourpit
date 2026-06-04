@@ -12,7 +12,9 @@ import {
   useDeleteCustomMeatCut,
   useUpdateCustomMeatCut,
   useListGrills,
+  useGetTechniquePresets,
   getListCustomMeatCutsQueryKey,
+  type TechniquePreset,
 } from "@workspace/api-client-react";
 import { SizeInputRow, type SizeInputRowOutput } from "@/components/plan-screen/SizeInputRow";
 import {
@@ -121,6 +123,7 @@ export interface MultiItem {
   notes?: string;
   targetTempF: string;
   cookTempF: string;
+  cookingStylePreset?: string | null;
 }
 
 interface Props {
@@ -229,7 +232,15 @@ export function MultiCookAddItemModal(p: Props) {
     return [...customs, ...builtin];
   }, [customCuts, multiAddCat]);
 
+  // ── Technique presets — fetched when a cut is selected ───────────────
+  const { data: cutPresets } = useGetTechniquePresets(
+    multiPickedCut ? { cutName: multiPickedCut.name } : {},
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { query: { enabled: !!multiPickedCut, staleTime: 10 * 60 * 1000 } as any },
+  );
+
   // ── Item fields ──────────────────────────────────────────────────────
+  const [activePreset, setActivePreset] = useState<string | null>(null);
   const [selectedCookMethod, setSelectedCookMethod] = useState<QpCookMethod | null>(null);
   const [lastUsedMethod, setLastUsedMethod] = useState<QpCookMethod | null>(null);
   const [selectedMeatStartTemp, setSelectedMeatStartTemp] = useState<QpMeatStartTemp | null>(null);
@@ -349,6 +360,7 @@ export function MultiCookAddItemModal(p: Props) {
   }, [multiPickedCut?.name, editItem]);
 
   const resetFields = () => {
+    setActivePreset(null);
     setSelectedCookMethod(null);
     setLastUsedMethod(null);
     setSelectedMeatStartTemp(null);
@@ -390,6 +402,7 @@ export function MultiCookAddItemModal(p: Props) {
       notes: itemNotes.trim() || undefined,
       targetTempF: targetTempFInput,
       cookTempF: cookTempFInput,
+      cookingStylePreset: activePreset ?? undefined,
     };
 
     if (isEditMode) {
@@ -606,6 +619,61 @@ export function MultiCookAddItemModal(p: Props) {
                   </View>
                 </View>
 
+                {/* Cooking style presets */}
+                {cutPresets && cutPresets.length > 0 && (
+                  <View>
+                    <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                      Cooking Style
+                    </Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={{ flexDirection: "row", gap: 8 }}>
+                        {cutPresets.map((preset: TechniquePreset) => {
+                          const active = activePreset === preset.label;
+                          return (
+                            <Pressable
+                              key={preset.id}
+                              onPress={() => {
+                                if (active) {
+                                  setActivePreset(null);
+                                  return;
+                                }
+                                setActivePreset(preset.label);
+                                if (preset.cookMethod && (QP_COOK_METHODS as readonly string[]).includes(preset.cookMethod)) {
+                                  setSelectedCookMethod(preset.cookMethod as QpCookMethod);
+                                }
+                                if (preset.injection && (QP_INJECTION_OPTIONS as readonly string[]).includes(preset.injection)) {
+                                  setSelectedInjection(preset.injection as QpInjectionOption);
+                                }
+                                if (preset.spritzFrequency && (QP_SPRITZ_FREQUENCIES as readonly string[]).includes(preset.spritzFrequency)) {
+                                  setSelectedSpritz(preset.spritzFrequency as QpSpritzFrequency);
+                                }
+                                if (preset.wrapFinish && (QP_WRAP_FINISH_OPTIONS as readonly string[]).includes(preset.wrapFinish)) {
+                                  setSelectedWrapFinish(preset.wrapFinish as QpWrapFinishOption);
+                                }
+                                if (preset.cookTempF != null) setCookTempFInput(String(preset.cookTempF));
+                                if (preset.targetTempF != null) setTargetTempFInput(String(preset.targetTempF));
+                                Haptics.selectionAsync();
+                              }}
+                              style={{
+                                paddingHorizontal: 14,
+                                paddingVertical: 8,
+                                borderRadius: 20,
+                                borderWidth: 1,
+                                borderColor: active ? colors.primary : colors.border,
+                                backgroundColor: active ? colors.primary + "18" : colors.muted,
+                              }}
+                            >
+                              <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
+                                {preset.label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </ScrollView>
+                  </View>
+                )}
+
                 {/* Cooking method chips */}
                 <View>
                   <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
@@ -622,6 +690,7 @@ export function MultiCookAddItemModal(p: Props) {
                             onPress={() => {
                               const next = active ? null : method;
                               setSelectedCookMethod(next);
+                              setActivePreset(null);
                               setLastUsedMethod(null);
                               if (multiPickedCut && next) {
                                 saveLastCookMethod(multiPickedCut.name, next);
@@ -673,6 +742,7 @@ export function MultiCookAddItemModal(p: Props) {
                   colors={colors}
                   onSelect={(v) => {
                     setSelectedInjection(v);
+                    setActivePreset(null);
                     if (multiPickedCut && v) saveLastInjection(multiPickedCut.name, v);
                   }}
                 />
@@ -685,6 +755,7 @@ export function MultiCookAddItemModal(p: Props) {
                   colors={colors}
                   onSelect={(v) => {
                     setSelectedSpritz(v);
+                    setActivePreset(null);
                     if (multiPickedCut && v) saveLastSpritz(multiPickedCut.name, v);
                   }}
                 />
@@ -697,6 +768,7 @@ export function MultiCookAddItemModal(p: Props) {
                   colors={colors}
                   onSelect={(v) => {
                     setSelectedWrapFinish(v);
+                    setActivePreset(null);
                     if (multiPickedCut && v) saveLastWrapFinish(multiPickedCut.name, v);
                   }}
                 />

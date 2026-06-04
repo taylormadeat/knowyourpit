@@ -367,6 +367,78 @@ export const DeleteCustomMeatCutParams = zod.object({
 });
 
 /**
+ * Returns seeded technique presets. Pass an optional `cutName` query parameter to filter by meat cut.
+ * @summary List cook technique presets
+ */
+export const GetTechniquePresetsQueryParams = zod.object({
+  cutName: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      'Filter presets to a specific meat cut name (e.g. \"Baby Back Ribs\").',
+    ),
+});
+
+export const GetTechniquePresetsResponseItem = zod
+  .object({
+    id: zod.number(),
+    cutName: zod
+      .string()
+      .describe(
+        "The meat cut name this preset applies to (matches MEAT_CUTS names exactly).",
+      ),
+    label: zod
+      .string()
+      .describe(
+        'Human-readable preset name shown to the user (e.g. \"3-2-1 Method\", \"Texas Style (No Wrap)\").',
+      ),
+    cookMethod: zod
+      .string()
+      .nullish()
+      .describe("Cooking method value matching a QP_COOK_METHODS option."),
+    wrapFinish: zod
+      .string()
+      .nullish()
+      .describe(
+        "Wrap\/finish method value matching a QP_WRAP_FINISH_OPTIONS option.",
+      ),
+    spritzFrequency: zod
+      .string()
+      .nullish()
+      .describe(
+        "Spritz cadence value matching a QP_SPRITZ_FREQUENCIES option.",
+      ),
+    injection: zod
+      .string()
+      .nullish()
+      .describe(
+        "Injection option value matching a QP_INJECTION_OPTIONS option.",
+      ),
+    cookTempF: zod
+      .number()
+      .nullish()
+      .describe(
+        "Suggested pit temperature in °F for this style (overrides cut default when non-null).",
+      ),
+    targetTempF: zod
+      .number()
+      .nullish()
+      .describe(
+        "Suggested target internal temperature in °F for this style (overrides cut default when non-null).",
+      ),
+    sortOrder: zod
+      .number()
+      .describe("Display order among presets for the same cut (ascending)."),
+    createdAt: zod.coerce.date(),
+  })
+  .describe(
+    "A seeded cook technique preset for a specific meat cut. Selecting a preset auto-fills all technique quick-picks without calling AI.",
+  );
+export const GetTechniquePresetsResponse = zod.array(
+  GetTechniquePresetsResponseItem,
+);
+
+/**
  * @summary Get the learned per-grill calibration profile (fingerprint)
  */
 export const GetGrillFingerprintParams = zod.object({
@@ -1842,6 +1914,12 @@ export const AiPredictBody = zod.object({
     .describe(
       'Human-readable size description chosen by the user (e.g. \"6 thighs · ≈ 2.4 lbs est.\" or \"2 racks · ≈ 4.5 lbs est.\"). Included in the prompt when provided.',
     ),
+  cookingStylePreset: zod
+    .string()
+    .nullish()
+    .describe(
+      'Name of the preset style the user selected (e.g. \"3-2-1 Method\", \"Texas Style (No Wrap)\"). Mentioned in the prompt for context; the individual technique fields above already reflect its settings.',
+    ),
 });
 
 export const aiPredictResponseCheckinsItemExpectedInternalTempRangeMin = 2;
@@ -2041,6 +2119,12 @@ export const AiMultiCookBody = zod.object({
           .nullish()
           .describe(
             "Free-text notes specific to this item (rub recipe, wood choice, injection brine, special instructions). PitMaster factors these into timing and technique recommendations for this cut.",
+          ),
+        cookingStylePreset: zod
+          .string()
+          .nullish()
+          .describe(
+            'Name of the preset style the user selected for this item (e.g. \"3-2-1 Method\", \"Texas Style\"). Mentioned for context alongside the individual technique fields.',
           ),
       }),
     )

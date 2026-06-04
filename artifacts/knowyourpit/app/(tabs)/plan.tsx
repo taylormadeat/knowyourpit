@@ -45,6 +45,7 @@ import {
   useAiPredict,
   useAiMultiCook,
   useListCooks,
+  useGetTechniquePresets,
   getListCooksQueryKey,
   getGetDashboardSummaryQueryKey,
   getGetRecentCooksQueryKey,
@@ -53,6 +54,7 @@ import {
   type Cook,
   type MultiCookScheduleItem,
   type MultiCookItemThawMethod,
+  type TechniquePreset,
 } from "@workspace/api-client-react";
 import { NextUpBanner, getStepTargetMs } from "@/components/NextUpBanner";
 import { computeNextStep } from "@/components/cook-detail/utils";
@@ -439,6 +441,13 @@ export default function PlanScreen() {
   const weatherTargetDate = isFutureCookDay ? serveAt : null;
   const weather = useAmbientWeather(weatherTargetDate, { enabled: effectivePro });
 
+  // ── Technique presets — fetched when a cut is selected ───────────────
+  const { data: cutPresets } = useGetTechniquePresets(
+    selectedCut ? { cutName: selectedCut.name } : {},
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { query: { enabled: !!selectedCut, staleTime: 10 * 60 * 1000 } as any },
+  );
+
   // ── AI predict state ──────────────────────────────────────────────────
   const aiPredict = useAiPredict();
   const [aiResult, setAiResult] = useState<any | null>(null);
@@ -457,6 +466,10 @@ export default function PlanScreen() {
   const setServeAtManual = (d: Date | null) => { clearAiScheduleOverride(); setServeAt(d); };
 
   // ── Technique quick-picks (carried into AI prediction) ────────────────
+  // activePreset tracks the name of the currently-applied style preset so
+  // we can pass it to the AI for context. Cleared when the user overrides
+  // any individual quick-pick or picks a different cut.
+  const [activePreset, setActivePreset] = useState<string | null>(null);
   const [qpCookMethod, setQpCookMethod] = useState<QpCookMethod | null>(null);
   const [lastUsedCookMethod, setLastUsedCookMethod] = useState<QpCookMethod | null>(null);
   const [qpMeatStartTemp, setQpMeatStartTemp] = useState<QpMeatStartTemp | null>(null);
@@ -527,6 +540,7 @@ export default function PlanScreen() {
   const resetForm = () => {
     setCookName("");
     setSelectedCut(null);
+    setActivePreset(null);
     setSizeOutput({ effectiveWeightLbs: null, sizingLabel: null, isEstimated: false, pieceCount: null, mode: "weight" });
     setNotes("");
     setTargetTempF("");
@@ -638,6 +652,7 @@ export default function PlanScreen() {
     setTargetTempF(String(cut.targetTempF));
     setCookTempF(String(cut.cookTempF));
     clearAiScheduleOverride();
+    setActivePreset(null);
     setMeatPickerOpen(false);
     setPrepGuideOpen(false);
     // Load the last-used quick-pick settings for this cut and pre-select them.
@@ -693,6 +708,7 @@ export default function PlanScreen() {
           pieceCount: sizeOutput.pieceCount ?? undefined,
           isIndividualCook: selectedCut.isIndividualCook ?? undefined,
           sizingLabel: sizeOutput.sizingLabel ?? undefined,
+          cookingStylePreset: activePreset ?? undefined,
         },
       });
       setAiResult(result);
@@ -739,6 +755,7 @@ export default function PlanScreen() {
               fromFrozen: item.isFrozen || undefined,
               thawMethod: item.isFrozen ? item.thawMethod as MultiCookItemThawMethod : undefined,
               notes: item.notes || undefined,
+              cookingStylePreset: item.cookingStylePreset ?? undefined,
             };
           }),
           serveAt: (serveAt ?? defaultServeAt).toISOString(),
@@ -2134,6 +2151,61 @@ export default function PlanScreen() {
                     </View>
                   )}
 
+                  {/* ── Cooking Style Presets ── */}
+                  {cutPresets && cutPresets.length > 0 && (
+                    <View style={{ marginTop: 12 }}>
+                      <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                        Cooking Style
+                      </Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          {cutPresets.map((preset: TechniquePreset) => {
+                            const active = activePreset === preset.label;
+                            return (
+                              <Pressable
+                                key={preset.id}
+                                onPress={() => {
+                                  if (active) {
+                                    setActivePreset(null);
+                                    return;
+                                  }
+                                  setActivePreset(preset.label);
+                                  if (preset.cookMethod && (QP_COOK_METHODS as readonly string[]).includes(preset.cookMethod)) {
+                                    setQpCookMethod(preset.cookMethod as QpCookMethod);
+                                  }
+                                  if (preset.injection && (QP_INJECTION_OPTIONS as readonly string[]).includes(preset.injection)) {
+                                    setQpInjection(preset.injection as QpInjectionOption);
+                                  }
+                                  if (preset.spritzFrequency && (QP_SPRITZ_FREQUENCIES as readonly string[]).includes(preset.spritzFrequency)) {
+                                    setQpSpritz(preset.spritzFrequency as QpSpritzFrequency);
+                                  }
+                                  if (preset.wrapFinish && (QP_WRAP_FINISH_OPTIONS as readonly string[]).includes(preset.wrapFinish)) {
+                                    setQpWrapFinish(preset.wrapFinish as QpWrapFinishOption);
+                                  }
+                                  if (preset.cookTempF != null) setCookTempF(String(preset.cookTempF));
+                                  if (preset.targetTempF != null) setTargetTempF(String(preset.targetTempF));
+                                  Haptics.selectionAsync();
+                                }}
+                                style={{
+                                  paddingHorizontal: 14,
+                                  paddingVertical: 8,
+                                  borderRadius: 20,
+                                  borderWidth: 1,
+                                  borderColor: active ? colors.primary : colors.border,
+                                  backgroundColor: active ? colors.primary + "18" : colors.muted,
+                                }}
+                              >
+                                <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
+                                  {preset.label}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </ScrollView>
+                    </View>
+                  )}
+
                   {/* ── Technique Quick-Picks (compact settings rows) ── */}
                   <View
                     style={{
@@ -2230,6 +2302,7 @@ export default function PlanScreen() {
                     onChange={(v) => {
                       const method = v as QpCookMethod | null;
                       setQpCookMethod(method);
+                      setActivePreset(null);
                       setLastUsedCookMethod(null);
                       if (selectedCut && method) {
                         saveLastCookMethod(selectedCut.name, method);
@@ -2262,6 +2335,7 @@ export default function PlanScreen() {
                     onChange={(v) => {
                       const val = v as QpInjectionOption | null;
                       setQpInjection(val);
+                      setActivePreset(null);
                       setLastUsedInjection(null);
                       if (selectedCut && val) saveLastInjection(selectedCut.name, val);
                     }}
@@ -2277,6 +2351,7 @@ export default function PlanScreen() {
                     onChange={(v) => {
                       const val = v as QpSpritzFrequency | null;
                       setQpSpritz(val);
+                      setActivePreset(null);
                       setLastUsedSpritz(null);
                       if (selectedCut && val) saveLastSpritz(selectedCut.name, val);
                     }}
@@ -2292,6 +2367,7 @@ export default function PlanScreen() {
                     onChange={(v) => {
                       const val = v as QpWrapFinishOption | null;
                       setQpWrapFinish(val);
+                      setActivePreset(null);
                       setLastUsedWrapFinish(null);
                       if (selectedCut && val) saveLastWrapFinish(selectedCut.name, val);
                     }}

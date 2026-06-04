@@ -89,4 +89,9 @@ export interface AiPredictBody {
    * @nullable
    */
   sizingLabel?: string | null;
+  /**
+   * Name of the preset style the user selected (e.g. "3-2-1 Method", "Texas Style (No Wrap)"). Mentioned in the prompt for context; the individual technique fields above already reflect its settings.
+   * @nullable
+   */
+  cookingStylePreset?: string | null;
 }

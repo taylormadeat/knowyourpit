@@ -42,4 +42,9 @@ export interface MultiCookItem {
    * @nullable
    */
   notes?: string | null;
+  /**
+   * Name of the preset style the user selected for this item (e.g. "3-2-1 Method", "Texas Style"). Mentioned for context alongside the individual technique fields.
+   * @nullable
+   */
+  cookingStylePreset?: string | null;
 }

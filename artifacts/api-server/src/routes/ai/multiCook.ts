@@ -41,6 +41,7 @@ router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): P
       item.targetTempF ? `target internal ${item.targetTempF}°F` : "",
       `preheat ${preheat} min`,
       item.cookingMethod ? `cooking method: ${item.cookingMethod}` : "",
+      item.cookingStylePreset ? `style preset: "${item.cookingStylePreset}"` : "",
       item.fromFrozen ? `starting from frozen · thaw method: ${
         item.thawMethod === "cold_water" ? "cold water (~1h per lb)" :
         item.thawMethod === "fridge" ? "refrigerator (~24h / 4–5 lbs)" :

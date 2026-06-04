@@ -17,6 +17,7 @@ import adminRouter from "./admin";
 import liveActivitiesRouter from "./liveActivities";
 import cookCheckinsRouter from "./cookCheckins";
 import cookEventsRouter from "./cookEvents";
+import techniquePresetsRouter from "./techniquePresets";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(adminRouter);
 router.use(liveActivitiesRouter);
 router.use(cookCheckinsRouter);
 router.use(cookEventsRouter);
+router.use(techniquePresetsRouter);
 
 export default router;

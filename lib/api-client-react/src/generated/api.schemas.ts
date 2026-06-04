@@ -5,6 +5,50 @@
  * PitMaster AI - BBQ Planning & Monitoring API
  * OpenAPI spec version: 0.1.0
  */
+/**
+ * A seeded cook technique preset for a specific meat cut. Selecting a preset auto-fills all technique quick-picks without calling AI.
+ */
+export interface TechniquePreset {
+  id: number;
+  /** The meat cut name this preset applies to (matches MEAT_CUTS names exactly). */
+  cutName: string;
+  /** Human-readable preset name shown to the user (e.g. "3-2-1 Method", "Texas Style (No Wrap)"). */
+  label: string;
+  /**
+   * Cooking method value matching a QP_COOK_METHODS option.
+   * @nullable
+   */
+  cookMethod?: string | null;
+  /**
+   * Wrap/finish method value matching a QP_WRAP_FINISH_OPTIONS option.
+   * @nullable
+   */
+  wrapFinish?: string | null;
+  /**
+   * Spritz cadence value matching a QP_SPRITZ_FREQUENCIES option.
+   * @nullable
+   */
+  spritzFrequency?: string | null;
+  /**
+   * Injection option value matching a QP_INJECTION_OPTIONS option.
+   * @nullable
+   */
+  injection?: string | null;
+  /**
+   * Suggested pit temperature in °F for this style (overrides cut default when non-null).
+   * @nullable
+   */
+  cookTempF?: number | null;
+  /**
+   * Suggested target internal temperature in °F for this style (overrides cut default when non-null).
+   * @nullable
+   */
+  targetTempF?: number | null;
+  /** Display order among presets for the same cut (ascending). */
+  sortOrder: number;
+  createdAt: string;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -1125,6 +1169,11 @@ export interface AiPredictBody {
    * @nullable
    */
   sizingLabel?: string | null;
+  /**
+   * Name of the preset style the user selected (e.g. "3-2-1 Method", "Texas Style (No Wrap)"). Mentioned in the prompt for context; the individual technique fields above already reflect its settings.
+   * @nullable
+   */
+  cookingStylePreset?: string | null;
 }
 
 /**
@@ -1320,6 +1369,11 @@ export interface MultiCookItem {
    * @nullable
    */
   notes?: string | null;
+  /**
+   * Name of the preset style the user selected for this item (e.g. "3-2-1 Method", "Texas Style"). Mentioned for context alongside the individual technique fields.
+   * @nullable
+   */
+  cookingStylePreset?: string | null;
 }
 
 export interface MultiCookBody {
@@ -1790,6 +1844,13 @@ export interface CookHealthScore {
   factors: CookHealthScoreFactors;
   computedAt: string;
 }
+
+export type GetTechniquePresetsParams = {
+  /**
+   * Filter presets to a specific meat cut name (e.g. "Baby Back Ribs").
+   */
+  cutName?: string;
+};
 
 export type ListCooksParams = {
   /**

@@ -65,7 +65,7 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
     return;
   }
 
-  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast, fromFrozen, thawMethod, cookingMethod, injection, spritzFrequency, wrapFinish, meatStartTemp, notes, pieceCount, isIndividualCook, sizingLabel } = parsed.data;
+  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast, fromFrozen, thawMethod, cookingMethod, injection, spritzFrequency, wrapFinish, meatStartTemp, notes, pieceCount, isIndividualCook, sizingLabel, cookingStylePreset } = parsed.data;
 
   const baseline = getMeatBaseline(foodType);
 
@@ -437,6 +437,7 @@ FROZEN-MEAT RULES (apply only when "Starting from frozen" is true in the user pr
 - When NOT starting from frozen, ALWAYS return null for both recommendedServeAt and recommendedServeReason.`;
 
   const techniqueLines: string[] = [];
+  if (cookingStylePreset) techniqueLines.push(`Cooking style preset selected by user: "${cookingStylePreset}" (all technique fields below reflect this preset's settings)`);
   if (cookingMethod) techniqueLines.push(`Cooking method: ${cookingMethod}`);
   if (meatStartTemp) techniqueLines.push(`Meat starting temperature: ${meatStartTemp}`);
   if (injection) techniqueLines.push(`Injection: ${injection}`);
