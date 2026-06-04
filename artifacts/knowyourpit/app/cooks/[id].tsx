@@ -3775,6 +3775,7 @@ export default function CookDetailScreen() {
           onRestartScan={handleRestartScan}
           hasActiveProbe={hasActiveProbe}
           factorBreakdown={cookSeqData?.factorBreakdown ?? null}
+          planTimedOut={cookSeqData?.planTimedOut ?? null}
           qualFactors={(() => {
             const items: QualFactor[] = [];
             const breakdown = cookSeqData?.factorBreakdown ?? [];

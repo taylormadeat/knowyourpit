@@ -110,6 +110,8 @@ export interface SequenceData {
   fingerprintSource?: "grill" | "user" | "pit_bias_only" | null;
   fingerprintNote?: string | null;
   factorBreakdown?: FactorBreakdownItem[] | null;
+  /** True when the plan was generated from a timed-out AI call (rough estimate). */
+  planTimedOut?: boolean | null;
 }
 
 export type NextStepKey = "grillLight" | "meatOn" | "wrap" | "pullOff" | "serve";

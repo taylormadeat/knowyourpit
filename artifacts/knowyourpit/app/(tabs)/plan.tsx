@@ -1158,11 +1158,12 @@ export default function PlanScreen() {
                 ? { fingerprintSource: aiResult.fingerprintSource, fingerprintNote: aiResult.fingerprintNote ?? null }
                 : {}),
               ...(aiResult?.factorBreakdown?.length ? { factorBreakdown: aiResult.factorBreakdown } : {}),
+              ...(aiResult?.timedOut ? { planTimedOut: true } : {}),
             },
             fromFrozen: true,
             thawMethod: frozenForCook.method,
           }),
-          ...(!frozenForCook && (aiResult?.checkins?.length || aiResult?.fingerprintSource === "grill" || aiResult?.fingerprintSource === "user" || aiResult?.factorBreakdown?.length) && {
+          ...(!frozenForCook && (aiResult?.checkins?.length || aiResult?.fingerprintSource === "grill" || aiResult?.fingerprintSource === "user" || aiResult?.factorBreakdown?.length || aiResult?.timedOut) && {
             sequenceData: {
               schedule: [],
               ...(aiResult?.checkins?.length ? { aiCheckins: aiResult.checkins } : {}),
@@ -1170,6 +1171,7 @@ export default function PlanScreen() {
                 ? { fingerprintSource: aiResult.fingerprintSource, fingerprintNote: aiResult.fingerprintNote ?? null }
                 : {}),
               ...(aiResult?.factorBreakdown?.length ? { factorBreakdown: aiResult.factorBreakdown } : {}),
+              ...(aiResult?.timedOut ? { planTimedOut: true } : {}),
             },
           }),
           // Technique quick-picks from the Plan screen

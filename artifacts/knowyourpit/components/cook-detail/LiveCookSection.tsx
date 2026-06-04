@@ -106,6 +106,8 @@ interface Props {
    * check in manually to get a fresh analysis.
    */
   hasActiveProbe?: boolean;
+  /** True when this cook's plan was generated from a timed-out AI prediction (rough estimate). */
+  planTimedOut?: boolean | null;
 }
 
 function fmtLastChecked(lastAnalyzedAtMs: number, nowMs: number): string {
@@ -149,6 +151,7 @@ export function LiveCookSection(p: Props) {
     factorBreakdown,
     qualFactors,
     hasActiveProbe = false,
+    planTimedOut,
   } = p;
 
   const [cookFactorsSheetOpen, setCookFactorsSheetOpen] = React.useState(false);
@@ -449,6 +452,34 @@ export function LiveCookSection(p: Props) {
         );
       })()}
 
+
+      {/* Timeout notice — shown when the plan was generated from a rough estimate */}
+      {planTimedOut && (
+        <View style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          marginHorizontal: 14,
+          marginTop: 10,
+          paddingVertical: 8,
+          paddingHorizontal: 12,
+          backgroundColor: "#F59E0B18",
+          borderWidth: 1,
+          borderColor: "#F59E0B40",
+          borderRadius: 8,
+        }}>
+          <Feather name="clock" size={13} color="#F59E0B" />
+          <Text style={{
+            flex: 1,
+            fontFamily: "Inter_400Regular",
+            fontSize: 12,
+            color: "#D97706",
+            lineHeight: 17,
+          }}>
+            Plan generated from a rough estimate
+          </Text>
+        </View>
+      )}
 
       <CookProgressBar
         startMs={c.actualStartAt ? new Date(c.actualStartAt).getTime() : 0}
