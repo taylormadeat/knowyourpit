@@ -655,7 +655,10 @@ export default function DevicesScreen() {
                       No WiFi thermometers found
                     </Text>
                     <Text style={[s.emptySubText, { color: colors.mutedForeground }]}>
-                      If iOS asked for Local Network permission and you tapped "Don't Allow", open Settings and enable it for knowyourpit to discover devices.
+                      Make sure your MEATER Block, Fireboard, or ThermoWorks Signals base station is powered on and connected to the same WiFi network as your phone.
+                    </Text>
+                    <Text style={[s.emptySubText, { color: colors.mutedForeground, marginTop: 4 }]}>
+                      If Local Network permission was denied, you can re-enable it in Settings.
                     </Text>
                     <Pressable
                       onPress={() => Linking.openSettings()}
