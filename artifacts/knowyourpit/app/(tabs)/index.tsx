@@ -138,7 +138,7 @@ export default function HomeScreen() {
   const { user } = useUser();
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
   // Prefetch grills with a long staleTime so the Plan tab has them cached on cold start
-  useListGrills({}, { query: { staleTime: 5 * 60 * 1000 } } as any);
+  useListGrills({ query: { staleTime: 5 * 60 * 1000 } } as any);
 
   // Track tab focus so we can poll while the user is watching the dashboard.
   const [isFocused, setIsFocused] = useState(false);

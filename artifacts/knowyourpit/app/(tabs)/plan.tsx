@@ -191,7 +191,7 @@ export default function PlanScreen() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const { data: grills } = useListGrills({}, { query: { staleTime: 5 * 60 * 1000 } } as any);
+  const { data: grills } = useListGrills({ query: { staleTime: 5 * 60 * 1000 } } as any);
   const createCook = useCreateCook();
   const updateCook = useUpdateCook();
   const deleteCook = useDeleteCook();
