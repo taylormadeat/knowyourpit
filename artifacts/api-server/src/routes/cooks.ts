@@ -14,6 +14,7 @@ import {
 import { requireAuth } from "../middlewares/requireAuth";
 import type { AiCheckinItem } from "@workspace/checkin-schedule";
 import { clearHomeInsightsCache } from "./ai";
+import { invalidateSmokerInsightsCache } from "../lib/smokerCalibration";
 import { endLiveActivitiesForCook } from "../lib/liveActivityPush";
 import { thinTemperatureReadings } from "../lib/thinTemperatureReadings";
 import { computeCookHealthScore } from "./cookEvents";
@@ -593,6 +594,9 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
     grillName = grill?.name ?? null;
   }
   clearHomeInsightsCache(req.userId);
+  if (cook.status === "completed") {
+    invalidateSmokerInsightsCache(req.userId, cook.grillId ?? undefined);
+  }
   if (cook.status === "completed" || cook.status === "cancelled") {
     void endLiveActivitiesForCook(cook.id).catch((err) =>
       req.log.warn({ err: err.message, cookId: cook.id }, "endLiveActivitiesForCook failed")

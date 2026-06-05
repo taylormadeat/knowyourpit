@@ -1,6 +1,32 @@
 import { and, avg, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, cooksTable, temperatureReadingsTable } from "@workspace/db";
 
+// ── In-memory cache ───────────────────────────────────────────────────────────
+// Keyed by `${userId}:${grillId ?? "all"}`.  TTL is 10 minutes.
+// Invalidated whenever a cook is marked completed so the fingerprint stays fresh.
+
+const CACHE_TTL_MS = 10 * 60 * 1000;
+
+interface CacheEntry {
+  value: SmokerInsights;
+  expiresAt: number;
+}
+
+const insightsCache = new Map<string, CacheEntry>();
+
+function cacheKey(userId: string, grillId?: number): string {
+  return `${userId}:${grillId ?? "all"}`;
+}
+
+/** Invalidate all cached entries for a given user (and optionally a specific grill). */
+export function invalidateSmokerInsightsCache(userId: string, grillId?: number): void {
+  if (grillId != null) {
+    insightsCache.delete(cacheKey(userId, grillId));
+  }
+  // Always clear the "all grills" entry — it aggregates across grills.
+  insightsCache.delete(cacheKey(userId));
+}
+
 const PIT_PROBE_KEYWORDS = ["pit", "ambient", "grill", "chamber", "dome", "lid"];
 export const isPitProbeByName = (name: string | null) =>
   name ? PIT_PROBE_KEYWORDS.some(k => name.toLowerCase().includes(k)) : false;
@@ -65,6 +91,12 @@ export function confidenceLevelFor(cookCount: number): ConfidenceLevel {
 }
 
 export async function computeSmokerInsights(userId: string, grillId?: number): Promise<SmokerInsights> {
+  const key = cacheKey(userId, grillId);
+  const cached = insightsCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
   const baseConditions = [
     eq(cooksTable.userId, userId),
     eq(cooksTable.status, "completed"),
@@ -188,7 +220,7 @@ export async function computeSmokerInsights(userId: string, grillId?: number): P
       ? durationDeltas.reduce((s, v) => s + v, 0) / durationDeltas.length
       : null;
 
-  return {
+  const result: SmokerInsights = {
     cookCount,
     confidenceLevel: confidenceLevelFor(cookCount),
     pitBiasF,
@@ -197,6 +229,9 @@ export async function computeSmokerInsights(userId: string, grillId?: number): P
     runLong: avgDelta != null ? avgDelta > 0.1 : null,
     runShort: avgDelta != null ? avgDelta < -0.1 : null,
   };
+
+  insightsCache.set(key, { value: result, expiresAt: Date.now() + CACHE_TTL_MS });
+  return result;
 }
 
 export function formatSmokerProfile(insights: SmokerInsights): string {
