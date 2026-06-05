@@ -243,7 +243,12 @@ export function LiveCookSection(p: Props) {
   }, [inkbirdProbes, minSignal]);
 
   const sortedBleContextDevices = React.useMemo(() => {
-    const filtered = bleContextDevices.filter((d) => meetsMinSignal(d.rssi));
+    // Exclude any device already tracked by the dedicated Inkbird BLE scanner —
+    // the same physical iBBQ appears in both systems and would show as a duplicate.
+    const inkbirdDeviceIds = new Set(inkbirdProbes.map((p) => p.deviceId));
+    const filtered = bleContextDevices
+      .filter((d) => meetsMinSignal(d.rssi))
+      .filter((d) => !inkbirdDeviceIds.has(d.id));
     const now = Date.now();
     for (const d of filtered) {
       const key = `bleCtx_${d.id}`;
@@ -257,7 +262,7 @@ export function LiveCookSection(p: Props) {
       return tA - tB;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bleContextDevices, minSignal]);
+  }, [bleContextDevices, inkbirdProbes, minSignal]);
 
   // Use unfiltered source lengths so the filter toggle is always visible when
   // BLE probes exist — even if the current threshold hides all of them.
