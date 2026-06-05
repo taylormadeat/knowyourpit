@@ -791,9 +791,12 @@ export default function PlanScreen() {
         sizingLabel: sizeOutput.sizingLabel ?? undefined,
         cookingStylePreset: activePreset ?? undefined,
       };
+      // Open the modal immediately with a loading skeleton so the user sees
+      // feedback right away instead of waiting for the full response.
+      setAiResult(null);
+      setAiResultOpen(true);
       const result = await aiPredict.mutateAsync({ data: predictPayload });
       setAiResult(result);
-      setAiResultOpen(true);
 
       // If the first request timed out, fire a silent background retry.
       // The server will not serve the cached fallback for timed-out responses,
@@ -1267,15 +1270,43 @@ export default function PlanScreen() {
           }).catch(() => {});
         }
       }
+      const usedCooksBefore = paywallUsage?.usage?.cooks ?? 0;
+      const isFreeAccount = !!paywallUsage && !paywallUsage.unlimited;
+      const plannedFood = selectedCut?.name ?? null;
+
+      // For "Start Cooking Now" mode: navigate immediately after cook creation
+      // so the spinner disappears right away. Cache invalidations, haptics,
+      // AsyncStorage writes and form reset all happen after the navigation
+      // transition — they are not on the critical path to the cook screen.
+      if (effectiveCookNowMode === "now" && newCookId) {
+        resetForm();
+        router.push(`/cooks/${newCookId}` as any);
+        // Background work — does not block the transition
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+        qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
+        qc.invalidateQueries({ queryKey: ["home", "insights"] });
+        AsyncStorage.setItem("plan_technique_qp", JSON.stringify({
+          cookMethod: qpCookMethod,
+          meatStartTemp: qpMeatStartTemp,
+          injection: qpInjection,
+          spritz: qpSpritz,
+          wrapFinish: qpWrapFinish,
+        })).catch(() => {});
+        if (selectedCut && qpCookMethod) {
+          saveLastCookMethod(selectedCut.name, qpCookMethod);
+        }
+        return;
+      }
+
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
       qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
       qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
       qc.invalidateQueries({ queryKey: ["home", "insights"] });
-      const usedCooksBefore = paywallUsage?.usage?.cooks ?? 0;
-      const isFreeAccount = !!paywallUsage && !paywallUsage.unlimited;
-      const plannedFood = selectedCut?.name ?? null;
 
       // Persist the technique quick-picks so they pre-fill on the next visit.
       AsyncStorage.setItem("plan_technique_qp", JSON.stringify({
@@ -1320,8 +1351,6 @@ export default function PlanScreen() {
         // Skip auto-navigating to the Cooks tab so the user actually sees
         // the inline tip before leaving the Plan screen. They can navigate
         // manually after reading or dismissing it.
-      } else if (effectiveCookNowMode === "now" && newCookId) {
-        router.push(`/cooks/${newCookId}` as any);
       } else {
         router.push("/(tabs)/cooks" as any);
       }

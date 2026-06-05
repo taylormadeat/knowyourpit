@@ -76,155 +76,202 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
   let grillLoadLevel: string | null = null;
   let grillLoadAddMins = 0;
 
-  if (grillId) {
-    const [grill] = await db.select().from(grillsTable)
-      .where(and(eq(grillsTable.id, grillId), eq(grillsTable.userId, req.userId)));
-    if (grill) {
-      grillType = grill.type;
-      const specs: string[] = [
-        `${grill.name}`,
-        `type: ${grill.type}`,
-        grill.brand ? `brand: ${grill.brand}` : null,
-        grill.model ? `model: ${grill.model}` : null,
-        grill.minTempF != null && grill.maxTempF != null ? `temp range: ${grill.minTempF}°F–${grill.maxTempF}°F` : null,
-        grill.cookingSurfaceSqIn != null ? `cooking surface: ${grill.cookingSurfaceSqIn} sq in` : null,
-        grill.numProbes != null ? `${grill.numProbes} probe(s)` : null,
-        grill.hopperSizeLbs != null ? `hopper: ${grill.hopperSizeLbs} lbs` : null,
-        grill.wifiEnabled ? "WiFi-connected" : null,
-        `total cooks logged: ${grill.totalCooks}`,
-      ].filter(Boolean) as string[];
-      grillContext = `Grill: ${specs.join(" · ")}`;
+  // ── Pit-probe SQL filter (matches the isPitProbe keyword list) ─────────────
+  const pitProbeSql = sql`(${temperatureReadingsTable.probeName} ILIKE '%pit%'
+    OR ${temperatureReadingsTable.probeName} ILIKE '%ambient%'
+    OR ${temperatureReadingsTable.probeName} ILIKE '%grill%'
+    OR ${temperatureReadingsTable.probeName} ILIKE '%chamber%'
+    OR ${temperatureReadingsTable.probeName} ILIKE '%dome%'
+    OR ${temperatureReadingsTable.probeName} ILIKE '%lid%')`;
 
-      if (grill.cookingSurfaceSqIn != null && pieceCount != null && pieceCount > 1 && isIndividualCook === false && weightLbs != null && weightLbs > 0) {
-        const densityLbsPerSqIn = weightLbs / grill.cookingSurfaceSqIn;
-        let loadLevel: string;
-        let loadNote: string;
-        if (densityLbsPerSqIn < 0.04) {
-          loadLevel = "low";
-          loadNote = "No significant impact on airflow or cook time.";
-        } else if (densityLbsPerSqIn < 0.06) {
-          loadLevel = "medium";
-          loadNote = "Crowded grill — add 30–45 min to estimated cook time; rotate pieces for even cooking.";
-        } else {
-          loadLevel = "high";
-          loadNote = "Heavily loaded grill — add 60–90 min to estimated cook time; stagger or rotate pieces to ensure even cook.";
-        }
-        grillContext += `\nGrill load: ${pieceCount} pieces on ${grill.cookingSurfaceSqIn} sq in (${densityLbsPerSqIn.toFixed(3)} lbs/sq in) — ${loadLevel} density. ${loadNote}`;
-        if (loadLevel !== "low") {
-          grillLoadLevel = loadLevel;
-          grillLoadAddMins = loadLevel === "medium" ? 37 : 75;
-        }
+  const notPitProbeSql = sql`(${temperatureReadingsTable.probeName} IS NULL
+    OR (${temperatureReadingsTable.probeName} NOT ILIKE '%pit%'
+    AND ${temperatureReadingsTable.probeName} NOT ILIKE '%ambient%'
+    AND ${temperatureReadingsTable.probeName} NOT ILIKE '%grill%'
+    AND ${temperatureReadingsTable.probeName} NOT ILIKE '%chamber%'
+    AND ${temperatureReadingsTable.probeName} NOT ILIKE '%dome%'
+    AND ${temperatureReadingsTable.probeName} NOT ILIKE '%lid%'))`;
+
+  // ── Round 1: fire all independent DB queries and smoker insights in parallel ─
+  const [
+    grillRow,
+    pitStatsRow,
+    perCookSwing,
+    recentCooksOnGrill,
+    allUserCooks,
+    predictInsights,
+    grillInsights,
+  ] = await Promise.all([
+    // Grill metadata (null when no grillId)
+    grillId
+      ? db.select().from(grillsTable)
+          .where(and(eq(grillsTable.id, grillId), eq(grillsTable.userId, req.userId)))
+          .then(r => r[0] ?? null)
+      : Promise.resolve(null),
+
+    // Pit-probe aggregate stats
+    grillId
+      ? db.select({
+          avgPit: avg(temperatureReadingsTable.tempF),
+          minPit: min(temperatureReadingsTable.tempF),
+          maxPit: max(temperatureReadingsTable.tempF),
+          totalReadings: count(),
+        }).from(temperatureReadingsTable)
+          .where(and(eq(temperatureReadingsTable.grillId, grillId), pitProbeSql))
+          .then(r => r[0] ?? null)
+      : Promise.resolve(null),
+
+    // Per-cook temperature swing (variance)
+    grillId
+      ? db.select({
+          cookId: temperatureReadingsTable.cookId,
+          swing: sql<number>`MAX(${temperatureReadingsTable.tempF}) - MIN(${temperatureReadingsTable.tempF})`,
+        }).from(temperatureReadingsTable)
+          .where(and(eq(temperatureReadingsTable.grillId, grillId), pitProbeSql))
+          .groupBy(temperatureReadingsTable.cookId)
+      : Promise.resolve([] as { cookId: number; swing: number }[]),
+
+    // Recent completed cooks on this grill
+    grillId
+      ? db.select().from(cooksTable)
+          .where(and(
+            eq(cooksTable.grillId, grillId),
+            eq(cooksTable.status, "completed"),
+            eq(cooksTable.userId, req.userId),
+          ))
+          .orderBy(desc(cooksTable.actualEndAt))
+          .limit(15)
+      : Promise.resolve([] as typeof cooksTable.$inferSelect[]),
+
+    // All user cooks (cross-grill history)
+    db.select().from(cooksTable)
+      .where(and(eq(cooksTable.status, "completed"), eq(cooksTable.userId, req.userId)))
+      .orderBy(desc(cooksTable.createdAt))
+      .limit(30),
+
+    // Smoker fingerprint — user-wide
+    computeSmokerInsights(req.userId),
+
+    // Smoker fingerprint — grill-specific (null when no grillId)
+    grillId ? computeSmokerInsights(req.userId, grillId) : Promise.resolve(null),
+  ]);
+
+  // ── Build grill context from Round 1 results ──────────────────────────────
+  if (grillRow) {
+    grillType = grillRow.type;
+    const specs: string[] = [
+      `${grillRow.name}`,
+      `type: ${grillRow.type}`,
+      grillRow.brand ? `brand: ${grillRow.brand}` : null,
+      grillRow.model ? `model: ${grillRow.model}` : null,
+      grillRow.minTempF != null && grillRow.maxTempF != null ? `temp range: ${grillRow.minTempF}°F–${grillRow.maxTempF}°F` : null,
+      grillRow.cookingSurfaceSqIn != null ? `cooking surface: ${grillRow.cookingSurfaceSqIn} sq in` : null,
+      grillRow.numProbes != null ? `${grillRow.numProbes} probe(s)` : null,
+      grillRow.hopperSizeLbs != null ? `hopper: ${grillRow.hopperSizeLbs} lbs` : null,
+      grillRow.wifiEnabled ? "WiFi-connected" : null,
+      `total cooks logged: ${grillRow.totalCooks}`,
+    ].filter(Boolean) as string[];
+    grillContext = `Grill: ${specs.join(" · ")}`;
+
+    if (grillRow.cookingSurfaceSqIn != null && pieceCount != null && pieceCount > 1 && isIndividualCook === false && weightLbs != null && weightLbs > 0) {
+      const densityLbsPerSqIn = weightLbs / grillRow.cookingSurfaceSqIn;
+      let loadLevel: string;
+      let loadNote: string;
+      if (densityLbsPerSqIn < 0.04) {
+        loadLevel = "low";
+        loadNote = "No significant impact on airflow or cook time.";
+      } else if (densityLbsPerSqIn < 0.06) {
+        loadLevel = "medium";
+        loadNote = "Crowded grill — add 30–45 min to estimated cook time; rotate pieces for even cooking.";
+      } else {
+        loadLevel = "high";
+        loadNote = "Heavily loaded grill — add 60–90 min to estimated cook time; stagger or rotate pieces to ensure even cook.";
+      }
+      grillContext += `\nGrill load: ${pieceCount} pieces on ${grillRow.cookingSurfaceSqIn} sq in (${densityLbsPerSqIn.toFixed(3)} lbs/sq in) — ${loadLevel} density. ${loadNote}`;
+      if (loadLevel !== "low") {
+        grillLoadLevel = loadLevel;
+        grillLoadAddMins = loadLevel === "medium" ? 37 : 75;
       }
     }
+  }
 
-    // ── Pit-probe SQL filter (matches the isPitProbe keyword list) ─────────
-    const pitProbeSql = sql`(${temperatureReadingsTable.probeName} ILIKE '%pit%'
-      OR ${temperatureReadingsTable.probeName} ILIKE '%ambient%'
-      OR ${temperatureReadingsTable.probeName} ILIKE '%grill%'
-      OR ${temperatureReadingsTable.probeName} ILIKE '%chamber%'
-      OR ${temperatureReadingsTable.probeName} ILIKE '%dome%'
-      OR ${temperatureReadingsTable.probeName} ILIKE '%lid%')`;
+  if (pitStatsRow && pitStatsRow.totalReadings > 0) {
+    const avgPit = parseFloat(pitStatsRow.avgPit ?? "0");
+    const minPit = pitStatsRow.minPit ?? 0;
+    const maxPit = pitStatsRow.maxPit ?? 0;
+    const variances = perCookSwing.map(r => r.swing ?? 0);
+    const avgVariance = variances.reduce((a, b) => a + b, 0) / Math.max(variances.length, 1);
 
-    // ── Aggregate pit stats in one SQL pass (replaces unbounded SELECT *) ──
-    const [pitStats] = await db.select({
-      avgPit: avg(temperatureReadingsTable.tempF),
-      minPit: min(temperatureReadingsTable.tempF),
-      maxPit: max(temperatureReadingsTable.tempF),
-      totalReadings: count(),
-    }).from(temperatureReadingsTable)
-      .where(and(eq(temperatureReadingsTable.grillId, grillId), pitProbeSql));
-
-    // Per-cook swing (MAX - MIN pit temp) grouped in SQL — used for variance.
-    const perCookSwing = await db.select({
-      cookId: temperatureReadingsTable.cookId,
-      swing: sql<number>`MAX(${temperatureReadingsTable.tempF}) - MIN(${temperatureReadingsTable.tempF})`,
-    }).from(temperatureReadingsTable)
-      .where(and(eq(temperatureReadingsTable.grillId, grillId), pitProbeSql))
-      .groupBy(temperatureReadingsTable.cookId);
-
-    if (pitStats && pitStats.totalReadings > 0) {
-      const avgPit = parseFloat(pitStats.avgPit ?? "0");
-      const minPit = pitStats.minPit ?? 0;
-      const maxPit = pitStats.maxPit ?? 0;
-      const variances = perCookSwing.map(r => r.swing ?? 0);
-      const avgVariance = variances.reduce((a, b) => a + b, 0) / Math.max(variances.length, 1);
-
-      grillTempContext = `
-Grill historical temperature performance (${pitStats.totalReadings} pit-probe readings across ${perCookSwing.length} cooks):
+    grillTempContext = `
+Grill historical temperature performance (${pitStatsRow.totalReadings} pit-probe readings across ${perCookSwing.length} cooks):
 - Average pit/ambient temperature achieved: ${avgPit.toFixed(1)}°F
 - Pit temp range across all readings: ${minPit.toFixed(1)}°F – ${maxPit.toFixed(1)}°F
 - Average per-cook temperature swing: ±${(avgVariance / 2).toFixed(1)}°F
 Note: Factor this grill's real-world temperature behavior into your estimate.`;
+  }
+
+  // ── Round 2: dependent queries (need recentCookIds + allUserCook grillIds) ─
+  const recentCookIds = recentCooksOnGrill.map(c => c.id);
+  const uniqueGrillIds = [...new Set(allUserCooks.map(c => c.grillId).filter((id): id is number => id != null))];
+
+  const [peakProbeRows, grillNameRows] = await Promise.all([
+    // Peak meat-probe temp per recent cook
+    recentCookIds.length > 0
+      ? db.select({
+          cookId: temperatureReadingsTable.cookId,
+          peakTempF: max(temperatureReadingsTable.tempF),
+        }).from(temperatureReadingsTable)
+          .where(and(inArray(temperatureReadingsTable.cookId, recentCookIds), notPitProbeSql))
+          .groupBy(temperatureReadingsTable.cookId)
+      : Promise.resolve([] as { cookId: number; peakTempF: number | null }[]),
+
+    // Batch grill names for all grills referenced in user history (replaces sequential per-grill queries)
+    uniqueGrillIds.length > 0
+      ? db.select({ id: grillsTable.id, name: grillsTable.name }).from(grillsTable)
+          .where(inArray(grillsTable.id, uniqueGrillIds))
+      : Promise.resolve([] as { id: number; name: string }[]),
+  ]);
+
+  // ── Build grill-specific cook context from Round 2 results ────────────────
+  if (recentCooksOnGrill.length > 0) {
+    const peakProbeByCook: Record<number, number> = {};
+    for (const row of peakProbeRows) {
+      if (row.peakTempF != null) peakProbeByCook[row.cookId] = row.peakTempF;
     }
 
-    const recentCooksOnGrill = await db.select().from(cooksTable)
-      .where(and(
-        eq(cooksTable.grillId, grillId),
-        eq(cooksTable.status, "completed"),
-        eq(cooksTable.userId, req.userId),
-      ))
-      .orderBy(desc(cooksTable.actualEndAt))
-      .limit(15);
+    const cookSummary = (c: typeof recentCooksOnGrill[0]) => {
+      const durationMins = c.actualStartAt && c.actualEndAt
+        ? Math.round((new Date(c.actualEndAt).getTime() - new Date(c.actualStartAt).getTime()) / 60000)
+        : null;
+      const minsPerLbActual = durationMins && c.weightLbs ? (durationMins / c.weightLbs).toFixed(0) : null;
+      const peakTemp = peakProbeByCook[c.id] != null ? `, peak internal ${peakProbeByCook[c.id]}°F` : "";
+      const ratings = [
+        c.rating ? `overall ${c.rating}/5` : null,
+        c.ratingTenderness ? `tenderness ${c.ratingTenderness}/5` : null,
+        c.ratingBark ? `bark ${c.ratingBark}/5` : null,
+        c.ratingFlavor ? `flavor ${c.ratingFlavor}/5` : null,
+      ].filter(Boolean).join(" ");
+      const wrap = c.wrapMethod && c.wrapMethod !== "none" ? `, wrapped: ${c.wrapMethod}` : "";
+      const notes = c.notes ? `, notes: "${c.notes.substring(0, 80)}"` : "";
+      return `  • ${c.foodType}${c.weightLbs ? ` (${c.weightLbs} lbs)` : ""}` +
+        `${durationMins ? ` → ${durationMins} min total` : ""}` +
+        `${minsPerLbActual ? ` (~${minsPerLbActual} min/lb)` : ""}` +
+        `${c.cookTempF ? ` at ${c.cookTempF}°F` : ""}` +
+        `${peakTemp}${wrap}${notes}` +
+        `${ratings ? ` [${ratings}]` : ""}`;
+    };
 
-    if (recentCooksOnGrill.length > 0) {
-      const recentCookIds = recentCooksOnGrill.map(c => c.id);
+    const firstWordGrill = foodType.toLowerCase().split(" ")[0];
+    const similarCooksOnGrill = recentCooksOnGrill.filter(c =>
+      c.foodType.toLowerCase().includes(firstWordGrill)
+    );
 
-      // ── Peak meat-probe temp: scoped to the 15 recent cook IDs only ───────
-      // Replaces a second full-grill SELECT * that was filtered in JS.
-      const notPitProbeSql = sql`(${temperatureReadingsTable.probeName} IS NULL
-        OR (${temperatureReadingsTable.probeName} NOT ILIKE '%pit%'
-        AND ${temperatureReadingsTable.probeName} NOT ILIKE '%ambient%'
-        AND ${temperatureReadingsTable.probeName} NOT ILIKE '%grill%'
-        AND ${temperatureReadingsTable.probeName} NOT ILIKE '%chamber%'
-        AND ${temperatureReadingsTable.probeName} NOT ILIKE '%dome%'
-        AND ${temperatureReadingsTable.probeName} NOT ILIKE '%lid%'))`;
-
-      const peakProbeRows = await db.select({
-        cookId: temperatureReadingsTable.cookId,
-        peakTempF: max(temperatureReadingsTable.tempF),
-      }).from(temperatureReadingsTable)
-        .where(and(inArray(temperatureReadingsTable.cookId, recentCookIds), notPitProbeSql))
-        .groupBy(temperatureReadingsTable.cookId);
-
-      const peakProbeByCook: Record<number, number> = {};
-      for (const row of peakProbeRows) {
-        if (row.peakTempF != null) peakProbeByCook[row.cookId] = row.peakTempF;
-      }
-
-      const cookSummary = (c: typeof recentCooksOnGrill[0]) => {
-        const durationMins = c.actualStartAt && c.actualEndAt
-          ? Math.round((new Date(c.actualEndAt).getTime() - new Date(c.actualStartAt).getTime()) / 60000)
-          : null;
-        const minsPerLbActual = durationMins && c.weightLbs ? (durationMins / c.weightLbs).toFixed(0) : null;
-        const peakTemp = peakProbeByCook[c.id] != null ? `, peak internal ${peakProbeByCook[c.id]}°F` : "";
-        const ratings = [
-          c.rating ? `overall ${c.rating}/5` : null,
-          c.ratingTenderness ? `tenderness ${c.ratingTenderness}/5` : null,
-          c.ratingBark ? `bark ${c.ratingBark}/5` : null,
-          c.ratingFlavor ? `flavor ${c.ratingFlavor}/5` : null,
-        ].filter(Boolean).join(" ");
-        const wrap = c.wrapMethod && c.wrapMethod !== "none" ? `, wrapped: ${c.wrapMethod}` : "";
-        const notes = c.notes ? `, notes: "${c.notes.substring(0, 80)}"` : "";
-        return `  • ${c.foodType}${c.weightLbs ? ` (${c.weightLbs} lbs)` : ""}` +
-          `${durationMins ? ` → ${durationMins} min total` : ""}` +
-          `${minsPerLbActual ? ` (~${minsPerLbActual} min/lb)` : ""}` +
-          `${c.cookTempF ? ` at ${c.cookTempF}°F` : ""}` +
-          `${peakTemp}${wrap}${notes}` +
-          `${ratings ? ` [${ratings}]` : ""}`;
-      };
-
-      const firstWord = foodType.toLowerCase().split(" ")[0];
-      const similarCooksOnGrill = recentCooksOnGrill.filter(c =>
-        c.foodType.toLowerCase().includes(firstWord)
-      );
-
-      if (similarCooksOnGrill.length > 0) {
-        grillTempContext += `\n\nSimilar cooks on THIS grill (${similarCooksOnGrill.length} records — use these for precise calibration):\n` +
-          similarCooksOnGrill.map(cookSummary).join("\n");
-      }
-      grillTempContext += `\n\nAll recent completed cooks on this grill (${recentCooksOnGrill.length} records):\n` +
-        recentCooksOnGrill.map(cookSummary).join("\n");
+    if (similarCooksOnGrill.length > 0) {
+      grillTempContext += `\n\nSimilar cooks on THIS grill (${similarCooksOnGrill.length} records — use these for precise calibration):\n` +
+        similarCooksOnGrill.map(cookSummary).join("\n");
     }
+    grillTempContext += `\n\nAll recent completed cooks on this grill (${recentCooksOnGrill.length} records):\n` +
+      recentCooksOnGrill.map(cookSummary).join("\n");
   }
 
   const preheatDefaults: Record<string, number> = {
@@ -233,22 +280,15 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
   const normalizeType = (t: string) => t.toLowerCase().replace(/[\s-]+/g, "_");
   const preheatMinutes = clientPreheatMinutes ?? (grillType ? (preheatDefaults[normalizeType(grillType)] ?? 30) : 30);
 
-  const allUserCooks = await db.select().from(cooksTable)
-    .where(and(eq(cooksTable.status, "completed"), eq(cooksTable.userId, req.userId)))
-    .orderBy(desc(cooksTable.createdAt))
-    .limit(30);
-
   const firstWord = foodType.toLowerCase().split(" ")[0];
   const similarCooksAllGrills = allUserCooks.filter(c =>
     c.foodType.toLowerCase().includes(firstWord)
   );
 
+  // Build grill name lookup from the batched query result (replaces sequential for-loop)
   const grillNameCache: Record<number, string> = {};
-  for (const cook of similarCooksAllGrills) {
-    if (cook.grillId && !grillNameCache[cook.grillId]) {
-      const [g] = await db.select({ name: grillsTable.name }).from(grillsTable).where(eq(grillsTable.id, cook.grillId));
-      if (g) grillNameCache[cook.grillId] = g.name;
-    }
+  for (const row of grillNameRows) {
+    grillNameCache[row.id] = row.name;
   }
 
   const similarCookSummaries = similarCooksAllGrills.map(c => {
@@ -288,13 +328,9 @@ Use this as your primary baseline. Adjust based on actual user data, grill speci
     ? `\nThis user's own history with similar cooks (${similarCookSummaries.length} records — strongest signal for personalized estimate):\n${similarCookSummaries.join("\n")}${hasRichHistory ? `\n\nIMPORTANT: This user has ${similarWithFeedback.length} prior cooks of this type with ratings and/or PitMaster assessments. You have rich feedback data — set confidence to "high" and directly incorporate the verdicts and tips from past cooks into your rationale and tips.` : ""}`
     : "\nNo similar cooks in user's history — rely on baseline knowledge and grill context.";
 
-  const predictInsights = await computeSmokerInsights(req.userId);
   const predictSmokerProfile = formatSmokerProfile(predictInsights);
 
   const meatKey = simplifyFoodType(foodType);
-  const grillInsights = grillId
-    ? await computeSmokerInsights(req.userId, grillId)
-    : null;
   const grillPattern = grillInsights?.durationByMeat?.[meatKey] ?? null;
   const userPattern = predictInsights.durationByMeat?.[meatKey] ?? null;
 
@@ -495,7 +531,7 @@ ${userHistorySection}${fingerprintGuidance}`;
       aiResponse = await openai.chat.completions.create(
         {
           model: "gpt-4.1-mini",
-          max_completion_tokens: 2048,
+          max_completion_tokens: 1400,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc, count } from "drizzle-orm";
+import { eq, and, desc, count, sql } from "drizzle-orm";
 import { db, cooksTable, grillsTable, cookCheckins, temperatureReadingsTable } from "@workspace/db";
 import {
   CreateCookBody,
@@ -235,13 +235,18 @@ router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
     ...(analysisResult !== null ? { analysisResult } : {}),
     ...(sequenceData !== null ? { sequenceData } : {}),
   }).returning();
-  if (cook.grillId) {
-    await db.update(grillsTable).set({ totalCooks: (await db.select({ tc: grillsTable.totalCooks }).from(grillsTable).where(eq(grillsTable.id, cook.grillId)))[0]?.tc + 1 || 1 }).where(eq(grillsTable.id, cook.grillId));
-  }
+  // Run the totalCooks increment and grill-name fetch in parallel.
+  // Use a SQL += 1 increment so we never need a prior SELECT for the current count.
   let grillName: string | null = null;
   if (cook.grillId) {
-    const [grill] = await db.select({ name: grillsTable.name }).from(grillsTable).where(eq(grillsTable.id, cook.grillId));
-    grillName = grill?.name ?? null;
+    const [, grillRow] = await Promise.all([
+      db.update(grillsTable)
+        .set({ totalCooks: sql`${grillsTable.totalCooks} + 1` })
+        .where(eq(grillsTable.id, cook.grillId)),
+      db.select({ name: grillsTable.name }).from(grillsTable).where(eq(grillsTable.id, cook.grillId))
+        .then(r => r[0] ?? null),
+    ]);
+    grillName = grillRow?.name ?? null;
   }
   clearHomeInsightsCache(req.userId);
   res.status(201).json({ ...cook, grillName });

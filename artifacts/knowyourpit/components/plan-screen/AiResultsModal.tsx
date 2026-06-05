@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Text, Modal, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { View, Text, Modal, Pressable, ScrollView, ActivityIndicator, Animated } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { planStyles as s } from "./styles";
@@ -35,6 +35,30 @@ const CHIP_LABELS: { key: keyof SelectedChips; label: string }[] = [
   { key: "wrapFinish", label: "Wrap" },
 ];
 
+function ShimmerBar({ width, colors }: { width: number | `${number}%`; colors: Colors }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 900, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [anim]);
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.65] });
+  return (
+    <Animated.View style={{
+      height: 12,
+      width,
+      borderRadius: 6,
+      backgroundColor: colors.border,
+      opacity,
+    }} />
+  );
+}
+
 export function AiResultsModal(p: Props) {
   const { visible, onClose, colors, aiResult, applyAiPlan, grillName, selectedChips, retrying } = p;
 
@@ -64,10 +88,12 @@ export function AiResultsModal(p: Props) {
             <Feather name="cpu" size={20} color="#fff" />
             <View style={{ flex: 1 }}>
               <Text style={s.aiModalTitle}>PitMaster Plan</Text>
-              {aiResult && (
+              {aiResult ? (
                 <Text style={s.aiModalSub}>
                   {aiResult.confidence?.toUpperCase()} confidence · {fmtMinutes(aiResult.estimatedDurationMinutes)} active cook
                 </Text>
+              ) : (
+                <Text style={[s.aiModalSub, { opacity: 0.7 }]}>Cooking up your plan…</Text>
               )}
             </View>
             <Pressable onPress={onClose} hitSlop={12}>
@@ -76,6 +102,27 @@ export function AiResultsModal(p: Props) {
           </LinearGradient>
 
           <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 40 }}>
+            {!aiResult && (
+              <View style={{ gap: 20, paddingTop: 24 }}>
+                <ActivityIndicator size="large" color="#6C3BF5" style={{ marginBottom: 8 }} />
+                <View style={{ gap: 10 }}>
+                  <ShimmerBar width="75%" colors={colors} />
+                  <ShimmerBar width="90%" colors={colors} />
+                  <ShimmerBar width="60%" colors={colors} />
+                </View>
+                <View style={{ gap: 10, marginTop: 8 }}>
+                  <ShimmerBar width="50%" colors={colors} />
+                  <ShimmerBar width="80%" colors={colors} />
+                  <ShimmerBar width="70%" colors={colors} />
+                  <ShimmerBar width="85%" colors={colors} />
+                </View>
+                <View style={{ gap: 10, marginTop: 8 }}>
+                  <ShimmerBar width="45%" colors={colors} />
+                  <ShimmerBar width="95%" colors={colors} />
+                  <ShimmerBar width="65%" colors={colors} />
+                </View>
+              </View>
+            )}
             {aiResult && (
               <>
                 {/* ── Timeout notice ── */}
