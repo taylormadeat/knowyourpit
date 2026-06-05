@@ -192,7 +192,10 @@ export default function CookDetailScreen() {
   const qc = useQueryClient();
 
   const { getToken } = useAuth();
-  const { data: cook, isLoading, dataUpdatedAt: cookDataUpdatedAt } = useGetCook(Number(id));
+  const { data: cook, isLoading, dataUpdatedAt: cookDataUpdatedAt } = useGetCook(
+    Number(id),
+    { query: { staleTime: 20_000 } as any },
+  );
   const deleteCook = useDeleteCook();
   const updateCook = useUpdateCook();
   const dismissCookOutlier = useDismissCookOutlier();
@@ -2267,12 +2270,18 @@ export default function CookDetailScreen() {
             // after deletion (frozen thaw/temper alerts + smart check-ins).
             await cancelStoredFrozenNotifications(Number(id)).catch(() => {});
             await cancelStoredCheckinNotifications(Number(id)).catch(() => {});
+            // Purge the specific cook from cache so no downstream screen
+            // (Home active-cook widget, Plan banner) can re-surface it from
+            // stale data after deletion.
+            qc.removeQueries({ queryKey: getGetCookQueryKey(Number(id)) });
             qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
             qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
             qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
             qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
             qc.invalidateQueries({ queryKey: ["home", "insights"] });
-            goBack();
+            // Navigate explicitly to the Cooks list — avoids landing on a
+            // screen that still shows the deleted cook via router.back().
+            router.replace("/(tabs)/cooks" as any);
           } catch (e: any) {
             Alert.alert("Delete Failed", e?.message ?? "Could not delete this cook. Please try again.");
           }
