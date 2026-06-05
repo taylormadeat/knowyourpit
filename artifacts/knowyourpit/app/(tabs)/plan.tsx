@@ -191,7 +191,7 @@ export default function PlanScreen() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const { data: grills } = useListGrills();
+  const { data: grills } = useListGrills({}, { query: { staleTime: 5 * 60 * 1000 } } as any);
   const createCook = useCreateCook();
   const updateCook = useUpdateCook();
   const deleteCook = useDeleteCook();
@@ -471,6 +471,7 @@ export default function PlanScreen() {
   const [savePresetModalVisible, setSavePresetModalVisible] = useState(false);
   const [savePresetLabel, setSavePresetLabel] = useState("");
   const [savePresetSaving, setSavePresetSaving] = useState(false);
+  const savePresetInFlightRef = useRef(false);
 
   // ── AI predict state ──────────────────────────────────────────────────
   const [aiResult, setAiResult] = useState<any | null>(null);
@@ -510,7 +511,8 @@ export default function PlanScreen() {
   const hasAnyQuickPick = !!(qpCookMethod || qpInjection || qpSpritz || qpWrapFinish || qpMeatStartTemp);
 
   const handleSavePreset = async () => {
-    if (!selectedCut || !savePresetLabel.trim()) return;
+    if (savePresetInFlightRef.current || !selectedCut || !savePresetLabel.trim()) return;
+    savePresetInFlightRef.current = true;
     setSavePresetSaving(true);
     try {
       await createUserPreset.mutateAsync({
@@ -532,6 +534,7 @@ export default function PlanScreen() {
     } catch {
       Alert.alert("Error", "Could not save preset. Please try again.");
     } finally {
+      savePresetInFlightRef.current = false;
       setSavePresetSaving(false);
     }
   };
@@ -2229,6 +2232,128 @@ export default function PlanScreen() {
           </View>
         )}
 
+        {/* ── Cooking Style Presets ── always visible when presets exist for the cut */}
+        {((cutUserPresets && cutUserPresets.length > 0) || (cutPresets && cutPresets.length > 0)) && (
+          <View style={{ marginTop: 12 }}>
+            <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              Cooking Style
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                {cutUserPresets.map((preset: UserTechniquePreset) => {
+                  const active = activePreset === preset.label;
+                  return (
+                    <View key={`user-${preset.id}`} style={{ flexDirection: "row", alignItems: "center" }}>
+                      <Pressable
+                        onPress={() => {
+                          if (active) {
+                            setActivePreset(null);
+                            return;
+                          }
+                          setActivePreset(preset.label);
+                          if (preset.cookMethod && (QP_COOK_METHODS as readonly string[]).includes(preset.cookMethod)) {
+                            setQpCookMethod(preset.cookMethod as QpCookMethod);
+                          }
+                          if (preset.injection && (QP_INJECTION_OPTIONS as readonly string[]).includes(preset.injection)) {
+                            setQpInjection(preset.injection as QpInjectionOption);
+                          }
+                          if (preset.spritzFrequency && (QP_SPRITZ_FREQUENCIES as readonly string[]).includes(preset.spritzFrequency)) {
+                            setQpSpritz(preset.spritzFrequency as QpSpritzFrequency);
+                          }
+                          if (preset.wrapFinish && (QP_WRAP_FINISH_OPTIONS as readonly string[]).includes(preset.wrapFinish)) {
+                            setQpWrapFinish(preset.wrapFinish as QpWrapFinishOption);
+                          }
+                          if (preset.cookTempF != null) setCookTempF(String(preset.cookTempF));
+                          if (preset.targetTempF != null) setTargetTempF(String(preset.targetTempF));
+                          Haptics.selectionAsync();
+                        }}
+                        style={{
+                          paddingLeft: 14,
+                          paddingRight: 6,
+                          paddingVertical: 8,
+                          borderRadius: 20,
+                          borderTopRightRadius: 0,
+                          borderBottomRightRadius: 0,
+                          borderWidth: 1,
+                          borderRightWidth: 0,
+                          borderColor: active ? colors.primary : colors.border,
+                          backgroundColor: active ? colors.primary + "18" : colors.muted,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <Feather name="bookmark" size={11} color={active ? colors.primary : colors.mutedForeground} />
+                        <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
+                          {preset.label}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => handleDeleteUserPreset(preset)}
+                        style={{
+                          paddingHorizontal: 8,
+                          paddingVertical: 8,
+                          borderRadius: 20,
+                          borderTopLeftRadius: 0,
+                          borderBottomLeftRadius: 0,
+                          borderWidth: 1,
+                          borderLeftWidth: 0,
+                          borderColor: active ? colors.primary : colors.border,
+                          backgroundColor: active ? colors.primary + "18" : colors.muted,
+                        }}
+                      >
+                        <Feather name="x" size={12} color={colors.mutedForeground} />
+                      </Pressable>
+                    </View>
+                  );
+                })}
+                {cutPresets.map((preset: TechniquePreset) => {
+                  const active = activePreset === preset.label;
+                  return (
+                    <Pressable
+                      key={preset.id}
+                      onPress={() => {
+                        if (active) {
+                          setActivePreset(null);
+                          return;
+                        }
+                        setActivePreset(preset.label);
+                        if (preset.cookMethod && (QP_COOK_METHODS as readonly string[]).includes(preset.cookMethod)) {
+                          setQpCookMethod(preset.cookMethod as QpCookMethod);
+                        }
+                        if (preset.injection && (QP_INJECTION_OPTIONS as readonly string[]).includes(preset.injection)) {
+                          setQpInjection(preset.injection as QpInjectionOption);
+                        }
+                        if (preset.spritzFrequency && (QP_SPRITZ_FREQUENCIES as readonly string[]).includes(preset.spritzFrequency)) {
+                          setQpSpritz(preset.spritzFrequency as QpSpritzFrequency);
+                        }
+                        if (preset.wrapFinish && (QP_WRAP_FINISH_OPTIONS as readonly string[]).includes(preset.wrapFinish)) {
+                          setQpWrapFinish(preset.wrapFinish as QpWrapFinishOption);
+                        }
+                        if (preset.cookTempF != null) setCookTempF(String(preset.cookTempF));
+                        if (preset.targetTempF != null) setTargetTempF(String(preset.targetTempF));
+                        Haptics.selectionAsync();
+                      }}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 8,
+                        borderRadius: 20,
+                        borderWidth: 1,
+                        borderColor: active ? colors.primary : colors.border,
+                        backgroundColor: active ? colors.primary + "18" : colors.muted,
+                      }}
+                    >
+                      <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
+                        {preset.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </View>
+        )}
+
         {/* ── Temp overrides ── */}
         <View style={s.tempRow}>
           {selectedCut && isProduce(selectedCut.category) ? (
@@ -2645,128 +2770,6 @@ export default function PlanScreen() {
                           </Text>
                         </View>
                       )}
-                    </View>
-                  )}
-
-                  {/* ── Cooking Style Presets ── */}
-                  {((cutUserPresets && cutUserPresets.length > 0) || (cutPresets && cutPresets.length > 0)) && (
-                    <View style={{ marginTop: 12 }}>
-                      <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                        Cooking Style
-                      </Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        <View style={{ flexDirection: "row", gap: 8 }}>
-                          {cutUserPresets.map((preset: UserTechniquePreset) => {
-                            const active = activePreset === preset.label;
-                            return (
-                              <View key={`user-${preset.id}`} style={{ flexDirection: "row", alignItems: "center" }}>
-                                <Pressable
-                                  onPress={() => {
-                                    if (active) {
-                                      setActivePreset(null);
-                                      return;
-                                    }
-                                    setActivePreset(preset.label);
-                                    if (preset.cookMethod && (QP_COOK_METHODS as readonly string[]).includes(preset.cookMethod)) {
-                                      setQpCookMethod(preset.cookMethod as QpCookMethod);
-                                    }
-                                    if (preset.injection && (QP_INJECTION_OPTIONS as readonly string[]).includes(preset.injection)) {
-                                      setQpInjection(preset.injection as QpInjectionOption);
-                                    }
-                                    if (preset.spritzFrequency && (QP_SPRITZ_FREQUENCIES as readonly string[]).includes(preset.spritzFrequency)) {
-                                      setQpSpritz(preset.spritzFrequency as QpSpritzFrequency);
-                                    }
-                                    if (preset.wrapFinish && (QP_WRAP_FINISH_OPTIONS as readonly string[]).includes(preset.wrapFinish)) {
-                                      setQpWrapFinish(preset.wrapFinish as QpWrapFinishOption);
-                                    }
-                                    if (preset.cookTempF != null) setCookTempF(String(preset.cookTempF));
-                                    if (preset.targetTempF != null) setTargetTempF(String(preset.targetTempF));
-                                    Haptics.selectionAsync();
-                                  }}
-                                  style={{
-                                    paddingLeft: 14,
-                                    paddingRight: 6,
-                                    paddingVertical: 8,
-                                    borderRadius: 20,
-                                    borderTopRightRadius: 0,
-                                    borderBottomRightRadius: 0,
-                                    borderWidth: 1,
-                                    borderRightWidth: 0,
-                                    borderColor: active ? colors.primary : colors.border,
-                                    backgroundColor: active ? colors.primary + "18" : colors.muted,
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                    gap: 4,
-                                  }}
-                                >
-                                  <Feather name="bookmark" size={11} color={active ? colors.primary : colors.mutedForeground} />
-                                  <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
-                                    {preset.label}
-                                  </Text>
-                                </Pressable>
-                                <Pressable
-                                  onPress={() => handleDeleteUserPreset(preset)}
-                                  style={{
-                                    paddingHorizontal: 8,
-                                    paddingVertical: 8,
-                                    borderRadius: 20,
-                                    borderTopLeftRadius: 0,
-                                    borderBottomLeftRadius: 0,
-                                    borderWidth: 1,
-                                    borderLeftWidth: 0,
-                                    borderColor: active ? colors.primary : colors.border,
-                                    backgroundColor: active ? colors.primary + "18" : colors.muted,
-                                  }}
-                                >
-                                  <Feather name="x" size={12} color={colors.mutedForeground} />
-                                </Pressable>
-                              </View>
-                            );
-                          })}
-                          {cutPresets.map((preset: TechniquePreset) => {
-                            const active = activePreset === preset.label;
-                            return (
-                              <Pressable
-                                key={preset.id}
-                                onPress={() => {
-                                  if (active) {
-                                    setActivePreset(null);
-                                    return;
-                                  }
-                                  setActivePreset(preset.label);
-                                  if (preset.cookMethod && (QP_COOK_METHODS as readonly string[]).includes(preset.cookMethod)) {
-                                    setQpCookMethod(preset.cookMethod as QpCookMethod);
-                                  }
-                                  if (preset.injection && (QP_INJECTION_OPTIONS as readonly string[]).includes(preset.injection)) {
-                                    setQpInjection(preset.injection as QpInjectionOption);
-                                  }
-                                  if (preset.spritzFrequency && (QP_SPRITZ_FREQUENCIES as readonly string[]).includes(preset.spritzFrequency)) {
-                                    setQpSpritz(preset.spritzFrequency as QpSpritzFrequency);
-                                  }
-                                  if (preset.wrapFinish && (QP_WRAP_FINISH_OPTIONS as readonly string[]).includes(preset.wrapFinish)) {
-                                    setQpWrapFinish(preset.wrapFinish as QpWrapFinishOption);
-                                  }
-                                  if (preset.cookTempF != null) setCookTempF(String(preset.cookTempF));
-                                  if (preset.targetTempF != null) setTargetTempF(String(preset.targetTempF));
-                                  Haptics.selectionAsync();
-                                }}
-                                style={{
-                                  paddingHorizontal: 14,
-                                  paddingVertical: 8,
-                                  borderRadius: 20,
-                                  borderWidth: 1,
-                                  borderColor: active ? colors.primary : colors.border,
-                                  backgroundColor: active ? colors.primary + "18" : colors.muted,
-                                }}
-                              >
-                                <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
-                                  {preset.label}
-                                </Text>
-                              </Pressable>
-                            );
-                          })}
-                        </View>
-                      </ScrollView>
                     </View>
                   )}
 

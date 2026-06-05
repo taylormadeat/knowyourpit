@@ -851,12 +851,23 @@ router.post("/ai/predict/stream", requireAuth, aiRateLimit, async (req: any, res
     return;
   }
 
-  const ctx = await buildPredictContext(req.userId, parsed.data);
-
+  // Flush stream headers immediately so the client knows the connection is open
+  // BEFORE any DB work — this eliminates the blank-screen wait during context build.
   res.setHeader("Content-Type", "application/x-ndjson");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("X-Accel-Buffering", "no");
   res.setHeader("Transfer-Encoding", "chunked");
+  res.flushHeaders();
+
+  let ctx: Awaited<ReturnType<typeof buildPredictContext>>;
+  try {
+    ctx = await buildPredictContext(req.userId, parsed.data);
+  } catch (err: any) {
+    req.log.error({ err }, "AI predict stream: context build failed");
+    res.write(JSON.stringify({ type: "error", error: "Failed to load cook context" }) + "\n");
+    res.end();
+    return;
+  }
 
   // Cached — send complete immediately with no deltas
   const cached = predictionAiCache.get(ctx.cacheKey);
