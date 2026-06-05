@@ -15,6 +15,9 @@ interface Props {
   colors: Colors;
   multiResult: { schedule: MultiCookScheduleItem[]; serveAt: string; summary: string } | null;
   isStreaming?: boolean;
+  isRetrying?: boolean;
+  hasError?: boolean;
+  onRetry?: () => void;
   scheduleGrillLabels: (string | null)[];
   handleSaveMultiCooks: () => void;
   createCookPending: boolean;
@@ -54,8 +57,9 @@ function SkeletonRow({ colors }: { colors: Colors }) {
 }
 
 export function MultiCookResultModal(p: Props) {
-  const { visible, onClose, colors, multiResult, isStreaming, scheduleGrillLabels, handleSaveMultiCooks, createCookPending } = p;
+  const { visible, onClose, colors, multiResult, isStreaming, isRetrying, hasError, onRetry, scheduleGrillLabels, handleSaveMultiCooks, createCookPending } = p;
   const hasItems = multiResult && multiResult.schedule.length > 0;
+  const busy = isStreaming || isRetrying;
 
   return (
     <Modal
@@ -70,17 +74,85 @@ export function MultiCookResultModal(p: Props) {
           <View style={[s.modalHeader, { borderBottomColor: colors.border }]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <Text style={[s.modalTitle, { color: colors.foreground }]}>Cook Sequence</Text>
-              {isStreaming && (
+              {busy && (
                 <ActivityIndicator size="small" color="#6C3BF5" />
               )}
             </View>
-            <Pressable onPress={onClose} hitSlop={10} disabled={isStreaming}>
-              <Feather name="x" size={22} color={isStreaming ? colors.border : colors.mutedForeground} />
+            <Pressable onPress={onClose} hitSlop={10} disabled={busy}>
+              <Feather name="x" size={22} color={busy ? colors.border : colors.mutedForeground} />
             </Pressable>
           </View>
+
+          {/* Retrying banner — sits above scroll content */}
+          {isRetrying && (
+            <View style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              backgroundColor: "#F59E0B18",
+              borderBottomWidth: 1,
+              borderBottomColor: "#F59E0B40",
+              paddingHorizontal: 18,
+              paddingVertical: 10,
+            }}>
+              <ActivityIndicator size="small" color="#F59E0B" />
+              <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: "#F59E0B", flex: 1 }}>
+                Having trouble… retrying
+              </Text>
+            </View>
+          )}
+
           <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
+            {/* Error state — both attempts failed */}
+            {hasError && (
+              <View style={{ alignItems: "center", paddingVertical: 32, gap: 16 }}>
+                <View style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 26,
+                  backgroundColor: "#EF444420",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Feather name="alert-circle" size={26} color="#EF4444" />
+                </View>
+                <View style={{ alignItems: "center", gap: 6 }}>
+                  <Text style={{ fontSize: 16, fontFamily: "Inter_700Bold", color: colors.foreground }}>
+                    Sequencer timed out
+                  </Text>
+                  <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: colors.mutedForeground, textAlign: "center", lineHeight: 19 }}>
+                    The AI took too long to respond. Tap Retry to try again.
+                  </Text>
+                </View>
+                {onRetry && (
+                  <Pressable
+                    onPress={onRetry}
+                    style={({ pressed }) => [{
+                      backgroundColor: "#6C3BF5",
+                      borderRadius: colors.radius,
+                      paddingVertical: 12,
+                      paddingHorizontal: 28,
+                      flexDirection: "row" as const,
+                      alignItems: "center" as const,
+                      gap: 8,
+                      opacity: pressed ? 0.7 : 1,
+                    }]}
+                  >
+                    <Feather name="refresh-cw" size={15} color="#fff" />
+                    <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" }}>Retry</Text>
+                  </Pressable>
+                )}
+                <Pressable
+                  onPress={onClose}
+                  style={[s.dismissBtn, { borderRadius: colors.radius, borderColor: colors.border }]}
+                >
+                  <Text style={[s.dismissBtnText, { color: colors.mutedForeground }]}>Close</Text>
+                </Pressable>
+              </View>
+            )}
+
             {/* Streaming header row */}
-            {isStreaming && !hasItems && (
+            {isStreaming && !hasItems && !hasError && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
                 <ActivityIndicator size="small" color="#6C3BF5" />
                 <Text style={{ fontSize: 14, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
@@ -89,13 +161,23 @@ export function MultiCookResultModal(p: Props) {
               </View>
             )}
 
+            {/* Retrying skeleton when no items yet */}
+            {isRetrying && !hasItems && !hasError && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                <ActivityIndicator size="small" color="#F59E0B" />
+                <Text style={{ fontSize: 14, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
+                  Retrying…
+                </Text>
+              </View>
+            )}
+
             {/* Partial results arrive progressively */}
-            {hasItems && (() => {
+            {hasItems && !hasError && (() => {
               const fmtTime = (value: Date | string) =>
                 new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
               return (
                 <>
-                  {!isStreaming && (
+                  {!busy && (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
                       <Feather name="check-circle" size={16} color="#22c55e" />
                       <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
@@ -104,7 +186,7 @@ export function MultiCookResultModal(p: Props) {
                     </View>
                   )}
 
-                  {isStreaming && (
+                  {busy && (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
                       <ActivityIndicator size="small" color="#6C3BF5" />
                       <Text style={{ fontSize: 14, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
@@ -113,7 +195,7 @@ export function MultiCookResultModal(p: Props) {
                     </View>
                   )}
 
-                  {!isStreaming && multiResult.summary ? (
+                  {!busy && multiResult.summary ? (
                     <View style={{ backgroundColor: "#6C3BF510", borderRadius: 8, padding: 12, marginBottom: 16 }}>
                       <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: colors.foreground, lineHeight: 19 }}>
                         {multiResult.summary}
@@ -206,21 +288,29 @@ export function MultiCookResultModal(p: Props) {
                   })}
 
                   {/* Skeleton placeholder for items still being generated */}
-                  {isStreaming && <SkeletonRow colors={colors} />}
+                  {busy && <SkeletonRow colors={colors} />}
                 </>
               );
             })()}
 
             {/* Pure skeleton when no items have arrived yet */}
-            {!hasItems && isStreaming && (
+            {!hasItems && isStreaming && !hasError && (
               <>
                 <SkeletonRow colors={colors} />
                 <SkeletonRow colors={colors} />
               </>
             )}
 
-            {/* Action buttons — only shown when streaming is complete */}
-            {!isStreaming && hasItems && (
+            {/* Pure skeleton while retrying with no items */}
+            {!hasItems && isRetrying && !hasError && (
+              <>
+                <SkeletonRow colors={colors} />
+                <SkeletonRow colors={colors} />
+              </>
+            )}
+
+            {/* Action buttons — only shown when streaming is complete and no error */}
+            {!busy && !hasError && hasItems && (
               <>
                 <Pressable
                   onPress={handleSaveMultiCooks}
@@ -229,9 +319,9 @@ export function MultiCookResultModal(p: Props) {
                     backgroundColor: "#6C3BF5",
                     borderRadius: colors.radius,
                     paddingVertical: 14,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    flexDirection: "row" as const,
+                    alignItems: "center" as const,
+                    justifyContent: "center" as const,
                     gap: 8,
                     marginTop: 4,
                     opacity: (pressed || createCookPending) ? 0.7 : 1,

@@ -607,6 +607,8 @@ export default function PlanScreen() {
   const [multiResult, setMultiResult] = useState<{ schedule: MultiCookScheduleItem[]; serveAt: string; summary: string } | null>(null);
   const [multiResultOpen, setMultiResultOpen] = useState(false);
   const [multiStreaming, setMultiStreaming] = useState(false);
+  const [multiRetrying, setMultiRetrying] = useState(false);
+  const [multiError, setMultiError] = useState(false);
   const [multiAddOpen, setMultiAddOpen] = useState(false);
   const [multiAddCat, setMultiAddCat] = useState<string>(MEAT_CATEGORIES[0]);
   const [multiPickedCut, setMultiPickedCut] = useState<MeatCut | null>(null);
@@ -1093,42 +1095,26 @@ export default function PlanScreen() {
     setMultiResult(null);
     setMultiResultOpen(true);
     setMultiStreaming(true);
+    setMultiRetrying(false);
+    setMultiError(false);
 
     const apiBase =
       process.env.EXPO_PUBLIC_API_URL ??
       (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
 
-    try {
+    const runStream = async (token: string): Promise<"ok" | "error" | "fatal_401" | "fatal_402"> => {
       const response = await fetch(`${apiBase}/api/ai/multi-cook/stream`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${sessionToken}`,
+          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
 
-      if (response.status === 401) {
-        setMultiStreaming(false);
-        setMultiResultOpen(false);
-        Alert.alert(
-          "Session Expired",
-          "Your session has expired. Please sign out from the More tab and sign in again.",
-        );
-        return;
-      }
-
-      if (response.status === 402) {
-        setMultiStreaming(false);
-        setMultiResultOpen(false);
-        // Stale entitlement — show paywall
-        showPaywall({ trigger: "pro_required", featureName: "Multi-Cook Sequencer" });
-        return;
-      }
-
-      if (!response.ok || !response.body) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      if (response.status === 401) return "fatal_401";
+      if (response.status === 402) return "fatal_402";
+      if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
 
       const reader = (response.body as ReadableStream<Uint8Array>).getReader();
       const decoder = new TextDecoder();
@@ -1159,10 +1145,10 @@ export default function PlanScreen() {
             } else if (msg.type === "complete" && msg.data) {
               setMultiResult(msg.data);
               setMultiStreaming(false);
+              setMultiRetrying(false);
+              return "ok";
             } else if (msg.type === "error") {
-              setMultiStreaming(false);
-              setMultiResultOpen(false);
-              Alert.alert("PitMaster Error", msg.message || "Could not sequence cooks. Try again.");
+              return "error";
             }
           } catch {
             // malformed NDJSON line — skip silently
@@ -1171,12 +1157,65 @@ export default function PlanScreen() {
       }
 
       setMultiStreaming(false);
+      return "ok";
+    };
+
+    const handleFatalResult = (result: "fatal_401" | "fatal_402") => {
+      setMultiStreaming(false);
+      setMultiRetrying(false);
+      setMultiResultOpen(false);
+      if (result === "fatal_402") {
+        showPaywall({ trigger: "pro_required", featureName: "Multi-Cook Sequencer" });
+      } else {
+        Alert.alert("Session Expired", "Your session has expired. Please sign out from the More tab and sign in again.");
+      }
+    };
+
+    try {
+      const result = await runStream(sessionToken);
+
+      if (result === "fatal_401" || result === "fatal_402") {
+        handleFatalResult(result);
+        return;
+      }
+
+      if (result === "error") {
+        // Auto-retry once before surfacing the error
+        setMultiRetrying(true);
+        setMultiResult(null);
+
+        try {
+          const retryResult = await runStream(sessionToken);
+          if (retryResult === "ok") {
+            setMultiRetrying(false);
+            return;
+          }
+          if (retryResult === "fatal_401" || retryResult === "fatal_402") {
+            handleFatalResult(retryResult);
+            return;
+          }
+        } catch {
+          // retry threw — fall through to show error state
+        }
+
+        // Both attempts failed — show error state with Retry button inside the modal
+        setMultiStreaming(false);
+        setMultiRetrying(false);
+        setMultiError(true);
+        return;
+      }
     } catch (e: any) {
       setMultiStreaming(false);
+      setMultiRetrying(false);
       setMultiResultOpen(false);
       if (parseAndShowFromError(e)) return;
       Alert.alert("PitMaster Error", e?.message || "Could not sequence cooks. Try again.");
     }
+  };
+
+  const handleRetryMultiCook = () => {
+    setMultiError(false);
+    handleMultiCook();
   };
 
   const handleSaveMultiCooks = async () => {
@@ -3755,11 +3794,14 @@ export default function PlanScreen() {
       <MultiCookResultModal
         visible={multiResultOpen}
         onClose={() => {
-          if (!multiStreaming) setMultiResultOpen(false);
+          if (!multiStreaming && !multiRetrying) setMultiResultOpen(false);
         }}
         colors={colors}
         multiResult={multiResult}
         isStreaming={multiStreaming}
+        isRetrying={multiRetrying}
+        hasError={multiError}
+        onRetry={handleRetryMultiCook}
         scheduleGrillLabels={scheduleGrillLabels}
         handleSaveMultiCooks={handleSaveMultiCooks}
         createCookPending={createCook.isPending}
