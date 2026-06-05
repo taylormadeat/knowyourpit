@@ -192,9 +192,29 @@ export default function CookDetailScreen() {
   const qc = useQueryClient();
 
   const { getToken } = useAuth();
+
+  const cookFromListCache = useMemo(() => {
+    const numId = Number(id);
+    const keysToSearch = [getListCooksQueryKey(), getGetRecentCooksQueryKey()];
+    for (const key of keysToSearch) {
+      const allCaches = qc.getQueriesData<Cook[]>({ queryKey: key });
+      for (const [, cooks] of allCaches) {
+        const found = cooks?.find((c) => c.id === numId);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  }, [qc, id]);
+
   const { data: cook, isLoading, dataUpdatedAt: cookDataUpdatedAt } = useGetCook(
     Number(id),
-    { query: { staleTime: 20_000 } as any },
+    {
+      query: {
+        staleTime: 20_000,
+        initialData: cookFromListCache,
+        initialDataUpdatedAt: cookFromListCache ? 0 : undefined,
+      } as any,
+    },
   );
   const deleteCook = useDeleteCook();
   const updateCook = useUpdateCook();
