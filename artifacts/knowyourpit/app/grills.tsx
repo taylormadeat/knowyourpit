@@ -11,6 +11,7 @@ import {
   ScrollView,
   Image,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -341,6 +342,7 @@ const fps = StyleSheet.create({
 export default function GrillsScreen() {
   const colors = useColors();
   const qc = useQueryClient();
+  const router = useRouter();
 
   const { data: grills, isLoading } = useListGrills();
   const createGrill = useCreateGrill();
@@ -615,6 +617,10 @@ export default function GrillsScreen() {
               style={[s.grillCardWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
             >
             <View style={s.grillCard}>
+              <Pressable
+                onPress={() => router.push(`/grills/${item.id}` as any)}
+                style={s.grillCardTapTarget}
+              >
               <LinearGradient colors={grillGradientColors(classifyGrillType(item.type))} style={s.grillCardIcon}>
                 <GrillTypeIcon type={item.type} size={22} color="#fff" />
               </LinearGradient>
@@ -745,6 +751,7 @@ export default function GrillsScreen() {
                   <Feather name="chevron-right" size={13} color={colors.mutedForeground} />
                 </Pressable>
               </View>
+              </Pressable>
               <View style={{ flexDirection: "column", gap: 6 }}>
                 <Pressable
                   style={[s.delBtn, { backgroundColor: colors.muted, borderRadius: 8 }]}
@@ -1106,6 +1113,7 @@ const s = StyleSheet.create({
   /* My grills flat cards */
   grillCardWrap: { borderWidth: 1, padding: 14 },
   grillCard: { flexDirection: "row", alignItems: "center", gap: 14 },
+  grillCardTapTarget: { flex: 1, flexDirection: "row", alignItems: "center", gap: 14 },
   grillCardIcon: { width: 46, height: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", flexShrink: 0 },
   grillCardInfo: { flex: 1 },
   grillCardName: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 2 },

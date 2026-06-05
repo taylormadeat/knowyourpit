@@ -342,6 +342,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(auth)/sign-up" />
         <Stack.Screen name="(auth)/set-username" options={{ gestureEnabled: false }} />
         <Stack.Screen name="grills" />
+        <Stack.Screen name="grills/[id]" />
         <Stack.Screen name="temperature" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="alerts" />
