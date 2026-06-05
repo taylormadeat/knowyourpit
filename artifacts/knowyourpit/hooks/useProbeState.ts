@@ -211,8 +211,6 @@ export function useProbeState({
 
   const combinedReconnecting = inkbirdReconnecting || bleCtxReconnecting;
 
-  const handleRestartScan = useCallback(() => { bleStop(); bleScan(); }, [bleStop, bleScan]);
-
   useEffect(() => {
     setHasActiveCook(cookStatus === "active");
     return () => setHasActiveCook(false);
@@ -220,7 +218,9 @@ export function useProbeState({
 
   const bleContextDevices = allBleDevices.filter((d) => d.connectionState === "connected" && d.paired);
 
-  const { probes: lanProbes } = useLanProbes({ enabled: cookStatus === "active" && tempMode === "probe", pollIntervalMs: 15_000 });
+  const { probes: lanProbes, scan: scanLan } = useLanProbes({ enabled: cookStatus === "active" && tempMode === "probe", pollIntervalMs: 15_000 });
+
+  const handleRestartScan = useCallback(() => { bleStop(); bleScan(); scanLan(); }, [bleStop, bleScan, scanLan]);
 
   const selectedLanProbe: LanProbeReading | null = selectedMeatProbeId?.startsWith("lan_")
     ? (lanProbes.find((p) => `lan_${p.deviceId}` === selectedMeatProbeId) ?? null) : null;

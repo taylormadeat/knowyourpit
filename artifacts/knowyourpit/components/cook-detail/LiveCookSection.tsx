@@ -1,4 +1,5 @@
 import React from "react";
+import { useRouter } from "expo-router";
 import { CookFactorsSheet, type QualFactor } from "@/components/CookFactorsSheet";
 import type { FactorBreakdownItem } from "@/components/cook-detail/types";
 import { View, Text, Pressable, ActivityIndicator, Animated, TextInput } from "react-native";
@@ -154,6 +155,7 @@ export function LiveCookSection(p: Props) {
     planTimedOut,
   } = p;
 
+  const router = useRouter();
   const isProduceCook = targetTempF === 0;
 
   const [cookFactorsSheetOpen, setCookFactorsSheetOpen] = React.useState(false);
@@ -660,6 +662,17 @@ export function LiveCookSection(p: Props) {
           <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: tempMode === "manual" ? colors.primary : colors.mutedForeground }}>
             Manual Entry
           </Text>
+        </Pressable>
+        {/* Scan button — triggers a fresh BLE + LAN scan */}
+        <Pressable
+          hitSlop={8}
+          onPress={onRestartScan}
+          disabled={inkbirdScanning}
+          style={{ alignSelf: "center", padding: 7, borderRadius: 8, borderWidth: 1, borderColor: inkbirdScanning ? colors.border : colors.border }}
+        >
+          {inkbirdScanning
+            ? <ActivityIndicator size={14} color={colors.mutedForeground} />
+            : <Feather name="radio" size={16} color={colors.mutedForeground} />}
         </Pressable>
         {/* Persistent help icon — opens the BLE pairing wizard at any time */}
         <Pressable
@@ -1494,11 +1507,38 @@ export function LiveCookSection(p: Props) {
       })}
 
       {tempMode === "probe" && meaterLinked !== true && thermoworksLinked !== true && inkbirdProbes.length === 0 && bleContextDevices.length === 0 && lanProbes.length === 0 && (
-        <View style={[s.meaterPlaceholder, { borderTopColor: colors.border }]}>
+        <View style={[s.meaterPlaceholder, { borderTopColor: colors.border, gap: 10 }]}>
           <Feather name="thermometer" size={20} color={colors.mutedForeground} />
           <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground }]}>
-            Bring your Inkbird probe into range, or link MEATER/ThermoWorks in Profile.
+            {inkbirdScanning ? "Scanning for nearby probes…" : "No probes found. Bring your Inkbird probe into range, or link MEATER / ThermoWorks in Profile."}
           </Text>
+          <Pressable
+            onPress={onRestartScan}
+            disabled={inkbirdScanning}
+            style={{
+              flexDirection: "row", alignItems: "center", gap: 6,
+              paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8,
+              backgroundColor: inkbirdScanning ? colors.border + "40" : "#FF6B2B18",
+              borderWidth: 1, borderColor: inkbirdScanning ? colors.border : "#FF6B2B60",
+            }}
+          >
+            {inkbirdScanning
+              ? <ActivityIndicator size="small" color={colors.mutedForeground} />
+              : <Feather name="radio" size={14} color="#FF6B2B" />}
+            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: inkbirdScanning ? colors.mutedForeground : "#FF6B2B" }}>
+              {inkbirdScanning ? "Scanning…" : "Scan for Probes"}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push("/devices" as any)}
+            hitSlop={8}
+            style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+          >
+            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
+              Go to Connected Devices
+            </Text>
+            <Feather name="chevron-right" size={12} color={colors.mutedForeground} />
+          </Pressable>
         </View>
       )}
 
