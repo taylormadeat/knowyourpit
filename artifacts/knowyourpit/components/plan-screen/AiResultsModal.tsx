@@ -25,6 +25,7 @@ interface Props {
   grillName?: string;
   selectedChips?: SelectedChips;
   retrying?: boolean;
+  isStreaming?: boolean;
 }
 
 const CHIP_LABELS: { key: keyof SelectedChips; label: string }[] = [
@@ -112,7 +113,6 @@ function buildTimeline(aiResult: any): TimelineEntry[] {
     entries.push({ kind: "event", icon: "zap", label: "Put food on", absoluteMs: startMs });
   }
 
-  // Check-ins (offset from suggestedStartAt)
   if (startMs != null && Array.isArray(aiResult.checkins)) {
     for (let i = 0; i < aiResult.checkins.length; i++) {
       const ci = aiResult.checkins[i];
@@ -121,7 +121,6 @@ function buildTimeline(aiResult: any): TimelineEntry[] {
     }
   }
 
-  // Wrap step (only when wrap method is not "none" and has a time offset)
   if (startMs != null && aiResult.wrap && aiResult.wrap.method !== "none" && aiResult.wrap.wrapAtMinutes > 0) {
     const wrapMs = startMs + aiResult.wrap.wrapAtMinutes * 60_000;
     entries.push({
@@ -137,7 +136,6 @@ function buildTimeline(aiResult: any): TimelineEntry[] {
     entries.push({ kind: "event", icon: "pause", label: "Pull off grill", absoluteMs: finishMs });
   }
 
-  // Rest step — placed just after pull-off (finishMs + 1ms so it sorts after)
   if (finishMs != null && aiResult.wrap?.restMinutes > 0) {
     entries.push({
       kind: "rest",
@@ -406,10 +404,111 @@ function RestRow({
   );
 }
 
+// ── Partial-streaming checkin/wrap rows (relative offsets only) ───────────────
+
+function PartialCheckinRow({ ci, isLast, colors }: { ci: any; isLast: boolean; colors: Colors }) {
+  const isWrap = /wrap/i.test(ci.label ?? "");
+  const iconName = isWrap ? "package" : "clock";
+  const accentColor = isWrap ? "#F59E0B" : "#6C3BF5";
+  return (
+    <View style={{ flexDirection: "row", gap: 12 }}>
+      <View style={{ alignItems: "center", width: 36 }}>
+        <View style={{
+          width: 30,
+          height: 30,
+          borderRadius: 15,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: accentColor + "18",
+          borderWidth: 1,
+          borderColor: accentColor + "40",
+        }}>
+          <Feather name={iconName as any} size={12} color={accentColor} />
+        </View>
+        {!isLast && <TimelineConnector colors={colors} />}
+      </View>
+      <View style={{ flex: 1, paddingBottom: isLast ? 0 : 12 }}>
+        <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginBottom: 1 }}>
+          +{fmtDuration(ci.offsetMinutes)} into cook
+        </Text>
+        <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: isWrap ? "#F59E0B" : colors.foreground }}>
+          {ci.label}
+        </Text>
+        {ci.expectedInternalTempRange && (
+          <View style={{
+            backgroundColor: colors.muted,
+            borderRadius: 8,
+            paddingHorizontal: 7,
+            paddingVertical: 3,
+            alignSelf: "flex-start",
+            marginTop: 4,
+          }}>
+            <Text style={{ fontSize: 10, fontFamily: "Inter_700Bold", color: colors.foreground }}>
+              {ci.expectedInternalTempRange[0]}–{ci.expectedInternalTempRange[1]}°F
+            </Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function PartialWrapRow({ wrap, isLast, colors }: { wrap: any; isLast: boolean; colors: Colors }) {
+  const methodLabel = wrap.method === "butcher_paper" ? "Butcher Paper Wrap" : "Foil Wrap (Texas Crutch)";
+  return (
+    <View style={{ flexDirection: "row", gap: 12 }}>
+      <View style={{ alignItems: "center", width: 36 }}>
+        <View style={{
+          width: 30,
+          height: 30,
+          borderRadius: 15,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#F59E0B18",
+          borderWidth: 1,
+          borderColor: "#F59E0B40",
+        }}>
+          <Feather name="package" size={12} color="#F59E0B" />
+        </View>
+        {!isLast && <TimelineConnector colors={colors} />}
+      </View>
+      <View style={{ flex: 1, paddingBottom: isLast ? 0 : 12, justifyContent: "center" }}>
+        <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginBottom: 1 }}>
+          +{fmtDuration(wrap.wrapAtMinutes)} into cook{wrap.wrapTempF ? ` · ${wrap.wrapTempF}°F internal` : ""}
+        </Text>
+        <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#F59E0B" }}>
+          {methodLabel}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ── Streaming cursor blink ────────────────────────────────────────────────────
+
+function StreamingCursor({ colors }: { colors: Colors }) {
+  const anim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 0, duration: 500, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [anim]);
+  return (
+    <Animated.Text style={{ opacity: anim, color: "#6C3BF5", fontFamily: "Inter_700Bold", fontSize: 14 }}>
+      {"|"}
+    </Animated.Text>
+  );
+}
+
 // ── Main modal ───────────────────────────────────────────────────────────────
 
 export function AiResultsModal(p: Props) {
-  const { visible, onClose, colors, aiResult, applyAiPlan, grillName, selectedChips, retrying } = p;
+  const { visible, onClose, colors, aiResult, applyAiPlan, grillName, selectedChips, retrying, isStreaming } = p;
 
   const activeChips = selectedChips
     ? CHIP_LABELS.filter((c) => selectedChips[c.key])
@@ -429,9 +528,15 @@ export function AiResultsModal(p: Props) {
     });
   };
 
-  const timeline: TimelineEntry[] = aiResult ? buildTimeline(aiResult) : [];
+  // The timeline and apply button require the full computed response (grillLightAt etc.)
+  const hasFullResponse = !!(aiResult?.grillLightAt);
+  const hasCoreFields = !!(aiResult?.estimatedDurationMinutes && aiResult?.wrap && aiResult?.confidence);
+  const timeline: TimelineEntry[] = hasFullResponse ? buildTimeline(aiResult) : [];
 
   const noWrap = aiResult?.wrap?.method === "none";
+
+  // Whether the rationale is still partially streaming (no full response yet)
+  const rationaleIsStreaming = isStreaming && !!aiResult?.rationale && !hasFullResponse;
 
   const fingerprintLabel = (() => {
     if (!aiResult) return null;
@@ -475,7 +580,7 @@ export function AiResultsModal(p: Props) {
             <Feather name="cpu" size={20} color="#fff" />
             <View style={{ flex: 1 }}>
               <Text style={s.aiModalTitle}>PitMaster Plan</Text>
-              {aiResult ? (
+              {hasCoreFields ? (
                 <Text style={s.aiModalSub}>
                   {aiResult.confidence?.toUpperCase()} confidence · {fmtMinutes(aiResult.estimatedDurationMinutes)} active cook
                 </Text>
@@ -489,6 +594,7 @@ export function AiResultsModal(p: Props) {
           </LinearGradient>
 
           <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 40 }}>
+            {/* ── Full loading state (no partial data yet) ── */}
             {!aiResult && (
               <View style={{ gap: 20, paddingTop: 24 }}>
                 <ActivityIndicator size="large" color="#6C3BF5" style={{ marginBottom: 8 }} />
@@ -510,6 +616,7 @@ export function AiResultsModal(p: Props) {
                 </View>
               </View>
             )}
+
             {aiResult && (
               <>
                 {/* ── Timeout notice ── */}
@@ -590,105 +697,217 @@ export function AiResultsModal(p: Props) {
                 {/* ── PitMaster Analysis ── */}
                 <View style={[s.aiSection, { borderColor: colors.border }]}>
                   <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>PitMaster Analysis</Text>
-                  <Text style={[s.aiBody, { color: colors.mutedForeground }]}>{aiResult.rationale}</Text>
-                </View>
-
-                {/* ── Unified Cook Timeline ── */}
-                <View style={[s.aiSection, { borderColor: colors.border }]}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                    <Text style={[s.aiSectionTitle, { color: colors.foreground, marginBottom: 0, flex: 1 }]}>
-                      Cook Timeline
+                  {aiResult.rationale ? (
+                    <Text style={[s.aiBody, { color: colors.mutedForeground }]}>
+                      {aiResult.rationale}
+                      {rationaleIsStreaming && <StreamingCursor colors={colors} />}
                     </Text>
-                    {noWrap && (
-                      <View style={{
-                        backgroundColor: colors.muted,
-                        borderRadius: 12,
-                        paddingHorizontal: 8,
-                        paddingVertical: 3,
-                      }}>
-                        <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
-                          No wrap needed
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {timeline.map((entry, idx) => {
-                    const isLast = idx === timeline.length - 1;
-                    if (entry.kind === "event") {
-                      return (
-                        <EventRow
-                          key={`event-${entry.label}`}
-                          icon={entry.icon}
-                          label={entry.label}
-                          absoluteMs={entry.absoluteMs}
-                          colors={colors}
-                          isLast={isLast}
-                        />
-                      );
-                    }
-                    if (entry.kind === "checkin") {
-                      return (
-                        <CheckinRow
-                          key={`checkin-${entry.index}`}
-                          ci={entry.ci}
-                          absoluteMs={entry.absoluteMs}
-                          expanded={expandedCheckins.has(entry.index)}
-                          onToggle={() => toggleCheckin(entry.index)}
-                          colors={colors}
-                          isLast={isLast}
-                        />
-                      );
-                    }
-                    if (entry.kind === "wrap") {
-                      return (
-                        <WrapRow
-                          key="wrap"
-                          entry={entry}
-                          colors={colors}
-                          isLast={isLast}
-                        />
-                      );
-                    }
-                    if (entry.kind === "rest") {
-                      return (
-                        <RestRow
-                          key="rest"
-                          entry={entry}
-                          colors={colors}
-                          isLast={isLast}
-                        />
-                      );
-                    }
-                    return null;
-                  })}
-
-                  {/* ── Fingerprint callout ── */}
-                  {fingerprintLabel && (
-                    <View style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 6,
-                      marginTop: 12,
-                      paddingTop: 12,
-                      borderTopWidth: 1,
-                      borderTopColor: colors.border,
-                    }}>
-                      <Feather name="bar-chart-2" size={12} color={colors.mutedForeground} />
-                      <Text style={{
-                        fontFamily: "Inter_400Regular",
-                        fontSize: 12,
-                        color: colors.mutedForeground,
-                        flex: 1,
-                      }}>
-                        {fingerprintLabel}
-                      </Text>
+                  ) : (
+                    <View style={{ gap: 8, marginTop: 4 }}>
+                      <ShimmerBar width="90%" colors={colors} />
+                      <ShimmerBar width="75%" colors={colors} />
+                      <ShimmerBar width="60%" colors={colors} />
                     </View>
                   )}
                 </View>
 
+                {/* ── Cook Timeline ── */}
+                {hasFullResponse ? (
+                  <View style={[s.aiSection, { borderColor: colors.border }]}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                      <Text style={[s.aiSectionTitle, { color: colors.foreground, marginBottom: 0, flex: 1 }]}>
+                        Cook Timeline
+                      </Text>
+                      {noWrap && (
+                        <View style={{
+                          backgroundColor: colors.muted,
+                          borderRadius: 12,
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
+                        }}>
+                          <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
+                            No wrap needed
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+
+                    {timeline.map((entry, idx) => {
+                      const isLast = idx === timeline.length - 1;
+                      if (entry.kind === "event") {
+                        return (
+                          <EventRow
+                            key={`event-${entry.label}`}
+                            icon={entry.icon}
+                            label={entry.label}
+                            absoluteMs={entry.absoluteMs}
+                            colors={colors}
+                            isLast={isLast}
+                          />
+                        );
+                      }
+                      if (entry.kind === "checkin") {
+                        return (
+                          <CheckinRow
+                            key={`checkin-${entry.index}`}
+                            ci={entry.ci}
+                            absoluteMs={entry.absoluteMs}
+                            expanded={expandedCheckins.has(entry.index)}
+                            onToggle={() => toggleCheckin(entry.index)}
+                            colors={colors}
+                            isLast={isLast}
+                          />
+                        );
+                      }
+                      if (entry.kind === "wrap") {
+                        return (
+                          <WrapRow
+                            key="wrap"
+                            entry={entry}
+                            colors={colors}
+                            isLast={isLast}
+                          />
+                        );
+                      }
+                      if (entry.kind === "rest") {
+                        return (
+                          <RestRow
+                            key="rest"
+                            entry={entry}
+                            colors={colors}
+                            isLast={isLast}
+                          />
+                        );
+                      }
+                      return null;
+                    })}
+
+                    {fingerprintLabel && (
+                      <View style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                        marginTop: 12,
+                        paddingTop: 12,
+                        borderTopWidth: 1,
+                        borderTopColor: colors.border,
+                      }}>
+                        <Feather name="bar-chart-2" size={12} color={colors.mutedForeground} />
+                        <Text style={{
+                          fontFamily: "Inter_400Regular",
+                          fontSize: 12,
+                          color: colors.mutedForeground,
+                          flex: 1,
+                        }}>
+                          {fingerprintLabel}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ) : isStreaming && hasCoreFields ? (
+                  // Partial timeline: checkins + wrap with relative offsets; absolute times arrive with "complete"
+                  <View style={[s.aiSection, { borderColor: colors.border }]}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                      <Text style={[s.aiSectionTitle, { color: colors.foreground, marginBottom: 0, flex: 1 }]}>
+                        Cook Timeline
+                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <ActivityIndicator size="small" color="#6C3BF5" />
+                        <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
+                          finalizing times…
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Duration summary row */}
+                    <View style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                      paddingVertical: 8,
+                      paddingHorizontal: 10,
+                      backgroundColor: "#6C3BF5" + "12",
+                      borderRadius: 8,
+                      marginBottom: 14,
+                    }}>
+                      <Feather name="clock" size={13} color="#6C3BF5" />
+                      <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
+                        ~{fmtMinutes(aiResult.estimatedDurationMinutes)} active cook
+                      </Text>
+                    </View>
+
+                    {/* Checkins as they arrive */}
+                    {Array.isArray(aiResult.checkins) && aiResult.checkins.map((ci: any, idx: number) => {
+                      const hasWrapAfter = aiResult.wrap && aiResult.wrap.method !== "none";
+                      const isLast = idx === aiResult.checkins.length - 1 && !hasWrapAfter && !isStreaming;
+                      return (
+                        <PartialCheckinRow
+                          key={`pci-${idx}`}
+                          ci={ci}
+                          isLast={isLast}
+                          colors={colors}
+                        />
+                      );
+                    })}
+
+                    {/* Wrap row once it arrives */}
+                    {aiResult.wrap && aiResult.wrap.method !== "none" && (
+                      <PartialWrapRow wrap={aiResult.wrap} isLast={!isStreaming} colors={colors} />
+                    )}
+
+                    {/* Shimmer for checkins not yet arrived */}
+                    {(!aiResult.checkins || aiResult.checkins.length === 0) && (
+                      <View style={{ gap: 12 }}>
+                        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                          <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.muted }} />
+                          <View style={{ flex: 1, gap: 6 }}>
+                            <ShimmerBar width="35%" colors={colors} />
+                            <ShimmerBar width="55%" colors={colors} />
+                          </View>
+                        </View>
+                        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                          <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.muted }} />
+                          <View style={{ flex: 1, gap: 6 }}>
+                            <ShimmerBar width="45%" colors={colors} />
+                            <ShimmerBar width="70%" colors={colors} />
+                          </View>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                ) : isStreaming ? (
+                  // Full shimmer while no core fields yet
+                  <View style={[s.aiSection, { borderColor: colors.border }]}>
+                    <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>Cook Timeline</Text>
+                    <View style={{ gap: 12 }}>
+                      <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                        <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.muted }} />
+                        <View style={{ flex: 1, gap: 6 }}>
+                          <ShimmerBar width="40%" colors={colors} />
+                          <ShimmerBar width="60%" colors={colors} />
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                        <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.muted }} />
+                        <View style={{ flex: 1, gap: 6 }}>
+                          <ShimmerBar width="35%" colors={colors} />
+                          <ShimmerBar width="55%" colors={colors} />
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                        <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.muted }} />
+                        <View style={{ flex: 1, gap: 6 }}>
+                          <ShimmerBar width="45%" colors={colors} />
+                          <ShimmerBar width="70%" colors={colors} />
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
+
                 {/* ── Pit Master Tips ── */}
-                {aiResult.tips && aiResult.tips.length > 0 && (
+                {aiResult.tips && aiResult.tips.length > 0 ? (
                   <View style={[s.aiSection, { borderColor: colors.border }]}>
                     <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>Pit Master Tips</Text>
                     {aiResult.tips.map((tip: string, i: number) => (
@@ -698,32 +917,48 @@ export function AiResultsModal(p: Props) {
                       </View>
                     ))}
                   </View>
-                )}
+                ) : isStreaming ? (
+                  <View style={[s.aiSection, { borderColor: colors.border }]}>
+                    <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>Pit Master Tips</Text>
+                    <View style={{ gap: 10 }}>
+                      <ShimmerBar width="85%" colors={colors} />
+                      <ShimmerBar width="70%" colors={colors} />
+                      <ShimmerBar width="90%" colors={colors} />
+                    </View>
+                  </View>
+                ) : null}
 
-                <Pressable
-                  onPress={applyAiPlan}
-                  style={({ pressed }) => [
-                    s.applyBtn,
-                    { borderRadius: colors.radius },
-                    pressed && { opacity: 0.75 },
-                  ]}
-                >
-                  <LinearGradient
-                    colors={["#6C3BF5", "#A855F7"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={s.applyBtnGradient}
-                  >
-                    <Feather name="check" size={18} color="#fff" />
-                    <Text style={s.applyBtnText}>Apply PitMaster Plan</Text>
-                  </LinearGradient>
-                </Pressable>
-                <Pressable
-                  onPress={onClose}
-                  style={[s.dismissBtn, { borderRadius: colors.radius, borderColor: colors.border }]}
-                >
-                  <Text style={[s.dismissBtnText, { color: colors.mutedForeground }]}>Keep manual plan</Text>
-                </Pressable>
+                {/* ── Apply / Dismiss buttons ── */}
+                {/* Apply is enabled as soon as core fields (duration, wrap, confidence) arrive,
+                    even if the timeline dates aren't computed yet (they arrive with "complete"). */}
+                {hasCoreFields && (
+                  <>
+                    <Pressable
+                      onPress={applyAiPlan}
+                      style={({ pressed }) => [
+                        s.applyBtn,
+                        { borderRadius: colors.radius },
+                        pressed && { opacity: 0.75 },
+                      ]}
+                    >
+                      <LinearGradient
+                        colors={["#6C3BF5", "#A855F7"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={s.applyBtnGradient}
+                      >
+                        <Feather name="check" size={18} color="#fff" />
+                        <Text style={s.applyBtnText}>Apply PitMaster Plan</Text>
+                      </LinearGradient>
+                    </Pressable>
+                    <Pressable
+                      onPress={onClose}
+                      style={[s.dismissBtn, { borderRadius: colors.radius, borderColor: colors.border }]}
+                    >
+                      <Text style={[s.dismissBtnText, { color: colors.mutedForeground }]}>Keep manual plan</Text>
+                    </Pressable>
+                  </>
+                )}
               </>
             )}
           </ScrollView>

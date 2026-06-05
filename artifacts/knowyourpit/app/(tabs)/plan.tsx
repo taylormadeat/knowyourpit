@@ -42,7 +42,6 @@ import {
   useUpdateCook,
   useDeleteCook,
   useGetCook,
-  useAiPredict,
   useAiMultiCook,
   useListCooks,
   useGetTechniquePresets,
@@ -475,10 +474,10 @@ export default function PlanScreen() {
   const [savePresetSaving, setSavePresetSaving] = useState(false);
 
   // ── AI predict state ──────────────────────────────────────────────────
-  const aiPredict = useAiPredict();
   const [aiResult, setAiResult] = useState<any | null>(null);
   const [aiResultOpen, setAiResultOpen] = useState(false);
   const [aiRetrying, setAiRetrying] = useState(false);
+  const [aiStreaming, setAiStreaming] = useState(false);
   const [factorsSheetOpen, setFactorsSheetOpen] = useState(false);
   const [planChatOpen, setPlanChatOpen] = useState(false);
   const [planChatSeed, setPlanChatSeed] = useState<string | undefined>(undefined);
@@ -631,6 +630,7 @@ export default function PlanScreen() {
     setCookNowMode("now");
     setAiResult(null);
     setAiResultOpen(false);
+    setAiStreaming(false);
     setSelectedProbeId(null);
     setPrepGuideOpen(false);
     setAdvancedOpen(false);
@@ -748,6 +748,132 @@ export default function PlanScreen() {
     loadLastWrapFinish(cut.name).then(v => { setQpWrapFinish(v); setLastUsedWrapFinish(v); });
   };
 
+  // ── Partial JSON field extractor for streaming predictions ───────────
+  // Extracts progressively-available fields from the accumulated raw JSON
+  // text as OpenAI streams tokens. Returns whatever is parseable so far.
+  function parsePartialPrediction(text: string): Partial<any> {
+    const partial: Partial<any> = {};
+
+    const durMatch = text.match(/"estimatedDurationMinutes"\s*:\s*(\d+)/);
+    if (durMatch) partial.estimatedDurationMinutes = parseInt(durMatch[1], 10);
+
+    const confMatch = text.match(/"confidence"\s*:\s*"(low|medium|high)"/);
+    if (confMatch) partial.confidence = confMatch[1];
+
+    // Rationale streams character-by-character; extract even if incomplete
+    const ratIdx = text.indexOf('"rationale"');
+    if (ratIdx !== -1) {
+      const colonIdx = text.indexOf(':', ratIdx);
+      if (colonIdx !== -1) {
+        const quoteIdx = text.indexOf('"', colonIdx + 1);
+        if (quoteIdx !== -1) {
+          let result = '';
+          let i = quoteIdx + 1;
+          while (i < text.length) {
+            const c = text[i];
+            if (c === '\\' && i + 1 < text.length) {
+              const n = text[i + 1];
+              if (n === 'n') { result += '\n'; i += 2; continue; }
+              if (n === '"') { result += '"'; i += 2; continue; }
+              if (n === '\\') { result += '\\'; i += 2; continue; }
+              if (n === 't') { result += '\t'; i += 2; continue; }
+              result += n; i += 2; continue;
+            }
+            if (c === '"') break;
+            result += c;
+            i++;
+          }
+          if (result) partial.rationale = result;
+        }
+      }
+    }
+
+    // Tips — only when the complete array is present
+    const tipsIdx = text.indexOf('"tips"');
+    if (tipsIdx !== -1) {
+      const arrStart = text.indexOf('[', tipsIdx);
+      if (arrStart !== -1) {
+        let depth = 0; let inStr = false; let escaped = false;
+        let i = arrStart;
+        for (; i < text.length; i++) {
+          const c = text[i];
+          if (escaped) { escaped = false; continue; }
+          if (c === '\\' && inStr) { escaped = true; continue; }
+          if (c === '"') { inStr = !inStr; continue; }
+          if (!inStr) {
+            if (c === '[') depth++;
+            else if (c === ']') { depth--; if (depth === 0) break; }
+          }
+        }
+        if (depth === 0) {
+          try { partial.tips = JSON.parse(text.slice(arrStart, i + 1)); } catch {}
+        }
+      }
+    }
+
+    // Wrap — only when the complete object is present
+    const wrapIdx = text.indexOf('"wrap"');
+    if (wrapIdx !== -1) {
+      const objStart = text.indexOf('{', wrapIdx);
+      if (objStart !== -1) {
+        let depth = 0; let inStr = false; let escaped = false;
+        let i = objStart;
+        for (; i < text.length; i++) {
+          const c = text[i];
+          if (escaped) { escaped = false; continue; }
+          if (c === '\\' && inStr) { escaped = true; continue; }
+          if (c === '"') { inStr = !inStr; continue; }
+          if (!inStr) {
+            if (c === '{') depth++;
+            else if (c === '}') { depth--; if (depth === 0) break; }
+          }
+        }
+        if (depth === 0) {
+          try { partial.wrap = JSON.parse(text.slice(objStart, i + 1)); } catch {}
+        }
+      }
+    }
+
+    // Checkins — extract each complete object from the array as it arrives
+    const checkinsIdx = text.indexOf('"checkins"');
+    if (checkinsIdx !== -1) {
+      const arrStart = text.indexOf('[', checkinsIdx);
+      if (arrStart !== -1) {
+        const collected: any[] = [];
+        let i = arrStart + 1;
+        while (i < text.length) {
+          while (i < text.length && (text[i] === ' ' || text[i] === '\n' || text[i] === '\r' || text[i] === '\t' || text[i] === ',')) i++;
+          if (i >= text.length || text[i] === ']') break;
+          if (text[i] === '{') {
+            let depth = 0; let inStr = false; let escaped = false;
+            let j = i;
+            for (; j < text.length; j++) {
+              const c = text[j];
+              if (escaped) { escaped = false; continue; }
+              if (c === '\\' && inStr) { escaped = true; continue; }
+              if (c === '"') { inStr = !inStr; continue; }
+              if (!inStr) {
+                if (c === '{') depth++;
+                else if (c === '}') { depth--; if (depth === 0) break; }
+              }
+            }
+            if (depth === 0) {
+              try { collected.push(JSON.parse(text.slice(i, j + 1))); } catch {}
+              i = j + 1;
+            } else {
+              break;
+            }
+          } else {
+            break;
+          }
+        }
+        if (collected.length > 0) partial.checkins = collected;
+      }
+    }
+
+    return partial;
+  }
+
   // ── AI Plan ──────────────────────────────────────────────────────────
   const handleAiPlan = async () => {
     if (!selectedCut) {
@@ -755,10 +881,6 @@ export default function PlanScreen() {
       return;
     }
     // Pre-check: force-refresh the Clerk token before firing the AI call.
-    // skipCache: true bypasses the in-memory token cache so we always send a
-    // freshly issued JWT, not one that may be about to expire.  Returns null
-    // when the session has expired or been revoked — catching that here avoids
-    // a confusing "HTTP 401" dialog on top of the sign-in screen.
     const sessionToken = await getToken({ skipCache: true }).catch(() => null);
     if (!sessionToken) {
       Alert.alert(
@@ -767,62 +889,98 @@ export default function PlanScreen() {
       );
       return;
     }
-    try {
-      const predictPayload = {
-        foodType: selectedCut.name,
-        weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : undefined,
-        cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
-        targetTempF: targetTempF ? Number(targetTempF) : selectedCut.targetTempF,
-        grillId: grillId ?? undefined,
-        desiredFinishAt: serveAt ? serveAt.toISOString() : undefined,
-        preheatMinutes: preheatMinsForGrill(selectedGrill),
-        outdoorTempF: weather.tempF ?? undefined,
-        outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
-        fromFrozen: (frozenEnabled && !isProduce(selectedCut.category)) || undefined,
-        thawMethod: (frozenEnabled && !isProduce(selectedCut.category)) ? thawMethod : undefined,
-        cookingMethod: qpCookMethod ?? undefined,
-        meatStartTemp: qpMeatStartTemp ?? undefined,
-        injection: qpInjection ?? undefined,
-        spritzFrequency: qpSpritz ?? undefined,
-        wrapFinish: qpWrapFinish ?? undefined,
-        notes: notes.trim() || undefined,
-        pieceCount: sizeOutput.pieceCount ?? undefined,
-        isIndividualCook: selectedCut.isIndividualCook ?? undefined,
-        sizingLabel: sizeOutput.sizingLabel ?? undefined,
-        cookingStylePreset: activePreset ?? undefined,
-      };
-      // Open the modal immediately with a loading skeleton so the user sees
-      // feedback right away instead of waiting for the full response.
-      setAiResult(null);
-      setAiResultOpen(true);
-      const result = await aiPredict.mutateAsync({ data: predictPayload });
-      setAiResult(result);
 
-      // If the first request timed out, fire a silent background retry.
-      // The server will not serve the cached fallback for timed-out responses,
-      // so the retry goes straight to the AI. If it resolves within 30 s the
-      // modal updates in-place and the timeout banner is dismissed automatically.
-      if (result.timedOut) {
-        setAiRetrying(true);
-        aiPredict.mutateAsync({ data: predictPayload })
-          .then((retryResult) => {
-            setAiRetrying(false);
-            if (!retryResult.timedOut) {
-              setAiResult(retryResult);
-            }
-          })
-          .catch(() => {
-            setAiRetrying(false);
-          });
-      }
-    } catch (e: any) {
-      if (e?.status === 401) {
+    const predictPayload = {
+      foodType: selectedCut.name,
+      weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : undefined,
+      cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
+      targetTempF: targetTempF ? Number(targetTempF) : selectedCut.targetTempF,
+      grillId: grillId ?? undefined,
+      desiredFinishAt: serveAt ? serveAt.toISOString() : undefined,
+      preheatMinutes: preheatMinsForGrill(selectedGrill),
+      outdoorTempF: weather.tempF ?? undefined,
+      outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
+      fromFrozen: (frozenEnabled && !isProduce(selectedCut.category)) || undefined,
+      thawMethod: (frozenEnabled && !isProduce(selectedCut.category)) ? thawMethod : undefined,
+      cookingMethod: qpCookMethod ?? undefined,
+      meatStartTemp: qpMeatStartTemp ?? undefined,
+      injection: qpInjection ?? undefined,
+      spritzFrequency: qpSpritz ?? undefined,
+      wrapFinish: qpWrapFinish ?? undefined,
+      notes: notes.trim() || undefined,
+      pieceCount: sizeOutput.pieceCount ?? undefined,
+      isIndividualCook: selectedCut.isIndividualCook ?? undefined,
+      sizingLabel: sizeOutput.sizingLabel ?? undefined,
+      cookingStylePreset: activePreset ?? undefined,
+    };
+
+    // Open modal immediately — loading skeleton shows while streaming starts
+    setAiResult(null);
+    setAiResultOpen(true);
+    setAiStreaming(true);
+
+    const apiBase =
+      process.env.EXPO_PUBLIC_API_URL ??
+      (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
+
+    try {
+      const response = await fetch(`${apiBase}/api/ai/predict/stream`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify(predictPayload),
+      });
+
+      if (response.status === 401) {
+        setAiStreaming(false);
         Alert.alert(
           "Session Expired",
           "Your session has expired. Please sign out from the More tab and sign in again.",
         );
         return;
       }
+
+      if (!response.ok || !response.body) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const reader = (response.body as ReadableStream<Uint8Array>).getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let accumulated = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          try {
+            const msg = JSON.parse(trimmed);
+            if (msg.type === "delta" && typeof msg.text === "string") {
+              accumulated += msg.text;
+              const partial = parsePartialPrediction(accumulated);
+              if (Object.keys(partial).length > 0) {
+                setAiResult((prev: any) => ({ ...(prev ?? {}), ...partial }));
+              }
+            } else if (msg.type === "complete" && msg.data) {
+              setAiResult(msg.data);
+              setAiStreaming(false);
+            }
+          } catch {
+            // malformed NDJSON line — skip silently
+          }
+        }
+      }
+
+      setAiStreaming(false);
+    } catch (e: any) {
+      setAiStreaming(false);
       Alert.alert("PitMaster Error", e?.message || "Could not get PitMaster prediction. Try again.");
     }
   };
@@ -2797,10 +2955,10 @@ export default function PlanScreen() {
           style={({ pressed }) => [
             s.aiBtn,
             { borderRadius: colors.radius },
-            (aiPredict.isPending || pressed) && { opacity: 0.75 },
+            (aiStreaming || pressed) && { opacity: 0.75 },
           ]}
           onPress={handleAiPlan}
-          disabled={aiPredict.isPending}
+          disabled={aiStreaming}
         >
           <LinearGradient
             colors={["#6C3BF5", "#A855F7"]}
@@ -2808,7 +2966,7 @@ export default function PlanScreen() {
             end={{ x: 1, y: 0 }}
             style={s.aiBtnGradient}
           >
-            {aiPredict.isPending ? (
+            {aiStreaming && !aiResultOpen ? (
               <>
                 <ActivityIndicator color="#fff" size="small" />
                 <Text style={s.aiBtnText}>PitMaster is planning your cook…</Text>
@@ -3445,6 +3603,7 @@ export default function PlanScreen() {
         applyAiPlan={applyAiPlan}
         grillName={selectedGrill?.name}
         retrying={aiRetrying}
+        isStreaming={aiStreaming}
         selectedChips={{
           cookingMethod: qpCookMethod,
           meatStartTemp: qpMeatStartTemp,

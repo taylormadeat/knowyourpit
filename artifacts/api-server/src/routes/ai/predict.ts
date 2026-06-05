@@ -14,13 +14,6 @@ export type { AiCheckinItem };
 const router: IRouter = Router();
 
 // ── Prediction AI-call cache ──────────────────────────────────────────────────
-// The prediction AI call (gpt-4.1-mini) is the most expensive single call in
-// the app. When a user opens the Plan tab multiple times without changing any
-// cook parameters the inputs are identical and the AI output would be the same.
-// Cache the raw AI prediction object for 30 minutes keyed by all input params +
-// userId. The DB queries (fingerprint calibration, grill data) still run fresh
-// on every request so calibration stays up-to-date; only the LLM call is skipped.
-
 type PredictionAiOutput = {
   estimatedDurationMinutes: number;
   confidence: string;
@@ -32,7 +25,7 @@ type PredictionAiOutput = {
   recommendedServeReason: string | null;
 };
 const predictionAiCache = new Map<string, { output: PredictionAiOutput; cachedAt: number }>();
-const PREDICTION_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const PREDICTION_CACHE_TTL_MS = 30 * 60 * 1000;
 
 function makePredictCacheKey(userId: string, p: ReturnType<typeof AiPredictBody.parse>): string {
   return JSON.stringify({
@@ -59,14 +52,18 @@ function makePredictCacheKey(userId: string, p: ReturnType<typeof AiPredictBody.
   });
 }
 
-router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
-  const parsed = AiPredictBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-
-  const { grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt, preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast, fromFrozen, thawMethod, cookingMethod, injection, spritzFrequency, wrapFinish, meatStartTemp, notes, pieceCount, isIndividualCook, sizingLabel, cookingStylePreset } = parsed.data;
+// ── Shared context builder ────────────────────────────────────────────────────
+// Runs all DB queries, builds prompts, and returns a `buildFinalResponse`
+// closure that computes the final API response object from an AI prediction.
+// Both /ai/predict and /ai/predict/stream call this function so the logic
+// stays in one place.
+async function buildPredictContext(userId: string, data: ReturnType<typeof AiPredictBody.parse>) {
+  const {
+    grillId, foodType, weightLbs, cookTempF, targetTempF, desiredFinishAt,
+    preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast,
+    fromFrozen, thawMethod, cookingMethod, injection, spritzFrequency, wrapFinish,
+    meatStartTemp, notes, pieceCount, isIndividualCook, sizingLabel, cookingStylePreset,
+  } = data;
 
   const baseline = getMeatBaseline(foodType);
 
@@ -76,7 +73,6 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
   let grillLoadLevel: string | null = null;
   let grillLoadAddMins = 0;
 
-  // ── Pit-probe SQL filter (matches the isPitProbe keyword list) ─────────────
   const pitProbeSql = sql`(${temperatureReadingsTable.probeName} ILIKE '%pit%'
     OR ${temperatureReadingsTable.probeName} ILIKE '%ambient%'
     OR ${temperatureReadingsTable.probeName} ILIKE '%grill%'
@@ -92,7 +88,6 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
     AND ${temperatureReadingsTable.probeName} NOT ILIKE '%dome%'
     AND ${temperatureReadingsTable.probeName} NOT ILIKE '%lid%'))`;
 
-  // ── Round 1: fire all independent DB queries and smoker insights in parallel ─
   const [
     grillRow,
     pitStatsRow,
@@ -102,14 +97,11 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
     predictInsights,
     grillInsights,
   ] = await Promise.all([
-    // Grill metadata (null when no grillId)
     grillId
       ? db.select().from(grillsTable)
-          .where(and(eq(grillsTable.id, grillId), eq(grillsTable.userId, req.userId)))
+          .where(and(eq(grillsTable.id, grillId), eq(grillsTable.userId, userId)))
           .then(r => r[0] ?? null)
       : Promise.resolve(null),
-
-    // Pit-probe aggregate stats
     grillId
       ? db.select({
           avgPit: avg(temperatureReadingsTable.tempF),
@@ -120,8 +112,6 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
           .where(and(eq(temperatureReadingsTable.grillId, grillId), pitProbeSql))
           .then(r => r[0] ?? null)
       : Promise.resolve(null),
-
-    // Per-cook temperature swing (variance)
     grillId
       ? db.select({
           cookId: temperatureReadingsTable.cookId,
@@ -130,33 +120,24 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
           .where(and(eq(temperatureReadingsTable.grillId, grillId), pitProbeSql))
           .groupBy(temperatureReadingsTable.cookId)
       : Promise.resolve([] as { cookId: number; swing: number }[]),
-
-    // Recent completed cooks on this grill
     grillId
       ? db.select().from(cooksTable)
           .where(and(
             eq(cooksTable.grillId, grillId),
             eq(cooksTable.status, "completed"),
-            eq(cooksTable.userId, req.userId),
+            eq(cooksTable.userId, userId),
           ))
           .orderBy(desc(cooksTable.actualEndAt))
           .limit(15)
       : Promise.resolve([] as typeof cooksTable.$inferSelect[]),
-
-    // All user cooks (cross-grill history)
     db.select().from(cooksTable)
-      .where(and(eq(cooksTable.status, "completed"), eq(cooksTable.userId, req.userId)))
+      .where(and(eq(cooksTable.status, "completed"), eq(cooksTable.userId, userId)))
       .orderBy(desc(cooksTable.createdAt))
       .limit(30),
-
-    // Smoker fingerprint — user-wide
-    computeSmokerInsights(req.userId),
-
-    // Smoker fingerprint — grill-specific (null when no grillId)
-    grillId ? computeSmokerInsights(req.userId, grillId) : Promise.resolve(null),
+    computeSmokerInsights(userId),
+    grillId ? computeSmokerInsights(userId, grillId) : Promise.resolve(null),
   ]);
 
-  // ── Build grill context from Round 1 results ──────────────────────────────
   if (grillRow) {
     grillType = grillRow.type;
     const specs: string[] = [
@@ -210,12 +191,10 @@ Grill historical temperature performance (${pitStatsRow.totalReadings} pit-probe
 Note: Factor this grill's real-world temperature behavior into your estimate.`;
   }
 
-  // ── Round 2: dependent queries (need recentCookIds + allUserCook grillIds) ─
   const recentCookIds = recentCooksOnGrill.map(c => c.id);
   const uniqueGrillIds = [...new Set(allUserCooks.map(c => c.grillId).filter((id): id is number => id != null))];
 
   const [peakProbeRows, grillNameRows] = await Promise.all([
-    // Peak meat-probe temp per recent cook
     recentCookIds.length > 0
       ? db.select({
           cookId: temperatureReadingsTable.cookId,
@@ -224,15 +203,12 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
           .where(and(inArray(temperatureReadingsTable.cookId, recentCookIds), notPitProbeSql))
           .groupBy(temperatureReadingsTable.cookId)
       : Promise.resolve([] as { cookId: number; peakTempF: number | null }[]),
-
-    // Batch grill names for all grills referenced in user history (replaces sequential per-grill queries)
     uniqueGrillIds.length > 0
       ? db.select({ id: grillsTable.id, name: grillsTable.name }).from(grillsTable)
           .where(inArray(grillsTable.id, uniqueGrillIds))
       : Promise.resolve([] as { id: number; name: string }[]),
   ]);
 
-  // ── Build grill-specific cook context from Round 2 results ────────────────
   if (recentCooksOnGrill.length > 0) {
     const peakProbeByCook: Record<number, number> = {};
     for (const row of peakProbeRows) {
@@ -252,12 +228,12 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
         c.ratingFlavor ? `flavor ${c.ratingFlavor}/5` : null,
       ].filter(Boolean).join(" ");
       const wrap = c.wrapMethod && c.wrapMethod !== "none" ? `, wrapped: ${c.wrapMethod}` : "";
-      const notes = c.notes ? `, notes: "${c.notes.substring(0, 80)}"` : "";
+      const cookNotes = c.notes ? `, notes: "${c.notes.substring(0, 80)}"` : "";
       return `  • ${c.foodType}${c.weightLbs ? ` (${c.weightLbs} lbs)` : ""}` +
         `${durationMins ? ` → ${durationMins} min total` : ""}` +
         `${minsPerLbActual ? ` (~${minsPerLbActual} min/lb)` : ""}` +
         `${c.cookTempF ? ` at ${c.cookTempF}°F` : ""}` +
-        `${peakTemp}${wrap}${notes}` +
+        `${peakTemp}${wrap}${cookNotes}` +
         `${ratings ? ` [${ratings}]` : ""}`;
     };
 
@@ -285,7 +261,6 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
     c.foodType.toLowerCase().includes(firstWord)
   );
 
-  // Build grill name lookup from the batched query result (replaces sequential for-loop)
   const grillNameCache: Record<number, string> = {};
   for (const row of grillNameRows) {
     grillNameCache[row.id] = row.name;
@@ -426,7 +401,6 @@ ESTIMATION RULES:
 - wrap.wrapTempF: internal meat temp at which to wrap, or null if time-based only
 - wrap.reason: be specific — what method, what to add inside (tallow/butter/juice), how tight, what to expect after wrapping
 - wrap.restMinutes: be realistic — brisket 60–120m (can go in cooler), pork butt 45–60m, ribs 15–30m, chicken 10–15m, steaks 5–10m, fish 3–5m
-- tips: write 3 actionable, specific tips for THIS cook — not generic advice. Reference the specific food, grill type, or user's history if available.
 - rationale: explain your estimate in 1–2 sentences, mentioning the baseline and any user data you used.
 
 MEAT START TEMP RULES (apply when "Meat starting temperature" is provided):
@@ -514,15 +488,298 @@ ${grillTempContext}
 ${baselineSection}
 ${userHistorySection}${fingerprintGuidance}`;
 
-  // Check prediction cache before making the expensive AI call.
-  const cacheKey = makePredictCacheKey(req.userId, parsed.data);
-  const cached = predictionAiCache.get(cacheKey);
+  const cacheKey = makePredictCacheKey(userId, data);
 
+  const isProduceFallback = targetTempF === 0;
+  const fallbackPrediction: PredictionAiOutput = {
+    estimatedDurationMinutes: isProduceFallback ? 30 : 240,
+    confidence: "low",
+    rationale: "Could not get PitMaster prediction in time — using default estimate.",
+    tips: isProduceFallback
+      ? ["Watch for visual cues — grill marks, caramelisation, and char signal doneness", "Check frequently; produce cooks quickly and can go from done to burnt fast", "Use tongs to test texture — softness indicates doneness for most vegetables"]
+      : ["Monitor internal temperature closely", "Use a reliable meat thermometer", "Rest meat after cooking"],
+    wrap: isProduceFallback
+      ? { wrapAtMinutes: 0, method: "none", wrapTempF: null, reason: "No wrap needed — produce cooks by direct heat, visual doneness only.", restMinutes: 0 }
+      : {
+        wrapAtMinutes: 180,
+        method: "foil",
+        wrapTempF: 165,
+        reason: "Wrap in foil at around 165°F internal temp to push through the stall faster and keep moisture in. Add a splash of apple juice or beef tallow before sealing.",
+        restMinutes: 60,
+      },
+    recommendedServeAt: null,
+    recommendedServeReason: null,
+  };
+
+  const effectiveCookTempF = cookTempF ?? 225;
+
+  // ── Shared response builder ──────────────────────────────────────────────────
+  // Accepts a parsed AI prediction and returns the full API response object.
+  // Used by both /ai/predict and /ai/predict/stream so the post-processing
+  // stays in one place.
+  function buildFinalResponse(prediction: PredictionAiOutput, timedOut: boolean): object {
+    const wrap = prediction.wrap ?? {
+      wrapAtMinutes: 0,
+      method: "none",
+      wrapTempF: null,
+      reason: "No wrap needed for this cook.",
+      restMinutes: 15,
+    };
+
+    const fingerprintNoteParts: string[] = [];
+    if (calibratedMinsPerLb != null) {
+      if (weightLbs && weightLbs > 0) {
+        prediction.estimatedDurationMinutes = Math.round(calibratedMinsPerLb * weightLbs);
+      }
+      const meatLabel = meatKey.replace(/_/g, " ");
+      const baseMsg = calibrationSource === "grill"
+        ? `Adjusted for this grill's learned pace on ${meatLabel}: ~${calibratedMinsPerLb} min/lb across ${calibrationSampleSize} cook${calibrationSampleSize === 1 ? "" : "s"}`
+        : `Adjusted for your learned pace on ${meatLabel} (across all grills): ~${calibratedMinsPerLb} min/lb across ${calibrationSampleSize} cook${calibrationSampleSize === 1 ? "" : "s"}`;
+      if (calibrationBaseline != null && calibrationPctDiff != null) {
+        const dirText = calibrationPctDiff > 5
+          ? `${calibrationPctDiff}% slower than ${calibrationBaseline} min/lb baseline`
+          : calibrationPctDiff < -5
+            ? `${Math.abs(calibrationPctDiff)}% faster than ${calibrationBaseline} min/lb baseline`
+            : `right at the ${calibrationBaseline} min/lb baseline`;
+        fingerprintNoteParts.push(`${baseMsg} (${dirText}).`);
+      } else {
+        fingerprintNoteParts.push(`${baseMsg}.`);
+      }
+    }
+    if (significantBias) {
+      const setTemp = cookTempF ?? 225;
+      fingerprintNoteParts.push(
+        `This grill runs ${pitBiasF! > 0 ? "hot" : "cold"} by ~${Math.abs(pitBiasF!)}°F — set ${setTemp}°F delivers ~${Math.round(setTemp + pitBiasF!)}°F actual, factored into the plan.`
+      );
+    }
+    const fingerprintNote: string | null = fingerprintNoteParts.length > 0
+      ? fingerprintNoteParts.join(" ")
+      : null;
+    const fingerprintApplied = fingerprintNote != null;
+    const fingerprintSource: "grill" | "user" | "pit_bias_only" | null =
+      calibrationSource === "grill"
+        ? "grill"
+        : calibrationSource === "user"
+          ? "user"
+          : significantBias
+            ? "pit_bias_only"
+            : null;
+
+    const finalDurationMins = prediction.estimatedDurationMinutes;
+
+    const STALL_KEYWORDS = ["brisket", "pork butt", "pork shoulder", "pulled pork", "chuck roast", "beef short rib", "beef cheek", "picnic shoulder", "whole hog"];
+    const isStallCut = STALL_KEYWORDS.some(k => foodType.toLowerCase().includes(k));
+
+    let stallMins = 0;
+    if (isStallCut && effectiveCookTempF <= 275) {
+      stallMins = effectiveCookTempF <= 240 ? 75 : 45;
+    }
+
+    let fingerprintAddMins = 0;
+    if (calibratedMinsPerLb != null && weightLbs && weightLbs > 0 && baseline) {
+      const baselineMins = Math.round(baseline.minsPerLb * weightLbs);
+      const calibratedMins = Math.round(calibratedMinsPerLb * weightLbs);
+      fingerprintAddMins = calibratedMins - baselineMins;
+    }
+
+    let outdoorTempAddMins = 0;
+    if (outdoorTempF != null) {
+      if (outdoorTempF < 32) outdoorTempAddMins = 25;
+      else if (outdoorTempF < 45) outdoorTempAddMins = 15;
+      else if (outdoorTempF < 55) outdoorTempAddMins = 8;
+    }
+
+    const positiveAddons = stallMins + Math.max(0, fingerprintAddMins) + grillLoadAddMins + outdoorTempAddMins;
+    const baseMins = Math.max(finalDurationMins - positiveAddons, 30);
+
+    interface FactorBreakdownItem {
+      label: string;
+      minutes: number;
+      colorHex: string;
+      description: string;
+      icon: string;
+    }
+
+    const factorItems: FactorBreakdownItem[] = [];
+
+    factorItems.push({
+      label: "Base Cook Time",
+      minutes: baseMins,
+      colorHex: "#E84820",
+      description: baseline
+        ? `Core cook time from the ${baseline.minsPerLb} min/lb baseline for ${foodType}.`
+        : `Core cook time estimate for ${foodType} based on technique and grill context.`,
+      icon: "zap",
+    });
+
+    if (stallMins > 0) {
+      factorItems.push({
+        label: "Stall Allowance",
+        minutes: stallMins,
+        colorHex: "#8B5CF6",
+        description: `Large cuts plateau around 160°F as surface moisture evaporates. Your plan builds in ${stallMins} min for the stall.`,
+        icon: "pause-circle",
+      });
+    }
+
+    if (grillLoadAddMins > 0 && grillLoadLevel) {
+      factorItems.push({
+        label: "Grill Load",
+        minutes: grillLoadAddMins,
+        colorHex: "#F97316",
+        description: `A ${grillLoadLevel}-density grill load restricts airflow and extends cook time for even results.`,
+        icon: "layers",
+      });
+    }
+
+    if (outdoorTempAddMins > 0 && outdoorTempF != null) {
+      factorItems.push({
+        label: "Cold Weather",
+        minutes: outdoorTempAddMins,
+        colorHex: "#38BDF8",
+        description: `${outdoorTempF}°F ambient temp means the grill works harder to hold target temperature.`,
+        icon: "thermometer",
+      });
+    }
+
+    if (fingerprintAddMins >= 10) {
+      factorItems.push({
+        label: "Learned Pace (Slower)",
+        minutes: fingerprintAddMins,
+        colorHex: "#F59E0B",
+        description: `Your ${calibrationSource === "grill" ? "grill's" : "historical"} actual pace of ${calibratedMinsPerLb} min/lb runs slower than the ${baseline?.minsPerLb ?? "baseline"} min/lb reference — based on ${calibrationSampleSize} cook${calibrationSampleSize === 1 ? "" : "s"}.`,
+        icon: "trending-up",
+      });
+    }
+
+    if (fromFrozen && weightLbs && weightLbs > 0) {
+      let approxThawMins = 0;
+      if (thawMethod === "fridge") {
+        approxThawMins = Math.max(24 * 60, Math.ceil(weightLbs / 5) * 24 * 60);
+      } else {
+        approxThawMins = Math.round(weightLbs * 30);
+      }
+      const approxTemperMins = 45;
+      const thawLabel = thawMethod === "fridge" ? "Fridge thaw" : thawMethod === "cold_water" ? "Cold-water thaw" : "Thaw";
+      factorItems.push({
+        label: "Thaw + Temper",
+        minutes: approxThawMins + approxTemperMins,
+        colorHex: "#3B82F6",
+        description: `${thawLabel} (~${Math.round(approxThawMins / 60)}h) + ${approxTemperMins} min counter temper. This happens before the active cook clock starts.`,
+        icon: "box",
+      });
+    }
+
+    const factorBreakdown: FactorBreakdownItem[] = factorItems.length > 1 ? factorItems : [];
+
+    const now = new Date();
+    const cookMs = prediction.estimatedDurationMinutes * 60000;
+    const preheatMs = preheatMinutes * 60000;
+    const restMs = (wrap.restMinutes ?? 0) * 60000;
+
+    let suggestedStartAt: Date;
+    let estimatedFinishAt: Date;
+    let grillLightAt: Date;
+    let serveAt: Date;
+
+    if (desiredFinishAt) {
+      const serveTime = new Date(desiredFinishAt);
+      serveAt = serveTime;
+      estimatedFinishAt = new Date(serveTime.getTime() - restMs);
+      suggestedStartAt = new Date(estimatedFinishAt.getTime() - cookMs);
+      grillLightAt = new Date(suggestedStartAt.getTime() - preheatMs);
+    } else {
+      grillLightAt = now;
+      suggestedStartAt = new Date(now.getTime() + preheatMs);
+      estimatedFinishAt = new Date(suggestedStartAt.getTime() + cookMs);
+      serveAt = new Date(estimatedFinishAt.getTime() + restMs);
+    }
+
+    const finalConfidence = hasRichHistory && prediction.confidence !== "high"
+      ? "high"
+      : (prediction.confidence || "medium");
+
+    const rawCheckins: unknown[] = Array.isArray(prediction.checkins) ? prediction.checkins : [];
+    const checkins: AiCheckinItem[] = rawCheckins
+      .filter((c): c is Record<string, unknown> => typeof c === "object" && c !== null)
+      .map((c) => ({
+        offsetMinutes: typeof c.offsetMinutes === "number" ? c.offsetMinutes : 0,
+        label: typeof c.label === "string" ? c.label : "Check-In",
+        coachingNote: typeof c.coachingNote === "string" ? c.coachingNote : "",
+        visualCues: Array.isArray(c.visualCues)
+          ? (c.visualCues as unknown[]).filter((v): v is string => typeof v === "string")
+          : [],
+        expectedInternalTempRange:
+          Array.isArray(c.expectedInternalTempRange) &&
+          c.expectedInternalTempRange.length === 2 &&
+          typeof (c.expectedInternalTempRange as unknown[])[0] === "number" &&
+          typeof (c.expectedInternalTempRange as unknown[])[1] === "number"
+            ? (c.expectedInternalTempRange as [number, number])
+            : null,
+      }))
+      .filter((c) => c.offsetMinutes >= 0 && c.label.length > 0);
+
+    return {
+      estimatedDurationMinutes: prediction.estimatedDurationMinutes,
+      preheatMinutes,
+      grillLightAt: grillLightAt.toISOString(),
+      suggestedStartAt: suggestedStartAt.toISOString(),
+      estimatedFinishAt: estimatedFinishAt.toISOString(),
+      serveAt: serveAt.toISOString(),
+      wrap: {
+        wrapAtMinutes: wrap.wrapAtMinutes ?? 0,
+        method: wrap.method ?? "none",
+        wrapTempF: wrap.wrapTempF ?? null,
+        reason: wrap.reason ?? "",
+        restMinutes: wrap.restMinutes ?? 0,
+      },
+      checkins,
+      confidence: finalConfidence,
+      rationale: prediction.rationale || "Based on food type and weight.",
+      tips: prediction.tips || [],
+      fingerprintApplied,
+      fingerprintNote,
+      fingerprintSource,
+      ...(factorBreakdown.length > 0 ? { factorBreakdown } : {}),
+      recommendedServeAt: fromFrozen
+        ? (() => {
+            if (typeof prediction.recommendedServeAt !== "string" || !prediction.recommendedServeAt.trim()) return null;
+            const ms = new Date(prediction.recommendedServeAt.trim()).getTime();
+            const now = Date.now();
+            // Must be a valid ISO timestamp, not in the past (>1 min grace), not more than 2 years out
+            if (isNaN(ms) || ms < now - 60_000 || ms > now + 2 * 365 * 24 * 60 * 60 * 1000) return null;
+            return new Date(ms).toISOString();
+          })()
+        : null,
+      recommendedServeReason: fromFrozen
+        ? (typeof prediction.recommendedServeReason === "string" && prediction.recommendedServeReason.trim().length > 0
+          ? prediction.recommendedServeReason.trim().slice(0, 500)
+          : null)
+        : null,
+      timedOut,
+    };
+  }
+
+  return { systemPrompt, userPrompt, cacheKey, fallbackPrediction, buildFinalResponse };
+}
+
+// ── Non-streaming endpoint ────────────────────────────────────────────────────
+
+router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
+  const parsed = AiPredictBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const ctx = await buildPredictContext(req.userId, parsed.data);
+
+  const cached = predictionAiCache.get(ctx.cacheKey);
   let prediction: PredictionAiOutput;
   let timedOut = false;
 
   if (cached && Date.now() - cached.cachedAt < PREDICTION_CACHE_TTL_MS) {
-    prediction = cached.output as typeof prediction;
+    prediction = cached.output as PredictionAiOutput;
   } else {
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => abortController.abort(), 50_000);
@@ -533,8 +790,8 @@ ${userHistorySection}${fingerprintGuidance}`;
           model: "gpt-4.1-mini",
           max_completion_tokens: 1400,
           messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
+            { role: "system", content: ctx.systemPrompt },
+            { role: "user", content: ctx.userPrompt },
           ],
         },
         { signal: abortController.signal },
@@ -546,47 +803,20 @@ ${userHistorySection}${fingerprintGuidance}`;
       clearTimeout(timeoutId);
     }
 
-    const isProduceFallback = targetTempF === 0;
-    const fallbackPrediction: PredictionAiOutput = {
-      estimatedDurationMinutes: isProduceFallback ? 30 : 240,
-      confidence: "low",
-      rationale: "Could not get PitMaster prediction in time — using default estimate.",
-      tips: isProduceFallback
-        ? ["Watch for visual cues — grill marks, caramelisation, and char signal doneness", "Check frequently; produce cooks quickly and can go from done to burnt fast", "Use tongs to test texture — softness indicates doneness for most vegetables"]
-        : ["Monitor internal temperature closely", "Use a reliable meat thermometer", "Rest meat after cooking"],
-      wrap: isProduceFallback
-        ? { wrapAtMinutes: 0, method: "none", wrapTempF: null, reason: "No wrap needed — produce cooks by direct heat, visual doneness only.", restMinutes: 0 }
-        : {
-          wrapAtMinutes: 180,
-          method: "foil",
-          wrapTempF: 165,
-          reason: "Wrap in foil at around 165°F internal temp to push through the stall faster and keep moisture in. Add a splash of apple juice or beef tallow before sealing.",
-          restMinutes: 60,
-        },
-      recommendedServeAt: null,
-      recommendedServeReason: null,
-    };
-
     if (aiResponse === null) {
-      // Timeout or network error — use the hardcoded fallback directly so
-      // downstream date math never receives undefined/NaN values.
-      prediction = fallbackPrediction;
+      prediction = ctx.fallbackPrediction;
     } else {
       const content = aiResponse.choices[0]?.message?.content ?? "{}";
       const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
-
       try {
         prediction = JSON.parse(cleaned);
       } catch {
-        prediction = fallbackPrediction;
+        prediction = ctx.fallbackPrediction;
       }
     }
 
-    // Only cache successful (non-timed-out) predictions. Caching a fallback
-    // would cause all retries within the TTL window to hit the cache and
-    // return the same rough estimate instead of getting a real AI response.
     if (!timedOut) {
-      predictionAiCache.set(cacheKey, {
+      predictionAiCache.set(ctx.cacheKey, {
         output: {
           estimatedDurationMinutes: prediction.estimatedDurationMinutes,
           confidence: prediction.confidence,
@@ -602,265 +832,106 @@ ${userHistorySection}${fingerprintGuidance}`;
     }
   }
 
-  const wrap = prediction.wrap ?? {
-    wrapAtMinutes: 0,
-    method: "none",
-    wrapTempF: null,
-    reason: "No wrap needed for this cook.",
-    restMinutes: 15,
-  };
+  res.json(ctx.buildFinalResponse(prediction, timedOut));
+});
 
-  const fingerprintNoteParts: string[] = [];
-  if (calibratedMinsPerLb != null) {
-    if (weightLbs && weightLbs > 0) {
-      prediction.estimatedDurationMinutes = Math.round(calibratedMinsPerLb * weightLbs);
-    }
-    const meatLabel = meatKey.replace(/_/g, " ");
-    const baseMsg = calibrationSource === "grill"
-      ? `Adjusted for this grill's learned pace on ${meatLabel}: ~${calibratedMinsPerLb} min/lb across ${calibrationSampleSize} cook${calibrationSampleSize === 1 ? "" : "s"}`
-      : `Adjusted for your learned pace on ${meatLabel} (across all grills): ~${calibratedMinsPerLb} min/lb across ${calibrationSampleSize} cook${calibrationSampleSize === 1 ? "" : "s"}`;
-    if (calibrationBaseline != null && calibrationPctDiff != null) {
-      const dirText = calibrationPctDiff > 5
-        ? `${calibrationPctDiff}% slower than ${calibrationBaseline} min/lb baseline`
-        : calibrationPctDiff < -5
-          ? `${Math.abs(calibrationPctDiff)}% faster than ${calibrationBaseline} min/lb baseline`
-          : `right at the ${calibrationBaseline} min/lb baseline`;
-      fingerprintNoteParts.push(`${baseMsg} (${dirText}).`);
-    } else {
-      fingerprintNoteParts.push(`${baseMsg}.`);
-    }
+// ── Streaming endpoint ────────────────────────────────────────────────────────
+// Streams newline-delimited JSON chunks as OpenAI generates tokens.
+// Each line is one of:
+//   {"type":"delta","text":"..."}    — raw token text from OpenAI
+//   {"type":"complete","data":{...}} — full computed response (same shape as /ai/predict)
+//
+// Fallback and cached responses are returned as a single "complete" chunk
+// without any "delta" chunks preceding them.
+
+router.post("/ai/predict/stream", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
+  const parsed = AiPredictBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
   }
-  if (significantBias) {
-    const setTemp = cookTempF ?? 225;
-    fingerprintNoteParts.push(
-      `This grill runs ${pitBiasF! > 0 ? "hot" : "cold"} by ~${Math.abs(pitBiasF!)}°F — set ${setTemp}°F delivers ~${Math.round(setTemp + pitBiasF!)}°F actual, factored into the plan.`
+
+  const ctx = await buildPredictContext(req.userId, parsed.data);
+
+  res.setHeader("Content-Type", "application/x-ndjson");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.setHeader("Transfer-Encoding", "chunked");
+
+  // Cached — send complete immediately with no deltas
+  const cached = predictionAiCache.get(ctx.cacheKey);
+  if (cached && Date.now() - cached.cachedAt < PREDICTION_CACHE_TTL_MS) {
+    res.write(JSON.stringify({ type: "complete", data: ctx.buildFinalResponse(cached.output as PredictionAiOutput, false) }) + "\n");
+    res.end();
+    return;
+  }
+
+  let clientClosed = false;
+  req.on("close", () => { clientClosed = true; });
+
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), 55_000);
+
+  try {
+    const stream = await openai.chat.completions.create(
+      {
+        model: "gpt-4.1-mini",
+        max_completion_tokens: 1400,
+        messages: [
+          { role: "system", content: ctx.systemPrompt },
+          { role: "user", content: ctx.userPrompt },
+        ],
+        stream: true,
+      },
+      { signal: abortController.signal },
     );
-  }
-  const fingerprintNote: string | null = fingerprintNoteParts.length > 0
-    ? fingerprintNoteParts.join(" ")
-    : null;
-  const fingerprintApplied = fingerprintNote != null;
-  const fingerprintSource: "grill" | "user" | "pit_bias_only" | null =
-    calibrationSource === "grill"
-      ? "grill"
-      : calibrationSource === "user"
-        ? "user"
-        : significantBias
-          ? "pit_bias_only"
-          : null;
 
-  // ── Cook Factors Breakdown ────────────────────────────────────────────────
-  // Constructs an ordered list of time-contribution segments that explain what
-  // drives the estimated cook duration. The first item is always the "base"
-  // (estimate minus identified add-ons); subsequent items are named add-ons.
-  // Frozen thaw+temper is appended as an additional context segment since it
-  // falls outside the active cook window.
-  const finalDurationMins = prediction.estimatedDurationMinutes;
-
-  const STALL_KEYWORDS = ["brisket", "pork butt", "pork shoulder", "pulled pork", "chuck roast", "beef short rib", "beef cheek", "picnic shoulder", "whole hog"];
-  const isStallCut = STALL_KEYWORDS.some(k => foodType.toLowerCase().includes(k));
-  const effectiveCookTempF = cookTempF ?? 225;
-
-  let stallMins = 0;
-  if (isStallCut && effectiveCookTempF <= 275) {
-    stallMins = effectiveCookTempF <= 240 ? 75 : 45;
-  }
-
-  let fingerprintAddMins = 0;
-  if (calibratedMinsPerLb != null && weightLbs && weightLbs > 0 && baseline) {
-    const baselineMins = Math.round(baseline.minsPerLb * weightLbs);
-    const calibratedMins = Math.round(calibratedMinsPerLb * weightLbs);
-    fingerprintAddMins = calibratedMins - baselineMins;
-  }
-
-  let outdoorTempAddMins = 0;
-  if (outdoorTempF != null) {
-    if (outdoorTempF < 32) outdoorTempAddMins = 25;
-    else if (outdoorTempF < 45) outdoorTempAddMins = 15;
-    else if (outdoorTempF < 55) outdoorTempAddMins = 8;
-  }
-
-  const positiveAddons = stallMins + Math.max(0, fingerprintAddMins) + grillLoadAddMins + outdoorTempAddMins;
-  const baseMins = Math.max(finalDurationMins - positiveAddons, 30);
-
-  interface FactorBreakdownItem {
-    label: string;
-    minutes: number;
-    colorHex: string;
-    description: string;
-    icon: string;
-  }
-
-  const factorItems: FactorBreakdownItem[] = [];
-
-  factorItems.push({
-    label: "Base Cook Time",
-    minutes: baseMins,
-    colorHex: "#E84820",
-    description: baseline
-      ? `Core cook time from the ${baseline.minsPerLb} min/lb baseline for ${foodType}.`
-      : `Core cook time estimate for ${foodType} based on technique and grill context.`,
-    icon: "zap",
-  });
-
-  if (stallMins > 0) {
-    factorItems.push({
-      label: "Stall Allowance",
-      minutes: stallMins,
-      colorHex: "#8B5CF6",
-      description: `Large cuts plateau around 160°F as surface moisture evaporates. Your plan builds in ${stallMins} min for the stall.`,
-      icon: "pause-circle",
-    });
-  }
-
-  if (grillLoadAddMins > 0 && grillLoadLevel) {
-    factorItems.push({
-      label: "Grill Load",
-      minutes: grillLoadAddMins,
-      colorHex: "#F97316",
-      description: `A ${grillLoadLevel}-density grill load restricts airflow and extends cook time for even results.`,
-      icon: "layers",
-    });
-  }
-
-  if (outdoorTempAddMins > 0 && outdoorTempF != null) {
-    factorItems.push({
-      label: "Cold Weather",
-      minutes: outdoorTempAddMins,
-      colorHex: "#38BDF8",
-      description: `${outdoorTempF}°F ambient temp means the grill works harder to hold target temperature.`,
-      icon: "thermometer",
-    });
-  }
-
-  // Only include a Learned Pace segment when the fingerprint ADDS time (slower
-  // than baseline). A faster grill reduces the estimate directly — the base
-  // already reflects the calibrated pace so there is no additive segment to
-  // show; the faster-pace fact is communicated via a qualitative chip in the UI.
-  if (fingerprintAddMins >= 10) {
-    factorItems.push({
-      label: "Learned Pace (Slower)",
-      minutes: fingerprintAddMins,
-      colorHex: "#F59E0B",
-      description: `Your ${calibrationSource === "grill" ? "grill's" : "historical"} actual pace of ${calibratedMinsPerLb} min/lb runs slower than the ${baseline?.minsPerLb ?? "baseline"} min/lb reference — based on ${calibrationSampleSize} cook${calibrationSampleSize === 1 ? "" : "s"}.`,
-      icon: "trending-up",
-    });
-  }
-
-  // Frozen thaw + temper: additional time outside the active cook window
-  if (fromFrozen && weightLbs && weightLbs > 0) {
-    let approxThawMins = 0;
-    if (thawMethod === "fridge") {
-      approxThawMins = Math.max(24 * 60, Math.ceil(weightLbs / 5) * 24 * 60);
-    } else {
-      // cold_water or unknown: ~30 min per lb
-      approxThawMins = Math.round(weightLbs * 30);
+    let accumulated = "";
+    for await (const chunk of stream) {
+      if (clientClosed) break;
+      const delta = chunk.choices[0]?.delta?.content ?? "";
+      if (delta) {
+        accumulated += delta;
+        res.write(JSON.stringify({ type: "delta", text: delta }) + "\n");
+      }
     }
-    const approxTemperMins = 45;
-    const thawLabel = thawMethod === "fridge" ? "Fridge thaw" : thawMethod === "cold_water" ? "Cold-water thaw" : "Thaw";
-    factorItems.push({
-      label: "Thaw + Temper",
-      minutes: approxThawMins + approxTemperMins,
-      colorHex: "#3B82F6",
-      description: `${thawLabel} (~${Math.round(approxThawMins / 60)}h) + ${approxTemperMins} min counter temper. This happens before the active cook clock starts.`,
-      icon: "box",
+
+    clearTimeout(timeoutId);
+
+    if (clientClosed) return;
+
+    const cleaned = accumulated.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+    let prediction: PredictionAiOutput;
+    try {
+      prediction = JSON.parse(cleaned);
+    } catch {
+      prediction = ctx.fallbackPrediction;
+    }
+
+    predictionAiCache.set(ctx.cacheKey, {
+      output: {
+        estimatedDurationMinutes: prediction.estimatedDurationMinutes,
+        confidence: prediction.confidence,
+        rationale: prediction.rationale,
+        tips: prediction.tips,
+        wrap: prediction.wrap,
+        checkins: prediction.checkins ?? null,
+        recommendedServeAt: prediction.recommendedServeAt ?? null,
+        recommendedServeReason: prediction.recommendedServeReason ?? null,
+      },
+      cachedAt: Date.now(),
     });
+
+    res.write(JSON.stringify({ type: "complete", data: ctx.buildFinalResponse(prediction, false) }) + "\n");
+    res.end();
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (!clientClosed) {
+      req.log.warn({ err }, "AI predict stream error — falling back to default prediction");
+      res.write(JSON.stringify({ type: "complete", data: ctx.buildFinalResponse(ctx.fallbackPrediction, true) }) + "\n");
+      res.end();
+    }
   }
-
-  // Only emit a breakdown when there's more than just the base item — a bare
-  // base-only breakdown adds no insight.
-  const factorBreakdown: FactorBreakdownItem[] = factorItems.length > 1 ? factorItems : [];
-
-  const now = new Date();
-  const cookMs = prediction.estimatedDurationMinutes * 60000;
-  const preheatMs = preheatMinutes * 60000;
-  const restMs = (wrap.restMinutes ?? 0) * 60000;
-
-  let suggestedStartAt: Date;
-  let estimatedFinishAt: Date;
-  let grillLightAt: Date;
-  let serveAt: Date;
-
-  if (desiredFinishAt) {
-    const serveTime = new Date(desiredFinishAt);
-    serveAt = serveTime;
-    estimatedFinishAt = new Date(serveTime.getTime() - restMs);
-    suggestedStartAt = new Date(estimatedFinishAt.getTime() - cookMs);
-    grillLightAt = new Date(suggestedStartAt.getTime() - preheatMs);
-  } else {
-    grillLightAt = now;
-    suggestedStartAt = new Date(now.getTime() + preheatMs);
-    estimatedFinishAt = new Date(suggestedStartAt.getTime() + cookMs);
-    serveAt = new Date(estimatedFinishAt.getTime() + restMs);
-  }
-
-  const finalConfidence = hasRichHistory && prediction.confidence !== "high"
-    ? "high"
-    : (prediction.confidence || "medium");
-
-  // Sanitise and validate AI-generated check-ins. Filter out malformed items
-  // so the client always receives a well-typed array (never null/undefined).
-  const rawCheckins: unknown[] = Array.isArray(prediction.checkins) ? prediction.checkins : [];
-  const checkins: AiCheckinItem[] = rawCheckins
-    .filter((c): c is Record<string, unknown> => typeof c === "object" && c !== null)
-    .map((c) => ({
-      offsetMinutes: typeof c.offsetMinutes === "number" ? c.offsetMinutes : 0,
-      label: typeof c.label === "string" ? c.label : "Check-In",
-      coachingNote: typeof c.coachingNote === "string" ? c.coachingNote : "",
-      visualCues: Array.isArray(c.visualCues)
-        ? (c.visualCues as unknown[]).filter((v): v is string => typeof v === "string")
-        : [],
-      expectedInternalTempRange:
-        Array.isArray(c.expectedInternalTempRange) &&
-        c.expectedInternalTempRange.length === 2 &&
-        typeof (c.expectedInternalTempRange as unknown[])[0] === "number" &&
-        typeof (c.expectedInternalTempRange as unknown[])[1] === "number"
-          ? (c.expectedInternalTempRange as [number, number])
-          : null,
-    }))
-    .filter((c) => c.offsetMinutes >= 0 && c.label.length > 0);
-
-  res.json({
-    estimatedDurationMinutes: prediction.estimatedDurationMinutes,
-    preheatMinutes,
-    grillLightAt: grillLightAt.toISOString(),
-    suggestedStartAt: suggestedStartAt.toISOString(),
-    estimatedFinishAt: estimatedFinishAt.toISOString(),
-    serveAt: serveAt.toISOString(),
-    wrap: {
-      wrapAtMinutes: wrap.wrapAtMinutes ?? 0,
-      method: wrap.method ?? "none",
-      wrapTempF: wrap.wrapTempF ?? null,
-      reason: wrap.reason ?? "",
-      restMinutes: wrap.restMinutes ?? 0,
-    },
-    checkins,
-    confidence: finalConfidence,
-    rationale: prediction.rationale || "Based on food type and weight.",
-    tips: prediction.tips || [],
-    fingerprintApplied,
-    fingerprintNote,
-    fingerprintSource,
-    recommendedServeAt: (() => {
-      if (!fromFrozen) return null;
-      const raw = prediction.recommendedServeAt;
-      if (raw == null || typeof raw !== "string") return null;
-      const parsedTs = Date.parse(raw);
-      if (Number.isNaN(parsedTs)) return null;
-      // Sanity bound: must be in the future and within 14 days from now.
-      const nowMs = Date.now();
-      const maxMs = nowMs + 14 * 24 * 60 * 60 * 1000;
-      if (parsedTs <= nowMs || parsedTs > maxMs) return null;
-      return new Date(parsedTs).toISOString();
-    })(),
-    recommendedServeReason: fromFrozen
-      ? (typeof prediction.recommendedServeReason === "string" && prediction.recommendedServeReason.trim().length > 0
-        ? prediction.recommendedServeReason.trim().slice(0, 500)
-        : null)
-      : null,
-    ...(factorBreakdown.length > 0 ? { factorBreakdown } : {}),
-    timedOut,
-  });
 });
 
 export default router;
