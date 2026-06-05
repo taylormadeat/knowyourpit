@@ -59,6 +59,355 @@ function ShimmerBar({ width, colors }: { width: number | `${number}%`; colors: C
   );
 }
 
+// ── Timeline entry types ─────────────────────────────────────────────────────
+
+type EventEntry = {
+  kind: "event";
+  icon: string;
+  label: string;
+  absoluteMs: number;
+};
+
+type CheckinEntry = {
+  kind: "checkin";
+  index: number;
+  ci: any;
+  absoluteMs: number;
+};
+
+type WrapEntry = {
+  kind: "wrap";
+  method: string;
+  wrapTempF?: number;
+  reason?: string;
+  absoluteMs: number;
+};
+
+type RestEntry = {
+  kind: "rest";
+  restMinutes: number;
+  absoluteMs: number;
+};
+
+type TimelineEntry = EventEntry | CheckinEntry | WrapEntry | RestEntry;
+
+function buildTimeline(aiResult: any): TimelineEntry[] {
+  const entries: TimelineEntry[] = [];
+
+  const parseMs = (val: string | null | undefined): number | null => {
+    if (!val) return null;
+    const ms = new Date(val).getTime();
+    return isNaN(ms) ? null : ms;
+  };
+
+  const grillLightMs = parseMs(aiResult.grillLightAt);
+  const startMs = parseMs(aiResult.suggestedStartAt);
+  const finishMs = parseMs(aiResult.estimatedFinishAt);
+  const serveMs = parseMs(aiResult.serveAt);
+
+  if (grillLightMs != null) {
+    entries.push({ kind: "event", icon: "power", label: "Light grill", absoluteMs: grillLightMs });
+  }
+  if (startMs != null) {
+    entries.push({ kind: "event", icon: "zap", label: "Put food on", absoluteMs: startMs });
+  }
+
+  // Check-ins (offset from suggestedStartAt)
+  if (startMs != null && Array.isArray(aiResult.checkins)) {
+    for (let i = 0; i < aiResult.checkins.length; i++) {
+      const ci = aiResult.checkins[i];
+      const absMs = startMs + (ci.offsetMinutes ?? 0) * 60_000;
+      entries.push({ kind: "checkin", index: i, ci, absoluteMs: absMs });
+    }
+  }
+
+  // Wrap step (only when wrap method is not "none" and has a time offset)
+  if (startMs != null && aiResult.wrap && aiResult.wrap.method !== "none" && aiResult.wrap.wrapAtMinutes > 0) {
+    const wrapMs = startMs + aiResult.wrap.wrapAtMinutes * 60_000;
+    entries.push({
+      kind: "wrap",
+      method: aiResult.wrap.method,
+      wrapTempF: aiResult.wrap.wrapTempF,
+      reason: aiResult.wrap.reason,
+      absoluteMs: wrapMs,
+    });
+  }
+
+  if (finishMs != null) {
+    entries.push({ kind: "event", icon: "pause", label: "Pull off grill", absoluteMs: finishMs });
+  }
+
+  // Rest step — placed just after pull-off (finishMs + 1ms so it sorts after)
+  if (finishMs != null && aiResult.wrap?.restMinutes > 0) {
+    entries.push({
+      kind: "rest",
+      restMinutes: aiResult.wrap.restMinutes,
+      absoluteMs: finishMs + 1,
+    });
+  }
+
+  if (serveMs != null) {
+    entries.push({ kind: "event", icon: "check-circle", label: "Ready to serve", absoluteMs: serveMs });
+  }
+
+  entries.sort((a, b) => a.absoluteMs - b.absoluteMs);
+  return entries;
+}
+
+// ── Subcomponents ────────────────────────────────────────────────────────────
+
+function TimelineConnector({ colors }: { colors: Colors }) {
+  return (
+    <View style={{
+      width: 1,
+      flex: 1,
+      minHeight: 10,
+      backgroundColor: colors.border,
+      marginTop: 3,
+      alignSelf: "center",
+    }} />
+  );
+}
+
+function EventRow({
+  icon,
+  label,
+  absoluteMs,
+  colors,
+  isLast,
+}: {
+  icon: string;
+  label: string;
+  absoluteMs: number;
+  colors: Colors;
+  isLast: boolean;
+}) {
+  return (
+    <View style={{ flexDirection: "row", gap: 12 }}>
+      <View style={{ alignItems: "center", width: 36 }}>
+        <View style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#6C3BF5" + "20",
+          borderWidth: 1,
+          borderColor: "#6C3BF5" + "50",
+        }}>
+          <Feather name={icon as any} size={16} color="#6C3BF5" />
+        </View>
+        {!isLast && <TimelineConnector colors={colors} />}
+      </View>
+      <View style={{ flex: 1, paddingBottom: isLast ? 0 : 14, justifyContent: "center" }}>
+        <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginBottom: 1 }}>
+          {label}
+        </Text>
+        <Text style={{ fontSize: 14, fontFamily: "Inter_700Bold", color: colors.foreground }}>
+          {formatDateTime(new Date(absoluteMs))}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function CheckinRow({
+  ci,
+  absoluteMs,
+  expanded,
+  onToggle,
+  colors,
+  isLast,
+}: {
+  ci: any;
+  absoluteMs: number;
+  expanded: boolean;
+  onToggle: () => void;
+  colors: Colors;
+  isLast: boolean;
+}) {
+  const isWrap = /wrap/i.test(ci.label ?? "");
+  const iconName = isWrap ? "package" : "clock";
+  const accentColor = isWrap ? "#F59E0B" : "#6C3BF5";
+  const hasDetail = !!(ci.coachingNote || ci.expectedInternalTempRange);
+
+  return (
+    <View style={{ flexDirection: "row", gap: 12 }}>
+      <View style={{ alignItems: "center", width: 36 }}>
+        <View style={{
+          width: 30,
+          height: 30,
+          borderRadius: 15,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: accentColor + "18",
+          borderWidth: 1,
+          borderColor: accentColor + "40",
+        }}>
+          <Feather name={iconName as any} size={12} color={accentColor} />
+        </View>
+        {!isLast && <TimelineConnector colors={colors} />}
+      </View>
+      <View style={{ flex: 1, paddingBottom: isLast ? 0 : 12 }}>
+        <Pressable
+          onPress={hasDetail ? onToggle : undefined}
+          style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+          hitSlop={6}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginBottom: 1 }}>
+              {formatDateTime(new Date(absoluteMs))} · +{fmtDuration(ci.offsetMinutes)}
+            </Text>
+            <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: isWrap ? "#F59E0B" : colors.foreground }}>
+              {ci.label}
+            </Text>
+          </View>
+          {ci.expectedInternalTempRange && (
+            <View style={{
+              backgroundColor: colors.muted,
+              borderRadius: 8,
+              paddingHorizontal: 7,
+              paddingVertical: 3,
+            }}>
+              <Text style={{ fontSize: 10, fontFamily: "Inter_700Bold", color: colors.foreground }}>
+                {ci.expectedInternalTempRange[0]}–{ci.expectedInternalTempRange[1]}°F
+              </Text>
+            </View>
+          )}
+          {hasDetail && (
+            <Feather
+              name={expanded ? "chevron-up" : "chevron-down"}
+              size={14}
+              color={colors.mutedForeground}
+            />
+          )}
+        </Pressable>
+        {expanded && ci.coachingNote && (
+          <Text style={{
+            fontSize: 12,
+            fontFamily: "Inter_400Regular",
+            color: colors.mutedForeground,
+            lineHeight: 17,
+            marginTop: 6,
+            paddingRight: 4,
+          }}>
+            {ci.coachingNote}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function WrapRow({
+  entry,
+  colors,
+  isLast,
+}: {
+  entry: WrapEntry;
+  colors: Colors;
+  isLast: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const methodLabel =
+    entry.method === "butcher_paper" ? "Butcher Paper Wrap" : "Foil Wrap (Texas Crutch)";
+
+  return (
+    <View style={{ flexDirection: "row", gap: 12 }}>
+      <View style={{ alignItems: "center", width: 36 }}>
+        <View style={{
+          width: 30,
+          height: 30,
+          borderRadius: 15,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#F59E0B18",
+          borderWidth: 1,
+          borderColor: "#F59E0B40",
+        }}>
+          <Feather name="package" size={12} color="#F59E0B" />
+        </View>
+        {!isLast && <TimelineConnector colors={colors} />}
+      </View>
+      <View style={{ flex: 1, paddingBottom: isLast ? 0 : 12 }}>
+        <Pressable
+          onPress={entry.reason ? () => setExpanded(v => !v) : undefined}
+          style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+          hitSlop={6}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginBottom: 1 }}>
+              {formatDateTime(new Date(entry.absoluteMs))}
+              {entry.wrapTempF ? ` · ${entry.wrapTempF}°F internal` : ""}
+            </Text>
+            <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#F59E0B" }}>
+              {methodLabel}
+            </Text>
+          </View>
+          {entry.reason && (
+            <Feather
+              name={expanded ? "chevron-up" : "chevron-down"}
+              size={14}
+              color={colors.mutedForeground}
+            />
+          )}
+        </Pressable>
+        {expanded && entry.reason && (
+          <Text style={{
+            fontSize: 12,
+            fontFamily: "Inter_400Regular",
+            color: colors.mutedForeground,
+            lineHeight: 17,
+            marginTop: 6,
+          }}>
+            {entry.reason}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function RestRow({
+  entry,
+  colors,
+  isLast,
+}: {
+  entry: RestEntry;
+  colors: Colors;
+  isLast: boolean;
+}) {
+  return (
+    <View style={{ flexDirection: "row", gap: 12 }}>
+      <View style={{ alignItems: "center", width: 36 }}>
+        <View style={{
+          width: 30,
+          height: 30,
+          borderRadius: 15,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.muted,
+          borderWidth: 1,
+          borderColor: colors.border,
+        }}>
+          <Feather name="coffee" size={12} color={colors.primary ?? "#6C3BF5"} />
+        </View>
+        {!isLast && <TimelineConnector colors={colors} />}
+      </View>
+      <View style={{ flex: 1, paddingBottom: isLast ? 0 : 12, justifyContent: "center" }}>
+        <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginBottom: 1 }}>
+          Rest off heat
+        </Text>
+        <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
+          {fmtDuration(entry.restMinutes)} before serving
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ── Main modal ───────────────────────────────────────────────────────────────
+
 export function AiResultsModal(p: Props) {
   const { visible, onClose, colors, aiResult, applyAiPlan, grillName, selectedChips, retrying } = p;
 
@@ -66,7 +415,45 @@ export function AiResultsModal(p: Props) {
     ? CHIP_LABELS.filter((c) => selectedChips[c.key])
     : [];
 
-  const [checkinsExpanded, setCheckinsExpanded] = useState(false);
+  const [expandedCheckins, setExpandedCheckins] = useState<Set<number>>(new Set());
+
+  const toggleCheckin = (index: number) => {
+    setExpandedCheckins(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
+
+  const timeline: TimelineEntry[] = aiResult ? buildTimeline(aiResult) : [];
+
+  const noWrap = aiResult?.wrap?.method === "none";
+
+  const fingerprintLabel = (() => {
+    if (!aiResult) return null;
+    const src = aiResult.fingerprintSource;
+    if (src !== "grill" && src !== "user") return null;
+    const note: string | null = aiResult.fingerprintNote ?? null;
+    const countMatch = note ? note.match(/across (\d+) cook/) : null;
+    const n = countMatch ? parseInt(countMatch[1], 10) : null;
+    const cookWord = n === 1 ? "cook" : "cooks";
+    if (src === "grill") {
+      return n != null
+        ? `Tuned to your ${n} ${cookWord} on this grill`
+        : "Tuned to your cook history on this grill";
+    }
+    const meatMatch = note ? note.match(/learned pace on ([^(]+?) \(across all grills\)/) : null;
+    const meat = meatMatch ? meatMatch[1].trim() : null;
+    return n != null && meat
+      ? `Tuned to your ${n} ${meat} ${cookWord}`
+      : n != null
+        ? `Tuned to your ${n} personal ${cookWord}`
+        : "Tuned to your personal cook history";
+  })();
 
   return (
     <Modal
@@ -200,110 +587,107 @@ export function AiResultsModal(p: Props) {
                   </View>
                 )}
 
+                {/* ── PitMaster Analysis ── */}
                 <View style={[s.aiSection, { borderColor: colors.border }]}>
                   <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>PitMaster Analysis</Text>
                   <Text style={[s.aiBody, { color: colors.mutedForeground }]}>{aiResult.rationale}</Text>
                 </View>
 
+                {/* ── Unified Cook Timeline ── */}
                 <View style={[s.aiSection, { borderColor: colors.border }]}>
-                  <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>Suggested Schedule</Text>
-                  {[
-                    { icon: "power", label: "Light grill", val: aiResult.grillLightAt },
-                    { icon: "zap", label: "Put food on", val: aiResult.suggestedStartAt },
-                    { icon: "pause", label: "Pull off grill", val: aiResult.estimatedFinishAt },
-                    { icon: "check-circle", label: "Ready to serve", val: aiResult.serveAt },
-                  ].filter(r => r.val).map((row) => (
-                    <View key={row.label} style={s.aiScheduleRow}>
-                      <Feather name={row.icon as any} size={14} color="#6C3BF5" style={{ marginTop: 2 }} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[s.aiScheduleLabel, { color: colors.mutedForeground }]}>{row.label}</Text>
-                        <Text style={[s.aiScheduleVal, { color: colors.foreground }]}>
-                          {formatDateTime(new Date(row.val as string))}
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
-                  {(aiResult.fingerprintSource === "grill" || aiResult.fingerprintSource === "user") && (() => {
-                    const note: string | null = aiResult.fingerprintNote ?? null;
-                    const countMatch = note ? note.match(/across (\d+) cook/) : null;
-                    const n = countMatch ? parseInt(countMatch[1], 10) : null;
-                    const cookWord = n === 1 ? "cook" : "cooks";
-                    let label: string;
-                    if (aiResult.fingerprintSource === "grill") {
-                      label = n != null
-                        ? `Tuned to your ${n} ${cookWord} on this grill`
-                        : "Tuned to your cook history on this grill";
-                    } else {
-                      const meatMatch = note ? note.match(/learned pace on ([^(]+?) \(across all grills\)/) : null;
-                      const meat = meatMatch ? meatMatch[1].trim() : null;
-                      label = n != null && meat
-                        ? `Tuned to your ${n} ${meat} ${cookWord}`
-                        : n != null
-                          ? `Tuned to your ${n} personal ${cookWord}`
-                          : "Tuned to your personal cook history";
-                    }
-                    return (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                    <Text style={[s.aiSectionTitle, { color: colors.foreground, marginBottom: 0, flex: 1 }]}>
+                      Cook Timeline
+                    </Text>
+                    {noWrap && (
                       <View style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 6,
-                        marginTop: 10,
-                        paddingTop: 10,
-                        borderTopWidth: 1,
-                        borderTopColor: colors.border,
+                        backgroundColor: colors.muted,
+                        borderRadius: 12,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
                       }}>
-                        <Feather name="bar-chart-2" size={12} color={colors.mutedForeground} />
-                        <Text style={{
-                          fontFamily: "Inter_400Regular",
-                          fontSize: 12,
-                          color: colors.mutedForeground,
-                          flex: 1,
-                        }}>
-                          {label}
-                        </Text>
-                      </View>
-                    );
-                  })()}
-                </View>
-
-                {aiResult.wrap && (
-                  <View style={[s.aiSection, { borderColor: colors.border }]}>
-                    <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>Wrapping Guidance</Text>
-                    <View style={[s.wrapBadgeRow]}>
-                      <View style={[s.wrapBadge, { backgroundColor: "#6C3BF5" + "18" }]}>
-                        <Text style={[s.wrapBadgeText, { color: "#6C3BF5" }]}>
-                          {aiResult.wrap.method === "none" ? "No wrap needed" : aiResult.wrap.method === "butcher_paper" ? "Butcher Paper" : "Foil (Texas Crutch)"}
-                        </Text>
-                      </View>
-                      {aiResult.wrap.wrapAtMinutes > 0 && (
-                        <View style={[s.wrapBadge, { backgroundColor: colors.muted }]}>
-                          <Text style={[s.wrapBadgeText, { color: colors.foreground }]}>
-                            At {fmtDuration(aiResult.wrap.wrapAtMinutes)} into cook
-                          </Text>
-                        </View>
-                      )}
-                      {aiResult.wrap.wrapTempF && (
-                        <View style={[s.wrapBadge, { backgroundColor: colors.muted }]}>
-                          <Text style={[s.wrapBadgeText, { color: colors.foreground }]}>
-                            {aiResult.wrap.wrapTempF}°F internal
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    {aiResult.wrap.reason && (
-                      <Text style={[s.aiBody, { color: colors.mutedForeground, marginTop: 8 }]}>{aiResult.wrap.reason}</Text>
-                    )}
-                    {aiResult.wrap.restMinutes > 0 && (
-                      <View style={[s.restRow, { backgroundColor: colors.muted, borderRadius: 8 }]}>
-                        <Feather name="coffee" size={14} color={colors.primary} />
-                        <Text style={[s.restText, { color: colors.foreground }]}>
-                          Rest for <Text style={{ fontFamily: "Inter_700Bold", color: colors.primary }}>{fmtDuration(aiResult.wrap.restMinutes)}</Text> after pulling
+                        <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
+                          No wrap needed
                         </Text>
                       </View>
                     )}
                   </View>
-                )}
 
+                  {timeline.map((entry, idx) => {
+                    const isLast = idx === timeline.length - 1;
+                    if (entry.kind === "event") {
+                      return (
+                        <EventRow
+                          key={`event-${entry.label}`}
+                          icon={entry.icon}
+                          label={entry.label}
+                          absoluteMs={entry.absoluteMs}
+                          colors={colors}
+                          isLast={isLast}
+                        />
+                      );
+                    }
+                    if (entry.kind === "checkin") {
+                      return (
+                        <CheckinRow
+                          key={`checkin-${entry.index}`}
+                          ci={entry.ci}
+                          absoluteMs={entry.absoluteMs}
+                          expanded={expandedCheckins.has(entry.index)}
+                          onToggle={() => toggleCheckin(entry.index)}
+                          colors={colors}
+                          isLast={isLast}
+                        />
+                      );
+                    }
+                    if (entry.kind === "wrap") {
+                      return (
+                        <WrapRow
+                          key="wrap"
+                          entry={entry}
+                          colors={colors}
+                          isLast={isLast}
+                        />
+                      );
+                    }
+                    if (entry.kind === "rest") {
+                      return (
+                        <RestRow
+                          key="rest"
+                          entry={entry}
+                          colors={colors}
+                          isLast={isLast}
+                        />
+                      );
+                    }
+                    return null;
+                  })}
+
+                  {/* ── Fingerprint callout ── */}
+                  {fingerprintLabel && (
+                    <View style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                      marginTop: 12,
+                      paddingTop: 12,
+                      borderTopWidth: 1,
+                      borderTopColor: colors.border,
+                    }}>
+                      <Feather name="bar-chart-2" size={12} color={colors.mutedForeground} />
+                      <Text style={{
+                        fontFamily: "Inter_400Regular",
+                        fontSize: 12,
+                        color: colors.mutedForeground,
+                        flex: 1,
+                      }}>
+                        {fingerprintLabel}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* ── Pit Master Tips ── */}
                 {aiResult.tips && aiResult.tips.length > 0 && (
                   <View style={[s.aiSection, { borderColor: colors.border }]}>
                     <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>Pit Master Tips</Text>
@@ -313,113 +697,6 @@ export function AiResultsModal(p: Props) {
                         <Text style={[s.tipText, { color: colors.mutedForeground }]}>{tip}</Text>
                       </View>
                     ))}
-                  </View>
-                )}
-
-                {aiResult.checkins && aiResult.checkins.length > 0 && (
-                  <View style={[s.aiSection, { borderColor: colors.border }]}>
-                    <Pressable
-                      onPress={() => setCheckinsExpanded((v) => !v)}
-                      style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-                      hitSlop={8}
-                    >
-                      <Feather name="clock" size={14} color="#6C3BF5" />
-                      <Text style={[s.aiSectionTitle, { color: colors.foreground, flex: 1, marginBottom: 0 }]}>
-                        Check-In Schedule
-                      </Text>
-                      <View style={{
-                        backgroundColor: "#6C3BF5" + "18",
-                        borderColor: "#6C3BF5" + "40",
-                        borderWidth: 1,
-                        borderRadius: 12,
-                        paddingHorizontal: 8,
-                        paddingVertical: 2,
-                        marginRight: 4,
-                      }}>
-                        <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#6C3BF5" }}>
-                          {aiResult.checkins.length} check-ins
-                        </Text>
-                      </View>
-                      <Feather
-                        name={checkinsExpanded ? "chevron-up" : "chevron-down"}
-                        size={16}
-                        color={colors.mutedForeground}
-                      />
-                    </Pressable>
-
-                    {checkinsExpanded && (
-                      <View style={{ marginTop: 12 }}>
-                        {aiResult.checkins.map((ci: any, i: number) => {
-                          const isWrap = /wrap/i.test(ci.label);
-                          return (
-                            <View key={i} style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
-                              <View style={{ alignItems: "center", width: 32 }}>
-                                <View style={{
-                                  width: 28,
-                                  height: 28,
-                                  borderRadius: 14,
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  backgroundColor: isWrap ? "#F59E0B18" : "#6C3BF5" + "15",
-                                  borderWidth: 1,
-                                  borderColor: isWrap ? "#F59E0B40" : "#6C3BF5" + "30",
-                                }}>
-                                  <Feather
-                                    name={isWrap ? "package" : "check-circle"}
-                                    size={12}
-                                    color={isWrap ? "#F59E0B" : "#6C3BF5"}
-                                  />
-                                </View>
-                                {i < aiResult.checkins.length - 1 && (
-                                  <View style={{ width: 1, flex: 1, backgroundColor: colors.border, marginTop: 3 }} />
-                                )}
-                              </View>
-                              <View style={{ flex: 1, paddingBottom: i < aiResult.checkins.length - 1 ? 4 : 0 }}>
-                                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                                  <Text style={{
-                                    fontSize: 12,
-                                    fontFamily: "Inter_700Bold",
-                                    color: isWrap ? "#F59E0B" : colors.foreground,
-                                    flex: 1,
-                                  }}>
-                                    {ci.label}
-                                  </Text>
-                                  <Text style={{
-                                    fontSize: 11,
-                                    fontFamily: "Inter_600SemiBold",
-                                    color: colors.mutedForeground,
-                                  }}>
-                                    +{fmtDuration(ci.offsetMinutes)}
-                                  </Text>
-                                  {ci.expectedInternalTempRange && (
-                                    <View style={{
-                                      backgroundColor: colors.muted,
-                                      borderRadius: 8,
-                                      paddingHorizontal: 6,
-                                      paddingVertical: 2,
-                                    }}>
-                                      <Text style={{ fontSize: 10, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
-                                        {ci.expectedInternalTempRange[0]}–{ci.expectedInternalTempRange[1]}°F
-                                      </Text>
-                                    </View>
-                                  )}
-                                </View>
-                                {ci.coachingNote ? (
-                                  <Text style={{
-                                    fontSize: 12,
-                                    fontFamily: "Inter_400Regular",
-                                    color: colors.mutedForeground,
-                                    lineHeight: 17,
-                                  }}>
-                                    {ci.coachingNote}
-                                  </Text>
-                                ) : null}
-                              </View>
-                            </View>
-                          );
-                        })}
-                      </View>
-                    )}
                   </View>
                 )}
 
