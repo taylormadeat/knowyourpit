@@ -42,7 +42,6 @@ import {
   useUpdateCook,
   useDeleteCook,
   useGetCook,
-  useAiMultiCook,
   useListCooks,
   useGetTechniquePresets,
   useListUserTechniquePresets,
@@ -597,8 +596,6 @@ export default function PlanScreen() {
   const [notesSheetDraft, setNotesSheetDraft] = useState("");
 
   // ── Multi-cook state ──────────────────────────────────────────────────
-  const aiMultiCook = useAiMultiCook();
-
   // Mount-time gate: if the user has hit the total cook cap, fire the paywall
   // immediately so the form is never usable when it can't succeed.
   useEffect(() => {
@@ -609,6 +606,7 @@ export default function PlanScreen() {
   const [multiItems, setMultiItems] = useState<MultiItem[]>([]);
   const [multiResult, setMultiResult] = useState<{ schedule: MultiCookScheduleItem[]; serveAt: string; summary: string } | null>(null);
   const [multiResultOpen, setMultiResultOpen] = useState(false);
+  const [multiStreaming, setMultiStreaming] = useState(false);
   const [multiAddOpen, setMultiAddOpen] = useState(false);
   const [multiAddCat, setMultiAddCat] = useState<string>(MEAT_CATEGORIES[0]);
   const [multiPickedCut, setMultiPickedCut] = useState<MeatCut | null>(null);
@@ -985,6 +983,68 @@ export default function PlanScreen() {
     }
   };
 
+  // ── Partial schedule parser for multi-cook streaming ─────────────────
+  // Extracts complete schedule items from an in-progress JSON string.
+  // Returns items that have the minimum fields needed to render a card.
+  function parsePartialMultiCookResult(text: string): { schedule: MultiCookScheduleItem[] } | null {
+    const scheduleIdx = text.indexOf('"schedule"');
+    if (scheduleIdx === -1) return null;
+    const arrStart = text.indexOf("[", scheduleIdx);
+    if (arrStart === -1) return null;
+
+    const items: MultiCookScheduleItem[] = [];
+    let i = arrStart + 1;
+
+    while (i < text.length) {
+      // Skip whitespace between items
+      while (i < text.length && /\s/.test(text[i])) i++;
+      if (i >= text.length) break;
+      if (text[i] === "]") break;
+      if (text[i] !== "{") break;
+
+      // Find the matching closing brace for this item
+      let depth = 0;
+      let inStr = false;
+      let escaped = false;
+      let j = i;
+      for (; j < text.length; j++) {
+        const c = text[j];
+        if (escaped) { escaped = false; continue; }
+        if (c === "\\" && inStr) { escaped = true; continue; }
+        if (c === '"') { inStr = !inStr; continue; }
+        if (!inStr) {
+          if (c === "{") depth++;
+          else if (c === "}") { depth--; if (depth === 0) break; }
+        }
+      }
+
+      if (depth !== 0) break; // incomplete item — stop here
+
+      const objStr = text.slice(i, j + 1);
+      try {
+        const item = JSON.parse(objStr);
+        // Only include if it has the minimum fields to render
+        if (
+          typeof item.foodType === "string" &&
+          typeof item.grillLightAt === "string" &&
+          typeof item.meatOnAt === "string" &&
+          typeof item.estimatedFinishAt === "string"
+        ) {
+          items.push(item as MultiCookScheduleItem);
+        }
+      } catch {
+        // malformed — skip
+      }
+
+      i = j + 1;
+      // Skip comma between items
+      while (i < text.length && (text[i] === "," || /\s/.test(text[i]))) i++;
+    }
+
+    if (items.length === 0) return null;
+    return { schedule: items };
+  }
+
   // ── Multi-Cook Sequence ───────────────────────────────────────────────
   const handleMultiCook = async () => {
     // Pro-only (or unlocked when the kill switch is off). Pre-check before
@@ -997,45 +1057,123 @@ export default function PlanScreen() {
       Alert.alert("Add More Items", "Add at least 2 items to sequence a multi-cook.");
       return;
     }
+
+    const sessionToken = await getToken({ skipCache: true }).catch(() => null);
+    if (!sessionToken) {
+      Alert.alert("Session Expired", "Your session has expired. Please sign out from the More tab and sign in again.");
+      return;
+    }
+
+    const payload = {
+      items: multiItems.map(item => {
+        const itemGrill = item.grillId != null
+          ? ((grills as any[] | undefined)?.find((g: any) => g.id === item.grillId) ?? null)
+          : selectedGrill;
+        return {
+          foodType: item.cut.name,
+          weightLbs: (item.sizeOutput.effectiveWeightLbs ?? 0) > 0 ? item.sizeOutput.effectiveWeightLbs! : undefined,
+          cookTempF: item.cookTempF ? parseFloat(item.cookTempF) : item.cut.cookTempF,
+          targetTempF: item.targetTempF ? parseFloat(item.targetTempF) : item.cut.targetTempF,
+          grillId: item.grillId ?? grillId ?? undefined,
+          preheatMinutes: preheatMinsForGrill(itemGrill),
+          cookingMethod: item.cookMethod ?? undefined,
+          fromFrozen: (item.isFrozen && !isProduce(item.cut.category)) || undefined,
+          thawMethod: (item.isFrozen && !isProduce(item.cut.category)) ? item.thawMethod as MultiCookItemThawMethod : undefined,
+          notes: item.notes || undefined,
+          cookingStylePreset: item.cookingStylePreset ?? undefined,
+        };
+      }),
+      serveAt: (serveAt ?? defaultServeAt).toISOString(),
+      outdoorTempF: weather.tempF ?? undefined,
+      outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
+      notes: notes.trim() || undefined,
+    };
+
+    // Open modal immediately with loading skeleton while streaming starts
+    setMultiResult(null);
+    setMultiResultOpen(true);
+    setMultiStreaming(true);
+
+    const apiBase =
+      process.env.EXPO_PUBLIC_API_URL ??
+      (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
+
     try {
-      const result = await aiMultiCook.mutateAsync({
-        data: {
-          items: multiItems.map(item => {
-            const itemGrill = item.grillId != null
-              ? ((grills as any[] | undefined)?.find((g: any) => g.id === item.grillId) ?? null)
-              : selectedGrill;
-            return {
-              foodType: item.cut.name,
-              weightLbs: (item.sizeOutput.effectiveWeightLbs ?? 0) > 0 ? item.sizeOutput.effectiveWeightLbs! : undefined,
-              cookTempF: item.cookTempF ? parseFloat(item.cookTempF) : item.cut.cookTempF,
-              targetTempF: item.targetTempF ? parseFloat(item.targetTempF) : item.cut.targetTempF,
-              grillId: item.grillId ?? grillId ?? undefined,
-              preheatMinutes: preheatMinsForGrill(itemGrill),
-              cookingMethod: item.cookMethod ?? undefined,
-              fromFrozen: (item.isFrozen && !isProduce(item.cut.category)) || undefined,
-              thawMethod: (item.isFrozen && !isProduce(item.cut.category)) ? item.thawMethod as MultiCookItemThawMethod : undefined,
-              notes: item.notes || undefined,
-              cookingStylePreset: item.cookingStylePreset ?? undefined,
-            };
-          }),
-          serveAt: (serveAt ?? defaultServeAt).toISOString(),
-          outdoorTempF: weather.tempF ?? undefined,
-          outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
-          notes: notes.trim() || undefined,
+      const response = await fetch(`${apiBase}/api/ai/multi-cook/stream`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${sessionToken}`,
         },
+        body: JSON.stringify(payload),
       });
-      setMultiResult(result as any);
-      setMultiResultOpen(true);
-    } catch (e: any) {
-      if (e?.status === 401) {
+
+      if (response.status === 401) {
+        setMultiStreaming(false);
+        setMultiResultOpen(false);
         Alert.alert(
           "Session Expired",
           "Your session has expired. Please sign out from the More tab and sign in again.",
         );
         return;
       }
-      // 402 (pro_required) shouldn't happen post-effectivePro check, but a stale
-      // entitlement state is possible. Fall through to the modal in that case.
+
+      if (response.status === 402) {
+        setMultiStreaming(false);
+        setMultiResultOpen(false);
+        // Stale entitlement — show paywall
+        showPaywall({ trigger: "pro_required", featureName: "Multi-Cook Sequencer" });
+        return;
+      }
+
+      if (!response.ok || !response.body) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const reader = (response.body as ReadableStream<Uint8Array>).getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let accumulated = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          try {
+            const msg = JSON.parse(trimmed);
+            if (msg.type === "delta" && typeof msg.text === "string") {
+              accumulated += msg.text;
+              const partial = parsePartialMultiCookResult(accumulated);
+              if (partial && partial.schedule.length > 0) {
+                setMultiResult(prev => ({
+                  schedule: partial.schedule,
+                  serveAt: (prev?.serveAt ?? (serveAt ?? defaultServeAt).toISOString()),
+                  summary: prev?.summary ?? "",
+                }));
+              }
+            } else if (msg.type === "complete" && msg.data) {
+              setMultiResult(msg.data);
+              setMultiStreaming(false);
+            } else if (msg.type === "error") {
+              setMultiStreaming(false);
+              setMultiResultOpen(false);
+              Alert.alert("PitMaster Error", msg.message || "Could not sequence cooks. Try again.");
+            }
+          } catch {
+            // malformed NDJSON line — skip silently
+          }
+        }
+      }
+
+      setMultiStreaming(false);
+    } catch (e: any) {
+      setMultiStreaming(false);
+      setMultiResultOpen(false);
       if (parseAndShowFromError(e)) return;
       Alert.alert("PitMaster Error", e?.message || "Could not sequence cooks. Try again.");
     }
@@ -3513,10 +3651,10 @@ export default function PlanScreen() {
           style={({ pressed }) => [
             s.aiBtn,
             { borderRadius: colors.radius },
-            (aiMultiCook.isPending || pressed) && { opacity: 0.75 },
+            (multiStreaming || pressed) && { opacity: 0.75 },
           ]}
           onPress={handleMultiCook}
-          disabled={aiMultiCook.isPending || multiItems.length < 2}
+          disabled={multiStreaming || multiItems.length < 2}
         >
           <LinearGradient
             colors={["#6C3BF5", "#A855F7"]}
@@ -3524,7 +3662,7 @@ export default function PlanScreen() {
             end={{ x: 1, y: 0 }}
             style={s.aiBtnGradient}
           >
-            {aiMultiCook.isPending ? (
+            {multiStreaming ? (
               <>
                 <ActivityIndicator color="#fff" size="small" />
                 <Text style={s.aiBtnText}>Sequencing your cooks…</Text>
@@ -3617,10 +3755,11 @@ export default function PlanScreen() {
       <MultiCookResultModal
         visible={multiResultOpen}
         onClose={() => {
-          setMultiResultOpen(false);
+          if (!multiStreaming) setMultiResultOpen(false);
         }}
         colors={colors}
         multiResult={multiResult}
+        isStreaming={multiStreaming}
         scheduleGrillLabels={scheduleGrillLabels}
         handleSaveMultiCooks={handleSaveMultiCooks}
         createCookPending={createCook.isPending}

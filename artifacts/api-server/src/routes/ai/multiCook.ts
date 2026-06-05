@@ -8,27 +8,14 @@ import { aiRateLimit, buildUserCookHistory } from "./shared";
 
 const router: IRouter = Router();
 
-router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
-  if (!(await userBypassesPaywall(req))) {
-    respondPaywall(res, {
-      code: "pro_required",
-      feature: "multi_cook",
-      message: "Multi-Cook Sequencer is a Pro feature. Upgrade to plan multiple items together.",
-    });
-    return;
-  }
-
-  const parsed = AiMultiCookBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const { items, serveAt, outdoorTempF, outdoorTempIsForecast, notes } = parsed.data;
-
-  if (items.length < 2 || items.length > 5) {
-    res.status(400).json({ error: "Provide between 2 and 5 items." });
-    return;
-  }
+// ── Shared context builder ────────────────────────────────────────────────────
+// Called by both /ai/multi-cook and /ai/multi-cook/stream so the prompt
+// construction logic lives in one place.
+async function buildMultiCookContext(
+  userId: string,
+  data: ReturnType<typeof AiMultiCookBody.parse>,
+) {
+  const { items, serveAt, outdoorTempF, outdoorTempIsForecast, notes } = data;
 
   const serveAtDate = new Date(serveAt);
 
@@ -55,8 +42,8 @@ router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): P
   }).join("\n");
 
   const [cookHistory, smokerInsights] = await Promise.all([
-    buildUserCookHistory(req.userId),
-    computeSmokerInsights(req.userId),
+    buildUserCookHistory(userId),
+    computeSmokerInsights(userId),
   ]);
   const smokerProfile = formatSmokerProfile(smokerInsights);
 
@@ -127,7 +114,91 @@ ${itemLines}
 
 ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
 
+  return { serveAtDate, systemPrompt, userPrompt };
+}
+
+// ── Post-process raw AI JSON into the final response shape ────────────────────
+function processMultiCookResult(
+  raw: any,
+  serveAtDate: Date,
+): { schedule: any[]; serveAt: string; summary: string } {
+  const normalizeWrapMethod = (m: any): "foil" | "butcher_paper" | "none" | null => {
+    if (m === "foil" || m === "butcher_paper" || m === "none") return m;
+    return null;
+  };
+
+  const schedule = (raw.schedule ?? [])
+    .map((item: any) => {
+      const wrapMethod = normalizeWrapMethod(item.wrapMethod);
+      const isNoWrap = wrapMethod == null || wrapMethod === "none";
+      const cookMin = typeof item.estimatedDurationMinutes === "number"
+        ? item.estimatedDurationMinutes
+        : 0;
+      const explicitWrapAt = typeof item.wrapAtMinutes === "number" && item.wrapAtMinutes > 0
+        ? Math.round(item.wrapAtMinutes)
+        : null;
+      const inferredWrapAt = cookMin > 0 ? Math.max(30, Math.round(cookMin * 0.55)) : null;
+      const wrapAtMinutes = isNoWrap
+        ? null
+        : (explicitWrapAt ?? inferredWrapAt);
+      const wrapTempF = isNoWrap
+        ? null
+        : (typeof item.wrapTempF === "number" ? Math.round(item.wrapTempF) : null);
+      const wrapReason = isNoWrap
+        ? null
+        : (typeof item.wrapReason === "string" && item.wrapReason.trim().length > 0 ? item.wrapReason : null);
+
+      return {
+        ...item,
+        wrapMethod,
+        wrapAtMinutes,
+        wrapTempF,
+        wrapReason,
+      };
+    })
+    .sort(
+      (a: any, b: any) => new Date(a.grillLightAt).getTime() - new Date(b.grillLightAt).getTime()
+    );
+
+  const firstItem = schedule[0];
+  const lastItem = schedule[schedule.length - 1];
+  let deterministicSummary = "";
+  if (schedule.length >= 2) {
+    deterministicSummary = `Start ${firstItem.foodType} first, then ${lastItem.foodType} last.`;
+  }
+
+  return {
+    schedule,
+    serveAt: serveAtDate.toISOString(),
+    summary: deterministicSummary,
+  };
+}
+
+// ── POST /ai/multi-cook (non-streaming) ──────────────────────────────────────
+router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
+  if (!(await userBypassesPaywall(req))) {
+    respondPaywall(res, {
+      code: "pro_required",
+      feature: "multi_cook",
+      message: "Multi-Cook Sequencer is a Pro feature. Upgrade to plan multiple items together.",
+    });
+    return;
+  }
+
+  const parsed = AiMultiCookBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  if (parsed.data.items.length < 2 || parsed.data.items.length > 5) {
+    res.status(400).json({ error: "Provide between 2 and 5 items." });
+    return;
+  }
+
   try {
+    const ctx = await buildMultiCookContext(req.userId, parsed.data);
+
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => abortController.abort(), 50_000);
     let response: Awaited<ReturnType<typeof openai.chat.completions.create>> | null = null;
@@ -137,8 +208,8 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
           model: "gpt-4.1-mini",
           max_completion_tokens: 2048,
           messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
+            { role: "system", content: ctx.systemPrompt },
+            { role: "user", content: ctx.userPrompt },
           ],
         },
         { signal: abortController.signal },
@@ -154,70 +225,104 @@ ${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
     const content = response?.choices[0]?.message?.content ?? "{}";
     const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
 
-    let result: { schedule: any[]; serveAt: string; summary: string };
+    let raw: any;
     try {
-      result = JSON.parse(cleaned);
+      raw = JSON.parse(cleaned);
     } catch {
       res.status(500).json({ error: "Could not parse AI response. Please try again." });
       return;
     }
 
-    const normalizeWrapMethod = (m: any): "foil" | "butcher_paper" | "none" | null => {
-      if (m === "foil" || m === "butcher_paper" || m === "none") return m;
-      return null;
-    };
-    const inputByFoodType = new Map<string, (typeof items)[number]>();
-    for (const it of items) {
-      if (!inputByFoodType.has(it.foodType)) inputByFoodType.set(it.foodType, it);
-    }
-    const schedule = (result.schedule ?? [])
-      .map((item: any) => {
-        const wrapMethod = normalizeWrapMethod(item.wrapMethod);
-        const isNoWrap = wrapMethod == null || wrapMethod === "none";
-        const cookMin = typeof item.estimatedDurationMinutes === "number"
-          ? item.estimatedDurationMinutes
-          : 0;
-        const explicitWrapAt = typeof item.wrapAtMinutes === "number" && item.wrapAtMinutes > 0
-          ? Math.round(item.wrapAtMinutes)
-          : null;
-        const inferredWrapAt = cookMin > 0 ? Math.max(30, Math.round(cookMin * 0.55)) : null;
-        const wrapAtMinutes = isNoWrap
-          ? null
-          : (explicitWrapAt ?? inferredWrapAt);
-        const wrapTempF = isNoWrap
-          ? null
-          : (typeof item.wrapTempF === "number" ? Math.round(item.wrapTempF) : null);
-        const wrapReason = isNoWrap
-          ? null
-          : (typeof item.wrapReason === "string" && item.wrapReason.trim().length > 0 ? item.wrapReason : null);
-
-        return {
-          ...item,
-          wrapMethod,
-          wrapAtMinutes,
-          wrapTempF,
-          wrapReason,
-        };
-      })
-      .sort(
-        (a: any, b: any) => new Date(a.grillLightAt).getTime() - new Date(b.grillLightAt).getTime()
-      );
-
-    const firstItem = schedule[0];
-    const lastItem = schedule[schedule.length - 1];
-    let deterministicSummary = "";
-    if (schedule.length >= 2) {
-      deterministicSummary = `Start ${firstItem.foodType} first, then ${lastItem.foodType} last.`;
-    }
-
-    res.json({
-      schedule,
-      serveAt: serveAtDate.toISOString(),
-      summary: deterministicSummary,
-    });
+    res.json(processMultiCookResult(raw, ctx.serveAtDate));
   } catch (err: any) {
     req.log.error({ err }, "multi-cook error");
     res.status(500).json({ error: "AI request failed. Please try again." });
+  }
+});
+
+// ── POST /ai/multi-cook/stream (NDJSON streaming) ────────────────────────────
+// Same as /ai/multi-cook but streams raw token deltas so the client can show
+// schedule items progressively as the AI generates them.
+// Protocol: { type:"delta", text:"..." } per chunk, then { type:"complete", data:{...} }
+router.post("/ai/multi-cook/stream", requireAuth, aiRateLimit, async (req: any, res): Promise<void> => {
+  if (!(await userBypassesPaywall(req))) {
+    respondPaywall(res, {
+      code: "pro_required",
+      feature: "multi_cook",
+      message: "Multi-Cook Sequencer is a Pro feature. Upgrade to plan multiple items together.",
+    });
+    return;
+  }
+
+  const parsed = AiMultiCookBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  if (parsed.data.items.length < 2 || parsed.data.items.length > 5) {
+    res.status(400).json({ error: "Provide between 2 and 5 items." });
+    return;
+  }
+
+  const ctx = await buildMultiCookContext(req.userId, parsed.data);
+
+  res.setHeader("Content-Type", "application/x-ndjson");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.setHeader("Transfer-Encoding", "chunked");
+
+  let clientClosed = false;
+  req.on("close", () => { clientClosed = true; });
+
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), 55_000);
+
+  try {
+    const stream = await openai.chat.completions.create(
+      {
+        model: "gpt-4.1-mini",
+        max_completion_tokens: 2048,
+        messages: [
+          { role: "system", content: ctx.systemPrompt },
+          { role: "user", content: ctx.userPrompt },
+        ],
+        stream: true,
+      },
+      { signal: abortController.signal },
+    );
+
+    let accumulated = "";
+    for await (const chunk of stream) {
+      if (clientClosed) break;
+      const delta = chunk.choices[0]?.delta?.content ?? "";
+      if (delta) {
+        accumulated += delta;
+        res.write(JSON.stringify({ type: "delta", text: delta }) + "\n");
+      }
+    }
+
+    clearTimeout(timeoutId);
+
+    if (clientClosed) return;
+
+    const cleaned = accumulated.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+    let raw: any;
+    try {
+      raw = JSON.parse(cleaned);
+    } catch {
+      raw = { schedule: [], serveAt: ctx.serveAtDate.toISOString(), summary: "" };
+    }
+
+    res.write(JSON.stringify({ type: "complete", data: processMultiCookResult(raw, ctx.serveAtDate) }) + "\n");
+    res.end();
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (!clientClosed) {
+      req.log.warn({ err }, "multi-cook stream error");
+      res.write(JSON.stringify({ type: "error", message: "AI sequencer timed out. Please try again." }) + "\n");
+      res.end();
+    }
   }
 });
 
