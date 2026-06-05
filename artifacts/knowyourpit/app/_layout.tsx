@@ -12,12 +12,12 @@ import { QueryClient, QueryClientProvider, useQueryClient as useQueryClientInner
 import { type Href, Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AppState, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { setBaseUrl, setAuthTokenGetter } from "@workspace/api-client-react";
+import { setBaseUrl, setAuthTokenGetter, customFetch } from "@workspace/api-client-react";
 import { isCookDetailVisible, getCurrentCookId } from "@/hooks/cookDetailVisibility";
 import { setPendingCheckin } from "@/lib/pendingCheckinNotif";
 
@@ -190,6 +190,13 @@ const ONBOARDING_ALWAYS_SHOW = false;
 // ONBOARDING_ALWAYS_SHOW=true because the guard otherwise hard-codes
 // hasSeenOnboarding=false for every navigation event.
 let _sessionOnboardingDone = false;
+
+// Process-level flag: ensures the cold-start notification response is consumed
+// at most once per app process lifetime. Guards against hot-reload re-mounts
+// in development where RootLayoutNav can unmount and remount without a full
+// JS engine restart (and therefore without a fresh getLastNotificationResponseAsync call).
+let _coldStartCheckinHandled = false;
+
 export function signalOnboardingDone() {
   _sessionOnboardingDone = true;
 }
@@ -220,6 +227,109 @@ function RootLayoutNav() {
       .catch(() => {})
       .finally(() => setLocalFlagLoaded(true));
   }, []);
+
+  // ── Cold-start notification tap handling ─────────────────────────────────
+  // `addNotificationResponseReceivedListener` only fires when the app is
+  // already running (foreground / background). For cold starts — where iOS
+  // fully kills the app and relaunches it in response to a notification tap —
+  // we must read the tapped response via `getLastNotificationResponseAsync()`
+  // before it is cleared by a subsequent interaction.
+  //
+  // Strategy:
+  //  1. Capture the response into a ref + flip `coldStartLoaded` state as soon
+  //     as the async API resolves. Using state (not just a ref) ensures the
+  //     processing effect below re-runs even when auth was already ready before
+  //     the API resolved — purely ref-based storage would be missed because a
+  //     ref mutation never triggers a re-render.
+  //  2. The processing effect waits for BOTH `coldStartLoaded` AND the full
+  //     auth gate to be satisfied, then validates the cook before navigating.
+  //  3. A module-level flag (`_coldStartCheckinHandled`) prevents a second
+  //     invocation on hot-reload re-mounts during development.
+  const coldStartResponseRef = useRef<Notifications.NotificationResponse | null>(null);
+  const [coldStartLoaded, setColdStartLoaded] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === "web") { setColdStartLoaded(true); return; }
+    if (_coldStartCheckinHandled) { setColdStartLoaded(true); return; }
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        coldStartResponseRef.current = response;
+        setColdStartLoaded(true);
+      })
+      .catch(() => { setColdStartLoaded(true); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Process the captured cold-start response once BOTH the response is loaded
+  // AND auth is fully settled. Declared AFTER the auth guard effect so that
+  // the guard's router.replace("/(tabs)") fires first — our push lands on top
+  // of a correctly-initialised tab stack.
+  useEffect(() => {
+    if (!coldStartLoaded) return;
+    if (!isLoaded || !userLoaded || !localFlagLoaded) return;
+    if (!isSignedIn) return;
+    const meta = getAppMeta(user);
+    const hasUsername = !!(meta.username || user?.username);
+    if (!hasUsername) return;
+    if (_coldStartCheckinHandled) return;
+
+    const response = coldStartResponseRef.current;
+    if (!response) {
+      // No cold-start response — nothing to do; mark handled so future
+      // re-renders do not re-enter this branch unnecessarily.
+      _coldStartCheckinHandled = true;
+      return;
+    }
+
+    const data = response.notification.request.content.data as {
+      checkin?: boolean;
+      cookId?: number;
+      phaseKey?: string;
+      phaseLabel?: string;
+      scheduledAt?: number;
+    } | undefined;
+
+    if (
+      data?.checkin !== true ||
+      typeof data.cookId !== "number" ||
+      typeof data.phaseKey !== "string" ||
+      typeof data.scheduledAt !== "number"
+    ) {
+      // Not a check-in notification (e.g. spritz/mop/fuel) — ignore.
+      _coldStartCheckinHandled = true;
+      return;
+    }
+
+    // Mark handled before async work so a concurrent re-render cannot
+    // race through this block a second time.
+    _coldStartCheckinHandled = true;
+    coldStartResponseRef.current = null;
+
+    const { cookId, phaseKey, phaseLabel, scheduledAt } = data;
+
+    // Validate the target cook before navigating. If the cook is gone or
+    // already completed, route home gracefully rather than opening a broken
+    // cook detail screen.
+    customFetch<{ status: string }>(`/api/cooks/${cookId}`)
+      .then((cook) => {
+        if (!cook || cook.status !== "active") {
+          // Cook not found or no longer active — stay on home tabs.
+          router.replace("/(tabs)");
+          return;
+        }
+        setPendingCheckin({
+          cookId,
+          phaseKey,
+          phaseLabel: phaseLabel ?? phaseKey,
+          scheduledAt,
+        });
+        router.push({ pathname: "/cooks/[id]", params: { id: String(cookId) } });
+      })
+      .catch(() => {
+        // Network error or 404 — route home gracefully.
+        router.replace("/(tabs)");
+      });
+  }, [coldStartLoaded, isLoaded, isSignedIn, userLoaded, localFlagLoaded, user?.username, user?.unsafeMetadata, router]);
 
   // Global auth gate: keep signed-in users out of /(auth) and signed-out users out of /(tabs).
   // Gate order (checked in priority order):
