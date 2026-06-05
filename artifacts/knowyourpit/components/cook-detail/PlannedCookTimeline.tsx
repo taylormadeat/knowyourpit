@@ -6,6 +6,7 @@ import { FingerprintCallout } from "./FingerprintCallout";
 import { generateCheckinSchedule, type ScheduledCheckin } from "@/constants/checkinKnowledge";
 import { fmtMinutes } from "@/utils/duration";
 import { CheckinPreviewSheet } from "./CheckinPreviewSheet";
+import { MEAT_CUTS } from "@/constants/meatCuts";
 
 type Colors = any;
 
@@ -53,9 +54,30 @@ export function PlannedCookTimeline({ c, colors, cookStatus, estimatedFinishMs }
   // plannedEndAt is often null for Cook Now active cooks. Fall back to the
   // caller-supplied estimatedFinishMs (which uses wrap-adjusted AI range →
   // sequence data → plannedEndAt as its own fallback chain).
-  const serveMs = c.plannedEndAt
+  const serveMsRaw = c.plannedEndAt
     ? new Date(c.plannedEndAt).getTime()
     : (estimatedFinishMs ?? null);
+
+  // Last-resort fallback: derive an estimated finish time from MEAT_CUTS
+  // baselines when plannedEndAt is null and no estimatedFinishMs is available.
+  // This covers cooks created before the plan-screen fix saved plannedEndAt, or
+  // cooks manually scheduled without an AI prediction.
+  let serveMs = serveMsRaw;
+  let isEstimatedFinish = false;
+  if (serveMs == null && meatOnMs != null && c.foodType) {
+    const cut = MEAT_CUTS.find(
+      (m) => m.name.toLowerCase() === (c.foodType as string).toLowerCase(),
+    );
+    if (cut) {
+      const weightLbs = cut.isIndividualCook
+        ? (cut.avgPieceWeightLbs ?? 1)
+        : ((c.weightLbs as number | null) ?? cut.avgPieceWeightLbs ?? 5);
+      const cookMins = Math.round(weightLbs * cut.minsPerLb);
+      const restMins = (c.restMinutes as number | null) ?? cut.restMins ?? 0;
+      serveMs = meatOnMs + cookMins * 60_000 + restMins * 60_000;
+      isEstimatedFinish = true;
+    }
+  }
 
   if (meatOnMs == null && serveMs == null) return null;
 
@@ -183,6 +205,7 @@ export function PlannedCookTimeline({ c, colors, cookStatus, estimatedFinishMs }
               </Text>
               <Text style={[s.seqScheduleSub, { color: colors.mutedForeground }]}>
                 {isActive ? "Active schedule" : "Planned schedule"}
+                {isEstimatedFinish ? " · estimated" : ""}
               </Text>
             </View>
           </View>

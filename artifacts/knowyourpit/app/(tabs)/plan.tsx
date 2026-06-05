@@ -1492,6 +1492,12 @@ export default function PlanScreen() {
           ...(effectiveCookNowMode === "now"
             ? {
                 actualStartAt: new Date() as any,
+                // Save AI-predicted planned times so the live cook timeline
+                // can show the full schedule (wrap, pull-off, check-ins).
+                // plannedStartAt = AI-estimated meat-on anchor (used as timeline
+                // anchor); actualStartAt = real-world start (drives elapsed).
+                ...(aiResult?.grillLightAt && { plannedStartAt: new Date(aiResult.grillLightAt) as any }),
+                ...(aiResult?.serveAt && { plannedEndAt: new Date(aiResult.serveAt) as any }),
                 // When starting a frozen cook immediately, record the thaw
                 // start time now so the cook detail screen can compute
                 // accurate countdowns and so that the 30-min "almost thawed"
@@ -1501,6 +1507,10 @@ export default function PlanScreen() {
               }
             : {
                 ...(serveAt && { plannedEndAt: serveAt }),
+                // If the user didn't set a serve time but ran the AI plan,
+                // still persist the AI-predicted serve time as plannedEndAt
+                // so the live cook timeline can show the full schedule.
+                ...(!serveAt && aiResult?.serveAt && { plannedEndAt: new Date(aiResult.serveAt) as any }),
                 ...(plannedStart && { plannedStartAt: plannedStart }),
               }),
           preheatMinutes: preheatMins,
