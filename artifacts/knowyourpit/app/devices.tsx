@@ -339,6 +339,7 @@ export default function DevicesScreen() {
   const [thermoworksPassword, setThermoworksPassword] = useState("");
   const [showThermoworksLinkForm, setShowThermoworksLinkForm] = useState(false);
   const [twResetSent, setTwResetSent] = useState(false);
+  const [twResetError, setTwResetError] = useState<string | null>(null);
 
   const invalidateThermoworksStatus = () =>
     qc.invalidateQueries({ queryKey: getGetThermoworksStatusQueryKey() });
@@ -1098,7 +1099,7 @@ export default function DevicesScreen() {
                     <TextInput
                       style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
                       placeholder="ThermoWorks email" placeholderTextColor={colors.mutedForeground}
-                      value={thermoworksEmail} onChangeText={(t) => { setThermoworksEmail(t); setTwResetSent(false); }} autoCapitalize="none" keyboardType="email-address" autoCorrect={false}
+                      value={thermoworksEmail} onChangeText={(t) => { setThermoworksEmail(t); setTwResetSent(false); setTwResetError(null); }} autoCapitalize="none" keyboardType="email-address" autoCorrect={false}
                     />
                     <TextInput
                       style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
@@ -1119,18 +1120,26 @@ export default function DevicesScreen() {
                     {thermoworksEmail.trim().length > 0 && (
                       twResetSent
                         ? <Text style={[s.oauthHint, { color: "#22c55e", marginTop: 6 }]}>{"✓ Check your inbox for a reset link."}</Text>
-                        : <Pressable
-                            disabled={sendThermoworksReset.isPending}
-                            onPress={() => sendThermoworksReset.mutate(
-                              { data: { email: thermoworksEmail.trim() } },
-                              { onSuccess: () => setTwResetSent(true) },
+                        : <>
+                            <Pressable
+                              disabled={sendThermoworksReset.isPending}
+                              onPress={() => sendThermoworksReset.mutate(
+                                { data: { email: thermoworksEmail.trim() } },
+                                {
+                                  onSuccess: () => { setTwResetSent(true); setTwResetError(null); },
+                                  onError: () => setTwResetError("Couldn't reach ThermoWorks Cloud — check your connection and try again."),
+                                },
+                              )}
+                              style={{ marginTop: 6 }}
+                            >
+                              <Text style={[s.oauthHintLink, { color: colors.primary }]}>
+                                {sendThermoworksReset.isPending ? "Sending…" : "Email me a reset link"}
+                              </Text>
+                            </Pressable>
+                            {twResetError && (
+                              <Text style={[s.oauthHint, { color: "#ef4444", marginTop: 4 }]}>{twResetError}</Text>
                             )}
-                            style={{ marginTop: 6 }}
-                          >
-                            <Text style={[s.oauthHintLink, { color: colors.primary }]}>
-                              {sendThermoworksReset.isPending ? "Sending…" : "Email me a reset link"}
-                            </Text>
-                          </Pressable>
+                          </>
                     )}
                   </View>
                 )}
