@@ -321,12 +321,26 @@ export default function DevicesScreen() {
   const { showPaywall, parseAndShowFromError } = usePaywall();
 
   const { data: meaterStatus, isLoading: meaterLoading } = useGetMeaterStatus();
-  const linkMeater = useLinkMeater();
-  const unlinkMeater = useUnlinkMeater();
-
   const [meaterEmail, setMeaterEmail] = useState("");
   const [meaterPassword, setMeaterPassword] = useState("");
   const [showLinkForm, setShowLinkForm] = useState(false);
+  const [meaterLinkError, setMeaterLinkError] = useState<string | null>(null);
+  const linkMeater = useLinkMeater({
+    mutation: {
+      onError: (e: any) => {
+        if (parseAndShowFromError(e)) return;
+        const isNetworkError = !e?.status;
+        const isSessionError = e?.status === 401 && e?.data?.error === "Unauthorized";
+        const message = isNetworkError
+          ? "Could not reach the server. Please check your connection and try again."
+          : isSessionError
+            ? "Your session has expired — sign out and sign back in, then try again."
+            : e?.data?.error ?? e?.message ?? "Could not link MEATER account. Check your credentials.";
+        setMeaterLinkError(message);
+      },
+    },
+  });
+  const unlinkMeater = useUnlinkMeater();
 
   const invalidateMeaterStatus = () =>
     qc.invalidateQueries({ queryKey: getGetMeaterStatusQueryKey() });
@@ -508,24 +522,18 @@ export default function DevicesScreen() {
       Alert.alert("Required", "Enter your MEATER email and password.");
       return;
     }
+    setMeaterLinkError(null);
     try {
       await linkMeater.mutateAsync({
         data: { email: meaterEmail.trim(), password: meaterPassword },
       });
       setMeaterEmail("");
       setMeaterPassword("");
+      setMeaterLinkError(null);
       setShowLinkForm(false);
       invalidateMeaterStatus();
-    } catch (e: any) {
-      if (parseAndShowFromError(e)) return;
-      const isNetworkError = !e?.status;
-      const isSessionError = e?.status === 401 && e?.data?.error === "Unauthorized";
-      const message = isNetworkError
-        ? "Could not reach the server. Please check your connection and try again."
-        : isSessionError
-          ? "Your session has expired — sign out and sign back in, then try again."
-          : e?.data?.error ?? e?.message ?? "Could not link MEATER account. Check your credentials.";
-      Alert.alert("Link failed", message);
+    } catch {
+      // Error is handled by the mutation's onError callback above
     }
   };
 
@@ -982,12 +990,12 @@ export default function DevicesScreen() {
                     <TextInput
                       style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
                       placeholder="MEATER email" placeholderTextColor={colors.mutedForeground}
-                      value={meaterEmail} onChangeText={setMeaterEmail} autoCapitalize="none" keyboardType="email-address" autoCorrect={false}
+                      value={meaterEmail} onChangeText={(t) => { setMeaterEmail(t); setMeaterLinkError(null); }} autoCapitalize="none" keyboardType="email-address" autoCorrect={false}
                     />
                     <TextInput
                       style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
                       placeholder="MEATER password" placeholderTextColor={colors.mutedForeground}
-                      value={meaterPassword} onChangeText={setMeaterPassword} secureTextEntry
+                      value={meaterPassword} onChangeText={(t) => { setMeaterPassword(t); setMeaterLinkError(null); }} secureTextEntry
                     />
                     <Text style={[s.oauthHint, { color: colors.mutedForeground }]}>
                       {"Signed up with Google or Apple? You'll need to "}
@@ -995,13 +1003,16 @@ export default function DevicesScreen() {
                       {" first."}
                     </Text>
                     <View style={s.linkFormActions}>
-                      <Pressable onPress={() => { setShowLinkForm(false); setMeaterEmail(""); setMeaterPassword(""); }} style={[s.cancelBtn, { borderColor: colors.border }]}>
+                      <Pressable onPress={() => { setShowLinkForm(false); setMeaterEmail(""); setMeaterPassword(""); setMeaterLinkError(null); }} style={[s.cancelBtn, { borderColor: colors.border }]}>
                         <Text style={[s.cancelBtnText, { color: colors.mutedForeground }]}>Cancel</Text>
                       </Pressable>
                       <Pressable onPress={handleLinkMeater} disabled={linkMeater.isPending} style={[s.confirmLinkBtn, { backgroundColor: "#FF6B2B" }]}>
                         {linkMeater.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Text style={s.linkBtnText}>Connect</Text>}
                       </Pressable>
                     </View>
+                    {meaterLinkError ? (
+                      <Text style={[s.oauthHint, { color: "#ef4444", marginTop: 2 }]}>{meaterLinkError}</Text>
+                    ) : null}
                   </View>
                 )}
               </View>
