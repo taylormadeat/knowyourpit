@@ -1220,6 +1220,8 @@ export default function PlanScreen() {
         qc.invalidateQueries({ queryKey: getGetCookQueryKey(replanCookIdNum) });
         qc.invalidateQueries({ queryKey: ["home", "insights"] });
         resetForm();
+        setAiResultOpen(false);
+        setAiStreaming(false);
         router.push(`/cooks/${replanCookIdNum}` as any);
         return;
       }
@@ -1374,6 +1376,8 @@ export default function PlanScreen() {
       // transition — they are not on the critical path to the cook screen.
       if (effectiveCookNowMode === "now" && newCookId) {
         resetForm();
+        setAiResultOpen(false);
+        setAiStreaming(false);
         router.push(`/cooks/${newCookId}` as any);
         // Background work — does not block the transition
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});

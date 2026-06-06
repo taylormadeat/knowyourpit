@@ -1507,11 +1507,13 @@ export function LiveCookSection(p: Props) {
       })}
 
       {tempMode === "probe" && meaterLinked !== true && thermoworksLinked !== true && inkbirdProbes.length === 0 && bleContextDevices.length === 0 && lanProbes.length === 0 && (
-        <View style={[s.meaterPlaceholder, { borderTopColor: colors.border, gap: 10 }]}>
-          <Feather name="thermometer" size={20} color={colors.mutedForeground} />
-          <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground }]}>
-            {inkbirdScanning ? "Scanning for nearby probes…" : "No probes found. Bring your Inkbird probe into range, or link MEATER / ThermoWorks in Profile."}
-          </Text>
+        <View style={{ borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "column", alignItems: "center", gap: 12, padding: 16 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, alignSelf: "stretch" }}>
+            <Feather name="thermometer" size={20} color={colors.mutedForeground} />
+            <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground }]}>
+              {inkbirdScanning ? "Scanning for nearby probes…" : "No probes found. Bring your Inkbird probe into range, or link MEATER / ThermoWorks in Profile."}
+            </Text>
+          </View>
           <Pressable
             onPress={onRestartScan}
             disabled={inkbirdScanning}
