@@ -354,6 +354,7 @@ export default function DevicesScreen() {
   const [showThermoworksLinkForm, setShowThermoworksLinkForm] = useState(false);
   const [twResetSent, setTwResetSent] = useState(false);
   const [twResetError, setTwResetError] = useState<string | null>(null);
+  const [twLinkError, setTwLinkError] = useState<string | null>(null);
 
   const invalidateThermoworksStatus = () =>
     qc.invalidateQueries({ queryKey: getGetThermoworksStatusQueryKey() });
@@ -494,7 +495,7 @@ export default function DevicesScreen() {
         : isSessionError
           ? "Your session has expired — sign out and sign back in, then try again."
           : e?.data?.error ?? e?.message ?? "Could not link ThermoWorks account. Check your credentials.";
-      Alert.alert("Link failed", message);
+      setTwLinkError(message);
     }
   };
 
@@ -1110,18 +1111,21 @@ export default function DevicesScreen() {
                     <TextInput
                       style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
                       placeholder="ThermoWorks email" placeholderTextColor={colors.mutedForeground}
-                      value={thermoworksEmail} onChangeText={(t) => { setThermoworksEmail(t); setTwResetSent(false); setTwResetError(null); }} autoCapitalize="none" keyboardType="email-address" autoCorrect={false}
+                      value={thermoworksEmail} onChangeText={(t) => { setThermoworksEmail(t); setTwResetSent(false); setTwResetError(null); setTwLinkError(null); }} autoCapitalize="none" keyboardType="email-address" autoCorrect={false}
                     />
                     <TextInput
                       style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
                       placeholder="ThermoWorks password" placeholderTextColor={colors.mutedForeground}
-                      value={thermoworksPassword} onChangeText={setThermoworksPassword} secureTextEntry
+                      value={thermoworksPassword} onChangeText={(t) => { setThermoworksPassword(t); setTwLinkError(null); }} secureTextEntry
                     />
                     <Text style={[s.oauthHint, { color: colors.mutedForeground }]}>
                       {"Signed up with Google or Apple? Enter your Google/Apple email above, then tap 'Email me a reset link'."}
                     </Text>
+                    {twLinkError && (
+                      <Text style={[s.oauthHint, { color: "#ef4444", marginTop: 4 }]}>{twLinkError}</Text>
+                    )}
                     <View style={s.linkFormActions}>
-                      <Pressable onPress={() => { setShowThermoworksLinkForm(false); setThermoworksEmail(""); setThermoworksPassword(""); setTwResetSent(false); }} style={[s.cancelBtn, { borderColor: colors.border }]}>
+                      <Pressable onPress={() => { setShowThermoworksLinkForm(false); setThermoworksEmail(""); setThermoworksPassword(""); setTwResetSent(false); setTwLinkError(null); }} style={[s.cancelBtn, { borderColor: colors.border }]}>
                         <Text style={[s.cancelBtnText, { color: colors.mutedForeground }]}>Cancel</Text>
                       </Pressable>
                       <Pressable onPress={handleLinkThermoworks} disabled={linkThermoworks.isPending} style={[s.confirmLinkBtn, { backgroundColor: THERMOWORKS_COLOR }]}>
