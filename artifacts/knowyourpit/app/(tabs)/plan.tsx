@@ -751,132 +751,6 @@ export default function PlanScreen() {
     loadLastWrapFinish(cut.name).then(v => { setQpWrapFinish(v); setLastUsedWrapFinish(v); });
   };
 
-  // ── Partial JSON field extractor for streaming predictions ───────────
-  // Extracts progressively-available fields from the accumulated raw JSON
-  // text as OpenAI streams tokens. Returns whatever is parseable so far.
-  function parsePartialPrediction(text: string): Partial<any> {
-    const partial: Partial<any> = {};
-
-    const durMatch = text.match(/"estimatedDurationMinutes"\s*:\s*(\d+)/);
-    if (durMatch) partial.estimatedDurationMinutes = parseInt(durMatch[1], 10);
-
-    const confMatch = text.match(/"confidence"\s*:\s*"(low|medium|high)"/);
-    if (confMatch) partial.confidence = confMatch[1];
-
-    // Rationale streams character-by-character; extract even if incomplete
-    const ratIdx = text.indexOf('"rationale"');
-    if (ratIdx !== -1) {
-      const colonIdx = text.indexOf(':', ratIdx);
-      if (colonIdx !== -1) {
-        const quoteIdx = text.indexOf('"', colonIdx + 1);
-        if (quoteIdx !== -1) {
-          let result = '';
-          let i = quoteIdx + 1;
-          while (i < text.length) {
-            const c = text[i];
-            if (c === '\\' && i + 1 < text.length) {
-              const n = text[i + 1];
-              if (n === 'n') { result += '\n'; i += 2; continue; }
-              if (n === '"') { result += '"'; i += 2; continue; }
-              if (n === '\\') { result += '\\'; i += 2; continue; }
-              if (n === 't') { result += '\t'; i += 2; continue; }
-              result += n; i += 2; continue;
-            }
-            if (c === '"') break;
-            result += c;
-            i++;
-          }
-          if (result) partial.rationale = result;
-        }
-      }
-    }
-
-    // Tips — only when the complete array is present
-    const tipsIdx = text.indexOf('"tips"');
-    if (tipsIdx !== -1) {
-      const arrStart = text.indexOf('[', tipsIdx);
-      if (arrStart !== -1) {
-        let depth = 0; let inStr = false; let escaped = false;
-        let i = arrStart;
-        for (; i < text.length; i++) {
-          const c = text[i];
-          if (escaped) { escaped = false; continue; }
-          if (c === '\\' && inStr) { escaped = true; continue; }
-          if (c === '"') { inStr = !inStr; continue; }
-          if (!inStr) {
-            if (c === '[') depth++;
-            else if (c === ']') { depth--; if (depth === 0) break; }
-          }
-        }
-        if (depth === 0) {
-          try { partial.tips = JSON.parse(text.slice(arrStart, i + 1)); } catch {}
-        }
-      }
-    }
-
-    // Wrap — only when the complete object is present
-    const wrapIdx = text.indexOf('"wrap"');
-    if (wrapIdx !== -1) {
-      const objStart = text.indexOf('{', wrapIdx);
-      if (objStart !== -1) {
-        let depth = 0; let inStr = false; let escaped = false;
-        let i = objStart;
-        for (; i < text.length; i++) {
-          const c = text[i];
-          if (escaped) { escaped = false; continue; }
-          if (c === '\\' && inStr) { escaped = true; continue; }
-          if (c === '"') { inStr = !inStr; continue; }
-          if (!inStr) {
-            if (c === '{') depth++;
-            else if (c === '}') { depth--; if (depth === 0) break; }
-          }
-        }
-        if (depth === 0) {
-          try { partial.wrap = JSON.parse(text.slice(objStart, i + 1)); } catch {}
-        }
-      }
-    }
-
-    // Checkins — extract each complete object from the array as it arrives
-    const checkinsIdx = text.indexOf('"checkins"');
-    if (checkinsIdx !== -1) {
-      const arrStart = text.indexOf('[', checkinsIdx);
-      if (arrStart !== -1) {
-        const collected: any[] = [];
-        let i = arrStart + 1;
-        while (i < text.length) {
-          while (i < text.length && (text[i] === ' ' || text[i] === '\n' || text[i] === '\r' || text[i] === '\t' || text[i] === ',')) i++;
-          if (i >= text.length || text[i] === ']') break;
-          if (text[i] === '{') {
-            let depth = 0; let inStr = false; let escaped = false;
-            let j = i;
-            for (; j < text.length; j++) {
-              const c = text[j];
-              if (escaped) { escaped = false; continue; }
-              if (c === '\\' && inStr) { escaped = true; continue; }
-              if (c === '"') { inStr = !inStr; continue; }
-              if (!inStr) {
-                if (c === '{') depth++;
-                else if (c === '}') { depth--; if (depth === 0) break; }
-              }
-            }
-            if (depth === 0) {
-              try { collected.push(JSON.parse(text.slice(i, j + 1))); } catch {}
-              i = j + 1;
-            } else {
-              break;
-            }
-          } else {
-            break;
-          }
-        }
-        if (collected.length > 0) partial.checkins = collected;
-      }
-    }
-
-    return partial;
-  }
-
   // ── AI Plan ──────────────────────────────────────────────────────────
   const handleAiPlan = async () => {
     if (!selectedCut) {
@@ -927,7 +801,7 @@ export default function PlanScreen() {
       (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
 
     try {
-      const response = await fetch(`${apiBase}/api/ai/predict/stream`, {
+      const response = await fetch(`${apiBase}/api/ai/predict`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -949,113 +823,14 @@ export default function PlanScreen() {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const decoder = new TextDecoder();
-      let accumulated = "";
-      const processLine = (line: string) => {
-        const trimmed = line.trim();
-        if (!trimmed) return;
-        try {
-          const msg = JSON.parse(trimmed);
-          if (msg.type === "delta" && typeof msg.text === "string") {
-            accumulated += msg.text;
-            const partial = parsePartialPrediction(accumulated);
-            if (Object.keys(partial).length > 0) {
-              setAiResult((prev: any) => ({ ...(prev ?? {}), ...partial }));
-            }
-          } else if (msg.type === "complete" && msg.data) {
-            setAiResult(msg.data);
-            setAiStreaming(false);
-          }
-        } catch {
-          // malformed NDJSON line — skip silently
-        }
-      };
-
-      if (response.body) {
-        const reader = (response.body as ReadableStream<Uint8Array>).getReader();
-        let buffer = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-          for (const line of lines) processLine(line);
-        }
-        if (buffer) processLine(buffer);
-      } else {
-        const text = await response.text();
-        for (const line of text.split("\n")) processLine(line);
-      }
-
+      const data = await response.json();
+      setAiResult(data);
       setAiStreaming(false);
     } catch (e: any) {
       setAiStreaming(false);
       Alert.alert("PitMaster Error", e?.message || "Could not get PitMaster prediction. Try again.");
     }
   };
-
-  // ── Partial schedule parser for multi-cook streaming ─────────────────
-  // Extracts complete schedule items from an in-progress JSON string.
-  // Returns items that have the minimum fields needed to render a card.
-  function parsePartialMultiCookResult(text: string): { schedule: MultiCookScheduleItem[] } | null {
-    const scheduleIdx = text.indexOf('"schedule"');
-    if (scheduleIdx === -1) return null;
-    const arrStart = text.indexOf("[", scheduleIdx);
-    if (arrStart === -1) return null;
-
-    const items: MultiCookScheduleItem[] = [];
-    let i = arrStart + 1;
-
-    while (i < text.length) {
-      // Skip whitespace between items
-      while (i < text.length && /\s/.test(text[i])) i++;
-      if (i >= text.length) break;
-      if (text[i] === "]") break;
-      if (text[i] !== "{") break;
-
-      // Find the matching closing brace for this item
-      let depth = 0;
-      let inStr = false;
-      let escaped = false;
-      let j = i;
-      for (; j < text.length; j++) {
-        const c = text[j];
-        if (escaped) { escaped = false; continue; }
-        if (c === "\\" && inStr) { escaped = true; continue; }
-        if (c === '"') { inStr = !inStr; continue; }
-        if (!inStr) {
-          if (c === "{") depth++;
-          else if (c === "}") { depth--; if (depth === 0) break; }
-        }
-      }
-
-      if (depth !== 0) break; // incomplete item — stop here
-
-      const objStr = text.slice(i, j + 1);
-      try {
-        const item = JSON.parse(objStr);
-        // Only include if it has the minimum fields to render
-        if (
-          typeof item.foodType === "string" &&
-          typeof item.grillLightAt === "string" &&
-          typeof item.meatOnAt === "string" &&
-          typeof item.estimatedFinishAt === "string"
-        ) {
-          items.push(item as MultiCookScheduleItem);
-        }
-      } catch {
-        // malformed — skip
-      }
-
-      i = j + 1;
-      // Skip comma between items
-      while (i < text.length && (text[i] === "," || /\s/.test(text[i]))) i++;
-    }
-
-    if (items.length === 0) return null;
-    return { schedule: items };
-  }
 
   // ── Multi-Cook Sequence ───────────────────────────────────────────────
   const handleMultiCook = async () => {
@@ -1113,7 +888,7 @@ export default function PlanScreen() {
       (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
 
     const runStream = async (token: string): Promise<"ok" | "error" | "fatal_401" | "fatal_402"> => {
-      const response = await fetch(`${apiBase}/api/ai/multi-cook/stream`, {
+      const response = await fetch(`${apiBase}/api/ai/multi-cook`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1124,64 +899,14 @@ export default function PlanScreen() {
 
       if (response.status === 401) return "fatal_401";
       if (response.status === 402) return "fatal_402";
+      if (response.status === 504) return "error";
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      const decoder = new TextDecoder();
-      let accumulated = "";
-      let lineResult: "ok" | "error" | null = null;
-      const processLine = (line: string) => {
-        const trimmed = line.trim();
-        if (!trimmed) return;
-        try {
-          const msg = JSON.parse(trimmed);
-          if (msg.type === "delta" && typeof msg.text === "string") {
-            accumulated += msg.text;
-            const partial = parsePartialMultiCookResult(accumulated);
-            if (partial && partial.schedule.length > 0) {
-              setMultiResult(prev => ({
-                schedule: partial.schedule,
-                serveAt: (prev?.serveAt ?? (serveAt ?? defaultServeAt).toISOString()),
-                summary: prev?.summary ?? "",
-              }));
-            }
-          } else if (msg.type === "complete" && msg.data) {
-            setMultiResult(msg.data);
-            setMultiStreaming(false);
-            setMultiRetrying(false);
-            lineResult = "ok";
-          } else if (msg.type === "error") {
-            lineResult = "error";
-          }
-        } catch {
-          // malformed NDJSON line — skip silently
-        }
-      };
-
-      if (response.body) {
-        const reader = (response.body as ReadableStream<Uint8Array>).getReader();
-        let buffer = "";
-        while (!lineResult) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-          for (const line of lines) {
-            processLine(line);
-            if (lineResult) break;
-          }
-        }
-        if (!lineResult && buffer) processLine(buffer);
-      } else {
-        const text = await response.text();
-        for (const line of text.split("\n")) {
-          processLine(line);
-          if (lineResult) break;
-        }
-      }
-
+      const data = await response.json();
+      setMultiResult(data);
       setMultiStreaming(false);
-      return lineResult === "error" ? "error" : "ok";
+      setMultiRetrying(false);
+      return "ok";
     };
 
     const handleFatalResult = (result: "fatal_401" | "fatal_402") => {
