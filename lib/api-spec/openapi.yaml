@@ -1007,6 +1007,26 @@ paths:
         "401":
           description: Invalid ThermoWorks credentials
 
+  /thermoworks/send-reset:
+    post:
+      operationId: sendThermoworksReset
+      tags: [thermoworks]
+      summary: Send a ThermoWorks Cloud password-reset email
+      description: Calls Firebase sendOobCode with requestType PASSWORD_RESET. Always returns 204 even if the email is not found (mirrors Firebase enum-safe behaviour).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ThermoworksSendResetBody"
+      responses:
+        "204":
+          description: Reset email dispatched (or email not found — indistinguishable by design)
+        "400":
+          description: Email field missing
+
   /thermoworks/unlink:
     delete:
       operationId: unlinkThermoworks
@@ -2755,6 +2775,15 @@ components:
       required:
         - linked
         - probes
+
+    ThermoworksSendResetBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+      required:
+        - email
 
     ThermoworksLinkBody:
       type: object

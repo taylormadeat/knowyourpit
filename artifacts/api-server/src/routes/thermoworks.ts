@@ -374,6 +374,28 @@ router.post("/thermoworks/link", requireAuth, async (req: any, res): Promise<voi
   res.json({ linked: true });
 });
 
+router.post("/thermoworks/send-reset", requireAuth, async (req: any, res): Promise<void> => {
+  const { email } = req.body ?? {};
+  if (!email) {
+    res.status(400).json({ error: "Email is required" });
+    return;
+  }
+  try {
+    await fetch(
+      `${IDENTITY_HOST}/v1/accounts:sendOobCode?key=${FIREBASE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", referer: REFERER },
+        body: JSON.stringify({ requestType: "PASSWORD_RESET", email: String(email).trim() }),
+      },
+    );
+    res.status(204).end();
+  } catch (err) {
+    req.log.warn({ err }, "thermoworks send-reset failed");
+    res.status(502).json({ error: "Could not reach ThermoWorks Cloud." });
+  }
+});
+
 router.delete("/thermoworks/unlink", requireAuth, async (req: any, res): Promise<void> => {
   await db
     .delete(thermoworksCredentialsTable)

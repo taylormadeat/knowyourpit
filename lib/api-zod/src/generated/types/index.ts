@@ -105,6 +105,7 @@ export * from "./thermoworksLinkBody";
 export * from "./thermoworksLinkedResponse";
 export * from "./thermoworksProbeReading";
 export * from "./thermoworksReadingsResponse";
+export * from "./thermoworksSendResetBody";
 export * from "./thermoworksStatusResponse";
 export * from "./updateCookBody";
 export * from "./updateCookBodyConfirmedSteps";

@@ -1598,6 +1598,10 @@ export interface MeaterReadingsResponse {
   tokenExpired?: boolean;
 }
 
+export interface ThermoworksSendResetBody {
+  email: string;
+}
+
 export interface ThermoworksLinkBody {
   email: string;
   password: string;

@@ -42,6 +42,7 @@ import {
   getGetThermoworksStatusQueryKey,
   useLinkThermoworks,
   useUnlinkThermoworks,
+  useSendThermoworksReset,
 } from "@workspace/api-client-react";
 
 const THERMOWORKS_COLOR = "#B22222";
@@ -333,9 +334,11 @@ export default function DevicesScreen() {
   const { data: thermoworksStatus, isLoading: thermoworksLoading } = useGetThermoworksStatus();
   const linkThermoworks = useLinkThermoworks();
   const unlinkThermoworks = useUnlinkThermoworks();
+  const sendThermoworksReset = useSendThermoworksReset();
   const [thermoworksEmail, setThermoworksEmail] = useState("");
   const [thermoworksPassword, setThermoworksPassword] = useState("");
   const [showThermoworksLinkForm, setShowThermoworksLinkForm] = useState(false);
+  const [twResetSent, setTwResetSent] = useState(false);
 
   const invalidateThermoworksStatus = () =>
     qc.invalidateQueries({ queryKey: getGetThermoworksStatusQueryKey() });
@@ -987,7 +990,7 @@ export default function DevicesScreen() {
                     />
                     <Text style={[s.oauthHint, { color: colors.mutedForeground }]}>
                       {"Signed up with Google or Apple? You'll need to "}
-                      <Text style={[s.oauthHintLink, { color: colors.primary }]} onPress={() => Linking.openURL("https://www.meater.com")}>set a password on MEATER's website</Text>
+                      <Text style={[s.oauthHintLink, { color: colors.primary }]} onPress={() => Linking.openURL("https://app.meaterapp.com")}>set a password on MEATER's website</Text>
                       {" first."}
                     </Text>
                     <View style={s.linkFormActions}>
@@ -1095,7 +1098,7 @@ export default function DevicesScreen() {
                     <TextInput
                       style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
                       placeholder="ThermoWorks email" placeholderTextColor={colors.mutedForeground}
-                      value={thermoworksEmail} onChangeText={setThermoworksEmail} autoCapitalize="none" keyboardType="email-address" autoCorrect={false}
+                      value={thermoworksEmail} onChangeText={(t) => { setThermoworksEmail(t); setTwResetSent(false); }} autoCapitalize="none" keyboardType="email-address" autoCorrect={false}
                     />
                     <TextInput
                       style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
@@ -1103,18 +1106,32 @@ export default function DevicesScreen() {
                       value={thermoworksPassword} onChangeText={setThermoworksPassword} secureTextEntry
                     />
                     <Text style={[s.oauthHint, { color: colors.mutedForeground }]}>
-                      {"Signed up with Google or Apple? You'll need to "}
-                      <Text style={[s.oauthHintLink, { color: colors.primary }]} onPress={() => Linking.openURL("https://cloud.thermoworks.com")}>set a password on ThermoWorks Cloud</Text>
-                      {" first."}
+                      {"Signed up with Google or Apple? Enter your Google/Apple email above, then tap 'Email me a reset link'."}
                     </Text>
                     <View style={s.linkFormActions}>
-                      <Pressable onPress={() => { setShowThermoworksLinkForm(false); setThermoworksEmail(""); setThermoworksPassword(""); }} style={[s.cancelBtn, { borderColor: colors.border }]}>
+                      <Pressable onPress={() => { setShowThermoworksLinkForm(false); setThermoworksEmail(""); setThermoworksPassword(""); setTwResetSent(false); }} style={[s.cancelBtn, { borderColor: colors.border }]}>
                         <Text style={[s.cancelBtnText, { color: colors.mutedForeground }]}>Cancel</Text>
                       </Pressable>
                       <Pressable onPress={handleLinkThermoworks} disabled={linkThermoworks.isPending} style={[s.confirmLinkBtn, { backgroundColor: THERMOWORKS_COLOR }]}>
                         {linkThermoworks.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Text style={s.linkBtnText}>Connect</Text>}
                       </Pressable>
                     </View>
+                    {thermoworksEmail.trim().length > 0 && (
+                      twResetSent
+                        ? <Text style={[s.oauthHint, { color: "#22c55e", marginTop: 6 }]}>{"✓ Check your inbox for a reset link."}</Text>
+                        : <Pressable
+                            disabled={sendThermoworksReset.isPending}
+                            onPress={() => sendThermoworksReset.mutate(
+                              { data: { email: thermoworksEmail.trim() } },
+                              { onSuccess: () => setTwResetSent(true) },
+                            )}
+                            style={{ marginTop: 6 }}
+                          >
+                            <Text style={[s.oauthHintLink, { color: colors.primary }]}>
+                              {sendThermoworksReset.isPending ? "Sending…" : "Email me a reset link"}
+                            </Text>
+                          </Pressable>
+                    )}
                   </View>
                 )}
               </View>

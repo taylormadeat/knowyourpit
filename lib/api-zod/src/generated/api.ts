@@ -2568,6 +2568,14 @@ export const LinkThermoworksResponse = zod.object({
 });
 
 /**
+ * Calls Firebase sendOobCode with requestType PASSWORD_RESET. Always returns 204 even if the email is not found (mirrors Firebase enum-safe behaviour).
+ * @summary Send a ThermoWorks Cloud password-reset email
+ */
+export const SendThermoworksResetBody = zod.object({
+  email: zod.string().email(),
+});
+
+/**
  * @summary Unlink ThermoWorks Cloud account
  */
 export const UnlinkThermoworksResponse = zod.object({

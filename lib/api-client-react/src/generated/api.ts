@@ -68,6 +68,7 @@ import type {
   ThermoworksLinkBody,
   ThermoworksLinkedResponse,
   ThermoworksReadingsResponse,
+  ThermoworksSendResetBody,
   ThermoworksStatusResponse,
   UpdateCookBody,
   UpdateCustomMeatCutBody,
@@ -4405,6 +4406,94 @@ export const useLinkThermoworks = <
   TContext
 > => {
   return useMutation(getLinkThermoworksMutationOptions(options));
+};
+
+/**
+ * Calls Firebase sendOobCode with requestType PASSWORD_RESET. Always returns 204 even if the email is not found (mirrors Firebase enum-safe behaviour).
+ * @summary Send a ThermoWorks Cloud password-reset email
+ */
+export const getSendThermoworksResetUrl = () => {
+  return `/api/thermoworks/send-reset`;
+};
+
+export const sendThermoworksReset = async (
+  thermoworksSendResetBody: ThermoworksSendResetBody,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getSendThermoworksResetUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(thermoworksSendResetBody),
+  });
+};
+
+export const getSendThermoworksResetMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendThermoworksReset>>,
+    TError,
+    { data: BodyType<ThermoworksSendResetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendThermoworksReset>>,
+  TError,
+  { data: BodyType<ThermoworksSendResetBody> },
+  TContext
+> => {
+  const mutationKey = ["sendThermoworksReset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendThermoworksReset>>,
+    { data: BodyType<ThermoworksSendResetBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return sendThermoworksReset(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendThermoworksResetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendThermoworksReset>>
+>;
+export type SendThermoworksResetMutationBody =
+  BodyType<ThermoworksSendResetBody>;
+export type SendThermoworksResetMutationError = ErrorType<void>;
+
+/**
+ * @summary Send a ThermoWorks Cloud password-reset email
+ */
+export const useSendThermoworksReset = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendThermoworksReset>>,
+    TError,
+    { data: BodyType<ThermoworksSendResetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendThermoworksReset>>,
+  TError,
+  { data: BodyType<ThermoworksSendResetBody> },
+  TContext
+> => {
+  return useMutation(getSendThermoworksResetMutationOptions(options));
 };
 
 /**
