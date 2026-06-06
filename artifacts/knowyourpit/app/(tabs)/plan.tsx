@@ -945,40 +945,47 @@ export default function PlanScreen() {
         return;
       }
 
-      if (!response.ok || !response.body) {
+      if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const reader = (response.body as ReadableStream<Uint8Array>).getReader();
       const decoder = new TextDecoder();
-      let buffer = "";
       let accumulated = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          try {
-            const msg = JSON.parse(trimmed);
-            if (msg.type === "delta" && typeof msg.text === "string") {
-              accumulated += msg.text;
-              const partial = parsePartialPrediction(accumulated);
-              if (Object.keys(partial).length > 0) {
-                setAiResult((prev: any) => ({ ...(prev ?? {}), ...partial }));
-              }
-            } else if (msg.type === "complete" && msg.data) {
-              setAiResult(msg.data);
-              setAiStreaming(false);
+      const processLine = (line: string) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        try {
+          const msg = JSON.parse(trimmed);
+          if (msg.type === "delta" && typeof msg.text === "string") {
+            accumulated += msg.text;
+            const partial = parsePartialPrediction(accumulated);
+            if (Object.keys(partial).length > 0) {
+              setAiResult((prev: any) => ({ ...(prev ?? {}), ...partial }));
             }
-          } catch {
-            // malformed NDJSON line — skip silently
+          } else if (msg.type === "complete" && msg.data) {
+            setAiResult(msg.data);
+            setAiStreaming(false);
           }
+        } catch {
+          // malformed NDJSON line — skip silently
         }
+      };
+
+      if (response.body) {
+        const reader = (response.body as ReadableStream<Uint8Array>).getReader();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) processLine(line);
+        }
+        if (buffer) processLine(buffer);
+      } else {
+        const text = await response.text();
+        for (const line of text.split("\n")) processLine(line);
       }
 
       setAiStreaming(false);
@@ -1117,50 +1124,64 @@ export default function PlanScreen() {
 
       if (response.status === 401) return "fatal_401";
       if (response.status === 402) return "fatal_402";
-      if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      const reader = (response.body as ReadableStream<Uint8Array>).getReader();
       const decoder = new TextDecoder();
-      let buffer = "";
       let accumulated = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          try {
-            const msg = JSON.parse(trimmed);
-            if (msg.type === "delta" && typeof msg.text === "string") {
-              accumulated += msg.text;
-              const partial = parsePartialMultiCookResult(accumulated);
-              if (partial && partial.schedule.length > 0) {
-                setMultiResult(prev => ({
-                  schedule: partial.schedule,
-                  serveAt: (prev?.serveAt ?? (serveAt ?? defaultServeAt).toISOString()),
-                  summary: prev?.summary ?? "",
-                }));
-              }
-            } else if (msg.type === "complete" && msg.data) {
-              setMultiResult(msg.data);
-              setMultiStreaming(false);
-              setMultiRetrying(false);
-              return "ok";
-            } else if (msg.type === "error") {
-              return "error";
+      let lineResult: "ok" | "error" | null = null;
+      const processLine = (line: string) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        try {
+          const msg = JSON.parse(trimmed);
+          if (msg.type === "delta" && typeof msg.text === "string") {
+            accumulated += msg.text;
+            const partial = parsePartialMultiCookResult(accumulated);
+            if (partial && partial.schedule.length > 0) {
+              setMultiResult(prev => ({
+                schedule: partial.schedule,
+                serveAt: (prev?.serveAt ?? (serveAt ?? defaultServeAt).toISOString()),
+                summary: prev?.summary ?? "",
+              }));
             }
-          } catch {
-            // malformed NDJSON line — skip silently
+          } else if (msg.type === "complete" && msg.data) {
+            setMultiResult(msg.data);
+            setMultiStreaming(false);
+            setMultiRetrying(false);
+            lineResult = "ok";
+          } else if (msg.type === "error") {
+            lineResult = "error";
           }
+        } catch {
+          // malformed NDJSON line — skip silently
+        }
+      };
+
+      if (response.body) {
+        const reader = (response.body as ReadableStream<Uint8Array>).getReader();
+        let buffer = "";
+        while (!lineResult) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            processLine(line);
+            if (lineResult) break;
+          }
+        }
+        if (!lineResult && buffer) processLine(buffer);
+      } else {
+        const text = await response.text();
+        for (const line of text.split("\n")) {
+          processLine(line);
+          if (lineResult) break;
         }
       }
 
       setMultiStreaming(false);
-      return "ok";
+      return lineResult === "error" ? "error" : "ok";
     };
 
     const handleFatalResult = (result: "fatal_401" | "fatal_402") => {

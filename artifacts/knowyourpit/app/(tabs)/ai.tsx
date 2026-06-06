@@ -432,9 +432,7 @@ export default function AIScreen() {
         throw new Error(`Request failed (${res.status})`);
       }
 
-      if (!res.body) throw new Error("Streaming not supported on this device.");
-
-      const reader = res.body.getReader();
+      const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
       let sawAnyDelta = false;
@@ -490,18 +488,23 @@ export default function AIScreen() {
         }
       };
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let nl: number;
-        while ((nl = buffer.indexOf("\n")) !== -1) {
-          const line = buffer.slice(0, nl);
-          buffer = buffer.slice(nl + 1);
-          handleLine(line);
+      if (reader) {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let nl: number;
+          while ((nl = buffer.indexOf("\n")) !== -1) {
+            const line = buffer.slice(0, nl);
+            buffer = buffer.slice(nl + 1);
+            handleLine(line);
+          }
         }
+        if (buffer.length > 0) handleLine(buffer);
+      } else {
+        const text = await res.text();
+        for (const line of text.split("\n")) handleLine(line);
       }
-      if (buffer.length > 0) handleLine(buffer);
 
       if (streamError) {
         finalizeWithError(streamError);
