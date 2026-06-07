@@ -1,2 +1,3 @@
 - [Streaming SSE flush order](streaming-sse-flush.md) — always call res.flushHeaders() BEFORE any async DB work in streaming routes or clients see a blank connection.
 - [Production redeploy gap](production-redeploy-gap.md) — new API routes added in dev won't appear in prod until redeployed; 404s on known routes = stale prod build.
+- [Clerk getToken on critical path](clerk-gettoken-critical-path.md) — never `getToken({skipCache:true})` before a UI render; use cached token, refresh only on 401. RN fetch needs an AbortController timeout.

@@ -126,6 +126,13 @@ const INJECTION_STORAGE_PREFIX = "@knowyourpit:injection:";
 const SPRITZ_STORAGE_PREFIX = "@knowyourpit:spritz:";
 const WRAP_FINISH_STORAGE_PREFIX = "@knowyourpit:wrapFinish:";
 
+// Hard upper bound on every AI network call. React Native's fetch has no
+// default timeout, so a stalled connection would otherwise hang the loading
+// modal forever (this is the protection that was lost during the streaming
+// churn — see Ops Log build #115). 45 s comfortably covers a slow gpt-5.2
+// response while still recovering from a genuinely dead socket.
+const AI_FETCH_TIMEOUT_MS = 45_000;
+
 async function loadLastCookMethod(cutName: string): Promise<QpCookMethod | null> {
   try {
     const stored = await AsyncStorage.getItem(COOK_METHOD_STORAGE_PREFIX + cutName);
@@ -757,8 +764,14 @@ export default function PlanScreen() {
       Alert.alert("Select a Food First", "Choose a food so PitMaster can tailor the plan.");
       return;
     }
-    // Pre-check: force-refresh the Clerk token before firing the AI call.
-    const sessionToken = await getToken({ skipCache: true }).catch(() => null);
+    // Use the CACHED Clerk token — this returns synchronously and never blocks
+    // the tap. `skipCache: true` forces a network round-trip to Clerk before
+    // anything renders, and on a slow/stalled connection that hangs the whole
+    // handler so the modal never opens ("tap does nothing"). We only force a
+    // refresh if the server actually rejects the cached token with a 401.
+    const tapAt = Date.now();
+    const sessionToken = await getToken().catch(() => null);
+    if (__DEV__) console.log(`[AiPlan] token ready +${Date.now() - tapAt}ms`);
     if (!sessionToken) {
       Alert.alert(
         "Session Expired",
@@ -800,18 +813,41 @@ export default function PlanScreen() {
       process.env.EXPO_PUBLIC_API_URL ??
       (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
 
+    // Every AI fetch is wrapped in an AbortController so a dead socket can
+    // never hang the loading modal indefinitely (restores the lost #1156
+    // timeout protection).
+    const doPredictFetch = async (token: string) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), AI_FETCH_TIMEOUT_MS);
+      try {
+        return await fetch(`${apiBase}/api/ai/predict`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify(predictPayload),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+
     try {
-      const response = await fetch(`${apiBase}/api/ai/predict`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${sessionToken}`,
-        },
-        body: JSON.stringify(predictPayload),
-      });
+      let response = await doPredictFetch(sessionToken);
+
+      // Cached token rejected — force a single refresh and retry before
+      // declaring the session dead.
+      if (response.status === 401) {
+        const fresh = await getToken({ skipCache: true }).catch(() => null);
+        if (fresh) response = await doPredictFetch(fresh);
+      }
+      if (__DEV__) console.log(`[AiPlan] fetch done +${Date.now() - tapAt}ms status=${response.status}`);
 
       if (response.status === 401) {
         setAiStreaming(false);
+        setAiResultOpen(false);
         Alert.alert(
           "Session Expired",
           "Your session has expired. Please sign out from the More tab and sign in again.",
@@ -828,7 +864,12 @@ export default function PlanScreen() {
       setAiStreaming(false);
     } catch (e: any) {
       setAiStreaming(false);
-      Alert.alert("PitMaster Error", e?.message || "Could not get PitMaster prediction. Try again.");
+      setAiResultOpen(false);
+      const msg =
+        e?.name === "AbortError"
+          ? "PitMaster took too long to respond. Please try again."
+          : e?.message || "Could not get PitMaster prediction. Try again.";
+      Alert.alert("PitMaster Error", msg);
     }
   };
 
@@ -845,7 +886,9 @@ export default function PlanScreen() {
       return;
     }
 
-    const sessionToken = await getToken({ skipCache: true }).catch(() => null);
+    // Cached token (see handleAiPlan) — never force a blocking network refresh
+    // on the critical path; refresh only on an actual 401.
+    const sessionToken = await getToken().catch(() => null);
     if (!sessionToken) {
       Alert.alert("Session Expired", "Your session has expired. Please sign out from the More tab and sign in again.");
       return;
@@ -888,14 +931,28 @@ export default function PlanScreen() {
       (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
 
     const runStream = async (token: string): Promise<"ok" | "error" | "fatal_401" | "fatal_402"> => {
-      const response = await fetch(`${apiBase}/api/ai/multi-cook`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), AI_FETCH_TIMEOUT_MS);
+      let response: Response;
+      try {
+        response = await fetch(`${apiBase}/api/ai/multi-cook`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+      } catch (e: any) {
+        // Timed-out / aborted socket — surface as a retryable "error" so the
+        // modal's auto-retry + in-modal error state kicks in rather than a
+        // hard crash to an Alert.
+        if (e?.name === "AbortError") return "error";
+        throw e;
+      } finally {
+        clearTimeout(timer);
+      }
 
       if (response.status === 401) return "fatal_401";
       if (response.status === 402) return "fatal_402";
@@ -920,8 +977,23 @@ export default function PlanScreen() {
       }
     };
 
+    // Tracks the token currently known to be valid. If a 401 forces a refresh,
+    // every subsequent attempt (auto-retry included) reuses the refreshed token
+    // rather than the original cached one.
+    let activeToken = sessionToken;
+
     try {
-      const result = await runStream(sessionToken);
+      let result = await runStream(activeToken);
+
+      // Cached token rejected — force a single refresh and retry before
+      // declaring the session dead.
+      if (result === "fatal_401") {
+        const fresh = await getToken({ skipCache: true }).catch(() => null);
+        if (fresh) {
+          activeToken = fresh;
+          result = await runStream(activeToken);
+        }
+      }
 
       if (result === "fatal_401" || result === "fatal_402") {
         handleFatalResult(result);
@@ -934,7 +1006,7 @@ export default function PlanScreen() {
         setMultiResult(null);
 
         try {
-          const retryResult = await runStream(sessionToken);
+          const retryResult = await runStream(activeToken);
           if (retryResult === "ok") {
             setMultiRetrying(false);
             return;
@@ -1079,11 +1151,12 @@ export default function PlanScreen() {
         return;
       }
     }
-    // Pre-check: force-refresh the Clerk token before any API call.
-    // Mirrors the same guard in handleAiPlan — if the session expired during
-    // a long AI wait the user sees a clear "Session Expired" message instead
-    // of a confusing generic "Failed to create cook" alert.
-    const sessionToken = await getToken({ skipCache: true }).catch(() => null);
+    // Pre-check the Clerk session before any API call. Use the CACHED token —
+    // `skipCache: true` forces a network round-trip that, on a stalled
+    // connection, hangs this handler so "Start Cook" appears to do nothing.
+    // The mutation below carries its own auth; this is only a liveness guard,
+    // so a cached token is sufficient.
+    const sessionToken = await getToken().catch(() => null);
     if (!sessionToken) {
       Alert.alert(
         "Session Expired",
