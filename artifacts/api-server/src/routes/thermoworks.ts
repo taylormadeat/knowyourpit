@@ -14,10 +14,16 @@ const REFERER = "https://cloud.thermoworks.com/";
 const READING_FRESH_WINDOW_MS = 5 * 60 * 1000;
 
 // Status values the ThermoWorks Cloud uses when a probe is physically connected
-// and actively reading temperature. Channels whose status is absent or falls
-// outside this set are treated as unpopulated slots and excluded.
-// IMPORTANT: if a real probe is ever filtered, check production logs for
-// "thermoworks channel raw" (info level) lines and add the observed status here.
+// and actively reading temperature. Channels whose status is absent, null, or
+// falls outside this set are treated as unpopulated slots and excluded.
+//
+// Known empty-slot markers that must NOT appear in this set:
+//   "OPEN"  — open-circuit / no probe plugged in (ThermoWorks Signals hardware)
+//   null    — channel provisioned but never used
+//
+// If a real probe is ever filtered (user sees connected probe but no reading),
+// temporarily promote the "thermoworks channel raw" log from debug→info in
+// production, reproduce the session, and add the observed status string below.
 const ACTIVE_CHANNEL_STATUSES = new Set([
   "CONNECTED",
   "ACTIVE",
@@ -317,9 +323,8 @@ function toFahrenheit(value: number, units: string | null): number {
 function isChannelLive(c: ChannelReading): boolean {
   if (c.value == null) return false;
   // Allowlist: only statuses that indicate a probe is physically connected.
-  // A null/empty status or any unrecognized value is treated as "no probe".
-  // If a real probe ever gets filtered, check the production info logs for
-  // "thermoworks channel raw" lines and add the observed status to ACTIVE_CHANNEL_STATUSES above.
+  // A null/empty status or any unrecognized value (e.g. "OPEN") is treated as "no probe".
+  // See the ACTIVE_CHANNEL_STATUSES comment above for update instructions.
   if (!c.status || !ACTIVE_CHANNEL_STATUSES.has(c.status)) return false;
   // Strict freshness: require a timestamp within the live window.
   if (c.lastSeen == null) return false;
@@ -511,7 +516,7 @@ router.get("/thermoworks/readings", requireAuth, async (req: any, res): Promise<
       const channels = perDeviceChannels[idx];
       for (const c of channels) {
         const ageSec = c.lastSeen ? Math.round((Date.now() - c.lastSeen.getTime()) / 1000) : null;
-        req.log.info(
+        req.log.debug(
           {
             serial: d.serial,
             channel: c.channelNumber,
