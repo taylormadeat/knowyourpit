@@ -370,6 +370,15 @@ export async function customFetch<T = unknown>(
     const token = await _authTokenGetter();
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
+    } else {
+      // The getter resolved null (e.g. getTokenSafe timed out or Clerk returned
+      // null). Log a warning so the event is visible in Sentry / crash reporters.
+      // No user-facing change — if the endpoint requires auth the server will
+      // respond 401 and the existing per-call retry flow will handle it.
+      console.warn(
+        `[customFetch] Auth token getter resolved null for ${method} ${resolveUrl(input)} — ` +
+          "request will proceed without an Authorization header.",
+      );
     }
   }
 
