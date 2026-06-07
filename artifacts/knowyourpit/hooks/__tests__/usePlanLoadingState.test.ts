@@ -179,6 +179,31 @@ describe("Start-Cooking tap flow (startSubmitting)", () => {
     act(() => { result.current.startSubmitting(); });
     expect(result.current.isSubmitting).toBe(true);
   });
+
+  it("duplicate tap during in-flight call: isSubmitting stays true, single stopSubmitting resets it", () => {
+    // This mirrors the ref-guard scenario in handleSubmit (plan.tsx).
+    // The `submitInFlightRef` in handleSubmit silently drops the second call
+    // before it can call startSubmitting() again. From the hook's perspective
+    // the invariant is: no matter how many startSubmitting() calls arrive,
+    // exactly one stopSubmitting() is enough to fully reset the state — because
+    // the ref guard ensures only the first in-flight call reaches the finally
+    // block where stopSubmitting() is called.
+    const { result } = renderHook(() => usePlanLoadingState());
+
+    // First tap enters handleSubmit → startSubmitting called once
+    act(() => { result.current.startSubmitting(); });
+    expect(result.current.isSubmitting).toBe(true);
+
+    // Second tap is dropped by submitInFlightRef before reaching startSubmitting,
+    // so isSubmitting remains true (not toggled back to false)
+    // We verify the hook itself is stable after the duplicate-tap pattern:
+    act(() => { result.current.startSubmitting(); }); // would be a no-op in real flow
+    expect(result.current.isSubmitting).toBe(true);
+
+    // Only one stopSubmitting() is needed — the one in the original call's finally
+    act(() => { result.current.stopSubmitting(); });
+    expect(result.current.isSubmitting).toBe(false);
+  });
 });
 
 // ── Independence between the two loading states ───────────────────────────────

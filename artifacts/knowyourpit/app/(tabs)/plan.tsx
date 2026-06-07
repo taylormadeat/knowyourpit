@@ -481,6 +481,10 @@ export default function PlanScreen() {
   const [savePresetLabel, setSavePresetLabel] = useState("");
   const [savePresetSaving, setSavePresetSaving] = useState(false);
   const savePresetInFlightRef = useRef(false);
+  // Ref guard for handleSubmit — prevents a second tap from entering the
+  // function while the first is still in-flight (even during the narrow
+  // window before `isSubmitting` disables the button in React's render pass).
+  const submitInFlightRef = useRef(false);
 
   // ── AI predict state ──────────────────────────────────────────────────
   // aiResult / aiResultOpen / aiStreaming / isSubmitting are managed by
@@ -1139,9 +1143,18 @@ export default function PlanScreen() {
   // cookNowMode === "later" regardless of current state — used by the
   // secondary "Save Cook Plan" button in frozen Cook Now mode.
   const handleSubmit = async (modeOverride?: "later") => {
+    // Ref guard: drop any second tap that arrives while the first call is
+    // still in-flight. `isSubmitting` catches most duplicate taps (it
+    // disables the button on the next render pass), but there is a narrow
+    // window between the tap event and React's commit where a second press
+    // can queue. The ref is synchronous and closes that gap entirely.
+    if (submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
+
     const effectiveCookNowMode = modeOverride ?? cookNowMode;
 
     if (!selectedCut) {
+      submitInFlightRef.current = false;
       Alert.alert("Required", "Please select a meat cut");
       return;
     }
@@ -1151,6 +1164,7 @@ export default function PlanScreen() {
     // Replan mode updates an existing cook in place — no new slot consumed.
     if (!replanCookIdNum && paywallUsage && !paywallUsage.unlimited) {
       if (paywallUsage.remaining.cooks <= 0) {
+        submitInFlightRef.current = false;
         showPaywall({
           trigger: "cook_limit_reached",
           foodType: selectedCut?.name ?? null,
@@ -1158,6 +1172,7 @@ export default function PlanScreen() {
         return;
       }
       if (effectiveCookNowMode === "later" && paywallUsage.usage.plannedCooks >= 1) {
+        submitInFlightRef.current = false;
         showPaywall({
           trigger: "planned_cook_limit_reached",
           foodType: selectedCut?.name ?? null,
@@ -1565,6 +1580,7 @@ export default function PlanScreen() {
       Alert.alert("Error", e?.message || "Failed to save cook. Please try again.");
     }
     } finally {
+      submitInFlightRef.current = false;
       stopSubmitting();
     }
   };
