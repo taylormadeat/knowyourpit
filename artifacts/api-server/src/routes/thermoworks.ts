@@ -11,8 +11,23 @@ const TOKEN_HOST = "https://securetoken.googleapis.com";
 const FIRESTORE_HOST = "https://firestore.googleapis.com";
 const REFERER = "https://cloud.thermoworks.com/";
 
-const MAX_CHANNELS_PER_DEVICE = 8;
-const READING_FRESH_WINDOW_MS = 15 * 60 * 1000;
+const READING_FRESH_WINDOW_MS = 5 * 60 * 1000;
+
+// Status values the ThermoWorks Cloud uses when a probe is physically connected
+// and actively reading temperature. Channels whose status is absent or falls
+// outside this set are treated as unpopulated slots and excluded.
+// IMPORTANT: if a real probe is ever filtered (shows up in debug logs with a
+// status not in this set), add that value here.
+const ACTIVE_CHANNEL_STATUSES = new Set([
+  "CONNECTED",
+  "ACTIVE",
+  "OK",
+  "IN_SESSION",
+  "LIVE",
+  "MEASURING",
+  "RECORDING",
+  "PROBE_CONNECTED",
+]);
 
 const router: IRouter = Router();
 
@@ -165,20 +180,22 @@ async function runFirestoreQuery(
   projectId: string,
   idToken: string,
   body: any,
+  parentDocPath?: string,
 ): Promise<any[]> {
+  // parentDocPath lets callers scope the query to a subcollection under a
+  // specific document, e.g. "devices/{serial}" to query only its channels.
+  const parentSegment = parentDocPath ? `/${parentDocPath}` : "";
+  const url = `${firestoreBase(projectId)}/documents${parentSegment}:runQuery?key=${FIREBASE_API_KEY}`;
   try {
-    const res = await fetch(
-      `${firestoreBase(projectId)}/documents:runQuery?key=${FIREBASE_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-          "Content-Type": "application/json",
-          referer: REFERER,
-        },
-        body: JSON.stringify(body),
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        "Content-Type": "application/json",
+        referer: REFERER,
       },
-    );
+      body: JSON.stringify(body),
+    });
     if (!res.ok) return [];
     const items = await res.json();
     return Array.isArray(items) ? items : [];
@@ -253,17 +270,9 @@ type ChannelReading = {
   lastSeen: Date | null;
 };
 
-async function fetchDeviceChannel(
-  projectId: string,
-  idToken: string,
-  serial: string,
-  channel: string,
-): Promise<ChannelReading | null> {
-  const result = await fetchFirestoreDoc(projectId, idToken, `devices/${serial}/channels/${channel}`);
-  if (!result.ok) return null;
-  const fields = result.doc?.fields ?? {};
+function channelReadingFromFields(fields: Record<string, any>, fallbackNumber: string): ChannelReading {
   return {
-    channelNumber: fieldStr(fields, "number") ?? channel,
+    channelNumber: fieldStr(fields, "number") ?? fieldStr(fields, "channelNumber") ?? fallbackNumber,
     label: fieldStr(fields, "label"),
     status: fieldStr(fields, "status"),
     units: fieldStr(fields, "units"),
@@ -272,17 +281,31 @@ async function fetchDeviceChannel(
   };
 }
 
-async function fetchAllDeviceChannels(
+// Fetch all channel documents for a device via a Firestore collection query.
+// This replaces the old 1-8 individual-doc polling: a single round-trip
+// returns only the channel documents that ThermoWorks has actually provisioned.
+async function fetchDeviceChannelsFromCollection(
   projectId: string,
   idToken: string,
   serial: string,
 ): Promise<ChannelReading[]> {
-  const promises: Promise<ChannelReading | null>[] = [];
-  for (let i = 1; i <= MAX_CHANNELS_PER_DEVICE; i++) {
-    promises.push(fetchDeviceChannel(projectId, idToken, serial, String(i)));
+  const items = await runFirestoreQuery(
+    projectId,
+    idToken,
+    { structuredQuery: { from: [{ collectionId: "channels" }] } },
+    `devices/${serial}`,
+  );
+  const channels: ChannelReading[] = [];
+  for (const item of items) {
+    const doc = item?.document;
+    if (!doc) continue;
+    const fields: Record<string, any> = doc.fields ?? {};
+    // Derive the channel number from the document path if the field is missing
+    const pathParts: string[] = (doc.name ?? "").split("/");
+    const fallbackNumber = pathParts[pathParts.length - 1] ?? "?";
+    channels.push(channelReadingFromFields(fields, fallbackNumber));
   }
-  const results = await Promise.all(promises);
-  return results.filter((c): c is ChannelReading => c != null);
+  return channels;
 }
 
 function toFahrenheit(value: number, units: string | null): number {
@@ -293,7 +316,11 @@ function toFahrenheit(value: number, units: string | null): number {
 
 function isChannelLive(c: ChannelReading): boolean {
   if (c.value == null) return false;
-  if (c.status === "DISCONNECTED" || c.status === "OFFLINE") return false;
+  // Allowlist: only statuses that indicate a probe is physically connected.
+  // A null/empty status or any unrecognized value is treated as "no probe".
+  // If a real probe ever gets filtered, check the debug logs for its status
+  // value and add it to ACTIVE_CHANNEL_STATUSES above.
+  if (!c.status || !ACTIVE_CHANNEL_STATUSES.has(c.status)) return false;
   // Strict freshness: require a timestamp within the live window.
   if (c.lastSeen == null) return false;
   return Date.now() - c.lastSeen.getTime() < READING_FRESH_WINDOW_MS;
@@ -466,9 +493,9 @@ router.get("/thermoworks/readings", requireAuth, async (req: any, res): Promise<
       return;
     }
 
-    // Fetch all channels for all devices in parallel
+    // Fetch all channels for all devices in parallel (one collection query per device)
     const perDeviceChannels = await Promise.all(
-      devices.map((d) => fetchAllDeviceChannels(access.projectId, access.idToken, d.serial)),
+      devices.map((d) => fetchDeviceChannelsFromCollection(access.projectId, access.idToken, d.serial)),
     );
 
     type Probe = {
@@ -483,6 +510,18 @@ router.get("/thermoworks/readings", requireAuth, async (req: any, res): Promise<
     devices.forEach((d, idx) => {
       const channels = perDeviceChannels[idx];
       for (const c of channels) {
+        const ageSec = c.lastSeen ? Math.round((Date.now() - c.lastSeen.getTime()) / 1000) : null;
+        req.log.debug(
+          {
+            serial: d.serial,
+            channel: c.channelNumber,
+            status: c.status,
+            value: c.value,
+            units: c.units,
+            ageSec,
+          },
+          "thermoworks channel raw",
+        );
         if (!isChannelLive(c)) continue;
         probes.push({
           deviceId: d.serial,
