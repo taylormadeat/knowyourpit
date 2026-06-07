@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
+import { getTokenSafe } from "@/lib/getTokenSafe";
 import {
   View,
   Text,
@@ -801,7 +802,7 @@ export default function PlanScreen() {
 
     // Use the CACHED Clerk token — only force a refresh on an actual 401.
     const tapAt = Date.now();
-    const sessionToken = await getToken().catch(() => null);
+    const sessionToken = await getTokenSafe(getToken);
     if (__DEV__) console.log(`[AiPlan] token ready +${Date.now() - tapAt}ms`);
     if (!sessionToken) {
       setAiStreaming(false);
@@ -868,7 +869,7 @@ export default function PlanScreen() {
       // Cached token rejected — force a single refresh and retry before
       // declaring the session dead.
       if (response.status === 401) {
-        const fresh = await getToken({ skipCache: true }).catch(() => null);
+        const fresh = await getTokenSafe(opts => getToken({ ...opts, skipCache: true }));
         if (fresh) response = await doPredictFetch(fresh);
       }
       if (__DEV__) console.log(`[AiPlan] fetch done +${Date.now() - tapAt}ms status=${response.status}`);
@@ -931,7 +932,7 @@ export default function PlanScreen() {
 
     // Cached token (see handleAiPlan) — never force a blocking network refresh
     // on the critical path; refresh only on an actual 401.
-    const sessionToken = await getToken().catch(() => null);
+    const sessionToken = await getTokenSafe(getToken);
     if (!sessionToken) {
       multiCookRunningRef.current = false;
       closeMultiCookModal();
@@ -1024,7 +1025,7 @@ export default function PlanScreen() {
       // Cached token rejected — force a single refresh and retry before
       // declaring the session dead.
       if (result === "fatal_401") {
-        const fresh = await getToken({ skipCache: true }).catch(() => null);
+        const fresh = await getTokenSafe(opts => getToken({ ...opts, skipCache: true }));
         if (fresh) {
           activeToken = fresh;
           result = await runStream(activeToken);
@@ -1213,7 +1214,7 @@ export default function PlanScreen() {
     // connection, hangs this handler so "Start Cook" appears to do nothing.
     // The mutation below carries its own auth; this is only a liveness guard,
     // so a cached token is sufficient.
-    const sessionToken = await getToken().catch(() => null);
+    const sessionToken = await getTokenSafe(getToken);
     if (!sessionToken) {
       Alert.alert(
         "Session Expired",
@@ -2499,7 +2500,7 @@ export default function PlanScreen() {
                         }
                         setFrozenConsumePending(true);
                         try {
-                          const token = await getToken().catch(() => null);
+                          const token = await getTokenSafe(getToken);
                           const headers: Record<string, string> = { "Content-Type": "application/json" };
                           if (token) headers["Authorization"] = `Bearer ${token}`;
                           const apiBase =

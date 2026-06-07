@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { getTokenSafe } from "@/lib/getTokenSafe";
 import {
   View,
   Text,
@@ -166,7 +167,7 @@ export default function AIScreen() {
 
   // ─── Auth header helper ─────────────────────────────────────────────────
   const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
-    const token = await getToken();
+    const token = await getTokenSafe(getToken);
     const h: Record<string, string> = { "Content-Type": "application/json" };
     if (token) h["Authorization"] = `Bearer ${token}`;
     return h;
@@ -388,7 +389,7 @@ export default function AIScreen() {
     try {
       if (!API_BASE_URL) throw new Error("API base URL not configured");
 
-      const token = await getToken();
+      const token = await getTokenSafe(getToken);
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
         Accept: "application/x-ndjson",

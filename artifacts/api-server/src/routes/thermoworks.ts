@@ -381,7 +381,7 @@ router.post("/thermoworks/send-reset", requireAuth, async (req: any, res): Promi
     return;
   }
   try {
-    await fetch(
+    const fbRes = await fetch(
       `${IDENTITY_HOST}/v1/accounts:sendOobCode?key=${FIREBASE_API_KEY}`,
       {
         method: "POST",
@@ -389,6 +389,31 @@ router.post("/thermoworks/send-reset", requireAuth, async (req: any, res): Promi
         body: JSON.stringify({ requestType: "PASSWORD_RESET", email: String(email).trim() }),
       },
     );
+
+    if (!fbRes.ok) {
+      let fbBody: { error?: { message?: string } } = {};
+      try { fbBody = await fbRes.json() as typeof fbBody; } catch { /* ignore parse errors */ }
+      const fbMessage = fbBody?.error?.message ?? "";
+      req.log.warn({ status: fbRes.status, fbMessage }, "thermoworks send-reset: Firebase returned non-2xx");
+
+      // Firebase returns these codes for OAuth-only accounts (Google/Apple)
+      // that have no local password set — no reset email can be sent.
+      const oauthOnlyCodes = [
+        "INVALID_LOGIN_CREDENTIALS",
+        "EMAIL_NOT_FOUND",
+        "MISSING_PASSWORD",
+        "FEDERATED_USER_ID_ALREADY_LINKED",
+        "OPERATION_NOT_ALLOWED",
+      ];
+      if (oauthOnlyCodes.some(code => fbMessage.includes(code))) {
+        res.status(422).json({ code: "OAUTH_ACCOUNT", error: "Account uses OAuth sign-in — no password to reset." });
+        return;
+      }
+
+      res.status(502).json({ error: "Could not reach ThermoWorks Cloud." });
+      return;
+    }
+
     res.status(204).end();
   } catch (err) {
     req.log.warn({ err }, "thermoworks send-reset failed");

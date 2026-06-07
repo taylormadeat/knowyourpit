@@ -34,6 +34,7 @@ import {
   persistBootError,
 } from "@/lib/bootDiagnostics";
 import { mark, installFetchTracker } from "@/lib/bootBreadcrumbs";
+import { getTokenSafe } from "@/lib/getTokenSafe";
 
 // Install the global JS error handler as early as possible — before any
 // providers, hooks, or other module side-effects run — so that an exception
@@ -95,11 +96,7 @@ setBaseUrl(apiBaseUrl);
 let _currentGetToken: (() => Promise<string | null>) | null = null;
 setAuthTokenGetter(async () => {
   if (!_currentGetToken) return null;
-  try {
-    return await _currentGetToken();
-  } catch {
-    return null;
-  }
+  return getTokenSafe(_currentGetToken);
 });
 
 // Clerk publishable key — two env vars are supported:

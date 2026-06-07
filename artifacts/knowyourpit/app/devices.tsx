@@ -1158,7 +1158,18 @@ export default function DevicesScreen() {
                                 { data: { email: thermoworksEmail.trim() } },
                                 {
                                   onSuccess: () => { setTwResetSent(true); setTwResetError(null); },
-                                  onError: () => setTwResetError("Couldn't reach ThermoWorks Cloud — check your connection and try again."),
+                                  onError: (err: any) => {
+                                    // customFetch throws ApiError with .status and .data
+                                    const status = err?.status;
+                                    const code = (err?.data as any)?.code;
+                                    if (status === 422 && code === "OAUTH_ACCOUNT") {
+                                      setTwResetError(
+                                        "This ThermoWorks account uses Google or Apple sign-in. To set a local password, visit app.thermoworks.com and use \u2018Forgot password\u2019.",
+                                      );
+                                    } else {
+                                      setTwResetError("Couldn\u2019t reach ThermoWorks Cloud \u2014 check your connection and try again.");
+                                    }
+                                  },
                                 },
                               )}
                               style={{ marginTop: 6 }}

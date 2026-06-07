@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { getTokenSafe } from "@/lib/getTokenSafe";
 import { Platform, Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
@@ -495,7 +496,7 @@ export function useCookDetail(id: string | undefined) {
       if (step === "stall" || step === "probeTender") {
         const noteText = step === "stall" ? "Stall detected" : "Probe tender achieved";
         try {
-          const token = await getToken();
+          const token = await getTokenSafe(getToken);
           const headers: Record<string, string> = { "Content-Type": "application/json" };
           if (token) headers["Authorization"] = `Bearer ${token}`;
           if (isConfirming) {
@@ -641,7 +642,7 @@ export function useCookDetail(id: string | undefined) {
       if (!cook?.id) return;
       const eventType = action === "charcoal" ? "charcoal_add" : "wood_add";
       try {
-        const token = await getToken();
+        const token = await getTokenSafe(getToken);
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (token) headers["Authorization"] = `Bearer ${token}`;
         await fetch(`${API_BASE_URL}/api/cooks/${cook.id}/events`, {

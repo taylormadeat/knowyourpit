@@ -1,4 +1,5 @@
 import React from "react";
+import { getTokenSafe } from "@/lib/getTokenSafe";
 import {
   View,
   Text,
@@ -142,7 +143,7 @@ export default function MoreScreen() {
     setDeleting(true);
     let signOutAndClear: (() => Promise<void>) | null = null;
     try {
-      const token = await getToken();
+      const token = await getTokenSafe(getToken);
       const res = await expoFetch(`${API_BASE_URL}/api/profile/me`, {
         method: "DELETE",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
