@@ -109,7 +109,12 @@ try {
     fi
 fi
 
-npx eas submit --platform ios $BUILD_ARG --non-interactive
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+EAS_BIN="${SCRIPT_DIR}/../node_modules/.bin/eas"
+if [ ! -x "$EAS_BIN" ]; then
+    EAS_BIN="npx eas"
+fi
+$EAS_BIN submit --platform ios $BUILD_ARG --non-interactive
 
 echo ""
 echo "✅ EAS submission complete."
