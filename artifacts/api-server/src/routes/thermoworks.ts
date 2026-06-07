@@ -16,8 +16,8 @@ const READING_FRESH_WINDOW_MS = 5 * 60 * 1000;
 // Status values the ThermoWorks Cloud uses when a probe is physically connected
 // and actively reading temperature. Channels whose status is absent or falls
 // outside this set are treated as unpopulated slots and excluded.
-// IMPORTANT: if a real probe is ever filtered (shows up in debug logs with a
-// status not in this set), add that value here.
+// IMPORTANT: if a real probe is ever filtered, check production logs for
+// "thermoworks channel raw" (info level) lines and add the observed status here.
 const ACTIVE_CHANNEL_STATUSES = new Set([
   "CONNECTED",
   "ACTIVE",
@@ -318,8 +318,8 @@ function isChannelLive(c: ChannelReading): boolean {
   if (c.value == null) return false;
   // Allowlist: only statuses that indicate a probe is physically connected.
   // A null/empty status or any unrecognized value is treated as "no probe".
-  // If a real probe ever gets filtered, check the debug logs for its status
-  // value and add it to ACTIVE_CHANNEL_STATUSES above.
+  // If a real probe ever gets filtered, check the production info logs for
+  // "thermoworks channel raw" lines and add the observed status to ACTIVE_CHANNEL_STATUSES above.
   if (!c.status || !ACTIVE_CHANNEL_STATUSES.has(c.status)) return false;
   // Strict freshness: require a timestamp within the live window.
   if (c.lastSeen == null) return false;
@@ -511,7 +511,7 @@ router.get("/thermoworks/readings", requireAuth, async (req: any, res): Promise<
       const channels = perDeviceChannels[idx];
       for (const c of channels) {
         const ageSec = c.lastSeen ? Math.round((Date.now() - c.lastSeen.getTime()) / 1000) : null;
-        req.log.debug(
+        req.log.info(
           {
             serial: d.serial,
             channel: c.channelNumber,
