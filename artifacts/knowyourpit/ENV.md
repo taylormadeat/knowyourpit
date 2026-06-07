@@ -87,6 +87,36 @@ dashboard audit.
 
 ---
 
+### `EXPO_PUBLIC_SENTRY_DSN`
+- **Purpose**: Sentry Data Source Name (DSN) for crash and warning reporting. When
+  set, auth-timeout warnings (from `getTokenSafe`) and unhandled JS errors are
+  sent to the Sentry dashboard. When absent, Sentry is silently skipped — the app
+  works normally, warnings are only visible in the Metro console.
+- **Example**: `https://abc123@o123456.ingest.sentry.io/789`
+- **Set in**: EAS secret for `production` (and optionally `preview`):
+  ```
+  eas secret:create EXPO_PUBLIC_SENTRY_DSN https://...@....ingest.sentry.io/...
+  ```
+- **EAS environments**: Recommended for `production`; optional for `preview`.
+  Do NOT set for `development` unless you also set `EXPO_PUBLIC_SENTRY_DEV_ENABLED=true`.
+- **Used in**: `lib/sentry.ts`, `app/_layout.tsx`, `lib/getTokenSafe.ts`.
+- **PII policy**: The `beforeSend` hook in `lib/sentry.ts` redacts `Authorization`
+  headers from all captured breadcrumbs. Warning messages from `getTokenSafe` and
+  `customFetch` contain only timing data and URL paths — never tokens or user IDs.
+  `Sentry.setUser()` is intentionally never called, so no Clerk user IDs are sent.
+
+---
+
+### `EXPO_PUBLIC_SENTRY_DEV_ENABLED`
+- **Purpose**: Optional flag to enable Sentry event transmission in `__DEV__`
+  builds (development / Metro). Without this flag, Sentry initialises in debug
+  mode during development (events printed to the Metro console only, not sent).
+- **Example**: `true`
+- **Set in**: Not needed in EAS. Only useful for local testing of the Sentry pipeline.
+- **Used in**: `lib/sentry.ts`.
+
+---
+
 ### `EXPO_PUBLIC_REVENUECAT_IOS_KEY`
 - **Purpose**: RevenueCat iOS public API key (`appl_…`).
 - **Set in**: Must be configured in EAS for every environment that tests or
@@ -125,6 +155,8 @@ dashboard audit.
 | `EXPO_PUBLIC_REPL_ID` | — | — | — | Runtime (Replit only) |
 | `EXPO_PUBLIC_REVENUECAT_IOS_KEY` | `eas env` ✓ | `eas env` ✓ | `eas env` ✓ | EAS |
 | `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` | `eas env` ✓ | `eas env` ✓ | `eas env` ✓ | EAS |
+| `EXPO_PUBLIC_SENTRY_DSN` | — | optional | `eas secret` ✓ | EAS secret |
+| `EXPO_PUBLIC_SENTRY_DEV_ENABLED` | — | — | — | Local dev only |
 
 Variables marked "—" are either not needed in that EAS environment or are
 injected at runtime by the Replit build system and must NOT be set in EAS.

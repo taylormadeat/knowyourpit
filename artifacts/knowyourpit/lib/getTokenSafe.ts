@@ -7,9 +7,11 @@
  * without an auth header; a subsequent 401 from the server triggers the
  * existing per-call refresh flow.
  *
- * When the timeout path wins, a `console.warn` is emitted so the event is
- * visible in Sentry / crash reporters without any user-facing change.
+ * When the timeout path wins, a `console.warn` is emitted and the event is
+ * captured in Sentry so silent failures are visible in production dashboards.
  */
+import { captureWarning } from "./sentry";
+
 export async function getTokenSafe(
   getToken: (opts?: { skipCache?: boolean }) => Promise<string | null>,
   timeoutMs = 1000,
@@ -26,11 +28,12 @@ export async function getTokenSafe(
   const result = await Promise.race([getToken().catch(() => null), timeoutPromise]);
 
   if (timedOut) {
-    console.warn(
+    const message =
       `[getTokenSafe] Clerk getToken timed out after ${timeoutMs} ms — ` +
-        "request will proceed without an Authorization header. " +
-        "A 401 response from the server will trigger a token refresh.",
-    );
+      "request will proceed without an Authorization header. " +
+      "A 401 response from the server will trigger a token refresh.";
+    console.warn(message);
+    captureWarning(message);
   }
 
   return result;

@@ -35,6 +35,13 @@ import {
 } from "@/lib/bootDiagnostics";
 import { mark, installFetchTracker } from "@/lib/bootBreadcrumbs";
 import { getTokenSafe } from "@/lib/getTokenSafe";
+import { initSentry } from "@/lib/sentry";
+
+// Initialise Sentry as the very first module-level side-effect so that any
+// error thrown during boot (ClerkProvider, tokenCache, font loading, etc.)
+// is captured before the ErrorBoundary or BootDiagnostic screen is mounted.
+// initSentry() is a no-op when EXPO_PUBLIC_SENTRY_DSN is absent.
+initSentry();
 
 // Install the global JS error handler as early as possible — before any
 // providers, hooks, or other module side-effects run — so that an exception
