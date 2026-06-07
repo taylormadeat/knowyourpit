@@ -67,6 +67,7 @@ export function MeatPickerModal(p: Props) {
             ItemSeparatorComponent={() => <View style={[s.cutSep, { backgroundColor: colors.border }]} />}
             renderItem={({ item }) => (
               <Pressable
+                testID={`meat-cut-${item.name.toLowerCase().replace(/\s+/g, "-")}`}
                 onPress={() => handlePickCut(item)}
                 style={({ pressed }) => [
                   s.cutRow,

@@ -18,7 +18,8 @@
     "eas:build:preview": "node scripts/measure-archive-size.js && eas build --profile preview",
     "eas:submit:android": "bash scripts/submit-android.sh",
     "audit-env": "node scripts/audit-env.js",
-    "test": "jest"
+    "test": "jest",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -27,6 +28,7 @@
     "@expo/cli": "54.0.23",
     "@expo/config-plugins": "^54.0.4",
     "@expo/vector-icons": "^15.0.3",
+    "@playwright/test": "^1.60.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/bottom-tabs": "~7.15.9",
     "@stardazed/streams-text-encoding": "^1.0.2",

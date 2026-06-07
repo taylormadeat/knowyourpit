@@ -87,6 +87,7 @@ import { useMeaterReadings, type MeaterProbe } from "@/hooks/useMeaterReadings";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
+import { usePlanLoadingState } from "@/hooks/usePlanLoadingState";
 
 import { planStyles as s, probeCardStyles as sp } from "@/components/plan-screen/styles";
 import { PitMasterChatModal } from "@/components/PitMasterChatModal";
@@ -398,7 +399,6 @@ export default function PlanScreen() {
   }, []);
   const [serveAt, setServeAt] = useState<Date | null>(null);
   const [cookNowMode, setCookNowMode] = useState<"now" | "later">("now");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
 
@@ -482,10 +482,19 @@ export default function PlanScreen() {
   const savePresetInFlightRef = useRef(false);
 
   // ── AI predict state ──────────────────────────────────────────────────
-  const [aiResult, setAiResult] = useState<any | null>(null);
-  const [aiResultOpen, setAiResultOpen] = useState(false);
+  // aiResult / aiResultOpen / aiStreaming / isSubmitting are managed by
+  // usePlanLoadingState which encapsulates the synchronous-before-await
+  // contract tested in hooks/__tests__/usePlanLoadingState.test.ts.
+  const {
+    aiResult, setAiResult,
+    aiResultOpen, setAiResultOpen,
+    aiStreaming, setAiStreaming,
+    isSubmitting, setIsSubmitting,
+    openAiPlanModal,
+    startSubmitting,
+    stopSubmitting,
+  } = usePlanLoadingState();
   const [aiRetrying, setAiRetrying] = useState(false);
-  const [aiStreaming, setAiStreaming] = useState(false);
   const [factorsSheetOpen, setFactorsSheetOpen] = useState(false);
   const [planChatOpen, setPlanChatOpen] = useState(false);
   const [planChatSeed, setPlanChatSeed] = useState<string | undefined>(undefined);
@@ -769,9 +778,9 @@ export default function PlanScreen() {
     // same frame as the tap. The setTimeout(0) yield then gives React Native
     // one event-loop tick to commit that render before we block the JS thread
     // on the Clerk SecureStore read and the network fetch.
-    setAiResult(null);
-    setAiResultOpen(true);
-    setAiStreaming(true);
+    // openAiPlanModal() sets aiResult=null, aiResultOpen=true, aiStreaming=true
+    // synchronously — the contract tested in usePlanLoadingState.test.ts.
+    openAiPlanModal();
     await new Promise<void>(resolve => setTimeout(resolve, 0));
 
     // Use the CACHED Clerk token — only force a refresh on an actual 401.
@@ -1161,7 +1170,9 @@ export default function PlanScreen() {
     // gives React Native one event-loop tick to commit the disabled/spinner
     // state before the JS thread is blocked by the Clerk SecureStore read and
     // the subsequent mutation network call.
-    setIsSubmitting(true);
+    // startSubmitting() sets isSubmitting=true synchronously — the contract
+    // tested in usePlanLoadingState.test.ts.
+    startSubmitting();
     await new Promise<void>(resolve => setTimeout(resolve, 0));
 
     // try/finally guarantees isSubmitting resets on every exit path (early
@@ -1555,7 +1566,7 @@ export default function PlanScreen() {
       Alert.alert("Error", e?.message || "Failed to save cook. Please try again.");
     }
     } finally {
-      setIsSubmitting(false);
+      stopSubmitting();
     }
   };
 
@@ -1911,6 +1922,7 @@ export default function PlanScreen() {
         {/* ── Meat Cut ── */}
         <Label colors={colors}>Meat Cut *</Label>
         <Pressable
+          testID="food-picker-btn"
           onPress={() => setMeatPickerOpen(true)}
           style={[
             s.dropdown,
@@ -2985,6 +2997,7 @@ export default function PlanScreen() {
 
         {/* ── AI Cook Planner ── */}
         <Pressable
+          testID="ai-plan-btn"
           style={({ pressed }) => [
             s.aiBtn,
             { borderRadius: colors.radius },
@@ -3001,7 +3014,7 @@ export default function PlanScreen() {
           >
             {aiStreaming && !aiResultOpen ? (
               <>
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator testID="ai-plan-loading-indicator" color="#fff" size="small" />
                 <Text style={s.aiBtnText}>PitMaster is planning your cook…</Text>
               </>
             ) : (
@@ -3281,6 +3294,7 @@ export default function PlanScreen() {
         )}
         {/* ── Submit ── */}
         <Pressable
+          testID="submit-cook-btn"
           style={({ pressed }) => [
             s.submitBtn,
             { backgroundColor: colors.primary, borderRadius: colors.radius },
@@ -3290,7 +3304,7 @@ export default function PlanScreen() {
           disabled={isSubmitting || createCook.isPending}
         >
           {(isSubmitting || createCook.isPending) ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator testID="submit-spinner" color="#fff" />
           ) : (
             <>
               <Feather name={frozenEnabled && cookNowMode === "now" ? "thermometer" : cookNowMode === "now" ? "play" : "zap"} size={18} color="#fff" />
