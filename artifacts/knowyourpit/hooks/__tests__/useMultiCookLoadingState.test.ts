@@ -336,6 +336,81 @@ describe("raw escape-hatch setters", () => {
   });
 });
 
+// ── Double-tap guard (multiCookRunningRef pattern) ───────────────────────────
+//
+// The guard in handleMultiCook uses a `useRef<boolean>` (multiCookRunningRef)
+// to block re-entrant calls between the tap and the first React render pass
+// (where `disabled` would normally prevent the second tap).  These tests
+// verify the guard logic in isolation — the same pattern the handler uses —
+// without mounting the full plan.tsx component.
+
+describe("double-tap ref guard — multiCookRunningRef pattern", () => {
+  it("a second call while the first is in-flight is a no-op", async () => {
+    const running = { current: false };
+    const calls: string[] = [];
+
+    const handler = async () => {
+      if (running.current) return;
+      running.current = true;
+      try {
+        calls.push("start");
+        // Simulate an async fetch (e.g. AI request)
+        await new Promise<void>(resolve => setTimeout(resolve, 10));
+        calls.push("end");
+      } finally {
+        running.current = false;
+      }
+    };
+
+    // Fire two calls in the same tick — second must be blocked
+    const first = handler();
+    const second = handler(); // should return immediately
+
+    await Promise.all([first, second]);
+
+    expect(calls).toEqual(["start", "end"]); // only one run
+  });
+
+  it("a second call after the first completes is allowed", async () => {
+    const running = { current: false };
+    const calls: string[] = [];
+
+    const handler = async () => {
+      if (running.current) return;
+      running.current = true;
+      try {
+        calls.push("start");
+        await new Promise<void>(resolve => setTimeout(resolve, 5));
+        calls.push("end");
+      } finally {
+        running.current = false;
+      }
+    };
+
+    await handler(); // first run completes
+    await handler(); // second run should proceed normally
+
+    expect(calls).toEqual(["start", "end", "start", "end"]);
+  });
+
+  it("ref is cleared even when the handler throws", async () => {
+    const running = { current: false };
+
+    const handler = async () => {
+      if (running.current) return;
+      running.current = true;
+      try {
+        throw new Error("network failure");
+      } finally {
+        running.current = false;
+      }
+    };
+
+    await handler().catch(() => {});
+    expect(running.current).toBe(false); // must be cleared so next tap works
+  });
+});
+
 // ── Independence — multi-cook state does not bleed into usePlanLoadingState ───
 
 describe("multi-cook state is self-contained", () => {

@@ -485,6 +485,9 @@ export default function PlanScreen() {
   // function while the first is still in-flight (even during the narrow
   // window before `isSubmitting` disables the button in React's render pass).
   const submitInFlightRef = useRef(false);
+  // Ref guard for handleMultiCook — prevents a rapid double-tap from queuing
+  // a second concurrent AI request while the loading modal is animating in.
+  const multiCookRunningRef = useRef(false);
 
   // ── AI predict state ──────────────────────────────────────────────────
   // aiResult / aiResultOpen / aiStreaming / isSubmitting are managed by
@@ -900,13 +903,22 @@ export default function PlanScreen() {
 
   // ── Multi-Cook Sequence ───────────────────────────────────────────────
   const handleMultiCook = async () => {
+    // Guard against rapid double-taps. The `disabled` prop on the button
+    // only takes effect after the next React render, so a second tap that
+    // arrives during the animation frame before the re-render would still
+    // enter this function without the ref check.
+    if (multiCookRunningRef.current) return;
+    multiCookRunningRef.current = true;
+
     // Pro-only (or unlocked when the kill switch is off). Pre-check before
     // hitting the server so we can show a richer paywall modal context.
     if (!effectivePro) {
+      multiCookRunningRef.current = false;
       showPaywall({ trigger: "pro_required", featureName: "Multi-Cook Sequencer" });
       return;
     }
     if (multiItems.length < 2) {
+      multiCookRunningRef.current = false;
       Alert.alert("Add More Items", "Add at least 2 items to sequence a multi-cook.");
       return;
     }
@@ -921,6 +933,7 @@ export default function PlanScreen() {
     // on the critical path; refresh only on an actual 401.
     const sessionToken = await getToken().catch(() => null);
     if (!sessionToken) {
+      multiCookRunningRef.current = false;
       closeMultiCookModal();
       Alert.alert("Session Expired", "Your session has expired. Please sign out from the More tab and sign in again.");
       return;
@@ -1049,6 +1062,8 @@ export default function PlanScreen() {
       closeMultiCookModal();
       if (parseAndShowFromError(e)) return;
       Alert.alert("PitMaster Error", e?.message || "Could not sequence cooks. Try again.");
+    } finally {
+      multiCookRunningRef.current = false;
     }
   };
 
@@ -3578,7 +3593,7 @@ export default function PlanScreen() {
             (multiStreaming || pressed) && { opacity: 0.75 },
           ]}
           onPress={handleMultiCook}
-          disabled={multiStreaming || multiItems.length < 2}
+          disabled={multiStreaming || multiRetrying || multiItems.length < 2}
         >
           <LinearGradient
             colors={["#6C3BF5", "#A855F7"]}
