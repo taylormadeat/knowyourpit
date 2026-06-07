@@ -596,23 +596,70 @@ export function AiResultsModal(p: Props) {
           <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 40 }}>
             {/* ── Full loading state (no partial data yet) ── */}
             {!aiResult && (
-              <View style={{ gap: 20, paddingTop: 24 }}>
-                <ActivityIndicator size="large" color="#6C3BF5" style={{ marginBottom: 8 }} />
-                <View style={{ gap: 10 }}>
-                  <ShimmerBar width="75%" colors={colors} />
-                  <ShimmerBar width="90%" colors={colors} />
-                  <ShimmerBar width="60%" colors={colors} />
+              <View style={{ paddingTop: 20 }}>
+                {/* ── PitMaster Analysis skeleton ── */}
+                <View style={[s.aiSection, { borderColor: colors.border }]}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                    <Text style={[s.aiSectionTitle, { color: colors.foreground, marginBottom: 0, flex: 1 }]}>
+                      PitMaster Analysis
+                    </Text>
+                    <ActivityIndicator size="small" color="#6C3BF5" />
+                  </View>
+                  <View style={{ gap: 9 }}>
+                    <ShimmerBar width="92%" colors={colors} />
+                    <ShimmerBar width="78%" colors={colors} />
+                    <ShimmerBar width="65%" colors={colors} />
+                    <ShimmerBar width="85%" colors={colors} />
+                  </View>
                 </View>
-                <View style={{ gap: 10, marginTop: 8 }}>
-                  <ShimmerBar width="50%" colors={colors} />
-                  <ShimmerBar width="80%" colors={colors} />
-                  <ShimmerBar width="70%" colors={colors} />
-                  <ShimmerBar width="85%" colors={colors} />
+
+                {/* ── Cook Timeline skeleton ── */}
+                <View style={[s.aiSection, { borderColor: colors.border }]}>
+                  <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>Cook Timeline</Text>
+                  {[
+                    { sz: 36, radius: 10, widths: ["40%", "58%"] as const },
+                    { sz: 30, radius: 15, widths: ["33%", "52%"] as const },
+                    { sz: 30, radius: 15, widths: ["38%", "66%"] as const },
+                    { sz: 36, radius: 10, widths: ["44%", "60%"] as const },
+                  ].map(({ sz, radius, widths }, idx, arr) => {
+                    const isLast = idx === arr.length - 1;
+                    return (
+                      <View key={idx} style={{ flexDirection: "row", gap: 12 }}>
+                        <View style={{ alignItems: "center", width: 36 }}>
+                          <View style={{
+                            width: sz,
+                            height: sz,
+                            borderRadius: radius,
+                            backgroundColor: colors.muted,
+                          }} />
+                          {!isLast && (
+                            <View style={{
+                              width: 1,
+                              flex: 1,
+                              minHeight: 10,
+                              backgroundColor: colors.border,
+                              marginTop: 3,
+                              alignSelf: "center",
+                            }} />
+                          )}
+                        </View>
+                        <View style={{ flex: 1, gap: 7, paddingBottom: isLast ? 0 : 14, justifyContent: "center" }}>
+                          <ShimmerBar width={widths[0]} colors={colors} />
+                          <ShimmerBar width={widths[1]} colors={colors} />
+                        </View>
+                      </View>
+                    );
+                  })}
                 </View>
-                <View style={{ gap: 10, marginTop: 8 }}>
-                  <ShimmerBar width="45%" colors={colors} />
-                  <ShimmerBar width="95%" colors={colors} />
-                  <ShimmerBar width="65%" colors={colors} />
+
+                {/* ── Pit Master Tips skeleton ── */}
+                <View style={[s.aiSection, { borderColor: colors.border }]}>
+                  <Text style={[s.aiSectionTitle, { color: colors.foreground }]}>Pit Master Tips</Text>
+                  <View style={{ gap: 10 }}>
+                    <ShimmerBar width="85%" colors={colors} />
+                    <ShimmerBar width="70%" colors={colors} />
+                    <ShimmerBar width="92%" colors={colors} />
+                  </View>
                 </View>
               </View>
             )}
