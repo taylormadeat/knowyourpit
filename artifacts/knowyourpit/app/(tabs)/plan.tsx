@@ -88,6 +88,7 @@ import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePlanLoadingState } from "@/hooks/usePlanLoadingState";
+import { useMultiCookLoadingState } from "@/hooks/useMultiCookLoadingState";
 
 import { planStyles as s, probeCardStyles as sp } from "@/components/plan-screen/styles";
 import { PitMasterChatModal } from "@/components/PitMasterChatModal";
@@ -624,11 +625,19 @@ export default function PlanScreen() {
     }
   }, [paywallUsage]);
   const [multiItems, setMultiItems] = useState<MultiItem[]>([]);
-  const [multiResult, setMultiResult] = useState<{ schedule: MultiCookScheduleItem[]; serveAt: string; summary: string } | null>(null);
-  const [multiResultOpen, setMultiResultOpen] = useState(false);
-  const [multiStreaming, setMultiStreaming] = useState(false);
-  const [multiRetrying, setMultiRetrying] = useState(false);
-  const [multiError, setMultiError] = useState(false);
+  // useMultiCookLoadingState owns the synchronous-before-await contract for the
+  // multi-cook modal — tested in hooks/__tests__/useMultiCookLoadingState.test.ts.
+  const {
+    multiResult, setMultiResult,
+    multiResultOpen, setMultiResultOpen,
+    multiStreaming, setMultiStreaming,
+    multiRetrying, setMultiRetrying,
+    multiError, setMultiError,
+    openMultiCookModal,
+    closeMultiCookModal,
+    startMultiCookRetry,
+    setMultiErrorState,
+  } = useMultiCookLoadingState();
   const [multiAddOpen, setMultiAddOpen] = useState(false);
   const [multiAddCat, setMultiAddCat] = useState<string>(MEAT_CATEGORIES[0]);
   const [multiPickedCut, setMultiPickedCut] = useState<MeatCut | null>(null);
@@ -694,7 +703,7 @@ export default function PlanScreen() {
   const scheduleGrillLabels = useMemo<(string | null)[]>(() => {
     if (!multiResult) return [];
     const remaining = [...multiItems];
-    return multiResult.schedule.map((item) => {
+    return (multiResult.schedule as MultiCookScheduleItem[]).map((item) => {
       const normalised = item.foodType.trim().toLowerCase();
       const idx = remaining.findIndex((mi) => mi.cut.name.trim().toLowerCase() === normalised);
       const matched = idx >= 0 ? remaining.splice(idx, 1)[0] : undefined;
@@ -898,20 +907,17 @@ export default function PlanScreen() {
       return;
     }
 
-    // Open the modal before any await so the loading skeleton paints on tap.
-    setMultiResult(null);
-    setMultiResultOpen(true);
-    setMultiStreaming(true);
-    setMultiRetrying(false);
-    setMultiError(false);
+    // Open the modal synchronously before any await so the loading skeleton
+    // paints on the same animation frame as the tap — the same contract
+    // tested in hooks/__tests__/useMultiCookLoadingState.test.ts.
+    openMultiCookModal();
     await new Promise<void>(resolve => setTimeout(resolve, 0));
 
     // Cached token (see handleAiPlan) — never force a blocking network refresh
     // on the critical path; refresh only on an actual 401.
     const sessionToken = await getToken().catch(() => null);
     if (!sessionToken) {
-      setMultiStreaming(false);
-      setMultiResultOpen(false);
+      closeMultiCookModal();
       Alert.alert("Session Expired", "Your session has expired. Please sign out from the More tab and sign in again.");
       return;
     }
@@ -982,9 +988,7 @@ export default function PlanScreen() {
     };
 
     const handleFatalResult = (result: "fatal_401" | "fatal_402") => {
-      setMultiStreaming(false);
-      setMultiRetrying(false);
-      setMultiResultOpen(false);
+      closeMultiCookModal();
       if (result === "fatal_402") {
         showPaywall({ trigger: "pro_required", featureName: "Multi-Cook Sequencer" });
       } else {
@@ -1017,8 +1021,7 @@ export default function PlanScreen() {
 
       if (result === "error") {
         // Auto-retry once before surfacing the error
-        setMultiRetrying(true);
-        setMultiResult(null);
+        startMultiCookRetry();
 
         try {
           const retryResult = await runStream(activeToken);
@@ -1035,15 +1038,11 @@ export default function PlanScreen() {
         }
 
         // Both attempts failed — show error state with Retry button inside the modal
-        setMultiStreaming(false);
-        setMultiRetrying(false);
-        setMultiError(true);
+        setMultiErrorState();
         return;
       }
     } catch (e: any) {
-      setMultiStreaming(false);
-      setMultiRetrying(false);
-      setMultiResultOpen(false);
+      closeMultiCookModal();
       if (parseAndShowFromError(e)) return;
       Alert.alert("PitMaster Error", e?.message || "Could not sequence cooks. Try again.");
     }
