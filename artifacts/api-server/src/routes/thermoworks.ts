@@ -516,7 +516,7 @@ router.get("/thermoworks/readings", requireAuth, async (req: any, res): Promise<
       const channels = perDeviceChannels[idx];
       for (const c of channels) {
         const ageSec = c.lastSeen ? Math.round((Date.now() - c.lastSeen.getTime()) / 1000) : null;
-        req.log.debug(
+        req.log.info(
           {
             serial: d.serial,
             channel: c.channelNumber,
