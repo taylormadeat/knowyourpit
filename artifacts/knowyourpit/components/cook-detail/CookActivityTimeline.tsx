@@ -1033,6 +1033,9 @@ export function CookActivityTimeline({
       queryKey: getListCookEventsQueryKey(cookId),
       enabled: isActive || isCompleted,
       refetchInterval: isActive ? refetchIntervalMs : false,
+      // Short staleTime prevents isLoading from flipping back to true on a
+      // fast re-navigation — the data is already fresh from the initial fetch.
+      staleTime: 5_000,
     },
   });
 

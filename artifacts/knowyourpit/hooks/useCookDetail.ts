@@ -365,11 +365,17 @@ export function useCookDetail(id: string | undefined) {
           : meatOnAtMs + 6 * 60 * 60 * 1000;
         if (estimatedFinishAtMs > meatOnAtMs) {
           const checkins = generateCheckinSchedule(foodType, meatOnAtMs, estimatedFinishAtMs, null, weightLbs);
-          const cookIdNum = Number(id);
-          let gen = 0;
-          const isCurrent = () => gen === 0;
-          scheduleCheckinNotifications(cookIdNum, checkins, foodType, isCurrent).catch(() => {});
-          setNoPlanScheduledCheckins(checkins);
+          // Defer notification scheduling behind a setTimeout(0) so the
+          // status-change re-render (which enables useListCookEvents) gets a
+          // committed frame before the notification + query-response callbacks
+          // compete for the JS thread, keeping the Activity spinner unblocked.
+          setTimeout(() => {
+            const cookIdNum = Number(id);
+            let gen = 0;
+            const isCurrent = () => gen === 0;
+            scheduleCheckinNotifications(cookIdNum, checkins, foodType, isCurrent).catch(() => {});
+            setNoPlanScheduledCheckins(checkins);
+          }, 0);
         }
       }
     }

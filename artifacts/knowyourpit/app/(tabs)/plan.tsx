@@ -398,6 +398,7 @@ export default function PlanScreen() {
   }, []);
   const [serveAt, setServeAt] = useState<Date | null>(null);
   const [cookNowMode, setCookNowMode] = useState<"now" | "later">("now");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
 
@@ -764,15 +765,22 @@ export default function PlanScreen() {
       Alert.alert("Select a Food First", "Choose a food so PitMaster can tailor the plan.");
       return;
     }
-    // Use the CACHED Clerk token — this returns synchronously and never blocks
-    // the tap. `skipCache: true` forces a network round-trip to Clerk before
-    // anything renders, and on a slow/stalled connection that hangs the whole
-    // handler so the modal never opens ("tap does nothing"). We only force a
-    // refresh if the server actually rejects the cached token with a 401.
+    // Open the modal before any await so the loading skeleton paints on the
+    // same frame as the tap. The setTimeout(0) yield then gives React Native
+    // one event-loop tick to commit that render before we block the JS thread
+    // on the Clerk SecureStore read and the network fetch.
+    setAiResult(null);
+    setAiResultOpen(true);
+    setAiStreaming(true);
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+    // Use the CACHED Clerk token — only force a refresh on an actual 401.
     const tapAt = Date.now();
     const sessionToken = await getToken().catch(() => null);
     if (__DEV__) console.log(`[AiPlan] token ready +${Date.now() - tapAt}ms`);
     if (!sessionToken) {
+      setAiStreaming(false);
+      setAiResultOpen(false);
       Alert.alert(
         "Session Expired",
         "Your session has expired. Please sign out from the More tab and sign in again.",
@@ -803,11 +811,6 @@ export default function PlanScreen() {
       sizingLabel: sizeOutput.sizingLabel ?? undefined,
       cookingStylePreset: activePreset ?? undefined,
     };
-
-    // Open modal immediately — loading skeleton shows while streaming starts
-    setAiResult(null);
-    setAiResultOpen(true);
-    setAiStreaming(true);
 
     const apiBase =
       process.env.EXPO_PUBLIC_API_URL ??
@@ -886,10 +889,20 @@ export default function PlanScreen() {
       return;
     }
 
+    // Open the modal before any await so the loading skeleton paints on tap.
+    setMultiResult(null);
+    setMultiResultOpen(true);
+    setMultiStreaming(true);
+    setMultiRetrying(false);
+    setMultiError(false);
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+
     // Cached token (see handleAiPlan) — never force a blocking network refresh
     // on the critical path; refresh only on an actual 401.
     const sessionToken = await getToken().catch(() => null);
     if (!sessionToken) {
+      setMultiStreaming(false);
+      setMultiResultOpen(false);
       Alert.alert("Session Expired", "Your session has expired. Please sign out from the More tab and sign in again.");
       return;
     }
@@ -918,13 +931,6 @@ export default function PlanScreen() {
       outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
       notes: notes.trim() || undefined,
     };
-
-    // Open modal immediately with loading skeleton while streaming starts
-    setMultiResult(null);
-    setMultiResultOpen(true);
-    setMultiStreaming(true);
-    setMultiRetrying(false);
-    setMultiError(false);
 
     const apiBase =
       process.env.EXPO_PUBLIC_API_URL ??
@@ -1151,6 +1157,17 @@ export default function PlanScreen() {
         return;
       }
     }
+    // Show immediate visual feedback before any await. The setTimeout(0) yield
+    // gives React Native one event-loop tick to commit the disabled/spinner
+    // state before the JS thread is blocked by the Clerk SecureStore read and
+    // the subsequent mutation network call.
+    setIsSubmitting(true);
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+    // try/finally guarantees isSubmitting resets on every exit path (early
+    // returns, errors, successful navigation). The plan tab stays mounted in
+    // memory by the tab navigator so we must always reset, even on push().
+    try {
     // Pre-check the Clerk session before any API call. Use the CACHED token —
     // `skipCache: true` forces a network round-trip that, on a stalled
     // connection, hangs this handler so "Start Cook" appears to do nothing.
@@ -1536,6 +1553,9 @@ export default function PlanScreen() {
         return;
       }
       Alert.alert("Error", e?.message || "Failed to save cook. Please try again.");
+    }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -3264,12 +3284,12 @@ export default function PlanScreen() {
           style={({ pressed }) => [
             s.submitBtn,
             { backgroundColor: colors.primary, borderRadius: colors.radius },
-            (createCook.isPending || pressed) && { opacity: 0.7 },
+            (isSubmitting || createCook.isPending || pressed) && { opacity: 0.7 },
           ]}
           onPress={() => handleSubmit()}
-          disabled={createCook.isPending}
+          disabled={isSubmitting || createCook.isPending}
         >
-          {createCook.isPending ? (
+          {(isSubmitting || createCook.isPending) ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <>
