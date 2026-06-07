@@ -20,7 +20,7 @@ import { LogoBackground } from "@/components/LogoBackground";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useBottomInset } from "@/hooks/useBottomInset";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { LockedFeatureCard } from "@/components/LockedFeatureCard";
@@ -320,7 +320,16 @@ export default function DevicesScreen() {
   const effectivePro = useEffectivePro();
   const { showPaywall, parseAndShowFromError } = usePaywall();
 
-  const { data: meaterStatus, isLoading: meaterLoading } = useGetMeaterStatus();
+  const { data: meaterStatus, isLoading: meaterLoading } = useGetMeaterStatus({
+    query: {
+      queryKey: getGetMeaterStatusQueryKey(),
+      // Serve cached data on tab re-navigation so isLoading stays false and
+      // the "Checking…" spinner never appears for a reconnect that already
+      // resolved. Background refetch still fires silently after 60 s.
+      staleTime: 60_000,
+      placeholderData: keepPreviousData,
+    },
+  });
   const [meaterEmail, setMeaterEmail] = useState("");
   const [meaterPassword, setMeaterPassword] = useState("");
   const [showLinkForm, setShowLinkForm] = useState(false);
@@ -345,7 +354,14 @@ export default function DevicesScreen() {
   const invalidateMeaterStatus = () =>
     qc.invalidateQueries({ queryKey: getGetMeaterStatusQueryKey() });
 
-  const { data: thermoworksStatus, isLoading: thermoworksLoading } = useGetThermoworksStatus();
+  const { data: thermoworksStatus, isLoading: thermoworksLoading } = useGetThermoworksStatus({
+    query: {
+      queryKey: getGetThermoworksStatusQueryKey(),
+      // Same staleTime / placeholderData contract as useGetMeaterStatus above.
+      staleTime: 60_000,
+      placeholderData: keepPreviousData,
+    },
+  });
   const linkThermoworks = useLinkThermoworks();
   const unlinkThermoworks = useUnlinkThermoworks();
   const sendThermoworksReset = useSendThermoworksReset();
