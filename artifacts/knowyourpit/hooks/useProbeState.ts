@@ -202,7 +202,7 @@ export function useProbeState({
   const bleAssignedProbeKeys = [selectedMeatProbeId, selectedPitProbeId].filter(
     (k): k is string => k != null && k.startsWith("ble_"),
   );
-  const { probes: inkbirdProbes, scanning: inkbirdScanning, reconnecting: inkbirdReconnecting, lastKnownDeviceId: lastKnownInkbirdDeviceId } = useInkbirdBLE({
+  const { probes: inkbirdProbes, scanning: inkbirdScanning, reconnecting: inkbirdReconnecting, lastKnownDeviceId: lastKnownInkbirdDeviceId, rescan: inkbirdRescan } = useInkbirdBLE({
     enabled: cookStatus === "active" && tempMode === "probe",
     assignedProbeKeys: bleAssignedProbeKeys,
   });
@@ -220,7 +220,7 @@ export function useProbeState({
 
   const { probes: lanProbes, scan: scanLan } = useLanProbes({ enabled: cookStatus === "active" && tempMode === "probe", pollIntervalMs: 15_000 });
 
-  const handleRestartScan = useCallback(() => { bleStop(); bleScan(); scanLan(); }, [bleStop, bleScan, scanLan]);
+  const handleRestartScan = useCallback(() => { bleStop(); bleScan(); scanLan(); inkbirdRescan(); }, [bleStop, bleScan, scanLan, inkbirdRescan]);
 
   const selectedLanProbe: LanProbeReading | null = selectedMeatProbeId?.startsWith("lan_")
     ? (lanProbes.find((p) => `lan_${p.deviceId}` === selectedMeatProbeId) ?? null) : null;

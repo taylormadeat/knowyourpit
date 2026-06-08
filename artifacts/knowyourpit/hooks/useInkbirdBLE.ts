@@ -27,7 +27,7 @@
  * reappears, eliminating the need for the user to tap "Scan" manually.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, PermissionsAndroid } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -86,6 +86,12 @@ interface UseInkbirdBLEResult {
    * Null until the first read or on fresh install.
    */
   lastKnownDeviceId: string | null;
+  /**
+   * Manually trigger a fresh BLE scan. Sets scanning=true, cancels any
+   * pending scan-window timer, starts a new 15 s window, and calls
+   * restartDeviceScan(). No-op when the hook is not yet initialised.
+   */
+  rescan: () => void;
 }
 
 /**
@@ -219,6 +225,14 @@ export function useInkbirdBLE({
   const staleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const silenceWatchdogTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Clears the scanning spinner after the initial discovery window (15 s). */
+  const scanWindowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * Stable ref to the inner restartDeviceScan function. Set once the BLE
+   * manager is initialised; allows the public rescan() callback to trigger a
+   * fresh scan window without adding dependencies to the main effect.
+   */
+  const restartDeviceScanRef = useRef<(() => void) | null>(null);
   /** Timestamp of the last received Inkbird BLE advertisement (ms). */
   const lastAdvertisementAtRef = useRef<number>(0);
   /**
@@ -398,7 +412,20 @@ export function useInkbirdBLE({
           }, true);
         }
 
+        // Expose restartDeviceScan via ref so the public rescan() callback can
+        // trigger a fresh window from outside the effect without extra deps.
+        restartDeviceScanRef.current = restartDeviceScan;
+
         setScanning(true);
+
+        // Auto-clear the scanning spinner after 15 s so the UI doesn't show a
+        // permanent ActivityIndicator. Background reconnect / watchdog timers
+        // continue independently — only the UI flag is cleared here.
+        if (scanWindowTimerRef.current) clearTimeout(scanWindowTimerRef.current);
+        scanWindowTimerRef.current = setTimeout(() => {
+          if (mounted) setScanning(false);
+          scanWindowTimerRef.current = null;
+        }, 15_000);
 
         // Initialise the advertisement timestamp at scan-start so the silence
         // watchdog doesn't immediately fire before any packet has been received.
@@ -465,6 +492,10 @@ export function useInkbirdBLE({
 
     return () => {
       mounted = false;
+      if (scanWindowTimerRef.current) {
+        clearTimeout(scanWindowTimerRef.current);
+        scanWindowTimerRef.current = null;
+      }
       if (staleTimerRef.current) {
         clearInterval(staleTimerRef.current);
         staleTimerRef.current = null;
@@ -494,5 +525,16 @@ export function useInkbirdBLE({
     };
   }, [enabled, reconnectIntervalMs]);
 
-  return { probes, permissionDenied, scanning, reconnecting, lastKnownDeviceId };
+  const rescan = useCallback(() => {
+    if (!restartDeviceScanRef.current) return;
+    if (scanWindowTimerRef.current) clearTimeout(scanWindowTimerRef.current);
+    setScanning(true);
+    scanWindowTimerRef.current = setTimeout(() => {
+      setScanning(false);
+      scanWindowTimerRef.current = null;
+    }, 15_000);
+    restartDeviceScanRef.current();
+  }, []);
+
+  return { probes, permissionDenied, scanning, reconnecting, lastKnownDeviceId, rescan };
 }
