@@ -99,9 +99,11 @@ export function PlannedCookTimeline({ c, colors, cookStatus, estimatedFinishMs, 
   let serveMs = serveMsRaw;
   let isEstimatedFinish = false;
   if (serveMs == null && meatOnMs != null && c.foodType) {
-    const cut = MEAT_CUTS.find(
-      (m) => m.name.toLowerCase() === (c.foodType as string).toLowerCase(),
-    );
+    const ft = (c.foodType as string).toLowerCase().trim();
+    const cut =
+      MEAT_CUTS.find((m) => m.name.toLowerCase() === ft) ??
+      MEAT_CUTS.find((m) => m.name.toLowerCase().startsWith(ft)) ??
+      MEAT_CUTS.find((m) => ft.startsWith(m.name.toLowerCase().split(" / ")[0].trim()));
     if (cut) {
       const weightLbs = cut.isIndividualCook
         ? (cut.avgPieceWeightLbs ?? 1)

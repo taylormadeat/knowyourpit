@@ -1145,7 +1145,11 @@ export default function PlanScreen() {
       const sessionId = Crypto.randomUUID();
       const remainingItems = [...multiItems];
       for (const item of multiResult.schedule) {
-        const matchedCut = MEAT_CUTS.find(c => c.name.toLowerCase() === item.foodType.toLowerCase());
+        const _ft = item.foodType.toLowerCase().trim();
+        const matchedCut =
+          MEAT_CUTS.find(c => c.name.toLowerCase() === _ft) ??
+          MEAT_CUTS.find(c => c.name.toLowerCase().startsWith(_ft)) ??
+          MEAT_CUTS.find(c => _ft.startsWith(c.name.toLowerCase().split(" / ")[0].trim()));
 
         const inputIdx = remainingItems.findIndex(m => m.cut.name.toLowerCase() === item.foodType.toLowerCase());
         const inputItem: MultiItem | undefined = inputIdx >= 0 ? remainingItems.splice(inputIdx, 1)[0] : undefined;
