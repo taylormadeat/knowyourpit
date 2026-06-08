@@ -56,7 +56,8 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.knowyourpit.com",
-        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD": "pk_live_Y2xlcmsua25vd3lvdXJwaXQuY29tJA"
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD": "pk_live_Y2xlcmsua25vd3lvdXJwaXQuY29tJA",
+        "SENTRY_ALLOW_FAILURE": "true"
       }
     }
   },
