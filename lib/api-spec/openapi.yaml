@@ -2333,8 +2333,61 @@ components:
         cookingStylePreset:
           type: ["string", "null"]
           description: Name of the preset style the user selected (e.g. "3-2-1 Method", "Texas Style (No Wrap)"). Mentioned in the prompt for context; the individual technique fields above already reflect its settings.
+        cookId:
+          type: ["integer", "null"]
+          description: ID of an existing cook record. When present, the server patches the cook with AI refinement results (wrap times, check-in schedule, sequenceData) after responding.
+        baselineSchedule:
+          allOf:
+            - $ref: "#/components/schemas/BaselineSchedule"
+          nullable: true
+          description: Deterministic schedule anchors computed by calcSchedule on the client before the AI call. Sent as context so PitMaster personalises rather than re-derives the full timeline from scratch.
       required:
         - foodType
+
+    BaselineSchedule:
+      type: object
+      description: Deterministic cook schedule anchors computed from heuristic rules (calcSchedule). Sent alongside the AI predict request so PitMaster can focus on personalising rather than re-deriving the full timeline.
+      properties:
+        preheatStartAt:
+          type: string
+          format: date-time
+          description: When to light/start the grill (before meat goes on)
+        meatOnAt:
+          type: string
+          format: date-time
+          description: When to put the meat on the grill
+        wrapAt:
+          type: ["string", "null"]
+          format: date-time
+          description: Estimated wrap time (null if the cut does not stall)
+        wrapTempF:
+          type: ["integer", "null"]
+          description: Estimated internal temp at wrap (null if no wrap)
+        pullAt:
+          type: string
+          format: date-time
+          description: When to pull the meat off the grill
+        restEndAt:
+          type: string
+          format: date-time
+          description: End of rest period / serve time
+        cookMins:
+          type: integer
+          description: Active cook time in minutes (meat-on to pull)
+        preheatMins:
+          type: integer
+          description: Preheat time in minutes
+        restMins:
+          type: integer
+          description: Rest time in minutes
+      required:
+        - preheatStartAt
+        - meatOnAt
+        - pullAt
+        - restEndAt
+        - cookMins
+        - preheatMins
+        - restMins
 
     WrapRecommendation:
       type: object

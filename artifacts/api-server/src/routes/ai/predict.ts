@@ -63,6 +63,7 @@ async function buildPredictContext(userId: string, data: ReturnType<typeof AiPre
     preheatMinutes: clientPreheatMinutes, outdoorTempF, outdoorTempIsForecast,
     fromFrozen, thawMethod, cookingMethod, injection, spritzFrequency, wrapFinish,
     meatStartTemp, notes, pieceCount, isIndividualCook, sizingLabel, cookingStylePreset,
+    baselineSchedule,
   } = data;
 
   const baseline = getMeatBaseline(foodType);
@@ -473,6 +474,17 @@ PRODUCE RULES (apply when "Target internal temp" is "time-based"):
     ? `\nCook Notes (user-provided — factor these into your rationale, timing, and tips):\n${notes.trim()}`
     : "";
 
+  const baselineAnchorSection = baselineSchedule
+    ? `\nDeterministic baseline anchors (pre-computed heuristics — use as your starting point, then personalise based on grill history, technique, and learned pace):
+Preheat start: ${baselineSchedule.preheatStartAt}
+Meat on grill: ${baselineSchedule.meatOnAt}
+${baselineSchedule.wrapAt ? `Estimated wrap: ${baselineSchedule.wrapAt}${baselineSchedule.wrapTempF != null ? ` (~${baselineSchedule.wrapTempF}°F internal)` : ""}` : "No wrap in baseline (cut does not stall)"}
+Pull off grill: ${baselineSchedule.pullAt}
+Serve time: ${baselineSchedule.restEndAt}
+Baseline cook time: ${baselineSchedule.cookMins} min active cook · ${baselineSchedule.preheatMins} min preheat · ${baselineSchedule.restMins} min rest
+Your estimatedDurationMinutes should reflect your best personalised estimate — adjust from the baseline cook time based on grill fingerprint, technique, and any known pace modifiers. Do NOT blindly copy the baseline.`
+    : "";
+
   const userPrompt = `Plan this cook:
 Food: ${foodType}
 ${sizingLabel ? `Size: ${sizingLabel}` : `Weight: ${weightLbs ? `${weightLbs} lbs` : "unknown — use baseline minsPerLb with a 10 lb estimate"}`}
@@ -486,7 +498,7 @@ ${predictSmokerProfile ? `\n${predictSmokerProfile}\n` : ""}
 ${grillContext}
 ${grillTempContext}
 ${baselineSection}
-${userHistorySection}${fingerprintGuidance}`;
+${userHistorySection}${fingerprintGuidance}${baselineAnchorSection}`;
 
   const cacheKey = makePredictCacheKey(userId, data);
 
@@ -832,7 +844,78 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
     }
   }
 
-  res.json(ctx.buildFinalResponse(prediction, timedOut));
+  const finalResponse = ctx.buildFinalResponse(prediction, timedOut) as any;
+
+  // When a cookId is provided, patch the cook record BEFORE sending the response.
+  // This guarantees that query invalidation on the client always sees the updated
+  // sequenceData — avoids a race where the client refetches before the DB write
+  // commits. The small latency (one indexed update) is acceptable for a background
+  // refine call that the user is not blocking on.
+  const cookId = parsed.data.cookId;
+  if (cookId && !timedOut) {
+    try {
+      const existing = await db
+        .select({ sequenceData: cooksTable.sequenceData })
+        .from(cooksTable)
+        .where(and(eq(cooksTable.id, cookId), eq(cooksTable.userId, req.userId)))
+        .limit(1);
+      if (existing[0]) {
+        const existingSeq = (existing[0].sequenceData as Record<string, unknown>) ?? {};
+        const wrap = finalResponse.wrap ?? {};
+
+        // Build an AI-derived ScheduleItem so live-cook-screen consumers
+        // (SequenceSchedule, LiveCookSection, useCheckinNotifications) see the
+        // refined timeline immediately after query invalidation.
+        const aiScheduleItem: Record<string, unknown> = {
+          foodType: parsed.data.foodType,
+          grillLightAt: finalResponse.grillLightAt ?? null,
+          meatOnAt: finalResponse.suggestedStartAt ?? null,
+          estimatedFinishAt: finalResponse.estimatedFinishAt ?? null,
+          estimatedDurationMinutes: finalResponse.estimatedDurationMinutes ?? null,
+          restMinutes: wrap.restMinutes > 0 ? wrap.restMinutes : null,
+          preheatMinutes: finalResponse.preheatMinutes ?? null,
+          grillId: parsed.data.grillId ?? null,
+          weightLbs: parsed.data.weightLbs ?? null,
+          targetTempF: parsed.data.targetTempF ?? null,
+          wrapMethod: wrap.method ?? "none",
+          wrapAtMinutes: wrap.wrapAtMinutes > 0 ? Math.round(wrap.wrapAtMinutes) : 0,
+          wrapTempF: wrap.wrapTempF ?? null,
+          wrapReason: wrap.reason ?? null,
+        };
+
+        const updatedSeq: Record<string, unknown> = {
+          ...existingSeq,
+          schedule: [aiScheduleItem],
+          aiRefining: false,
+          ...(Array.isArray(finalResponse.checkins) && finalResponse.checkins.length
+            ? { aiCheckins: finalResponse.checkins }
+            : {}),
+          ...((finalResponse.fingerprintSource === "grill" || finalResponse.fingerprintSource === "user")
+            ? { fingerprintSource: finalResponse.fingerprintSource, fingerprintNote: finalResponse.fingerprintNote ?? null }
+            : {}),
+          ...(Array.isArray(finalResponse.factorBreakdown) && finalResponse.factorBreakdown.length
+            ? { factorBreakdown: finalResponse.factorBreakdown }
+            : {}),
+        };
+        await db
+          .update(cooksTable)
+          .set({
+            ...(wrap.method && { wrapMethod: wrap.method as any }),
+            ...(wrap.wrapAtMinutes > 0 && { wrapAtMinutes: Math.round(wrap.wrapAtMinutes) }),
+            ...(wrap.wrapTempF && { wrapTempF: Math.round(wrap.wrapTempF) }),
+            ...(wrap.reason && { wrapReason: wrap.reason }),
+            ...(wrap.restMinutes > 0 && { restMinutes: wrap.restMinutes }),
+            ...(finalResponse.serveAt && { plannedEndAt: new Date(finalResponse.serveAt) }),
+            sequenceData: updatedSeq as any,
+          })
+          .where(and(eq(cooksTable.id, cookId), eq(cooksTable.userId, req.userId)));
+      }
+    } catch (updateErr: any) {
+      req.log.warn({ err: updateErr, cookId }, "Background AI refine: server-side cook update failed");
+    }
+  }
+
+  res.json(finalResponse);
 });
 
 // ── Streaming endpoint ────────────────────────────────────────────────────────

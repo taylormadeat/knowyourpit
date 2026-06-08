@@ -19,6 +19,7 @@ export * from "./analyzeCookBodyCookContext";
 export * from "./analyzeCookImageInput";
 export * from "./analyzeCookResult";
 export * from "./analyzedProbe";
+export * from "./baselineSchedule";
 export * from "./checkinScheduleItem";
 export * from "./checkinScheduleItemAnchorType";
 export * from "./cook";

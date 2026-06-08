@@ -1148,6 +1148,36 @@ export const AiPredictBodyThawMethod = {
   cook_from_frozen: "cook_from_frozen",
 } as const;
 
+/**
+ * Deterministic cook schedule anchors computed from heuristic rules (calcSchedule). Sent alongside the AI predict request so PitMaster can focus on personalising rather than re-deriving the full timeline.
+ */
+export interface BaselineSchedule {
+  /** When to light/start the grill (before meat goes on) */
+  preheatStartAt: string;
+  /** When to put the meat on the grill */
+  meatOnAt: string;
+  /**
+   * Estimated wrap time (null if the cut does not stall)
+   * @nullable
+   */
+  wrapAt?: string | null;
+  /**
+   * Estimated internal temp at wrap (null if no wrap)
+   * @nullable
+   */
+  wrapTempF?: number | null;
+  /** When to pull the meat off the grill */
+  pullAt: string;
+  /** End of rest period / serve time */
+  restEndAt: string;
+  /** Active cook time in minutes (meat-on to pull) */
+  cookMins: number;
+  /** Preheat time in minutes */
+  preheatMins: number;
+  /** Rest time in minutes */
+  restMins: number;
+}
+
 export interface AiPredictBody {
   /** @nullable */
   grillId?: number | null;
@@ -1235,6 +1265,13 @@ export interface AiPredictBody {
    * @nullable
    */
   cookingStylePreset?: string | null;
+  /**
+   * ID of an existing cook record. When present, the server patches the cook with AI refinement results (wrap times, check-in schedule, sequenceData) after responding.
+   * @nullable
+   */
+  cookId?: number | null;
+  /** Deterministic schedule anchors computed by calcSchedule on the client before the AI call. Sent as context so PitMaster personalises rather than re-derives the full timeline from scratch. */
+  baselineSchedule?: BaselineSchedule | null;
 }
 
 /**

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { getTokenSafe } from "@/lib/getTokenSafe";
+import { markBgRefining, clearBgRefining } from "@/lib/bgAiRefining";
 import {
   View,
   Text,
@@ -1291,6 +1292,52 @@ export default function PlanScreen() {
     const preheatMins = preheatMinsForGrill(selectedGrill);
     const wrap = aiResult?.wrap ?? null;
 
+    // Captured early so it remains valid after resetForm() clears form state.
+    // Only built when the user hasn't already run Ask PitMaster — if aiResult
+    // is present the background call is skipped entirely.
+    //
+    // baselineSchedule: deterministic ISO anchors from calcSchedule, sent to
+    // the server so PitMaster can personalise rather than re-derive the full
+    // timeline from scratch.
+    const baselineSchedule = schedule
+      ? {
+          preheatStartAt: schedule.startAt.toISOString(),
+          meatOnAt: schedule.meatOnAt.toISOString(),
+          wrapAt: schedule.wrap?.wrapAt.toISOString() ?? null,
+          wrapTempF: schedule.wrap?.wrapTempF ?? null,
+          pullAt: schedule.pullAt.toISOString(),
+          restEndAt: schedule.restEndAt.toISOString(),
+          cookMins: schedule.cookMins,
+          preheatMins: schedule.preheatMins,
+          restMins: schedule.restMins,
+        }
+      : null;
+
+    const bgPredictPayload: Record<string, unknown> | null = !aiResult ? {
+      foodType: selectedCut.name,
+      weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : undefined,
+      cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
+      targetTempF: targetTempF ? Number(targetTempF) : selectedCut.targetTempF,
+      grillId: grillId ?? undefined,
+      desiredFinishAt: serveAt ? serveAt.toISOString() : undefined,
+      preheatMinutes: preheatMins,
+      outdoorTempF: weather?.tempF ?? undefined,
+      outdoorTempIsForecast: weather?.tempF != null ? (weather as any).isForecast : undefined,
+      fromFrozen: (frozenEnabled && !isProduce(selectedCut.category)) || undefined,
+      thawMethod: (frozenEnabled && !isProduce(selectedCut.category)) ? thawMethod : undefined,
+      cookingMethod: qpCookMethod ?? undefined,
+      meatStartTemp: qpMeatStartTemp ?? undefined,
+      injection: qpInjection ?? undefined,
+      spritzFrequency: qpSpritz ?? undefined,
+      wrapFinish: qpWrapFinish ?? undefined,
+      notes: notes.trim() || undefined,
+      pieceCount: sizeOutput.pieceCount ?? undefined,
+      isIndividualCook: selectedCut.isIndividualCook ?? undefined,
+      sizingLabel: sizeOutput.sizingLabel ?? undefined,
+      cookingStylePreset: activePreset ?? undefined,
+      baselineSchedule: baselineSchedule ?? undefined,
+    } : null;
+
     // Map AI wrap method string → DB enum value
     const wrapMethodDb: "foil" | "butcher_paper" | "none" | undefined =
       wrap?.method === "foil" ? "foil"
@@ -1436,12 +1483,20 @@ export default function PlanScreen() {
           ...(effectiveCookNowMode === "now"
             ? {
                 actualStartAt: new Date() as any,
-                // Save AI-predicted planned times so the live cook timeline
-                // can show the full schedule (wrap, pull-off, check-ins).
-                // plannedStartAt = AI-estimated meat-on anchor (used as timeline
-                // anchor); actualStartAt = real-world start (drives elapsed).
-                ...(aiResult?.grillLightAt && { plannedStartAt: new Date(aiResult.grillLightAt) as any }),
-                ...(aiResult?.serveAt && { plannedEndAt: new Date(aiResult.serveAt) as any }),
+                // Save planned times so the live cook timeline can show the
+                // full schedule (wrap, pull-off, check-ins).
+                // Prefer AI result; fall back to deterministic baseline anchors
+                // so the cook has a usable timeline even if AI is skipped.
+                ...(aiResult?.grillLightAt
+                  ? { plannedStartAt: new Date(aiResult.grillLightAt) as any }
+                  : schedule?.startAt
+                  ? { plannedStartAt: schedule.startAt as any }
+                  : {}),
+                ...(aiResult?.serveAt
+                  ? { plannedEndAt: new Date(aiResult.serveAt) as any }
+                  : schedule?.restEndAt
+                  ? { plannedEndAt: schedule.restEndAt as any }
+                  : {}),
                 // When starting a frozen cook immediately, record the thaw
                 // start time now so the cook detail screen can compute
                 // accurate countdowns and so that the 30-min "almost thawed"
@@ -1464,31 +1519,52 @@ export default function PlanScreen() {
           ...(wrap?.wrapAtMinutes > 0 && { wrapAtMinutes: Math.round(wrap.wrapAtMinutes) }),
           ...(wrap?.wrapTempF && { wrapTempF: Math.round(wrap.wrapTempF) }),
           ...(wrap?.reason && { wrapReason: wrap.reason }),
-          ...(frozenForCook && {
-            sequenceData: {
+          sequenceData: {
+            ...(frozenForCook ? { frozen: frozenForCook } : {}),
+            ...(aiResult ? {
+              // User already ran Ask PitMaster — no need for a baseline schedule item.
               schedule: [],
-              frozen: frozenForCook,
-              aiCheckins: aiResult?.checkins ?? null,
-              ...(aiResult?.fingerprintSource === "grill" || aiResult?.fingerprintSource === "user"
+              ...(aiResult.checkins?.length ? { aiCheckins: aiResult.checkins } : {}),
+              ...((aiResult.fingerprintSource === "grill" || aiResult.fingerprintSource === "user")
                 ? { fingerprintSource: aiResult.fingerprintSource, fingerprintNote: aiResult.fingerprintNote ?? null }
                 : {}),
-              ...(aiResult?.factorBreakdown?.length ? { factorBreakdown: aiResult.factorBreakdown } : {}),
-              ...(aiResult?.timedOut ? { planTimedOut: true } : {}),
-            },
+              ...(aiResult.factorBreakdown?.length ? { factorBreakdown: aiResult.factorBreakdown } : {}),
+              ...(aiResult.timedOut ? { planTimedOut: true } : {}),
+            } : {
+              // No AI result — populate schedule[0] with a ScheduleItem derived
+              // from the deterministic calcSchedule anchors. All live-cook-screen
+              // consumers (SequenceSchedule, LiveCookSection, useCheckinNotifications)
+              // read schedule[0] for grillLightAt, meatOnAt, estimatedFinishAt etc.
+              // so this gives a working fallback timeline even if background AI fails.
+              schedule: baselineSchedule ? [{
+                foodType: selectedCut.name,
+                grillLightAt: baselineSchedule.preheatStartAt,
+                meatOnAt: baselineSchedule.meatOnAt,
+                estimatedFinishAt: baselineSchedule.pullAt,
+                estimatedDurationMinutes: baselineSchedule.cookMins,
+                restMinutes: baselineSchedule.restMins,
+                preheatMinutes: baselineSchedule.preheatMins,
+                grillId: grillId ?? null,
+                weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : null,
+                targetTempF: targetTempF ? Number(targetTempF) : (selectedCut.targetTempF ?? null),
+                ...(baselineSchedule.wrapAt ? {
+                  wrapMethod: qpWrapFinish?.toLowerCase().includes("butcher") ? "butcher_paper" : "foil",
+                  wrapAtMinutes: Math.round(
+                    (new Date(baselineSchedule.wrapAt).getTime() - new Date(baselineSchedule.meatOnAt).getTime()) / 60000,
+                  ),
+                  wrapTempF: baselineSchedule.wrapTempF ?? null,
+                } : {
+                  wrapMethod: "none",
+                  wrapAtMinutes: 0,
+                }),
+              }] : [],
+              aiRefining: true,
+            }),
+          },
+          ...(frozenForCook ? {
             fromFrozen: true,
             thawMethod: frozenForCook.method,
-          }),
-          ...(!frozenForCook && (aiResult?.checkins?.length || aiResult?.fingerprintSource === "grill" || aiResult?.fingerprintSource === "user" || aiResult?.factorBreakdown?.length || aiResult?.timedOut) && {
-            sequenceData: {
-              schedule: [],
-              ...(aiResult?.checkins?.length ? { aiCheckins: aiResult.checkins } : {}),
-              ...(aiResult?.fingerprintSource === "grill" || aiResult?.fingerprintSource === "user"
-                ? { fingerprintSource: aiResult.fingerprintSource, fingerprintNote: aiResult.fingerprintNote ?? null }
-                : {}),
-              ...(aiResult?.factorBreakdown?.length ? { factorBreakdown: aiResult.factorBreakdown } : {}),
-              ...(aiResult?.timedOut ? { planTimedOut: true } : {}),
-            },
-          }),
+          } : {}),
           // Technique quick-picks from the Plan screen
           ...(qpCookMethod && { cookingMethod: qpCookMethod }),
           ...(qpMeatStartTemp && { meatStartTemp: qpMeatStartTemp }),
@@ -1571,6 +1647,8 @@ export default function PlanScreen() {
       // AsyncStorage writes and form reset all happen after the navigation
       // transition — they are not on the critical path to the cook screen.
       if (effectiveCookNowMode === "now" && newCookId) {
+        // Capture before resetForm() clears closure variables
+        const bgPayload = bgPredictPayload;
         resetForm();
         setAiResultOpen(false);
         setAiStreaming(false);
@@ -1591,6 +1669,10 @@ export default function PlanScreen() {
         })).catch(() => {});
         if (selectedCut && qpCookMethod) {
           saveLastCookMethod(selectedCut.name, qpCookMethod);
+        }
+        // Fire background AI refinement when the user didn't run Ask PitMaster
+        if (bgPayload) {
+          fireBgAiRefine(newCookId, bgPayload).catch(() => {});
         }
         return;
       }
@@ -1615,6 +1697,12 @@ export default function PlanScreen() {
       // cut is picked — matching the behaviour in MultiCookAddItemModal.
       if (selectedCut && qpCookMethod) {
         saveLastCookMethod(selectedCut.name, qpCookMethod);
+      }
+
+      // Fire background AI refinement when the user didn't run Ask PitMaster.
+      // Captured before resetForm() so form state is still valid.
+      if (bgPredictPayload && newCookId) {
+        fireBgAiRefine(newCookId, bgPredictPayload).catch(() => {});
       }
 
       resetForm();
@@ -1671,6 +1759,51 @@ export default function PlanScreen() {
   const handleSaveFrozenPlan = async () => {
     setShowBeginThawCallout(false);
     await handleSubmit("later");
+  };
+
+  // ── Background AI refinement ───────────────────────────────────────────────
+  // Fired after cook creation when the user submits without running Ask
+  // PitMaster first. Sends cookId + baselineSchedule anchors to /api/ai/predict
+  // so the server can personalize and patch the cook record directly. The live
+  // cook screen shows an indicator while in-flight and auto-updates when
+  // the query is invalidated on completion.
+  const fireBgAiRefine = async (
+    cookId: number,
+    payload: Record<string, unknown>,
+  ) => {
+    markBgRefining(cookId);
+    const apiBase =
+      process.env.EXPO_PUBLIC_API_URL ??
+      (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
+    try {
+      const token = await getTokenSafe(getToken);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), AI_FETCH_TIMEOUT_MS);
+      let response: Response;
+      try {
+        response = await fetch(`${apiBase}/api/ai/predict`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          // cookId tells the server to patch the cook record after AI responds.
+          body: JSON.stringify({ ...payload, cookId }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+      if (!response.ok) return;
+      // Server handles the cook record update; client just invalidates queries
+      // so the live cook screen picks up the new sequenceData.
+      qc.invalidateQueries({ queryKey: getGetCookQueryKey(cookId) });
+      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+    } catch {
+      // Silent fail — cook continues with deterministic anchors
+    } finally {
+      clearBgRefining(cookId);
+    }
   };
 
   const botPad = useBottomTabBarHeight();
@@ -3091,57 +3224,55 @@ export default function PlanScreen() {
           }
         />
 
-        {/* ── AI Cook Planner ── */}
+        {/* ── AI Cook Planner (optional / secondary) ── */}
         <Pressable
           testID="ai-plan-btn"
           style={({ pressed }) => [
-            s.aiBtn,
-            { borderRadius: colors.radius },
-            (aiStreaming || pressed) && { opacity: 0.75 },
+            {
+              flexDirection: "row" as const,
+              alignItems: "center" as const,
+              gap: 10,
+              paddingHorizontal: 14,
+              paddingVertical: 11,
+              borderRadius: colors.radius,
+              borderWidth: 1,
+              borderColor: aiResult ? "#6C3BF5" : colors.border,
+              backgroundColor: aiResult ? "#6C3BF510" : colors.card,
+              marginBottom: 8,
+            },
+            (aiStreaming || pressed) && { opacity: 0.7 },
           ]}
           onPress={handleAiPlan}
           disabled={aiStreaming}
         >
-          <LinearGradient
-            colors={["#6C3BF5", "#A855F7"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={s.aiBtnGradient}
-          >
-            {aiStreaming && !aiResultOpen ? (
-              <>
-                <ActivityIndicator testID="ai-plan-loading-indicator" color="#fff" size="small" />
-                <Text style={s.aiBtnText}>PitMaster is planning your cook…</Text>
-              </>
-            ) : (
-              <>
-                <Feather name="cpu" size={18} color="#fff" />
-                <View style={{ flex: 1 }}>
-                  <Text style={s.aiBtnText}>Ask PitMaster</Text>
-                  <Text style={s.aiBtnSub}>
-                    {selectedCut
-                      ? `Get PitMaster timing, wrap tips & rest guidance for ${selectedCut.name}`
-                      : "Select a food first"}
-                  </Text>
-                </View>
-                <Feather name="chevron-right" size={16} color="rgba(255,255,255,0.7)" />
-              </>
-            )}
-          </LinearGradient>
+          {aiStreaming && !aiResultOpen ? (
+            <>
+              <ActivityIndicator testID="ai-plan-loading-indicator" color="#6C3BF5" size="small" />
+              <Text style={{ flex: 1, fontSize: 14, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
+                PitMaster is planning your cook…
+              </Text>
+            </>
+          ) : (
+            <>
+              <Feather name="cpu" size={15} color={aiResult ? "#6C3BF5" : colors.mutedForeground} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: aiResult ? "#6C3BF5" : colors.foreground }}>
+                  {aiResult ? "PitMaster plan ready" : "Get PitMaster estimate"}
+                </Text>
+                <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginTop: 1 }}>
+                  {aiResult
+                    ? `${aiResult.confidence} confidence · Tap to review`
+                    : selectedCut
+                      ? "Optional · personalized timing, wrap tips & rest guidance"
+                      : "Optional · select a food first"}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={14} color={aiResult ? "#6C3BF5" : colors.mutedForeground} />
+            </>
+          )}
         </Pressable>
 
-        {/* AI result banner (applied) */}
-        {aiResult && !aiResultOpen && (
-          <Pressable
-            onPress={() => setAiResultOpen(true)}
-            style={[s.aiAppliedBanner, { backgroundColor: "#6C3BF5" + "15", borderColor: "#6C3BF5" + "40", borderRadius: colors.radius }]}
-          >
-            <Feather name="check-circle" size={14} color="#6C3BF5" />
-            <Text style={[s.aiAppliedText, { color: "#6C3BF5" }]}>
-              PitMaster plan applied · {aiResult.confidence} confidence · Tap to review
-            </Text>
-          </Pressable>
-        )}
+        {/* AI result banner suppressed — info is now shown inside the button */}
 
         {/* Ask PitMaster about this plan — shown after a plan is generated */}
         {aiResult && (
@@ -3240,7 +3371,7 @@ export default function PlanScreen() {
         )}
 
         {/* ── Cook Schedule Summary (Plan for Later only) ── */}
-        {cookNowMode === "later" && schedule && (
+        {cookNowMode === "later" && schedule?.frozen && (
           <View style={[s.scheduleCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
             <LinearGradient
               colors={["#E84820", "#FF6B2B"]}

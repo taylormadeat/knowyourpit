@@ -1995,6 +1995,41 @@ export const AiPredictBody = zod.object({
     .describe(
       'Name of the preset style the user selected (e.g. \"3-2-1 Method\", \"Texas Style (No Wrap)\"). Mentioned in the prompt for context; the individual technique fields above already reflect its settings.',
     ),
+  cookId: zod
+    .number()
+    .nullish()
+    .describe(
+      "ID of an existing cook record. When present, the server patches the cook with AI refinement results (wrap times, check-in schedule, sequenceData) after responding.",
+    ),
+  baselineSchedule: zod
+    .object({
+      preheatStartAt: zod.coerce
+        .date()
+        .describe("When to light\/start the grill (before meat goes on)"),
+      meatOnAt: zod.coerce.date().describe("When to put the meat on the grill"),
+      wrapAt: zod.coerce
+        .date()
+        .nullish()
+        .describe("Estimated wrap time (null if the cut does not stall)"),
+      wrapTempF: zod
+        .number()
+        .nullish()
+        .describe("Estimated internal temp at wrap (null if no wrap)"),
+      pullAt: zod.coerce.date().describe("When to pull the meat off the grill"),
+      restEndAt: zod.coerce.date().describe("End of rest period \/ serve time"),
+      cookMins: zod
+        .number()
+        .describe("Active cook time in minutes (meat-on to pull)"),
+      preheatMins: zod.number().describe("Preheat time in minutes"),
+      restMins: zod.number().describe("Rest time in minutes"),
+    })
+    .describe(
+      "Deterministic cook schedule anchors computed from heuristic rules (calcSchedule). Sent alongside the AI predict request so PitMaster can focus on personalising rather than re-deriving the full timeline.",
+    )
+    .nullish()
+    .describe(
+      "Deterministic schedule anchors computed by calcSchedule on the client before the AI call. Sent as context so PitMaster personalises rather than re-derives the full timeline from scratch.",
+    ),
 });
 
 export const aiPredictResponseCheckinsItemExpectedInternalTempRangeMin = 2;

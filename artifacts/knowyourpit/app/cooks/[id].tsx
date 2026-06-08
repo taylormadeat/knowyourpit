@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { isBgRefining, subscribeBgRefining } from "@/lib/bgAiRefining";
 import {
   View, Text, ScrollView, Pressable, Platform, ActivityIndicator,
   Alert, Image, Animated, LogBox,
@@ -191,6 +192,14 @@ export default function CookDetailScreen() {
     });
     return () => sub.remove();
   }, [id]);
+
+  // ── Background AI refinement indicator ────────────────────────────────────
+  const cookIdNum = Number(id) || 0;
+  const [bgAiRefining, setBgAiRefining] = useState(() => isBgRefining(cookIdNum));
+  useEffect(() => {
+    setBgAiRefining(isBgRefining(cookIdNum));
+    return subscribeBgRefining(() => setBgAiRefining(isBgRefining(cookIdNum)));
+  }, [cookIdNum]);
 
   // ── Toast state ────────────────────────────────────────────────────────────
   const [checkinSavedToast, setCheckinSavedToast] = useState<string | null>(null);
@@ -507,6 +516,13 @@ export default function CookDetailScreen() {
           </View>
         );
       })()}
+
+      {bgAiRefining && (
+        <View style={{ marginHorizontal: 16, marginTop: 6, marginBottom: 2, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#6C3BF510", borderWidth: 1, borderColor: "#6C3BF540", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 }}>
+          <ActivityIndicator size="small" color="#6C3BF5" />
+          <Text style={{ flex: 1, fontSize: 13, fontFamily: "Inter_500Medium", color: "#6C3BF5" }}>PitMaster is analyzing your cook…</Text>
+        </View>
+      )}
 
       <ScrollView ref={scheduleScrollViewRef} contentContainerStyle={{ padding: 20, paddingBottom: botPad + 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={isTablet ? { width: "100%", maxWidth: detailMaxWidth, alignSelf: "center", gap: 16 } : null}>

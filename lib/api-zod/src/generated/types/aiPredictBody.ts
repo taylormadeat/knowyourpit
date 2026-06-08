@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AiPredictBodyThawMethod } from "./aiPredictBodyThawMethod";
+import type { BaselineSchedule } from "./baselineSchedule";
 
 export interface AiPredictBody {
   /** @nullable */
@@ -94,4 +95,11 @@ export interface AiPredictBody {
    * @nullable
    */
   cookingStylePreset?: string | null;
+  /**
+   * ID of an existing cook record. When present, the server patches the cook with AI refinement results (wrap times, check-in schedule, sequenceData) after responding.
+   * @nullable
+   */
+  cookId?: number | null;
+  /** Deterministic schedule anchors computed by calcSchedule on the client before the AI call. Sent as context so PitMaster personalises rather than re-derives the full timeline from scratch. */
+  baselineSchedule?: BaselineSchedule | null;
 }
