@@ -61,7 +61,13 @@ export function ActiveCookCard({ activeCook, nowMs, insights }: ActiveCookCardPr
   const cookSeqMeatOnMs: number | null = cookSeqMeatOnAt
     ? new Date(cookSeqMeatOnAt as string).getTime()
     : null;
-  const cookIsMeatOn = cookSeqMeatOnMs == null || cookSeqMeatOnMs <= nowMs;
+  const cookActualStartMs = activeCook?.actualStartAt
+    ? new Date(activeCook.actualStartAt).getTime()
+    : null;
+  const cookIsMeatOn =
+    (cookActualStartMs != null && cookActualStartMs <= nowMs) ||
+    cookSeqMeatOnMs == null ||
+    cookSeqMeatOnMs <= nowMs;
   const cookTopDecision = activeCook?.analysisResult?.decisions?.[0] ?? null;
   const cookTopDecisionColor = cookTopDecision
     ? URGENCY_COLOR[cookTopDecision.urgency] ?? "#6C3BF5"
@@ -119,12 +125,14 @@ export function ActiveCookCard({ activeCook, nowMs, insights }: ActiveCookCardPr
             {cookIsMeatOn ? "LIVE ON THE SMOKER" : "THAWING"}
           </Text>
           {cookIsMeatOn ? (
-            (cookSeqMeatOnMs != null || activeCook.actualStartAt) && (
+            ((cookSeqMeatOnMs != null && cookSeqMeatOnMs <= nowMs) ||
+              activeCook.actualStartAt) && (
               <Text style={s.elapsedBadge}>
                 {fmtElapsed(
                   nowMs -
-                    (cookSeqMeatOnMs ??
-                      new Date(activeCook.actualStartAt).getTime()),
+                    (cookSeqMeatOnMs != null && cookSeqMeatOnMs <= nowMs
+                      ? cookSeqMeatOnMs
+                      : new Date(activeCook.actualStartAt!).getTime()),
                 )}{" "}
                 in
               </Text>

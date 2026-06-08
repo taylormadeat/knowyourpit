@@ -257,7 +257,11 @@ export default function CookDetailScreen() {
     if (actualThawMs != null && plannedThawMs != null) return cookSeqMeatOnMs + (actualThawMs - plannedThawMs);
     return cookSeqMeatOnMs;
   })();
-  const isMeatOn = effectiveMeatOnMs == null || effectiveMeatOnMs <= nowMs;
+  const actualStartMs = cook?.actualStartAt ? new Date(cook.actualStartAt).getTime() : null;
+  const isMeatOn =
+    (actualStartMs != null && actualStartMs <= nowMs) ||
+    effectiveMeatOnMs == null ||
+    effectiveMeatOnMs <= nowMs;
 
   const nextStep = useMemo(() => computeNextStep(cookSeqData, cookStatus, nowMs), [cookSeqData, cookStatus, nowMs]);
   const nextStepKey = nextStep ? `${nextStep.itemIdx}:${nextStep.step}` : null;
