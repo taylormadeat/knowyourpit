@@ -1,5 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import { mark } from "./bootBreadcrumbs";
+import { getStaySignedIn } from "./staySignedIn";
 
 export interface TokenCache {
   getToken: (key: string) => Promise<string | null>;
@@ -57,8 +58,10 @@ function withTimeout<T>(op: string, key: string, p: Promise<T>): Promise<T> {
 //   SecureStore from scratch. This is the key fix for "random sign-outs":
 //   iOS SecureStore latency at boot is transient; caching null permanently
 //   evicted valid tokens from the in-process cache for the rest of the session.
-// - saveToken: updates memory immediately so reads-after-write never block,
-//   then writes to SecureStore best-effort in the background.
+// - saveToken: updates memory immediately, then checks the "stay signed in"
+//   preference at write time. If ON (default), the token is persisted to
+//   SecureStore so it survives cold launches. If OFF, the token is memory-only
+//   for this session — a cold relaunch requires signing in again.
 // - clearToken: clears memory immediately, then deletes from SecureStore
 //   best-effort.
 const memCache = new Map<string, string | null>();
@@ -97,8 +100,19 @@ async function readWithCache(key: string): Promise<string | null> {
   return p;
 }
 
-// ── Persistent token cache (default — "Stay signed in" ON) ───────────────────
-// Reads from / writes to SecureStore so the session survives cold launches.
+// The single token cache used for all sessions.
+//
+// getToken always reads from SecureStore so existing sessions survive a cold
+// launch regardless of the "stay signed in" setting.
+//
+// saveToken checks the "stay signed in" preference at the moment of sign-in:
+// - ON (default): token written to SecureStore → session persists across cold launches.
+// - OFF: token kept in memory only → session ends when the app process is torn down.
+//
+// This preference-at-write-time design means the user's toggle choice on the
+// sign-in screen takes effect for that sign-in regardless of when the app was
+// launched or when ClerkProvider was mounted. It avoids a boot-time race where
+// the preference would have to be known before the first React render.
 export const safeTokenCache: TokenCache = {
   async getToken(key: string): Promise<string | null> {
     return readWithCache(key);
@@ -108,6 +122,11 @@ export const safeTokenCache: TokenCache = {
     // immediately after a successful sign-in to attach the new bearer to
     // subsequent requests) returns the fresh token without waiting on the keychain.
     memCache.set(key, value);
+    const staySignedIn = await getStaySignedIn();
+    if (!staySignedIn) {
+      mark("kc.write.skip", `${key} → stay-signed-in OFF, memory-only`);
+      return;
+    }
     const startedAt = Date.now();
     mark("kc.write.start", key);
     try {
@@ -129,21 +148,5 @@ export const safeTokenCache: TokenCache = {
       // Best-effort deletion. Memory has already been cleared so any
       // in-process reads will see null even if the keychain delete stalls.
     }
-  },
-};
-
-// ── Memory-only token cache ("Stay signed in" OFF) ───────────────────────────
-// Tokens are kept in the same in-process memCache but never written to
-// SecureStore. When the user fully closes the app the JS process is torn down
-// and the session is lost — signing in is required on the next cold launch.
-export const memoryOnlyTokenCache: TokenCache = {
-  async getToken(key: string): Promise<string | null> {
-    return memCache.get(key) ?? null;
-  },
-  async saveToken(key: string, value: string): Promise<void> {
-    memCache.set(key, value);
-  },
-  async clearToken(key: string): Promise<void> {
-    memCache.delete(key);
   },
 };

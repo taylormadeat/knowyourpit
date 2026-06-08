@@ -6,7 +6,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { ClerkProvider, useAuth, useUser } from "@clerk/expo";
-import { safeTokenCache, memoryOnlyTokenCache } from "@/lib/tokenCache";
+import { safeTokenCache } from "@/lib/tokenCache";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QueryClient, QueryClientProvider, useQueryClient as useQueryClientInner } from "@tanstack/react-query";
 import { type Href, Stack, useRouter, useSegments } from "expo-router";
@@ -74,17 +74,6 @@ async function purgeLegacyQueryCaches() {
   }
 }
 purgeLegacyQueryCaches();
-
-// Read "Stay signed in" preference before ClerkProvider mounts.
-// AsyncStorage reads are typically < 5 ms on-device so the splash is unaffected.
-// The module-level variable lets RootLayout initialise useState synchronously
-// if the promise has already resolved by the time React's first render runs.
-let _staySignedIn = true;
-let _staySignedInLoaded = false;
-const _staySignedInReady = AsyncStorage.getItem("knowyourpit:staySignedIn")
-  .then((v) => { _staySignedIn = v !== "0"; })
-  .catch(() => {})
-  .finally(() => { _staySignedInLoaded = true; });
 
 // EXPO_PUBLIC_API_URL: set to the deployed API server URL for production builds.
 // Current production URL: https://api.knowyourpit.com (see eas.json)
@@ -484,23 +473,6 @@ export default function RootLayout() {
     if (fontError) mark("fonts.error", String(fontError));
   }, [fontsLoaded, fontError]);
 
-  // "Stay signed in" preference — determines which token cache ClerkProvider uses.
-  // Initialises synchronously from the module-level variable (already resolved
-  // in the vast majority of cold starts since AsyncStorage is < 5 ms) and waits
-  // for the async read before ClerkProvider mounts, so the correct cache is
-  // always selected before Clerk begins its session bootstrap.
-  const [staySignedIn, setStaySignedIn] = useState(_staySignedIn);
-  const [staySignedInLoaded, setStaySignedInLoaded] = useState(_staySignedInLoaded);
-  useEffect(() => {
-    if (!_staySignedInLoaded) {
-      void _staySignedInReady.then(() => {
-        setStaySignedIn(_staySignedIn);
-        setStaySignedInLoaded(true);
-      });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Mark the moment RootLayout first renders, which is when ClerkProvider
   // is about to mount. Combined with `module.load`, `fonts.loaded`, and
   // the subsequent `fetch.start clerk...` crumbs, this gives an unambiguous
@@ -605,10 +577,6 @@ export default function RootLayout() {
   }, []);
 
   if (!fontsLoaded && !fontError && !webReady) return null;
-  // Wait for the staySignedIn preference before mounting ClerkProvider so the
-  // correct token cache is selected from the very first Clerk session read.
-  // AsyncStorage is typically < 5 ms on-device; the splash screen is showing.
-  if (!staySignedInLoaded) return null;
 
   // ErrorBoundary now wraps every other provider — including
   // KeyboardProvider and ClerkProvider — so an error thrown during *any*
@@ -632,7 +600,7 @@ export default function RootLayout() {
         <KeyboardProviderOrFragment>
           <ClerkProvider
             publishableKey={clerkPubKey}
-            tokenCache={Platform.OS !== "web" ? (staySignedIn ? safeTokenCache : memoryOnlyTokenCache) : undefined}
+            tokenCache={Platform.OS !== "web" ? safeTokenCache : undefined}
             {...(clerkProxyUrl ? { proxyUrl: clerkProxyUrl } : {})}
           >
             <ClerkGatedShell
