@@ -996,13 +996,6 @@ export default function SignInScreen() {
           </Pressable>
         </View>
 
-        <Pressable style={styles.staySignedInRow} onPress={toggleStaySignedIn} hitSlop={8}>
-          <View style={[styles.checkbox, staySignedIn && styles.checkboxChecked]}>
-            {staySignedIn && <Feather name="check" size={11} color="#fff" />}
-          </View>
-          <Text style={styles.staySignedInText}>Stay signed in</Text>
-        </Pressable>
-
         <Pressable
           style={styles.forgotLink}
           onPress={() => {
@@ -1045,6 +1038,13 @@ export default function SignInScreen() {
           ) : (
             <Text style={styles.primaryBtnText}>Sign In</Text>
           )}
+        </Pressable>
+
+        <Pressable style={styles.staySignedInRow} onPress={toggleStaySignedIn} hitSlop={8}>
+          <View style={[styles.checkbox, staySignedIn && styles.checkboxChecked]}>
+            {staySignedIn && <Feather name="check" size={11} color="#fff" />}
+          </View>
+          <Text style={styles.staySignedInText}>Stay signed in</Text>
         </Pressable>
 
         <View style={styles.dividerRow}>
