@@ -504,6 +504,7 @@ export default function PlanScreen() {
     stopSubmitting,
   } = usePlanLoadingState();
   const [aiRetrying, setAiRetrying] = useState(false);
+  const [aiError, setAiError] = useState(false);
   const [factorsSheetOpen, setFactorsSheetOpen] = useState(false);
   const [planChatOpen, setPlanChatOpen] = useState(false);
   const [planChatSeed, setPlanChatSeed] = useState<string | undefined>(undefined);
@@ -798,21 +799,19 @@ export default function PlanScreen() {
     // openAiPlanModal() sets aiResult=null, aiResultOpen=true, aiStreaming=true
     // synchronously — the contract tested in usePlanLoadingState.test.ts.
     openAiPlanModal();
+    setAiRetrying(false);
+    setAiError(false);
     await new Promise<void>(resolve => setTimeout(resolve, 0));
 
     // Use the CACHED Clerk token — only force a refresh on an actual 401.
     const tapAt = Date.now();
     const sessionToken = await getTokenSafe(getToken);
     if (__DEV__) console.log(`[AiPlan] token ready +${Date.now() - tapAt}ms`);
-    if (!sessionToken) {
-      setAiStreaming(false);
-      setAiResultOpen(false);
-      Alert.alert(
-        "Session Expired",
-        "Your session has expired. Please sign out from the More tab and sign in again.",
-      );
-      return;
-    }
+    // NOTE: if sessionToken is null (timeout path — Clerk SecureStore was slow
+    // after backgrounding), we proceed WITHOUT an Authorization header instead
+    // of immediately showing "Session Expired". The server's 401 will trigger
+    // the refresh-and-retry flow below, which is the only reliable signal that
+    // the Clerk session is actually dead.
 
     const predictPayload = {
       foodType: selectedCut.name,
@@ -842,10 +841,14 @@ export default function PlanScreen() {
       process.env.EXPO_PUBLIC_API_URL ??
       (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
 
+    // Tracks the most recently refreshed token so any retry reuses the fresh
+    // token rather than the original cached/null one.
+    let activeToken: string | null = sessionToken;
+
     // Every AI fetch is wrapped in an AbortController so a dead socket can
     // never hang the loading modal indefinitely (restores the lost #1156
     // timeout protection).
-    const doPredictFetch = async (token: string) => {
+    const doPredictFetch = async (token: string | null) => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), AI_FETCH_TIMEOUT_MS);
       try {
@@ -853,7 +856,7 @@ export default function PlanScreen() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
+            ...(token ? { "Authorization": `Bearer ${token}` } : {}),
           },
           body: JSON.stringify(predictPayload),
           signal: controller.signal,
@@ -863,18 +866,55 @@ export default function PlanScreen() {
       }
     };
 
-    try {
-      let response = await doPredictFetch(sessionToken);
+    // One complete attempt: fetch → optional token refresh on 401 → return outcome.
+    // Returns "ok" (result set on state), "network_error" (retryable), or
+    // "fatal_401" (session genuinely dead after a forced refresh).
+    const runOnce = async (): Promise<"ok" | "network_error" | "fatal_401"> => {
+      let response: Response;
+      try {
+        response = await doPredictFetch(activeToken);
+      } catch (e: any) {
+        // AbortError = timeout; any other throw = unexpected network failure.
+        // Both are retryable — surface as network_error so the modal stays open.
+        return "network_error";
+      }
 
-      // Cached token rejected — force a single refresh and retry before
+      // Cached/null token rejected — force a single refresh and retry before
       // declaring the session dead.
       if (response.status === 401) {
         const fresh = await getTokenSafe(opts => getToken({ ...opts, skipCache: true }));
-        if (fresh) response = await doPredictFetch(fresh);
+        if (!fresh) {
+          // Forced refresh timed out — we cannot determine whether the session
+          // is dead. Treat as a transient network failure so the modal stays
+          // open with a "Try Again" button rather than incorrectly showing
+          // "Session Expired".
+          return "network_error";
+        }
+        activeToken = fresh;
+        try {
+          response = await doPredictFetch(fresh);
+        } catch {
+          return "network_error";
+        }
       }
+
       if (__DEV__) console.log(`[AiPlan] fetch done +${Date.now() - tapAt}ms status=${response.status}`);
 
-      if (response.status === 401) {
+      // Only fatal_401 when a retry with a confirmed fresh token also returned
+      // 401 — i.e., the Clerk session is genuinely dead.
+      if (response.status === 401) return "fatal_401";
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const data = await response.json();
+      setAiResult(data);
+      setAiStreaming(false);
+      return "ok";
+    };
+
+    try {
+      let outcome = await runOnce();
+
+      if (outcome === "fatal_401") {
         setAiStreaming(false);
         setAiResultOpen(false);
         Alert.alert(
@@ -884,22 +924,47 @@ export default function PlanScreen() {
         return;
       }
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      if (outcome === "network_error") {
+        // Auto-retry once before surfacing the in-modal error state — mirrors
+        // the handleMultiCook pattern so the UX is consistent.
+        setAiRetrying(true);
+        let retryOutcome: "ok" | "network_error" | "fatal_401" | null = null;
+        try {
+          retryOutcome = await runOnce();
+        } catch {
+          // retry threw an unexpected HTTP error — fall through to error state
+        }
+        setAiRetrying(false);
 
-      const data = await response.json();
-      setAiResult(data);
-      setAiStreaming(false);
+        if (retryOutcome === "ok") return;
+        if (retryOutcome === "fatal_401") {
+          setAiStreaming(false);
+          setAiResultOpen(false);
+          Alert.alert(
+            "Session Expired",
+            "Your session has expired. Please sign out from the More tab and sign in again.",
+          );
+          return;
+        }
+        // Both attempts failed — keep the modal open and show the error state
+        // with a "Try Again" button so the user can retry without re-entering
+        // their parameters.
+        setAiStreaming(false);
+        setAiError(true);
+        return;
+      }
     } catch (e: any) {
+      // Unexpected non-network error (e.g. HTTP 5xx thrown by runOnce).
       setAiStreaming(false);
       setAiResultOpen(false);
-      const msg =
-        e?.name === "AbortError"
-          ? "PitMaster took too long to respond. Please try again."
-          : e?.message || "Could not get PitMaster prediction. Try again.";
+      const msg = e?.message || "Could not get PitMaster prediction. Try again.";
       Alert.alert("PitMaster Error", msg);
     }
+  };
+
+  const handleRetryAiPlan = () => {
+    setAiError(false);
+    handleAiPlan();
   };
 
   // ── Multi-Cook Sequence ───────────────────────────────────────────────
@@ -3682,6 +3747,8 @@ export default function PlanScreen() {
         grillName={selectedGrill?.name}
         retrying={aiRetrying}
         isStreaming={aiStreaming}
+        hasError={aiError}
+        onRetry={handleRetryAiPlan}
         selectedChips={{
           cookingMethod: qpCookMethod,
           meatStartTemp: qpMeatStartTemp,

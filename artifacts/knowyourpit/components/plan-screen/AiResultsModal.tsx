@@ -26,6 +26,8 @@ interface Props {
   selectedChips?: SelectedChips;
   retrying?: boolean;
   isStreaming?: boolean;
+  hasError?: boolean;
+  onRetry?: () => void;
 }
 
 const CHIP_LABELS: { key: keyof SelectedChips; label: string }[] = [
@@ -508,7 +510,7 @@ function StreamingCursor({ colors }: { colors: Colors }) {
 // ── Main modal ───────────────────────────────────────────────────────────────
 
 export function AiResultsModal(p: Props) {
-  const { visible, onClose, colors, aiResult, applyAiPlan, grillName, selectedChips, retrying, isStreaming } = p;
+  const { visible, onClose, colors, aiResult, applyAiPlan, grillName, selectedChips, retrying, isStreaming, hasError, onRetry } = p;
 
   const activeChips = selectedChips
     ? CHIP_LABELS.filter((c) => selectedChips[c.key])
@@ -594,8 +596,53 @@ export function AiResultsModal(p: Props) {
           </LinearGradient>
 
           <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 40 }}>
+            {/* ── Error state (network failure after auto-retry) ── */}
+            {!aiResult && hasError && (
+              <View style={{ paddingTop: 36, alignItems: "center", gap: 14, paddingBottom: 20 }}>
+                <Feather name="wifi-off" size={34} color={colors.mutedForeground} />
+                <Text style={{
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 16,
+                  color: colors.foreground,
+                  textAlign: "center",
+                }}>
+                  Couldn't reach PitMaster
+                </Text>
+                <Text style={{
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 13,
+                  color: colors.mutedForeground,
+                  textAlign: "center",
+                  lineHeight: 20,
+                  paddingHorizontal: 8,
+                }}>
+                  A network error occurred. Check your connection and try again — your settings are still saved.
+                </Text>
+                {onRetry && (
+                  <Pressable
+                    onPress={onRetry}
+                    style={{
+                      marginTop: 4,
+                      backgroundColor: "#6C3BF5",
+                      borderRadius: 10,
+                      paddingHorizontal: 28,
+                      paddingVertical: 13,
+                    }}
+                  >
+                    <Text style={{
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 14,
+                      color: "#fff",
+                    }}>
+                      Try Again
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+
             {/* ── Full loading state (no partial data yet) ── */}
-            {!aiResult && (
+            {!aiResult && !hasError && (
               <View style={{ paddingTop: 20 }}>
                 {/* ── PitMaster Analysis skeleton ── */}
                 <View style={[s.aiSection, { borderColor: colors.border }]}>
