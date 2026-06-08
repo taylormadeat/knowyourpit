@@ -228,15 +228,37 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
       typeof ch.channelLabel === "string" && ch.channelLabel.trim().length > 0 &&
       typeof ch.probeTempF === "number" && isFinite(ch.probeTempF),
   );
+  // Separate meat slots from ambient/pit channels so PitMaster can reason
+  // about each independently. A channel is treated as ambient/pit when its
+  // label contains "ambient", "pit", "grill", "chamber", "dome", or "lid"
+  // (case-insensitive). All others are meat probes.
+  const ambientKeywords = /ambient|pit|grill|chamber|dome|lid/i;
+  const meatChannels    = validProbeChannels.filter(ch => !ambientKeywords.test(ch.channelLabel));
+  const ambientChannels = validProbeChannels.filter(ch =>  ambientKeywords.test(ch.channelLabel));
+
   if (validProbeChannels.length > 1) {
     const channelLines = validProbeChannels
       .map((ch) => `  • ${ch.channelLabel}: ${ch.probeTempF}°F`)
       .join("\n");
+
+    // When multiple meat slots are present, the LOWEST reading is used for
+    // doneness (safety-first: the coldest zone is the least cooked).
+    let lowestMeatNote = "";
+    if (meatChannels.length > 1) {
+      const lowestMeat = meatChannels.reduce((a, b) => a.probeTempF < b.probeTempF ? a : b);
+      lowestMeatNote = `\nDoneness reference: use ${lowestMeat.channelLabel} (${lowestMeat.probeTempF}°F) as the primary doneness probe — it is the lowest (coldest) meat zone and determines when the whole cook is safe to pull.`;
+    }
+
+    // Ambient/pit channels should be assessed for grill temp, not doneness.
+    const ambientNote = ambientChannels.length > 0
+      ? `\nAmbient/pit channels (${ambientChannels.map(c => c.channelLabel).join(", ")}): use these for grill temperature assessment only — do not compare to meat doneness targets.`
+      : "";
+
     contextLines.push(
-      `All active probe channels (multi-channel device):\n${channelLines}\n` +
-      `(The "Current internal meat temperature" above is the selected/primary channel. ` +
-      `Use all channels together to assess overall done-ness, detect stalls per zone, ` +
-      `and flag any channels that are running significantly hotter or colder than expected.)`,
+      `All active probe channels (multi-slot cook):\n${channelLines}` +
+      lowestMeatNote + ambientNote + "\n" +
+      `(Assess overall done-ness, detect stalls per zone, and flag any meat channels running ` +
+      `significantly hotter or colder than expected.)`,
     );
   } else if (validProbeChannels.length === 1) {
     const ch = validProbeChannels[0]!;

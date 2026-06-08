@@ -1704,8 +1704,20 @@ components:
           type: ["object", "null"]
           description: Server-persisted probe assignments and labels for this cook
           properties:
+            meatProbes:
+              type: array
+              description: Ordered meat probe slots. First entry is the primary doneness probe. Absent on records written before multi-probe support (use meatProbeId for those).
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  label:
+                    type: string
+                required: [id, label]
             meatProbeId:
               type: ["string", "null"]
+              description: Legacy v1 field — equals meatProbes[0].id. Written alongside meatProbes for backwards compatibility.
             pitProbeId:
               type: ["string", "null"]
             labels:
@@ -1835,8 +1847,20 @@ components:
           type: ["object", "null"]
           description: Server-persisted probe assignments and labels for this cook
           properties:
+            meatProbes:
+              type: array
+              description: Ordered meat probe slots. First entry is the primary doneness probe. Absent on records written before multi-probe support (use meatProbeId for those).
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  label:
+                    type: string
+                required: [id, label]
             meatProbeId:
               type: ["string", "null"]
+              description: Legacy v1 field — equals meatProbes[0].id. Written alongside meatProbes for backwards compatibility.
             pitProbeId:
               type: ["string", "null"]
             labels:
@@ -1936,8 +1960,20 @@ components:
           type: ["object", "null"]
           description: Server-persisted probe assignments and labels for this cook
           properties:
+            meatProbes:
+              type: array
+              description: Ordered meat probe slots. First entry is the primary doneness probe. Absent on records written before multi-probe support (use meatProbeId for those).
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  label:
+                    type: string
+                required: [id, label]
             meatProbeId:
               type: ["string", "null"]
+              description: Legacy v1 field — equals meatProbes[0].id. Written alongside meatProbes for backwards compatibility.
             pitProbeId:
               type: ["string", "null"]
             labels:

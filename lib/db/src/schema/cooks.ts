@@ -44,6 +44,18 @@ export const cooksTable = pgTable("cooks", {
   finishTimeRangeUpper: timestamp("finish_time_range_upper", { withTimezone: true }),
   healthScore: text("health_score"),
   healthScoreReason: text("health_score_reason"),
+  /**
+   * Persisted probe role assignments for this cook session.
+   * Shape (v2 — multi-probe):
+   *   {
+   *     meatProbes?: Array<{ id: string; label: string }>,  // ordered meat slots; first drives doneness
+   *     meatProbeId?: string | null,                         // legacy v1 field — read on load for backwards compat
+   *     pitProbeId?: string | null,
+   *     labels?: Record<string, string>,                     // free-form display labels per probe key
+   *   }
+   * On read, if meatProbes is absent but meatProbeId is present, migrate inline:
+   *   meatProbes = [{ id: meatProbeId, label: "Internal" }]
+   */
   probeAssignments: jsonb("probe_assignments"),
   sizingLabel: text("sizing_label"),
   isOutlier: boolean("is_outlier").notNull().default(false),

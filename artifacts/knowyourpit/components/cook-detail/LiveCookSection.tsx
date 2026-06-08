@@ -2,7 +2,7 @@ import React from "react";
 import { useRouter } from "expo-router";
 import { CookFactorsSheet, type QualFactor } from "@/components/CookFactorsSheet";
 import type { FactorBreakdownItem } from "@/components/cook-detail/types";
-import { View, Text, Pressable, ActivityIndicator, Animated, TextInput } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, Animated, TextInput, Modal, ScrollView } from "react-native";
 import { BleWizardSheet } from "./BleWizardSheet";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { InkbirdProbeReading } from "@/hooks/useInkbirdBLE";
@@ -109,6 +109,12 @@ interface Props {
   hasActiveProbe?: boolean;
   /** True when this cook's plan was generated from a timed-out AI prediction (rough estimate). */
   planTimedOut?: boolean | null;
+  /** Ordered list of meat probe slots (multi-probe support). Slot 0 is the primary probe. */
+  meatProbeSlots?: Array<{id: string; label: string}>;
+  /** Called from "Add probe slot" picker to add a probe to slot 2+ */
+  onAddMeatProbeSlot?: (probeId: string, label: string) => void;
+  /** Called to remove a specific probe from its meat slot */
+  onRemoveMeatProbeSlot?: (probeId: string) => void;
 }
 
 function fmtLastChecked(lastAnalyzedAtMs: number, nowMs: number): string {
@@ -153,16 +159,107 @@ export function LiveCookSection(p: Props) {
     qualFactors,
     hasActiveProbe = false,
     planTimedOut,
+    meatProbeSlots = [],
+    onAddMeatProbeSlot,
+    onRemoveMeatProbeSlot,
   } = p;
 
   const router = useRouter();
   const isProduceCook = targetTempF === 0;
+
+  // Multi-probe slot helpers
+  const isInMeatSlot = React.useCallback((probeKey: string) => meatProbeSlots.some(s => s.id === probeKey), [meatProbeSlots]);
+  const getSlotLabel = React.useCallback((probeKey: string) => meatProbeSlots.find(s => s.id === probeKey)?.label ?? null, [meatProbeSlots]);
+
+  // Compute live temps for all assigned meat slots (for the summary readout)
+  const meatSlotTemps = React.useMemo(() => {
+    if (meatProbeSlots.length === 0) return null;
+    const results: Array<{label: string; tempF: number | null}> = [];
+    for (const slot of meatProbeSlots) {
+      const k = slot.id;
+      let temp: number | null = null;
+      if (k.startsWith("lan_")) {
+        temp = lanProbes.find((p: any) => `lan_${p.deviceId}` === k)?.probeTempF ?? null;
+      } else if (k.startsWith("ble_")) {
+        temp = (inkbirdProbes as any[]).find((p: any) => `ble_${p.deviceId}_${p.probeIndex}` === k)?.tempF ?? null;
+      } else if (k.startsWith("bleCtx_")) {
+        temp = bleContextDevices.find((d: any) => `bleCtx_${d.id}` === k)?.probeTempF ?? null;
+      } else if (k.startsWith("tw_")) {
+        temp = (thermoworksProbes as any[]).find((p: any) => `tw_${p.deviceId}_${p.channelNumber}` === k)?.tempF ?? null;
+      } else {
+        // MEATER — deviceId direct
+        temp = (meaterProbes as any[]).find((p: any) => p.deviceId === k)?.internalTempF ?? null;
+      }
+      results.push({ label: slot.label, tempF: temp });
+    }
+    // Only return if at least one slot has a live reading
+    return results.some(r => r.tempF != null) ? results : null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meatProbeSlots, lanProbes, inkbirdProbes, bleContextDevices, thermoworksProbes, meaterProbes]);
+
+  // All probes not already in a meat slot and not the pit probe (for "Add probe slot" picker)
+  const allUnassignedProbeOptions = React.useMemo(() => {
+    const inSlot = (k: string) => meatProbeSlots.some(s => s.id === k);
+    const opts: Array<{key: string; name: string; temp: string}> = [];
+    if (meaterLinked === true) {
+      for (const p of meaterProbes as any[]) {
+        const k = p.deviceId as string;
+        if (!inSlot(k) && k !== selectedPitProbeId) {
+          opts.push({ key: k, name: probeLabels[k] ?? p.deviceName, temp: p.internalTempF != null ? `${p.internalTempF}°F` : "—" });
+        }
+      }
+    }
+    if (thermoworksLinked === true) {
+      for (const p of thermoworksProbes as any[]) {
+        const k = `tw_${p.deviceId}_${p.channelNumber}`;
+        if (!inSlot(k) && k !== selectedPitProbeId) {
+          opts.push({ key: k, name: probeLabels[k] ?? (p.channelLabel ? `${p.deviceName} · ${p.channelLabel}` : `${p.deviceName} · Ch ${p.channelNumber}`), temp: p.tempF != null ? `${p.tempF}°F` : "—" });
+        }
+      }
+    }
+    for (const p of inkbirdProbes) {
+      const k = `ble_${p.deviceId}_${p.probeIndex}`;
+      if (!inSlot(k) && k !== selectedPitProbeId) {
+        opts.push({ key: k, name: probeLabels[k] ?? `Ch ${p.probeIndex + 1}`, temp: p.tempF != null ? `${Math.round(p.tempF)}°F` : "—" });
+      }
+    }
+    for (const d of bleContextDevices) {
+      const k = `bleCtx_${d.id}`;
+      if (!inSlot(k) && k !== selectedPitProbeId) {
+        opts.push({ key: k, name: probeLabels[k] ?? d.name, temp: d.probeTempF != null ? `${d.probeTempF}°F` : "—" });
+      }
+    }
+    for (const p of lanProbes) {
+      const k = `lan_${p.deviceId}`;
+      if (!inSlot(k) && k !== selectedPitProbeId) {
+        opts.push({ key: k, name: probeLabels[k] ?? (p.channelLabel ?? p.deviceName), temp: p.probeTempF != null ? `${p.probeTempF}°F` : "—" });
+      }
+    }
+    return opts;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meaterLinked, meaterProbes, thermoworksLinked, thermoworksProbes, inkbirdProbes, bleContextDevices, lanProbes, meatProbeSlots, selectedPitProbeId, probeLabels]);
 
   const [cookFactorsSheetOpen, setCookFactorsSheetOpen] = React.useState(false);
 
   // Local state for inline label editing
   const [editingLabelKey, setEditingLabelKey] = React.useState<string | null>(null);
   const [labelDraft, setLabelDraft] = React.useState("");
+
+  // Collapse state: unassigned probes (no meat/pit role) start collapsed
+  const [expandedProbeKeys, setExpandedProbeKeys] = React.useState<Set<string>>(new Set());
+  const toggleExpanded = React.useCallback((probeKey: string) => {
+    setExpandedProbeKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(probeKey)) next.delete(probeKey); else next.add(probeKey);
+      return next;
+    });
+  }, []);
+
+  // "Add probe slot" picker state (for assigning a second/third probe to meat)
+  const [addSlotPickerOpen, setAddSlotPickerOpen] = React.useState(false);
+  const [addSlotProbeId, setAddSlotProbeId] = React.useState<string | null>(null);
+  const SLOT_LABEL_PRESETS = ["Internal", "Ambient", "Breast", "Thigh", "Shoulder", "Rump"] as const;
+  const [customLabelDraft, setCustomLabelDraft] = React.useState("");
 
   const [phaseNarrativeExpanded, setPhaseNarrativeExpanded] = React.useState(false);
   const [timelineExpanded, setTimelineExpanded] = React.useState(true);
@@ -497,9 +594,19 @@ export function LiveCookSection(p: Props) {
       )}
 
       {/* ── Live probe temp readout — shown when a probe is connected and readings are available ── */}
-      {tempMode === "probe" && (currentInternalTempF != null || currentPitTempF != null) && (
-        <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.border }}>
-          {currentInternalTempF != null && (
+      {tempMode === "probe" && ((meatSlotTemps != null) || currentInternalTempF != null || currentPitTempF != null) && (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.border }}>
+          {/* Multi-slot: show one chip per assigned meat slot */}
+          {meatSlotTemps != null ? meatSlotTemps.map((slot, idx) => (
+            <View key={`slot_${idx}`} style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#FF6B2B15", borderWidth: 1, borderColor: "#FF6B2B40" }}>
+              <Feather name="thermometer" size={13} color="#FF6B2B" />
+              <View>
+                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 15, color: "#FF6B2B" }}>{slot.tempF != null ? `${Math.round(slot.tempF)}°F` : "—"}</Text>
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#FF6B2B99" }}>{slot.label}</Text>
+              </View>
+            </View>
+          )) : currentInternalTempF != null ? (
+            /* Single-probe legacy fallback */
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#FF6B2B15", borderWidth: 1, borderColor: "#FF6B2B40" }}>
               <Feather name="thermometer" size={13} color="#FF6B2B" />
               <View>
@@ -507,7 +614,7 @@ export function LiveCookSection(p: Props) {
                 <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#FF6B2B99" }}>Internal</Text>
               </View>
             </View>
-          )}
+          ) : null}
           {currentPitTempF != null && (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#3b82f615", borderWidth: 1, borderColor: "#3b82f640" }}>
               <Feather name="wind" size={13} color="#3b82f6" />
@@ -665,11 +772,26 @@ export function LiveCookSection(p: Props) {
       {/* MEATER rows — ambient auto-provides pit; user can assign Meat or Pit role */}
       {tempMode === "probe" && meaterLinked === true && meaterProbes.map((probe: any, i: number) => {
         const probeKey = probe.deviceId;
-        const isMeat = selectedMeatProbeId === probeKey;
+        const isMeat = isInMeatSlot(probeKey) || selectedMeatProbeId === probeKey;
         const isPit = selectedPitProbeId === probeKey;
         const otherCook = otherCookAssignments[probeKey];
         const lockedByOther = !!otherCook && !isMeat && !isPit;
         const isEditing = editingLabelKey === probeKey;
+        const isCollapsed = !isMeat && !isPit && !expandedProbeKeys.has(probeKey);
+        if (isCollapsed) {
+          return (
+            <Pressable key={`${probe.deviceId}_c_${i}`} onPress={() => toggleExpanded(probeKey)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Feather name="thermometer" size={11} color={colors.mutedForeground} />
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }} numberOfLines={1}>{probeLabels[probeKey] ?? probe.deviceName}</Text>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.foreground }}>{probe.internalTempF != null ? `${probe.internalTempF}°F` : "—"}</Text>
+                <Feather name="chevron-down" size={12} color={colors.mutedForeground} />
+              </View>
+            </Pressable>
+          );
+        }
         return (
           <View
             key={probe.deviceId + i}
@@ -711,11 +833,11 @@ export function LiveCookSection(p: Props) {
                         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>⚠ {otherCook}</Text>
                       )}
                       {!isProduceCook && (
-                      <Pressable onPress={() => onSelectMeatProbe?.(isMeat ? null : probeKey)}
+                      <Pressable onPress={() => isMeat ? onRemoveMeatProbeSlot?.(probeKey) : onSelectMeatProbe?.(probeKey)}
                         style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isMeat ? "#FF6B2B60" : "transparent" }}>
                         <Feather name="thermometer" size={11} color={isMeat ? "#FF6B2B" : colors.mutedForeground} />
-                        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>Meat</Text>
-                        {isMeat && <Feather name="check" size={10} color="#FF6B2B" />}
+                        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>{isMeat ? (getSlotLabel(probeKey) ?? "Meat") : "Meat"}</Text>
+                        {isMeat && <Feather name="x" size={10} color="#FF6B2B" />}
                       </Pressable>
                       )}
                       <Pressable onPress={() => onSelectPitProbe?.(isPit ? null : probeKey)}
@@ -763,11 +885,26 @@ export function LiveCookSection(p: Props) {
       {/* ThermoWorks rows — each channel can be assigned Meat or Pit */}
       {tempMode === "probe" && thermoworksLinked === true && thermoworksProbes.map((probe: any, i: number) => {
         const probeKey = `tw_${probe.deviceId}_${probe.channelNumber}`;
-        const isMeat = selectedMeatProbeId === probeKey;
+        const isMeat = isInMeatSlot(probeKey) || selectedMeatProbeId === probeKey;
         const isPit = selectedPitProbeId === probeKey;
         const otherCook = otherCookAssignments[probeKey];
         const lockedByOther = !!otherCook && !isMeat && !isPit;
         const isEditing = editingLabelKey === probeKey;
+        const isCollapsed = !isMeat && !isPit && !expandedProbeKeys.has(probeKey);
+        if (isCollapsed) {
+          return (
+            <Pressable key={`tw_c_${probe.deviceId}_${probe.channelNumber}_${i}`} onPress={() => toggleExpanded(probeKey)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Feather name="thermometer" size={11} color="#B22222" />
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }} numberOfLines={1}>{probeLabels[probeKey] ?? (probe.channelLabel ? `${probe.deviceName} · ${probe.channelLabel}` : `${probe.deviceName} · Ch ${probe.channelNumber}`)}</Text>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.foreground }}>{probe.tempF != null ? `${probe.tempF}°F` : "—"}</Text>
+                <Feather name="chevron-down" size={12} color={colors.mutedForeground} />
+              </View>
+            </Pressable>
+          );
+        }
         return (
           <View
             key={`tw-${probe.deviceId}-${probe.channelNumber}-${i}`}
@@ -819,10 +956,10 @@ export function LiveCookSection(p: Props) {
                 {otherCook && (
                   <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>⚠ {otherCook}</Text>
                 )}
-                <Pressable onPress={() => onSelectMeatProbe?.(isMeat ? null : probeKey)}
+                <Pressable onPress={() => onSelectMeatProbe?.(probeKey)}
                   style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isMeat ? "#FF6B2B60" : "transparent" }}>
                   <Feather name="thermometer" size={11} color={isMeat ? "#FF6B2B" : colors.mutedForeground} />
-                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>Meat</Text>
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>{isMeat ? (getSlotLabel(probeKey) ?? "Meat") : "Meat"}</Text>
                   {isMeat && <Feather name="check" size={10} color="#FF6B2B" />}
                 </Pressable>
                 <Pressable onPress={() => onSelectPitProbe?.(isPit ? null : probeKey)}
@@ -867,11 +1004,12 @@ export function LiveCookSection(p: Props) {
         let lastOtherDevId: string | null = null;
         return otherInkbirdProbes.flatMap((probe, i) => {
           const probeKey = `ble_${probe.deviceId}_${probe.probeIndex}`;
-          const isMeat = selectedMeatProbeId === probeKey;
+          const isMeat = isInMeatSlot(probeKey) || selectedMeatProbeId === probeKey;
           const isPit = selectedPitProbeId === probeKey;
           const otherCook = otherCookAssignments[probeKey];
           const lockedByOther = !!otherCook && !isMeat && !isPit;
           const isEditing = editingLabelKey === probeKey;
+          const isCollapsed = !isMeat && !isPit && !expandedProbeKeys.has(probeKey);
           const isNewDevice = probe.deviceId !== lastOtherDevId;
           lastOtherDevId = probe.deviceId;
           const items: React.ReactNode[] = [];
@@ -886,6 +1024,20 @@ export function LiveCookSection(p: Props) {
               </View>
             );
           }
+          if (isCollapsed) {
+            items.push(
+              <Pressable key={`ble_c_${probe.deviceId}_${probe.probeIndex}_${i}`} onPress={() => toggleExpanded(probeKey)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Feather name="bluetooth" size={11} color="#3B82F6" />
+                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }} numberOfLines={1}>{probeLabels[probeKey] ?? `Ch ${probe.probeIndex + 1}`}</Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.foreground }}>{probe.tempF != null ? `${Math.round(probe.tempF)}°F` : "—"}</Text>
+                  <Feather name="chevron-down" size={12} color={colors.mutedForeground} />
+                </View>
+              </Pressable>
+            );
+          } else {
           items.push(
           <View
             key={`ble-${probe.deviceId}-${probe.probeIndex}-${i}`}
@@ -955,10 +1107,10 @@ export function LiveCookSection(p: Props) {
                 {otherCook && (
                   <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>⚠ {otherCook}</Text>
                 )}
-                <Pressable onPress={() => onSelectMeatProbe?.(isMeat ? null : probeKey)}
+                <Pressable onPress={() => onSelectMeatProbe?.(probeKey)}
                   style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isMeat ? "#FF6B2B60" : "transparent" }}>
                   <Feather name="thermometer" size={11} color={isMeat ? "#FF6B2B" : colors.mutedForeground} />
-                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>Meat</Text>
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>{isMeat ? (getSlotLabel(probeKey) ?? "Meat") : "Meat"}</Text>
                   {isMeat && <Feather name="check" size={10} color="#FF6B2B" />}
                 </Pressable>
                 <Pressable onPress={() => onSelectPitProbe?.(isPit ? null : probeKey)}
@@ -971,6 +1123,7 @@ export function LiveCookSection(p: Props) {
             )}
           </View>
           );
+          } // end else (isCollapsed)
           return items;
         });
       })()}
@@ -978,12 +1131,27 @@ export function LiveCookSection(p: Props) {
       {/* Other BLE context device rows — ambient bundled; user can assign Meat or Pit role */}
       {tempMode === "probe" && otherBleContextDevices.map((device, i) => {
         const probeKey = `bleCtx_${device.id}`;
-        const isMeat = selectedMeatProbeId === probeKey;
+        const isMeat = isInMeatSlot(probeKey) || selectedMeatProbeId === probeKey;
         const isPit = selectedPitProbeId === probeKey;
         const otherCook = otherCookAssignments[probeKey];
         const lockedByOther = !!otherCook && !isMeat && !isPit;
         const isEditing = editingLabelKey === probeKey;
         const hasAmbient = device.ambientTempF != null;
+        const isCollapsed = !isMeat && !isPit && !expandedProbeKeys.has(probeKey);
+        if (isCollapsed) {
+          return (
+            <Pressable key={`bleCtx_c_${device.id}_${i}`} onPress={() => toggleExpanded(probeKey)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Feather name="bluetooth" size={11} color="#3B82F6" />
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }} numberOfLines={1}>{probeLabels[probeKey] ?? device.name}</Text>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.foreground }}>{device.probeTempF != null ? `${device.probeTempF}°F` : "—"}</Text>
+                <Feather name="chevron-down" size={12} color={colors.mutedForeground} />
+              </View>
+            </Pressable>
+          );
+        }
         return (
           <View
             key={`bleCtx-${device.id}-${i}`}
@@ -1033,11 +1201,11 @@ export function LiveCookSection(p: Props) {
                         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>⚠ {otherCook}</Text>
                       )}
                       {!isProduceCook && (
-                      <Pressable onPress={() => onSelectMeatProbe?.(isMeat ? null : probeKey)}
+                      <Pressable onPress={() => isMeat ? onRemoveMeatProbeSlot?.(probeKey) : onSelectMeatProbe?.(probeKey)}
                         style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isMeat ? "#FF6B2B60" : "transparent" }}>
                         <Feather name="thermometer" size={11} color={isMeat ? "#FF6B2B" : colors.mutedForeground} />
-                        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>Meat</Text>
-                        {isMeat && <Feather name="check" size={10} color="#FF6B2B" />}
+                        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>{isMeat ? (getSlotLabel(probeKey) ?? "Meat") : "Meat"}</Text>
+                        {isMeat && <Feather name="x" size={10} color="#FF6B2B" />}
                       </Pressable>
                       )}
                       <Pressable onPress={() => onSelectPitProbe?.(isPit ? null : probeKey)}
@@ -1093,11 +1261,26 @@ export function LiveCookSection(p: Props) {
       {/* LAN probe rows (Fireboard, MEATER Block, ThermoWorks Signals) — user assigns Meat or Pit */}
       {tempMode === "probe" && lanProbes.map((probe, i) => {
         const probeKey = `lan_${probe.deviceId}`;
-        const isMeat = selectedMeatProbeId === probeKey;
+        const isMeat = isInMeatSlot(probeKey) || selectedMeatProbeId === probeKey;
         const isPit = selectedPitProbeId === probeKey;
         const otherCook = otherCookAssignments[probeKey];
         const lockedByOther = !!otherCook && !isMeat && !isPit;
         const isEditing = editingLabelKey === probeKey;
+        const isCollapsed = !isMeat && !isPit && !expandedProbeKeys.has(probeKey);
+        if (isCollapsed) {
+          return (
+            <Pressable key={`lan_c_${probe.deviceId}_${i}`} onPress={() => toggleExpanded(probeKey)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Feather name="wifi" size={11} color="#0EA5E9" />
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }} numberOfLines={1}>{probeLabels[probeKey] ?? `${probe.deviceName} · ${probe.channelLabel}`}</Text>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.foreground }}>{probe.probeTempF != null ? `${probe.probeTempF}°F` : "—"}</Text>
+                <Feather name="chevron-down" size={12} color={colors.mutedForeground} />
+              </View>
+            </Pressable>
+          );
+        }
         return (
           <View
             key={`lan-${probe.deviceId}-${i}`}
@@ -1140,11 +1323,11 @@ export function LiveCookSection(p: Props) {
                         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>⚠ {otherCook}</Text>
                       )}
                       {!isProduceCook && (
-                      <Pressable onPress={() => onSelectMeatProbe?.(isMeat ? null : probeKey)}
+                      <Pressable onPress={() => isMeat ? onRemoveMeatProbeSlot?.(probeKey) : onSelectMeatProbe?.(probeKey)}
                         style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isMeat ? "#FF6B2B60" : "transparent" }}>
                         <Feather name="thermometer" size={11} color={isMeat ? "#FF6B2B" : colors.mutedForeground} />
-                        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>Meat</Text>
-                        {isMeat && <Feather name="check" size={10} color="#FF6B2B" />}
+                        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>{isMeat ? (getSlotLabel(probeKey) ?? "Meat") : "Meat"}</Text>
+                        {isMeat && <Feather name="x" size={10} color="#FF6B2B" />}
                       </Pressable>
                       )}
                       <Pressable onPress={() => onSelectPitProbe?.(isPit ? null : probeKey)}
@@ -1179,6 +1362,17 @@ export function LiveCookSection(p: Props) {
           </View>
         );
       })}
+
+      {/* "Add probe slot" button — shown when user has 1+ meat probe and there are other probes to assign */}
+      {!isProduceCook && meatProbeSlots.length >= 1 && onAddMeatProbeSlot != null && allUnassignedProbeOptions.length > 0 && (
+        <Pressable
+          onPress={() => { setAddSlotProbeId(allUnassignedProbeOptions[0]?.key ?? null); setAddSlotPickerOpen(true); }}
+          style={{ flexDirection: "row", alignItems: "center", gap: 6, marginHorizontal: 14, marginBottom: 10, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, backgroundColor: "#FF6B2B08", borderWidth: 1, borderColor: "#FF6B2B30", borderStyle: "dashed", alignSelf: "flex-start" }}
+        >
+          <Feather name="plus-circle" size={13} color="#FF6B2B" />
+          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: "#FF6B2B" }}>Add probe slot</Text>
+        </Pressable>
+      )}
 
       {tempMode === "probe" && meaterLinked !== true && thermoworksLinked !== true && inkbirdProbes.length === 0 && bleContextDevices.length === 0 && lanProbes.length === 0 && (
         <View style={{ borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "column", alignItems: "center", gap: 12, padding: 16 }}>
@@ -1543,6 +1737,93 @@ export function LiveCookSection(p: Props) {
         onClose={() => setWizardOpen(false)}
         onRestartScan={onRestartScan}
       />
+
+      {/* "Add probe slot" 2-step picker modal */}
+      <Modal
+        visible={addSlotPickerOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAddSlotPickerOpen(false)}
+      >
+        <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }} onPress={() => setAddSlotPickerOpen(false)}>
+          <Pressable onPress={() => {}} style={{ backgroundColor: colors.background, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: 32 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingTop: 16, paddingBottom: 12 }}>
+              <Text style={{ fontFamily: "Inter_700Bold", fontSize: 16, color: colors.foreground }}>Add probe slot</Text>
+              <Pressable hitSlop={12} onPress={() => setAddSlotPickerOpen(false)}>
+                <Feather name="x" size={18} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+
+            {/* Step 1: pick probe */}
+            {allUnassignedProbeOptions.length > 0 && (
+              <>
+                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground, paddingHorizontal: 18, marginBottom: 6 }}>Select probe</Text>
+                <ScrollView style={{ maxHeight: 200 }} contentContainerStyle={{ paddingHorizontal: 14, gap: 6 }}>
+                  {allUnassignedProbeOptions.map((opt) => {
+                    const selected = addSlotProbeId === opt.key;
+                    return (
+                      <Pressable key={opt.key} onPress={() => setAddSlotProbeId(opt.key)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 10, borderRadius: 9, borderWidth: 1.5, borderColor: selected ? "#FF6B2B60" : colors.border, backgroundColor: selected ? "#FF6B2B10" : colors.card }}>
+                        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 14, color: colors.foreground, flex: 1 }}>{opt.name}</Text>
+                        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: selected ? "#FF6B2B" : colors.mutedForeground }}>{opt.temp}</Text>
+                        {selected && <Feather name="check" size={14} color="#FF6B2B" style={{ marginLeft: 8 }} />}
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </>
+            )}
+
+            {/* Step 2: pick label */}
+            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground, paddingHorizontal: 18, marginTop: 14, marginBottom: 6 }}>Label for this slot</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 18, gap: 8 }}>
+              {SLOT_LABEL_PRESETS.map((preset) => {
+                const inUse = meatProbeSlots.some(s => s.label === preset);
+                return (
+                  <Pressable key={preset} onPress={() => !inUse && addSlotProbeId != null && (onAddMeatProbeSlot?.(addSlotProbeId, preset), setAddSlotPickerOpen(false))}
+                    style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: inUse ? colors.border : "#FF6B2B50", backgroundColor: inUse ? colors.border + "18" : "#FF6B2B08", opacity: inUse || addSlotProbeId == null ? 0.4 : 1 }}>
+                    <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: inUse ? colors.mutedForeground : "#FF6B2B" }}>{preset}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            {/* Custom label free-text input */}
+            <View style={{ marginHorizontal: 18, marginTop: 12 }}>
+              <TextInput
+                value={customLabelDraft}
+                onChangeText={setCustomLabelDraft}
+                placeholder="Custom label…"
+                placeholderTextColor={colors.mutedForeground}
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  const label = customLabelDraft.trim();
+                  if (label && addSlotProbeId) {
+                    onAddMeatProbeSlot?.(addSlotProbeId, label);
+                    setCustomLabelDraft("");
+                    setAddSlotPickerOpen(false);
+                  }
+                }}
+                style={{ fontFamily: "Inter_400Regular", fontSize: 14, color: colors.foreground, borderWidth: 1, borderColor: customLabelDraft.trim() ? "#FF6B2B80" : colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: colors.card }}
+              />
+            </View>
+
+            <Pressable
+              onPress={() => {
+                if (addSlotProbeId) {
+                  const label = customLabelDraft.trim() || `Probe ${meatProbeSlots.length + 1}`;
+                  onAddMeatProbeSlot?.(addSlotProbeId, label);
+                  setCustomLabelDraft("");
+                  setAddSlotPickerOpen(false);
+                }
+              }}
+              disabled={addSlotProbeId == null}
+              style={{ marginHorizontal: 18, marginTop: 12, paddingVertical: 12, borderRadius: 9, backgroundColor: addSlotProbeId != null ? "#FF6B2B" : colors.border + "40", alignItems: "center" }}
+            >
+              <Text style={{ fontFamily: "Inter_700Bold", fontSize: 15, color: addSlotProbeId != null ? "#fff" : colors.mutedForeground }}>Add slot</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }

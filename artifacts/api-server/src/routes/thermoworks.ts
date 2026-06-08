@@ -274,7 +274,24 @@ type ChannelReading = {
   units: string | null;
   value: number | null;
   lastSeen: Date | null;
+  /**
+   * RFX Gateway-specific boolean. When the RFX receiver provisions a channel
+   * slot but no physical probe is attached, Firestore sets `connected: false`.
+   * A value of `false` here means the slot is empty regardless of status or
+   * freshness — treat the channel as not live.
+   * A value of `null` means the field was absent (non-RFX device) — do not
+   * treat absence of this field as "disconnected".
+   */
+  connected: boolean | null;
+  signalStrength: number | null;
 };
+
+function fieldBool(fields: any, key: string): boolean | null {
+  const f = fields?.[key];
+  if (!f) return null;
+  if (f.booleanValue != null) return Boolean(f.booleanValue);
+  return null;
+}
 
 function channelReadingFromFields(fields: Record<string, any>, fallbackNumber: string): ChannelReading {
   return {
@@ -284,6 +301,8 @@ function channelReadingFromFields(fields: Record<string, any>, fallbackNumber: s
     units: fieldStr(fields, "units"),
     value: fieldNum(fields, "value"),
     lastSeen: fieldTs(fields, "lastSeen") ?? fieldTs(fields, "lastTelemetrySaved"),
+    connected: fieldBool(fields, "connected"),
+    signalStrength: fieldNum(fields, "signalStrength"),
   };
 }
 
@@ -321,6 +340,10 @@ function toFahrenheit(value: number, units: string | null): number {
 }
 
 function isChannelLive(c: ChannelReading): boolean {
+  // RFX-specific: explicit disconnected flag takes priority over all other checks.
+  // RFX Gateway provisioned slots echo the last reading even with no probe — this
+  // boolean is the only reliable way to tell an empty RFX slot from a live one.
+  if (c.connected === false) return false;
   if (c.value == null) return false;
   // Allowlist: only statuses that indicate a probe is physically connected.
   // A null/empty status or any unrecognized value (e.g. "OPEN") is treated as "no probe".
@@ -524,6 +547,8 @@ router.get("/thermoworks/readings", requireAuth, async (req: any, res): Promise<
             value: c.value,
             units: c.units,
             ageSec,
+            connected: c.connected,
+            signalStrength: c.signalStrength,
           },
           "thermoworks channel raw",
         );

@@ -53,7 +53,9 @@ export function useProbeState({
   const { showPaywall } = usePaywall();
   const cookId = Number(id);
 
-  const [selectedMeatProbeId, setSelectedMeatProbeId] = useState<string | null>(null);
+  // v2 multi-probe: ordered meat slots. selectedMeatProbeId is derived as first slot's id.
+  const [meatProbeSlots, setMeatProbeSlots] = useState<Array<{id: string; label: string}>>([]);
+  const selectedMeatProbeId = meatProbeSlots[0]?.id ?? null;
   const [selectedPitProbeId, setSelectedPitProbeId] = useState<string | null>(null);
   const [probeLabels, setProbeLabelsState] = useState<Record<string, string>>({});
   const [otherCookAssignments, setOtherCookAssignments] = useState<Record<string, string>>({});
@@ -74,7 +76,7 @@ export function useProbeState({
   );
 
   useEffect(() => {
-    setSelectedMeatProbeId(null);
+    setMeatProbeSlots([]);
     setSelectedPitProbeId(null);
     setProbeLabelsState({});
   }, [id]);
@@ -92,13 +94,21 @@ export function useProbeState({
         let resolvedLabels: Record<string, string>;
 
         const serverAssignments = (cook as any)?.probeAssignments as {
+          meatProbes?: Array<{id: string; label: string}> | null;
           meatProbeId?: string | null;
           pitProbeId?: string | null;
           labels?: Record<string, string>;
         } | null | undefined;
 
+        let resolvedMeatSlots: Array<{id: string; label: string}>;
         if (serverAssignments !== null && serverAssignments !== undefined) {
-          meatProbeId = serverAssignments.meatProbeId ?? null;
+          // Prefer new meatProbes array; fall back to legacy meatProbeId for pre-v2 records
+          resolvedMeatSlots = Array.isArray(serverAssignments.meatProbes) && serverAssignments.meatProbes.length > 0
+            ? serverAssignments.meatProbes
+            : serverAssignments.meatProbeId
+              ? [{id: serverAssignments.meatProbeId, label: "Internal"}]
+              : [];
+          meatProbeId = resolvedMeatSlots[0]?.id ?? null;
           pitProbeId = serverAssignments.pitProbeId ?? null;
           resolvedLabels = serverAssignments.labels ?? {};
           await Promise.all([
@@ -111,9 +121,10 @@ export function useProbeState({
           meatProbeId = local.meatProbeId;
           pitProbeId = local.pitProbeId;
           resolvedLabels = local.probeLabels;
+          resolvedMeatSlots = meatProbeId ? [{id: meatProbeId, label: "Internal"}] : [];
         }
 
-        setSelectedMeatProbeId(meatProbeId);
+        setMeatProbeSlots(resolvedMeatSlots);
         setSelectedPitProbeId(pitProbeId);
         setProbeLabelsState(resolvedLabels);
         if (meatProbeId != null && sessionMode == null) {
@@ -125,7 +136,7 @@ export function useProbeState({
           setTempModeState(sessionMode);
         }
       } catch {
-        setSelectedMeatProbeId(null);
+        setMeatProbeSlots([]);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -162,8 +173,9 @@ export function useProbeState({
     const durMins = cook.plannedStartAt && cook.plannedEndAt
       ? Math.round((new Date(cook.plannedEndAt).getTime() - new Date(cook.plannedStartAt).getTime()) / 60000)
       : null;
-    const pa = (cook as any)?.probeAssignments as { meatProbeId?: string | null; pitProbeId?: string | null } | null;
-    probeIntervalRef.current = getProbePollingIntervalMs(durMins, pa?.meatProbeId != null || pa?.pitProbeId != null);
+    const pa = (cook as any)?.probeAssignments as { meatProbes?: Array<{id: string}> | null; meatProbeId?: string | null; pitProbeId?: string | null } | null;
+    const hasMeatProbe = (pa?.meatProbes?.length ?? 0) > 0 || pa?.meatProbeId != null;
+    probeIntervalRef.current = getProbePollingIntervalMs(durMins, hasMeatProbe || pa?.pitProbeId != null);
   }
   const probeIntervalMs = probeIntervalRef.current;
 
@@ -198,10 +210,11 @@ export function useProbeState({
     ? (thermoworksProbes.find((p: any) => `tw_${p.deviceId}_${p.channelNumber}` === selectedPitProbeId) ?? null) : null;
   const selectedThermoworksProbe = selectedThermoworksMeatProbe;
 
-  // BLE
-  const bleAssignedProbeKeys = [selectedMeatProbeId, selectedPitProbeId].filter(
-    (k): k is string => k != null && k.startsWith("ble_"),
-  );
+  // BLE — include ALL meat probe slots so each slot's BLE probe stays scanned
+  const bleAssignedProbeKeys = [
+    ...meatProbeSlots.map(s => s.id),
+    selectedPitProbeId,
+  ].filter((k): k is string => k != null && k.startsWith("ble_"));
   const { probes: inkbirdProbes, scanning: inkbirdScanning, reconnecting: inkbirdReconnecting, lastKnownDeviceId: lastKnownInkbirdDeviceId, rescan: inkbirdRescan } = useInkbirdBLE({
     enabled: cookStatus === "active" && tempMode === "probe",
     assignedProbeKeys: bleAssignedProbeKeys,
@@ -238,6 +251,7 @@ export function useProbeState({
     ? (bleContextDevices.find((d) => `bleCtx_${d.id}` === selectedPitProbeId) ?? null) : null;
 
   const hasActiveProbe =
+    // Primary slot + pit (existing checks)
     selectedMeaterProbe?.internalTempF != null ||
     selectedMeaterPitProbe?.internalTempF != null ||
     (selectedThermoworksProbe != null && (selectedThermoworksProbe as any).tempF != null) ||
@@ -247,42 +261,89 @@ export function useProbeState({
     selectedBleContextDevice?.probeTempF != null ||
     selectedBleContextPitDevice?.probeTempF != null ||
     selectedLanProbe?.probeTempF != null ||
-    selectedLanPitProbe?.probeTempF != null;
+    selectedLanPitProbe?.probeTempF != null ||
+    // Additional meat probe slots (slot 2+): check each probe source
+    meatProbeSlots.slice(1).some(slot => {
+      const k = slot.id;
+      if (k.startsWith("tw_"))      return thermoworksProbes.some((p: any) => `tw_${p.deviceId}_${p.channelNumber}` === k && p.tempF != null);
+      if (k.startsWith("ble_"))     return inkbirdProbes.some(p => `ble_${p.deviceId}_${p.probeIndex}` === k && p.tempF != null);
+      if (k.startsWith("bleCtx_"))  return bleContextDevices.some(d => `bleCtx_${d.id}` === k && d.probeTempF != null);
+      if (k.startsWith("lan_"))     return lanProbes.some(p => `lan_${p.deviceId}` === k && p.probeTempF != null);
+      return meaterProbes.some((p: any) => p.deviceId === k && p.internalTempF != null);
+    });
 
   // Probe handlers
+
+  /** Toggle a probe in/out of the meat slots array. Passing null clears all slots. */
   const handleSelectMeatProbe = useCallback((probeId: string | null) => {
-    setSelectedMeatProbeId(probeId);
     if (probeId != null) setTempMode("probe");
+    const nextSlots: Array<{id: string; label: string}> = probeId === null
+      ? []
+      : meatProbeSlots.some(s => s.id === probeId)
+        // Toggle off: remove this probe from slots
+        ? meatProbeSlots.filter(s => s.id !== probeId)
+        // Toggle on: add as new slot ("Internal" for first, "Probe N" for additional)
+        : [...meatProbeSlots, { id: probeId, label: meatProbeSlots.length === 0 ? "Internal" : `Probe ${meatProbeSlots.length + 1}` }];
+    setMeatProbeSlots(nextSlots);
     if (Platform.OS !== "web" && id) {
-      saveMeatProbeId(id, probeId, AsyncStorage);
+      saveMeatProbeId(id, nextSlots[0]?.id ?? null, AsyncStorage);
       if (probeId === null && selectedMeatProbeId?.startsWith("ble_")) clearLastInkbird(AsyncStorage);
-      updateCookMutate({ id: cookId, data: { probeAssignments: { meatProbeId: probeId, pitProbeId: selectedPitProbeId, labels: probeLabels } } });
+      updateCookMutate({ id: cookId, data: { probeAssignments: { meatProbes: nextSlots, meatProbeId: nextSlots[0]?.id ?? null, pitProbeId: selectedPitProbeId, labels: probeLabels } } });
     }
-  }, [id, cookId, setTempMode, selectedMeatProbeId, selectedPitProbeId, probeLabels, updateCookMutate]);
+  }, [id, cookId, setTempMode, meatProbeSlots, selectedMeatProbeId, selectedPitProbeId, probeLabels, updateCookMutate]);
+
+  /** Add a probe to the meat slots with an explicit label (slot 2+, called from "Add probe slot" UI). */
+  const handleAddMeatProbeSlot = useCallback((probeId: string, label: string) => {
+    if (meatProbeSlots.some(s => s.id === probeId)) return;
+    const nextSlots = [...meatProbeSlots, { id: probeId, label }];
+    setMeatProbeSlots(nextSlots);
+    setTempMode("probe");
+    if (Platform.OS !== "web" && id) {
+      saveMeatProbeId(id, nextSlots[0]?.id ?? null, AsyncStorage);
+      updateCookMutate({ id: cookId, data: { probeAssignments: { meatProbes: nextSlots, meatProbeId: nextSlots[0]?.id ?? null, pitProbeId: selectedPitProbeId, labels: probeLabels } } });
+    }
+  }, [id, cookId, meatProbeSlots, selectedPitProbeId, probeLabels, updateCookMutate, setTempMode]);
+
+  /** Remove a specific probe from the meat slots by its key. */
+  const handleRemoveMeatProbeSlot = useCallback((probeId: string) => {
+    const nextSlots = meatProbeSlots.filter(s => s.id !== probeId);
+    setMeatProbeSlots(nextSlots);
+    if (Platform.OS !== "web" && id) {
+      saveMeatProbeId(id, nextSlots[0]?.id ?? null, AsyncStorage);
+      if (probeId.startsWith("ble_") && nextSlots.every(s => !s.id.startsWith("ble_"))) clearLastInkbird(AsyncStorage);
+      updateCookMutate({ id: cookId, data: { probeAssignments: { meatProbes: nextSlots, meatProbeId: nextSlots[0]?.id ?? null, pitProbeId: selectedPitProbeId, labels: probeLabels } } });
+    }
+  }, [id, cookId, meatProbeSlots, selectedPitProbeId, probeLabels, updateCookMutate]);
 
   const handleSelectPitProbe = useCallback((probeId: string | null) => {
     setSelectedPitProbeId(probeId);
     if (Platform.OS !== "web" && id) {
       savePitProbeId(id, probeId, AsyncStorage);
       if (probeId === null && selectedPitProbeId?.startsWith("ble_")) clearLastInkbird(AsyncStorage);
-      updateCookMutate({ id: cookId, data: { probeAssignments: { meatProbeId: selectedMeatProbeId, pitProbeId: probeId, labels: probeLabels } } });
+      updateCookMutate({ id: cookId, data: { probeAssignments: { meatProbes: meatProbeSlots, meatProbeId: selectedMeatProbeId, pitProbeId: probeId, labels: probeLabels } } });
     }
-  }, [id, cookId, selectedMeatProbeId, selectedPitProbeId, probeLabels, updateCookMutate]);
+  }, [id, cookId, meatProbeSlots, selectedMeatProbeId, selectedPitProbeId, probeLabels, updateCookMutate]);
 
   const handleSetProbeLabel = useCallback((probeKey: string, label: string) => {
+    // Also update the label stored in the slot if this probe is a meat slot
+    const slotIdx = meatProbeSlots.findIndex(s => s.id === probeKey);
+    const nextSlots = slotIdx >= 0
+      ? meatProbeSlots.map((s, i) => i === slotIdx ? {...s, label} : s)
+      : meatProbeSlots;
+    if (slotIdx >= 0) setMeatProbeSlots(nextSlots);
     setProbeLabelsState((prev) => {
       const next = buildUpdatedProbeLabels(prev, probeKey, label);
       if (Platform.OS !== "web" && id) {
         saveProbeLabels(id, next, AsyncStorage);
-        updateCookMutate({ id: cookId, data: { probeAssignments: { meatProbeId: selectedMeatProbeId, pitProbeId: selectedPitProbeId, labels: next } } });
+        updateCookMutate({ id: cookId, data: { probeAssignments: { meatProbes: nextSlots, meatProbeId: nextSlots[0]?.id ?? null, pitProbeId: selectedPitProbeId, labels: next } } });
       }
       return next;
     });
-  }, [id, cookId, selectedMeatProbeId, selectedPitProbeId, updateCookMutate]);
+  }, [id, cookId, meatProbeSlots, selectedPitProbeId, updateCookMutate]);
 
   // Clear probe state (called when cook is completed/cancelled)
   const clearProbeState = useCallback(() => {
-    setSelectedMeatProbeId(null);
+    setMeatProbeSlots([]);
     setSelectedPitProbeId(null);
     if (id && Platform.OS !== "web") {
       AsyncStorage.removeItem(`probe_meat_${id}`).catch(() => {});
@@ -373,8 +434,13 @@ export function useProbeState({
       if (skipIfPresent && probeKey in result) return;
       result[probeKey] = labels[probeKey] ?? null;
     }
-    const pa = cookData?.probeAssignments as { meatProbeId?: string | null; pitProbeId?: string | null; labels?: Record<string, string> } | null | undefined;
-    if (pa) { const labels = pa.labels ?? {}; addKnown(pa.meatProbeId, labels); addKnown(pa.pitProbeId, labels); }
+    const pa = cookData?.probeAssignments as { meatProbes?: Array<{id: string}> | null; meatProbeId?: string | null; pitProbeId?: string | null; labels?: Record<string, string> } | null | undefined;
+    if (pa) {
+      const labels = pa.labels ?? {};
+      const meatProbes = pa.meatProbes?.length ? pa.meatProbes : (pa.meatProbeId ? [{id: pa.meatProbeId}] : []);
+      for (const mp of meatProbes) addKnown(mp.id, labels);
+      addKnown(pa.pitProbeId, labels);
+    }
     if (grillId && allCooksForCount) {
       const prevCooks = (allCooksForCount as any[])
         .filter((c: any) => String(c.id) !== String(id) && c.grillId === grillId && c.probeAssignments)
@@ -385,18 +451,25 @@ export function useProbeState({
         });
       const prev = prevCooks[0];
       if (prev?.probeAssignments) {
-        const prevPa = prev.probeAssignments as { meatProbeId?: string | null; pitProbeId?: string | null; labels?: Record<string, string> };
+        const prevPa = prev.probeAssignments as { meatProbes?: Array<{id: string}> | null; meatProbeId?: string | null; pitProbeId?: string | null; labels?: Record<string, string> };
         const prevLabels = prevPa.labels ?? {};
-        addKnown(prevPa.meatProbeId, prevLabels, true);
+        const prevMeatProbes = prevPa.meatProbes?.length ? prevPa.meatProbes : (prevPa.meatProbeId ? [{id: prevPa.meatProbeId}] : []);
+        for (const mp of prevMeatProbes) addKnown(mp.id, prevLabels, true);
         addKnown(prevPa.pitProbeId, prevLabels, true);
       }
     }
     return result;
   }, [cook, id, allCooksForCount]);
 
+  // Backwards-compat setter: sets the first meat slot to the given id (or clears all slots)
+  const setSelectedMeatProbeId = useCallback((probeId: string | null) => {
+    setMeatProbeSlots(probeId ? [{id: probeId, label: "Internal"}] : []);
+  }, []);
+
   return {
     // Probe selections
     selectedMeatProbeId, setSelectedMeatProbeId,
+    meatProbeSlots,
     selectedPitProbeId, setSelectedPitProbeId,
     probeLabels,
     tempMode, setTempMode, setTempModeState,
@@ -418,7 +491,8 @@ export function useProbeState({
     // Computed
     hasActiveProbe, knownProbeIds, probeIntervalMs,
     // Handlers
-    handleSelectMeatProbe, handleSelectPitProbe, handleSetProbeLabel, clearProbeState,
+    handleSelectMeatProbe, handleAddMeatProbeSlot, handleRemoveMeatProbeSlot,
+    handleSelectPitProbe, handleSetProbeLabel, clearProbeState,
     // Auto-assign
     autoAssignBanner, setAutoAssignBanner,
     // Toasts

@@ -149,7 +149,9 @@ export default function CookDetailScreen() {
     inkbirdProbes, inkbirdScanning, combinedReconnecting, lastKnownInkbirdDeviceId,
     bleContextDevices, reconnectBanner, dismissReconnectBanner,
     lanProbes, hasActiveProbe, knownProbeIds, probeIntervalMs,
-    handleSelectMeatProbe, handleSelectPitProbe, handleSetProbeLabel,
+    meatProbeSlots,
+    handleSelectMeatProbe, handleAddMeatProbeSlot, handleRemoveMeatProbeSlot,
+    handleSelectPitProbe, handleSetProbeLabel,
     autoAssignBanner, setAutoAssignBanner,
     inkbirdReconnectToast, setInkbirdReconnectToast, inkbirdToastMounted, inkbirdToastAnim,
     bleReconnectToast, setBleReconnectToast, handleRestartScan,
@@ -565,6 +567,7 @@ export default function CookDetailScreen() {
             reconnectBanner={reconnectBanner} onDismissReconnectBanner={dismissReconnectBanner}
             tempMode={tempMode} onSetTempMode={setTempMode}
             selectedMeatProbeId={selectedMeatProbeId} selectedPitProbeId={selectedPitProbeId}
+            meatProbeSlots={meatProbeSlots} onAddMeatProbeSlot={handleAddMeatProbeSlot} onRemoveMeatProbeSlot={handleRemoveMeatProbeSlot}
             onSelectMeatProbe={handleSelectMeatProbe} onSelectPitProbe={handleSelectPitProbe}
             probeLabels={probeLabels} onSetProbeLabel={handleSetProbeLabel}
             otherCookAssignments={otherCookAssignments}

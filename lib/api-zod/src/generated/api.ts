@@ -793,7 +793,23 @@ export const ListCooksResponseItem = zod.object({
     ),
   probeAssignments: zod
     .object({
-      meatProbeId: zod.string().nullish(),
+      meatProbes: zod
+        .array(
+          zod.object({
+            id: zod.string(),
+            label: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Ordered meat probe slots. First entry is the primary doneness probe. Absent on records written before multi-probe support (use meatProbeId for those).",
+        ),
+      meatProbeId: zod
+        .string()
+        .nullish()
+        .describe(
+          "Legacy v1 field — equals meatProbes[0].id. Written alongside meatProbes for backwards compatibility.",
+        ),
       pitProbeId: zod.string().nullish(),
       labels: zod.record(zod.string(), zod.string()).optional(),
     })
@@ -917,7 +933,23 @@ export const CreateCookBody = zod.object({
     ),
   probeAssignments: zod
     .object({
-      meatProbeId: zod.string().nullish(),
+      meatProbes: zod
+        .array(
+          zod.object({
+            id: zod.string(),
+            label: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Ordered meat probe slots. First entry is the primary doneness probe. Absent on records written before multi-probe support (use meatProbeId for those).",
+        ),
+      meatProbeId: zod
+        .string()
+        .nullish()
+        .describe(
+          "Legacy v1 field — equals meatProbes[0].id. Written alongside meatProbes for backwards compatibility.",
+        ),
       pitProbeId: zod.string().nullish(),
       labels: zod.record(zod.string(), zod.string()).optional(),
     })
@@ -1079,7 +1111,23 @@ export const GetCookResponse = zod.object({
     ),
   probeAssignments: zod
     .object({
-      meatProbeId: zod.string().nullish(),
+      meatProbes: zod
+        .array(
+          zod.object({
+            id: zod.string(),
+            label: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Ordered meat probe slots. First entry is the primary doneness probe. Absent on records written before multi-probe support (use meatProbeId for those).",
+        ),
+      meatProbeId: zod
+        .string()
+        .nullish()
+        .describe(
+          "Legacy v1 field — equals meatProbes[0].id. Written alongside meatProbes for backwards compatibility.",
+        ),
       pitProbeId: zod.string().nullish(),
       labels: zod.record(zod.string(), zod.string()).optional(),
     })
@@ -1208,7 +1256,23 @@ export const UpdateCookBody = zod.object({
     ),
   probeAssignments: zod
     .object({
-      meatProbeId: zod.string().nullish(),
+      meatProbes: zod
+        .array(
+          zod.object({
+            id: zod.string(),
+            label: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Ordered meat probe slots. First entry is the primary doneness probe. Absent on records written before multi-probe support (use meatProbeId for those).",
+        ),
+      meatProbeId: zod
+        .string()
+        .nullish()
+        .describe(
+          "Legacy v1 field — equals meatProbes[0].id. Written alongside meatProbes for backwards compatibility.",
+        ),
       pitProbeId: zod.string().nullish(),
       labels: zod.record(zod.string(), zod.string()).optional(),
     })
@@ -1369,7 +1433,23 @@ export const UpdateCookResponse = zod.object({
     ),
   probeAssignments: zod
     .object({
-      meatProbeId: zod.string().nullish(),
+      meatProbes: zod
+        .array(
+          zod.object({
+            id: zod.string(),
+            label: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Ordered meat probe slots. First entry is the primary doneness probe. Absent on records written before multi-probe support (use meatProbeId for those).",
+        ),
+      meatProbeId: zod
+        .string()
+        .nullish()
+        .describe(
+          "Legacy v1 field — equals meatProbes[0].id. Written alongside meatProbes for backwards compatibility.",
+        ),
       pitProbeId: zod.string().nullish(),
       labels: zod.record(zod.string(), zod.string()).optional(),
     })
@@ -2489,7 +2569,23 @@ export const GetRecentCooksResponseItem = zod.object({
     ),
   probeAssignments: zod
     .object({
-      meatProbeId: zod.string().nullish(),
+      meatProbes: zod
+        .array(
+          zod.object({
+            id: zod.string(),
+            label: zod.string(),
+          }),
+        )
+        .optional()
+        .describe(
+          "Ordered meat probe slots. First entry is the primary doneness probe. Absent on records written before multi-probe support (use meatProbeId for those).",
+        ),
+      meatProbeId: zod
+        .string()
+        .nullish()
+        .describe(
+          "Legacy v1 field — equals meatProbes[0].id. Written alongside meatProbes for backwards compatibility.",
+        ),
       pitProbeId: zod.string().nullish(),
       labels: zod.record(zod.string(), zod.string()).optional(),
     })

@@ -11,7 +11,15 @@
  * @nullable
  */
 export type UpdateCookBodyProbeAssignments = {
-  /** @nullable */
+  /** Ordered meat probe slots. First entry is the primary doneness probe. Absent on records written before multi-probe support (use meatProbeId for those). */
+  meatProbes?: {
+    id: string;
+    label: string;
+  }[];
+  /**
+   * Legacy v1 field — equals meatProbes[0].id. Written alongside meatProbes for backwards compatibility.
+   * @nullable
+   */
   meatProbeId?: string | null;
   /** @nullable */
   pitProbeId?: string | null;

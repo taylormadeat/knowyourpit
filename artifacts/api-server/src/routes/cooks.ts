@@ -31,6 +31,25 @@ import {
 
 const router: IRouter = Router();
 
+// ── Legacy probeAssignments migration ────────────────────────────────────────
+// Pre-multi-probe records have `meatProbeId: string` but no `meatProbes` array.
+// Normalize on read so every client sees the v2 shape.
+function normalizeCookProbeAssignments<T extends { probeAssignments?: unknown }>(cook: T): T {
+  const pa = cook.probeAssignments;
+  if (!pa || typeof pa !== "object" || Array.isArray(pa)) return cook;
+  const obj = pa as Record<string, unknown>;
+  if (!Array.isArray(obj["meatProbes"]) && typeof obj["meatProbeId"] === "string" && obj["meatProbeId"]) {
+    return {
+      ...cook,
+      probeAssignments: {
+        ...obj,
+        meatProbes: [{ id: obj["meatProbeId"] as string, label: "Internal" }],
+      },
+    };
+  }
+  return cook;
+}
+
 // ── Outlier detection ──────────────────────────────────────────────────────
 // A completed cook is flagged as an outlier if it meets at least 2 of:
 //   1. Zero check-ins logged during a cook that lasted > 45 minutes.
@@ -171,7 +190,7 @@ router.get("/cooks", requireAuth, async (req: any, res): Promise<void> => {
     .where(and(...conditions))
     .orderBy(cooksTable.createdAt);
 
-  const result = rows.map(({ cook, grillName }) => ({ ...cook, grillName: grillName ?? null }));
+  const result = rows.map(({ cook, grillName }) => normalizeCookProbeAssignments({ ...cook, grillName: grillName ?? null }));
   res.json(result);
 });
 
@@ -280,7 +299,7 @@ router.get("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => {
       .limit(1);
     currentTempF = latest?.tempF ?? null;
   }
-  res.json({ ...cook, grillName, currentTempF });
+  res.json(normalizeCookProbeAssignments({ ...cook, grillName, currentTempF }));
 });
 
 router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => {

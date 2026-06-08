@@ -28,6 +28,11 @@ interface UseAnalysisParams {
     selectedLanProbe: any | null;
     lanProbes: any[];
     bleContextDevices: any[];
+    // Multi-probe support: ordered meat slots with labels
+    meatProbeSlots?: Array<{id: string; label: string}>;
+    meaterProbes?: any[];
+    thermoworksProbes?: any[];
+    inkbirdProbes?: any[];
   };
   liveReadings: Array<{ timeMinutes: number; tempF: number }>;
   lastCheckin: any;
@@ -59,6 +64,10 @@ export function useAnalysis({
     selectedLanProbe,
     lanProbes,
     bleContextDevices,
+    meatProbeSlots = [],
+    meaterProbes = [],
+    thermoworksProbes = [],
+    inkbirdProbes = [],
   } = probeState;
 
   // ── QP chip state ────────────────────────────────────────────────────────
@@ -261,9 +270,36 @@ export function useAnalysis({
             actualEndAt: c?.actualEndAt ? new Date(c.actualEndAt).toISOString() : null,
             probeChannels: (() => {
               const channels: Array<{ channelLabel: string; probeTempF: number }> = [];
-              for (const p of lanProbes) channels.push({ channelLabel: p.channelLabel, probeTempF: p.probeTempF });
+              // Multi-probe: include all assigned meat slots with their labels
+              const addedKeys = new Set<string>();
+              for (const slot of meatProbeSlots) {
+                const k = slot.id;
+                addedKeys.add(k);
+                let temp: number | null = null;
+                if (k.startsWith("lan_")) {
+                  temp = (lanProbes as any[]).find((p: any) => `lan_${p.deviceId}` === k)?.probeTempF ?? null;
+                } else if (k.startsWith("ble_")) {
+                  temp = (inkbirdProbes as any[]).find((p: any) => `ble_${p.deviceId}_${p.probeIndex}` === k)?.tempF ?? null;
+                } else if (k.startsWith("bleCtx_")) {
+                  temp = (bleContextDevices as any[]).find((d: any) => `bleCtx_${d.id}` === k)?.probeTempF ?? null;
+                } else if (k.startsWith("tw_")) {
+                  temp = (thermoworksProbes as any[]).find((p: any) => `tw_${p.deviceId}_${p.channelNumber}` === k)?.tempF ?? null;
+                } else {
+                  // MEATER — deviceId direct
+                  temp = (meaterProbes as any[]).find((p: any) => p.deviceId === k)?.internalTempF ?? null;
+                }
+                if (temp != null) channels.push({ channelLabel: slot.label, probeTempF: temp });
+              }
+              // Fallback: add any lan / bleCtx probes not already in a slot
+              for (const p of lanProbes) {
+                if (!addedKeys.has(`lan_${(p as any).deviceId}`)) {
+                  channels.push({ channelLabel: (p as any).channelLabel, probeTempF: (p as any).probeTempF });
+                }
+              }
               for (const d of bleContextDevices) {
-                if (d.probeTempF != null) channels.push({ channelLabel: d.name, probeTempF: d.probeTempF });
+                if (!addedKeys.has(`bleCtx_${(d as any).id}`) && (d as any).probeTempF != null) {
+                  channels.push({ channelLabel: (d as any).name, probeTempF: (d as any).probeTempF });
+                }
               }
               return channels.length > 0 ? channels : null;
             })(),
@@ -322,6 +358,7 @@ export function useAnalysis({
     selectedMeaterProbe, selectedBleContextDevice, selectedLanProbe,
     paywallUsage, analyzeMutation, updateCook, qc, pendingWrapClearRef,
     parseAndShowFromError, lanProbes, bleContextDevices,
+    meatProbeSlots, meaterProbes, thermoworksProbes, inkbirdProbes,
   ]);
 
   // Auto-grade tick ref (mutable ref so timer callback always gets latest values)
