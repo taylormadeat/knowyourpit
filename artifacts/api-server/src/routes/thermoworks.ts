@@ -279,8 +279,10 @@ type ChannelReading = {
    * slot but no physical probe is attached, Firestore sets `connected: false`.
    * A value of `false` here means the slot is empty regardless of status or
    * freshness — treat the channel as not live.
-   * A value of `null` means the field was absent (non-RFX device) — do not
-   * treat absence of this field as "disconnected".
+   * A value of `null` means the field was absent from the Firestore document.
+   * This applies to both non-RFX devices (never have this field) and some RFX
+   * firmware versions that omit it instead of setting `false` for empty slots.
+   * Use `signalStrength` to distinguish the two cases in `isChannelLive`.
    */
   connected: boolean | null;
   signalStrength: number | null;
@@ -344,6 +346,12 @@ function isChannelLive(c: ChannelReading): boolean {
   // RFX Gateway provisioned slots echo the last reading even with no probe — this
   // boolean is the only reliable way to tell an empty RFX slot from a live one.
   if (c.connected === false) return false;
+  // Some ThermoWorks RFX firmware versions omit the `connected` field entirely
+  // for empty slots instead of setting it to false.  Non-RFX devices also have
+  // `connected: null`, but they never carry a `signalStrength` value — we use
+  // that as the discriminator: an RFX-type channel with null/absent `connected`
+  // and zero signal has no physical RF link and must be treated as an empty slot.
+  if (c.connected == null && c.signalStrength !== null && c.signalStrength === 0) return false;
   if (c.value == null) return false;
   // Allowlist: only statuses that indicate a probe is physically connected.
   // A null/empty status or any unrecognized value (e.g. "OPEN") is treated as "no probe".
