@@ -21,7 +21,7 @@ const config = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.knowyourpit.app",
-    buildNumber: "120",
+    buildNumber: "121",
     appleTeamId: "W8AY23XJTF",
     usesAppleSignIn: true,
     infoPlist: {
@@ -70,11 +70,6 @@ const config = {
     favicon: "./assets/images/icon.png",
   },
   plugins: [
-    // Sentry React Native plugin — wires up native crash reporting and
-    // enables source-map uploads during EAS builds.
-    // Set SENTRY_ORG, SENTRY_PROJECT, and SENTRY_AUTH_TOKEN as EAS secrets
-    // to activate source-map uploads (optional — JS error capture works without them).
-    "@sentry/react-native/expo",
     [
       "react-native-ble-plx",
       {
