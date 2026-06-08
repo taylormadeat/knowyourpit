@@ -450,8 +450,12 @@ export function SequenceSchedule(p: Props) {
                                   const sc = event.sc;
                                   const isDone = completedPhaseKeys.has(sc.phaseKey);
                                   const isUpcoming = sc.scheduledAt > nowMs;
+                                  const isPastDue = !isDone && !isUpcoming;
+                                  const msTillDue = sc.scheduledAt - nowMs;
+                                  const isDueSoon = !isDone && isUpcoming && msTillDue >= 0 && msTillDue <= 20 * 60_000;
                                   const isNext = !isDone && isUpcoming && sc.phaseKey === nextCheckinSc?.phaseKey;
-                                  const ciDotColor = isDone ? "#22c55e" : isUpcoming ? ciColor : colors.mutedForeground as string;
+                                  const ciDotColor = isDone ? "#22c55e" : isPastDue ? colors.mutedForeground as string : ciColor;
+                                  const dueSoonColor = "#f59e0b";
                                   const isPlannedCook = cookStatus === "planned";
                                   // For planned cooks: clock time + offset from meat-on.
                                   // For active cooks: clock time (past) or countdown from now (upcoming).
@@ -463,22 +467,34 @@ export function SequenceSchedule(p: Props) {
                                   const isTappable = isPlannedCook
                                     ? !isDone && !!onCheckinPress
                                     : !isDone && isUpcoming && !!onCheckinPress;
+                                  const rowOpacity = isDone ? 0.65 : isPastDue ? 0.5 : 1;
                                   return (
                                     <Pressable
                                       key={`ci-${sc.phaseKey}`}
                                       onPress={isTappable ? () => onCheckinPress!(sc) : undefined}
-                                      style={[s.seqTlRow, { marginLeft: 4, marginBottom: 6, opacity: isDone ? 0.65 : 1 }]}
+                                      style={[s.seqTlRow, { marginLeft: 4, marginBottom: 6, opacity: rowOpacity }]}
                                     >
                                       {isNext
                                         ? <PulsingCheckinDot color={ciDotColor} />
-                                        : <View style={[s.seqTlDot, { width: 8, height: 8, borderRadius: 4, marginTop: 5, backgroundColor: ciDotColor }]} />
+                                        : isDone
+                                          ? (
+                                            <View style={{ marginTop: 5 }}>
+                                              <Feather name="check-circle" size={10} color="#22c55e" />
+                                            </View>
+                                          )
+                                          : <View style={[s.seqTlDot, { width: 8, height: 8, borderRadius: 4, marginTop: 5, backgroundColor: ciDotColor }]} />
                                       }
                                       <View style={{ flex: 1 }}>
                                         <View style={s.seqTlLabelRow}>
                                           <Feather name={isDone ? "check-circle" : "bell"} size={9} color={ciDotColor} style={{ marginRight: 2 }} />
                                           <Text style={[s.seqTlLabel, { color: ciDotColor, fontSize: 9 }]}>{isDone ? "Checked In" : "Check-In"}</Text>
+                                          {isDueSoon && (
+                                            <View style={[s.seqTlNextBadge, { backgroundColor: dueSoonColor + "25" }]}>
+                                              <Text style={[s.seqTlNextText, { color: dueSoonColor }]}>DUE SOON</Text>
+                                            </View>
+                                          )}
                                         </View>
-                                        <Text style={[s.seqTlMeta, { color: isDone ? colors.mutedForeground as string : colors.foreground as string, fontSize: 12, fontFamily: "Inter_600SemiBold" }]}>
+                                        <Text style={[s.seqTlMeta, { color: isDone || isPastDue ? colors.mutedForeground as string : colors.foreground as string, fontSize: 12, fontFamily: "Inter_600SemiBold" }]}>
                                           {sc.phaseLabel}
                                           {isPlannedCook ? (
                                             <Text style={[s.seqTlMeta, { color: ciColor }]}>

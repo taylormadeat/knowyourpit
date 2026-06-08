@@ -149,7 +149,7 @@ export function CookTimelineSection({
             scheduledCheckins={plannedSequenceCheckins}
             onCheckinPress={setPlannedCheckinPreviewSc}
           />
-          <PlannedCookTimeline c={c} colors={colors} />
+          <PlannedCookTimeline c={c} colors={colors} nowMs={nowMs} cookCheckins={cookCheckins as CookCheckin[]} />
         </>
       )}
 
@@ -170,7 +170,7 @@ export function CookTimelineSection({
             onCheckinPress={cookStatus === "active" ? openCheckin : undefined}
             nextCheckinSc={cookStatus === "active" ? nextCheckinSc : null}
           />
-          <PlannedCookTimeline c={c} colors={colors} cookStatus={cookStatus} estimatedFinishMs={estimatedFinishMs} />
+          <PlannedCookTimeline c={c} colors={colors} cookStatus={cookStatus} estimatedFinishMs={estimatedFinishMs} nowMs={nowMs} cookCheckins={cookCheckins as CookCheckin[]} />
         </>
       )}
 
@@ -214,7 +214,7 @@ export function CookTimelineSection({
             timelineYRef={timelineYRef} rowYRef={rowYRef}
             cookCheckins={cookCheckins as CookCheckin[]}
           />
-          <PlannedCookTimeline c={c} colors={colors} cookStatus={cookStatus} estimatedFinishMs={estimatedFinishMs} />
+          <PlannedCookTimeline c={c} colors={colors} cookStatus={cookStatus} estimatedFinishMs={estimatedFinishMs} nowMs={nowMs} cookCheckins={cookCheckins as CookCheckin[]} />
           <CookActivityTimeline
             c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs}
             cookId={Number(id)} cookSeqData={cookSeqData}

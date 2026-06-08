@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import React, { useState, useRef, useEffect } from "react";
+import { View, Text, Pressable, Animated } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { s } from "./styles";
 import { FingerprintCallout } from "./FingerprintCallout";
@@ -7,6 +7,7 @@ import { generateCheckinSchedule, type ScheduledCheckin } from "@/constants/chec
 import { fmtMinutes } from "@/utils/duration";
 import { CheckinPreviewSheet } from "./CheckinPreviewSheet";
 import { MEAT_CUTS } from "@/constants/meatCuts";
+import type { CookCheckin } from "@workspace/api-client-react";
 
 type Colors = any;
 
@@ -15,6 +16,8 @@ interface Props {
   colors: Colors;
   cookStatus?: string;
   estimatedFinishMs?: number | null;
+  nowMs?: number;
+  cookCheckins?: CookCheckin[];
 }
 
 function fmtTime(ms: number): string {
@@ -40,10 +43,41 @@ type CheckinStep = {
 
 type Step = MilestoneStep | CheckinStep;
 
-export function PlannedCookTimeline({ c, colors, cookStatus, estimatedFinishMs }: Props) {
+function PulsingCheckinDot({ color }: { color: string }) {
+  const anim = useRef(new Animated.Value(1)).current;
+  const loopRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    loopRef.current = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 0.25, duration: 700, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ]),
+    );
+    loopRef.current.start();
+    return () => { loopRef.current?.stop(); };
+  }, [anim]);
+
+  return (
+    <Animated.View
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginTop: 5,
+        backgroundColor: color,
+        opacity: anim,
+      }}
+    />
+  );
+}
+
+export function PlannedCookTimeline({ c, colors, cookStatus, estimatedFinishMs, nowMs, cookCheckins }: Props) {
   if ((c.sequenceData as any)?.schedule?.length > 0) return null;
 
   const isActive = cookStatus === "active";
+  const effectiveNowMs = nowMs ?? Date.now();
+
   // For Cook Now (immediate start) cooks, plannedStartAt may be null.
   // Fall back to actualStartAt so the anchor for check-in offsets is correct.
   const meatOnMs = c.plannedStartAt
@@ -171,8 +205,22 @@ export function PlannedCookTimeline({ c, colors, cookStatus, estimatedFinishMs }
 
   if (allSteps.length === 0) return null;
 
+  // Build set of completed phase keys from logged check-ins
+  const completedPhaseKeys = new Set(
+    (cookCheckins ?? [])
+      .filter((ci) => ci.phaseKey != null)
+      .map((ci) => ci.phaseKey!),
+  );
+
+  // Find the soonest future uncompleted check-in (the "next up" one)
+  const nextUpPhaseKey = checkinSteps
+    .filter((cs) => !completedPhaseKeys.has(cs.sc.phaseKey) && cs.ms > effectiveNowMs)
+    .sort((a, b) => a.ms - b.ms)[0]?.sc.phaseKey ?? null;
+
   const accentColor = "#FF6B2B";
   const ciColor = "#7C3AED";
+  const dueSoonColor = "#f59e0b";
+  const DUE_SOON_WINDOW_MS = 20 * 60_000;
 
   return (
     <CheckinPreviewWrapper meatOnMs={meatOnMs} colors={colors} isActive={isActive}>
@@ -215,24 +263,47 @@ export function PlannedCookTimeline({ c, colors, cookStatus, estimatedFinishMs }
               const isLast = idx === allSteps.length - 1;
 
               if (step.kind === "checkin") {
+                const isCompleted = completedPhaseKeys.has(step.sc.phaseKey);
+                const isPastDue = !isCompleted && step.ms < effectiveNowMs;
+                const isNextUp = !isCompleted && !isPastDue && step.sc.phaseKey === nextUpPhaseKey;
+                const msTillDue = step.ms - effectiveNowMs;
+                const isDueSoon = !isCompleted && !isPastDue && msTillDue >= 0 && msTillDue <= DUE_SOON_WINDOW_MS;
+
+                const dotColor = isCompleted
+                  ? "#22c55e"
+                  : isPastDue
+                    ? colors.mutedForeground
+                    : ciColor;
+
                 const offsetMin =
                   meatOnMs != null
                     ? Math.round((step.ms - meatOnMs) / 60_000)
                     : null;
+
+                const rowOpacity = isPastDue ? 0.5 : 1;
+
                 const rowContent = (
                   <>
                     <View style={{ alignItems: "center", width: 18 }}>
-                      <View
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: 4,
-                          backgroundColor: ciColor + "33",
-                          borderWidth: 1.5,
-                          borderColor: ciColor,
-                          marginTop: 5,
-                        }}
-                      />
+                      {isCompleted ? (
+                        <View style={{ marginTop: 5 }}>
+                          <Feather name="check-circle" size={14} color="#22c55e" />
+                        </View>
+                      ) : isNextUp ? (
+                        <PulsingCheckinDot color={ciColor} />
+                      ) : (
+                        <View
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: 4,
+                            backgroundColor: isPastDue ? colors.mutedForeground : ciColor + "33",
+                            borderWidth: isPastDue ? 0 : 1.5,
+                            borderColor: ciColor,
+                            marginTop: 5,
+                          }}
+                        />
+                      )}
                       {!isLast && (
                         <View
                           style={{
@@ -253,24 +324,33 @@ export function PlannedCookTimeline({ c, colors, cookStatus, estimatedFinishMs }
                           marginBottom: 1,
                         }}
                       >
-                        <Feather name="bell" size={9} color={ciColor} />
+                        <Feather
+                          name={isCompleted ? "check-circle" : "bell"}
+                          size={9}
+                          color={isCompleted ? "#22c55e" : isPastDue ? colors.mutedForeground : ciColor}
+                        />
                         <Text
                           style={{
                             fontFamily: "Inter_600SemiBold",
                             fontSize: 10,
-                            color: ciColor,
+                            color: isCompleted ? "#22c55e" : isPastDue ? colors.mutedForeground : ciColor,
                             textTransform: "uppercase",
                             letterSpacing: 0.4,
                           }}
                         >
-                          Check In · {step.label}
+                          {isCompleted ? "Checked In" : "Check In"} · {step.label}
                         </Text>
+                        {isDueSoon && (
+                          <View style={[s.seqTlNextBadge, { backgroundColor: dueSoonColor + "25" }]}>
+                            <Text style={[s.seqTlNextText, { color: dueSoonColor }]}>DUE SOON</Text>
+                          </View>
+                        )}
                       </View>
                       <Text
                         style={{
                           fontFamily: "Inter_400Regular",
                           fontSize: 13,
-                          color: colors.foreground,
+                          color: isCompleted || isPastDue ? colors.mutedForeground : colors.foreground,
                         }}
                       >
                         {fmtTime(step.ms)}
@@ -285,7 +365,7 @@ export function PlannedCookTimeline({ c, colors, cookStatus, estimatedFinishMs }
                           </Text>
                         )}
                       </Text>
-                      {!isActive && (
+                      {!isActive && !isCompleted && (
                         <Text
                           style={{
                             fontFamily: "Inter_400Regular",
@@ -305,14 +385,14 @@ export function PlannedCookTimeline({ c, colors, cookStatus, estimatedFinishMs }
                   return (
                     <Pressable
                       key={step.key}
-                      onPress={() => openPreview(step.sc)}
+                      onPress={isCompleted ? undefined : () => openPreview(step.sc)}
                       style={({ pressed }) => ({
                         flexDirection: "row",
                         alignItems: "flex-start",
                         gap: 12,
                         minHeight: isLast ? 0 : 44,
                         marginLeft: 3,
-                        opacity: pressed ? 0.65 : 1,
+                        opacity: pressed ? 0.65 : rowOpacity,
                       })}
                     >
                       {rowContent}
@@ -329,6 +409,7 @@ export function PlannedCookTimeline({ c, colors, cookStatus, estimatedFinishMs }
                       gap: 12,
                       minHeight: isLast ? 0 : 44,
                       marginLeft: 3,
+                      opacity: rowOpacity,
                     }}
                   >
                     {rowContent}
