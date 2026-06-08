@@ -1,13 +1,18 @@
 import * as SecureStore from "expo-secure-store";
 import { mark } from "./bootBreadcrumbs";
 
-interface TokenCache {
+export interface TokenCache {
   getToken: (key: string) => Promise<string | null>;
   saveToken: (key: string, value: string) => Promise<void>;
   clearToken?: (key: string) => Promise<void>;
 }
 
-const KEYCHAIN_TIMEOUT_MS = 3000;
+// Increased from 3 000 ms: iOS SecureStore can be legitimately slow for
+// 1–4 seconds after the device wakes from background
+// (kSecAttrAccessibleAfterFirstUnlock items need the Secure Enclave to finish
+// unlocking). 8 s covers that window while still leaving headroom before the
+// 12-second global escape hatch fires.
+const KEYCHAIN_TIMEOUT_MS = 8000;
 
 class KeychainTimeoutError extends Error {
   constructor(op: string, key: string) {
@@ -41,29 +46,21 @@ function withTimeout<T>(op: string, key: string, p: Promise<T>): Promise<T> {
   });
 }
 
-// In-memory cache for keychain reads. This is the critical fix for the iOS-26
-// boot hang: Clerk's `__internal_onBeforeRequest` hook calls `getToken()` to
-// attach an Authorization header on EVERY internal HTTP request (env, client,
-// session-JWT refresh, etc.). On a healthy device each call returns in <50ms,
-// but when SecureStore stalls (an iOS-26 + new-arch quirk we are chasing) each
-// call hits the 3-second timeout, and three sequential stalled reads pile up
-// to the exact 9-second "Clerk: not ready" we observe in the build-40
-// diagnostic. By memoising the result of the first read for each key — even
-// when that first read times out and yields null — every subsequent
-// in-process read returns synchronously from memory. Cold-boot worst case is
-// thus a single 3s stall instead of 3+ × 3s.
+// In-memory cache for keychain reads. Concurrent reads for the same key share
+// an in-flight Promise (inflightReads) so a slow keychain never causes multiple
+// stacked timeouts.
 //
 // Memory cache semantics:
-// - getToken: returns the cached value (including a cached null from a prior
-//   timeout) when present; otherwise reads SecureStore once and caches the
-//   result. Concurrent reads for the same key share an in-flight Promise.
+// - getToken: returns the cached value when present; otherwise reads SecureStore
+//   once and caches the result. On timeout/error, null is returned for THIS call
+//   but NOT written into memCache — the next getToken() call will retry
+//   SecureStore from scratch. This is the key fix for "random sign-outs":
+//   iOS SecureStore latency at boot is transient; caching null permanently
+//   evicted valid tokens from the in-process cache for the rest of the session.
 // - saveToken: updates memory immediately so reads-after-write never block,
 //   then writes to SecureStore best-effort in the background.
 // - clearToken: clears memory immediately, then deletes from SecureStore
 //   best-effort.
-//
-// This keeps Clerk's auth-header pipeline fast for the rest of the session
-// while still persisting the token across app launches via the keychain.
 const memCache = new Map<string, string | null>();
 const inflightReads = new Map<string, Promise<string | null>>();
 
@@ -84,10 +81,11 @@ async function readWithCache(key: string): Promise<string | null> {
       mark("kc.read.end", `${key} → ${result ? "hit" : "miss"} (${Date.now() - startedAt}ms)`);
       return result;
     } catch (err) {
-      // On timeout/error, cache null so we never re-attempt the stalled read
-      // during this session — Clerk will treat the user as signed out and
-      // bootstrap into the unauthenticated path immediately.
-      memCache.set(key, null);
+      // Do NOT cache null. Timeout/error is often transient (iOS Secure Enclave
+      // settling after backgrounding). Caching null would permanently sign the
+      // user out for the whole session even though their token is in the keychain.
+      // The next getToken() call retries SecureStore. Concurrent retries are
+      // collapsed by inflightReads above, so a slow keychain doesn't multiply.
       const msg = err instanceof Error ? err.message : String(err);
       mark("kc.read.fail", `${key} → ${msg.slice(0, 60)} (${Date.now() - startedAt}ms)`);
       return null;
@@ -99,6 +97,8 @@ async function readWithCache(key: string): Promise<string | null> {
   return p;
 }
 
+// ── Persistent token cache (default — "Stay signed in" ON) ───────────────────
+// Reads from / writes to SecureStore so the session survives cold launches.
 export const safeTokenCache: TokenCache = {
   async getToken(key: string): Promise<string | null> {
     return readWithCache(key);
@@ -106,8 +106,7 @@ export const safeTokenCache: TokenCache = {
   async saveToken(key: string, value: string): Promise<void> {
     // Update memory first so the very next getToken() (which Clerk fires
     // immediately after a successful sign-in to attach the new bearer to
-    // subsequent requests) returns the fresh token without waiting on the
-    // keychain.
+    // subsequent requests) returns the fresh token without waiting on the keychain.
     memCache.set(key, value);
     const startedAt = Date.now();
     mark("kc.write.start", key);
@@ -130,5 +129,21 @@ export const safeTokenCache: TokenCache = {
       // Best-effort deletion. Memory has already been cleared so any
       // in-process reads will see null even if the keychain delete stalls.
     }
+  },
+};
+
+// ── Memory-only token cache ("Stay signed in" OFF) ───────────────────────────
+// Tokens are kept in the same in-process memCache but never written to
+// SecureStore. When the user fully closes the app the JS process is torn down
+// and the session is lost — signing in is required on the next cold launch.
+export const memoryOnlyTokenCache: TokenCache = {
+  async getToken(key: string): Promise<string | null> {
+    return memCache.get(key) ?? null;
+  },
+  async saveToken(key: string, value: string): Promise<void> {
+    memCache.set(key, value);
+  },
+  async clearToken(key: string): Promise<void> {
+    memCache.delete(key);
   },
 };

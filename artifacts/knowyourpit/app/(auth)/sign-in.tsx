@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   View,
   Text,
@@ -63,6 +64,19 @@ export default function SignInScreen() {
   const [appleAvailable, setAppleAvailable] = React.useState(Platform.OS === "ios");
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [showForgotSuggestion, setShowForgotSuggestion] = React.useState(false);
+  const [staySignedIn, setStaySignedIn] = React.useState(true);
+  useEffect(() => {
+    AsyncStorage.getItem("knowyourpit:staySignedIn")
+      .then((v) => { setStaySignedIn(v !== "0"); })
+      .catch(() => {});
+  }, []);
+  const toggleStaySignedIn = useCallback(() => {
+    setStaySignedIn((prev) => {
+      const next = !prev;
+      AsyncStorage.setItem("knowyourpit:staySignedIn", next ? "1" : "0").catch(() => {});
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -730,6 +744,30 @@ export default function SignInScreen() {
       marginBottom: 20,
       lineHeight: 20,
     },
+    staySignedInRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      marginBottom: 16,
+    },
+    checkbox: {
+      width: 18,
+      height: 18,
+      borderRadius: 4,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    checkboxChecked: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    staySignedInText: {
+      fontSize: 14,
+      fontFamily: "Inter_400Regular",
+      color: colors.foreground,
+    },
   });
 
   if (step === "forgot_request") {
@@ -957,6 +995,13 @@ export default function SignInScreen() {
             <Feather name={showPass ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
           </Pressable>
         </View>
+
+        <Pressable style={styles.staySignedInRow} onPress={toggleStaySignedIn} hitSlop={8}>
+          <View style={[styles.checkbox, staySignedIn && styles.checkboxChecked]}>
+            {staySignedIn && <Feather name="check" size={11} color="#fff" />}
+          </View>
+          <Text style={styles.staySignedInText}>Stay signed in</Text>
+        </Pressable>
 
         <Pressable
           style={styles.forgotLink}
