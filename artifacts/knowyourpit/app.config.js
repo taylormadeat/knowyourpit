@@ -21,7 +21,7 @@ const config = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.knowyourpit.app",
-    buildNumber: "119",
+    buildNumber: "120",
     appleTeamId: "W8AY23XJTF",
     usesAppleSignIn: true,
     infoPlist: {
