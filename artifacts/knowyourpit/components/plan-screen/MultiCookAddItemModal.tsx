@@ -539,78 +539,109 @@ export function MultiCookAddItemModal(p: Props) {
                 <Feather name="x" size={22} color={colors.mutedForeground} />
               </Pressable>
             </View>
-            <View style={s.catTabRow}>
-              {MEAT_CATEGORIES.map(cat => (
-                <Pressable
-                  key={cat}
-                  onPress={() => setMultiAddCat(cat)}
-                  style={[s.catTab, { backgroundColor: multiAddCat === cat ? colors.primary : colors.muted, borderRadius: 20 }]}
-                >
-                  <Text style={[s.catTabText, { color: multiAddCat === cat ? "#fff" : colors.mutedForeground }]}>{cat}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <FlatList
-              style={{ flex: 1 }}
-              data={cutsForCategory}
-              keyExtractor={item => item.name}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 20 }}
-              ItemSeparatorComponent={() => <View style={[s.cutSep, { backgroundColor: colors.border }]} />}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => setMultiPickedCut(item)}
-                  style={({ pressed }) => [
-                    s.cutRow,
-                    pressed && { opacity: 0.7 },
-                    multiPickedCut?.name === item.name && { backgroundColor: colors.primary + "12" },
-                  ]}
-                >
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                      <Text style={[s.cutName, { color: colors.foreground }]}>{item.name}</Text>
+            {!multiPickedCut ? (
+              <>
+                <View style={s.catTabRow}>
+                  {MEAT_CATEGORIES.map(cat => (
+                    <Pressable
+                      key={cat}
+                      onPress={() => setMultiAddCat(cat)}
+                      style={[s.catTab, { backgroundColor: multiAddCat === cat ? colors.primary : colors.muted, borderRadius: 20 }]}
+                    >
+                      <Text style={[s.catTabText, { color: multiAddCat === cat ? "#fff" : colors.mutedForeground }]}>{cat}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <FlatList
+                  style={{ flex: 1 }}
+                  data={cutsForCategory}
+                  keyExtractor={item => item.name}
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 20 }}
+                  ItemSeparatorComponent={() => <View style={[s.cutSep, { backgroundColor: colors.border }]} />}
+                  renderItem={({ item }) => (
+                    <Pressable
+                      onPress={() => setMultiPickedCut(item)}
+                      style={({ pressed }) => [
+                        s.cutRow,
+                        pressed && { opacity: 0.7 },
+                      ]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={[s.cutName, { color: colors.foreground }]}>{item.name}</Text>
+                          {item.isCustom && (
+                            <View style={{ backgroundColor: colors.primary + "20", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 }}>
+                              <Text style={{ fontSize: 10, fontFamily: "Inter_600SemiBold", color: colors.primary }}>Custom</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={[s.cutMeta, { color: colors.mutedForeground }]}>
+                          {item.targetTempF === 0
+                            ? `Time-based · Pit: ${item.cookTempF}°F · ~${item.minsPerLb} min/lb`
+                            : `Internal target ${item.targetTempF}°F · Pit: ${item.cookTempF}°F · ~${item.minsPerLb} min/lb`}
+                        </Text>
+                      </View>
                       {item.isCustom && (
-                        <View style={{ backgroundColor: colors.primary + "20", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 }}>
-                          <Text style={{ fontSize: 10, fontFamily: "Inter_600SemiBold", color: colors.primary }}>Custom</Text>
+                        <View style={{ flexDirection: "row", gap: 2 }}>
+                          <Pressable
+                            onPress={() => openCutEditor(item)}
+                            hitSlop={10}
+                            style={{ padding: 6 }}
+                          >
+                            <Feather name="edit-2" size={14} color={colors.primary} />
+                          </Pressable>
+                          <Pressable
+                            onPress={() => handleDeleteCustomCut(item)}
+                            hitSlop={10}
+                            style={{ padding: 6 }}
+                          >
+                            <Feather name="trash-2" size={14} color={colors.mutedForeground} />
+                          </Pressable>
                         </View>
                       )}
-                    </View>
-                    <Text style={[s.cutMeta, { color: colors.mutedForeground }]}>
-                      {item.targetTempF === 0
-                        ? `Time-based · Pit: ${item.cookTempF}°F · ~${item.minsPerLb} min/lb`
-                        : `Internal target ${item.targetTempF}°F · Pit: ${item.cookTempF}°F · ~${item.minsPerLb} min/lb`}
+                      <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+                    </Pressable>
+                  )}
+                />
+              </>
+            ) : (
+              <>
+                {/* Selected cut header — tap to change selection */}
+                <Pressable
+                  onPress={() => setMultiPickedCut(null)}
+                  style={({ pressed }) => ({
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.border,
+                    backgroundColor: pressed ? colors.muted : colors.primary + "10",
+                  })}
+                >
+                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.primary + "20", alignItems: "center", justifyContent: "center" }}>
+                    <Feather name="check" size={14} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.foreground }}>{multiPickedCut.name}</Text>
+                    <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
+                      {multiPickedCut.targetTempF === 0
+                        ? `Time-based · Pit: ${multiPickedCut.cookTempF}°F`
+                        : `Target ${multiPickedCut.targetTempF}°F · Pit: ${multiPickedCut.cookTempF}°F`}
                     </Text>
                   </View>
-                  {item.isCustom && (
-                    <View style={{ flexDirection: "row", gap: 2 }}>
-                      <Pressable
-                        onPress={() => openCutEditor(item)}
-                        hitSlop={10}
-                        style={{ padding: 6 }}
-                      >
-                        <Feather name="edit-2" size={14} color={colors.primary} />
-                      </Pressable>
-                      <Pressable
-                        onPress={() => handleDeleteCustomCut(item)}
-                        hitSlop={10}
-                        style={{ padding: 6 }}
-                      >
-                        <Feather name="trash-2" size={14} color={colors.mutedForeground} />
-                      </Pressable>
-                    </View>
-                  )}
-                  {multiPickedCut?.name === item.name && (
-                    <Feather name="check-circle" size={18} color={colors.primary} />
-                  )}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.muted, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5 }}>
+                    <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground }}>Change</Text>
+                    <Feather name="chevron-down" size={13} color={colors.mutedForeground} />
+                  </View>
                 </Pressable>
-              )}
-            />
-            {multiPickedCut && (
-              <ScrollView
-                style={{ maxHeight: 480 }}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ padding: 14, gap: 12 }}
-              >
+                <ScrollView
+                  style={{ flex: 1 }}
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={{ padding: 14, gap: 12 }}
+                >
                 {/* Size input */}
                 <View>
                   <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
@@ -1065,7 +1096,8 @@ export function MultiCookAddItemModal(p: Props) {
                     {isEditMode ? `Save ${multiPickedCut.name}` : `Add ${multiPickedCut.name}`}
                   </Text>
                 </Pressable>
-              </ScrollView>
+                </ScrollView>
+              </>
             )}
           </View>
         </AppKeyboardAvoidingView>
