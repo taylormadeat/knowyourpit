@@ -237,6 +237,15 @@ export function UnifiedCheckinSheet({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   }, []);
 
+  // Derive the effective coaching note here (before handleSubmit) so it can
+  // be persisted to the check-in record when the pitmaster submits.
+  const matchedAiCheckinForSubmit: AiCheckinItem | undefined =
+    aiCheckins?.find(
+      (a) => a.label.toLowerCase() === phase.label.toLowerCase(),
+    ) ?? undefined;
+  const effectiveCoachingNoteForSubmit: string =
+    matchedAiCheckinForSubmit?.coachingNote || phase.coachingTemplate;
+
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setStage("submitting");
@@ -250,7 +259,7 @@ export function UnifiedCheckinSheet({
           statusFlag: selectedFlag ?? null,
           userNote: userNote.trim() || null,
           photoKey: null,
-          aiGuidanceShown: null,
+          aiGuidanceShown: effectiveCoachingNoteForSubmit,
           phaseLabel: phase.label,
           phaseKey: phase.key,
         },
