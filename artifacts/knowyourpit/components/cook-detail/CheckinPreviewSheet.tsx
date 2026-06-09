@@ -9,6 +9,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { s } from "./styles";
 import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
+import type { AiCheckinItem } from "@workspace/checkin-schedule";
 import { fmtMinutes } from "@/utils/duration";
 
 type Colors = any;
@@ -19,6 +20,7 @@ interface Props {
   colors: Colors;
   sc: ScheduledCheckin | null;
   meatOnMs: number | null;
+  aiCheckins?: AiCheckinItem[] | null;
 }
 
 function fmtTime(ms: number): string {
@@ -30,7 +32,7 @@ function fmtTime(ms: number): string {
 
 const CI_COLOR = "#7C3AED";
 
-export function CheckinPreviewSheet({ visible, onClose, colors, sc, meatOnMs }: Props) {
+export function CheckinPreviewSheet({ visible, onClose, colors, sc, meatOnMs, aiCheckins }: Props) {
   if (!sc) return null;
 
   const phase = sc.phase;
@@ -38,6 +40,22 @@ export function CheckinPreviewSheet({ visible, onClose, colors, sc, meatOnMs }: 
     meatOnMs != null
       ? Math.round((sc.scheduledAt - meatOnMs) / 60_000)
       : null;
+
+  // Match AI-generated checkin by label (same logic as UnifiedCheckinSheet)
+  const matchedAiCheckin: AiCheckinItem | undefined =
+    aiCheckins?.find(
+      (a) => a.label.toLowerCase() === phase.label.toLowerCase(),
+    ) ?? undefined;
+
+  const effectiveCoachingNote: string =
+    matchedAiCheckin?.coachingNote || phase.coachingTemplate;
+  const effectiveVisualCues: string[] =
+    matchedAiCheckin?.visualCues && matchedAiCheckin.visualCues.length > 0
+      ? matchedAiCheckin.visualCues
+      : phase.visualCues;
+  const effectiveTempRange: [number, number] | null =
+    matchedAiCheckin?.expectedInternalTempRange ??
+    phase.expectedInternalTempRange ?? null;
 
   return (
     <Modal
@@ -134,18 +152,87 @@ export function CheckinPreviewSheet({ visible, onClose, colors, sc, meatOnMs }: 
             </Text>
           </View>
 
-          {/* Coaching blurb */}
-          <View style={{ gap: 6 }}>
-            <SectionLabel colors={colors} icon="message-circle" label="PitMaster will ask" />
+          {/* PitMaster coaching card */}
+          <View
+            style={{
+              backgroundColor: colors.background,
+              borderRadius: colors.radius,
+              borderWidth: 1,
+              borderColor: matchedAiCheckin ? "#7C3AED40" : colors.border,
+              overflow: "hidden",
+            }}
+          >
+            {/* Card header */}
             <View
               style={{
-                backgroundColor: colors.background,
-                borderRadius: colors.radius,
-                borderWidth: 1,
-                borderColor: colors.border,
-                padding: 12,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 9,
+                borderBottomWidth: 1,
+                borderBottomColor: matchedAiCheckin ? "#7C3AED22" : colors.border,
+                backgroundColor: matchedAiCheckin ? "#7C3AED0A" : "transparent",
               }}
             >
+              <View
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 6,
+                  backgroundColor: matchedAiCheckin ? "#7C3AED22" : colors.card,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Feather
+                  name={matchedAiCheckin ? "zap" : "message-circle"}
+                  size={11}
+                  color={matchedAiCheckin ? CI_COLOR : colors.mutedForeground}
+                />
+              </View>
+              <Text
+                style={{
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 10,
+                  color: matchedAiCheckin ? CI_COLOR : colors.mutedForeground,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.6,
+                  flex: 1,
+                }}
+              >
+                {matchedAiCheckin ? "PitMaster's Plan for This Phase" : "PitMaster will ask"}
+              </Text>
+              {matchedAiCheckin && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 4,
+                    backgroundColor: "#7C3AED18",
+                    borderColor: "#7C3AED40",
+                    borderWidth: 1,
+                    borderRadius: 20,
+                    paddingHorizontal: 7,
+                    paddingVertical: 2,
+                  }}
+                >
+                  <Feather name="cpu" size={9} color={CI_COLOR} />
+                  <Text
+                    style={{
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 9,
+                      color: CI_COLOR,
+                    }}
+                  >
+                    AI
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Card body */}
+            <View style={{ padding: 12, gap: 12 }}>
               <Text
                 style={{
                   fontFamily: "Inter_400Regular",
@@ -154,91 +241,95 @@ export function CheckinPreviewSheet({ visible, onClose, colors, sc, meatOnMs }: 
                   lineHeight: 20,
                 }}
               >
-                {phase.coachingTemplate}
+                {effectiveCoachingNote}
               </Text>
-            </View>
-          </View>
 
-          {/* Expected temp range */}
-          {phase.expectedInternalTempRange != null && (
-            <View style={{ gap: 6 }}>
-              <SectionLabel
-                colors={colors}
-                icon="thermometer"
-                label="Expected internal temp"
-              />
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                  backgroundColor: colors.background,
-                  borderRadius: colors.radius,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  padding: 12,
-                }}
-              >
-                <Feather name="thermometer" size={16} color="#F59E0B" />
-                <Text
+              {/* Expected temp range chip */}
+              {effectiveTempRange != null && (
+                <View
                   style={{
-                    fontFamily: "Inter_700Bold",
-                    fontSize: 16,
-                    color: colors.foreground,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                    backgroundColor: "#F59E0B14",
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: "#F59E0B40",
+                    paddingHorizontal: 10,
+                    paddingVertical: 7,
+                    alignSelf: "flex-start",
                   }}
                 >
-                  {phase.expectedInternalTempRange[0]}–
-                  {phase.expectedInternalTempRange[1]}°F
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Visual cues */}
-          {phase.visualCues.length > 0 && (
-            <View style={{ gap: 6 }}>
-              <SectionLabel colors={colors} icon="eye" label="Visual cues to look for" />
-              <View
-                style={{
-                  backgroundColor: colors.background,
-                  borderRadius: colors.radius,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  padding: 12,
-                  gap: 8,
-                }}
-              >
-                {phase.visualCues.map((cue, i) => (
-                  <View
-                    key={i}
-                    style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}
+                  <Feather name="thermometer" size={13} color="#F59E0B" />
+                  <Text
+                    style={{
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 13,
+                      color: "#F59E0B",
+                    }}
                   >
-                    <View
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: 3,
-                        backgroundColor: "#22c55e",
-                        marginTop: 6,
-                        flexShrink: 0,
-                      }}
-                    />
+                    {effectiveTempRange[0]}–{effectiveTempRange[1]}°F expected
+                  </Text>
+                </View>
+              )}
+
+              {/* Visual cues */}
+              {effectiveVisualCues.length > 0 && (
+                <View style={{ gap: 6 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                  >
+                    <Feather name="eye" size={11} color={colors.mutedForeground} />
                     <Text
                       style={{
-                        flex: 1,
-                        fontFamily: "Inter_400Regular",
-                        fontSize: 13,
-                        color: colors.foreground,
-                        lineHeight: 19,
+                        fontFamily: "Inter_600SemiBold",
+                        fontSize: 10,
+                        color: colors.mutedForeground,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
                       }}
                     >
-                      {cue}
+                      Visual cues to look for
                     </Text>
                   </View>
-                ))}
-              </View>
+                  <View style={{ gap: 7 }}>
+                    {effectiveVisualCues.map((cue, i) => (
+                      <View
+                        key={i}
+                        style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}
+                      >
+                        <View
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: 3,
+                            backgroundColor: "#22c55e",
+                            marginTop: 7,
+                            flexShrink: 0,
+                          }}
+                        />
+                        <Text
+                          style={{
+                            flex: 1,
+                            fontFamily: "Inter_400Regular",
+                            fontSize: 13,
+                            color: colors.foreground,
+                            lineHeight: 19,
+                          }}
+                        >
+                          {cue}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
             </View>
-          )}
+          </View>
 
           {/* Prep for next */}
           {phase.prepForNext ? (

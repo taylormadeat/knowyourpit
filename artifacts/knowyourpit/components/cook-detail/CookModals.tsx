@@ -196,7 +196,7 @@ export function CookModals({
         />
       )}
 
-      <CheckinPreviewSheet visible={plannedCheckinPreviewSc != null} onClose={() => setPlannedCheckinPreviewSc(null)} colors={colors} sc={plannedCheckinPreviewSc} meatOnMs={cookSeqData?.schedule?.[0]?.meatOnAt ? new Date(cookSeqData.schedule[0].meatOnAt).getTime() : null} />
+      <CheckinPreviewSheet visible={plannedCheckinPreviewSc != null} onClose={() => setPlannedCheckinPreviewSc(null)} colors={colors} sc={plannedCheckinPreviewSc} meatOnMs={cookSeqData?.schedule?.[0]?.meatOnAt ? new Date(cookSeqData.schedule[0].meatOnAt).getTime() : null} aiCheckins={cookSeqData?.aiCheckins ?? null} />
       <PitMasterChatModal visible={chatModalVisible} onClose={() => setChatModalVisible(false)} />
       <RateCookSheet visible={showRatingPrompt} colors={colors} saving={rateSaving} onSave={async (t, f, b) => { await saveRatings(t, f, b); setShowRatingPrompt(false); }} onSkip={() => setShowRatingPrompt(false)} />
     </>
