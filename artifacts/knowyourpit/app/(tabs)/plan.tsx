@@ -1102,6 +1102,22 @@ export default function PlanScreen() {
 
     const preheatMins = preheatMinsForGrill(selectedGrill);
 
+    // ── AI plan strategy (Task #1272) ─────────────────────────────────────
+    // The pre-save "Get PitMaster estimate" modal (AiResultsModal) and its
+    // single-cook fetch function (doPredictFetch / handleAiPlan) have been
+    // DELETED. The root cause of the hanging skeleton was that iOS's
+    // NSURLSession-backed fetch polyfill does not reliably honour
+    // AbortController.signal, so the 45s timeout timer fired but the fetch
+    // promise never rejected — leaving the modal frozen.
+    //
+    // Fix strategy: eliminate the blocking pre-save modal entirely.
+    // PitMaster now always runs in the background via fireBgAiRefine() after
+    // the cook is saved, using Promise.race for a guaranteed timeout fallback.
+    // The deterministic calcSchedule baseline anchors saved into sequenceData
+    // give the cook detail screen an immediate, usable timeline while the
+    // background AI refines. Multi-cook runStream uses the same Promise.race
+    // pattern (applied in this task) so its timeout also fires reliably.
+    //
     // Deterministic ISO anchors from calcSchedule, sent to the server so
     // PitMaster can personalise rather than re-derive the full timeline.
     const baselineSchedule = schedule
