@@ -29,6 +29,7 @@ import {
   CHECKIN_PIT_DRIFT_THRESHOLD_F,
   type CheckinStatusFlag,
   type CheckinPhase,
+  type AiCheckinItem,
 } from "@/constants/checkinKnowledge";
 import {
   QP_SPRITZ_FREQUENCIES,
@@ -111,6 +112,7 @@ interface UnifiedCheckinSheetProps {
   cookWrapFinish?: string | null;
   onRequestAnalyze: (opts: { internalTempF: number | null; pitTempF: number | null; notes: string }) => Promise<void>;
   result: AnalysisResult | null;
+  aiCheckins?: AiCheckinItem[] | null;
 }
 
 type Stage = "form" | "submitting" | "analyzing" | "done";
@@ -158,6 +160,7 @@ export function UnifiedCheckinSheet({
   cookWrapFinish,
   onRequestAnalyze,
   result,
+  aiCheckins,
 }: UnifiedCheckinSheetProps) {
   const createCheckin = useCreateCookCheckin();
   const createEvent = useCreateCookEvent();
@@ -306,6 +309,23 @@ export function UnifiedCheckinSheet({
   const isDone = stage === "done";
   const isBusy = isSubmitting || isAnalyzing;
 
+  // Find the AI-generated checkin item for this phase by matching label.
+  // Falls back to generic phase data when no AI content is available.
+  const matchedAiCheckin: AiCheckinItem | undefined =
+    aiCheckins?.find(
+      (a) => a.label.toLowerCase() === phase.label.toLowerCase(),
+    ) ?? undefined;
+
+  const effectiveCoachingNote: string =
+    matchedAiCheckin?.coachingNote || phase.coachingTemplate;
+  const effectiveVisualCues: string[] =
+    matchedAiCheckin?.visualCues && matchedAiCheckin.visualCues.length > 0
+      ? matchedAiCheckin.visualCues
+      : phase.visualCues;
+  const effectiveTempRange: [number, number] | null =
+    matchedAiCheckin?.expectedInternalTempRange ??
+    phase.expectedInternalTempRange ?? null;
+
   return (
     <Modal
       visible={visible}
@@ -370,6 +390,191 @@ export function UnifiedCheckinSheet({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+
+          {/* ── 0. PitMaster coaching notes ─────────────────────── */}
+          <View
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: colors.radius,
+              borderWidth: 1,
+              borderColor: matchedAiCheckin ? "#7C3AED40" : colors.border,
+              overflow: "hidden",
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                borderBottomWidth: 1,
+                borderBottomColor: matchedAiCheckin ? "#7C3AED22" : colors.border,
+                backgroundColor: matchedAiCheckin ? "#7C3AED0A" : "transparent",
+              }}
+            >
+              <View
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 6,
+                  backgroundColor: matchedAiCheckin ? "#7C3AED22" : colors.muted,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Feather
+                  name={matchedAiCheckin ? "zap" : "message-circle"}
+                  size={12}
+                  color={matchedAiCheckin ? "#7C3AED" : (colors.mutedForeground as string)}
+                />
+              </View>
+              <Text
+                style={{
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 11,
+                  color: matchedAiCheckin
+                    ? "#7C3AED"
+                    : (colors.mutedForeground as string),
+                  textTransform: "uppercase",
+                  letterSpacing: 0.6,
+                  flex: 1,
+                }}
+              >
+                {matchedAiCheckin ? "PitMaster's Plan for This Phase" : "Phase Coaching"}
+              </Text>
+              {matchedAiCheckin && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 4,
+                    backgroundColor: "#7C3AED18",
+                    borderColor: "#7C3AED40",
+                    borderWidth: 1,
+                    borderRadius: 20,
+                    paddingHorizontal: 7,
+                    paddingVertical: 2,
+                  }}
+                >
+                  <Feather name="cpu" size={9} color="#7C3AED" />
+                  <Text
+                    style={{
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 9,
+                      color: "#7C3AED",
+                    }}
+                  >
+                    AI
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <View style={{ padding: 14, gap: 12 }}>
+              <Text
+                style={{
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 14,
+                  color: colors.foreground,
+                  lineHeight: 21,
+                }}
+              >
+                {effectiveCoachingNote}
+              </Text>
+
+              {!isProduceCook && effectiveTempRange != null && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                    backgroundColor: "#F59E0B14",
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: "#F59E0B40",
+                    paddingHorizontal: 10,
+                    paddingVertical: 7,
+                    alignSelf: "flex-start",
+                  }}
+                >
+                  <Feather name="thermometer" size={13} color="#F59E0B" />
+                  <Text
+                    style={{
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 13,
+                      color: "#F59E0B",
+                    }}
+                  >
+                    {effectiveTempRange[0]}–{effectiveTempRange[1]}°F expected
+                  </Text>
+                </View>
+              )}
+
+              {effectiveVisualCues.length > 0 && (
+                <View style={{ gap: 6 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                  >
+                    <Feather
+                      name="eye"
+                      size={11}
+                      color={colors.mutedForeground as string}
+                    />
+                    <Text
+                      style={{
+                        fontFamily: "Inter_600SemiBold",
+                        fontSize: 10,
+                        color: colors.mutedForeground as string,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      Visual cues to look for
+                    </Text>
+                  </View>
+                  <View style={{ gap: 7 }}>
+                    {effectiveVisualCues.map((cue, i) => (
+                      <View
+                        key={i}
+                        style={{
+                          flexDirection: "row",
+                          gap: 8,
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: 3,
+                            backgroundColor: "#22c55e",
+                            marginTop: 7,
+                            flexShrink: 0,
+                          }}
+                        />
+                        <Text
+                          style={{
+                            flex: 1,
+                            fontFamily: "Inter_400Regular",
+                            fontSize: 13,
+                            color: colors.foreground,
+                            lineHeight: 19,
+                          }}
+                        >
+                          {cue}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
 
           {/* ── 1. What just happened? ──────────────────────────── */}
           <View
@@ -713,7 +918,7 @@ export function UnifiedCheckinSheet({
                 </View>
               </View>
             </View>
-            {!isProduceCook && phase.expectedInternalTempRange != null && (
+            {!isProduceCook && effectiveTempRange != null && (
               <Text
                 style={{
                   fontFamily: "Inter_400Regular",
@@ -721,8 +926,8 @@ export function UnifiedCheckinSheet({
                   color: colors.mutedForeground,
                 }}
               >
-                Expected for this phase: {phase.expectedInternalTempRange[0]}–
-                {phase.expectedInternalTempRange[1]}°F
+                Expected for this phase: {effectiveTempRange[0]}–
+                {effectiveTempRange[1]}°F
               </Text>
             )}
             {!canSubmit && (

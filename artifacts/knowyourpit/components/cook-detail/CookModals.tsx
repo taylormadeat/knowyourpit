@@ -192,6 +192,7 @@ export function CookModals({
           onRequestAnalyze={async (opts) => { await onRequestAnalyze(opts); }}
           result={result}
           onCheckinSaved={onCheckinSaved}
+          aiCheckins={cookSeqData?.aiCheckins ?? null}
         />
       )}
 

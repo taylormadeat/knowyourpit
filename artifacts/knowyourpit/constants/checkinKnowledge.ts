@@ -20,6 +20,7 @@ export {
   CHECKIN_NOTIF_IDS_KEY_PREFIX,
 } from "@workspace/checkin-schedule";
 export type {
+  AiCheckinItem,
   CheckinPhase,
   MeatCheckinSchedule,
   ScheduledCheckin,
