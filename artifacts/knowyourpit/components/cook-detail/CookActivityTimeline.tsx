@@ -362,12 +362,18 @@ interface ScheduledRowProps {
   onRemovePlanned?: (phaseKey: string) => void;
   isLast: boolean;
   onOpenCheckin: (sc: ScheduledCheckin) => void;
+  aiCheckinItem?: AiCheckinItem | null;
 }
 
 function ScheduledMilestoneRow({
-  sc, isNext, isEstimated, colors, nowMs, onRemovePlanned, isLast, onOpenCheckin,
+  sc, isNext, isEstimated, colors, nowMs, onRemovePlanned, isLast, onOpenCheckin, aiCheckinItem,
 }: ScheduledRowProps) {
   const swipeRef = useRef<Swipeable>(null);
+  const [expandedCoaching, setExpandedCoaching] = useState(false);
+
+  const hasAiContent = !isEstimated && !!aiCheckinItem && (
+    !!aiCheckinItem.coachingNote || (aiCheckinItem.visualCues?.length ?? 0) > 0
+  );
 
   const renderRightActions = useCallback(
     (_progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
@@ -390,6 +396,8 @@ function ScheduledMilestoneRow({
 
   const accentColor = isEstimated ? (colors.mutedForeground as string) : (isNext ? "#F59E0B" : "#6C3BF5");
 
+  const tempRange = aiCheckinItem?.expectedInternalTempRange;
+
   return (
     <Swipeable ref={swipeRef}
       renderRightActions={!isEstimated && onRemovePlanned ? renderRightActions : undefined}
@@ -407,8 +415,11 @@ function ScheduledMilestoneRow({
         </View>
 
         <View style={{ flex: 1, paddingBottom: isLast ? 0 : 14, paddingTop: 2 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 }}>
-            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.mutedForeground as string }}>
+          <Pressable
+            onPress={hasAiContent ? () => setExpandedCoaching((v) => !v) : undefined}
+            style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 }}
+          >
+            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.mutedForeground as string, flex: 1 }}>
               {sc.phaseLabel}
             </Text>
             <View style={{ paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10, backgroundColor: accentColor + "18" }}>
@@ -416,10 +427,75 @@ function ScheduledMilestoneRow({
                 {isEstimated ? "estimated" : (isNext ? "up next" : "upcoming")}
               </Text>
             </View>
+            {hasAiContent && (
+              <Feather
+                name={expandedCoaching ? "chevron-up" : "chevron-down"}
+                size={13}
+                color={colors.mutedForeground as string}
+              />
+            )}
+          </Pressable>
+
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground as string }}>
+              {fmtDateTime(sc.scheduledAt)} · {fmtCountdown(sc.scheduledAt, nowMs)}
+            </Text>
+            {tempRange && (
+              <View style={{
+                paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8,
+                backgroundColor: "#0EA5E918", borderWidth: 1, borderColor: "#0EA5E940",
+                flexDirection: "row", alignItems: "center", gap: 3,
+              }}>
+                <Feather name="thermometer" size={10} color="#0EA5E9" />
+                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: "#0EA5E9" }}>
+                  {tempRange[0]}–{tempRange[1]}°F
+                </Text>
+              </View>
+            )}
           </View>
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground as string }}>
-            {fmtDateTime(sc.scheduledAt)} · {fmtCountdown(sc.scheduledAt, nowMs)}
-          </Text>
+
+          {expandedCoaching && hasAiContent && (
+            <View style={{
+              marginTop: 8,
+              padding: 10,
+              borderRadius: 8,
+              backgroundColor: accentColor + "0C",
+              borderWidth: 1,
+              borderColor: accentColor + "28",
+              gap: 6,
+            }}>
+              {!!aiCheckinItem!.coachingNote && (
+                <Text style={{
+                  fontFamily: "Inter_400Regular", fontSize: 12,
+                  color: colors.foreground as string, lineHeight: 17,
+                }}>
+                  {aiCheckinItem!.coachingNote}
+                </Text>
+              )}
+              {(aiCheckinItem!.visualCues?.length ?? 0) > 0 && (
+                <View style={{ gap: 4, marginTop: aiCheckinItem!.coachingNote ? 4 : 0 }}>
+                  <Text style={{
+                    fontFamily: "Inter_600SemiBold", fontSize: 10,
+                    color: colors.mutedForeground as string, textTransform: "uppercase", letterSpacing: 0.6,
+                  }}>
+                    Visual cues
+                  </Text>
+                  {aiCheckinItem!.visualCues.map((cue, i) => (
+                    <View key={i} style={{ flexDirection: "row", gap: 6, alignItems: "flex-start" }}>
+                      <Text style={{ color: accentColor, fontSize: 10, marginTop: 2 }}>•</Text>
+                      <Text style={{
+                        fontFamily: "Inter_400Regular", fontSize: 12,
+                        color: colors.foreground as string, flex: 1, lineHeight: 17,
+                      }}>
+                        {cue}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
           {!isEstimated && isNext && (
             <Pressable onPress={() => onOpenCheckin(sc)}
               style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5, alignSelf: "flex-start" }}>
@@ -1496,12 +1572,17 @@ export function CookActivityTimeline({
               const isLast = idx === allRows.length - 1;
 
               if (row.kind === "scheduled-milestone") {
+                const aiIdx = row.sc.phaseKey.startsWith("ai_ci_")
+                  ? parseInt(row.sc.phaseKey.slice(6), 10)
+                  : NaN;
+                const aiCheckinItem = !isNaN(aiIdx) && rawAiCheckins ? rawAiCheckins[aiIdx] : null;
                 return (
                   <ScheduledMilestoneRow key={row.id}
                     sc={row.sc} isNext={row.isNext} isEstimated={row.isEstimated}
                     colors={colors} nowMs={nowMs}
                     onRemovePlanned={onRemovePlanned}
                     isLast={isLast} onOpenCheckin={onOpenCheckin}
+                    aiCheckinItem={aiCheckinItem}
                   />
                 );
               }
