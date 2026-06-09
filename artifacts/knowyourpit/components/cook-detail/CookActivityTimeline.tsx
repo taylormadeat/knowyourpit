@@ -454,6 +454,32 @@ function ScheduledMilestoneRow({
             )}
           </View>
 
+          {/* Collapsed coaching note preview — visible before the user expands */}
+          {!expandedCoaching && !isEstimated && !!aiCheckinItem?.coachingNote && (
+            <View style={{
+              marginTop: 6,
+              flexDirection: "row",
+              alignItems: "flex-start",
+              gap: 5,
+            }}>
+              <Feather name="zap" size={10} color={accentColor} style={{ marginTop: 2 }} />
+              <Text
+                numberOfLines={2}
+                ellipsizeMode="tail"
+                style={{
+                  flex: 1,
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 12,
+                  color: colors.mutedForeground as string,
+                  lineHeight: 17,
+                  fontStyle: "italic",
+                }}
+              >
+                {aiCheckinItem.coachingNote}
+              </Text>
+            </View>
+          )}
+
           {expandedCoaching && hasAiContent && (
             <View style={{
               marginTop: 8,
