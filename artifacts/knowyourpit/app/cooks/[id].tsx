@@ -373,7 +373,7 @@ export default function CookDetailScreen() {
       const completedKeys = new Set((cookCheckins as CookCheckin[]).map((ci) => ci.phaseKey).filter((k): k is string => k != null));
       if (activeCheckin?.phaseKey) completedKeys.add(activeCheckin.phaseKey);
       const adaptiveTemp = savedInternalTempF ?? selectedMeaterProbe?.internalTempF ?? selectedThermoworksProbe?.tempF ?? null;
-      rescheduleCheckinNotifications({ cookId: Number(id), foodType: first.foodType ?? null, weightLbs: cook?.weightLbs ?? null, meatOnAt: first.meatOnAt, estimatedFinishAt: first.estimatedFinishAt, wrapAtMinutes: first.wrapAtMinutes ?? null, completedPhaseKeys: completedKeys, actualInternalTempF: adaptiveTemp }).catch(() => {});
+      rescheduleCheckinNotifications({ cookId: Number(id), foodType: first.foodType ?? null, weightLbs: cook?.weightLbs ?? null, meatOnAt: first.meatOnAt, estimatedFinishAt: first.estimatedFinishAt, wrapAtMinutes: first.wrapAtMinutes ?? null, completedPhaseKeys: completedKeys, actualInternalTempF: adaptiveTemp, aiCheckins: cookSeqData?.aiCheckins ?? null }).catch(() => {});
     }
   }, [tempMode, cook, setLiveReadings, liveReadingsSeededRef, checkinSavedToastTimerRef, setCheckinSavedToast, pendingWrapClearRef, qc, id, cookSeqData, cookCheckins, activeCheckin, selectedMeaterProbe, selectedThermoworksProbe, rescheduleCheckinNotifications]);
 
@@ -445,7 +445,7 @@ export default function CookDetailScreen() {
       const first = cookSeqData?.schedule?.[0];
       if (first?.meatOnAt && first?.estimatedFinishAt) {
         const completedKeys = new Set((cookCheckins as CookCheckin[]).map((ci) => ci.phaseKey).filter((k): k is string => k != null));
-        rescheduleCheckinNotifications({ cookId: Number(id), foodType: first.foodType ?? null, weightLbs: cook?.weightLbs ?? null, meatOnAt: first.meatOnAt, estimatedFinishAt: first.estimatedFinishAt, wrapAtMinutes: first.wrapAtMinutes ?? null, completedPhaseKeys: completedKeys, actualInternalTempF: internalTempF }).catch(() => {});
+        rescheduleCheckinNotifications({ cookId: Number(id), foodType: first.foodType ?? null, weightLbs: cook?.weightLbs ?? null, meatOnAt: first.meatOnAt, estimatedFinishAt: first.estimatedFinishAt, wrapAtMinutes: first.wrapAtMinutes ?? null, completedPhaseKeys: completedKeys, actualInternalTempF: internalTempF, aiCheckins: cookSeqData?.aiCheckins ?? null }).catch(() => {});
       }
     },
   });

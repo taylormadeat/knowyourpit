@@ -6,6 +6,7 @@ import {
   generateCheckinSchedule,
   getCheckinSchedule,
   CHECKIN_NOTIF_IDS_KEY_PREFIX,
+  type AiCheckinItem,
   type ScheduledCheckin,
   type CheckinSequenceAnchor,
 } from "@/constants/checkinKnowledge";
@@ -165,6 +166,7 @@ export async function scheduleCheckinNotifications(
   checkins: ScheduledCheckin[],
   foodType: string | null | undefined,
   isCurrent: () => boolean,
+  aiCheckins?: AiCheckinItem[] | null,
 ): Promise<void> {
   // Always filter out phases the user has explicitly removed before scheduling.
   const removedKeys = await loadRemovedCheckinPhaseKeys(cookId);
@@ -189,11 +191,24 @@ export async function scheduleCheckinNotifications(
     if (!isCurrent()) return;
     if (checkin.scheduledAt <= now) continue;
 
+    // Resolve the best coaching note for this check-in.
+    // AI check-ins use the personalized note from sequenceData.aiCheckins;
+    // static phase check-ins fall back to the phase's coachingTemplate;
+    // if neither is available, use a generic reminder.
+    const aiCheckinIndexMatch = /^ai_checkin_(\d+)$/.exec(checkin.phaseKey);
+    const aiCoachingNote = aiCheckinIndexMatch
+      ? (aiCheckins?.[parseInt(aiCheckinIndexMatch[1], 10)]?.coachingNote ?? null)
+      : null;
+    const notifBody =
+      aiCoachingNote ??
+      (checkin.phase.coachingTemplate || null) ??
+      `PitMaster wants to check on your ${label} — tap to log temps and get coaching.`;
+
     try {
       const notifId = await Notifications.scheduleNotificationAsync({
         content: {
           title: `Check-in: ${checkin.phaseLabel}`,
-          body: `PitMaster wants to check on your ${label} — tap to log temps and get coaching.`,
+          body: notifBody,
           sound: true,
           data: {
             checkin: true,
@@ -245,6 +260,7 @@ export async function rescheduleCheckinNotifications(opts: {
   wrapAtMinutes: number | null | undefined;
   completedPhaseKeys: Set<string>;
   actualInternalTempF: number | null;
+  aiCheckins?: AiCheckinItem[] | null;
 }): Promise<void> {
   if (Platform.OS === "web") return;
   const {
@@ -256,6 +272,7 @@ export async function rescheduleCheckinNotifications(opts: {
     wrapAtMinutes,
     completedPhaseKeys,
     actualInternalTempF,
+    aiCheckins,
   } = opts;
 
   const meatOnAtMs = new Date(meatOnAt).getTime();
@@ -297,7 +314,7 @@ export async function rescheduleCheckinNotifications(opts: {
 
   let gen = 0;
   const isCurrent = () => gen === 0;
-  await scheduleCheckinNotifications(cookId, upcoming, foodType, isCurrent);
+  await scheduleCheckinNotifications(cookId, upcoming, foodType, isCurrent, aiCheckins);
 }
 
 // ---------------------------------------------------------------------------
@@ -401,7 +418,8 @@ export function useCheckinNotifications(
       }
 
       if (!isCurrent()) return;
-      await scheduleCheckinNotifications(cookId, checkins, foodType, isCurrent);
+      const aiCheckins = cookSeqData?.aiCheckins ?? null;
+      await scheduleCheckinNotifications(cookId, checkins, foodType, isCurrent, aiCheckins);
       // Expose only the non-removed, still-future checkins to the UI.
       const nowMs = Date.now();
       if (isCurrent()) {
