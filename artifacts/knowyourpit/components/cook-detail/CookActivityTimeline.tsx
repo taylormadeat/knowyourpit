@@ -1383,8 +1383,9 @@ export function CookActivityTimeline({
           color={colors.mutedForeground as string} />
       </Pressable>
 
-      {/* Loading */}
-      {(checkinsLoading || eventsLoading) && (
+      {/* Loading — planned cooks have no past check-ins, so suppress the
+           transient isLoading spinner that fires while the query resolves */}
+      {!isPlanned && (checkinsLoading || eventsLoading) && (
         <View style={{ padding: 20, alignItems: "center" }}>
           <ActivityIndicator color={colors.primary as string} />
         </View>

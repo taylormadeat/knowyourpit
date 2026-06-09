@@ -65,7 +65,7 @@ import { NextUpBanner, getStepTargetMs } from "@/components/NextUpBanner";
 import { computeNextStep } from "@/components/cook-detail/utils";
 import { fmtRemaining } from "@/components/cook-detail/CookProgressBar";
 import type { SequenceData, FactorBreakdownItem } from "@/components/cook-detail/types";
-import { CookFactorsSheet, type QualFactor } from "@/components/CookFactorsSheet";
+
 import { useAmbientWeather, weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
 import {
   MEAT_CUTS,
@@ -119,7 +119,6 @@ import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
 import { MeatPickerModal } from "@/components/plan-screen/MeatPickerModal";
 import { isProduce } from "@/constants/meatCuts";
 import { DatePickerModal, TimePickerModal } from "@/components/plan-screen/DateTimePickerModals";
-import { AiResultsModal } from "@/components/plan-screen/AiResultsModal";
 import { MultiCookResultModal } from "@/components/plan-screen/MultiCookResultModal";
 import { MultiCookAddItemModal, type MultiItem } from "@/components/plan-screen/MultiCookAddItemModal";
 import { ThawStatusBanner } from "@/components/cook-detail/ThawStatusBanner";
@@ -491,21 +490,14 @@ export default function PlanScreen() {
   // a second concurrent AI request while the loading modal is animating in.
   const multiCookRunningRef = useRef(false);
 
-  // ── AI predict state ──────────────────────────────────────────────────
-  // aiResult / aiResultOpen / aiStreaming / isSubmitting are managed by
-  // usePlanLoadingState which encapsulates the synchronous-before-await
-  // contract tested in hooks/__tests__/usePlanLoadingState.test.ts.
+  // ── Submit state ──────────────────────────────────────────────────────
+  // isSubmitting is managed by usePlanLoadingState to keep the synchronous-
+  // before-await contract (button disables on the same frame as the tap).
   const {
-    aiResult, setAiResult,
-    aiResultOpen, setAiResultOpen,
-    aiStreaming, setAiStreaming,
-    isSubmitting, setIsSubmitting,
-    openAiPlanModal,
+    isSubmitting,
     startSubmitting,
     stopSubmitting,
   } = usePlanLoadingState();
-  const [aiRetrying, setAiRetrying] = useState(false);
-  const [aiError, setAiError] = useState(false);
   const [factorsSheetOpen, setFactorsSheetOpen] = useState(false);
   const [planChatOpen, setPlanChatOpen] = useState(false);
   const [planChatSeed, setPlanChatSeed] = useState<string | undefined>(undefined);
@@ -667,9 +659,6 @@ export default function PlanScreen() {
     setServeAt(null);
     clearAiScheduleOverride();
     setCookNowMode("now");
-    setAiResult(null);
-    setAiResultOpen(false);
-    setAiStreaming(false);
     setSelectedProbeId(null);
     setPrepGuideOpen(false);
     setAdvancedOpen(false);
@@ -785,187 +774,6 @@ export default function PlanScreen() {
     loadLastInjection(cut.name).then(v => { setQpInjection(v); setLastUsedInjection(v); });
     loadLastSpritz(cut.name).then(v => { setQpSpritz(v); setLastUsedSpritz(v); });
     loadLastWrapFinish(cut.name).then(v => { setQpWrapFinish(v); setLastUsedWrapFinish(v); });
-  };
-
-  // ── AI Plan ──────────────────────────────────────────────────────────
-  const handleAiPlan = async () => {
-    if (!selectedCut) {
-      Alert.alert("Select a Food First", "Choose a food so PitMaster can tailor the plan.");
-      return;
-    }
-    // Open the modal before any await so the loading skeleton paints on the
-    // same frame as the tap. The setTimeout(0) yield then gives React Native
-    // one event-loop tick to commit that render before we block the JS thread
-    // on the Clerk SecureStore read and the network fetch.
-    // openAiPlanModal() sets aiResult=null, aiResultOpen=true, aiStreaming=true
-    // synchronously — the contract tested in usePlanLoadingState.test.ts.
-    openAiPlanModal();
-    setAiRetrying(false);
-    setAiError(false);
-    await new Promise<void>(resolve => setTimeout(resolve, 0));
-
-    // Use the CACHED Clerk token — only force a refresh on an actual 401.
-    const tapAt = Date.now();
-    const sessionToken = await getTokenSafe(getToken);
-    if (__DEV__) console.log(`[AiPlan] token ready +${Date.now() - tapAt}ms`);
-    // NOTE: if sessionToken is null (timeout path — Clerk SecureStore was slow
-    // after backgrounding), we proceed WITHOUT an Authorization header instead
-    // of immediately showing "Session Expired". The server's 401 will trigger
-    // the refresh-and-retry flow below, which is the only reliable signal that
-    // the Clerk session is actually dead.
-
-    const predictPayload = {
-      foodType: selectedCut.name,
-      weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : undefined,
-      cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
-      targetTempF: targetTempF ? Number(targetTempF) : selectedCut.targetTempF,
-      grillId: grillId ?? undefined,
-      desiredFinishAt: serveAt ? serveAt.toISOString() : undefined,
-      preheatMinutes: preheatMinsForGrill(selectedGrill),
-      outdoorTempF: weather.tempF ?? undefined,
-      outdoorTempIsForecast: weather.tempF != null ? weather.isForecast : undefined,
-      fromFrozen: (frozenEnabled && !isProduce(selectedCut.category)) || undefined,
-      thawMethod: (frozenEnabled && !isProduce(selectedCut.category)) ? thawMethod : undefined,
-      cookingMethod: qpCookMethod ?? undefined,
-      meatStartTemp: qpMeatStartTemp ?? undefined,
-      injection: qpInjection ?? undefined,
-      spritzFrequency: qpSpritz ?? undefined,
-      wrapFinish: qpWrapFinish ?? undefined,
-      notes: notes.trim() || undefined,
-      pieceCount: sizeOutput.pieceCount ?? undefined,
-      isIndividualCook: selectedCut.isIndividualCook ?? undefined,
-      sizingLabel: sizeOutput.sizingLabel ?? undefined,
-      cookingStylePreset: activePreset ?? undefined,
-    };
-
-    const apiBase =
-      process.env.EXPO_PUBLIC_API_URL ??
-      (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
-
-    // Tracks the most recently refreshed token so any retry reuses the fresh
-    // token rather than the original cached/null one.
-    let activeToken: string | null = sessionToken;
-
-    // Every AI fetch is wrapped in an AbortController so a dead socket can
-    // never hang the loading modal indefinitely (restores the lost #1156
-    // timeout protection).
-    const doPredictFetch = async (token: string | null) => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), AI_FETCH_TIMEOUT_MS);
-      try {
-        return await fetch(`${apiBase}/api/ai/predict`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify(predictPayload),
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timer);
-      }
-    };
-
-    // One complete attempt: fetch → optional token refresh on 401 → return outcome.
-    // Returns "ok" (result set on state), "network_error" (retryable), or
-    // "fatal_401" (session genuinely dead after a forced refresh).
-    const runOnce = async (): Promise<"ok" | "network_error" | "fatal_401"> => {
-      let response: Response;
-      try {
-        response = await doPredictFetch(activeToken);
-      } catch (e: any) {
-        // AbortError = timeout; any other throw = unexpected network failure.
-        // Both are retryable — surface as network_error so the modal stays open.
-        return "network_error";
-      }
-
-      // Cached/null token rejected — force a single refresh and retry before
-      // declaring the session dead.
-      if (response.status === 401) {
-        const fresh = await getTokenSafe(opts => getToken({ ...opts, skipCache: true }));
-        if (!fresh) {
-          // Forced refresh timed out — we cannot determine whether the session
-          // is dead. Treat as a transient network failure so the modal stays
-          // open with a "Try Again" button rather than incorrectly showing
-          // "Session Expired".
-          return "network_error";
-        }
-        activeToken = fresh;
-        try {
-          response = await doPredictFetch(fresh);
-        } catch {
-          return "network_error";
-        }
-      }
-
-      if (__DEV__) console.log(`[AiPlan] fetch done +${Date.now() - tapAt}ms status=${response.status}`);
-
-      // Only fatal_401 when a retry with a confirmed fresh token also returned
-      // 401 — i.e., the Clerk session is genuinely dead.
-      if (response.status === 401) return "fatal_401";
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-      const data = await response.json();
-      setAiResult(data);
-      setAiStreaming(false);
-      return "ok";
-    };
-
-    try {
-      let outcome = await runOnce();
-
-      if (outcome === "fatal_401") {
-        setAiStreaming(false);
-        setAiResultOpen(false);
-        Alert.alert(
-          "Session Expired",
-          "Your session has expired. Please sign out from the More tab and sign in again.",
-        );
-        return;
-      }
-
-      if (outcome === "network_error") {
-        // Auto-retry once before surfacing the in-modal error state — mirrors
-        // the handleMultiCook pattern so the UX is consistent.
-        setAiRetrying(true);
-        let retryOutcome: "ok" | "network_error" | "fatal_401" | null = null;
-        try {
-          retryOutcome = await runOnce();
-        } catch {
-          // retry threw an unexpected HTTP error — fall through to error state
-        }
-        setAiRetrying(false);
-
-        if (retryOutcome === "ok") return;
-        if (retryOutcome === "fatal_401") {
-          setAiStreaming(false);
-          setAiResultOpen(false);
-          Alert.alert(
-            "Session Expired",
-            "Your session has expired. Please sign out from the More tab and sign in again.",
-          );
-          return;
-        }
-        // Both attempts failed — keep the modal open and show the error state
-        // with a "Try Again" button so the user can retry without re-entering
-        // their parameters.
-        setAiStreaming(false);
-        setAiError(true);
-        return;
-      }
-    } catch (e: any) {
-      // Unexpected non-network error (e.g. HTTP 5xx thrown by runOnce).
-      setAiStreaming(false);
-      setAiResultOpen(false);
-      const msg = e?.message || "Could not get PitMaster prediction. Try again.";
-      Alert.alert("PitMaster Error", msg);
-    }
-  };
-
-  const handleRetryAiPlan = () => {
-    setAiError(false);
-    handleAiPlan();
   };
 
   // ── Multi-Cook Sequence ───────────────────────────────────────────────
@@ -1212,17 +1020,6 @@ export default function PlanScreen() {
     }
   };
 
-  const applyAiPlan = () => {
-    if (!aiResult) return;
-    if (aiResult.serveAt) setServeAt(new Date(aiResult.serveAt));
-    if (typeof aiResult.estimatedDurationMinutes === "number") {
-      setAiCookMins(aiResult.estimatedDurationMinutes);
-    }
-    if (typeof aiResult.preheatMinutes === "number") {
-      setAiPreheatMins(aiResult.preheatMinutes);
-    }
-    setAiResultOpen(false);
-  };
 
   // ── Submit ───────────────────────────────────────────────────────────
   // modeOverride: when "later" is passed the function behaves as if
@@ -1294,15 +1091,9 @@ export default function PlanScreen() {
     }
 
     const preheatMins = preheatMinsForGrill(selectedGrill);
-    const wrap = aiResult?.wrap ?? null;
 
-    // Captured early so it remains valid after resetForm() clears form state.
-    // Only built when the user hasn't already run Ask PitMaster — if aiResult
-    // is present the background call is skipped entirely.
-    //
-    // baselineSchedule: deterministic ISO anchors from calcSchedule, sent to
-    // the server so PitMaster can personalise rather than re-derive the full
-    // timeline from scratch.
+    // Deterministic ISO anchors from calcSchedule, sent to the server so
+    // PitMaster can personalise rather than re-derive the full timeline.
     const baselineSchedule = schedule
       ? {
           preheatStartAt: schedule.startAt.toISOString(),
@@ -1317,7 +1108,7 @@ export default function PlanScreen() {
         }
       : null;
 
-    const bgPredictPayload: Record<string, unknown> | null = !aiResult ? {
+    const bgPredictPayload: Record<string, unknown> = {
       foodType: selectedCut.name,
       weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : undefined,
       cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
@@ -1340,32 +1131,20 @@ export default function PlanScreen() {
       sizingLabel: sizeOutput.sizingLabel ?? undefined,
       cookingStylePreset: activePreset ?? undefined,
       baselineSchedule: baselineSchedule ?? undefined,
-    } : null;
+    };
 
-    // Map AI wrap method string → DB enum value
-    const wrapMethodDb: "foil" | "butcher_paper" | "none" | undefined =
-      wrap?.method === "foil" ? "foil"
-      : wrap?.method === "butcher_paper" ? "butcher_paper"
-      : wrap?.method === "none" ? "none"
-      : undefined;
+    // plannedStartAt comes from the deterministic baseline schedule; the
+    // background AI will refine this after saving.
+    const plannedStart: Date | undefined = schedule?.startAt ?? undefined;
 
-    // Prefer AI grill-light time for plannedStartAt, fall back to local schedule
-    const plannedStart: Date | undefined =
-      aiResult?.grillLightAt ? new Date(aiResult.grillLightAt)
-      : schedule?.startAt ?? undefined;
+    // Rest recommendation comes from cut default; background AI may update it.
+    const restMins: number = selectedCut.restMins;
 
-    // Prefer AI rest recommendation, fall back to cut default
-    const restMins: number = wrap?.restMinutes > 0 ? wrap.restMinutes : selectedCut.restMins;
-
-    // Build notes — AI rationale + tips appended after user notes
+    // Build notes from user-entered fields only (no pre-save AI data)
     const noteParts: string[] = [];
     if (cookName) noteParts.push(`Name: ${cookName}`);
     if (selectedCut.cookMethod) noteParts.push(`Method: ${selectedCut.cookMethod}`);
     if (notes.trim()) noteParts.push(notes.trim());
-    if (aiResult?.rationale) noteParts.push(`PitMaster Analysis:\n${aiResult.rationale}`);
-    if (aiResult?.tips?.length) {
-      noteParts.push(`Pit Master Tips:\n${(aiResult.tips as string[]).map((t, i) => `${i + 1}. ${t}`).join("\n")}`);
-    }
 
     // Persist Frozen-to-Table thaw/temper times in sequenceData so the cook
     // detail screen can re-schedule notifications later (e.g. after edits).
@@ -1419,27 +1198,17 @@ export default function PlanScreen() {
 
         // Build sequenceData: update frozen timing when still frozen, or
         // explicitly null it out so the hook doesn't reschedule stale alerts.
-        // Also carry forward any AI fingerprint adjustment so the callout
-        // remains visible after a replan.
-        const hasFingerprint =
-          aiResult?.fingerprintSource === "grill" ||
-          aiResult?.fingerprintSource === "user";
         const updatedFrozenSeqData: SequenceData = {
           ...(replanSeqData ?? ({} as SequenceData)),
           ...(frozenForCook ? { frozen: frozenForCook } : { frozen: null }),
-          ...(hasFingerprint
-            ? { fingerprintSource: aiResult!.fingerprintSource, fingerprintNote: aiResult!.fingerprintNote ?? null }
-            : {}),
-          ...(aiResult?.factorBreakdown?.length ? { factorBreakdown: aiResult.factorBreakdown } : {}),
         };
         await updateCook.mutateAsync({
           id: replanCookIdNum,
           data: {
             ...(serveAt && { plannedEndAt: serveAt }),
             ...(plannedStart && { plannedStartAt: plannedStart }),
-            // Persist sequenceData when: frozen state is changing, or an AI
-            // fingerprint adjustment needs to be recorded.
-            ...((frozenForCook || wasFrozen || hasFingerprint) && { sequenceData: updatedFrozenSeqData }),
+            // Persist sequenceData only when frozen state is changing
+            ...((frozenForCook || wasFrozen) && { sequenceData: updatedFrozenSeqData }),
             // When the pitmaster removes the frozen flag, clear it in the DB so
             // useFrozenStageNotifications no longer sees this as a frozen cook
             // and doesn't re-schedule the cancelled notifications on remount.
@@ -1467,8 +1236,6 @@ export default function PlanScreen() {
         qc.invalidateQueries({ queryKey: getGetCookQueryKey(replanCookIdNum) });
         qc.invalidateQueries({ queryKey: ["home", "insights"] });
         resetForm();
-        setAiResultOpen(false);
-        setAiStreaming(false);
         router.push(`/cooks/${replanCookIdNum}` as any);
         return;
       }
@@ -1487,20 +1254,10 @@ export default function PlanScreen() {
           ...(effectiveCookNowMode === "now"
             ? {
                 actualStartAt: new Date() as any,
-                // Save planned times so the live cook timeline can show the
-                // full schedule (wrap, pull-off, check-ins).
-                // Prefer AI result; fall back to deterministic baseline anchors
-                // so the cook has a usable timeline even if AI is skipped.
-                ...(aiResult?.grillLightAt
-                  ? { plannedStartAt: new Date(aiResult.grillLightAt) as any }
-                  : schedule?.startAt
-                  ? { plannedStartAt: schedule.startAt as any }
-                  : {}),
-                ...(aiResult?.serveAt
-                  ? { plannedEndAt: new Date(aiResult.serveAt) as any }
-                  : schedule?.restEndAt
-                  ? { plannedEndAt: schedule.restEndAt as any }
-                  : {}),
+                // Save deterministic baseline planned times so the live cook
+                // timeline has a usable schedule while background AI refines.
+                ...(schedule?.startAt ? { plannedStartAt: schedule.startAt as any } : {}),
+                ...(schedule?.restEndAt ? { plannedEndAt: schedule.restEndAt as any } : {}),
                 // When starting a frozen cook immediately, record the thaw
                 // start time now so the cook detail screen can compute
                 // accurate countdowns and so that the 30-min "almost thawed"
@@ -1510,60 +1267,39 @@ export default function PlanScreen() {
               }
             : {
                 ...(serveAt && { plannedEndAt: serveAt }),
-                // If the user didn't set a serve time but ran the AI plan,
-                // still persist the AI-predicted serve time as plannedEndAt
-                // so the live cook timeline can show the full schedule.
-                ...(!serveAt && aiResult?.serveAt && { plannedEndAt: new Date(aiResult.serveAt) as any }),
                 ...(plannedStart && { plannedStartAt: plannedStart }),
               }),
           preheatMinutes: preheatMins,
           restMinutes: restMins,
-          // Wrap guidance from AI plan
-          ...(wrapMethodDb !== undefined && { wrapMethod: wrapMethodDb }),
-          ...(wrap?.wrapAtMinutes > 0 && { wrapAtMinutes: Math.round(wrap.wrapAtMinutes) }),
-          ...(wrap?.wrapTempF && { wrapTempF: Math.round(wrap.wrapTempF) }),
-          ...(wrap?.reason && { wrapReason: wrap.reason }),
+          // sequenceData: populate schedule[0] with deterministic baseline
+          // anchors so the cook detail screen has a usable timeline immediately.
+          // aiRefining: true signals the screen to show the "refining" indicator
+          // while fireBgAiRefine patches the record with the personalized plan.
           sequenceData: {
             ...(frozenForCook ? { frozen: frozenForCook } : {}),
-            ...(aiResult ? {
-              // User already ran Ask PitMaster — no need for a baseline schedule item.
-              schedule: [],
-              ...(aiResult.checkins?.length ? { aiCheckins: aiResult.checkins } : {}),
-              ...((aiResult.fingerprintSource === "grill" || aiResult.fingerprintSource === "user")
-                ? { fingerprintSource: aiResult.fingerprintSource, fingerprintNote: aiResult.fingerprintNote ?? null }
-                : {}),
-              ...(aiResult.factorBreakdown?.length ? { factorBreakdown: aiResult.factorBreakdown } : {}),
-              ...(aiResult.timedOut ? { planTimedOut: true } : {}),
-            } : {
-              // No AI result — populate schedule[0] with a ScheduleItem derived
-              // from the deterministic calcSchedule anchors. All live-cook-screen
-              // consumers (SequenceSchedule, LiveCookSection, useCheckinNotifications)
-              // read schedule[0] for grillLightAt, meatOnAt, estimatedFinishAt etc.
-              // so this gives a working fallback timeline even if background AI fails.
-              schedule: baselineSchedule ? [{
-                foodType: selectedCut.name,
-                grillLightAt: baselineSchedule.preheatStartAt,
-                meatOnAt: baselineSchedule.meatOnAt,
-                estimatedFinishAt: baselineSchedule.pullAt,
-                estimatedDurationMinutes: baselineSchedule.cookMins,
-                restMinutes: baselineSchedule.restMins,
-                preheatMinutes: baselineSchedule.preheatMins,
-                grillId: grillId ?? null,
-                weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : null,
-                targetTempF: targetTempF ? Number(targetTempF) : (selectedCut.targetTempF ?? null),
-                ...(baselineSchedule.wrapAt ? {
-                  wrapMethod: qpWrapFinish?.toLowerCase().includes("butcher") ? "butcher_paper" : "foil",
-                  wrapAtMinutes: Math.round(
-                    (new Date(baselineSchedule.wrapAt).getTime() - new Date(baselineSchedule.meatOnAt).getTime()) / 60000,
-                  ),
-                  wrapTempF: baselineSchedule.wrapTempF ?? null,
-                } : {
-                  wrapMethod: "none",
-                  wrapAtMinutes: 0,
-                }),
-              }] : [],
-              aiRefining: true,
-            }),
+            schedule: baselineSchedule ? [{
+              foodType: selectedCut.name,
+              grillLightAt: baselineSchedule.preheatStartAt,
+              meatOnAt: baselineSchedule.meatOnAt,
+              estimatedFinishAt: baselineSchedule.pullAt,
+              estimatedDurationMinutes: baselineSchedule.cookMins,
+              restMinutes: baselineSchedule.restMins,
+              preheatMinutes: baselineSchedule.preheatMins,
+              grillId: grillId ?? null,
+              weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : null,
+              targetTempF: targetTempF ? Number(targetTempF) : (selectedCut.targetTempF ?? null),
+              ...(baselineSchedule.wrapAt ? {
+                wrapMethod: qpWrapFinish?.toLowerCase().includes("butcher") ? "butcher_paper" : "foil",
+                wrapAtMinutes: Math.round(
+                  (new Date(baselineSchedule.wrapAt).getTime() - new Date(baselineSchedule.meatOnAt).getTime()) / 60000,
+                ),
+                wrapTempF: baselineSchedule.wrapTempF ?? null,
+              } : {
+                wrapMethod: "none",
+                wrapAtMinutes: 0,
+              }),
+            }] : [],
+            aiRefining: true,
           },
           ...(frozenForCook ? {
             fromFrozen: true,
@@ -1654,8 +1390,6 @@ export default function PlanScreen() {
         // Capture before resetForm() clears closure variables
         const bgPayload = bgPredictPayload;
         resetForm();
-        setAiResultOpen(false);
-        setAiStreaming(false);
         router.push(`/cooks/${newCookId}` as any);
         // Background work — does not block the transition
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -1674,10 +1408,8 @@ export default function PlanScreen() {
         if (selectedCut && qpCookMethod) {
           saveLastCookMethod(selectedCut.name, qpCookMethod);
         }
-        // Fire background AI refinement when the user didn't run Ask PitMaster
-        if (bgPayload) {
-          fireBgAiRefine(newCookId, bgPayload).catch(() => {});
-        }
+        // Fire background AI refinement — always runs now (no pre-save AI step)
+        fireBgAiRefine(newCookId, bgPayload).catch(() => {});
         return;
       }
 
@@ -1703,9 +1435,9 @@ export default function PlanScreen() {
         saveLastCookMethod(selectedCut.name, qpCookMethod);
       }
 
-      // Fire background AI refinement when the user didn't run Ask PitMaster.
+      // Fire background AI refinement — always runs now (no pre-save AI step).
       // Captured before resetForm() so form state is still valid.
-      if (bgPredictPayload && newCookId) {
+      if (newCookId) {
         fireBgAiRefine(newCookId, bgPredictPayload).catch(() => {});
       }
 
@@ -1782,21 +1514,31 @@ export default function PlanScreen() {
     try {
       const token = await getTokenSafe(getToken);
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), AI_FETCH_TIMEOUT_MS);
+      // Promise.race ensures the timeout fires even on iOS where AbortController
+      // signal is not always reliably honoured by React Native's fetch polyfill.
+      let abortTimer: ReturnType<typeof setTimeout> | undefined;
       let response: Response;
       try {
-        response = await fetch(`${apiBase}/api/ai/predict`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          // cookId tells the server to patch the cook record after AI responds.
-          body: JSON.stringify({ ...payload, cookId }),
-          signal: controller.signal,
-        });
+        response = await Promise.race([
+          fetch(`${apiBase}/api/ai/predict`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            // cookId tells the server to patch the cook record after AI responds.
+            body: JSON.stringify({ ...payload, cookId }),
+            signal: controller.signal,
+          }),
+          new Promise<never>((_, reject) => {
+            abortTimer = setTimeout(() => {
+              controller.abort();
+              reject(new DOMException("Background AI timeout", "AbortError"));
+            }, AI_FETCH_TIMEOUT_MS);
+          }),
+        ]);
       } finally {
-        clearTimeout(timer);
+        clearTimeout(abortTimer);
       }
       if (!response.ok) return;
       // Server handles the cook record update; client just invalidates queries
@@ -3228,93 +2970,6 @@ export default function PlanScreen() {
           }
         />
 
-        {/* ── AI Cook Planner (optional / secondary) ── */}
-        <Pressable
-          testID="ai-plan-btn"
-          style={({ pressed }) => [
-            {
-              flexDirection: "row" as const,
-              alignItems: "center" as const,
-              gap: 10,
-              paddingHorizontal: 14,
-              paddingVertical: 11,
-              borderRadius: colors.radius,
-              borderWidth: 1,
-              borderColor: aiResult ? "#6C3BF5" : colors.border,
-              backgroundColor: aiResult ? "#6C3BF510" : colors.card,
-              marginBottom: 8,
-            },
-            (aiStreaming || pressed) && { opacity: 0.7 },
-          ]}
-          onPress={handleAiPlan}
-          disabled={aiStreaming}
-        >
-          {aiStreaming && !aiResultOpen ? (
-            <>
-              <ActivityIndicator testID="ai-plan-loading-indicator" color="#6C3BF5" size="small" />
-              <Text style={{ flex: 1, fontSize: 14, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
-                PitMaster is planning your cook…
-              </Text>
-            </>
-          ) : (
-            <>
-              <Feather name="cpu" size={15} color={aiResult ? "#6C3BF5" : colors.mutedForeground} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: aiResult ? "#6C3BF5" : colors.foreground }}>
-                  {aiResult ? "PitMaster plan ready" : "Get PitMaster estimate"}
-                </Text>
-                <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginTop: 1 }}>
-                  {aiResult
-                    ? `${aiResult.confidence} confidence · Tap to review`
-                    : selectedCut
-                      ? "Optional · personalized timing, wrap tips & rest guidance"
-                      : "Optional · select a food first"}
-                </Text>
-              </View>
-              <Feather name="chevron-right" size={14} color={aiResult ? "#6C3BF5" : colors.mutedForeground} />
-            </>
-          )}
-        </Pressable>
-
-        {/* AI result banner suppressed — info is now shown inside the button */}
-
-        {/* Ask PitMaster about this plan — shown after a plan is generated */}
-        {aiResult && (
-          <Pressable
-            onPress={() => {
-              const parts: string[] = [];
-              if (selectedCut) parts.push(`Meat: ${selectedCut.name}`);
-              if (sizeOutput.sizingLabel) parts.push(`Size: ${sizeOutput.sizingLabel}`);
-              else if (effectiveWeightLbs > 0) parts.push(`Weight: ${effectiveWeightLbs} lbs`);
-              if (qpCookMethod) parts.push(`Method: ${qpCookMethod}`);
-              if (cookTempF) parts.push(`Pit temp: ${cookTempF}°F`);
-              if (targetTempF) parts.push(`Target internal: ${targetTempF}°F`);
-              if (selectedGrill?.name) parts.push(`Grill: ${selectedGrill.name}`);
-              if (aiResult.estimatedDurationMinutes) parts.push(`Estimated cook time: ${aiResult.estimatedDurationMinutes} minutes`);
-              if (aiResult.confidence) parts.push(`Plan confidence: ${aiResult.confidence}`);
-              if (aiResult.rationale) parts.push(`PitMaster rationale: ${aiResult.rationale}`);
-              parts.push("I have a follow-up question about this plan.");
-              setPlanChatSeed(parts.join("\n"));
-              setPlanChatOpen(true);
-            }}
-            style={({ pressed }) => [
-              s.askPitMasterPlanBtn,
-              {
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                borderRadius: colors.radius,
-              },
-              pressed && { opacity: 0.8 },
-            ]}
-          >
-            <Feather name="message-circle" size={15} color="#E84820" />
-            <Text style={[s.askPitMasterPlanText, { color: colors.foreground }]}>
-              Ask PitMaster about this plan
-            </Text>
-            <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
-          </Pressable>
-        )}
-
         {/* ── First-action hero (frozen mode only) ── */}
         {schedule?.frozen && !frozenStartInPast && (
           <View style={[s.firstActionCard, { borderRadius: colors.radius }]}>
@@ -3439,20 +3094,6 @@ export default function PlanScreen() {
                 value={formatDateTime(schedule.meatOnAt)}
                 sub={`~${fmtDuration(schedule.cookMins)} cook time`}
                 colors={colors}
-                trailing={
-                  Array.isArray((aiResult as any)?.factorBreakdown) && (aiResult as any).factorBreakdown.length > 0
-                    ? (
-                      <Pressable
-                        onPress={() => setFactorsSheetOpen(true)}
-                        style={{ flexDirection: "row", alignItems: "center", gap: 3 }}
-                        hitSlop={8}
-                      >
-                        <Text style={{ color: "#8B5CF6", fontSize: 11, fontFamily: "Inter_600SemiBold" }}>What&apos;s driving this?</Text>
-                        <Feather name="chevron-right" size={10} color="#8B5CF6" />
-                      </Pressable>
-                    )
-                    : undefined
-                }
               />
               {schedule.wrap && (
                 <>
@@ -3872,26 +3513,8 @@ export default function PlanScreen() {
         setServeAt={setServeAtManual}
       />
 
-      {/* ════ AI RESULTS MODAL ════ */}
-      <AiResultsModal
-        visible={aiResultOpen}
-        onClose={() => setAiResultOpen(false)}
-        colors={colors}
-        aiResult={aiResult}
-        applyAiPlan={applyAiPlan}
-        grillName={selectedGrill?.name}
-        retrying={aiRetrying}
-        isStreaming={aiStreaming}
-        hasError={aiError}
-        onRetry={handleRetryAiPlan}
-        selectedChips={{
-          cookingMethod: qpCookMethod,
-          meatStartTemp: qpMeatStartTemp,
-          injection: qpInjection,
-          spritzFrequency: qpSpritz,
-          wrapFinish: qpWrapFinish,
-        }}
-      />
+      {/* AI Results Modal removed — PitMaster now always runs in the background
+          after saving, so there is no pre-save modal to show. */}
 
       {/* ════ MULTI-COOK RESULT MODAL ════ */}
       <MultiCookResultModal
@@ -3964,28 +3587,9 @@ export default function PlanScreen() {
         contextLabel="Asking about this plan"
       />
 
-      <CookFactorsSheet
-        visible={factorsSheetOpen}
-        onClose={() => setFactorsSheetOpen(false)}
-        factorBreakdown={(aiResult as any)?.factorBreakdown ?? []}
-        qualFactors={(() => {
-          const items: QualFactor[] = [];
-          const breakdown: any[] = (aiResult as any)?.factorBreakdown ?? [];
-          const fingerprintSource = (aiResult as any)?.fingerprintSource;
-          if (fingerprintSource === "grill" || fingerprintSource === "user") {
-            const hasSlower = breakdown.some((f: any) => f.label === "Learned Pace (Slower)");
-            if (!hasSlower) items.push({ label: "Faster Pace", colorHex: "#22C55E", icon: "trending-down" });
-            items.push({ label: "Grill Tuned", colorHex: "#22C55E", icon: "activity" });
-          }
-          if (breakdown.some((f: any) => f.label === "Cold Weather")) items.push({ label: "Cold Weather", colorHex: "#38BDF8", icon: "thermometer" });
-          if (breakdown.some((f: any) => f.label === "Grill Load")) items.push({ label: "Grill Load", colorHex: "#F97316", icon: "layers" });
-          if (frozenEnabled) items.push({ label: "Frozen", colorHex: "#3B82F6", icon: "box" });
-          if (qpInjection) items.push({ label: "Injection", colorHex: "#8B5CF6", icon: "droplet" });
-          if (qpWrapFinish) items.push({ label: "Wrap Method", colorHex: "#F97316", icon: "package" });
-          return items;
-        })()}
-        colors={colors}
-      />
+      {/* CookFactorsSheet — factor breakdown is now populated by the background
+          AI after saving. The sheet will be re-wired from the cook detail screen
+          where sequenceData.factorBreakdown is available post-save. */}
 
     </View>
   );
