@@ -11,7 +11,7 @@ const TOKEN_HOST = "https://securetoken.googleapis.com";
 const FIRESTORE_HOST = "https://firestore.googleapis.com";
 const REFERER = "https://cloud.thermoworks.com/";
 
-const READING_FRESH_WINDOW_MS = 5 * 60 * 1000;
+export const READING_FRESH_WINDOW_MS = 5 * 60 * 1000;
 
 // Status values the ThermoWorks Cloud uses when a probe is physically connected
 // and actively reading temperature. Channels whose status is absent, null, or
@@ -267,7 +267,7 @@ async function fetchUserDevices(
   return devices;
 }
 
-type ChannelReading = {
+export type ChannelReading = {
   channelNumber: string;
   label: string | null;
   status: string | null;
@@ -341,7 +341,7 @@ function toFahrenheit(value: number, units: string | null): number {
   return value;
 }
 
-function isChannelLive(c: ChannelReading): boolean {
+export function isChannelLive(c: ChannelReading): boolean {
   // RFX-specific: explicit disconnected flag takes priority over all other checks.
   // RFX Gateway provisioned slots echo the last reading even with no probe — this
   // boolean is the only reliable way to tell an empty RFX slot from a live one.
