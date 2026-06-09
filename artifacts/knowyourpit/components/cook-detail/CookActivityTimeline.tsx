@@ -22,7 +22,9 @@ import {
   generateCheckinSchedule,
   type ScheduledCheckin,
   type CheckinSequenceAnchor,
+  type CheckinPhase,
 } from "@/constants/checkinKnowledge";
+import type { AiCheckinItem } from "./types";
 import { BlurredProSection } from "@/components/BlurredProSection";
 import type { ShowOptions } from "@/contexts/PaywallContext";
 import type { SequenceData } from "./types";
@@ -164,6 +166,7 @@ interface ScheduledMilestoneEvent {
   occurredAt: number;
   sc: ScheduledCheckin;
   isNext: boolean;
+  isEstimated?: boolean;
 }
 
 type PastEvent =
@@ -353,6 +356,7 @@ function mergeCheckinsWithHistory(
 interface ScheduledRowProps {
   sc: ScheduledCheckin;
   isNext: boolean;
+  isEstimated?: boolean;
   colors: Colors;
   nowMs: number;
   onRemovePlanned?: (phaseKey: string) => void;
@@ -361,7 +365,7 @@ interface ScheduledRowProps {
 }
 
 function ScheduledMilestoneRow({
-  sc, isNext, colors, nowMs, onRemovePlanned, isLast, onOpenCheckin,
+  sc, isNext, isEstimated, colors, nowMs, onRemovePlanned, isLast, onOpenCheckin,
 }: ScheduledRowProps) {
   const swipeRef = useRef<Swipeable>(null);
 
@@ -384,11 +388,11 @@ function ScheduledMilestoneRow({
     [sc.phaseKey, onRemovePlanned],
   );
 
-  const accentColor = isNext ? "#F59E0B" : "#6C3BF5";
+  const accentColor = isEstimated ? (colors.mutedForeground as string) : (isNext ? "#F59E0B" : "#6C3BF5");
 
   return (
     <Swipeable ref={swipeRef}
-      renderRightActions={onRemovePlanned ? renderRightActions : undefined}
+      renderRightActions={!isEstimated && onRemovePlanned ? renderRightActions : undefined}
       overshootRight={false} friction={2}>
       <View style={{ flexDirection: "row", gap: 10 }}>
         <View style={{ alignItems: "center", width: 28 }}>
@@ -397,7 +401,7 @@ function ScheduledMilestoneRow({
             backgroundColor: accentColor + "18", alignItems: "center", justifyContent: "center",
             borderWidth: 1.5, borderColor: accentColor + "60",
           }}>
-            <Feather name={isNext ? "bell" : "clock"} size={12} color={accentColor} />
+            <Feather name={isEstimated ? "map-pin" : (isNext ? "bell" : "clock")} size={12} color={accentColor} />
           </View>
           {!isLast && <View style={{ flex: 1, width: 1.5, backgroundColor: colors.border as string, marginTop: 3 }} />}
         </View>
@@ -409,14 +413,14 @@ function ScheduledMilestoneRow({
             </Text>
             <View style={{ paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10, backgroundColor: accentColor + "18" }}>
               <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: accentColor }}>
-                {isNext ? "up next" : "upcoming"}
+                {isEstimated ? "estimated" : (isNext ? "up next" : "upcoming")}
               </Text>
             </View>
           </View>
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground as string }}>
             {fmtDateTime(sc.scheduledAt)} · {fmtCountdown(sc.scheduledAt, nowMs)}
           </Text>
-          {isNext && (
+          {!isEstimated && isNext && (
             <Pressable onPress={() => onOpenCheckin(sc)}
               style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5, alignSelf: "flex-start" }}>
               <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: colors.primary as string }}>
@@ -425,7 +429,7 @@ function ScheduledMilestoneRow({
               <Feather name="arrow-right" size={12} color={colors.primary as string} />
             </Pressable>
           )}
-          {isNext && onRemovePlanned && (
+          {!isEstimated && isNext && onRemovePlanned && (
             <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground as string, marginTop: 3 }}>
               Swipe left to remove reminder
             </Text>
@@ -1052,6 +1056,9 @@ export function CookActivityTimeline({
     null;
   const foodType = (firstItem?.foodType ?? (c?.foodType as string | null | undefined)) || null;
 
+  const aiRefining = !!(cookSeqData as any)?.aiRefining;
+  const rawAiCheckins: AiCheckinItem[] | null | undefined = cookSeqData?.aiCheckins;
+
   const scheduledCheckins: ScheduledCheckin[] = React.useMemo(() => {
     if (!meatOnAt || !estimatedFinishAt) return [];
     const meatOnAtMs = new Date(meatOnAt).getTime();
@@ -1064,6 +1071,40 @@ export function CookActivityTimeline({
     };
     return generateCheckinSchedule(foodType, meatOnAtMs, finishAtMs, anchor);
   }, [foodType, meatOnAt, estimatedFinishAt, firstItem?.wrapAtMinutes, c?.wrapAtMinutes]);
+
+  const _dummyPhase: CheckinPhase = React.useMemo(() => ({
+    key: "", label: "", anchorPercent: 0, expectedInternalTempRange: null,
+    visualCues: [], prepForNext: "", coachingTemplate: "",
+  }), []);
+
+  const aiDerivedCheckins: ScheduledCheckin[] = React.useMemo(() => {
+    if (!rawAiCheckins?.length || !meatOnAt) return [];
+    const meatMs = new Date(meatOnAt).getTime();
+    return rawAiCheckins.map((item, i) => ({
+      id: `ai_ci_${i}`,
+      phaseKey: `ai_ci_${i}`,
+      phaseLabel: item.label,
+      scheduledAt: meatMs + item.offsetMinutes * 60_000,
+      phase: _dummyPhase,
+    }));
+  }, [rawAiCheckins, meatOnAt, _dummyPhase]);
+
+  const estimatedMilestones: ScheduledCheckin[] = React.useMemo(() => {
+    if (!aiRefining || (rawAiCheckins?.length ?? 0) > 0) return [];
+    if (!meatOnAt || !estimatedFinishAt) return [];
+    const meatMs = new Date(meatOnAt).getTime();
+    const finishMs = new Date(estimatedFinishAt).getTime();
+    if (finishMs <= meatMs) return [];
+    const wrapMinutes = firstItem?.wrapAtMinutes ?? null;
+    const rows: ScheduledCheckin[] = [
+      { id: "est_meat_on", phaseKey: "est_meat_on", phaseLabel: "Meat On", scheduledAt: meatMs, phase: _dummyPhase },
+    ];
+    if (wrapMinutes && wrapMinutes > 0) {
+      rows.push({ id: "est_wrap", phaseKey: "est_wrap", phaseLabel: "Wrap", scheduledAt: meatMs + wrapMinutes * 60_000, phase: _dummyPhase });
+    }
+    rows.push({ id: "est_pull_off", phaseKey: "est_pull_off", phaseLabel: "Pull Off", scheduledAt: finishMs, phase: _dummyPhase });
+    return rows;
+  }, [aiRefining, rawAiCheckins, meatOnAt, estimatedFinishAt, firstItem?.wrapAtMinutes, _dummyPhase]);
 
   const completedCheckinMap = React.useMemo(() => {
     const map = new Map<string, CookCheckin>();
@@ -1224,10 +1265,12 @@ export function CookActivityTimeline({
     return upcoming;
   }, [scheduledCheckins, completedCheckinMap, nowMs, isActive, isPlanned, plannedCheckins]);
 
-  const planOnlyScheduled: ScheduledCheckin[] = React.useMemo(
-    () => (isPlanned ? scheduledCheckins : []),
-    [scheduledCheckins, isPlanned],
-  );
+  const planOnlyScheduled: ScheduledCheckin[] = React.useMemo(() => {
+    if (!isPlanned) return [];
+    if (aiDerivedCheckins.length > 0) return aiDerivedCheckins;
+    if (estimatedMilestones.length > 0) return estimatedMilestones;
+    return scheduledCheckins;
+  }, [isPlanned, aiDerivedCheckins, estimatedMilestones, scheduledCheckins]);
 
   // Auto-expand and scroll on new events during active cook.
   // Only fires when a genuinely new event arrives (prevCount > 0 ensures initial
@@ -1305,6 +1348,8 @@ export function CookActivityTimeline({
   const shownScheduled = isPlanned ? planOnlyScheduled : upcomingScheduled;
   const nextCheckinKey = isActive && shownScheduled.length > 0 ? shownScheduled[0].phaseKey : null;
 
+  const isShowingEstimated = isPlanned && estimatedMilestones.length > 0 && aiDerivedCheckins.length === 0;
+
   const allRows: ActivityEvent[] = [
     ...pastEvents,
     ...shownScheduled.map((sc) => ({
@@ -1313,6 +1358,7 @@ export function CookActivityTimeline({
       occurredAt: sc.scheduledAt,
       sc,
       isNext: sc.phaseKey === nextCheckinKey,
+      isEstimated: sc.phaseKey.startsWith("est_"),
     })),
   ];
 
@@ -1328,7 +1374,10 @@ export function CookActivityTimeline({
   const upcomingCount = shownScheduled.length;
   const totalPastCount = pastEvents.length;
   const headerSubLabel = (() => {
-    if (isPlanned) return `${upcomingCount} check-in${upcomingCount !== 1 ? "s" : ""} planned`;
+    if (isPlanned) {
+      const base = `${upcomingCount} check-in${upcomingCount !== 1 ? "s" : ""} planned`;
+      return isShowingEstimated ? `${base} (estimated)` : base;
+    }
     if (totalPastCount > 0 && upcomingCount > 0)
       return `${totalPastCount} event${totalPastCount !== 1 ? "s" : ""} · ${upcomingCount} upcoming`;
     if (totalPastCount > 0)
@@ -1431,6 +1480,17 @@ export function CookActivityTimeline({
             const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
             isAtBottomRef.current = layoutMeasurement.height + contentOffset.y >= contentSize.height - 32;
           }}>
+          {isShowingEstimated && (
+            <View style={{
+              flexDirection: "row", alignItems: "center", gap: 6,
+              paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2,
+            }}>
+              <ActivityIndicator size="small" color={colors.mutedForeground as string} />
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground as string, fontStyle: "italic" }}>
+                PitMaster is personalizing your check-in schedule…
+              </Text>
+            </View>
+          )}
           <View style={{ padding: 14 }}>
             {allRows.map((row, idx) => {
               const isLast = idx === allRows.length - 1;
@@ -1438,7 +1498,7 @@ export function CookActivityTimeline({
               if (row.kind === "scheduled-milestone") {
                 return (
                   <ScheduledMilestoneRow key={row.id}
-                    sc={row.sc} isNext={row.isNext}
+                    sc={row.sc} isNext={row.isNext} isEstimated={row.isEstimated}
                     colors={colors} nowMs={nowMs}
                     onRemovePlanned={onRemovePlanned}
                     isLast={isLast} onOpenCheckin={onOpenCheckin}
