@@ -845,18 +845,28 @@ export default function PlanScreen() {
 
     const runStream = async (token: string): Promise<"ok" | "error" | "fatal_401" | "fatal_402"> => {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), AI_FETCH_TIMEOUT_MS);
+      // Promise.race ensures the timeout fires even on iOS where AbortController
+      // signal is not always reliably honoured by React Native's fetch polyfill.
+      let abortTimer: ReturnType<typeof setTimeout> | undefined;
       let response: Response;
       try {
-        response = await fetch(`${apiBase}/api/ai/multi-cook`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-        });
+        response = await Promise.race([
+          fetch(`${apiBase}/api/ai/multi-cook`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          }),
+          new Promise<never>((_, reject) => {
+            abortTimer = setTimeout(() => {
+              controller.abort();
+              reject(new DOMException("Request timed out", "AbortError"));
+            }, AI_FETCH_TIMEOUT_MS);
+          }),
+        ]);
       } catch (e: any) {
         // Timed-out / aborted socket — surface as a retryable "error" so the
         // modal's auto-retry + in-modal error state kicks in rather than a
@@ -864,7 +874,7 @@ export default function PlanScreen() {
         if (e?.name === "AbortError") return "error";
         throw e;
       } finally {
-        clearTimeout(timer);
+        clearTimeout(abortTimer);
       }
 
       if (response.status === 401) return "fatal_401";
