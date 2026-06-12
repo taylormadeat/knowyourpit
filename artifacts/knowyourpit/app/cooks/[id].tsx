@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { isBgRefining, subscribeBgRefining } from "@/lib/bgAiRefining";
+import { isBgRefining, subscribeBgRefining, onBgAiRefined } from "@/lib/bgAiRefining";
 import {
   View, Text, ScrollView, Pressable, Platform, ActivityIndicator,
   Alert, Image, Animated, LogBox,
@@ -202,6 +202,21 @@ export default function CookDetailScreen() {
     setBgAiRefining(isBgRefining(cookIdNum));
     return subscribeBgRefining(() => setBgAiRefining(isBgRefining(cookIdNum)));
   }, [cookIdNum]);
+
+  // ── Auto-update when background AI refinement completes ───────────────────
+  // When fireBgAiRefine (plan.tsx) finishes patching the cook record it fires
+  // notifyBgAiRefined for this cookId. We respond by invalidating the cook
+  // query with the default refetchType:'active', which triggers an immediate
+  // refetch so the timeline, factors, and "refining" indicator update in-place
+  // without the user needing to pull-to-refresh.
+  // The Plan tab is unaffected because it doesn't call onBgAiRefined and is
+  // unlikely to have an active observer for this specific cook's query key.
+  useEffect(() => {
+    if (!cookIdNum) return;
+    return onBgAiRefined(cookIdNum, () => {
+      qc.invalidateQueries({ queryKey: getGetCookQueryKey(cookIdNum) });
+    });
+  }, [cookIdNum, qc]);
 
   // ── Toast state ────────────────────────────────────────────────────────────
   const [checkinSavedToast, setCheckinSavedToast] = useState<string | null>(null);

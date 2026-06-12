@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { getTokenSafe } from "@/lib/getTokenSafe";
-import { markBgRefining, clearBgRefining } from "@/lib/bgAiRefining";
+import { markBgRefining, clearBgRefining, notifyBgAiRefined } from "@/lib/bgAiRefining";
 import {
   View,
   Text,
@@ -1594,12 +1594,15 @@ export default function PlanScreen() {
         clearTimeout(abortTimer);
       }
       if (!response.ok) return;
-      // Mark queries stale but do NOT trigger an immediate refetch of any
-      // active observer. Using refetchType:'none' prevents the Plan tab
-      // (still mounted in memory by the tab navigator) from re-rendering
-      // visibly while the user is viewing the cook detail screen. The cook
-      // detail screen picks up the fresh sequenceData on its next natural
-      // refetch trigger (focus, window-focus, or manual pull-to-refresh).
+      // Notify the cook detail screen directly so it refetches in-place.
+      // notifyBgAiRefined fires only to subscribers (the cook detail screen
+      // for this cookId) which then call invalidateQueries with the default
+      // refetchType:'active' — triggering an immediate refetch for that screen
+      // without touching the Plan tab's observers.
+      // The fallback invalidateQueries with refetchType:'none' ensures the
+      // data is marked stale for any future natural refetch (e.g. if the
+      // cook detail screen is not yet mounted when refinement completes).
+      notifyBgAiRefined(cookId);
       qc.invalidateQueries({ queryKey: getGetCookQueryKey(cookId), refetchType: "none" });
       qc.invalidateQueries({ queryKey: getListCooksQueryKey(), refetchType: "none" });
     } catch {
