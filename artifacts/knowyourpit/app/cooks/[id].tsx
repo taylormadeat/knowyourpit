@@ -203,6 +203,13 @@ export default function CookDetailScreen() {
     return subscribeBgRefining(() => setBgAiRefining(isBgRefining(cookIdNum)));
   }, [cookIdNum]);
 
+  // ── Screen focus tracking (for toast gate) ────────────────────────────────
+  const isFocusedRef = useRef(true);
+  useFocusEffect(useCallback(() => {
+    isFocusedRef.current = true;
+    return () => { isFocusedRef.current = false; };
+  }, []));
+
   // ── Auto-update when background AI refinement completes ───────────────────
   // When fireBgAiRefine (plan.tsx) finishes patching the cook record it fires
   // notifyBgAiRefined for this cookId. We respond by invalidating the cook
@@ -214,15 +221,26 @@ export default function CookDetailScreen() {
   useEffect(() => {
     if (!cookIdNum) return;
     return onBgAiRefined(cookIdNum, () => {
-      qc.invalidateQueries({ queryKey: getGetCookQueryKey(cookIdNum) });
+      void (async () => {
+        const beforeUpdatedAt = (qc.getQueryData<any>(getGetCookQueryKey(cookIdNum)))?.updatedAt;
+        await qc.refetchQueries({ queryKey: getGetCookQueryKey(cookIdNum), type: "active" });
+        if (!isFocusedRef.current) return;
+        const afterUpdatedAt = (qc.getQueryData<any>(getGetCookQueryKey(cookIdNum)))?.updatedAt;
+        if (!afterUpdatedAt || beforeUpdatedAt === afterUpdatedAt) return;
+        if (planUpdatedToastTimerRef.current) clearTimeout(planUpdatedToastTimerRef.current);
+        setPlanUpdatedToast("Plan updated by PitMaster ✓");
+        planUpdatedToastTimerRef.current = setTimeout(() => setPlanUpdatedToast(null), 2500);
+      })();
     });
   }, [cookIdNum, qc]);
 
   // ── Toast state ────────────────────────────────────────────────────────────
   const [checkinSavedToast, setCheckinSavedToast] = useState<string | null>(null);
   const [autoCheckinToast, setAutoCheckinToast] = useState<string | null>(null);
+  const [planUpdatedToast, setPlanUpdatedToast] = useState<string | null>(null);
   const checkinSavedToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoCheckinToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const planUpdatedToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Screen visibility tracking ─────────────────────────────────────────────
   useEffect(() => {
@@ -708,6 +726,7 @@ export default function CookDetailScreen() {
         editTimesSaving={editTimesSaving} handleSaveCookTimes={handleSaveCookTimes}
         checkinSavedToast={checkinSavedToast} setCheckinSavedToast={setCheckinSavedToast}
         autoCheckinToast={autoCheckinToast} setAutoCheckinToast={setAutoCheckinToast}
+        planUpdatedToast={planUpdatedToast} setPlanUpdatedToast={setPlanUpdatedToast}
         inkbirdToastMounted={inkbirdToastMounted} inkbirdToastAnim={inkbirdToastAnim}
         setInkbirdReconnectToast={setInkbirdReconnectToast}
         bleReconnectToast={bleReconnectToast} setBleReconnectToast={setBleReconnectToast}

@@ -76,6 +76,8 @@ interface CookModalsProps {
   setCheckinSavedToast: (v: string | null) => void;
   autoCheckinToast: string | null;
   setAutoCheckinToast: (v: string | null) => void;
+  planUpdatedToast: string | null;
+  setPlanUpdatedToast: (v: string | null) => void;
   inkbirdToastMounted: boolean;
   inkbirdToastAnim: Animated.Value;
   setInkbirdReconnectToast: (v: boolean) => void;
@@ -136,6 +138,7 @@ export function CookModals({
   editTimesVisible, setEditTimesVisible, editTimesSaving, handleSaveCookTimes,
   checkinSavedToast, setCheckinSavedToast,
   autoCheckinToast, setAutoCheckinToast,
+  planUpdatedToast, setPlanUpdatedToast,
   inkbirdToastMounted, inkbirdToastAnim, setInkbirdReconnectToast,
   bleReconnectToast, setBleReconnectToast,
   activeCheckin, checkinModalVisible, setCheckinModalVisible,
@@ -174,6 +177,7 @@ export function CookModals({
       {autoCheckinToast != null && <View style={{ position: "absolute", bottom: checkinSavedToast != null ? 150 + insets.bottom : 90 + insets.bottom, left: 16, right: 16, backgroundColor: "#1C1C1F", borderColor: "#22c55e", borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 8, zIndex: 9999 }}><Feather name="check-circle" size={16} color="#22c55e" /><Text style={{ flex: 1, color: "#F3EDE1", fontFamily: "Inter_400Regular", fontSize: 13 }}>{autoCheckinToast}</Text><Pressable onPress={() => setAutoCheckinToast(null)} hitSlop={10}><Feather name="x" size={14} color="#9CA3AF" /></Pressable></View>}
       {inkbirdToastMounted && <Animated.View style={{ position: "absolute", bottom: (checkinSavedToast != null ? 60 : 0) + (autoCheckinToast != null ? 60 : 0) + 90 + insets.bottom, left: 16, right: 16, backgroundColor: "#1C1C1F", borderColor: "#22c55e", borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 8, zIndex: 9999, opacity: inkbirdToastAnim, transform: [{ translateY: inkbirdToastAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }}><Feather name="wifi" size={16} color="#22c55e" /><Text style={{ flex: 1, color: "#F3EDE1", fontFamily: "Inter_400Regular", fontSize: 13 }}>Inkbird reconnected ✓</Text><Pressable onPress={() => setInkbirdReconnectToast(false)} hitSlop={10}><Feather name="x" size={14} color="#9CA3AF" /></Pressable></Animated.View>}
       {bleReconnectToast != null && <View style={{ position: "absolute", bottom: (checkinSavedToast != null ? 60 : 0) + (autoCheckinToast != null ? 60 : 0) + (inkbirdToastMounted ? 60 : 0) + 90 + insets.bottom, left: 16, right: 16, backgroundColor: "#1C1C1F", borderColor: "#22c55e", borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 8, zIndex: 9999 }}><Feather name="wifi" size={16} color="#22c55e" /><Text style={{ flex: 1, color: "#F3EDE1", fontFamily: "Inter_400Regular", fontSize: 13 }}>{bleReconnectToast} reconnected ✓</Text><Pressable onPress={() => setBleReconnectToast(null)} hitSlop={10}><Feather name="x" size={14} color="#9CA3AF" /></Pressable></View>}
+      {planUpdatedToast != null && <View style={{ position: "absolute", bottom: (checkinSavedToast != null ? 60 : 0) + (autoCheckinToast != null ? 60 : 0) + (inkbirdToastMounted ? 60 : 0) + (bleReconnectToast != null ? 60 : 0) + 90 + insets.bottom, left: 16, right: 16, backgroundColor: "#1C1C1F", borderColor: "#f97316", borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 8, zIndex: 9999 }}><Feather name="zap" size={16} color="#f97316" /><Text style={{ flex: 1, color: "#F3EDE1", fontFamily: "Inter_400Regular", fontSize: 13 }}>{planUpdatedToast}</Text><Pressable onPress={() => setPlanUpdatedToast(null)} hitSlop={10}><Feather name="x" size={14} color="#9CA3AF" /></Pressable></View>}
 
       {activeCheckin && (
         <UnifiedCheckinSheet
