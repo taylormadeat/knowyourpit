@@ -136,6 +136,12 @@ const WRAP_FINISH_STORAGE_PREFIX = "@knowyourpit:wrapFinish:";
 // response while still recovering from a genuinely dead socket.
 const AI_FETCH_TIMEOUT_MS = 45_000;
 
+// Hard upper bound on the cook-creation mutation. On a stalled or very slow
+// connection the mutateAsync promise can hang indefinitely, leaving the
+// "Start Cooking Now" spinner frozen. Promise.race against this sentinel
+// guarantees the finally block always runs and the button re-enables.
+const MUTATION_TIMEOUT_MS = 15_000;
+
 async function loadLastCookMethod(cutName: string): Promise<QpCookMethod | null> {
   try {
     const stored = await AsyncStorage.getItem(COOK_METHOD_STORAGE_PREFIX + cutName);
@@ -1267,7 +1273,13 @@ export default function PlanScreen() {
       }
 
       // ── CREATE path (normal new-cook flow) ───────────────────────────
-      const createdCook = await createCook.mutateAsync({
+      // Promise.race provides a hard 15-second ceiling. On a stalled or very
+      // slow connection, mutateAsync can hang indefinitely — the finally block
+      // never fires, the spinner never clears, and the user is stuck until they
+      // force-quit. The timeout rejection flows through the outer catch, which
+      // shows a user-facing error and re-enables the button.
+      const createdCook = await Promise.race([
+        createCook.mutateAsync({
         data: {
           foodType: selectedCut.name,
           weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : undefined,
@@ -1338,7 +1350,14 @@ export default function PlanScreen() {
           ...(qpSpritz && { spritzFrequency: qpSpritz }),
           ...(qpWrapFinish && { wrapFinish: qpWrapFinish }),
         } as any,
-      });
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error("COOK_MUTATION_TIMEOUT")),
+            MUTATION_TIMEOUT_MS,
+          )
+        ),
+      ]);
       // Fire-and-forget: schedule the thaw/temper/preheat alerts immediately
       // so they're armed even if the user never opens the cook detail screen.
       // The cook detail screen's hook will re-reconcile these on mount.
@@ -1499,6 +1518,14 @@ export default function PlanScreen() {
         router.push("/(tabs)/cooks" as any);
       }
     } catch (e: any) {
+      // Cook creation timed out — connection too slow or stalled.
+      if (e?.message === "COOK_MUTATION_TIMEOUT") {
+        Alert.alert(
+          "Connection Timeout",
+          "Couldn't start your cook — check your connection and try again.",
+        );
+        return;
+      }
       // Free user hit the cook cap → upgrade modal instead of generic error.
       if (parseAndShowFromError(e)) return;
       if (e?.status === 401) {
@@ -1567,10 +1594,14 @@ export default function PlanScreen() {
         clearTimeout(abortTimer);
       }
       if (!response.ok) return;
-      // Server handles the cook record update; client just invalidates queries
-      // so the live cook screen picks up the new sequenceData.
-      qc.invalidateQueries({ queryKey: getGetCookQueryKey(cookId) });
-      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+      // Mark queries stale but do NOT trigger an immediate refetch of any
+      // active observer. Using refetchType:'none' prevents the Plan tab
+      // (still mounted in memory by the tab navigator) from re-rendering
+      // visibly while the user is viewing the cook detail screen. The cook
+      // detail screen picks up the fresh sequenceData on its next natural
+      // refetch trigger (focus, window-focus, or manual pull-to-refresh).
+      qc.invalidateQueries({ queryKey: getGetCookQueryKey(cookId), refetchType: "none" });
+      qc.invalidateQueries({ queryKey: getListCooksQueryKey(), refetchType: "none" });
     } catch {
       // Silent fail — cook continues with deterministic anchors
     } finally {
