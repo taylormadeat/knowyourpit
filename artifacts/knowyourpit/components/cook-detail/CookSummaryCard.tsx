@@ -36,12 +36,63 @@ export function CookSummaryCard(p: Props) {
     (c.sizingLabel as string | null | undefined) ??
     (typeof c.weightLbs === "number" ? `${c.weightLbs} lbs` : null);
 
-  const hasBorder = !!(planGrade || sizeText);
+  const hasSecondaryRows = !!(planGrade || sizeText);
+
+  if (cookStatus === "completed" && overallGrade && overallColors) {
+    return (
+      <View style={[s.card, { backgroundColor: colors.card, borderColor: overallColors.color + "55", borderRadius: colors.radius, overflow: "hidden", borderWidth: 1.5 }]}>
+        <View style={{ backgroundColor: overallColors.bgColor, padding: 20, alignItems: "center", gap: 8 }}>
+          <View
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: 18,
+              backgroundColor: overallColors.color + "22",
+              borderWidth: 2.5,
+              borderColor: overallColors.color,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 40, color: overallColors.color, lineHeight: 48 }}>{overallGrade}</Text>
+          </View>
+          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 18, color: colors.foreground }}>Overall Grade</Text>
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>Process health · your rating</Text>
+        </View>
+
+        {hasSecondaryRows && (
+          <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
+            {planGrade ? (
+              <View style={[s.inlineGradeRow, { borderBottomColor: sizeText ? colors.border : "transparent" }]}>
+                <View style={[s.inlineGradeBadge, { backgroundColor: planGrade.color + "18", borderColor: planGrade.color + "40" }]}>
+                  <Text style={[s.inlineGradeLetter, { color: planGrade.color }]}>{planGrade.grade}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.inlineGradeTitle, { color: colors.foreground }]}>Plan Accuracy · {planGrade.accuracy}%</Text>
+                  <Text style={[s.inlineGradeSub, { color: colors.mutedForeground }]}>{planGrade.deviation}</Text>
+                </View>
+                <View style={[s.gradeBarTrackSmall, { backgroundColor: colors.border, width: 52 }]}>
+                  <View style={[s.gradeBarFill, { width: `${planGrade.accuracy}%` as any, backgroundColor: planGrade.color }]} />
+                </View>
+              </View>
+            ) : null}
+
+            {sizeText ? (
+              <View style={{ paddingHorizontal: 14, paddingVertical: 9, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={[s.inlineGradeSub, { color: colors.mutedForeground }]}>Size</Text>
+                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: colors.foreground }}>{sizeText}</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+      </View>
+    );
+  }
 
   return (
     <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, overflow: "hidden" }]}>
       {overallGrade && overallColors ? (
-        <View style={[s.inlineGradeRow, { borderBottomColor: hasBorder ? colors.border : "transparent" }]}>
+        <View style={[s.inlineGradeRow, { borderBottomColor: hasSecondaryRows ? colors.border : "transparent" }]}>
           <View style={[s.inlineGradeBadge, { backgroundColor: overallColors.bgColor, borderColor: overallColors.color + "40" }]}>
             <Text style={[s.inlineGradeLetter, { color: overallColors.color }]}>{overallGrade}</Text>
           </View>

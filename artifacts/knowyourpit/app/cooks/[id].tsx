@@ -582,6 +582,11 @@ export default function CookDetailScreen() {
             selectedInkbirdProbe={selectedInkbirdProbe}
           />
 
+          <CookSummaryCard c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs}
+            healthGrade={(() => { const stored: string | null | undefined = (c as any).healthScore; if (stored) return stored; const verdict: string | undefined = (c as any).analysisResult?.assessment?.verdict; return verdict !== undefined ? letterGrade(VERDICT_SCORE[verdict] ?? 50) : null; })()}
+            rating={(() => { const liveVals = [rateTenderness, rateFlavor, rateBark].filter((v) => v > 0); if (liveVals.length > 0) return liveVals.reduce((a, b) => a + b, 0) / liveVals.length; const r = (c as any).rating; return typeof r === "number" && r > 0 ? r : null; })()}
+          />
+
           <CookAnalysisSection
             colors={colors} cookStatus={cookStatus} cookId={Number(id)} isMeatOn={isMeatOn}
             checkinCount={(cookCheckins as CookCheckin[]).length}
@@ -590,6 +595,7 @@ export default function CookDetailScreen() {
             proactiveCoachingNote={proactiveCoachingNote}
             setProactiveCoachingNote={setProactiveCoachingNote}
             fGradeQuip={fGradeQuip}
+            compact={cookStatus === "completed"}
           />
 
           <LiveCookSection
@@ -628,11 +634,6 @@ export default function CookDetailScreen() {
             factorBreakdown={cookSeqData?.factorBreakdown ?? null}
             planTimedOut={cookSeqData?.planTimedOut ?? null}
             qualFactors={qualFactors}
-          />
-
-          <CookSummaryCard c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs}
-            healthGrade={(() => { const stored: string | null | undefined = (c as any).healthScore; if (stored) return stored; const verdict: string | undefined = (c as any).analysisResult?.assessment?.verdict; return verdict !== undefined ? letterGrade(VERDICT_SCORE[verdict] ?? 50) : null; })()}
-            rating={(() => { const liveVals = [rateTenderness, rateFlavor, rateBark].filter((v) => v > 0); if (liveVals.length > 0) return liveVals.reduce((a, b) => a + b, 0) / liveVals.length; const r = (c as any).rating; return typeof r === "number" && r > 0 ? r : null; })()}
           />
 
           {cookStatus === "planned" && (

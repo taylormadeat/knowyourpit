@@ -64,9 +64,10 @@ interface Props {
   checkinCount: number;
   lastDecision?: LastDecision | null;
   onGradeChange?: (grade: string, quip: string | null) => void;
+  compact?: boolean;
 }
 
-export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, lastDecision, onGradeChange }: Props) {
+export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, lastDecision, onGradeChange, compact }: Props) {
   const [breakdownVisible, setBreakdownVisible] = useState(false);
 
   const { data: health, isLoading } = useGetCookHealth(cookId, {
@@ -87,8 +88,6 @@ export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, 
   if (cookStatus !== "active" && cookStatus !== "completed") return null;
   if (isLoading || !health) return null;
 
-  // Outlier cooks get grade: null from the server — render a neutral "review
-  // pending" card so the user sees the data quality note rather than a grade.
   if (health.grade === null) {
     return (
       <View
@@ -135,6 +134,199 @@ export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, 
   const score = GRADE_SCORE[resolvedGrade] ?? 0.5;
   const fQuip = resolvedGrade === "F" ? getFGradeQuip(cookId) : null;
   const displayReason = fQuip ?? health.reason;
+
+  const breakdownModal = (
+    <Modal visible={breakdownVisible} transparent animationType="slide" onRequestClose={() => setBreakdownVisible(false)}>
+      <Pressable style={{ flex: 1, backgroundColor: "#00000060" }} onPress={() => setBreakdownVisible(false)} />
+      <View
+        style={{
+          backgroundColor: colors.card as string,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          borderWidth: 1,
+          borderColor: colors.border as string,
+          maxHeight: "70%",
+        }}
+      >
+        <LinearGradient
+          colors={["#1C1C1F", "#2D1A0E"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+        >
+          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 17, color: "#F3EDE1" }}>Health Score Breakdown</Text>
+          <Pressable onPress={() => setBreakdownVisible(false)} hitSlop={8}>
+            <Feather name="x" size={22} color="#F3EDE1" />
+          </Pressable>
+        </LinearGradient>
+
+        <ScrollView style={{ padding: 20 }} showsVerticalScrollIndicator={false}>
+          <View style={{ alignItems: "center", marginBottom: 20 }}>
+            <View
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: 20,
+                backgroundColor: cfg.bgColor,
+                borderWidth: 3,
+                borderColor: cfg.color,
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 10,
+              }}
+            >
+              <Text style={{ fontFamily: "Inter_700Bold", fontSize: 44, color: cfg.color }}>{resolvedGrade}</Text>
+            </View>
+            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 20, color: cfg.color }}>{cfg.label}</Text>
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 14, color: resolvedGrade === "F" ? "#EF4444" : colors.mutedForeground as string, marginTop: 4, textAlign: "center" }}>
+              {displayReason}
+            </Text>
+          </View>
+
+          {(
+            [
+              {
+                label: "AI Verdict",
+                icon: "cpu" as FeatherName,
+                value: health.factors.aiVerdict
+                  ? ({ perfect: "Perfect", good: "Good", needs_work: "Needs Work", overcooked: "Overcooked", undercooked: "Undercooked" }[health.factors.aiVerdict] ?? health.factors.aiVerdict)
+                  : "Not yet analyzed",
+                ok: health.factors.aiVerdict === "perfect" || health.factors.aiVerdict === "good",
+                note: "60% of health score",
+              },
+              {
+                label: "Process Score",
+                icon: "activity" as FeatherName,
+                value: health.factors.issueCount === 0 && !health.factors.stallDetected && !health.factors.pitDrift
+                  ? "Clean cook"
+                  : [
+                      health.factors.issueCount > 0 ? `${health.factors.issueCount} issue(s)` : null,
+                      health.factors.stallDetected ? "stall detected" : null,
+                      health.factors.pitDrift ? "pit drift" : null,
+                    ].filter(Boolean).join(", "),
+                ok: health.factors.issueCount === 0 && !health.factors.stallDetected && !health.factors.pitDrift,
+                note: "25% of health score",
+              },
+              {
+                label: "Plan Adherence",
+                icon: "target" as FeatherName,
+                value: health.factors.planAccuracyScore != null ? `${health.factors.planAccuracyScore}% on target` : "No plan data",
+                ok: health.factors.planAccuracyScore != null && health.factors.planAccuracyScore >= 70,
+                note: "15% of health score",
+              },
+              {
+                label: "Temperature Tracking",
+                icon: "thermometer" as FeatherName,
+                value: health.factors.tempTracking ?? "No data yet",
+                ok: !health.factors.pitDrift,
+                note: null,
+              },
+              {
+                label: "Step Timing",
+                icon: "clock" as FeatherName,
+                value: health.factors.stepTiming ?? "No data yet",
+                ok: health.factors.stepTiming === "On time" || !health.factors.stepTiming,
+                note: null,
+              },
+            ] satisfies Array<{ label: string; icon: FeatherName; value: string; ok: boolean; note: string | null }>
+          ).map((f) => (
+            <View
+              key={f.label}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                paddingVertical: 12,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border as string,
+              }}
+            >
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  backgroundColor: (f.ok ? "#22c55e" : "#EF4444") + "18",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Feather name={f.icon} size={16} color={f.ok ? "#22c55e" : "#EF4444"} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.foreground as string }}>
+                    {f.label}
+                  </Text>
+                  {f.note && (
+                    <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground as string }}>
+                      {f.note}
+                    </Text>
+                  )}
+                </View>
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground as string, marginTop: 2 }}>
+                  {f.value}
+                </Text>
+              </View>
+              <Feather name={f.ok ? "check-circle" : "x-circle"} size={18} color={f.ok ? "#22c55e" : "#EF4444"} />
+            </View>
+          ))}
+
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground as string, marginTop: 16, textAlign: "center" }}>
+            Score computed at {new Date(health.computedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+          </Text>
+          <View style={{ height: 32 }} />
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+
+  if (compact) {
+    return (
+      <>
+        <Pressable
+          onPress={() => setBreakdownVisible(true)}
+          style={({ pressed }) => ({
+            backgroundColor: colors.card as string,
+            borderRadius: colors.radius as number,
+            borderWidth: 1,
+            borderColor: colors.border as string,
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: 14,
+            paddingVertical: 11,
+            gap: 12,
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
+          <View
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              backgroundColor: cfg.bgColor,
+              borderWidth: 1.5,
+              borderColor: cfg.color,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 18, color: cfg.color }}>{resolvedGrade}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.foreground as string }}>
+              Cook Health · <Text style={{ color: cfg.color }}>{cfg.label}</Text>
+            </Text>
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground as string, marginTop: 2, lineHeight: 15 }} numberOfLines={1}>
+              {displayReason}
+            </Text>
+          </View>
+          <Feather name="info" size={15} color={colors.mutedForeground as string} />
+        </Pressable>
+        {breakdownModal}
+      </>
+    );
+  }
 
   return (
     <>
@@ -234,149 +426,7 @@ export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, 
         })()}
       </Pressable>
 
-      <Modal visible={breakdownVisible} transparent animationType="slide" onRequestClose={() => setBreakdownVisible(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: "#00000060" }} onPress={() => setBreakdownVisible(false)} />
-        <View
-          style={{
-            backgroundColor: colors.card as string,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            borderWidth: 1,
-            borderColor: colors.border as string,
-            maxHeight: "70%",
-          }}
-        >
-          <LinearGradient
-            colors={["#1C1C1F", "#2D1A0E"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{ borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
-          >
-            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 17, color: "#F3EDE1" }}>Health Score Breakdown</Text>
-            <Pressable onPress={() => setBreakdownVisible(false)} hitSlop={8}>
-              <Feather name="x" size={22} color="#F3EDE1" />
-            </Pressable>
-          </LinearGradient>
-
-          <ScrollView style={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-            <View style={{ alignItems: "center", marginBottom: 20 }}>
-              <View
-                style={{
-                  width: 80,
-                  height: 80,
-                  borderRadius: 20,
-                  backgroundColor: cfg.bgColor,
-                  borderWidth: 3,
-                  borderColor: cfg.color,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: 10,
-                }}
-              >
-                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 44, color: cfg.color }}>{resolvedGrade}</Text>
-              </View>
-              <Text style={{ fontFamily: "Inter_700Bold", fontSize: 20, color: cfg.color }}>{cfg.label}</Text>
-              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 14, color: resolvedGrade === "F" ? "#EF4444" : colors.mutedForeground as string, marginTop: 4, textAlign: "center" }}>
-                {displayReason}
-              </Text>
-            </View>
-
-            {(
-              [
-                {
-                  label: "AI Verdict",
-                  icon: "cpu" as FeatherName,
-                  value: health.factors.aiVerdict
-                    ? ({ perfect: "Perfect", good: "Good", needs_work: "Needs Work", overcooked: "Overcooked", undercooked: "Undercooked" }[health.factors.aiVerdict] ?? health.factors.aiVerdict)
-                    : "Not yet analyzed",
-                  ok: health.factors.aiVerdict === "perfect" || health.factors.aiVerdict === "good",
-                  note: "60% of health score",
-                },
-                {
-                  label: "Process Score",
-                  icon: "activity" as FeatherName,
-                  value: health.factors.issueCount === 0 && !health.factors.stallDetected && !health.factors.pitDrift
-                    ? "Clean cook"
-                    : [
-                        health.factors.issueCount > 0 ? `${health.factors.issueCount} issue(s)` : null,
-                        health.factors.stallDetected ? "stall detected" : null,
-                        health.factors.pitDrift ? "pit drift" : null,
-                      ].filter(Boolean).join(", "),
-                  ok: health.factors.issueCount === 0 && !health.factors.stallDetected && !health.factors.pitDrift,
-                  note: "25% of health score",
-                },
-                {
-                  label: "Plan Adherence",
-                  icon: "target" as FeatherName,
-                  value: health.factors.planAccuracyScore != null ? `${health.factors.planAccuracyScore}% on target` : "No plan data",
-                  ok: health.factors.planAccuracyScore != null && health.factors.planAccuracyScore >= 70,
-                  note: "15% of health score",
-                },
-                {
-                  label: "Temperature Tracking",
-                  icon: "thermometer" as FeatherName,
-                  value: health.factors.tempTracking ?? "No data yet",
-                  ok: !health.factors.pitDrift,
-                  note: null,
-                },
-                {
-                  label: "Step Timing",
-                  icon: "clock" as FeatherName,
-                  value: health.factors.stepTiming ?? "No data yet",
-                  ok: health.factors.stepTiming === "On time" || !health.factors.stepTiming,
-                  note: null,
-                },
-              ] satisfies Array<{ label: string; icon: FeatherName; value: string; ok: boolean; note: string | null }>
-            ).map((f) => (
-              <View
-                key={f.label}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 12,
-                  paddingVertical: 12,
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.border as string,
-                }}
-              >
-                <View
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 10,
-                    backgroundColor: (f.ok ? "#22c55e" : "#EF4444") + "18",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Feather name={f.icon} size={16} color={f.ok ? "#22c55e" : "#EF4444"} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.foreground as string }}>
-                      {f.label}
-                    </Text>
-                    {f.note && (
-                      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground as string }}>
-                        {f.note}
-                      </Text>
-                    )}
-                  </View>
-                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground as string, marginTop: 2 }}>
-                    {f.value}
-                  </Text>
-                </View>
-                <Feather name={f.ok ? "check-circle" : "x-circle"} size={18} color={f.ok ? "#22c55e" : "#EF4444"} />
-              </View>
-            ))}
-
-            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground as string, marginTop: 16, textAlign: "center" }}>
-              Score computed at {new Date(health.computedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-            </Text>
-            <View style={{ height: 32 }} />
-          </ScrollView>
-        </View>
-      </Modal>
+      {breakdownModal}
     </>
   );
 }
