@@ -14,11 +14,14 @@ interface CookAnalysisSectionProps {
   setProactiveCoachingNote: (v: string | null) => void;
   fGradeQuip: string | null;
   compact?: boolean;
+  healthBreakdownOpen?: boolean;
+  onHealthBreakdownOpenHandled?: () => void;
 }
 
 export function CookAnalysisSection({
   colors, cookStatus, cookId, isMeatOn, checkinCount, lastDecision, onGradeChange,
   proactiveCoachingNote, setProactiveCoachingNote, fGradeQuip, compact,
+  healthBreakdownOpen, onHealthBreakdownOpenHandled,
 }: CookAnalysisSectionProps) {
   return (
     <>
@@ -50,6 +53,8 @@ export function CookAnalysisSection({
           lastDecision={cookStatus === "active" ? (lastDecision ?? null) : null}
           onGradeChange={(grade, quip) => { if (cookStatus === "active") onGradeChange(grade, quip); }}
           compact={compact}
+          externalOpen={healthBreakdownOpen}
+          onExternalOpenHandled={onHealthBreakdownOpenHandled}
         />
       )}
     </>

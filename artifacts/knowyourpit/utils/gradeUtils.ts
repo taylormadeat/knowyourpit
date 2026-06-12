@@ -53,8 +53,8 @@ const HEALTH_GRADE_SCORE: Record<string, number> = {
 };
 
 /**
- * Compute the overall cook grade by blending the process health score (30%)
- * with the user's star rating (70%).  Either signal can be absent — the grade
+ * Compute the overall cook grade by blending the process health score (50%)
+ * with the user's star rating (50%).  Either signal can be absent — the grade
  * falls back to whichever is available.  Returns null when neither exists.
  *
  * @param healthGrade  Stored letter grade (A–F, optional +/-) or null
@@ -79,7 +79,7 @@ export function computeOverallGrade(
 
   let blended: number;
   if (healthScore !== null && ratingScore !== null) {
-    blended = 0.3 * healthScore + 0.7 * ratingScore;
+    blended = 0.5 * healthScore + 0.5 * ratingScore;
   } else if (healthScore !== null) {
     blended = healthScore;
   } else {

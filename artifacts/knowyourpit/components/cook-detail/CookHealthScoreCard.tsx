@@ -65,10 +65,19 @@ interface Props {
   lastDecision?: LastDecision | null;
   onGradeChange?: (grade: string, quip: string | null) => void;
   compact?: boolean;
+  externalOpen?: boolean;
+  onExternalOpenHandled?: () => void;
 }
 
-export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, lastDecision, onGradeChange, compact }: Props) {
+export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, lastDecision, onGradeChange, compact, externalOpen, onExternalOpenHandled }: Props) {
   const [breakdownVisible, setBreakdownVisible] = useState(false);
+
+  useEffect(() => {
+    if (externalOpen) {
+      setBreakdownVisible(true);
+      onExternalOpenHandled?.();
+    }
+  }, [externalOpen, onExternalOpenHandled]);
 
   const { data: health, isLoading } = useGetCookHealth(cookId, {
     query: {

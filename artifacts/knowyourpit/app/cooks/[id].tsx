@@ -183,6 +183,7 @@ export default function CookDetailScreen() {
   const weather = useAmbientWeather();
   const [fGradeQuip, setFGradeQuip] = useState<string | null>(null);
   const [proactiveCoachingNote, setProactiveCoachingNote] = useState<string | null>(null);
+  const [healthBreakdownOpen, setHealthBreakdownOpen] = useState(false);
   const proactiveAlerts = useProactiveAlerts();
   useEffect(() => { proactiveAlerts.reset(); }, [id]);
   useEffect(() => {
@@ -585,6 +586,7 @@ export default function CookDetailScreen() {
           <CookSummaryCard c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs}
             healthGrade={(() => { const stored: string | null | undefined = (c as any).healthScore; if (stored) return stored; const verdict: string | undefined = (c as any).analysisResult?.assessment?.verdict; return verdict !== undefined ? letterGrade(VERDICT_SCORE[verdict] ?? 50) : null; })()}
             rating={(() => { const liveVals = [rateTenderness, rateFlavor, rateBark].filter((v) => v > 0); if (liveVals.length > 0) return liveVals.reduce((a, b) => a + b, 0) / liveVals.length; const r = (c as any).rating; return typeof r === "number" && r > 0 ? r : null; })()}
+            onOpenHealthBreakdown={() => setHealthBreakdownOpen(true)}
           />
 
           <CookAnalysisSection
@@ -596,6 +598,8 @@ export default function CookDetailScreen() {
             setProactiveCoachingNote={setProactiveCoachingNote}
             fGradeQuip={fGradeQuip}
             compact={cookStatus === "completed"}
+            healthBreakdownOpen={healthBreakdownOpen}
+            onHealthBreakdownOpenHandled={() => setHealthBreakdownOpen(false)}
           />
 
           <LiveCookSection
