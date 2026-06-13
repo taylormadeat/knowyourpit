@@ -651,6 +651,7 @@ export default function PlanScreen() {
   const [multiAddCat, setMultiAddCat] = useState<string>(MEAT_CATEGORIES[0]);
   const [multiPickedCut, setMultiPickedCut] = useState<MeatCut | null>(null);
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
+  const [failedCookPayloads, setFailedCookPayloads] = useState<any[]>([]);
 
   // ── Form reset helpers ───────────────────────────────────────────────
   // Called after a successful save so the next visit feels like a fresh
@@ -964,6 +965,62 @@ export default function PlanScreen() {
     }
   };
 
+  const handleRetryFailedSaves = async (payloads: any[]) => {
+    if (payloads.length === 0) return;
+    try {
+      const results = await Promise.allSettled(
+        payloads.map((data: any) => createCook.mutateAsync({ data })),
+      );
+
+      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: ["home", "insights"] });
+
+      const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+      if (failures.length > 0) {
+        const firstErr = failures[0].reason;
+        if (firstErr?.status === 401) {
+          setFailedCookPayloads([]);
+          Alert.alert(
+            "Session Expired",
+            "Your session has expired. Please sign out from the More tab and sign in again.",
+          );
+          return;
+        }
+        if (parseAndShowFromError(firstErr)) return;
+        const stillFailedPayloads = payloads.filter((_, i) => results[i].status === "rejected");
+        setFailedCookPayloads(stillFailedPayloads);
+        const saved = results.length - failures.length;
+        Alert.alert(
+          "Partial Save",
+          `${saved} of ${results.length} retried. ${failures.length} still failed — check your connection and try again.`,
+          [
+            { text: "Dismiss", style: "cancel", onPress: () => setFailedCookPayloads([]) },
+            { text: "Retry Failed", onPress: () => handleRetryFailedSaves(stillFailedPayloads) },
+          ],
+        );
+        return;
+      }
+
+      setFailedCookPayloads([]);
+      resetMultiForm();
+      resetForm();
+      setPlanMode("single");
+      router.push("/(tabs)/cooks");
+    } catch (e: any) {
+      if (e?.status === 401) {
+        Alert.alert(
+          "Session Expired",
+          "Your session has expired. Please sign out from the More tab and sign in again.",
+        );
+        return;
+      }
+      if (parseAndShowFromError(e)) return;
+      Alert.alert("Error", e?.message || "Failed to save cooks.");
+    }
+  };
+
   const handleRetryMultiCook = () => {
     setMultiError(false);
     handleMultiCook();
@@ -1047,10 +1104,16 @@ export default function PlanScreen() {
           return;
         }
         if (parseAndShowFromError(firstErr)) return;
+        const stillFailedPayloads = cookPayloads.filter((_, i) => results[i].status === "rejected");
+        setFailedCookPayloads(stillFailedPayloads);
         const saved = results.length - failures.length;
         Alert.alert(
           "Partial Save",
           `${saved} of ${results.length} cooks saved. ${failures.length} failed — check your connection and try again.`,
+          [
+            { text: "Dismiss", style: "cancel", onPress: () => setFailedCookPayloads([]) },
+            { text: "Retry Failed", onPress: () => handleRetryFailedSaves(stillFailedPayloads) },
+          ],
         );
         return;
       }
