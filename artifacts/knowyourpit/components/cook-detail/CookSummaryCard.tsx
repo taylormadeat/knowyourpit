@@ -60,6 +60,14 @@ export function CookSummaryCard(p: Props) {
       : null;
 
   const bothPresent = healthScore !== null && ratingScore !== null;
+
+  const scoreSummary: string | null = (() => {
+    const parts: string[] = [];
+    if (healthGrade != null) parts.push(`Cook Health: ${healthGrade}`);
+    if (rating != null && rating > 0)
+      parts.push(`You rated ${rating % 1 === 0 ? rating : rating.toFixed(1)}★`);
+    return parts.length > 0 ? parts.join(" · ") : null;
+  })();
   const blended = bothPresent
     ? Math.round(0.5 * healthScore + 0.5 * ratingScore!)
     : healthScore ?? ratingScore ?? 0;
@@ -331,6 +339,11 @@ export function CookSummaryCard(p: Props) {
             <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>
               Process health · your rating
             </Text>
+            {scoreSummary != null && (
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, opacity: 0.75 }}>
+                {scoreSummary}
+              </Text>
+            )}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
               <Feather name="info" size={12} color={colors.mutedForeground} />
               <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>
@@ -390,6 +403,11 @@ export function CookSummaryCard(p: Props) {
             <View style={{ flex: 1 }}>
               <Text style={[s.inlineGradeTitle, { color: colors.foreground }]}>Overall Grade</Text>
               <Text style={[s.inlineGradeSub, { color: colors.mutedForeground }]}>Process health · your rating</Text>
+              {scoreSummary != null && (
+                <Text style={[s.inlineGradeSub, { color: colors.mutedForeground, opacity: 0.75 }]}>
+                  {scoreSummary}
+                </Text>
+              )}
             </View>
             <Feather name="info" size={14} color={colors.mutedForeground} />
           </Pressable>
