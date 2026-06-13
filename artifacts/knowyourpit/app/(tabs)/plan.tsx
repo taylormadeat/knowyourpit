@@ -271,8 +271,9 @@ export default function PlanScreen() {
         cancelStoredStepNotifications(activeCook.id).catch(() => {});
         scheduleStepNotifications(activeCook.id, freshSchedule, () => true).catch(() => {});
       }
-    } catch {
-      Alert.alert("Save failed", "Could not update cook times. Please try again.");
+    } catch (e: any) {
+      const isTimeout = e?.name === "AbortError" || (typeof e?.message === "string" && e.message.includes("timed out"));
+      Alert.alert("Save failed", isTimeout ? "Request timed out — check your connection and try again." : (e?.message || "Could not update cook times. Please try again."));
     } finally {
       setEditTimesSaving(false);
     }
@@ -1554,10 +1555,14 @@ export default function PlanScreen() {
       }
     } catch (e: any) {
       // Cook creation timed out — connection too slow or stalled.
-      if (e?.message === "COOK_MUTATION_TIMEOUT") {
+      const isTimeout =
+        e?.message === "COOK_MUTATION_TIMEOUT" ||
+        e?.name === "AbortError" ||
+        (typeof e?.message === "string" && e.message.includes("timed out"));
+      if (isTimeout) {
         Alert.alert(
           "Connection Timeout",
-          "Couldn't start your cook — check your connection and try again.",
+          "Request timed out — check your connection and try again.",
         );
         return;
       }

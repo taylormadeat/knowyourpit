@@ -440,8 +440,9 @@ export function useCookDetail(id: string | undefined) {
       qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
       qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       setEditVisible(false);
-    } catch {
-      Alert.alert("Save failed", "Could not save changes. Please try again.");
+    } catch (e: any) {
+      const isTimeout = e?.name === "AbortError" || (typeof e?.message === "string" && e.message.includes("timed out"));
+      Alert.alert("Save failed", isTimeout ? "Request timed out — check your connection and try again." : (e?.message || "Could not save changes. Please try again."));
     } finally {
       setEditSaving(false);
     }
@@ -460,8 +461,9 @@ export function useCookDetail(id: string | undefined) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
       qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
-    } catch {
-      Alert.alert("Save failed", "Could not save ratings. Please try again.");
+    } catch (e: any) {
+      const isTimeout = e?.name === "AbortError" || (typeof e?.message === "string" && e.message.includes("timed out"));
+      Alert.alert("Save failed", isTimeout ? "Request timed out — check your connection and try again." : (e?.message || "Could not save ratings. Please try again."));
     } finally {
       setRateSaving(false);
     }
@@ -534,9 +536,11 @@ export function useCookDetail(id: string | undefined) {
           qc.invalidateQueries({ queryKey: [`/api/cooks/${Number(id)}/events`] });
         } catch {}
       }
-    } catch {
+    } catch (e: any) {
       setConfirmedSteps(prev);
       if (!isConfirming && step === "wrap") setWrapAdjustedFinishMs(prevWrapAdjustedFinishMs);
+      const isTimeout = e?.name === "AbortError" || (typeof e?.message === "string" && e.message.includes("timed out"));
+      Alert.alert("Step not saved", isTimeout ? "Request timed out — check your connection and try again." : (e?.message || "Could not save step. Please try again."));
     }
   };
 
@@ -563,9 +567,11 @@ export function useCookDetail(id: string | undefined) {
     try {
       await updateCook.mutateAsync({ id: Number(id), data: { confirmedSteps: next, ...(updatedSeqData ? { sequenceData: updatedSeqData } : {}) } as any });
       qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
-    } catch {
+    } catch (e: any) {
       setConfirmedSteps(prev);
       setWrapAdjustedFinishMs(null);
+      const isTimeout = e?.name === "AbortError" || (typeof e?.message === "string" && e.message.includes("timed out"));
+      Alert.alert("Step not saved", isTimeout ? "Request timed out — check your connection and try again." : (e?.message || "Could not save wrap step. Please try again."));
     }
   };
 
@@ -619,8 +625,9 @@ export function useCookDetail(id: string | undefined) {
       }
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: getGetCookQueryKey(cook.id) });
-    } catch {
-      Alert.alert("Error", "Could not record thaw start time. Please try again.");
+    } catch (e: any) {
+      const isTimeout = e?.name === "AbortError" || (typeof e?.message === "string" && e.message.includes("timed out"));
+      Alert.alert("Error", isTimeout ? "Request timed out — check your connection and try again." : (e?.message || "Could not record thaw start time. Please try again."));
     } finally {
       setMarkingThaw(false);
     }
@@ -643,8 +650,9 @@ export function useCookDetail(id: string | undefined) {
         cancelStoredStepNotifications(Number(id)).catch(() => {});
         scheduleStepNotifications(Number(id), freshSchedule, () => true).catch(() => {});
       }
-    } catch {
-      Alert.alert("Save failed", "Could not update cook times. Please try again.");
+    } catch (e: any) {
+      const isTimeout = e?.name === "AbortError" || (typeof e?.message === "string" && e.message.includes("timed out"));
+      Alert.alert("Save failed", isTimeout ? "Request timed out — check your connection and try again." : (e?.message || "Could not update cook times. Please try again."));
     } finally {
       setEditTimesSaving(false);
     }
@@ -663,7 +671,10 @@ export function useCookDetail(id: string | undefined) {
         });
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         qc.invalidateQueries({ queryKey: [`/api/cooks/${cook.id}/events`] });
-      } catch {}
+      } catch (e: any) {
+        const isTimeout = e?.name === "AbortError" || (typeof e?.message === "string" && e.message.includes("timed out"));
+        Alert.alert("Log failed", isTimeout ? "Request timed out — check your connection and try again." : (e?.message || "Could not log fuel event. Please try again."));
+      }
     },
     [cook?.id, getToken, qc],
   );
