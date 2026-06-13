@@ -22,6 +22,8 @@ interface Props {
   handleSaveMultiCooks: () => void;
   createCookPending: boolean;
   isRetryingSave?: boolean;
+  saveSettledCount?: number;
+  saveTotalCount?: number;
 }
 
 interface GrillGroup {
@@ -203,7 +205,7 @@ function ScheduleCard({
 }
 
 export function MultiCookResultModal(p: Props) {
-  const { visible, onClose, colors, multiResult, isStreaming, isRetrying, hasError, onRetry, scheduleGrillLabels, handleSaveMultiCooks, createCookPending, isRetryingSave } = p;
+  const { visible, onClose, colors, multiResult, isStreaming, isRetrying, hasError, onRetry, scheduleGrillLabels, handleSaveMultiCooks, createCookPending, isRetryingSave, saveSettledCount = 0, saveTotalCount = 0 } = p;
   const saveBusy = createCookPending || !!isRetryingSave;
   const hasItems = multiResult && multiResult.schedule.length > 0;
   const busy = isStreaming || isRetrying;
@@ -467,7 +469,14 @@ export function MultiCookResultModal(p: Props) {
                   }]}
                 >
                   {saveBusy ? (
-                    <ActivityIndicator color="#fff" size="small" />
+                    <>
+                      <ActivityIndicator color="#fff" size="small" />
+                      <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" }}>
+                        {isRetryingSave
+                          ? `Retrying ${saveSettledCount} of ${saveTotalCount}…`
+                          : `Saving ${saveSettledCount} of ${saveTotalCount}…`}
+                      </Text>
+                    </>
                   ) : (
                     <>
                       <Feather name="save" size={16} color="#fff" />

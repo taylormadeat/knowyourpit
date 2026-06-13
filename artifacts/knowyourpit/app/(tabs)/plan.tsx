@@ -653,6 +653,8 @@ export default function PlanScreen() {
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
   const [failedCookPayloads, setFailedCookPayloads] = useState<any[]>([]);
   const [isRetryingSave, setIsRetryingSave] = useState(false);
+  const [saveSettledCount, setSaveSettledCount] = useState(0);
+  const [saveTotalCount, setSaveTotalCount] = useState(0);
 
   // ── Form reset helpers ───────────────────────────────────────────────
   // Called after a successful save so the next visit feels like a fresh
@@ -977,9 +979,15 @@ export default function PlanScreen() {
     if (payloads.length === 0) return;
     if (isRetryingSave) return;
     setIsRetryingSave(true);
+    setSaveSettledCount(0);
+    setSaveTotalCount(payloads.length);
     try {
       const results = await Promise.allSettled(
-        payloads.map((data: any) => createCook.mutateAsync({ data })),
+        payloads.map((data: any) =>
+          createCook.mutateAsync({ data }).finally(() => {
+            setSaveSettledCount((c) => c + 1);
+          }),
+        ),
       );
 
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
@@ -1096,8 +1104,14 @@ export default function PlanScreen() {
       // Fire all mutations concurrently. Promise.allSettled guarantees the
       // finally / invalidate path always runs and that a single failing item
       // doesn't prevent the others from being saved.
+      setSaveSettledCount(0);
+      setSaveTotalCount(cookPayloads.length);
       const results = await Promise.allSettled(
-        cookPayloads.map((data: any) => createCook.mutateAsync({ data })),
+        cookPayloads.map((data: any) =>
+          createCook.mutateAsync({ data }).finally(() => {
+            setSaveSettledCount((c) => c + 1);
+          }),
+        ),
       );
 
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
@@ -3707,6 +3721,8 @@ export default function PlanScreen() {
         handleSaveMultiCooks={handleSaveMultiCooks}
         createCookPending={createCook.isPending}
         isRetryingSave={isRetryingSave}
+        saveSettledCount={saveSettledCount}
+        saveTotalCount={saveTotalCount}
       />
 
       {/* ════ MULTI-COOK ADD ITEM MODAL ════ */}
