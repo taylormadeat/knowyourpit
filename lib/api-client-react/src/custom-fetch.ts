@@ -337,6 +337,15 @@ async function parseSuccessBody(
   }
 }
 
+/**
+ * Hard ceiling for every fetch call made through customFetch.
+ * React Native's fetch polyfill has no built-in timeout, so a stalled
+ * connection would otherwise hang any caller's loading state indefinitely.
+ * 30 s is generous enough for slow API responses while still recovering
+ * from a genuinely dead socket.
+ */
+const FETCH_TIMEOUT_MS = 30_000;
+
 export async function customFetch<T = unknown>(
   input: RequestInfo | URL,
   options: CustomFetchOptions = {},
@@ -397,7 +406,43 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  // Build an internal AbortController for the per-request timeout.
+  // If the caller already supplied a signal, forward its abort to our
+  // controller so both paths can cancel the fetch.
+  const timeoutController = new AbortController();
+  const callerSignal = init.signal as AbortSignal | null | undefined;
+  if (callerSignal) {
+    if (callerSignal.aborted) {
+      timeoutController.abort(callerSignal.reason);
+    } else {
+      callerSignal.addEventListener(
+        "abort",
+        () => timeoutController.abort(callerSignal.reason),
+        { once: true },
+      );
+    }
+  }
+  const timeoutId = setTimeout(
+    () =>
+      timeoutController.abort(
+        new Error(
+          `[customFetch] Request timed out after ${FETCH_TIMEOUT_MS} ms: ${method} ${resolveUrl(input)}`,
+        ),
+      ),
+    FETCH_TIMEOUT_MS,
+  );
+
+  let response: Response;
+  try {
+    response = await fetch(input, {
+      ...init,
+      method,
+      headers,
+      signal: timeoutController.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

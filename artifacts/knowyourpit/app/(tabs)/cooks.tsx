@@ -361,7 +361,12 @@ export default function CooksScreen() {
   const [outlierReviewCookId, setOutlierReviewCookId] = useState<number | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [reviewRating, setReviewRating] = useState<number | null>(null);
-  const { data: cooks, isLoading, refetch } = useListCooks();
+  const { data: cooks, isLoading, refetch } = useListCooks(undefined, {
+    query: {
+      staleTime: 30_000,
+      retry: 2,
+    } as any,
+  });
   const { data: techniqueStats } = useGetCookTechniqueStats();
   const updateSession = useUpdateSession();
   const deleteCook = useDeleteCook();

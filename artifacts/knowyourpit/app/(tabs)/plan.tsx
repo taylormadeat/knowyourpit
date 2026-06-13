@@ -972,8 +972,13 @@ export default function PlanScreen() {
     if (!multiResult) return;
     try {
       const sessionId = Crypto.randomUUID();
+
+      // Build all cook payloads upfront in the sequential splice pass, then
+      // fire every mutation concurrently so a slow first request can't stall
+      // the rest. Using a local copy of multiItems lets us maintain the
+      // existing "match first unused item" de-dup logic unchanged.
       const remainingItems = [...multiItems];
-      for (const item of multiResult.schedule) {
+      const cookPayloads = (multiResult.schedule as MultiCookScheduleItem[]).map((item) => {
         const _ft = item.foodType.toLowerCase().trim();
         const matchedCut =
           MEAT_CUTS.find(c => c.name.toLowerCase() === _ft) ??
@@ -996,33 +1001,59 @@ export default function PlanScreen() {
         if (item.notes) noteParts.push(item.notes);
         if (item.wrapReason && wrapMethodDb && wrapMethodDb !== "none") noteParts.push(`Wrap: ${item.wrapReason}`);
 
-        await createCook.mutateAsync({
-          data: {
-            foodType: item.foodType,
-            weightLbs: inputWeightLbs,
-            cookTempF: (inputItem?.cookTempF ? parseFloat(inputItem.cookTempF) : null) ?? inputItem?.cut?.cookTempF ?? matchedCut?.cookTempF ?? undefined,
-            targetTempF: (inputItem?.targetTempF ? parseFloat(inputItem.targetTempF) : null) ?? inputItem?.cut?.targetTempF ?? matchedCut?.targetTempF ?? undefined,
-            grillId: resolvedGrillId ?? undefined,
-            plannedStartAt: new Date(item.meatOnAt),
-            sessionId,
-            notes: noteParts.join("\n"),
-            ...(wrapMethodDb !== undefined && { wrapMethod: wrapMethodDb }),
-            ...(item.wrapAtMinutes && item.wrapAtMinutes > 0 && { wrapAtMinutes: Math.round(item.wrapAtMinutes) }),
-            ...(item.wrapTempF && { wrapTempF: Math.round(item.wrapTempF) }),
-            ...(item.wrapReason && { wrapReason: item.wrapReason }),
-            ...(inputItem?.isFrozen && { fromFrozen: true, thawMethod: inputItem.thawMethod }),
-            sequenceData: {
-              schedule: multiResult.schedule,
-              serveAt: multiResult.serveAt,
-              summary: (multiResult as any).summary ?? null,
-            },
-          } as any,
-        });
-      }
+        return {
+          foodType: item.foodType,
+          weightLbs: inputWeightLbs,
+          cookTempF: (inputItem?.cookTempF ? parseFloat(inputItem.cookTempF) : null) ?? inputItem?.cut?.cookTempF ?? matchedCut?.cookTempF ?? undefined,
+          targetTempF: (inputItem?.targetTempF ? parseFloat(inputItem.targetTempF) : null) ?? inputItem?.cut?.targetTempF ?? matchedCut?.targetTempF ?? undefined,
+          grillId: resolvedGrillId ?? undefined,
+          plannedStartAt: new Date(item.meatOnAt),
+          sessionId,
+          notes: noteParts.join("\n"),
+          ...(wrapMethodDb !== undefined && { wrapMethod: wrapMethodDb }),
+          ...(item.wrapAtMinutes && item.wrapAtMinutes > 0 && { wrapAtMinutes: Math.round(item.wrapAtMinutes) }),
+          ...(item.wrapTempF && { wrapTempF: Math.round(item.wrapTempF) }),
+          ...(item.wrapReason && { wrapReason: item.wrapReason }),
+          ...(inputItem?.isFrozen && { fromFrozen: true, thawMethod: inputItem.thawMethod }),
+          sequenceData: {
+            schedule: multiResult.schedule,
+            serveAt: multiResult.serveAt,
+            summary: (multiResult as any).summary ?? null,
+          },
+        };
+      });
+
+      // Fire all mutations concurrently. Promise.allSettled guarantees the
+      // finally / invalidate path always runs and that a single failing item
+      // doesn't prevent the others from being saved.
+      const results = await Promise.allSettled(
+        cookPayloads.map((data: any) => createCook.mutateAsync({ data })),
+      );
+
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
       qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
       qc.invalidateQueries({ queryKey: ["home", "insights"] });
+
+      const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+      if (failures.length > 0) {
+        const firstErr = failures[0].reason;
+        if (firstErr?.status === 401) {
+          Alert.alert(
+            "Session Expired",
+            "Your session has expired. Please sign out from the More tab and sign in again.",
+          );
+          return;
+        }
+        if (parseAndShowFromError(firstErr)) return;
+        const saved = results.length - failures.length;
+        Alert.alert(
+          "Partial Save",
+          `${saved} of ${results.length} cooks saved. ${failures.length} failed — check your connection and try again.`,
+        );
+        return;
+      }
+
       resetMultiForm();
       resetForm();
       setPlanMode("single");
@@ -1035,7 +1066,6 @@ export default function PlanScreen() {
         );
         return;
       }
-      // Free user hit the cook cap mid-multi-save → paywall.
       if (parseAndShowFromError(e)) return;
       Alert.alert("Error", e?.message || "Failed to save cooks.");
     }

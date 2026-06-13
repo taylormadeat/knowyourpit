@@ -337,7 +337,20 @@ export function useCookDetail(id: string | undefined) {
     if (status === "completed" && !(cook as any)?.actualEndAt) {
       updatePayload.actualEndAt = new Date();
     }
-    await updateCook.mutateAsync({ id: Number(id), data: updatePayload });
+    try {
+      await updateCook.mutateAsync({ id: Number(id), data: updatePayload });
+    } catch (e: any) {
+      const isTimeout =
+        e?.name === "AbortError" ||
+        (typeof e?.message === "string" && e.message.includes("timed out"));
+      Alert.alert(
+        "Couldn't update cook",
+        isTimeout
+          ? "The request timed out — check your connection and try again."
+          : (e?.message || "Something went wrong. Please try again."),
+      );
+      return;
+    }
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
     qc.invalidateQueries({ queryKey: getListCooksQueryKey() });

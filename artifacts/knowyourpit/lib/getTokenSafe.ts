@@ -12,7 +12,7 @@
  */
 export async function getTokenSafe(
   getToken: (opts?: { skipCache?: boolean }) => Promise<string | null>,
-  timeoutMs = 1000,
+  timeoutMs = 8000,
 ): Promise<string | null> {
   let timedOut = false;
 
