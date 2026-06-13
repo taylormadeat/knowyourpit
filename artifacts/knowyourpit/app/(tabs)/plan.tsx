@@ -837,6 +837,11 @@ export default function PlanScreen() {
           thawMethod: (item.isFrozen && !isProduce(item.cut.category)) ? item.thawMethod as MultiCookItemThawMethod : undefined,
           notes: item.notes || undefined,
           cookingStylePreset: item.cookingStylePreset ?? undefined,
+          grillName: (() => {
+            const gid = item.grillId ?? grillId ?? null;
+            if (gid == null) return undefined;
+            return (grills as any[] | undefined)?.find((g: any) => g.id === gid)?.name ?? undefined;
+          })(),
         };
       }),
       serveAt: (serveAt ?? defaultServeAt).toISOString(),

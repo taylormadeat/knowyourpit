@@ -13,7 +13,7 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   colors: Colors;
-  multiResult: { schedule: MultiCookScheduleItem[]; serveAt: string; summary: string } | null;
+  multiResult: { schedule: MultiCookScheduleItem[]; serveAt: string; summary: string; sharedGrillTips?: string | null } | null;
   isStreaming?: boolean;
   isRetrying?: boolean;
   hasError?: boolean;
@@ -237,15 +237,24 @@ export function MultiCookResultModal(p: Props) {
                           </Text>
                         </View>
                         <View style={{ paddingHorizontal: 14, paddingVertical: 10, gap: 7 }}>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                            <Feather name="power" size={13} color={colors.mutedForeground} />
-                            <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>
-                              {grillLabel ? `Light ${grillLabel}` : "Light grill"}
-                            </Text>
-                            <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.foreground }}>
-                              {new Date(item.grillLightAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            </Text>
-                          </View>
+                          {item.isSharedGrillFollowOn ? (
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                              <Feather name="thermometer" size={13} color="#F59E0B" />
+                              <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: "#F59E0B", flex: 1 }}>
+                                Grill already hot · add meat
+                              </Text>
+                            </View>
+                          ) : (
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                              <Feather name="power" size={13} color={colors.mutedForeground} />
+                              <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>
+                                {grillLabel ? `Light ${grillLabel}` : "Light grill"}
+                              </Text>
+                              <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.foreground }}>
+                                {new Date(item.grillLightAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </Text>
+                            </View>
+                          )}
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                             <Feather name="zap" size={13} color="#E84820" />
                             <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>Meat on</Text>
@@ -289,6 +298,29 @@ export function MultiCookResultModal(p: Props) {
 
                   {/* Skeleton placeholder for items still being generated */}
                   {busy && <SkeletonRow colors={colors} />}
+
+                  {/* Shared grill tips callout — shown when multiple items share a grill */}
+                  {!busy && multiResult.sharedGrillTips ? (
+                    <View style={{
+                      backgroundColor: "#F59E0B18",
+                      borderWidth: 1,
+                      borderColor: "#F59E0B40",
+                      borderRadius: 10,
+                      padding: 14,
+                      marginTop: 4,
+                      gap: 8,
+                    }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <Feather name="info" size={15} color="#F59E0B" />
+                        <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: "#F59E0B" }}>
+                          Shared grill tips
+                        </Text>
+                      </View>
+                      <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: colors.foreground, lineHeight: 20 }}>
+                        {multiResult.sharedGrillTips}
+                      </Text>
+                    </View>
+                  ) : null}
                 </>
               );
             })()}

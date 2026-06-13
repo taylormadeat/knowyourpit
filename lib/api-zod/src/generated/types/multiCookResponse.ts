@@ -13,4 +13,9 @@ export interface MultiCookResponse {
   serveAt: Date;
   /** One sentence summary of the overall sequencing plan */
   summary: string;
+  /**
+   * AI-generated tips for managing multiple items on the same grill. Null when every item is on a different grill.
+   * @nullable
+   */
+  sharedGrillTips?: string | null;
 }

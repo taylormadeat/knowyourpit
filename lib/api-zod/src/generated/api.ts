@@ -2322,6 +2322,12 @@ export const AiMultiCookBody = zod.object({
           .describe(
             'Name of the preset style the user selected for this item (e.g. \"3-2-1 Method\", \"Texas Style\"). Mentioned for context alongside the individual technique fields.',
           ),
+        grillName: zod
+          .string()
+          .nullish()
+          .describe(
+            'Human-readable name of the grill assigned to this item (e.g. \"Big Green Egg 2XL\"). Used by the server to detect shared-grill scenarios and include per-grill calibration coaching.',
+          ),
       }),
     )
     .min(1)
@@ -2403,6 +2409,12 @@ export const AiMultiCookResponse = zod.object({
           .string()
           .optional()
           .describe("One sentence of specific advice for this item"),
+        isSharedGrillFollowOn: zod
+          .boolean()
+          .nullish()
+          .describe(
+            'True when this item shares a grill with an earlier item in the schedule. When true the UI should suppress the \"Light grill\" step and show \"Grill already hot · add meat\" instead.',
+          ),
       }),
     )
     .describe("All cook items sorted by grillLightAt (earliest first)"),
@@ -2410,6 +2422,12 @@ export const AiMultiCookResponse = zod.object({
   summary: zod
     .string()
     .describe("One sentence summary of the overall sequencing plan"),
+  sharedGrillTips: zod
+    .string()
+    .nullish()
+    .describe(
+      "AI-generated tips for managing multiple items on the same grill. Null when every item is on a different grill.",
+    ),
 });
 
 /**

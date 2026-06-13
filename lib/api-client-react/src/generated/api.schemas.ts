@@ -1498,6 +1498,11 @@ export interface MultiCookItem {
    * @nullable
    */
   cookingStylePreset?: string | null;
+  /**
+   * Human-readable name of the grill assigned to this item (e.g. "Big Green Egg 2XL"). Used by the server to detect shared-grill scenarios and include per-grill calibration coaching.
+   * @nullable
+   */
+  grillName?: string | null;
 }
 
 export interface MultiCookBody {
@@ -1574,6 +1579,11 @@ export interface MultiCookScheduleItem {
   wrapReason?: string | null;
   /** One sentence of specific advice for this item */
   notes?: string;
+  /**
+   * True when this item shares a grill with an earlier item in the schedule. When true the UI should suppress the "Light grill" step and show "Grill already hot · add meat" instead.
+   * @nullable
+   */
+  isSharedGrillFollowOn?: boolean | null;
 }
 
 export interface MultiCookResponse {
@@ -1582,6 +1592,11 @@ export interface MultiCookResponse {
   serveAt: string;
   /** One sentence summary of the overall sequencing plan */
   summary: string;
+  /**
+   * AI-generated tips for managing multiple items on the same grill. Null when every item is on a different grill.
+   * @nullable
+   */
+  sharedGrillTips?: string | null;
 }
 
 export interface TechniqueStatsItem {

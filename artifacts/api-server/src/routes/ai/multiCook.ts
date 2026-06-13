@@ -19,10 +19,20 @@ async function buildMultiCookContext(
 
   const serveAtDate = new Date(serveAt);
 
+  // Identify unique grillIds from the request items so we can fetch
+  // per-grill calibration profiles in parallel.
+  const uniqueGrillIds = [...new Set(
+    items
+      .map((item: typeof items[number]) => item.grillId)
+      .filter((id): id is number => typeof id === "number"),
+  )];
+
+  // Build item lines for the prompt, including the grill name when present.
   const itemLines = items.map((item: typeof items[number], i: number) => {
     const preheat = item.preheatMinutes ?? 25;
     const parts: string[] = [
       `${i + 1}. ${item.foodType}`,
+      item.grillName ? `grill: "${item.grillName}"` : "",
       item.weightLbs ? `${item.weightLbs} lbs` : "weight unknown",
       item.cookTempF ? `cook at ${item.cookTempF}°F` : "cook temp unknown",
       item.targetTempF && item.targetTempF > 0 ? `target internal ${item.targetTempF}°F` : item.targetTempF === 0 ? "time-based / visual doneness (no internal temp target)" : "",
@@ -41,15 +51,79 @@ async function buildMultiCookContext(
     return parts.join(" · ");
   }).join("\n");
 
-  const [cookHistory, smokerInsights] = await Promise.all([
+  // Detect which grill names appear more than once — used to inform the AI
+  // about the shared-grill scenario.
+  const grillNameCounts: Record<string, number> = {};
+  for (const item of items) {
+    if (item.grillName) {
+      grillNameCounts[item.grillName] = (grillNameCounts[item.grillName] ?? 0) + 1;
+    }
+  }
+  const sharedGrillNames = Object.entries(grillNameCounts)
+    .filter(([, n]) => n > 1)
+    .map(([name]) => name);
+
+  // Fetch user cook history + per-grill calibration profiles in parallel.
+  const [cookHistory, allGrillsInsights, ...perGrillInsights] = await Promise.all([
     buildUserCookHistory(userId),
     computeSmokerInsights(userId),
+    ...uniqueGrillIds.map(gid => computeSmokerInsights(userId, gid)),
   ]);
-  const smokerProfile = formatSmokerProfile(smokerInsights);
+
+  // Build the smoker profile section. When all items share a single grill,
+  // use only that grill's profile. When multiple grills are involved, show
+  // per-grill profiles (with grill names as labels) if we have them, falling
+  // back to the aggregate profile otherwise.
+  let smokerProfileSection = "";
+  if (uniqueGrillIds.length === 1 && perGrillInsights.length === 1) {
+    // All items on one grill — use that grill's specific calibration.
+    const grillName = items.find((it: typeof items[number]) => it.grillId === uniqueGrillIds[0])?.grillName ?? "your grill";
+    const profile = formatSmokerProfile(perGrillInsights[0]);
+    if (profile) {
+      smokerProfileSection = profile.replace(
+        "=== YOUR SMOKER PROFILE",
+        `=== SMOKER PROFILE FOR "${grillName.toUpperCase()}"`,
+      );
+    }
+  } else if (uniqueGrillIds.length > 1) {
+    // Multiple grills — show per-grill profiles labeled by grill name.
+    const sections: string[] = [];
+    for (let i = 0; i < uniqueGrillIds.length; i++) {
+      const gid = uniqueGrillIds[i];
+      const grillName = items.find((it: typeof items[number]) => it.grillId === gid)?.grillName ?? `Grill ${gid}`;
+      const profile = formatSmokerProfile(perGrillInsights[i]);
+      if (profile) {
+        sections.push(profile.replace(
+          "=== YOUR SMOKER PROFILE",
+          `=== SMOKER PROFILE FOR "${grillName.toUpperCase()}"`,
+        ));
+      }
+    }
+    if (sections.length > 0) {
+      smokerProfileSection = sections.join("\n\n");
+    } else {
+      // No per-grill data — fall back to aggregate.
+      smokerProfileSection = formatSmokerProfile(allGrillsInsights);
+    }
+  } else {
+    // No grillIds provided — use aggregate profile.
+    smokerProfileSection = formatSmokerProfile(allGrillsInsights);
+  }
 
   const outdoorLine = outdoorTempF != null
     ? `\nOutdoor ambient temperature: ${outdoorTempF}°F (${outdoorTempIsForecast ? "forecast for cook day" : "current"}) — factor this into all estimates. Cold weather increases cook times; hot weather may reduce them.\n`
     : "";
+
+  // Build the shared-grill instruction block for the system prompt.
+  const sharedGrillInstruction = sharedGrillNames.length > 0
+    ? `
+SHARED GRILL RULES (critical — applies to: ${sharedGrillNames.map(n => `"${n}"`).join(", ")}):
+- Preheat deduction: For the FIRST item placed on each grill, grillLightAt = meatOnAt - preheatMinutes (normal). For ALL SUBSEQUENT items on the SAME grill, grillLightAt = meatOnAt (the grill is already hot — no preheat deduction).
+- Shared grill tips: Since items are sharing a grill, populate "sharedGrillTips" with 2–4 concise, specific tips for managing those items together. Use the grill's calibration data from the SMOKER PROFILE above (temperature bias, run-long/short tendency, cook count) to make the advice concrete — e.g. reference the grill's known hot or cold spots, how it holds temp under load, ideal placement order when adding items mid-cook, and any timing watch-outs specific to the items sharing the space.
+`
+    : `
+SHARED GRILL RULES: No items share a grill in this session. Set "sharedGrillTips" to null.
+`;
 
   const systemPrompt = `You are knowyourpit AI, a world-class BBQ pit master. You are sequencing a multi-cook session where everything must be ready to serve at the same time.
 
@@ -59,7 +133,7 @@ For each item, calculate working BACKWARDS from the serveAt time:
 - preheatMinutes: use the value provided per item
 - estimatedFinishAt = serveAt - restMinutes
 - meatOnAt = estimatedFinishAt - estimatedDurationMinutes
-- grillLightAt = meatOnAt - preheatMinutes
+- grillLightAt = meatOnAt - preheatMinutes (see SHARED GRILL RULES below for exceptions)
 All times must be ISO 8601 strings. All items finish resting at or just before serveAt.
 
 For each item, also determine wrap guidance:
@@ -80,7 +154,7 @@ Wrap guidance by cut:
 - Sausage / hot dogs: none
 - Other lean cuts (tri-tip, flat iron): none or butcher_paper briefly if stalling
 - Vegetables / fruit: almost always none; exception is foil-wrapped whole vegetables (potato, beet, corn in husk) where foil is part of the technique
-
+${sharedGrillInstruction}
 Return ONLY valid JSON, no markdown:
 {
   "schedule": [
@@ -100,7 +174,8 @@ Return ONLY valid JSON, no markdown:
     }
   ],
   "serveAt": "ISO string",
-  "summary": "One sentence summary of the full sequencing plan"
+  "summary": "One sentence summary of the full sequencing plan",
+  "sharedGrillTips": "string with 2–4 tips, or null"
 }`;
 
   const sessionNotesSection = notes && notes.trim()
@@ -112,16 +187,17 @@ ${outdoorLine}${sessionNotesSection}
 Items to cook:
 ${itemLines}
 
-${smokerProfile ? smokerProfile + "\n" : ""}${cookHistory}`;
+${smokerProfileSection ? smokerProfileSection + "\n" : ""}${cookHistory}`;
 
-  return { serveAtDate, systemPrompt, userPrompt };
+  return { serveAtDate, systemPrompt, userPrompt, items };
 }
 
 // ── Post-process raw AI JSON into the final response shape ────────────────────
 function processMultiCookResult(
   raw: any,
   serveAtDate: Date,
-): { schedule: any[]; serveAt: string; summary: string } {
+  requestItems: ReturnType<typeof AiMultiCookBody.parse>["items"],
+): { schedule: any[]; serveAt: string; summary: string; sharedGrillTips: string | null } {
   const normalizeWrapMethod = (m: any): "foil" | "butcher_paper" | "none" | null => {
     if (m === "foil" || m === "butcher_paper" || m === "none") return m;
     return null;
@@ -160,6 +236,35 @@ function processMultiCookResult(
       (a: any, b: any) => new Date(a.grillLightAt).getTime() - new Date(b.grillLightAt).getTime()
     );
 
+  // Build a lookup from foodType → grillName using the original request items.
+  // Use a consume-splice pattern so duplicate food types resolve independently.
+  const remainingRequestItems = [...requestItems];
+  const resolvedGrillNames: string[] = [];
+  for (const schedItem of schedule) {
+    const normalised = (schedItem.foodType ?? "").trim().toLowerCase();
+    const idx = remainingRequestItems.findIndex(
+      ri => ri.foodType.trim().toLowerCase() === normalised,
+    );
+    const matched = idx >= 0 ? remainingRequestItems.splice(idx, 1)[0] : undefined;
+    resolvedGrillNames.push(matched?.grillName ?? "");
+  }
+
+  // Mark follow-on items that share a grill with an earlier item and enforce
+  // grillLightAt = meatOnAt for them (server-side enforcement, in case the AI
+  // forgot or miscalculated).
+  const seenGrillNames = new Set<string>();
+  for (let i = 0; i < schedule.length; i++) {
+    const name = resolvedGrillNames[i];
+    if (name && seenGrillNames.has(name)) {
+      schedule[i].isSharedGrillFollowOn = true;
+      // Enforce: follow-on items have no preheat gap.
+      schedule[i].grillLightAt = schedule[i].meatOnAt;
+    } else {
+      schedule[i].isSharedGrillFollowOn = false;
+      if (name) seenGrillNames.add(name);
+    }
+  }
+
   const firstItem = schedule[0];
   const lastItem = schedule[schedule.length - 1];
   let deterministicSummary = "";
@@ -167,10 +272,16 @@ function processMultiCookResult(
     deterministicSummary = `Start ${firstItem.foodType} first, then ${lastItem.foodType} last.`;
   }
 
+  const sharedGrillTips =
+    typeof raw.sharedGrillTips === "string" && raw.sharedGrillTips.trim().length > 0
+      ? raw.sharedGrillTips.trim()
+      : null;
+
   return {
     schedule,
     serveAt: serveAtDate.toISOString(),
     summary: deterministicSummary,
+    sharedGrillTips,
   };
 }
 
@@ -233,7 +344,7 @@ router.post("/ai/multi-cook", requireAuth, aiRateLimit, async (req: any, res): P
       return;
     }
 
-    res.json(processMultiCookResult(raw, ctx.serveAtDate));
+    res.json(processMultiCookResult(raw, ctx.serveAtDate, ctx.items));
   } catch (err: any) {
     req.log.error({ err }, "multi-cook error");
     res.status(500).json({ error: "AI request failed. Please try again." });
@@ -314,7 +425,7 @@ router.post("/ai/multi-cook/stream", requireAuth, aiRateLimit, async (req: any, 
       raw = { schedule: [], serveAt: ctx.serveAtDate.toISOString(), summary: "" };
     }
 
-    res.write(JSON.stringify({ type: "complete", data: processMultiCookResult(raw, ctx.serveAtDate) }) + "\n");
+    res.write(JSON.stringify({ type: "complete", data: processMultiCookResult(raw, ctx.serveAtDate, ctx.items) }) + "\n");
     res.end();
   } catch (err: any) {
     clearTimeout(timeoutId);

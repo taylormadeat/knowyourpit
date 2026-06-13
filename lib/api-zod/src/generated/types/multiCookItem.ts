@@ -47,4 +47,9 @@ export interface MultiCookItem {
    * @nullable
    */
   cookingStylePreset?: string | null;
+  /**
+   * Human-readable name of the grill assigned to this item (e.g. "Big Green Egg 2XL"). Used by the server to detect shared-grill scenarios and include per-grill calibration coaching.
+   * @nullable
+   */
+  grillName?: string | null;
 }

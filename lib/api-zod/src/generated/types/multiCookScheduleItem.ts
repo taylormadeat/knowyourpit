@@ -42,4 +42,9 @@ export interface MultiCookScheduleItem {
   wrapReason?: string | null;
   /** One sentence of specific advice for this item */
   notes?: string;
+  /**
+   * True when this item shares a grill with an earlier item in the schedule. When true the UI should suppress the "Light grill" step and show "Grill already hot · add meat" instead.
+   * @nullable
+   */
+  isSharedGrillFollowOn?: boolean | null;
 }
