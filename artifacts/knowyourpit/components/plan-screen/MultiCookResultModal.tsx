@@ -23,6 +23,43 @@ interface Props {
   createCookPending: boolean;
 }
 
+interface GrillGroup {
+  label: string | null;
+  items: { item: MultiCookScheduleItem; originalIdx: number }[];
+}
+
+function buildGrillGroups(
+  schedule: MultiCookScheduleItem[],
+  grillLabels: (string | null)[],
+): GrillGroup[] {
+  const groups: GrillGroup[] = [];
+  const groupMap = new Map<string, GrillGroup>();
+
+  schedule.forEach((item, idx) => {
+    const label = grillLabels[idx] ?? null;
+    // Use label for grouping key; append a sentinel if null so distinct
+    // null-label items still collapse into one "no grill" group.
+    const key = label ?? "__none__";
+    if (!groupMap.has(key)) {
+      const group: GrillGroup = { label, items: [] };
+      groupMap.set(key, group);
+      groups.push(group);
+    }
+    groupMap.get(key)!.items.push({ item, originalIdx: idx });
+  });
+
+  // Within each grill group, sort by meatOnAt ascending so the earliest
+  // cook always appears first regardless of the global grillLightAt order.
+  for (const group of groups) {
+    group.items.sort(
+      (a, b) =>
+        new Date(a.item.meatOnAt).getTime() - new Date(b.item.meatOnAt).getTime(),
+    );
+  }
+
+  return groups;
+}
+
 function SkeletonRow({ colors }: { colors: Colors }) {
   return (
     <View
@@ -56,10 +93,125 @@ function SkeletonRow({ colors }: { colors: Colors }) {
   );
 }
 
+function ScheduleCard({
+  item,
+  originalIdx,
+  grillLabel,
+  colors,
+  showGrillSubLabel,
+}: {
+  item: MultiCookScheduleItem;
+  originalIdx: number;
+  grillLabel: string | null;
+  colors: Colors;
+  showGrillSubLabel: boolean;
+}) {
+  const fmtTime = (value: Date | string) =>
+    new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <View
+      style={{
+        borderWidth: 1,
+        borderRadius: 10,
+        marginBottom: 10,
+        overflow: "hidden",
+        borderColor: colors.border,
+        backgroundColor: colors.background,
+      }}
+    >
+      <View style={{ backgroundColor: "#6C3BF518", paddingHorizontal: 14, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#6C3BF5", alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ color: "#fff", fontSize: 11, fontFamily: "Inter_700Bold" }}>{originalIdx + 1}</Text>
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={{ fontSize: 14, fontFamily: "Inter_700Bold", color: colors.foreground }}>{item.foodType}</Text>
+          {showGrillSubLabel ? (
+            grillLabel ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Feather name="sliders" size={10} color={colors.mutedForeground} />
+                <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>{grillLabel}</Text>
+              </View>
+            ) : (
+              <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontStyle: "italic" }}>No grill selected</Text>
+            )
+          ) : null}
+        </View>
+        <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
+          {fmtMinutes(item.estimatedDurationMinutes)} cook
+        </Text>
+      </View>
+      <View style={{ paddingHorizontal: 14, paddingVertical: 10, gap: 7 }}>
+        {item.isSharedGrillFollowOn ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Feather name="thermometer" size={13} color="#F59E0B" />
+            <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: "#F59E0B", flex: 1 }}>
+              Grill already hot · add meat
+            </Text>
+          </View>
+        ) : (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Feather name="power" size={13} color={colors.mutedForeground} />
+            <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>
+              {grillLabel ? `Light ${grillLabel}` : "Light grill"}
+            </Text>
+            <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.foreground }}>
+              {fmtTime(item.grillLightAt)}
+            </Text>
+          </View>
+        )}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Feather name="zap" size={13} color="#E84820" />
+          <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>Meat on</Text>
+          <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: "#E84820" }}>
+            {fmtTime(item.meatOnAt)}
+          </Text>
+        </View>
+        {item.wrapMethod && item.wrapMethod !== "none" && item.wrapAtMinutes && item.wrapAtMinutes > 0 && (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Feather name="package" size={13} color="#A855F7" />
+            <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>
+              {item.wrapMethod === "foil" ? "Wrap in foil" : "Wrap in butcher paper"}
+              {item.wrapTempF ? ` · ${item.wrapTempF}°F` : ""}
+            </Text>
+            <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#A855F7" }}>
+              {new Date(new Date(item.meatOnAt).getTime() + item.wrapAtMinutes * 60000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </Text>
+          </View>
+        )}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Feather name="pause" size={13} color={colors.mutedForeground} />
+          <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>Pull off · rest {item.restMinutes}m</Text>
+          <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
+            {fmtTime(item.estimatedFinishAt)}
+          </Text>
+        </View>
+        {item.wrapReason && item.wrapMethod && item.wrapMethod !== "none" ? (
+          <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: "#A855F7", fontStyle: "italic", marginTop: 2 }}>
+            {item.wrapReason}
+          </Text>
+        ) : null}
+        {item.notes ? (
+          <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontStyle: "italic", marginTop: 2 }}>
+            {item.notes}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 export function MultiCookResultModal(p: Props) {
   const { visible, onClose, colors, multiResult, isStreaming, isRetrying, hasError, onRetry, scheduleGrillLabels, handleSaveMultiCooks, createCookPending } = p;
   const hasItems = multiResult && multiResult.schedule.length > 0;
   const busy = isStreaming || isRetrying;
+
+  const grillGroups: GrillGroup[] = React.useMemo(() => {
+    if (!multiResult) return [];
+    return buildGrillGroups(multiResult.schedule, scheduleGrillLabels);
+  }, [multiResult, scheduleGrillLabels]);
+
+  const isMultiGrill = grillGroups.length > 1;
 
   return (
     <Modal
@@ -173,15 +325,13 @@ export function MultiCookResultModal(p: Props) {
 
             {/* Partial results arrive progressively */}
             {hasItems && !hasError && (() => {
-              const fmtTime = (value: Date | string) =>
-                new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
               return (
                 <>
                   {!busy && (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
                       <Feather name="check-circle" size={16} color="#22c55e" />
                       <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
-                        Everything ready by {fmtTime(multiResult.serveAt)}
+                        Everything ready by {new Date(multiResult.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </Text>
                     </View>
                   )}
@@ -203,98 +353,53 @@ export function MultiCookResultModal(p: Props) {
                     </View>
                   ) : null}
 
-                  {multiResult.schedule.map((item: MultiCookScheduleItem, idx: number) => {
-                    const grillLabel = scheduleGrillLabels[idx] ?? null;
-                    return (
-                      <View
-                        key={idx}
-                        style={[{
-                          borderWidth: 1,
-                          borderRadius: 10,
-                          marginBottom: 10,
-                          overflow: "hidden",
-                          borderColor: colors.border,
-                          backgroundColor: colors.background,
-                        }]}
-                      >
-                        <View style={{ backgroundColor: "#6C3BF518", paddingHorizontal: 14, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#6C3BF5", alignItems: "center", justifyContent: "center" }}>
-                            <Text style={{ color: "#fff", fontSize: 11, fontFamily: "Inter_700Bold" }}>{idx + 1}</Text>
-                          </View>
-                          <View style={{ flex: 1, gap: 2 }}>
-                            <Text style={{ fontSize: 14, fontFamily: "Inter_700Bold", color: colors.foreground }}>{item.foodType}</Text>
-                            {grillLabel ? (
-                              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                                <Feather name="sliders" size={10} color={colors.mutedForeground} />
-                                <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>{grillLabel}</Text>
-                              </View>
-                            ) : (
-                              <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontStyle: "italic" }}>No grill selected</Text>
-                            )}
-                          </View>
-                          <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
-                            {fmtMinutes(item.estimatedDurationMinutes)} cook
+                  {isMultiGrill ? (
+                    grillGroups.map((group, groupIdx) => (
+                      <View key={groupIdx}>
+                        {/* Grill group header */}
+                        <View style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 7,
+                          marginTop: groupIdx === 0 ? 0 : 10,
+                          marginBottom: 8,
+                          paddingBottom: 6,
+                          borderBottomWidth: 1,
+                          borderBottomColor: colors.border,
+                        }}>
+                          <Feather name="sliders" size={13} color={colors.mutedForeground} />
+                          <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.foreground, flex: 1 }}>
+                            {group.label ?? "No grill selected"}
+                          </Text>
+                          <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
+                            {group.items.length} {group.items.length === 1 ? "item" : "items"}
                           </Text>
                         </View>
-                        <View style={{ paddingHorizontal: 14, paddingVertical: 10, gap: 7 }}>
-                          {item.isSharedGrillFollowOn ? (
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                              <Feather name="thermometer" size={13} color="#F59E0B" />
-                              <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: "#F59E0B", flex: 1 }}>
-                                Grill already hot · add meat
-                              </Text>
-                            </View>
-                          ) : (
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                              <Feather name="power" size={13} color={colors.mutedForeground} />
-                              <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>
-                                {grillLabel ? `Light ${grillLabel}` : "Light grill"}
-                              </Text>
-                              <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.foreground }}>
-                                {new Date(item.grillLightAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                              </Text>
-                            </View>
-                          )}
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                            <Feather name="zap" size={13} color="#E84820" />
-                            <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>Meat on</Text>
-                            <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: "#E84820" }}>
-                              {new Date(item.meatOnAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            </Text>
-                          </View>
-                          {item.wrapMethod && item.wrapMethod !== "none" && item.wrapAtMinutes && item.wrapAtMinutes > 0 && (
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                              <Feather name="package" size={13} color="#A855F7" />
-                              <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>
-                                {item.wrapMethod === "foil" ? "Wrap in foil" : "Wrap in butcher paper"}
-                                {item.wrapTempF ? ` · ${item.wrapTempF}°F` : ""}
-                              </Text>
-                              <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#A855F7" }}>
-                                {new Date(new Date(item.meatOnAt).getTime() + item.wrapAtMinutes * 60000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                              </Text>
-                            </View>
-                          )}
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                            <Feather name="pause" size={13} color={colors.mutedForeground} />
-                            <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>Pull off · rest {item.restMinutes}m</Text>
-                            <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
-                              {new Date(item.estimatedFinishAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            </Text>
-                          </View>
-                          {item.wrapReason && item.wrapMethod && item.wrapMethod !== "none" ? (
-                            <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: "#A855F7", fontStyle: "italic", marginTop: 2 }}>
-                              {item.wrapReason}
-                            </Text>
-                          ) : null}
-                          {item.notes ? (
-                            <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontStyle: "italic", marginTop: 2 }}>
-                              {item.notes}
-                            </Text>
-                          ) : null}
-                        </View>
+
+                        {group.items.map(({ item, originalIdx }) => (
+                          <ScheduleCard
+                            key={originalIdx}
+                            item={item}
+                            originalIdx={originalIdx}
+                            grillLabel={group.label}
+                            colors={colors}
+                            showGrillSubLabel={false}
+                          />
+                        ))}
                       </View>
-                    );
-                  })}
+                    ))
+                  ) : (
+                    grillGroups[0]?.items.map(({ item, originalIdx }) => (
+                      <ScheduleCard
+                        key={originalIdx}
+                        item={item}
+                        originalIdx={originalIdx}
+                        grillLabel={scheduleGrillLabels[originalIdx] ?? null}
+                        colors={colors}
+                        showGrillSubLabel={true}
+                      />
+                    ))
+                  )}
 
                   {/* Skeleton placeholder for items still being generated */}
                   {busy && <SkeletonRow colors={colors} />}
