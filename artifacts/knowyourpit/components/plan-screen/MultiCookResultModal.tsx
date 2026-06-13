@@ -24,6 +24,8 @@ interface Props {
   isRetryingSave?: boolean;
   saveSettledCount?: number;
   saveTotalCount?: number;
+  failedIndices?: Set<number>;
+  onRetryFailed?: () => void;
 }
 
 interface GrillGroup {
@@ -40,8 +42,6 @@ function buildGrillGroups(
 
   schedule.forEach((item, idx) => {
     const label = grillLabels[idx] ?? null;
-    // Use label for grouping key; append a sentinel if null so distinct
-    // null-label items still collapse into one "no grill" group.
     const key = label ?? "__none__";
     if (!groupMap.has(key)) {
       const group: GrillGroup = { label, items: [] };
@@ -51,8 +51,6 @@ function buildGrillGroups(
     groupMap.get(key)!.items.push({ item, originalIdx: idx });
   });
 
-  // Within each grill group, sort by meatOnAt ascending so the earliest
-  // cook always appears first regardless of the global grillLightAt order.
   for (const group of groups) {
     group.items.sort(
       (a, b) =>
@@ -102,12 +100,14 @@ function ScheduleCard({
   grillLabel,
   colors,
   showGrillSubLabel,
+  hasFailed,
 }: {
   item: MultiCookScheduleItem;
   originalIdx: number;
   grillLabel: string | null;
   colors: Colors;
   showGrillSubLabel: boolean;
+  hasFailed?: boolean;
 }) {
   const fmtTime = (value: Date | string) =>
     new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -119,17 +119,34 @@ function ScheduleCard({
         borderRadius: 10,
         marginBottom: 10,
         overflow: "hidden",
-        borderColor: colors.border,
+        borderColor: hasFailed ? "#EF4444" : colors.border,
         backgroundColor: colors.background,
       }}
     >
-      <View style={{ backgroundColor: "#6C3BF518", paddingHorizontal: 14, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#6C3BF5", alignItems: "center", justifyContent: "center" }}>
-          <Text style={{ color: "#fff", fontSize: 11, fontFamily: "Inter_700Bold" }}>{originalIdx + 1}</Text>
-        </View>
+      <View style={{
+        backgroundColor: hasFailed ? "#EF444418" : "#6C3BF518",
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+      }}>
+        {hasFailed ? (
+          <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#EF4444", alignItems: "center", justifyContent: "center" }}>
+            <Feather name="alert-circle" size={13} color="#fff" />
+          </View>
+        ) : (
+          <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#6C3BF5", alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ color: "#fff", fontSize: 11, fontFamily: "Inter_700Bold" }}>{originalIdx + 1}</Text>
+          </View>
+        )}
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={{ fontSize: 14, fontFamily: "Inter_700Bold", color: colors.foreground }}>{item.foodType}</Text>
-          {showGrillSubLabel ? (
+          <Text style={{ fontSize: 14, fontFamily: "Inter_700Bold", color: hasFailed ? "#EF4444" : colors.foreground }}>{item.foodType}</Text>
+          {hasFailed ? (
+            <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: "#EF4444" }}>
+              Save failed · will retry
+            </Text>
+          ) : showGrillSubLabel ? (
             grillLabel ? (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                 <Feather name="sliders" size={10} color={colors.mutedForeground} />
@@ -140,7 +157,7 @@ function ScheduleCard({
             )
           ) : null}
         </View>
-        <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
+        <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: hasFailed ? "#EF4444" : colors.mutedForeground }}>
           {fmtMinutes(item.estimatedDurationMinutes)} cook
         </Text>
       </View>
@@ -205,10 +222,16 @@ function ScheduleCard({
 }
 
 export function MultiCookResultModal(p: Props) {
-  const { visible, onClose, colors, multiResult, isStreaming, isRetrying, hasError, onRetry, scheduleGrillLabels, handleSaveMultiCooks, createCookPending, isRetryingSave, saveSettledCount = 0, saveTotalCount = 0 } = p;
+  const {
+    visible, onClose, colors, multiResult, isStreaming, isRetrying, hasError, onRetry,
+    scheduleGrillLabels, handleSaveMultiCooks, createCookPending, isRetryingSave,
+    saveSettledCount = 0, saveTotalCount = 0,
+    failedIndices, onRetryFailed,
+  } = p;
   const saveBusy = createCookPending || !!isRetryingSave;
   const hasItems = multiResult && multiResult.schedule.length > 0;
   const busy = isStreaming || isRetrying;
+  const hasPartialFailure = !!(failedIndices && failedIndices.size > 0);
 
   const grillGroups: GrillGroup[] = React.useMemo(() => {
     if (!multiResult) return [];
@@ -331,11 +354,30 @@ export function MultiCookResultModal(p: Props) {
             {hasItems && !hasError && (() => {
               return (
                 <>
-                  {!busy && (
+                  {!busy && !hasPartialFailure && (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
                       <Feather name="check-circle" size={16} color="#22c55e" />
                       <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
                         Everything ready by {new Date(multiResult.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </Text>
+                    </View>
+                  )}
+
+                  {!busy && hasPartialFailure && (
+                    <View style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: 14,
+                      backgroundColor: "#EF444418",
+                      borderRadius: 8,
+                      padding: 10,
+                      borderWidth: 1,
+                      borderColor: "#EF444440",
+                    }}>
+                      <Feather name="alert-circle" size={16} color="#EF4444" />
+                      <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#EF4444", flex: 1 }}>
+                        {failedIndices!.size} of {multiResult.schedule.length} {failedIndices!.size === 1 ? "cook" : "cooks"} failed to save
                       </Text>
                     </View>
                   )}
@@ -360,7 +402,6 @@ export function MultiCookResultModal(p: Props) {
                   {isMultiGrill ? (
                     grillGroups.map((group, groupIdx) => (
                       <View key={groupIdx}>
-                        {/* Grill group header */}
                         <View style={{
                           flexDirection: "row",
                           alignItems: "center",
@@ -388,6 +429,7 @@ export function MultiCookResultModal(p: Props) {
                             grillLabel={group.label}
                             colors={colors}
                             showGrillSubLabel={false}
+                            hasFailed={failedIndices?.has(originalIdx)}
                           />
                         ))}
                       </View>
@@ -401,6 +443,7 @@ export function MultiCookResultModal(p: Props) {
                         grillLabel={scheduleGrillLabels[originalIdx] ?? null}
                         colors={colors}
                         showGrillSubLabel={true}
+                        hasFailed={failedIndices?.has(originalIdx)}
                       />
                     ))
                   )}
@@ -453,39 +496,87 @@ export function MultiCookResultModal(p: Props) {
             {/* Action buttons — only shown when streaming is complete and no error */}
             {!busy && !hasError && hasItems && (
               <>
-                <Pressable
-                  onPress={handleSaveMultiCooks}
-                  disabled={saveBusy}
-                  style={({ pressed }) => [{
-                    backgroundColor: "#6C3BF5",
-                    borderRadius: colors.radius,
-                    paddingVertical: 14,
-                    flexDirection: "row" as const,
-                    alignItems: "center" as const,
-                    justifyContent: "center" as const,
-                    gap: 8,
-                    marginTop: 4,
-                    opacity: (pressed || saveBusy) ? 0.7 : 1,
-                  }]}
-                >
-                  {saveBusy ? (
-                    <>
-                      <ActivityIndicator color="#fff" size="small" />
-                      <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" }}>
-                        {isRetryingSave
-                          ? `Retrying ${saveSettledCount} of ${saveTotalCount}…`
-                          : `Saving ${saveSettledCount} of ${saveTotalCount}…`}
-                      </Text>
-                    </>
-                  ) : (
-                    <>
-                      <Feather name="save" size={16} color="#fff" />
-                      <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" }}>
-                        Save {multiResult.schedule.length} Cooks to My Plan
-                      </Text>
-                    </>
-                  )}
-                </Pressable>
+                {/* Partial failure: show Retry Failed button */}
+                {hasPartialFailure ? (
+                  <>
+                    <Pressable
+                      onPress={onRetryFailed}
+                      disabled={saveBusy}
+                      style={({ pressed }) => [{
+                        backgroundColor: "#EF4444",
+                        borderRadius: colors.radius,
+                        paddingVertical: 14,
+                        flexDirection: "row" as const,
+                        alignItems: "center" as const,
+                        justifyContent: "center" as const,
+                        gap: 8,
+                        marginTop: 4,
+                        opacity: (pressed || saveBusy) ? 0.7 : 1,
+                      }]}
+                    >
+                      {saveBusy ? (
+                        <>
+                          <ActivityIndicator color="#fff" size="small" />
+                          <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" }}>
+                            {`Retrying ${saveSettledCount} of ${saveTotalCount}…`}
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Feather name="refresh-cw" size={16} color="#fff" />
+                          <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" }}>
+                            Retry {failedIndices!.size} Failed {failedIndices!.size === 1 ? "Cook" : "Cooks"}
+                          </Text>
+                        </>
+                      )}
+                    </Pressable>
+
+                    <Text style={{
+                      fontSize: 12,
+                      fontFamily: "Inter_400Regular",
+                      color: colors.mutedForeground,
+                      textAlign: "center",
+                      marginTop: 8,
+                    }}>
+                      Check your connection and try again
+                    </Text>
+                  </>
+                ) : (
+                  /* All saved: show normal Save button */
+                  <Pressable
+                    onPress={handleSaveMultiCooks}
+                    disabled={saveBusy}
+                    style={({ pressed }) => [{
+                      backgroundColor: "#6C3BF5",
+                      borderRadius: colors.radius,
+                      paddingVertical: 14,
+                      flexDirection: "row" as const,
+                      alignItems: "center" as const,
+                      justifyContent: "center" as const,
+                      gap: 8,
+                      marginTop: 4,
+                      opacity: (pressed || saveBusy) ? 0.7 : 1,
+                    }]}
+                  >
+                    {saveBusy ? (
+                      <>
+                        <ActivityIndicator color="#fff" size="small" />
+                        <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" }}>
+                          {isRetryingSave
+                            ? `Retrying ${saveSettledCount} of ${saveTotalCount}…`
+                            : `Saving ${saveSettledCount} of ${saveTotalCount}…`}
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <Feather name="save" size={16} color="#fff" />
+                        <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" }}>
+                          Save {multiResult.schedule.length} Cooks to My Plan
+                        </Text>
+                      </>
+                    )}
+                  </Pressable>
+                )}
 
                 <Pressable
                   onPress={onClose}

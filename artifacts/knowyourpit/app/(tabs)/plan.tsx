@@ -651,7 +651,7 @@ export default function PlanScreen() {
   const [multiAddCat, setMultiAddCat] = useState<string>(MEAT_CATEGORIES[0]);
   const [multiPickedCut, setMultiPickedCut] = useState<MeatCut | null>(null);
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
-  const [failedCookPayloads, setFailedCookPayloads] = useState<any[]>([]);
+  const [failedCooks, setFailedCooks] = useState<{ payload: any; originalIndex: number }[]>([]);
   const [isRetryingSave, setIsRetryingSave] = useState(false);
   const [saveSettledCount, setSaveSettledCount] = useState(0);
   const [saveTotalCount, setSaveTotalCount] = useState(0);
@@ -795,6 +795,7 @@ export default function PlanScreen() {
     // enter this function without the ref check.
     if (multiCookRunningRef.current) return;
     multiCookRunningRef.current = true;
+    setFailedCooks([]);
 
     // Pro-only (or unlocked when the kill switch is off). Pre-check before
     // hitting the server so we can show a richer paywall modal context.
@@ -968,23 +969,17 @@ export default function PlanScreen() {
     }
   };
 
-  const formatFailedNames = (payloads: any[]): string => {
-    const names: string[] = payloads.map((p) => p.foodType).filter(Boolean);
-    if (names.length === 0) return `${payloads.length} item${payloads.length !== 1 ? "s" : ""}`;
-    if (names.length <= 3) return names.join(", ");
-    return `${names.slice(0, 3).join(", ")}, and ${names.length - 3} more`;
-  };
 
-  const handleRetryFailedSaves = async (payloads: any[]) => {
-    if (payloads.length === 0) return;
+  const handleRetryFailedSaves = async (items: { payload: any; originalIndex: number }[]) => {
+    if (items.length === 0) return;
     if (isRetryingSave) return;
     setIsRetryingSave(true);
     setSaveSettledCount(0);
-    setSaveTotalCount(payloads.length);
+    setSaveTotalCount(items.length);
     try {
       const results = await Promise.allSettled(
-        payloads.map((data: any) =>
-          createCook.mutateAsync({ data }).finally(() => {
+        items.map(({ payload }) =>
+          createCook.mutateAsync({ data: payload }).finally(() => {
             setSaveSettledCount((c) => c + 1);
           }),
         ),
@@ -999,7 +994,7 @@ export default function PlanScreen() {
       if (failures.length > 0) {
         const firstErr = failures[0].reason;
         if (firstErr?.status === 401) {
-          setFailedCookPayloads([]);
+          setFailedCooks([]);
           Alert.alert(
             "Session Expired",
             "Your session has expired. Please sign out from the More tab and sign in again.",
@@ -1007,21 +1002,12 @@ export default function PlanScreen() {
           return;
         }
         if (parseAndShowFromError(firstErr)) return;
-        const stillFailedPayloads = payloads.filter((_, i) => results[i].status === "rejected");
-        setFailedCookPayloads(stillFailedPayloads);
-        const saved = results.length - failures.length;
-        Alert.alert(
-          "Partial Save",
-          `${saved} of ${results.length} retried. ${formatFailedNames(stillFailedPayloads)} still failed — check your connection and try again.`,
-          [
-            { text: "Dismiss", style: "cancel", onPress: () => setFailedCookPayloads([]) },
-            { text: "Retry Failed", onPress: () => handleRetryFailedSaves(stillFailedPayloads) },
-          ],
-        );
+        const stillFailed = items.filter((_, i) => results[i].status === "rejected");
+        setFailedCooks(stillFailed);
         return;
       }
 
-      setFailedCookPayloads([]);
+      setFailedCooks([]);
       resetMultiForm();
       resetForm();
       setPlanMode("single");
@@ -1046,8 +1032,13 @@ export default function PlanScreen() {
     handleMultiCook();
   };
 
+  const handleRetryFailedSavesFromModal = () => {
+    handleRetryFailedSaves(failedCooks);
+  };
+
   const handleSaveMultiCooks = async () => {
     if (!multiResult) return;
+    setFailedCooks([]);
     try {
       const sessionId = Crypto.randomUUID();
 
@@ -1130,20 +1121,14 @@ export default function PlanScreen() {
           return;
         }
         if (parseAndShowFromError(firstErr)) return;
-        const stillFailedPayloads = cookPayloads.filter((_, i) => results[i].status === "rejected");
-        setFailedCookPayloads(stillFailedPayloads);
-        const saved = results.length - failures.length;
-        Alert.alert(
-          "Partial Save",
-          `${saved} of ${results.length} cooks saved. ${formatFailedNames(stillFailedPayloads)} failed — check your connection and try again.`,
-          [
-            { text: "Dismiss", style: "cancel", onPress: () => setFailedCookPayloads([]) },
-            { text: "Retry Failed", onPress: () => handleRetryFailedSaves(stillFailedPayloads) },
-          ],
-        );
+        const stillFailed = cookPayloads
+          .map((payload, i) => ({ payload, originalIndex: i }))
+          .filter((_, i) => results[i].status === "rejected");
+        setFailedCooks(stillFailed);
         return;
       }
 
+      setFailedCooks([]);
       resetMultiForm();
       resetForm();
       setPlanMode("single");
@@ -3709,7 +3694,10 @@ export default function PlanScreen() {
       <MultiCookResultModal
         visible={multiResultOpen}
         onClose={() => {
-          if (!multiStreaming && !multiRetrying) setMultiResultOpen(false);
+          if (!multiStreaming && !multiRetrying) {
+            setMultiResultOpen(false);
+            setFailedCooks([]);
+          }
         }}
         colors={colors}
         multiResult={multiResult}
@@ -3723,6 +3711,8 @@ export default function PlanScreen() {
         isRetryingSave={isRetryingSave}
         saveSettledCount={saveSettledCount}
         saveTotalCount={saveTotalCount}
+        failedIndices={failedCooks.length > 0 ? new Set(failedCooks.map(f => f.originalIndex)) : undefined}
+        onRetryFailed={handleRetryFailedSavesFromModal}
       />
 
       {/* ════ MULTI-COOK ADD ITEM MODAL ════ */}
