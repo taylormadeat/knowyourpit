@@ -652,6 +652,7 @@ export default function PlanScreen() {
   const [multiPickedCut, setMultiPickedCut] = useState<MeatCut | null>(null);
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
   const [failedCookPayloads, setFailedCookPayloads] = useState<any[]>([]);
+  const [isRetryingSave, setIsRetryingSave] = useState(false);
 
   // ── Form reset helpers ───────────────────────────────────────────────
   // Called after a successful save so the next visit feels like a fresh
@@ -967,6 +968,8 @@ export default function PlanScreen() {
 
   const handleRetryFailedSaves = async (payloads: any[]) => {
     if (payloads.length === 0) return;
+    if (isRetryingSave) return;
+    setIsRetryingSave(true);
     try {
       const results = await Promise.allSettled(
         payloads.map((data: any) => createCook.mutateAsync({ data })),
@@ -1018,6 +1021,8 @@ export default function PlanScreen() {
       }
       if (parseAndShowFromError(e)) return;
       Alert.alert("Error", e?.message || "Failed to save cooks.");
+    } finally {
+      setIsRetryingSave(false);
     }
   };
 
@@ -3694,6 +3699,7 @@ export default function PlanScreen() {
         scheduleGrillLabels={scheduleGrillLabels}
         handleSaveMultiCooks={handleSaveMultiCooks}
         createCookPending={createCook.isPending}
+        isRetryingSave={isRetryingSave}
       />
 
       {/* ════ MULTI-COOK ADD ITEM MODAL ════ */}

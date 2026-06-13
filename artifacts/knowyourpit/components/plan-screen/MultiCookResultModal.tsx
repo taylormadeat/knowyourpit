@@ -21,6 +21,7 @@ interface Props {
   scheduleGrillLabels: (string | null)[];
   handleSaveMultiCooks: () => void;
   createCookPending: boolean;
+  isRetryingSave?: boolean;
 }
 
 interface GrillGroup {
@@ -202,7 +203,8 @@ function ScheduleCard({
 }
 
 export function MultiCookResultModal(p: Props) {
-  const { visible, onClose, colors, multiResult, isStreaming, isRetrying, hasError, onRetry, scheduleGrillLabels, handleSaveMultiCooks, createCookPending } = p;
+  const { visible, onClose, colors, multiResult, isStreaming, isRetrying, hasError, onRetry, scheduleGrillLabels, handleSaveMultiCooks, createCookPending, isRetryingSave } = p;
+  const saveBusy = createCookPending || !!isRetryingSave;
   const hasItems = multiResult && multiResult.schedule.length > 0;
   const busy = isStreaming || isRetrying;
 
@@ -451,7 +453,7 @@ export function MultiCookResultModal(p: Props) {
               <>
                 <Pressable
                   onPress={handleSaveMultiCooks}
-                  disabled={createCookPending}
+                  disabled={saveBusy}
                   style={({ pressed }) => [{
                     backgroundColor: "#6C3BF5",
                     borderRadius: colors.radius,
@@ -461,10 +463,10 @@ export function MultiCookResultModal(p: Props) {
                     justifyContent: "center" as const,
                     gap: 8,
                     marginTop: 4,
-                    opacity: (pressed || createCookPending) ? 0.7 : 1,
+                    opacity: (pressed || saveBusy) ? 0.7 : 1,
                   }]}
                 >
-                  {createCookPending ? (
+                  {saveBusy ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
                     <>
