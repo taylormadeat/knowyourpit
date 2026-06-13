@@ -966,6 +966,13 @@ export default function PlanScreen() {
     }
   };
 
+  const formatFailedNames = (payloads: any[]): string => {
+    const names: string[] = payloads.map((p) => p.foodType).filter(Boolean);
+    if (names.length === 0) return `${payloads.length} item${payloads.length !== 1 ? "s" : ""}`;
+    if (names.length <= 3) return names.join(", ");
+    return `${names.slice(0, 3).join(", ")}, and ${names.length - 3} more`;
+  };
+
   const handleRetryFailedSaves = async (payloads: any[]) => {
     if (payloads.length === 0) return;
     if (isRetryingSave) return;
@@ -997,7 +1004,7 @@ export default function PlanScreen() {
         const saved = results.length - failures.length;
         Alert.alert(
           "Partial Save",
-          `${saved} of ${results.length} retried. ${failures.length} still failed — check your connection and try again.`,
+          `${saved} of ${results.length} retried. ${formatFailedNames(stillFailedPayloads)} still failed — check your connection and try again.`,
           [
             { text: "Dismiss", style: "cancel", onPress: () => setFailedCookPayloads([]) },
             { text: "Retry Failed", onPress: () => handleRetryFailedSaves(stillFailedPayloads) },
@@ -1114,7 +1121,7 @@ export default function PlanScreen() {
         const saved = results.length - failures.length;
         Alert.alert(
           "Partial Save",
-          `${saved} of ${results.length} cooks saved. ${failures.length} failed — check your connection and try again.`,
+          `${saved} of ${results.length} cooks saved. ${formatFailedNames(stillFailedPayloads)} failed — check your connection and try again.`,
           [
             { text: "Dismiss", style: "cancel", onPress: () => setFailedCookPayloads([]) },
             { text: "Retry Failed", onPress: () => handleRetryFailedSaves(stillFailedPayloads) },
