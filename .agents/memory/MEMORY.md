@@ -5,3 +5,4 @@
 - [Clerk getToken on critical path](clerk-gettoken-critical-path.md) — never `getToken({skipCache:true})` before a UI render; use cached token, refresh only on 401. RN fetch needs an AbortController timeout.
 - [iOS SecureStore null-cache sign-out bug](ios-securestore-null-cache.md) — never cache null on timeout; iOS Enclave settling causes transient stalls; caching null permanently evicts the valid token for the session.
 - [Playwright on NixOS](playwright-nixos.md) — Playwright's downloaded headless-shell binary needs glibc at FHS paths; NixOS blocks it. Use runTest() in dev; e2e files are valid for Ubuntu CI.
+- [AppCheckCore pod install blocker](appcheckcore-pod-blocker.md) — CocoaPods pre-install validation blocks all EAS builds; every pre-install fix tried so far causes new RN pod conflicts; requires Mac + local pod install to debug.

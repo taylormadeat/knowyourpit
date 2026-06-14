@@ -41,22 +41,6 @@ const withPodBundleSigning = (config) => {
         `$1${MIN_IOS}$2`,
       );
 
-      // Inject use_modular_headers! inside the target block right after use_expo_modules!
-      // This must happen BEFORE pod install runs — post_install is too late.
-      if (!contents.includes(MODULAR_MARKER)) {
-        const modularPatch =
-          `\n\n  ${MODULAR_MARKER}\n` +
-          `  # AppCheckCore (Swift pod from @react-native-google-signin) requires\n` +
-          `  # GoogleUtilities and RecaptchaInterop to define modules. use_modular_headers!\n` +
-          `  # inside the target enables module maps for all pods in this target.\n` +
-          `  use_modular_headers!`;
-        contents = contents.replace(
-          /^(\s*use_expo_modules!\s*)$/m,
-          `$1${modularPatch}`,
-        );
-        console.log("[with-pod-bundle-signing] Injected use_modular_headers! after use_expo_modules!");
-      }
-
       const patchBlock = (i) => `${i}${DEPLOY_MARKER}
 ${i}# Force all pods to iOS ${MIN_IOS} minimum — required by LiveActivity.podspec.
 ${i}installer.pods_project.targets.each do |target|
@@ -84,10 +68,11 @@ ${i}  end
 ${i}end
 
 ${i}${MODULAR_MARKER}
-${i}# AppCheckCore (Swift pod from @react-native-google-signin) requires
-${i}# GoogleUtilities and RecaptchaInterop to expose module maps. DEFINES_MODULE=YES
-${i}# is set in post_install (not via top-level pod declarations, which are scoped
-${i}# to an abstract target and ignored by the concrete app target).
+${i}# AppCheckCore (Swift pod) requires GoogleUtilities and RecaptchaInterop to
+${i}# expose module maps so Swift can import them as static libraries.
+${i}# NOTE: DEFINES_MODULE here is a compile-time xcconfig setting applied after
+${i}# pod install. It does NOT satisfy CocoaPods' pre-install validation check.
+${i}# The correct pre-install fix requires investigation on a Mac with pod install.
 ${i}installer.pods_project.targets.each do |target|
 ${i}  if ['GoogleUtilities', 'RecaptchaInterop'].include? target.name
 ${i}    target.build_configurations.each do |config|
