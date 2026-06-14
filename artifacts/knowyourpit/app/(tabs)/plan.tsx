@@ -831,9 +831,13 @@ export default function PlanScreen() {
         const itemGrill = item.grillId != null
           ? ((grills as any[] | undefined)?.find((g: any) => g.id === item.grillId) ?? null)
           : selectedGrill;
+        const weightLbs = (item.sizeOutput.effectiveWeightLbs ?? 0) > 0 ? item.sizeOutput.effectiveWeightLbs! : undefined;
+        const baselineEstimateMinutes = item.cut.minsPerLb > 0 && weightLbs != null && weightLbs > 0
+          ? Math.round(item.cut.minsPerLb * weightLbs)
+          : undefined;
         return {
           foodType: item.cut.name,
-          weightLbs: (item.sizeOutput.effectiveWeightLbs ?? 0) > 0 ? item.sizeOutput.effectiveWeightLbs! : undefined,
+          weightLbs,
           cookTempF: item.cookTempF ? parseFloat(item.cookTempF) : item.cut.cookTempF,
           targetTempF: item.targetTempF ? parseFloat(item.targetTempF) : item.cut.targetTempF,
           grillId: item.grillId ?? grillId ?? undefined,
@@ -848,6 +852,8 @@ export default function PlanScreen() {
             if (gid == null) return undefined;
             return (grills as any[] | undefined)?.find((g: any) => g.id === gid)?.name ?? undefined;
           })(),
+          baselineEstimateMinutes,
+          restMins: item.cut.restMins > 0 ? item.cut.restMins : undefined,
         };
       }),
       serveAt: (serveAt ?? defaultServeAt).toISOString(),

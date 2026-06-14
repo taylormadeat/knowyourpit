@@ -143,17 +143,20 @@ export function AddToPlannedCookModal(p: Props) {
       const anchorCut = MEAT_CUTS.find(
         (c) => c.name.toLowerCase() === (cookFoodType ?? "").toLowerCase(),
       );
+      const anchorWeightLbs = cookWeightLbs != null && cookWeightLbs > 0 ? cookWeightLbs : undefined;
+      const anchorBaseline = anchorCut?.minsPerLb != null && anchorWeightLbs != null
+        ? Math.round(anchorCut.minsPerLb * anchorWeightLbs)
+        : undefined;
       const allItems = [
         {
           foodType: cookFoodType ?? "Meat",
-          weightLbs:
-            cookWeightLbs != null && cookWeightLbs > 0
-              ? cookWeightLbs
-              : undefined,
+          weightLbs: anchorWeightLbs,
           cookTempF: anchorCut?.cookTempF,
           targetTempF: anchorCut?.targetTempF,
           grillId: cookGrillId ?? undefined,
           preheatMinutes: preheatMinsForGrill(anchorGrill),
+          baselineEstimateMinutes: anchorBaseline,
+          restMins: anchorCut?.restMins != null && anchorCut.restMins > 0 ? anchorCut.restMins : undefined,
         },
         ...additionalItems.map((item) => {
           const itemGrill =
@@ -161,13 +164,19 @@ export function AddToPlannedCookModal(p: Props) {
               ? ((grills as any[]).find((g: any) => g.id === item.grillId) ??
                 null)
               : anchorGrill;
+          const itemWeightLbs = (item.sizeOutput.effectiveWeightLbs ?? 0) > 0 ? item.sizeOutput.effectiveWeightLbs! : undefined;
+          const itemBaseline = item.cut.minsPerLb > 0 && itemWeightLbs != null
+            ? Math.round(item.cut.minsPerLb * itemWeightLbs)
+            : undefined;
           return {
             foodType: item.cut.name,
-            weightLbs: (item.sizeOutput.effectiveWeightLbs ?? 0) > 0 ? item.sizeOutput.effectiveWeightLbs! : undefined,
+            weightLbs: itemWeightLbs,
             cookTempF: item.cookTempF ? parseFloat(item.cookTempF) : item.cut.cookTempF,
             targetTempF: item.targetTempF ? parseFloat(item.targetTempF) : item.cut.targetTempF,
             grillId: item.grillId ?? cookGrillId ?? undefined,
             preheatMinutes: preheatMinsForGrill(itemGrill),
+            baselineEstimateMinutes: itemBaseline,
+            restMins: item.cut.restMins > 0 ? item.cut.restMins : undefined,
           };
         }),
       ];

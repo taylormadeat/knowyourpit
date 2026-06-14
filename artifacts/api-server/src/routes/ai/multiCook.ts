@@ -31,6 +31,9 @@ async function buildMultiCookContext(
   // Build item lines for the prompt, including the grill name when present.
   const itemLines = items.map((item: typeof items[number], i: number) => {
     const preheat = item.preheatMinutes ?? 25;
+    const baselineH = item.baselineEstimateMinutes != null
+      ? `${Math.floor(item.baselineEstimateMinutes / 60)}h${item.baselineEstimateMinutes % 60 ? ` ${item.baselineEstimateMinutes % 60}m` : ""}`
+      : null;
     const parts: string[] = [
       `${i + 1}. ${item.foodType}`,
       item.grillName ? `grill: "${item.grillName}"` : "",
@@ -38,6 +41,8 @@ async function buildMultiCookContext(
       item.cookTempF ? `cook at ${item.cookTempF}°F` : "cook temp unknown",
       item.targetTempF && item.targetTempF > 0 ? `target internal ${item.targetTempF}°F` : item.targetTempF === 0 ? "time-based / visual doneness (no internal temp target)" : "",
       `preheat ${preheat} min`,
+      item.restMins != null ? `rest ${item.restMins} min` : "",
+      baselineH ? `BASELINE COOK TIME: ${baselineH} (stay within ±25% of this)` : "",
       item.cookingMethod ? `cooking method: ${item.cookingMethod}` : "",
       item.cookingStylePreset ? `style preset: "${item.cookingStylePreset}"` : "",
       item.fromFrozen ? `starting from frozen · thaw method: ${
@@ -126,16 +131,27 @@ SHARED GRILL RULES (critical — applies to: ${sharedGrillNames.map(n => `"${n}"
 SHARED GRILL RULES: No items share a grill in this session. Set "sharedGrillTips" to null.
 `;
 
+  const currentTimeStr = new Date().toLocaleString("en-US", { timeZoneName: "short" });
+
   const systemPrompt = `You are knowyourpit AI, a world-class BBQ pit master. You are sequencing a multi-cook session where everything must be ready to serve at the same time.
 
+Current time: ${currentTimeStr}
+
 For each item, calculate working BACKWARDS from the serveAt time:
-- restMinutes: how long the meat should rest after leaving the grill
-- estimatedDurationMinutes: active cook time only (meat on grill to off grill), NOT including preheat or rest
+- restMinutes: use the restMins value provided per item as your default; adjust only if you have a strong culinary reason
+- estimatedDurationMinutes: START from the baselineEstimateMinutes provided per item (computed from the cut's standard mins/lb × weight — it is the ground truth). Adjust by at most ±25% based on the smoker calibration profile and ambient temperature ONLY. Never exceed this range — wild deviations from the baseline produce a broken schedule.
 - preheatMinutes: use the value provided per item
 - estimatedFinishAt = serveAt - restMinutes
 - meatOnAt = estimatedFinishAt - estimatedDurationMinutes
 - grillLightAt = meatOnAt - preheatMinutes (see SHARED GRILL RULES below for exceptions)
 All times must be ISO 8601 strings. All items finish resting at or just before serveAt.
+
+INFEASIBILITY RULE (critical): If your backward calculation puts meatOnAt before current time + 30 minutes, the serve window is too short for this item — do NOT compress the cook time to compensate. Instead:
+- Set grillLightAt = current time + 5 minutes (start as soon as possible)
+- Set meatOnAt = current time + preheatMinutes + 5 minutes
+- Set estimatedFinishAt = meatOnAt + estimatedDurationMinutes
+- The Ready To Serve time will be later than serveAt — this is correct and honest
+- Add a note: "Earliest achievable — [item] can't be ready by [serveAt time]; will be done ~[actual ready time]."
 
 For each item, also determine wrap guidance:
 - wrapMethod: "foil" (Texas Crutch — faster, steams), "butcher_paper" (breathable, retains bark), or "none"

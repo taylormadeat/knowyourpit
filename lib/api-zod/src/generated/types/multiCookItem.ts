@@ -52,4 +52,14 @@ export interface MultiCookItem {
    * @nullable
    */
   grillName?: string | null;
+  /**
+   * Client-computed baseline active cook duration in minutes, derived from the cut's standard minsPerLb × weightLbs. The AI must treat this as a strong anchor and stay within ±25% when estimating estimatedDurationMinutes. Omitted when weight is unknown.
+   * @nullable
+   */
+  baselineEstimateMinutes?: number | null;
+  /**
+   * Recommended rest time in minutes for this cut after pulling from the grill, from the app's cut definition. The AI should use this as the default restMinutes value.
+   * @nullable
+   */
+  restMins?: number | null;
 }

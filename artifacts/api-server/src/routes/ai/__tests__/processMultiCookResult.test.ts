@@ -349,7 +349,26 @@ describe("edge cases", () => {
     expect(ribs.grillLightAt).toBe(RIBS_MEAT_ON);
   });
 
-  it("serveAt in the result matches the serveAtDate argument as an ISO string", () => {
+  it("serveAt equals max(estimatedFinishAt + restMinutes) across items when self-consistent", () => {
+    // Both items have self-consistent times: meatOnAt + 60 min = estimatedFinishAt
+    // Ribs finishes later: 19:45Z + 15 min rest = 20:00Z = SERVE_AT
+    const raw = {
+      schedule: [
+        schedItem({ foodType: "Brisket", grillLightAt: "2025-06-13T17:20:00Z", meatOnAt: "2025-06-13T17:45:00Z", estimatedFinishAt: "2025-06-13T18:45:00Z", estimatedDurationMinutes: 60 }),
+        schedItem({ foodType: "Ribs",    grillLightAt: "2025-06-13T18:20:00Z", meatOnAt: "2025-06-13T18:45:00Z", estimatedFinishAt: "2025-06-13T19:45:00Z", estimatedDurationMinutes: 60 }),
+      ],
+      sharedGrillTips: null,
+    };
+    const result = processMultiCookResult(raw, SERVE_AT, [reqItem("Brisket"), reqItem("Ribs")]);
+    // Ribs: estimatedFinishAt 19:45Z + 15 min rest = 20:00Z = SERVE_AT
+    expect(result.serveAt).toBe(SERVE_AT.toISOString());
+  });
+
+  it("serveAt is recomputed from actual item times when AI returns inconsistent timestamps", () => {
+    // AI gives meatOnAt far earlier than estimatedFinishAt - duration would require
+    // (infeasible schedule: meatOnAt + 60min ≠ estimatedFinishAt)
+    // After enforcement, estimatedFinishAt = meatOnAt + 60 min.
+    // Ribs: meatOnAt 14:00Z + 60min = 15:00Z finish + 15min rest = 15:15Z ready
     const raw = {
       schedule: [
         schedItem({ foodType: "Brisket", grillLightAt: "2025-06-13T05:35:00Z", meatOnAt: "2025-06-13T06:00:00Z" }),
@@ -358,7 +377,8 @@ describe("edge cases", () => {
       sharedGrillTips: null,
     };
     const result = processMultiCookResult(raw, SERVE_AT, [reqItem("Brisket"), reqItem("Ribs")]);
-    expect(result.serveAt).toBe(SERVE_AT.toISOString());
+    // Actual latest ready = Ribs 14:00Z + 60min + 15min = 15:15Z, not the requested 20:00Z
+    expect(result.serveAt).toBe("2025-06-13T15:15:00.000Z");
   });
 
   it("produces the deterministic summary when there are two or more items", () => {

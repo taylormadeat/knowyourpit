@@ -89,6 +89,33 @@ export function processMultiCookResult(
     }
   }
 
+  // Enforce timestamp self-consistency: estimatedFinishAt must equal
+  // meatOnAt + estimatedDurationMinutes.  The AI sometimes returns
+  // inconsistent values (especially for infeasible schedules where
+  // backward math would land meatOnAt in the past).
+  for (const item of schedule) {
+    const cookMs = (typeof item.estimatedDurationMinutes === "number" ? item.estimatedDurationMinutes : 0) * 60_000;
+    const meatOnMs = new Date(item.meatOnAt).getTime();
+    const aiFinishMs = new Date(item.estimatedFinishAt).getTime();
+    const expectedFinishMs = meatOnMs + cookMs;
+    // Recompute if gap is more than 5 minutes off
+    if (Math.abs(expectedFinishMs - aiFinishMs) > 5 * 60_000) {
+      item.estimatedFinishAt = new Date(expectedFinishMs).toISOString();
+    }
+  }
+
+  // Compute actual serve time = max(estimatedFinishAt + restMinutes) across
+  // all items.  This may differ from the requested serveAt when the schedule
+  // is infeasible (longest cook can't finish in time).
+  const latestReadyMs = schedule.reduce((max: number, item: any) => {
+    const rest = (typeof item.restMinutes === "number" ? item.restMinutes : 0) * 60_000;
+    const ready = new Date(item.estimatedFinishAt).getTime() + rest;
+    return Math.max(max, ready);
+  }, 0);
+  const actualServeAt = latestReadyMs > 0
+    ? new Date(latestReadyMs).toISOString()
+    : serveAtDate.toISOString();
+
   const firstItem = schedule[0];
   const lastItem = schedule[schedule.length - 1];
   let deterministicSummary = "";
@@ -103,7 +130,7 @@ export function processMultiCookResult(
 
   return {
     schedule,
-    serveAt: serveAtDate.toISOString(),
+    serveAt: actualServeAt,
     summary: deterministicSummary,
     sharedGrillTips,
   };
