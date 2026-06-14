@@ -9,10 +9,15 @@
  *
  * When the timeout path wins, a `console.warn` is emitted so the stall is
  * visible in the Metro console and any future crash reporter.
+ *
+ * Pass `forceRefresh = true` to forward `{ skipCache: true }` to Clerk's
+ * `getToken`, bypassing the in-memory JWT cache. Use this when returning
+ * from background to ensure queued API calls don't fire with an expired token.
  */
 export async function getTokenSafe(
   getToken: (opts?: { skipCache?: boolean }) => Promise<string | null>,
   timeoutMs = 8000,
+  forceRefresh = false,
 ): Promise<string | null> {
   let timedOut = false;
 
@@ -23,7 +28,8 @@ export async function getTokenSafe(
     }, timeoutMs),
   );
 
-  const result = await Promise.race([getToken().catch(() => null), timeoutPromise]);
+  const opts = forceRefresh ? { skipCache: true } : undefined;
+  const result = await Promise.race([getToken(opts).catch(() => null), timeoutPromise]);
 
   if (timedOut) {
     const message =

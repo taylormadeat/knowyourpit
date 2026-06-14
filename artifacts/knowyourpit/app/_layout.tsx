@@ -92,7 +92,7 @@ setBaseUrl(apiBaseUrl);
 // to setAuthTokenGetter is stable and never re-registered — only the inner
 // pointer changes — which closes the post-mount useEffect window where a
 // freshly-mounted query could otherwise fire with the previous user's token.
-let _currentGetToken: (() => Promise<string | null>) | null = null;
+let _currentGetToken: ((opts?: { skipCache?: boolean }) => Promise<string | null>) | null = null;
 setAuthTokenGetter(async () => {
   if (!_currentGetToken) return null;
   return getTokenSafe(_currentGetToken);
@@ -134,7 +134,16 @@ if (!__DEV__) {
 let _appIsActive = true;
 if (Platform.OS !== "web") {
   AppState.addEventListener("change", (nextState) => {
+    const wasActive = _appIsActive;
     _appIsActive = nextState === "active";
+    // Proactively warm the Clerk JWT cache when the app returns to the
+    // foreground. JWTs expire in ~60 s, so a save initiated just before
+    // backgrounding can fire a 401 when the request eventually goes out.
+    // Refreshing here (skipCache: true) ensures the token is fresh before
+    // any queued API call fires, preventing the phantom sign-out loop.
+    if (!wasActive && nextState === "active" && _currentGetToken) {
+      void getTokenSafe(_currentGetToken, 8000, true).catch(() => {});
+    }
   });
 
   Notifications.setNotificationHandler({
@@ -749,32 +758,63 @@ function IsolatedQueryProvider({ children }: { children: React.ReactNode }) {
 }
 
 // Watches for 401 responses across ALL react-query queries and mutations in the
-// current QueryClient. When one fires it means Clerk's session token has expired
-// or been revoked. We sign the user out immediately so they land on the sign-in
-// screen with a clear message rather than experiencing a broken half-loaded app.
+// current QueryClient. When one fires it means either:
+//   (a) the short-lived Clerk JWT expired while the app was backgrounded, or
+//   (b) the Clerk session itself was revoked (signed out on another device).
+//
+// We disambiguate by attempting a forced token refresh (skipCache: true) with a
+// 5 s timeout. If Clerk returns a fresh token the session is alive — we just
+// invalidate queries so they retry with the new token and skip the sign-out
+// entirely. If the refresh also fails (null / throws), the session is genuinely
+// gone and we sign the user out.
+//
+// A `confirmInProgress` flag prevents concurrent 401s from spawning multiple
+// refresh attempts. Once either path (sign-out or invalidate) resolves, the
+// flag is cleared so the guard is ready for a future genuine expiry.
 //
 // Must be rendered inside both ClerkProvider and IsolatedQueryProvider so it
 // has access to both useAuth() and useQueryClient().
 function SessionExpiredGuard() {
-  const { signOut, isSignedIn } = useAuth();
+  const { signOut, isSignedIn, getToken } = useAuth();
   const client = useQueryClientInner();
   useEffect(() => {
     if (!isSignedIn) return;
     let signedOut = false;
+    let confirmInProgress = false;
     const handle401 = (err: unknown) => {
-      if (signedOut) return;
-      // Only sign out for genuine Clerk session expiries — the auth middleware
-      // always returns { error: "Unauthorized" } when the token is missing or
-      // revoked. Third-party credential failures (MEATER/ThermoWorks wrong
-      // password) also return 401 but with a different error body, and must
-      // NOT trigger a sign-out.
+      if (signedOut || confirmInProgress) return;
+      // Only act on genuine Clerk auth failures — the auth middleware always
+      // returns { error: "Unauthorized" } for missing/revoked tokens. Third-
+      // party credential failures (MEATER/ThermoWorks wrong password) also
+      // return 401 but with a different error body and must NOT trigger sign-out.
       if (
         (err as any)?.status === 401 &&
         (err as any)?.data?.error === "Unauthorized"
       ) {
-        signedOut = true;
-        client.clear();
-        void signOut().catch(() => {});
+        confirmInProgress = true;
+        void getTokenSafe(getToken, 5000, true)
+          .then((freshToken) => {
+            confirmInProgress = false;
+            if (signedOut) return;
+            if (freshToken) {
+              // JWT was stale but the session is still alive (e.g. returned
+              // from background). Invalidate all queries so they retry with
+              // the newly-refreshed token — do NOT sign out.
+              void client.invalidateQueries();
+            } else {
+              // Fresh-refresh also failed — session is genuinely gone.
+              signedOut = true;
+              client.clear();
+              void signOut().catch(() => {});
+            }
+          })
+          .catch(() => {
+            confirmInProgress = false;
+            if (signedOut) return;
+            signedOut = true;
+            client.clear();
+            void signOut().catch(() => {});
+          });
       }
     };
     const unsubQ = client.getQueryCache().subscribe((event) => {
@@ -788,6 +828,6 @@ function SessionExpiredGuard() {
       }
     });
     return () => { unsubQ(); unsubM(); };
-  }, [client, isSignedIn, signOut]);
+  }, [client, isSignedIn, signOut, getToken]);
   return null;
 }
