@@ -4,6 +4,7 @@ const { withDangerousMod } = require("@expo/config-plugins");
 
 const SIGNING_MARKER = "# PIT_RESOURCE_BUNDLE_SIGNING_FIX";
 const DEPLOY_MARKER = "# PIT_DEPLOYMENT_TARGET_FIX";
+const MODULAR_MARKER = "# PIT_MODULAR_HEADERS_FIX";
 const MIN_IOS = "16.1";
 
 const withPodBundleSigning = (config) => {
@@ -26,7 +27,9 @@ const withPodBundleSigning = (config) => {
       let contents = fs.readFileSync(podfilePath, "utf8");
 
       const alreadyPatched =
-        contents.includes(SIGNING_MARKER) && contents.includes(DEPLOY_MARKER);
+        contents.includes(SIGNING_MARKER) &&
+        contents.includes(DEPLOY_MARKER) &&
+        contents.includes(MODULAR_MARKER);
       if (alreadyPatched) {
         console.log("[with-pod-bundle-signing] Podfile already patched, skipping");
         return cfg;
@@ -37,6 +40,16 @@ const withPodBundleSigning = (config) => {
         /^(platform :ios,\s*['"])[^'"]+(['"])/m,
         `$1${MIN_IOS}$2`,
       );
+
+      // Inject modular headers fix before prepare_react_native_project! if not present.
+      if (!contents.includes(MODULAR_MARKER)) {
+        const modularPatch = `\n${MODULAR_MARKER}\n# AppCheckCore (pulled in by @react-native-google-signin) is a Swift pod that\n# depends on GoogleUtilities and RecaptchaInterop. Those pods don't define\n# modules by default — enabling modular_headers fixes pod install (June 2026).\npod 'GoogleUtilities', :modular_headers => true\npod 'RecaptchaInterop', :modular_headers => true\n`;
+        contents = contents.replace(
+          /^prepare_react_native_project!/m,
+          `${modularPatch}\nprepare_react_native_project!`,
+        );
+        console.log("[with-pod-bundle-signing] Injected modular headers fix");
+      }
 
       const patchBlock = (i) => `${i}${DEPLOY_MARKER}
 ${i}# Force all pods to iOS ${MIN_IOS} minimum — required by LiveActivity.podspec.

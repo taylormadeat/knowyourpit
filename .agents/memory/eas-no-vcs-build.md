@@ -29,6 +29,19 @@ ln -s /home/runner/workspace/node_modules/.pnpm/npm-package-arg@11.0.3/node_modu
 ```
 This symlink needs to be re-applied after any `npm install -g eas-cli` upgrade.
 
+## AppCheckCore / GoogleUtilities modular headers (June 2026)
+`AppCheckCore` (Swift pod from `@react-native-google-signin`) requires `GoogleUtilities` and `RecaptchaInterop` to define modules when building as static libraries. Without this, pod install exits with non-zero code 1. Fix added permanently to `ios/Podfile` and to `plugins/with-pod-bundle-signing/index.js`:
+```ruby
+pod 'GoogleUtilities', :modular_headers => true
+pod 'RecaptchaInterop', :modular_headers => true
+```
+These lines must appear BEFORE `prepare_react_native_project!` in the Podfile.
+
+## Xcode image requirement (April 2026+)
+Apple requires Xcode 26+ for all App Store submissions since April 28, 2026.
+Always use `macos-sequoia-15.6-xcode-26.2` (or newer) for production builds.
+Xcode 16.x builds will be rejected at submission time.
+
 ## Submission
 After queuing the build with `--no-wait`, poll with `eas build:view <id>` until status is `finished`, then submit:
 ```bash
