@@ -32,6 +32,8 @@ import {
   useDismissCookOutlier,
   useUpdateCook,
   getListCooksQueryKey,
+  getGetRecentCooksQueryKey,
+  getGetDashboardSummaryQueryKey,
   useGetCookTechniqueStats,
 } from "@workspace/api-client-react";
 import type { TechniqueStatsItem } from "@workspace/api-client-react";
@@ -652,6 +654,8 @@ export default function CooksScreen() {
             Alert.alert("Delete Failed", msg);
           } finally {
             qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+            qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+            qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
             qc.invalidateQueries({ queryKey: ["home", "insights"] });
           }
         })();
@@ -700,6 +704,8 @@ export default function CooksScreen() {
       Alert.alert("Delete Failed", msg);
     } finally {
       qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       qc.invalidateQueries({ queryKey: ["home", "insights"] });
     }
   };
@@ -748,6 +754,8 @@ export default function CooksScreen() {
               await cancelStoredCheckinNotifications(cookId).catch(() => {});
               await cancelStoredSpritzNotifications(cookId).catch(() => {});
               qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+              qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+              qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
               qc.invalidateQueries({ queryKey: ["home", "insights"] });
             } catch (e: unknown) {
               const msg = e instanceof Error ? e.message : "Could not delete this cook. Please try again.";
