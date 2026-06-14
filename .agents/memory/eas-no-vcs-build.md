@@ -16,8 +16,10 @@ Destructive git operations are not allowed in the main agent.
 **How to apply:** Always use this form:
 ```bash
 cd artifacts/knowyourpit
-EAS_NO_VCS=1 EAS_BUILD_NO_EXPO_GO_WARNING=true eas build --platform ios --profile production --non-interactive --no-wait
+EXPO_NO_TELEMETRY=1 EAS_NO_VCS=1 EAS_SKIP_AUTO_FINGERPRINT=1 EAS_BUILD_NO_EXPO_GO_WARNING=true \
+  eas build --platform ios --profile production --non-interactive --no-wait
 ```
+`EXPO_NO_TELEMETRY=1` is **required** — without it the EAS CLI hangs indefinitely waiting for a response from `cdp.expo.dev` (the analytics/telemetry endpoint) before it can proceed to upload. With it, the archive compresses and uploads in ~10s. `EAS_SKIP_AUTO_FINGERPRINT=1` prevents a secondary fingerprint step that also blocks.
 The `--no-wait` flag is also important — without it the CLI waits for the remote build to finish, which can exceed bash tool timeouts. Use `eas build:view <id>` to poll status instead.
 
 ## npm-package-arg broken in eas-cli
@@ -29,13 +31,12 @@ ln -s /home/runner/workspace/node_modules/.pnpm/npm-package-arg@11.0.3/node_modu
 ```
 This symlink needs to be re-applied after any `npm install -g eas-cli` upgrade.
 
-## AppCheckCore / GoogleUtilities modular headers (June 2026)
-`AppCheckCore` (Swift pod from `@react-native-google-signin`) requires `GoogleUtilities` and `RecaptchaInterop` to define modules when building as static libraries. Without this, pod install exits with non-zero code 1. Fix added permanently to `ios/Podfile` and to `plugins/with-pod-bundle-signing/index.js`:
+## AppCheckCore blocker — fix: pin RevenueCat (June 2026)
+`react-native-purchases 9.7.2` → `PurchasesHybridCommon 17.29.0` (exact pin) → `RevenueCat 5.55.3` → `AppCheckCore` (Swift pod). AppCheckCore requires GoogleUtilities + RecaptchaInterop to define modules — a constraint that `use_react_native!` overrides, making ALL `:modular_headers` Podfile declarations ineffective (confirmed across 6 EAS builds). Fix: pin RevenueCat below the version that added AppCheckCore:
 ```ruby
-pod 'GoogleUtilities', :modular_headers => true
-pod 'RecaptchaInterop', :modular_headers => true
+pod 'RevenueCat', '< 5.55.3'
 ```
-These lines must appear BEFORE `prepare_react_native_project!` in the Podfile.
+inside the `target 'knowyourpit' do` block. Marker: `# PIT_REVENUECAT_PIN`. Also injected by `plugins/with-pod-bundle-signing/index.js` for fresh prebuilds. See `.agents/memory/appcheckcore-pod-blocker.md` for full history.
 
 ## Xcode image requirement (April 2026+)
 Apple requires Xcode 26+ for all App Store submissions since April 28, 2026.
