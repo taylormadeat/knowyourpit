@@ -35,6 +35,14 @@ This pins CocoaPods to a RevenueCat version before AppCheckCore was added as a d
 
 Config plugin (`plugins/with-pod-bundle-signing/index.js`) updated to inject the pin after `use_expo_modules!` on fresh prebuilds. New marker: `# PIT_REVENUECAT_PIN`.
 
-## If Build #130 Fails with RevenueCat Conflict
+## Final Fix (Build #131 — SUCCEEDED, submitted to TestFlight)
 
-PurchasesHybridCommon 17.29.0 may require RevenueCat >= 5.55.3 exactly. In that case, upgrade `react-native-purchases` to a version where PurchasesHybridCommon uses a newer version that no longer has AppCheckCore as a dep, OR try `USE_FRAMEWORKS=static` (the Podfile already has the code for this env var).
+`USE_FRAMEWORKS=static` added to the production env in `eas.json`. This activates `use_frameworks! :linkage => :static` via the Podfile's existing hook:
+```ruby
+use_frameworks! :linkage => ENV['USE_FRAMEWORKS'].to_sym if ENV['USE_FRAMEWORKS']
+```
+Static frameworks natively include module maps — AppCheckCore's validation check passes automatically. The RevenueCat pin is also kept (reduces transitive pod count by ~8).
+
+**Why the RevenueCat pin alone wasn't enough:** Build #130 showed 8 fewer pods but the same AppCheckCore error. `PurchasesHybridCommon 17.29.0` directly depends on AppCheckCore independent of which RevenueCat version is resolved.
+
+**For all future production builds:** `USE_FRAMEWORKS=static` must remain in `eas.json` production env, OR `use_frameworks! :linkage => :static` must be hardcoded in the Podfile. Removing it will reintroduce the AppCheckCore error.
