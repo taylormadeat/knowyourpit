@@ -5,6 +5,7 @@ const { withDangerousMod } = require("@expo/config-plugins");
 const SIGNING_MARKER = "# PIT_RESOURCE_BUNDLE_SIGNING_FIX";
 const DEPLOY_MARKER = "# PIT_DEPLOYMENT_TARGET_FIX";
 const MODULAR_MARKER = "# PIT_MODULAR_HEADERS_FIX";
+const REVENUECAT_PIN_MARKER = "# PIT_REVENUECAT_PIN";
 const MIN_IOS = "16.1";
 
 const withPodBundleSigning = (config) => {
@@ -29,7 +30,8 @@ const withPodBundleSigning = (config) => {
       const alreadyPatched =
         contents.includes(SIGNING_MARKER) &&
         contents.includes(DEPLOY_MARKER) &&
-        contents.includes(MODULAR_MARKER);
+        contents.includes(MODULAR_MARKER) &&
+        contents.includes(REVENUECAT_PIN_MARKER);
       if (alreadyPatched) {
         console.log("[with-pod-bundle-signing] Podfile already patched, skipping");
         return cfg;
@@ -80,6 +82,28 @@ ${i}      config.build_settings['DEFINES_MODULE'] = 'YES'
 ${i}    end
 ${i}  end
 ${i}end`;
+
+      // Inject RevenueCat pin inside the target block, right after use_expo_modules!
+      // RevenueCat 5.55.3+ pulls in AppCheckCore (Swift pod) which requires
+      // GoogleUtilities + RecaptchaInterop to define modules — incompatible with
+      // React Native's pod integration. Pinning below 5.55.3 avoids it entirely.
+      const expoModulesPattern = /^([ \t]*)use_expo_modules!\s*$/m;
+      const expoMatch = expoModulesPattern.exec(contents);
+      if (expoMatch && !contents.includes(REVENUECAT_PIN_MARKER)) {
+        const insertAt = expoMatch.index + expoMatch[0].length;
+        const indent = expoMatch[1];
+        const pinBlock =
+          `\n\n${indent}${REVENUECAT_PIN_MARKER}\n` +
+          `${indent}# PurchasesHybridCommon 17.29.0 (pinned by react-native-purchases 9.7.2) resolves\n` +
+          `${indent}# to RevenueCat 5.55.3 which added AppCheckCore as a Swift-pod dependency.\n` +
+          `${indent}# AppCheckCore requires GoogleUtilities + RecaptchaInterop to define modules — a\n` +
+          `${indent}# constraint that all pre-install modular-header fixes failed to satisfy (confirmed\n` +
+          `${indent}# across 6 EAS builds; see ops log). Pinning below 5.55.3 avoids AppCheckCore\n` +
+          `${indent}# entirely without touching React Native's pod integration.\n` +
+          `${indent}pod 'RevenueCat', '< 5.55.3'`;
+        contents = contents.slice(0, insertAt) + pinBlock + contents.slice(insertAt);
+        console.log("[with-pod-bundle-signing] Injected RevenueCat version pin");
+      }
 
       // Use indexOf-based approach (more reliable than regex for nested blocks).
       // In Expo SDK 54 the post_install block is nested INSIDE target '...' do,
