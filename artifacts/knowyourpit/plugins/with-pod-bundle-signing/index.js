@@ -41,7 +41,21 @@ const withPodBundleSigning = (config) => {
         `$1${MIN_IOS}$2`,
       );
 
-      // Modular headers fix is injected inside the post_install block below (via patchBlock).
+      // Inject use_modular_headers! inside the target block right after use_expo_modules!
+      // This must happen BEFORE pod install runs — post_install is too late.
+      if (!contents.includes(MODULAR_MARKER)) {
+        const modularPatch =
+          `\n\n  ${MODULAR_MARKER}\n` +
+          `  # AppCheckCore (Swift pod from @react-native-google-signin) requires\n` +
+          `  # GoogleUtilities and RecaptchaInterop to define modules. use_modular_headers!\n` +
+          `  # inside the target enables module maps for all pods in this target.\n` +
+          `  use_modular_headers!`;
+        contents = contents.replace(
+          /^(\s*use_expo_modules!\s*)$/m,
+          `$1${modularPatch}`,
+        );
+        console.log("[with-pod-bundle-signing] Injected use_modular_headers! after use_expo_modules!");
+      }
 
       const patchBlock = (i) => `${i}${DEPLOY_MARKER}
 ${i}# Force all pods to iOS ${MIN_IOS} minimum — required by LiveActivity.podspec.
