@@ -44,7 +44,7 @@
     "production": {
       "credentialsSource": "remote",
       "cache": {
-        "key": "v33-xcode-26"
+        "key": "v34-xcode-26"
       },
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.2",
@@ -55,6 +55,7 @@
         "buildType": "app-bundle"
       },
       "env": {
+        "USE_FRAMEWORKS": "static",
         "EXPO_PUBLIC_API_URL": "https://api.knowyourpit.com",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD": "pk_live_Y2xlcmsua25vd3lvdXJwaXQuY29tJA"
       }
