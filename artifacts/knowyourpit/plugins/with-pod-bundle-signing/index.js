@@ -41,15 +41,7 @@ const withPodBundleSigning = (config) => {
         `$1${MIN_IOS}$2`,
       );
 
-      // Inject modular headers fix before prepare_react_native_project! if not present.
-      if (!contents.includes(MODULAR_MARKER)) {
-        const modularPatch = `\n${MODULAR_MARKER}\n# AppCheckCore (pulled in by @react-native-google-signin) is a Swift pod that\n# depends on GoogleUtilities and RecaptchaInterop. Those pods don't define\n# modules by default — enabling modular_headers fixes pod install (June 2026).\npod 'GoogleUtilities', :modular_headers => true\npod 'RecaptchaInterop', :modular_headers => true\n`;
-        contents = contents.replace(
-          /^prepare_react_native_project!/m,
-          `${modularPatch}\nprepare_react_native_project!`,
-        );
-        console.log("[with-pod-bundle-signing] Injected modular headers fix");
-      }
+      // Modular headers fix is injected inside the post_install block below (via patchBlock).
 
       const patchBlock = (i) => `${i}${DEPLOY_MARKER}
 ${i}# Force all pods to iOS ${MIN_IOS} minimum — required by LiveActivity.podspec.
@@ -74,6 +66,19 @@ ${i}    config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
 ${i}    config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
 ${i}    config.build_settings['CODE_SIGN_IDENTITY'] = ''
 ${i}    config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ''
+${i}  end
+${i}end
+
+${i}${MODULAR_MARKER}
+${i}# AppCheckCore (Swift pod from @react-native-google-signin) requires
+${i}# GoogleUtilities and RecaptchaInterop to expose module maps. DEFINES_MODULE=YES
+${i}# is set in post_install (not via top-level pod declarations, which are scoped
+${i}# to an abstract target and ignored by the concrete app target).
+${i}installer.pods_project.targets.each do |target|
+${i}  if ['GoogleUtilities', 'RecaptchaInterop'].include? target.name
+${i}    target.build_configurations.each do |config|
+${i}      config.build_settings['DEFINES_MODULE'] = 'YES'
+${i}    end
 ${i}  end
 ${i}end`;
 
