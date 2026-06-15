@@ -4,6 +4,10 @@
 # .easignore takes precedence over .gitignore in EAS uploads. Anything matched
 # here is stripped from the archive sent to EAS, but stays in the repo locally.
 
+# Git metadata — never needed by EAS, but traversed when EAS walks up to
+# the monorepo root. At 400 MB+ this is the dominant contributor to archive size.
+.git/
+
 # Native build artefacts
 # ios/ intentionally included — pre-generated Podfile with patches baked in
 #   bypasses expo prebuild on EAS (which has been failing since 2026-06-14)
