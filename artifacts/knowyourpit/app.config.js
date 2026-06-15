@@ -46,7 +46,7 @@ const config = {
   },
   android: {
     package: "com.knowyourpit.app",
-    versionCode: 3,
+    versionCode: 4,
     googleServicesFile:
       process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
     adaptiveIcon: {

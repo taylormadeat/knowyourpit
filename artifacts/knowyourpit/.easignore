@@ -7,7 +7,12 @@
 # Native build artefacts
 # ios/ intentionally included — pre-generated Podfile with patches baked in
 #   bypasses expo prebuild on EAS (which has been failing since 2026-06-14)
+# ios/Pods/ excluded — EAS reinstalls pods from Podfile.lock; no need to upload them
 android/
+ios/Pods/
+ios/build/
+ios/DerivedData/
+ios/.xcode.env.local
 
 # Expo & Metro caches
 .expo/
