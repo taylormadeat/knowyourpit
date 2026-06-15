@@ -23,8 +23,11 @@ ios/.xcode.env.local
 .expo-shared/
 .metro-cache/
 
-# Node tooling caches
-node_modules/.cache/
+# Node modules — EAS reinstalls from pnpm-lock.yaml on its own servers.
+# The workspace root node_modules/ is ~1.1 GB uncompressed (~190 MB compressed)
+# and the single largest contributor to archive size after .git/.
+# All nested package node_modules/ are excluded by the same glob.
+node_modules/
 .eslintcache
 .tsbuildinfo
 
