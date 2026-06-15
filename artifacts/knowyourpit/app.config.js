@@ -65,6 +65,9 @@ const config = {
       "android.permission.BLUETOOTH_SCAN",
       "android.permission.BLUETOOTH_CONNECT",
     ],
+    packagingOptions: {
+      pickFirst: ["META-INF/versions/9/OSGI-INF/MANIFEST.MF"],
+    },
   },
   web: {
     favicon: "./assets/images/icon.png",
