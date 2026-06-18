@@ -1,0 +1,17 @@
+{
+  "_comment": "Workload Identity Federation credential config for EAS Submit → Google Play. No secrets here — safe to commit once GCP-specific values are filled in. Actual config (with real values) is stored in the GOOGLE_PLAY_WIF_CONFIG Replit secret and written to /tmp at submit time. Run scripts/setup-wif.sh to generate the real version.",
+  "type": "external_account",
+  "audience": "//iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/expo-wif-pool/providers/expo-oidc",
+  "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+  "token_url": "https://sts.googleapis.com/v1/token",
+  "credential_source": {
+    "file": "/tmp/expo_oidc_subject_token",
+    "format": {
+      "type": "text"
+    }
+  },
+  "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/play-submit-eas@PROJECT_ID.iam.gserviceaccount.com:generateAccessToken",
+  "service_account_impersonation": {
+    "token_lifetime_seconds": 3600
+  }
+}
