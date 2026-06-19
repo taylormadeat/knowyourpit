@@ -3707,6 +3707,7 @@ export default function PlanScreen() {
         }}
         colors={colors}
         multiResult={multiResult}
+        targetServeAt={serveAt ?? defaultServeAt}
         isStreaming={multiStreaming}
         isRetrying={multiRetrying}
         hasError={multiError}

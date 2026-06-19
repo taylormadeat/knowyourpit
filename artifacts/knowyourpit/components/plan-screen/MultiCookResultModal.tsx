@@ -6,6 +6,7 @@ import type {
 } from "@workspace/api-client-react";
 import { planStyles as s } from "./styles";
 import { fmtMinutes } from "@/utils/duration";
+import { formatTime } from "./utils";
 
 type Colors = any;
 
@@ -14,6 +15,7 @@ interface Props {
   onClose: () => void;
   colors: Colors;
   multiResult: { schedule: MultiCookScheduleItem[]; serveAt: string; summary: string; sharedGrillTips?: string | null } | null;
+  targetServeAt: Date;
   isStreaming?: boolean;
   isRetrying?: boolean;
   hasError?: boolean;
@@ -94,6 +96,33 @@ function SkeletonRow({ colors }: { colors: Colors }) {
   );
 }
 
+function calendarDayDiff(ts: string | Date, ref: Date): number {
+  const a = new Date(ts);
+  const aDay = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+  const rDay = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
+  return Math.round((aDay.getTime() - rDay.getTime()) / 86_400_000);
+}
+
+function DayBadge({ diff }: { diff: number }) {
+  if (diff === 0) return null;
+  let label: string;
+  if (diff === -1) label = "Day Before";
+  else if (diff === 1) label = "Next Day";
+  else if (diff < -1) label = `${Math.abs(diff)} Days Before`;
+  else label = `${diff} Days After`;
+  return (
+    <View style={{
+      backgroundColor: "#F59E0B",
+      borderRadius: 4,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      marginLeft: 6,
+    }}>
+      <Text style={{ fontSize: 10, fontFamily: "Inter_600SemiBold", color: "#fff" }}>{label}</Text>
+    </View>
+  );
+}
+
 function ScheduleCard({
   item,
   originalIdx,
@@ -101,6 +130,7 @@ function ScheduleCard({
   colors,
   showGrillSubLabel,
   hasFailed,
+  serveDate,
 }: {
   item: MultiCookScheduleItem;
   originalIdx: number;
@@ -108,9 +138,15 @@ function ScheduleCard({
   colors: Colors;
   showGrillSubLabel: boolean;
   hasFailed?: boolean;
+  serveDate: Date;
 }) {
-  const fmtTime = (value: Date | string) =>
-    new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const fmtTime = (value: Date | string) => {
+    const d = new Date(value);
+    return formatTime(d.getHours(), d.getMinutes());
+  };
+
+  const grillLightDiff = calendarDayDiff(item.grillLightAt, serveDate);
+  const meatOnDiff = calendarDayDiff(item.meatOnAt, serveDate);
 
   return (
     <View
@@ -175,17 +211,23 @@ function ScheduleCard({
             <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>
               {grillLabel ? `Light ${grillLabel}` : "Light grill"}
             </Text>
-            <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.foreground }}>
-              {fmtTime(item.grillLightAt)}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.foreground }}>
+                {fmtTime(item.grillLightAt)}
+              </Text>
+              <DayBadge diff={grillLightDiff} />
+            </View>
           </View>
         )}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <Feather name="zap" size={13} color="#E84820" />
           <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>Meat on</Text>
-          <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: "#E84820" }}>
-            {fmtTime(item.meatOnAt)}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: "#E84820" }}>
+              {fmtTime(item.meatOnAt)}
+            </Text>
+            <DayBadge diff={meatOnDiff} />
+          </View>
         </View>
         {item.wrapMethod && item.wrapMethod !== "none" && item.wrapAtMinutes && item.wrapAtMinutes > 0 && (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -195,7 +237,10 @@ function ScheduleCard({
               {item.wrapTempF ? ` · ${item.wrapTempF}°F` : ""}
             </Text>
             <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#A855F7" }}>
-              {new Date(new Date(item.meatOnAt).getTime() + item.wrapAtMinutes * 60000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              {(() => {
+                const d = new Date(new Date(item.meatOnAt).getTime() + item.wrapAtMinutes * 60000);
+                return formatTime(d.getHours(), d.getMinutes());
+              })()}
             </Text>
           </View>
         )}
@@ -223,7 +268,7 @@ function ScheduleCard({
 
 export function MultiCookResultModal(p: Props) {
   const {
-    visible, onClose, colors, multiResult, isStreaming, isRetrying, hasError, onRetry,
+    visible, onClose, colors, multiResult, targetServeAt, isStreaming, isRetrying, hasError, onRetry,
     scheduleGrillLabels, handleSaveMultiCooks, createCookPending, isRetryingSave,
     saveSettledCount = 0, saveTotalCount = 0,
     failedIndices, onRetryFailed,
@@ -358,7 +403,7 @@ export function MultiCookResultModal(p: Props) {
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
                       <Feather name="check-circle" size={16} color="#22c55e" />
                       <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
-                        Everything ready by {new Date(multiResult.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        Everything ready by {formatTime(targetServeAt.getHours(), targetServeAt.getMinutes())}
                       </Text>
                     </View>
                   )}
@@ -430,6 +475,7 @@ export function MultiCookResultModal(p: Props) {
                             colors={colors}
                             showGrillSubLabel={false}
                             hasFailed={failedIndices?.has(originalIdx)}
+                            serveDate={targetServeAt}
                           />
                         ))}
                       </View>
@@ -444,6 +490,7 @@ export function MultiCookResultModal(p: Props) {
                         colors={colors}
                         showGrillSubLabel={true}
                         hasFailed={failedIndices?.has(originalIdx)}
+                        serveDate={targetServeAt}
                       />
                     ))
                   )}
