@@ -276,17 +276,52 @@ router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
 
   const analysisResult = req.body.analysisResult ?? null;
   const sequenceData = req.body.sequenceData ?? null;
-  const [cook] = await db.insert(cooksTable).values({
-    ...parsed.data,
-    userId: req.userId,
-    status: parsed.data.status ?? "planned",
-    // Drizzle's insert type does not accept `null` for boolean NOT NULL columns
-    // (fromFrozen). Strip null → undefined so the DB default
-    // (false) is used when the value is absent from the request body.
-    fromFrozen: parsed.data.fromFrozen ?? undefined,
-    ...(analysisResult !== null ? { analysisResult } : {}),
-    ...(sequenceData !== null ? { sequenceData } : {}),
-  }).returning();
+  let cook: typeof cooksTable.$inferSelect;
+  try {
+    const [inserted] = await db.insert(cooksTable).values({
+      ...parsed.data,
+      userId: req.userId,
+      status: parsed.data.status ?? "planned",
+      // Drizzle's insert type does not accept `null` for boolean NOT NULL columns
+      // (fromFrozen). Strip null → undefined so the DB default
+      // (false) is used when the value is absent from the request body.
+      fromFrozen: parsed.data.fromFrozen ?? undefined,
+      ...(analysisResult !== null ? { analysisResult } : {}),
+      ...(sequenceData !== null ? { sequenceData } : {}),
+    }).returning();
+    cook = inserted;
+  } catch (err: unknown) {
+    // Unique constraint violation — a duplicate slipped past the pre-insert guard
+    // (e.g. a race condition between two concurrent retries). Fetch and return the
+    // existing row so the client treats the request as idempotent.
+    const pgErr = err as { code?: string };
+    if (pgErr?.code === "23505" && incomingSessionId && incomingPlannedStartAt) {
+      const [existing] = await db
+        .select()
+        .from(cooksTable)
+        .where(
+          and(
+            eq(cooksTable.userId, req.userId),
+            eq(cooksTable.sessionId, incomingSessionId),
+            eq(cooksTable.plannedStartAt, incomingPlannedStartAt as unknown as Date),
+          ),
+        )
+        .limit(1);
+      if (existing) {
+        let existingGrillName: string | null = null;
+        if (existing.grillId) {
+          const [g] = await db
+            .select({ name: grillsTable.name })
+            .from(grillsTable)
+            .where(eq(grillsTable.id, existing.grillId));
+          existingGrillName = g?.name ?? null;
+        }
+        res.status(200).json({ ...normalizeCookProbeAssignments(existing), grillName: existingGrillName });
+        return;
+      }
+    }
+    throw err;
+  }
   // Run the totalCooks increment and grill-name fetch in parallel.
   // Use a SQL += 1 increment so we never need a prior SELECT for the current count.
   let grillName: string | null = null;

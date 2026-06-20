@@ -1,4 +1,5 @@
-import { pgTable, text, serial, timestamp, integer, real, jsonb, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, real, jsonb, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -66,6 +67,9 @@ export const cooksTable = pgTable("cooks", {
   index("cooks_user_id_idx").on(t.userId),
   index("cooks_grill_id_idx").on(t.grillId),
   index("cooks_user_status_idx").on(t.userId, t.status),
+  uniqueIndex("cooks_session_dedup_idx")
+    .on(t.userId, t.sessionId, t.plannedStartAt)
+    .where(sql`session_id IS NOT NULL AND planned_start_at IS NOT NULL`),
 ]);
 
 export const insertCookSchema = createInsertSchema(cooksTable).omit({ id: true, createdAt: true, updatedAt: true });
