@@ -14,7 +14,7 @@ export function fmtISOInText(text: string): string {
     (match) => {
       const d = new Date(match);
       if (isNaN(d.getTime())) return match;
-      return d.toLocaleString(undefined, {
+      return d.toLocaleString("en-US", {
         month: "short",
         day: "numeric",
         hour: "numeric",

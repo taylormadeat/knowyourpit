@@ -319,7 +319,7 @@ export default function ProfileScreen() {
               >
                 {effectivePro
                   ? isPro && expirationDate
-                    ? `Renews ${new Date(expirationDate).toLocaleDateString()}`
+                    ? `Renews ${new Date(expirationDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
                     : "Active"
                   : "Tap to unlock unlimited cooks, AI chat & analyses"}
               </Text>

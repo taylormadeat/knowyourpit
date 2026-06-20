@@ -263,7 +263,7 @@ export default function MoreScreen() {
                 Alert.alert(
                   "knowyourpit Pro",
                   isPro && expirationDate
-                    ? `Your subscription renews on ${expirationDate.toLocaleDateString()}. Manage in your App Store / Play Store account.`
+                    ? `Your subscription renews on ${expirationDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}. Manage in your App Store / Play Store account.`
                     : "Your Pro access is active. Manage your subscription in your App Store / Play Store account.",
                 );
               } else {
@@ -290,7 +290,7 @@ export default function MoreScreen() {
               <Text style={[s.subscriptionSub, { color: effectivePro ? colors.mutedForeground : "rgba(255,255,255,0.85)" }]}>
                 {effectivePro
                   ? isPro && expirationDate
-                    ? `Renews ${expirationDate.toLocaleDateString()}`
+                    ? `Renews ${expirationDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
                     : "Active subscription"
                   : "Unlimited cooks, AI, multi-cook, devices"}
               </Text>

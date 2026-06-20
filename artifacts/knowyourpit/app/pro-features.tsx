@@ -344,11 +344,11 @@ export default function ProFeaturesScreen() {
               </Text>
               {isInTrial && expirationDate ? (
                 <Text style={[s.proConfirmSub, { color: colors.mutedForeground }]}>
-                  Trial ends {expirationDate.toLocaleDateString()} · Cancel anytime
+                  Trial ends {expirationDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · Cancel anytime
                 </Text>
               ) : isPro && expirationDate ? (
                 <Text style={[s.proConfirmSub, { color: colors.mutedForeground }]}>
-                  Renews {expirationDate.toLocaleDateString()} · Manage in{" "}
+                  Renews {expirationDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · Manage in{" "}
                   <Text
                     style={[s.proConfirmLink, { color: colors.mutedForeground }]}
                     onPress={() =>
