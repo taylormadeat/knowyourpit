@@ -129,10 +129,10 @@ function CookGanttChart({ cooks, colors }: { cooks: Cook[]; colors: ReturnType<t
 
       <View style={gantt.axis}>
         <Text style={[gantt.axisLabel, { color: colors.mutedForeground }]}>
-          {new Date(minTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          {new Date(minTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
         </Text>
         <Text style={[gantt.axisLabel, { color: colors.mutedForeground }]}>
-          {new Date(maxTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          {new Date(maxTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
         </Text>
       </View>
     </View>
@@ -140,7 +140,7 @@ function CookGanttChart({ cooks, colors }: { cooks: Cook[]; colors: ReturnType<t
 }
 
 function fmtTime(d: Date): string {
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
 }
 
 function fmtDate(d: Date): string {

@@ -252,7 +252,7 @@ function probeSourceLabel(source: string | null | undefined): string | null {
 
 const fmtTime = (ms: number) => {
   try {
-    return new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
   } catch { return ""; }
 };
 
@@ -1549,7 +1549,7 @@ export function CookActivityTimeline({
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground as string, flex: 1 }}>
             Activity begins when meat goes on
             {meatOnAtMs
-              ? ` at ${new Date(meatOnAtMs).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
+              ? ` at ${new Date(meatOnAtMs).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}`
               : ""}
           </Text>
         </View>

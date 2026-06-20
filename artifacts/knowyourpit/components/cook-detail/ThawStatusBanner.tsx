@@ -127,7 +127,7 @@ export function ThawStatusBanner({
 
   const meatOnTimeStr =
     meatOnMs != null
-      ? new Date(meatOnMs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+      ? new Date(meatOnMs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true })
       : null;
 
   const countdown = meatOnMs != null && meatOnMs > nowMs ? relCountdown(meatOnMs, nowMs) : null;
@@ -337,6 +337,7 @@ export function ThawStatusBanner({
                 {new Date(actualThawMs).toLocaleTimeString([], {
                   hour: "numeric",
                   minute: "2-digit",
+                  hour12: true,
                 })}
               </Text>
             </View>

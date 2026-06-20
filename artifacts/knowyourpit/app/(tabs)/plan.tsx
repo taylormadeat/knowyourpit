@@ -1071,7 +1071,7 @@ export default function PlanScreen() {
           : item.wrapMethod === "none" ? "none"
           : undefined;
 
-        const noteHeader = `Multi-cook session · Serve at ${new Date(multiResult.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+        const noteHeader = `Multi-cook session · Serve at ${new Date(multiResult.serveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}`;
         const noteParts: string[] = [noteHeader];
         if (item.notes) noteParts.push(item.notes);
         if (item.wrapReason && wrapMethodDb && wrapMethodDb !== "none") noteParts.push(`Wrap: ${item.wrapReason}`);

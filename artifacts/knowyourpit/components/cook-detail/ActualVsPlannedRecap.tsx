@@ -29,7 +29,7 @@ interface StepEntry {
 }
 
 function fmtTime(ms: number): string {
-  return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
 }
 
 function deltaLabel(deltaMs: number): { text: string; color: string } {

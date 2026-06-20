@@ -468,7 +468,7 @@ export default function CookDetailScreen() {
     existingCheckins: cookCheckins as CookCheckin[],
     probeReading: autoCheckinProbeReading,
     onAutoCheckinFired: ({ phaseLabel, internalTempF }) => {
-      const msg = `Check-in recorded automatically — ${Math.round(internalTempF)}°F at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+      const msg = `Check-in recorded automatically — ${Math.round(internalTempF)}°F at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}`;
       setAutoCheckinToast(msg);
       if (autoCheckinToastTimerRef.current) clearTimeout(autoCheckinToastTimerRef.current);
       autoCheckinToastTimerRef.current = setTimeout(() => setAutoCheckinToast(null), 5000);
@@ -497,11 +497,11 @@ export default function CookDetailScreen() {
   const startCookLabel = startCookPhase === "thawing" ? "Begin Thawing" : startCookPhase === "tempering" ? "Meat is Thawed — Start Preheat" : "Start Cook";
   const startCookIcon = startCookPhase === "thawing" ? "thermometer" : startCookPhase === "tempering" ? "wind" : "play";
   const startCookCaption = (() => {
-    if (startCookPhase === "thawing") { const t = c.plannedStartAt ? new Date(c.plannedStartAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null; return t ? `Marks the start of your thaw timer. The grill goes on at ${t}.` : "Marks the start of your thaw timer."; }
+    if (startCookPhase === "thawing") { const t = c.plannedStartAt ? new Date(c.plannedStartAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true }) : null; return t ? `Marks the start of your thaw timer. The grill goes on at ${t}.` : "Marks the start of your thaw timer."; }
     if (startCookPhase === "tempering") return "Meat is thawed — let it temper before lighting the grill.";
     if (startCookPhase === "ready") return null;
     const meatOnAt = cookSeqData?.schedule?.[0]?.meatOnAt;
-    if (meatOnAt) return `Starts your preheat timer. Meat on at ${new Date(meatOnAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.`;
+    if (meatOnAt) return `Starts your preheat timer. Meat on at ${new Date(meatOnAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true })}.`;
     return "Marks this cook as active and starts your session timer.";
   })();
 

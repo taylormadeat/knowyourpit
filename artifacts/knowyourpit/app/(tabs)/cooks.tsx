@@ -153,7 +153,7 @@ function fmtCountdown(targetMs: number): string {
 }
 
 function fmtTime(d: Date): string {
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
 }
 
 function fmtFinishTime(finishMs: number): string {

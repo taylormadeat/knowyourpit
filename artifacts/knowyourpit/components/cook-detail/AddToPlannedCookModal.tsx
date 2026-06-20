@@ -204,6 +204,7 @@ export function AddToPlannedCookModal(p: Props) {
       const serveTimeStr = new Date(aiResult.serveAt).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
+        hour12: true,
       });
       const sessionLabel = `Multi-cook session · Serve at ${serveTimeStr}`;
       const seqData = {
@@ -300,7 +301,7 @@ export function AddToPlannedCookModal(p: Props) {
   };
 
   const fmtTime = (v: Date | string) =>
-    new Date(v).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    new Date(v).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
 
   const canGenerate = additionalItems.length > 0;
 

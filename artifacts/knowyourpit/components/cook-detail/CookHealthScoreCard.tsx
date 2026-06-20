@@ -282,7 +282,7 @@ export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, 
           ))}
 
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground as string, marginTop: 16, textAlign: "center" }}>
-            Score computed at {new Date(health.computedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+            Score computed at {new Date(health.computedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}
           </Text>
           <View style={{ height: 32 }} />
         </ScrollView>

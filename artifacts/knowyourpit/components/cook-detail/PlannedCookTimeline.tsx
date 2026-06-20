@@ -21,7 +21,7 @@ interface Props {
 }
 
 function fmtTime(ms: number): string {
-  return new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
 type MilestoneStep = {

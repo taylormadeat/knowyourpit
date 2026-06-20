@@ -17,7 +17,7 @@ interface Props {
 
 function fmtTime(ms: number | null): string {
   if (ms == null) return "";
-  return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
 }
 
 export function FrozenTimeline({ c, colors, cookStatus, nowMs }: Props) {
