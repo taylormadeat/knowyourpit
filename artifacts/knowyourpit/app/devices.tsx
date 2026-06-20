@@ -963,6 +963,11 @@ export default function DevicesScreen() {
                       <View key={d.id} style={s.probeRow}>
                         <Feather name="wifi" size={13} color={colors.mutedForeground} />
                         <Text style={[s.probeName, { color: colors.foreground }]}>{d.name}</Text>
+                        {(d as any).probeNumber != null && (meaterStatus!.devices.length > 1) && (
+                          <Text style={[s.deviceSub, { color: colors.mutedForeground, marginTop: 0 }]}>
+                            probe {(d as any).probeNumber}
+                          </Text>
+                        )}
                         {d.hasCook && (
                           <View style={s.cookBadge}><Text style={s.cookBadgeText}>Cooking</Text></View>
                         )}

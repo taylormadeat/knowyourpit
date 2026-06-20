@@ -1134,7 +1134,7 @@ export function CookActivityTimeline({
   const isCompleted = cookStatus === "completed";
   const isPlanned = cookStatus === "planned";
 
-  const { data: cookEvents = [], isLoading: eventsLoading } = useListCookEvents(cookId, {
+  const { data: cookEvents = [], isLoading: eventsLoading, error: eventsError } = useListCookEvents(cookId, {
     query: {
       queryKey: getListCookEventsQueryKey(cookId),
       enabled: isActive || isCompleted,
@@ -1144,6 +1144,21 @@ export function CookActivityTimeline({
       staleTime: 5_000,
     },
   });
+
+  // ── Loading timeout guard ─────────────────────────────────────────────────
+  // If either the checkins or events query hasn't resolved within 15 s, give
+  // up on the spinner and show the empty state so the section never hangs
+  // indefinitely. The timer resets whenever the loading state changes.
+  const [loadingTimedOut, setLoadingTimedOut] = React.useState(false);
+  const isCurrentlyLoading = !isPlanned && (checkinsLoading || eventsLoading);
+  React.useEffect(() => {
+    if (!isCurrentlyLoading) {
+      setLoadingTimedOut(false);
+      return;
+    }
+    const id = setTimeout(() => setLoadingTimedOut(true), 15_000);
+    return () => clearTimeout(id);
+  }, [isCurrentlyLoading]);
 
   // ── Scheduled check-in phases ────────────────────────────────────────────────
   const firstItem = cookSeqData?.schedule?.[0];
@@ -1535,10 +1550,20 @@ export function CookActivityTimeline({
       </Pressable>
 
       {/* Loading — planned cooks have no past check-ins, so suppress the
-           transient isLoading spinner that fires while the query resolves */}
-      {!isPlanned && (checkinsLoading || eventsLoading) && (
+           transient isLoading spinner that fires while the query resolves.
+           After 15 s or on error, fall through to the empty state below. */}
+      {!isPlanned && (checkinsLoading || eventsLoading) && !loadingTimedOut && !eventsError && (
         <View style={{ padding: 20, alignItems: "center" }}>
           <ActivityIndicator color={colors.primary as string} />
+        </View>
+      )}
+
+      {/* Error / timeout fallback — replaces the spinner so it never hangs */}
+      {!isPlanned && (loadingTimedOut || !!eventsError) && pastEvents.length === 0 && (
+        <View style={{ padding: 16 }}>
+          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground as string, textAlign: "center" }}>
+            No activity yet — events will appear as your cook progresses
+          </Text>
         </View>
       )}
 

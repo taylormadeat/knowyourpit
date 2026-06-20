@@ -2688,6 +2688,11 @@ export const GetMeaterStatusResponse = zod.object({
     zod.object({
       id: zod.string(),
       name: zod.string(),
+      probeNumber: zod
+        .number()
+        .describe(
+          "1-based position in the array returned by the MEATER Cloud API",
+        ),
       hasCook: zod.boolean(),
       cookName: zod.string().nullable(),
       cookState: zod.string().nullable(),

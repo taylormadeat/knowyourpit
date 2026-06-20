@@ -119,13 +119,20 @@ router.get("/meater/status", requireAuth, async (req: any, res): Promise<void> =
       res.json({ linked: true, devices: [], tokenExpired: true });
       return;
     }
-    const mapped = devices.map((d: any) => ({
-      id: d.id,
-      name: d.name ?? "MEATER Probe",
-      hasCook: !!d.cook,
-      cookName: d.cook?.name ?? null,
-      cookState: d.cook?.state ?? null,
-    }));
+    const mapped = devices.map((d: any, idx: number) => {
+      const probeNumber = idx + 1;
+      const rawName: string | null = d.name ?? null;
+      const isDefault = rawName === null || rawName === "MEATER Probe";
+      const name = isDefault ? `MEATER Probe ${probeNumber}` : rawName;
+      return {
+        id: d.id,
+        name,
+        probeNumber,
+        hasCook: !!d.cook,
+        cookName: d.cook?.name ?? null,
+        cookState: d.cook?.state ?? null,
+      };
+    });
     res.json({ linked: true, devices: mapped });
   } catch {
     res.json({ linked: true, devices: [], error: "Could not fetch devices" });

@@ -242,6 +242,38 @@ router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
     // Live auto-grading every 30 minutes is a Pro feature gated client-side.
   }
 
+  // ── Idempotency guard for multi-cook retries ─────────────────────────────
+  // If the request carries both a sessionId and a plannedStartAt, check
+  // whether a cook for this user + sessionId + plannedStartAt already exists.
+  // Timed-out retries in the multi-cook flow would otherwise create duplicates.
+  const incomingSessionId = parsed.data.sessionId ?? null;
+  const incomingPlannedStartAt = parsed.data.plannedStartAt ?? null;
+  if (incomingSessionId && incomingPlannedStartAt) {
+    const [existing] = await db
+      .select()
+      .from(cooksTable)
+      .where(
+        and(
+          eq(cooksTable.userId, req.userId),
+          eq(cooksTable.sessionId, incomingSessionId),
+          eq(cooksTable.plannedStartAt, incomingPlannedStartAt as unknown as Date),
+        ),
+      )
+      .limit(1);
+    if (existing) {
+      let existingGrillName: string | null = null;
+      if (existing.grillId) {
+        const [g] = await db
+          .select({ name: grillsTable.name })
+          .from(grillsTable)
+          .where(eq(grillsTable.id, existing.grillId));
+        existingGrillName = g?.name ?? null;
+      }
+      res.status(200).json({ ...normalizeCookProbeAssignments(existing), grillName: existingGrillName });
+      return;
+    }
+  }
+
   const analysisResult = req.body.analysisResult ?? null;
   const sequenceData = req.body.sequenceData ?? null;
   const [cook] = await db.insert(cooksTable).values({

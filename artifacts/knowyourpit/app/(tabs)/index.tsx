@@ -229,7 +229,11 @@ export default function HomeScreen() {
   const botPad = useBottomTabBarHeight();
   const { isTablet, contentMaxWidth } = useLayout();
 
-  const allCooks = (recentCooks as any[]) || [];
+  // Deduplicate by id — server-side duplicates from multi-cook retries should
+  // not render multiple cards on the home screen (defensive client-side guard).
+  const allCooks = [
+    ...new Map(((recentCooks as any[]) || []).map((c: any) => [c.id, c])).values(),
+  ];
   const activeCooks = allCooks.filter((c: any) => c.status === "active");
   const primaryActiveCook = activeCooks[0] ?? null;
 

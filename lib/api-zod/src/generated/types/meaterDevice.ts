@@ -9,6 +9,8 @@
 export interface MeaterDevice {
   id: string;
   name: string;
+  /** 1-based position in the array returned by the MEATER Cloud API */
+  probeNumber: number;
   hasCook: boolean;
   /** @nullable */
   cookName: string | null;

@@ -2808,6 +2808,9 @@ components:
           type: string
         name:
           type: string
+        probeNumber:
+          type: integer
+          description: 1-based position in the array returned by the MEATER Cloud API
         hasCook:
           type: boolean
         cookName:
@@ -2817,6 +2820,7 @@ components:
       required:
         - id
         - name
+        - probeNumber
         - hasCook
         - cookName
         - cookState
