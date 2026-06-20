@@ -285,6 +285,15 @@ export function MultiCookResultModal(p: Props) {
 
   const isMultiGrill = grillGroups.length > 1;
 
+  const serveAtDiffMin = React.useMemo(() => {
+    if (!multiResult?.serveAt) return 0;
+    const actual = new Date(multiResult.serveAt).getTime();
+    const target = targetServeAt.getTime();
+    return Math.round((actual - target) / 60000);
+  }, [multiResult?.serveAt, targetServeAt]);
+
+  const showServeAtWarning = Math.abs(serveAtDiffMin) > 5;
+
   return (
     <Modal
       visible={visible}
@@ -400,11 +409,36 @@ export function MultiCookResultModal(p: Props) {
               return (
                 <>
                   {!busy && !hasPartialFailure && (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                      <Feather name="check-circle" size={16} color="#22c55e" />
-                      <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
-                        Everything ready by {formatTime(targetServeAt.getHours(), targetServeAt.getMinutes())}
-                      </Text>
+                    <View style={{ marginBottom: 14, gap: 6 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <Feather name="check-circle" size={16} color="#22c55e" />
+                        <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
+                          Everything ready by {formatTime(targetServeAt.getHours(), targetServeAt.getMinutes())}
+                        </Text>
+                      </View>
+                      {showServeAtWarning && multiResult && (() => {
+                        const actualDate = new Date(multiResult.serveAt);
+                        const actualTime = formatTime(actualDate.getHours(), actualDate.getMinutes());
+                        const absDiff = Math.abs(serveAtDiffMin);
+                        const direction = serveAtDiffMin > 0 ? "after" : "before";
+                        return (
+                          <View style={{
+                            flexDirection: "row",
+                            alignItems: "flex-start",
+                            gap: 7,
+                            backgroundColor: "#F59E0B18",
+                            borderRadius: 8,
+                            padding: 10,
+                            borderWidth: 1,
+                            borderColor: "#F59E0B40",
+                          }}>
+                            <Feather name="alert-triangle" size={14} color="#F59E0B" style={{ marginTop: 1 }} />
+                            <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: "#F59E0B", flex: 1, lineHeight: 18 }}>
+                              Heads up: schedule finishes at {actualTime} — {absDiff} min {direction} your target
+                            </Text>
+                          </View>
+                        );
+                      })()}
                     </View>
                   )}
 
