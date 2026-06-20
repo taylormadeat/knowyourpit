@@ -351,8 +351,39 @@ export function useCookDetail(id: string | undefined) {
       );
       return;
     }
+    // Immediately patch caches so the UI reflects the new status without
+    // waiting for a background refetch round-trip.
+    const cookIdNum = Number(id);
+    const patchedFields: Record<string, unknown> = { status: updatePayload.status };
+    if (updatePayload.actualStartAt != null) {
+      patchedFields.actualStartAt =
+        updatePayload.actualStartAt instanceof Date
+          ? updatePayload.actualStartAt.toISOString()
+          : updatePayload.actualStartAt;
+    }
+    if (updatePayload.actualEndAt != null) {
+      patchedFields.actualEndAt =
+        updatePayload.actualEndAt instanceof Date
+          ? updatePayload.actualEndAt.toISOString()
+          : updatePayload.actualEndAt;
+    }
+    qc.setQueryData(getGetCookQueryKey(cookIdNum), (old: any) =>
+      old ? { ...old, ...patchedFields } : old,
+    );
+    qc.setQueriesData<any[]>({ queryKey: getListCooksQueryKey() }, (old) =>
+      Array.isArray(old)
+        ? old.map((c: any) => (c?.id === cookIdNum ? { ...c, status: updatePayload.status } : c))
+        : old,
+    );
+    qc.setQueriesData<any[]>({ queryKey: getGetRecentCooksQueryKey() }, (old) =>
+      Array.isArray(old)
+        ? old.map((c: any) => (c?.id === cookIdNum ? { ...c, status: updatePayload.status } : c))
+        : old,
+    );
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    await qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+    // Background refetches to confirm server state — not awaited so they
+    // don't delay notification scheduling or the rating prompt below.
+    qc.invalidateQueries({ queryKey: getGetCookQueryKey(cookIdNum) });
     qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
     qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
     qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
