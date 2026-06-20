@@ -646,6 +646,36 @@ paths:
         "404":
           description: Cook not found
 
+  /cooks/{id}/add-items:
+    post:
+      operationId: addItemsToLiveCook
+      tags: [cooks]
+      summary: Add new items to an active single cook, upgrading it to a multi-cook session
+      description: Accepts one or more new item payloads, assigns a sessionId to the anchor cook if absent, inserts the new cook records as planned, then calls the AI sequencer with the anchor cook's live context (elapsed time, remaining estimate, current probe temp) to produce an interleaved schedule.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddItemsToLiveCookBody"
+      responses:
+        "200":
+          description: Items added and schedule updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddItemsToLiveCookResponse"
+        "404":
+          description: Cook not found
+        "422":
+          description: Cook is not active or session is at capacity
+
   /cooks/{id}/outlier-dismiss:
     post:
       operationId: dismissCookOutlier
@@ -2711,6 +2741,43 @@ components:
         - grillLightAt
         - meatOnAt
         - estimatedFinishAt
+
+    AddItemsToLiveCookBody:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 4
+          items:
+            $ref: "#/components/schemas/MultiCookItem"
+          description: New items to add to the active cook session.
+        outdoorTempF:
+          type: ["number", "null"]
+          description: Outdoor ambient temperature in Fahrenheit for AI scheduling context.
+        outdoorTempIsForecast:
+          type: ["boolean", "null"]
+          description: True when outdoorTempF is a forecast value.
+
+    AddItemsToLiveCookResponse:
+      type: object
+      required: [sessionId, addedCooks, sequenceData]
+      properties:
+        sessionId:
+          type: string
+          description: The session UUID that groups all cooks together.
+        addedCooks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Cook"
+          description: Newly created cook records in planned status.
+        sequenceData:
+          type: object
+          description: The full updated AI-generated sequence data for all session cooks.
+        warning:
+          type: ["string", "null"]
+          description: Optional warning when the anchor cook is nearly done (< 30 min remaining) and the grill may free up before new items need it.
 
     MultiCookResponse:
       type: object

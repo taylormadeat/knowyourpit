@@ -362,3 +362,206 @@ router.post("/ai/multi-cook/stream", requireAuth, aiRateLimit, async (req: any, 
 });
 
 export default router;
+
+// ── Add-items sequencer (called by POST /cooks/:id/add-items) ─────────────────
+// Builds an AI prompt anchored to an already-active cook and sequences one or
+// more new items around it.  Returns the same MultiCookResult shape used by
+// /ai/multi-cook so the same processMultiCookResult post-processor applies.
+
+export type AddItemsAnchor = {
+  foodType: string;
+  grillName?: string | null;
+  elapsedMinutes: number;
+  remainingEstimateMinutes: number;
+  currentTempF?: number | null;
+  restMinutes?: number | null;
+};
+
+export type AddItemsNewItem = {
+  foodType: string;
+  weightLbs?: number | null;
+  cookTempF?: number | null;
+  targetTempF?: number | null;
+  grillId?: number | null;
+  grillName?: string | null;
+  preheatMinutes?: number | null;
+  cookingMethod?: string | null;
+  fromFrozen?: boolean | null;
+  thawMethod?: string | null;
+  notes?: string | null;
+  cookingStylePreset?: string | null;
+  baselineEstimateMinutes?: number | null;
+  restMins?: number | null;
+};
+
+export async function callAddItemsSequencer(
+  userId: string,
+  anchor: AddItemsAnchor,
+  newItems: AddItemsNewItem[],
+  opts?: { outdoorTempF?: number | null; outdoorTempIsForecast?: boolean | null },
+): Promise<ReturnType<typeof processMultiCookResult>> {
+  const nowMs = Date.now();
+  const anchorRestMin = anchor.restMinutes ?? 15;
+  const anchorRemainingMin = Math.max(0, anchor.remainingEstimateMinutes);
+
+  // serveAt = when the anchor cook will be ready to serve
+  const serveAtMs = nowMs + anchorRemainingMin * 60_000 + anchorRestMin * 60_000;
+  const serveAtDate = new Date(serveAtMs);
+
+  const uniqueGrillIds = [...new Set(
+    newItems
+      .map(it => it.grillId)
+      .filter((id): id is number => typeof id === "number"),
+  )];
+
+  const [cookHistory, allGrillsInsights, ...perGrillInsights] = await Promise.all([
+    buildUserCookHistory(userId),
+    computeSmokerInsights(userId),
+    ...uniqueGrillIds.map(gid => computeSmokerInsights(userId, gid)),
+  ]);
+
+  let smokerProfileSection = "";
+  if (uniqueGrillIds.length === 1 && perGrillInsights.length === 1) {
+    const grillName = newItems.find(it => it.grillId === uniqueGrillIds[0])?.grillName ?? "your grill";
+    const profile = formatSmokerProfile(perGrillInsights[0]);
+    if (profile) smokerProfileSection = profile.replace("=== YOUR SMOKER PROFILE", `=== SMOKER PROFILE FOR "${grillName.toUpperCase()}"`);
+  } else if (uniqueGrillIds.length > 1) {
+    const sections: string[] = [];
+    for (let i = 0; i < uniqueGrillIds.length; i++) {
+      const gid = uniqueGrillIds[i];
+      const grillName = newItems.find(it => it.grillId === gid)?.grillName ?? `Grill ${gid}`;
+      const profile = formatSmokerProfile(perGrillInsights[i]);
+      if (profile) sections.push(profile.replace("=== YOUR SMOKER PROFILE", `=== SMOKER PROFILE FOR "${grillName.toUpperCase()}"`));
+    }
+    smokerProfileSection = sections.join("\n\n") || formatSmokerProfile(allGrillsInsights);
+  } else {
+    smokerProfileSection = formatSmokerProfile(allGrillsInsights);
+  }
+
+  const outdoorLine = (opts?.outdoorTempF != null)
+    ? `\nOutdoor ambient temperature: ${opts.outdoorTempF}°F (${opts.outdoorTempIsForecast ? "forecast for cook day" : "current"}) — factor into all estimates.\n`
+    : "";
+
+  const anchorGrillLine = anchor.grillName ? ` on grill "${anchor.grillName}"` : "";
+  const anchorTempLine = anchor.currentTempF != null ? ` · current internal temp ${anchor.currentTempF}°F` : "";
+
+  const anchorSection = `
+ANCHOR COOK (ALREADY ACTIVE — treat as IMMUTABLE — do NOT schedule or include in your JSON output):
+- ${anchor.foodType}${anchorGrillLine}: ${Math.round(anchor.elapsedMinutes)} min elapsed · ~${Math.round(anchorRemainingMin)} min remaining until pull${anchorTempLine}
+- This cook will be ready to serve at approximately: ${serveAtDate.toLocaleString("en-US", { timeZoneName: "short" })}
+- Your job is to schedule ONLY the new items listed below so they finish at or near this same serve time.
+- The anchor cook's grill${anchor.grillName ? ` ("${anchor.grillName}")` : ""} is already hot — do NOT include a preheat step for new items that share this grill.
+`;
+
+  const newItemLines = newItems.map((item, i) => {
+    const preheat = item.preheatMinutes ?? 25;
+    const baselineH = item.baselineEstimateMinutes != null
+      ? `${Math.floor(item.baselineEstimateMinutes / 60)}h${item.baselineEstimateMinutes % 60 ? ` ${item.baselineEstimateMinutes % 60}m` : ""}`
+      : null;
+    const parts: string[] = [
+      `${i + 1}. ${item.foodType}`,
+      item.grillName ? `grill: "${item.grillName}"` : "",
+      item.weightLbs ? `${item.weightLbs} lbs` : "weight unknown",
+      item.cookTempF ? `cook at ${item.cookTempF}°F` : "cook temp unknown",
+      item.targetTempF && item.targetTempF > 0 ? `target internal ${item.targetTempF}°F` : item.targetTempF === 0 ? "time-based / visual doneness" : "",
+      `preheat ${preheat} min`,
+      item.restMins != null ? `rest ${item.restMins} min` : "",
+      baselineH ? `BASELINE COOK TIME: ${baselineH} (stay within ±25%)` : "",
+      item.cookingMethod ? `cooking method: ${item.cookingMethod}` : "",
+      item.cookingStylePreset ? `style preset: "${item.cookingStylePreset}"` : "",
+      item.fromFrozen ? `starting from frozen · thaw method: ${item.thawMethod ?? "not specified"}` : "",
+    ].filter(Boolean);
+    return parts.join(" · ");
+  }).join("\n");
+
+  const grillNameCounts: Record<string, number> = {};
+  if (anchor.grillName) grillNameCounts[anchor.grillName] = 1;
+  for (const item of newItems) {
+    if (item.grillName) grillNameCounts[item.grillName] = (grillNameCounts[item.grillName] ?? 0) + 1;
+  }
+  const sharedGrillNames = Object.entries(grillNameCounts).filter(([, n]) => n > 1).map(([name]) => name);
+
+  const sharedGrillInstruction = sharedGrillNames.length > 0
+    ? `
+SHARED GRILL RULES (applies to: ${sharedGrillNames.map(n => `"${n}"`).join(", ")}):
+- The anchor cook is already running on this grill — it is hot. Set grillLightAt = meatOnAt for any new item on the same grill (no preheat needed).
+- Populate "sharedGrillTips" with 2–4 concise tips for managing the new items alongside the active cook.
+`
+    : `SHARED GRILL RULES: No new items share a grill. Set "sharedGrillTips" to null.`;
+
+  const currentTimeStr = new Date().toLocaleString("en-US", { timeZoneName: "short" });
+
+  const systemPrompt = `You are knowyourpit AI, a world-class BBQ pit master. You are adding new items to an already-active cook session.
+
+Current time: ${currentTimeStr}
+${anchorSection}
+${sharedGrillInstruction}
+
+For each NEW item, calculate working BACKWARDS from the serve time (${serveAtDate.toLocaleString()}):
+- estimatedDurationMinutes: START from baselineEstimateMinutes if provided. Adjust ±25% max based on smoker profile and ambient temp.
+- preheatMinutes: use the value provided. If the new item shares a grill with the anchor cook, override preheat to 0 (grill is already hot).
+- estimatedFinishAt = serveAt - restMinutes
+- meatOnAt = estimatedFinishAt - estimatedDurationMinutes
+- grillLightAt = meatOnAt - preheatMinutes (0 if grill is already hot from anchor cook)
+
+INFEASIBILITY RULE: If meatOnAt is before current time + 30 minutes, set grillLightAt = now + 5 min, meatOnAt = now + preheatMinutes + 5 min, estimatedFinishAt = meatOnAt + estimatedDurationMinutes. Add a note explaining the delay.
+
+For each item also determine wrap guidance (same rules as standard multi-cook).
+
+Return ONLY valid JSON, no markdown:
+{
+  "schedule": [
+    {
+      "foodType": "string",
+      "estimatedDurationMinutes": number,
+      "preheatMinutes": number,
+      "restMinutes": number,
+      "grillLightAt": "ISO string",
+      "meatOnAt": "ISO string",
+      "estimatedFinishAt": "ISO string",
+      "wrapMethod": "foil|butcher_paper|none",
+      "wrapAtMinutes": number_or_null,
+      "wrapTempF": number_or_null,
+      "wrapReason": "string",
+      "notes": "one additional specific tip for this item"
+    }
+  ],
+  "serveAt": "ISO string",
+  "summary": "One sentence summary of the new items and how they fit around the active cook",
+  "sharedGrillTips": "string with 2-4 tips, or null"
+}`;
+
+  const userPrompt = `Active anchor cook: ${anchor.foodType}${anchorGrillLine} — ${Math.round(anchorRemainingMin)} min left, serve at ${serveAtDate.toLocaleString()}.
+${outdoorLine}
+New items to sequence:
+${newItemLines}
+
+${smokerProfileSection ? smokerProfileSection + "\n" : ""}${cookHistory}`;
+
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), 50_000);
+
+  let response: Awaited<ReturnType<typeof openai.chat.completions.create>> | null = null;
+  try {
+    response = await openai.chat.completions.create(
+      {
+        model: "gpt-4.1-mini",
+        max_completion_tokens: 2048,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      },
+      { signal: abortController.signal },
+    );
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  const content = response?.choices[0]?.message?.content ?? "{}";
+  const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+  let raw: any;
+  try { raw = JSON.parse(cleaned); } catch { raw = { schedule: [], serveAt: serveAtDate.toISOString(), summary: "" }; }
+
+  return processMultiCookResult(raw, serveAtDate, newItems.map(it => ({ foodType: it.foodType, grillName: it.grillName ?? null })));
+}

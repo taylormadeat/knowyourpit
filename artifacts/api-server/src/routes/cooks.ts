@@ -10,7 +10,10 @@ import {
   ListCooksQueryParams,
   UpdateSessionParams,
   UpdateSessionBody,
+  AddItemsToCookParams,
+  AddItemsToCookBody,
 } from "@workspace/api-zod";
+import { callAddItemsSequencer } from "./ai/multiCook";
 import { requireAuth } from "../middlewares/requireAuth";
 import type { AiCheckinItem } from "@workspace/checkin-schedule";
 import { clearHomeInsightsCache } from "./ai";
@@ -724,6 +727,238 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
     })();
   }
   res.json({ ...cook, grillName });
+});
+
+// ── POST /cooks/:id/add-items ─────────────────────────────────────────────────
+// Adds new items to an active single cook, upgrading it to a multi-cook session.
+router.post("/cooks/:id/add-items", requireAuth, async (req: any, res): Promise<void> => {
+  const params = AddItemsToCookParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const body = AddItemsToCookBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  // 1. Fetch the anchor cook
+  const [anchor] = await db.select().from(cooksTable)
+    .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)));
+  if (!anchor) {
+    res.status(404).json({ error: "Cook not found" });
+    return;
+  }
+
+  // 2. Must be active
+  if (anchor.status !== "active") {
+    res.status(422).json({ error: "Can only add items to an active cook." });
+    return;
+  }
+
+  // 3. Count existing session members to enforce the 5-item cap
+  let existingSessionCount = 1; // the anchor itself
+  if (anchor.sessionId) {
+    const [{ n }] = await db
+      .select({ n: count() })
+      .from(cooksTable)
+      .where(and(eq(cooksTable.sessionId, anchor.sessionId), eq(cooksTable.userId, req.userId)));
+    existingSessionCount = Number(n);
+  }
+  const totalAfter = existingSessionCount + body.data.items.length;
+  if (totalAfter > 5) {
+    const canAdd = 5 - existingSessionCount;
+    res.status(422).json({
+      error: `Session is at capacity (5 items max). You can add at most ${canAdd} more item${canAdd === 1 ? "" : "s"}.`,
+    });
+    return;
+  }
+
+  // 4. Compute live context for the anchor cook
+  const nowMs = Date.now();
+  const startMs = anchor.actualStartAt ? new Date(anchor.actualStartAt).getTime() : nowMs;
+  const elapsedMinutes = Math.max(0, (nowMs - startMs) / 60_000);
+
+  // Derive remaining estimate from sequenceData → pull step
+  const seqData = anchor.sequenceData as any;
+  const estimatedFinishStr = seqData?.schedule?.[0]?.estimatedFinishAt as string | null | undefined;
+  const remainingEstimateMinutes = estimatedFinishStr
+    ? Math.max(0, (new Date(estimatedFinishStr).getTime() - nowMs) / 60_000)
+    : 60; // fallback: assume 1 hour if no plan
+
+  // Latest probe temperature for the anchor cook
+  const [latestReading] = await db
+    .select({ tempF: temperatureReadingsTable.tempF })
+    .from(temperatureReadingsTable)
+    .where(eq(temperatureReadingsTable.cookId, anchor.id))
+    .orderBy(desc(temperatureReadingsTable.recordedAt))
+    .limit(1);
+  const currentTempF = latestReading?.tempF ?? null;
+
+  // Resolve anchor grill name
+  let anchorGrillName: string | null = null;
+  if (anchor.grillId) {
+    const [g] = await db.select({ name: grillsTable.name }).from(grillsTable).where(eq(grillsTable.id, anchor.grillId));
+    anchorGrillName = g?.name ?? null;
+  }
+
+  // 5. Call the AI sequencer with anchor-cook context
+  let aiResult: Awaited<ReturnType<typeof callAddItemsSequencer>>;
+  try {
+    aiResult = await callAddItemsSequencer(
+      req.userId,
+      {
+        foodType: anchor.foodType,
+        grillName: anchorGrillName,
+        elapsedMinutes,
+        remainingEstimateMinutes,
+        currentTempF,
+        restMinutes: anchor.restMinutes ?? seqData?.schedule?.[0]?.restMinutes ?? null,
+      },
+      body.data.items.map(it => ({
+        foodType: it.foodType,
+        weightLbs: it.weightLbs ?? null,
+        cookTempF: it.cookTempF ?? null,
+        targetTempF: it.targetTempF ?? null,
+        grillId: it.grillId ?? null,
+        grillName: it.grillName ?? null,
+        preheatMinutes: it.preheatMinutes ?? null,
+        cookingMethod: it.cookingMethod ?? null,
+        fromFrozen: it.fromFrozen ?? null,
+        thawMethod: it.thawMethod ?? null,
+        notes: it.notes ?? null,
+        cookingStylePreset: it.cookingStylePreset ?? null,
+        baselineEstimateMinutes: it.baselineEstimateMinutes ?? null,
+        restMins: it.restMins ?? null,
+      })),
+      {
+        outdoorTempF: body.data.outdoorTempF ?? null,
+        outdoorTempIsForecast: body.data.outdoorTempIsForecast ?? null,
+      },
+    );
+  } catch (err: any) {
+    req.log.error({ err }, "add-items AI sequencer error");
+    res.status(504).json({ error: "AI sequencer timed out. Please try again." });
+    return;
+  }
+
+  // 6. Build the full sequence data (anchor item + new items schedule merged)
+  // We prepend the anchor cook's existing schedule entry to the AI result so
+  // all session cooks share the complete picture.
+  const anchorScheduleEntry = seqData?.schedule?.[0] ?? {
+    foodType: anchor.foodType,
+    estimatedDurationMinutes: seqData?.schedule?.[0]?.estimatedDurationMinutes ?? 60,
+    preheatMinutes: anchor.preheatMinutes ?? 25,
+    restMinutes: anchor.restMinutes ?? seqData?.schedule?.[0]?.restMinutes ?? 15,
+    grillLightAt: anchor.actualStartAt
+      ? new Date(new Date(anchor.actualStartAt).getTime() - (anchor.preheatMinutes ?? 25) * 60_000).toISOString()
+      : new Date(startMs - (anchor.preheatMinutes ?? 25) * 60_000).toISOString(),
+    meatOnAt: anchor.actualStartAt ?? new Date(startMs).toISOString(),
+    estimatedFinishAt: estimatedFinishStr ?? new Date(nowMs + remainingEstimateMinutes * 60_000).toISOString(),
+    wrapMethod: anchor.wrapMethod ?? "none",
+    wrapAtMinutes: anchor.wrapAtMinutes ?? null,
+    wrapTempF: anchor.wrapTempF ?? null,
+    wrapReason: anchor.wrapReason ?? null,
+    notes: null,
+  };
+
+  // Merge: use the full existing schedule (which already contains anchor + any prior session
+  // siblings' entries), then append only the newly AI-sequenced entries for the new items.
+  // This preserves existing sibling entries when the anchor cook already has a session.
+  const existingScheduleEntries: any[] = Array.isArray(seqData?.schedule) && seqData.schedule.length > 0
+    ? seqData.schedule
+    : [anchorScheduleEntry];
+
+  const mergedSchedule = [...existingScheduleEntries, ...aiResult.schedule].sort(
+    (a: any, b: any) => new Date(a.grillLightAt).getTime() - new Date(b.grillLightAt).getTime(),
+  );
+
+  const fullSequenceData = {
+    ...(seqData ?? {}),
+    ...aiResult,
+    schedule: mergedSchedule,
+  };
+
+  // 7. Generate or reuse sessionId, then atomically insert new cooks and update all
+  const sessionId = anchor.sessionId ?? crypto.randomUUID();
+
+  const addedCooks = await db.transaction(async (tx) => {
+    // Assign sessionId to anchor if it doesn't have one yet
+    if (!anchor.sessionId) {
+      await tx.update(cooksTable)
+        .set({ sessionId, sequenceData: fullSequenceData })
+        .where(and(eq(cooksTable.id, anchor.id), eq(cooksTable.userId, req.userId)));
+    } else {
+      // Update existing anchor + siblings with new sequenceData
+      await tx.update(cooksTable)
+        .set({ sequenceData: fullSequenceData })
+        .where(and(eq(cooksTable.sessionId, sessionId), eq(cooksTable.userId, req.userId)));
+    }
+
+    // Insert new cooks as "planned"
+    const inserted: (typeof cooksTable.$inferSelect)[] = [];
+    for (let i = 0; i < body.data.items.length; i++) {
+      const item = body.data.items[i];
+      // Match AI schedule item by foodType (same consume-first pattern as processMultiCookResult)
+      const schedIdx = aiResult.schedule.findIndex(
+        (s: any) => (s.foodType ?? "").trim().toLowerCase() === item.foodType.trim().toLowerCase(),
+      );
+      const sched = schedIdx >= 0 ? aiResult.schedule.splice(schedIdx, 1)[0] : null;
+
+      const [newCook] = await tx.insert(cooksTable).values({
+        userId: req.userId,
+        sessionId,
+        foodType: item.foodType,
+        weightLbs: item.weightLbs ?? undefined,
+        cookTempF: item.cookTempF ?? undefined,
+        targetTempF: item.targetTempF ?? undefined,
+        grillId: item.grillId ?? undefined,
+        status: "planned",
+        plannedStartAt: sched?.meatOnAt ? new Date(sched.meatOnAt) : undefined,
+        plannedEndAt: sched?.estimatedFinishAt ? new Date(sched.estimatedFinishAt) : undefined,
+        preheatMinutes: sched?.preheatMinutes ?? item.preheatMinutes ?? undefined,
+        restMinutes: sched?.restMinutes ?? undefined,
+        wrapMethod: (sched?.wrapMethod && sched.wrapMethod !== "none") ? sched.wrapMethod : undefined,
+        wrapAtMinutes: sched?.wrapAtMinutes ?? undefined,
+        wrapTempF: sched?.wrapTempF ?? undefined,
+        wrapReason: sched?.wrapReason ?? undefined,
+        cookingMethod: item.cookingMethod ?? undefined,
+        fromFrozen: item.fromFrozen ?? undefined,
+        thawMethod: item.thawMethod ?? undefined,
+        notes: item.notes ?? undefined,
+        sequenceData: fullSequenceData,
+      }).returning();
+      inserted.push(newCook);
+    }
+    return inserted;
+  });
+
+  // Fetch grill names for added cooks
+  const addedCooksWithGrills = await Promise.all(
+    addedCooks.map(async (c) => {
+      let grillName: string | null = null;
+      if (c.grillId) {
+        const [g] = await db.select({ name: grillsTable.name }).from(grillsTable).where(eq(grillsTable.id, c.grillId));
+        grillName = g?.name ?? null;
+      }
+      return normalizeCookProbeAssignments({ ...c, grillName });
+    }),
+  );
+
+  // 8. Warn if the anchor cook is nearly done
+  const warning = remainingEstimateMinutes < 30
+    ? `Heads up: ${anchor.foodType} is nearly done (~${Math.round(remainingEstimateMinutes)} min left). The grill may be free before new items need it — plan accordingly.`
+    : null;
+
+  clearHomeInsightsCache(req.userId);
+
+  res.json({
+    sessionId,
+    addedCooks: addedCooksWithGrills,
+    sequenceData: fullSequenceData,
+    warning,
+  });
 });
 
 router.post("/cooks/:id/outlier-dismiss", requireAuth, async (req: any, res): Promise<void> => {

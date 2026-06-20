@@ -41,6 +41,7 @@ import { EditCookModal } from "@/components/cook-detail/EditCookModal";
 import { EditCookTimesSheet } from "@/components/cook-detail/EditCookTimesSheet";
 import { WrapTempSheet } from "@/components/cook-detail/WrapTempSheet";
 import { AddToPlannedCookModal } from "@/components/cook-detail/AddToPlannedCookModal";
+import { AddItemToLiveCookModal } from "@/components/cook-detail/AddItemToLiveCookModal";
 import { UnifiedCheckinSheet } from "@/components/cook-detail/UnifiedCheckinSheet";
 import { CheckinPreviewSheet } from "@/components/cook-detail/CheckinPreviewSheet";
 import { PitMasterChatModal } from "@/components/PitMasterChatModal";
@@ -184,6 +185,8 @@ export default function CookDetailScreen() {
   const [fGradeQuip, setFGradeQuip] = useState<string | null>(null);
   const [proactiveCoachingNote, setProactiveCoachingNote] = useState<string | null>(null);
   const [healthBreakdownOpen, setHealthBreakdownOpen] = useState(false);
+  const [addItemModalOpen, setAddItemModalOpen] = useState(false);
+  const [addItemWarning, setAddItemWarning] = useState<string | null>(null);
   const proactiveAlerts = useProactiveAlerts();
   useEffect(() => { proactiveAlerts.reset(); }, [id]);
   useEffect(() => {
@@ -655,6 +658,29 @@ export default function CookDetailScreen() {
             </Pressable>
           )}
 
+          {cookStatus === "active" && (
+            <Pressable
+              onPress={() => setAddItemModalOpen(true)}
+              style={({ pressed }) => ({
+                flexDirection: "row" as const,
+                alignItems: "center" as const,
+                gap: 10,
+                backgroundColor: colors.card,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: colors.radius,
+                paddingHorizontal: 16,
+                paddingVertical: 13,
+                marginTop: 4,
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Feather name="plus-circle" size={16} color={colors.primary} />
+              <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.foreground, flex: 1 }}>Add item to this cook</Text>
+              <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
+            </Pressable>
+          )}
+
           <TechniquesSection
             c={c} colors={colors} id={id!}
             techsExpanded={techsExpanded} setTechsExpanded={setTechsExpanded}
@@ -664,6 +690,14 @@ export default function CookDetailScreen() {
             techWrapFinishSheetOpen={techWrapFinishSheetOpen} setTechWrapFinishSheetOpen={setTechWrapFinishSheetOpen}
             saveTechnique={saveTechnique} updateCookMutate={updateCook.mutateAsync}
           />
+
+          {addItemWarning && (
+            <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: "#F9731618", borderWidth: 1, borderColor: "#F9731650", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}>
+              <Feather name="alert-triangle" size={14} color="#F97316" style={{ marginTop: 1 }} />
+              <Text style={{ flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#F97316", lineHeight: 19 }}>{addItemWarning}</Text>
+              <Pressable onPress={() => setAddItemWarning(null)} hitSlop={10}><Feather name="x" size={13} color="#F97316" /></Pressable>
+            </View>
+          )}
 
           <CookTimelineSection
             c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs} id={id}
@@ -703,6 +737,21 @@ export default function CookDetailScreen() {
       </ScrollView>
 
       {/* ── Sheets & Modals ────────────────────────────────────────────────── */}
+      <AddItemToLiveCookModal
+        visible={addItemModalOpen}
+        onClose={() => setAddItemModalOpen(false)}
+        colors={colors}
+        cookId={Number(id)}
+        cookFoodType={c.foodType ?? ""}
+        remainingEstimateMinutes={remainingMs != null ? remainingMs / 60_000 : null}
+        effectivePro={effectivePro}
+        onSuccess={({ sessionId: _sid, sequenceData: _sd, warning }) => {
+          if (warning) setAddItemWarning(warning);
+          qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+          qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+        }}
+      />
+
       <CookModals
         cookStatus={cookStatus} cookSeqData={cookSeqData} cook={cook} id={id!}
         colors={colors} insets={insets} grills={grills}

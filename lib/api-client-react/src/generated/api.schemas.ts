@@ -1596,6 +1596,44 @@ export interface MultiCookScheduleItem {
   isSharedGrillFollowOn?: boolean | null;
 }
 
+export interface AddItemsToLiveCookBody {
+  /**
+   * New items to add to the active cook session.
+   * @minItems 1
+   * @maxItems 4
+   */
+  items: MultiCookItem[];
+  /**
+   * Outdoor ambient temperature in Fahrenheit for AI scheduling context.
+   * @nullable
+   */
+  outdoorTempF?: number | null;
+  /**
+   * True when outdoorTempF is a forecast value.
+   * @nullable
+   */
+  outdoorTempIsForecast?: boolean | null;
+}
+
+/**
+ * The full updated AI-generated sequence data for all session cooks.
+ */
+export type AddItemsToLiveCookResponseSequenceData = { [key: string]: unknown };
+
+export interface AddItemsToLiveCookResponse {
+  /** The session UUID that groups all cooks together. */
+  sessionId: string;
+  /** Newly created cook records in planned status. */
+  addedCooks: Cook[];
+  /** The full updated AI-generated sequence data for all session cooks. */
+  sequenceData: AddItemsToLiveCookResponseSequenceData;
+  /**
+   * Optional warning when the anchor cook is nearly done (< 30 min remaining) and the grill may free up before new items need it.
+   * @nullable
+   */
+  warning?: string | null;
+}
+
 export interface MultiCookResponse {
   /** All cook items sorted by grillLightAt (earliest first) */
   schedule: MultiCookScheduleItem[];

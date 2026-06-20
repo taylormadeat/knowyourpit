@@ -1687,6 +1687,309 @@ export const GetCookHealthResponse = zod.object({
 });
 
 /**
+ * Accepts one or more new item payloads, assigns a sessionId to the anchor cook if absent, inserts the new cook records as planned, then calls the AI sequencer with the anchor cook's live context (elapsed time, remaining estimate, current probe temp) to produce an interleaved schedule.
+ * @summary Add new items to an active single cook, upgrading it to a multi-cook session
+ */
+export const AddItemsToLiveCookParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const addItemsToLiveCookBodyItemsMax = 4;
+
+export const AddItemsToLiveCookBody = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        foodType: zod.string(),
+        weightLbs: zod.number().nullish(),
+        cookTempF: zod.number().nullish(),
+        targetTempF: zod.number().nullish(),
+        grillId: zod.number().nullish(),
+        preheatMinutes: zod
+          .number()
+          .nullish()
+          .describe("Minutes to preheat the grill before putting meat on"),
+        cookingMethod: zod
+          .string()
+          .nullish()
+          .describe(
+            'Cooking technique selected by the user (e.g. \"Low & Slow\", \"Hot & Fast\", \"Rotisserie\"). When provided the AI should factor it into duration estimates, wrap recommendations, and notes.',
+          ),
+        fromFrozen: zod
+          .boolean()
+          .nullish()
+          .describe(
+            "True when this item is starting from a fully frozen state. PitMaster will factor in thaw lead-time when scheduling backwards from the serve time.",
+          ),
+        thawMethod: zod
+          .union([
+            zod.literal("fridge"),
+            zod.literal("cold_water"),
+            zod.literal("microwave"),
+            zod.literal("counter"),
+            zod.literal("cook_from_frozen"),
+            zod.literal(null),
+          ])
+          .nullish()
+          .describe(
+            'Chosen thaw method when fromFrozen is true. \"fridge\" is slow and safest (~24h \/ 4–5 lbs); \"cold_water\" is faster (~1h per lb).',
+          ),
+        notes: zod
+          .string()
+          .nullish()
+          .describe(
+            "Free-text notes specific to this item (rub recipe, wood choice, injection brine, special instructions). PitMaster factors these into timing and technique recommendations for this cut.",
+          ),
+        cookingStylePreset: zod
+          .string()
+          .nullish()
+          .describe(
+            'Name of the preset style the user selected for this item (e.g. \"3-2-1 Method\", \"Texas Style\"). Mentioned for context alongside the individual technique fields.',
+          ),
+        grillName: zod
+          .string()
+          .nullish()
+          .describe(
+            'Human-readable name of the grill assigned to this item (e.g. \"Big Green Egg 2XL\"). Used by the server to detect shared-grill scenarios and include per-grill calibration coaching.',
+          ),
+        baselineEstimateMinutes: zod
+          .number()
+          .nullish()
+          .describe(
+            "Client-computed baseline active cook duration in minutes, derived from the cut's standard minsPerLb × weightLbs. The AI must treat this as a strong anchor and stay within ±25% when estimating estimatedDurationMinutes. Omitted when weight is unknown.",
+          ),
+        restMins: zod
+          .number()
+          .nullish()
+          .describe(
+            "Recommended rest time in minutes for this cut after pulling from the grill, from the app's cut definition. The AI should use this as the default restMinutes value.",
+          ),
+      }),
+    )
+    .min(1)
+    .max(addItemsToLiveCookBodyItemsMax)
+    .describe("New items to add to the active cook session."),
+  outdoorTempF: zod
+    .number()
+    .nullish()
+    .describe(
+      "Outdoor ambient temperature in Fahrenheit for AI scheduling context.",
+    ),
+  outdoorTempIsForecast: zod
+    .boolean()
+    .nullish()
+    .describe("True when outdoorTempF is a forecast value."),
+});
+
+export const AddItemsToLiveCookResponse = zod.object({
+  sessionId: zod
+    .string()
+    .describe("The session UUID that groups all cooks together."),
+  addedCooks: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        grillId: zod.number().nullable(),
+        grillName: zod.string().nullable(),
+        foodType: zod.string(),
+        weightLbs: zod.number().nullable(),
+        targetTempF: zod.number().nullable(),
+        cookTempF: zod.number().nullable(),
+        status: zod.enum(["planned", "active", "completed", "cancelled"]),
+        plannedStartAt: zod.coerce.date().nullable(),
+        actualStartAt: zod.coerce.date().nullable(),
+        plannedEndAt: zod.coerce.date().nullable(),
+        actualEndAt: zod.coerce.date().nullable(),
+        notes: zod.string().nullable(),
+        preheatMinutes: zod
+          .number()
+          .nullable()
+          .describe(
+            "Minutes needed to start and bring the grill up to cook temperature",
+          ),
+        wrapAtMinutes: zod
+          .number()
+          .nullable()
+          .describe("Minutes into the cook when meat should be wrapped"),
+        wrapMethod: zod
+          .union([
+            zod.literal("foil"),
+            zod.literal("butcher_paper"),
+            zod.literal("none"),
+            zod.literal(null),
+          ])
+          .nullable()
+          .describe("Wrapping method recommended"),
+        wrapTempF: zod
+          .number()
+          .nullable()
+          .describe("Internal meat temp at which to wrap"),
+        wrapReason: zod
+          .string()
+          .nullable()
+          .describe("Explanation of why and how to wrap"),
+        restMinutes: zod
+          .number()
+          .nullable()
+          .describe("Recommended rest time after pulling from grill"),
+        ratingTenderness: zod
+          .number()
+          .nullable()
+          .describe("1-5 rating for meat tenderness"),
+        ratingBark: zod
+          .number()
+          .nullable()
+          .describe("1-5 rating for bark\/crust\/exterior color"),
+        ratingFlavor: zod
+          .number()
+          .nullable()
+          .describe("1-5 rating for overall flavor"),
+        rating: zod
+          .number()
+          .nullable()
+          .describe("Overall score (1-5), computed as average of sub-ratings"),
+        sessionId: zod
+          .string()
+          .nullable()
+          .describe(
+            "UUID grouping cooks that were saved together from the Multi-Cook Sequencer",
+          ),
+        confirmedSteps: zod
+          .record(zod.string(), zod.string())
+          .nullable()
+          .describe(
+            "Map of step keys to ISO timestamps of when the user confirmed each step",
+          ),
+        fromFrozen: zod
+          .boolean()
+          .describe(
+            "True when this cook was planned starting from frozen meat (Frozen-to-Table mode)",
+          ),
+        thawMethod: zod
+          .union([
+            zod.literal("fridge"),
+            zod.literal("cold_water"),
+            zod.literal("microwave"),
+            zod.literal("counter"),
+            zod.literal("cook_from_frozen"),
+            zod.literal(null),
+          ])
+          .nullable()
+          .describe("Selected thaw method when fromFrozen is true"),
+        actualThawStartAt: zod.coerce
+          .date()
+          .nullish()
+          .describe(
+            'The actual timestamp when the pitmaster moved the meat to begin thawing. Null until the pitmaster taps \"Mark Thaw Started\".',
+          ),
+        cookingMethod: zod
+          .string()
+          .nullish()
+          .describe(
+            "Cooking technique used (e.g. Low & Slow, Hot & Fast, Rotisserie)",
+          ),
+        injection: zod
+          .string()
+          .nullish()
+          .describe("Injection technique used (e.g. Not Injected, Injected)"),
+        spritzFrequency: zod
+          .string()
+          .nullish()
+          .describe(
+            "How often the cook was spritzed\/mopped (e.g. Every Hour, No Spritz)",
+          ),
+        wrapFinish: zod
+          .string()
+          .nullish()
+          .describe(
+            "Wrap or finish method used (e.g. Butcher Paper at Stall, No Wrap)",
+          ),
+        finishTimeRangeLower: zod.coerce
+          .date()
+          .nullish()
+          .describe("Lower bound of the finish time confidence range"),
+        finishTimeRangeUpper: zod.coerce
+          .date()
+          .nullish()
+          .describe("Upper bound of the finish time confidence range"),
+        healthScore: zod
+          .string()
+          .nullish()
+          .describe("Cook health letter grade (A, B, C, D, F)"),
+        healthScoreReason: zod
+          .string()
+          .nullish()
+          .describe("One-line explanation of the health score"),
+        currentTempF: zod
+          .number()
+          .nullish()
+          .describe(
+            "Latest internal probe temperature reading for this cook (null when no readings exist)",
+          ),
+        probeAssignments: zod
+          .object({
+            meatProbes: zod
+              .array(
+                zod.object({
+                  id: zod.string(),
+                  label: zod.string(),
+                }),
+              )
+              .optional()
+              .describe(
+                "Ordered meat probe slots. First entry is the primary doneness probe. Absent on records written before multi-probe support (use meatProbeId for those).",
+              ),
+            meatProbeId: zod
+              .string()
+              .nullish()
+              .describe(
+                "Legacy v1 field — equals meatProbes[0].id. Written alongside meatProbes for backwards compatibility.",
+              ),
+            pitProbeId: zod.string().nullish(),
+            labels: zod.record(zod.string(), zod.string()).optional(),
+          })
+          .nullish()
+          .describe(
+            "Server-persisted probe assignments and labels for this cook",
+          ),
+        sizingLabel: zod
+          .string()
+          .nullish()
+          .describe(
+            'Human-readable size label saved at planning\/log time (e.g. \"6 thighs · ≈ 2.4 lbs est.\" or \"2 racks · ≈ 4.5 lbs est.\")',
+          ),
+        isOutlier: zod
+          .boolean()
+          .optional()
+          .describe(
+            "True when the cook was auto-detected as an outlier on completion (missing check-ins and\/or large duration deviation)",
+          ),
+        outlierDismissed: zod
+          .boolean()
+          .optional()
+          .describe(
+            "True when the user has manually marked this cook as accurate, overriding the outlier flag",
+          ),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      }),
+    )
+    .describe("Newly created cook records in planned status."),
+  sequenceData: zod
+    .object({})
+    .passthrough()
+    .describe(
+      "The full updated AI-generated sequence data for all session cooks.",
+    ),
+  warning: zod
+    .string()
+    .nullish()
+    .describe(
+      "Optional warning when the anchor cook is nearly done (< 30 min remaining) and the grill may free up before new items need it.",
+    ),
+});
+
+/**
  * @summary Dismiss the outlier flag and restore this cook to grill fingerprint calculations
  */
 export const DismissCookOutlierParams = zod.object({

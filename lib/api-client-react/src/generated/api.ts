@@ -17,6 +17,8 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AddItemsToLiveCookBody,
+  AddItemsToLiveCookResponse,
   AiChatBody,
   AiChatResponse,
   AiPredictBody,
@@ -2747,6 +2749,94 @@ export function useGetCookHealth<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Accepts one or more new item payloads, assigns a sessionId to the anchor cook if absent, inserts the new cook records as planned, then calls the AI sequencer with the anchor cook's live context (elapsed time, remaining estimate, current probe temp) to produce an interleaved schedule.
+ * @summary Add new items to an active single cook, upgrading it to a multi-cook session
+ */
+export const getAddItemsToLiveCookUrl = (id: number) => {
+  return `/api/cooks/${id}/add-items`;
+};
+
+export const addItemsToLiveCook = async (
+  id: number,
+  addItemsToLiveCookBody: AddItemsToLiveCookBody,
+  options?: RequestInit,
+): Promise<AddItemsToLiveCookResponse> => {
+  return customFetch<AddItemsToLiveCookResponse>(getAddItemsToLiveCookUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addItemsToLiveCookBody),
+  });
+};
+
+export const getAddItemsToLiveCookMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addItemsToLiveCook>>,
+    TError,
+    { id: number; data: BodyType<AddItemsToLiveCookBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addItemsToLiveCook>>,
+  TError,
+  { id: number; data: BodyType<AddItemsToLiveCookBody> },
+  TContext
+> => {
+  const mutationKey = ["addItemsToLiveCook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addItemsToLiveCook>>,
+    { id: number; data: BodyType<AddItemsToLiveCookBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return addItemsToLiveCook(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddItemsToLiveCookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addItemsToLiveCook>>
+>;
+export type AddItemsToLiveCookMutationBody = BodyType<AddItemsToLiveCookBody>;
+export type AddItemsToLiveCookMutationError = ErrorType<void>;
+
+/**
+ * @summary Add new items to an active single cook, upgrading it to a multi-cook session
+ */
+export const useAddItemsToLiveCook = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addItemsToLiveCook>>,
+    TError,
+    { id: number; data: BodyType<AddItemsToLiveCookBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addItemsToLiveCook>>,
+  TError,
+  { id: number; data: BodyType<AddItemsToLiveCookBody> },
+  TContext
+> => {
+  return useMutation(getAddItemsToLiveCookMutationOptions(options));
+};
 
 /**
  * @summary Dismiss the outlier flag and restore this cook to grill fingerprint calculations
