@@ -28,6 +28,7 @@ const ACTIVE_CHANNEL_STATUSES = new Set([
   "CONNECTED",
   "ACTIVE",
   "OK",
+  "NORMAL",
   "IN_SESSION",
   "LIVE",
   "MEASURING",
