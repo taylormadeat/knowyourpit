@@ -167,7 +167,7 @@ Respond ONLY with a JSON array of exactly 3 strings: ["tip1", "tip2", "tip3"]`;
 
       try {
         const aiRes = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
+          model: "gpt-5-mini",
           max_completion_tokens: 400,
           messages: [{ role: "user", content: prompt }],
         });
