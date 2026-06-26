@@ -5,6 +5,7 @@ import { useFocusEffect } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import { useAuth } from "@clerk/expo";
 
 import {
   useAnalyzeCook,
@@ -17,6 +18,7 @@ import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
 import type { PickedImage, Assessment, AnalysisResult } from "@/components/cook-detail/types";
 import { VERDICT_CONFIG } from "@/components/cook-detail/constants";
+import { getTokenSafe } from "@/lib/getTokenSafe";
 
 interface UseAnalysisParams {
   id: string | undefined;
@@ -53,6 +55,7 @@ export function useAnalysis({
   pendingWrapClearRef,
 }: UseAnalysisParams) {
   const qc = useQueryClient();
+  const { getToken } = useAuth();
   const { showPaywall, parseAndShowFromError } = usePaywall();
   const { data: paywallUsage } = usePaywallUsage();
   const analyzeMutation = useAnalyzeCook();
@@ -235,6 +238,23 @@ export function useAnalysis({
       setResult(null);
     }
     try {
+      // Pre-warm the Clerk JWT before the mutation so customFetch finds a
+      // valid token in Clerk's cache and never has to wait up to 3 s for it.
+      // If the token isn't available after 10 s the session is genuinely gone —
+      // bail out with a soft message rather than making an auth-less request
+      // that triggers the global 401 → sign-out chain.
+      const preWarmedToken = await getTokenSafe(getToken, 10000);
+      if (!preWarmedToken) {
+        if (!auto) {
+          setAnalyzing(false);
+          Alert.alert(
+            "Session issue",
+            "Couldn't reach your session. Please tap Check In again in a moment.",
+          );
+        }
+        return;
+      }
+
       const data: any = await analyzeMutation.mutateAsync({
         data: {
           images: images.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),

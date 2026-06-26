@@ -95,7 +95,13 @@ setBaseUrl(apiBaseUrl);
 let _currentGetToken: ((opts?: { skipCache?: boolean }) => Promise<string | null>) | null = null;
 setAuthTokenGetter(async () => {
   if (!_currentGetToken) return null;
-  return getTokenSafe(_currentGetToken);
+  // 3 s is enough for a fresh JWT from Clerk's in-memory cache.
+  // If the JWT has expired and Clerk needs a network round-trip, the fetch
+  // proceeds without a token after 3 s (returning null), the server responds
+  // 401, and SessionExpiredGuard handles the forced refresh with a longer
+  // timeout. Keeping this short prevents the 8-second UI freeze seen when
+  // the iOS Secure Enclave stalls between background and foreground.
+  return getTokenSafe(_currentGetToken, 3000);
 });
 
 // Clerk publishable key — two env vars are supported:
@@ -792,7 +798,12 @@ function SessionExpiredGuard() {
         (err as any)?.data?.error === "Unauthorized"
       ) {
         confirmInProgress = true;
-        void getTokenSafe(getToken, 5000, true)
+        // 12 s gives Clerk time to complete a genuine network round-trip
+        // for a token refresh even on a slow connection. The previous 5 s
+        // was too short — on iOS the Secure Enclave can stall for 4-8 s
+        // right after backgrounding, causing the forced-refresh attempt to
+        // also time out and incorrectly sign the user out.
+        void getTokenSafe(getToken, 12000, true)
           .then((freshToken) => {
             confirmInProgress = false;
             if (signedOut) return;

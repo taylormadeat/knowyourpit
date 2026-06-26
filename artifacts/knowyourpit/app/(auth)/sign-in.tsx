@@ -275,9 +275,20 @@ export default function SignInScreen() {
     }
   };
 
+  // Reset the Google loading spinner if the user dismisses the browser or
+  // the OAuth flow is interrupted (e.g. force sign-out while flow was open).
+  // Without this, the button stays in loading state across screen mounts.
+  useEffect(() => {
+    setGoogleLoading(false);
+  }, []);
+
   const handleGoogle = useCallback(async () => {
     try {
       setGoogleLoading(true);
+      // Dismiss any stale browser session left over from a previous OAuth
+      // attempt before starting a new one. Avoids the spinner getting stuck
+      // when the previous flow was interrupted by a force sign-out.
+      WebBrowser.dismissBrowser().catch(() => {});
       const {
         createdSessionId,
         setActive: ssoSetActive,
