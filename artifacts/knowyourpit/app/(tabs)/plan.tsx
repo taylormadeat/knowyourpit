@@ -61,7 +61,7 @@ import {
   type TechniquePreset,
   type UserTechniquePreset,
 } from "@workspace/api-client-react";
-import { NextUpBanner, getStepTargetMs } from "@/components/NextUpBanner";
+import { getStepTargetMs } from "@/components/NextUpBanner";
 import { computeNextStep } from "@/components/cook-detail/utils";
 import { fmtRemaining } from "@/components/cook-detail/CookProgressBar";
 import type { SequenceData, FactorBreakdownItem } from "@/components/cook-detail/types";
@@ -1780,12 +1780,6 @@ export default function PlanScreen() {
             </Pressable>
             <Feather name="chevron-right" size={16} color="#fff" />
           </Pressable>
-          <NextUpBanner
-            nextStep={activeNextStep}
-            cookSeqData={activeSeqData}
-            nowMs={bannerNowMs}
-            onPress={() => router.push(`/cooks/${activeCook.id}` as any)}
-          />
           {!activeCookIsMeatOn && (
             <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 }}>
               <ThawStatusBanner
