@@ -142,7 +142,7 @@ export function removeHost(map: DiscoveredHosts, type: ZeroconfDeviceType, host:
 }
 
 /** Known classifiable device types (excludes "unknown") */
-const KNOWN_TYPES: ZeroconfDeviceType[] = ["fireboard", "meater_block", "thermoworks_signals"];
+const KNOWN_TYPES: ZeroconfDeviceType[] = ["fireboard", "meater_block"];
 
 export function useZeroconfDiscovery(enabled: boolean): UseZeroconfDiscoveryResult {
   const [discovered, setDiscovered] = useState<DiscoveredHosts>({});

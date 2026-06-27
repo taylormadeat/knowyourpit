@@ -44,25 +44,17 @@ describe("classifyService — _http._tcp classification", () => {
     });
   });
 
-  describe("ThermoWorks Signals detection", () => {
-    it("classifies name containing 'thermoworks' as thermoworks_signals", () => {
-      expect(classifyService("thermoworks-signals", "192.168.1.52", 80)).toBe("thermoworks_signals");
+  describe("ThermoWorks / Signals — classified as unknown (cloud devices, no LAN adapter)", () => {
+    it("returns unknown for a 'thermoworks' service name", () => {
+      expect(classifyService("thermoworks-signals", "192.168.1.52", 80)).toBe("unknown");
     });
 
-    it("classifies name containing 'ThermoWorks' (mixed case) as thermoworks_signals", () => {
-      expect(classifyService("ThermoWorks Signals", "192.168.1.52", 80)).toBe("thermoworks_signals");
+    it("returns unknown for a 'signals' service name", () => {
+      expect(classifyService("signals-bbq", "192.168.1.52", 80)).toBe("unknown");
     });
 
-    it("classifies name containing 'signals' as thermoworks_signals", () => {
-      expect(classifyService("signals-bbq", "192.168.1.52", 80)).toBe("thermoworks_signals");
-    });
-
-    it("classifies host 'thermoworks-signals.local' as thermoworks_signals", () => {
-      expect(classifyService("Unknown", "thermoworks-signals.local", 80)).toBe("thermoworks_signals");
-    });
-
-    it("classifies host 'signals.local' as thermoworks_signals", () => {
-      expect(classifyService("Unknown", "signals.local", 80)).toBe("thermoworks_signals");
+    it("returns unknown for 'thermoworks-signals.local' host", () => {
+      expect(classifyService("Unknown", "thermoworks-signals.local", 80)).toBe("unknown");
     });
   });
 

@@ -2,7 +2,7 @@
  * useLanProbes
  *
  * Discovers and polls WiFi thermometer base stations on the local network.
- * Supported devices: Fireboard 2/Drive, MEATER Block, ThermoWorks Signals.
+ * Supported devices: Fireboard 2/Drive, MEATER Block.
  *
  * Discovery strategy (two layers, both run concurrently):
  *
@@ -12,10 +12,9 @@
  *      any network topology without router mDNS forwarding.
  *
  *   2. Well-known .local fallback — many consumer routers do forward mDNS PTR
- *      records, so `fireboard.local`, `meaterblock.local`, and
- *      `thermoworks-signals.local` are still tried when no Zeroconf host is
- *      available for a given device type.  Fetch times out after 3 s if the
- *      host isn't reachable.
+ *      records, so `fireboard.local` and `meaterblock.local` are still tried
+ *      when no Zeroconf host is available for a given device type.  Fetch
+ *      times out after 3 s if the host isn't reachable.
  *
  * IP-change recovery
  * ------------------
@@ -32,7 +31,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { pollFireboard } from "./lan/fireboard";
 import { pollMeaterBlock } from "./lan/meaterBlock";
-import { pollThermoworksSignals } from "./lan/thermoworksSignals";
 import type { ZeroconfDeviceType } from "./lan/zeroconf";
 import { useZeroconfDiscovery } from "./useZeroconfDiscovery";
 
@@ -59,7 +57,7 @@ export interface LanDeviceStatus {
 }
 
 /** Device type for a manually-added LAN device */
-export type ManualDeviceType = "meater_block" | "fireboard" | "thermoworks_signals";
+export type ManualDeviceType = "meater_block" | "fireboard";
 
 /** A user-supplied manual LAN entry persisted across sessions */
 export interface ManualEntry {
@@ -71,7 +69,6 @@ export interface ManualEntry {
 export const MANUAL_DEVICE_LABELS: Record<ManualDeviceType, string> = {
   meater_block: "MEATER Block",
   fireboard: "Fireboard",
-  thermoworks_signals: "ThermoWorks Signals",
 };
 
 interface UseLanProbesOptions {
@@ -107,7 +104,6 @@ const DEFAULT_FIREBOARD_HOST = "fireboard.local";
  * Different MEATER Block firmware versions use different names.
  */
 const DEFAULT_MEATER_BLOCK_HOSTS = ["meaterblock.local", "meater-block.local", "MEATER_block.local"];
-const DEFAULT_SIGNALS_HOSTS = ["thermoworks-signals.local", "signals.local", "thermoworks.local", "rfx.local", "rfx-gateway.local"];
 
 /**
  * AsyncStorage key for user-supplied manual device entries.
@@ -263,7 +259,6 @@ export function useLanProbes({
       // Partition manual entries by device type so each goes to the right adapter
       const manualMeater = manualEntriesRef.current.filter((e) => e.type === "meater_block").map((e) => e.host);
       const manualFireboard = manualEntriesRef.current.filter((e) => e.type === "fireboard").map((e) => e.host);
-      const manualSignals = manualEntriesRef.current.filter((e) => e.type === "thermoworks_signals").map((e) => e.host);
 
       const fireboardHosts = dedup([
         ...(snap.fireboard ?? []),
@@ -275,15 +270,6 @@ export function useLanProbes({
         ...(snap.meater_block ?? []),
         ...DEFAULT_MEATER_BLOCK_HOSTS,
         ...manualMeater,
-      ]);
-
-      // Build a deduplicated list that includes mDNS hosts + the two
-      // well-known Signals aliases.  Pass each as explicit hosts to the
-      // adapter so it doesn't run its own internal alias loop on top.
-      const signalsHosts = dedup([
-        ...(snap.thermoworks_signals ?? []),
-        ...DEFAULT_SIGNALS_HOSTS,
-        ...manualSignals,
       ]);
 
       // ── Poll all hosts, tracking per-host results ──────────────────────────
@@ -301,10 +287,9 @@ export function useLanProbes({
         );
       }
 
-      const [fireboardPerHost, meaterPerHost, signalsPerHost] = await Promise.all([
+      const [fireboardPerHost, meaterPerHost] = await Promise.all([
         pollAllHosts(fireboardHosts, pollFireboard),
         pollAllHosts(meaterHosts, pollMeaterBlock),
-        pollAllHosts(signalsHosts, pollThermoworksSignals),
       ]);
 
       if (!mountedRef.current) return;
@@ -347,7 +332,6 @@ export function useLanProbes({
 
       trackFailures("fireboard", fireboardPerHost, snap.fireboard);
       trackFailures("meater_block", meaterPerHost, snap.meater_block);
-      trackFailures("thermoworks_signals", signalsPerHost, snap.thermoworks_signals);
 
       // Trigger a single rescan after all evictions so mDNS can rediscover
       // the device at its new IP address.
@@ -357,7 +341,6 @@ export function useLanProbes({
       const allReadings: LanProbeReading[] = [
         ...fireboardPerHost,
         ...meaterPerHost,
-        ...signalsPerHost,
       ].flatMap((r) => r.readings);
 
       // Deduplicate by deviceId + channelIndex

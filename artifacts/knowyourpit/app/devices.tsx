@@ -644,7 +644,7 @@ export default function DevicesScreen() {
             {!effectivePro ? (
               <LockedFeatureCard
                 featureName="Local WiFi Thermometers"
-                teaser="Connect Fireboard, MEATER Block, and ThermoWorks Signals over your local network for live temps and auto PitMaster check-ins."
+                teaser="Connect Fireboard and MEATER Block base stations over your local network for live temps and auto PitMaster check-ins."
                 icon="wifi"
                 onPress={() => showPaywall({ trigger: "pro_required", featureName: "Smart Probe Integration" })}
               />
@@ -660,7 +660,7 @@ export default function DevicesScreen() {
                   </View>
                 </View>
                 <Text style={[s.lanPermBody, { color: colors.mutedForeground }]}>
-                  iOS will ask for permission to scan your local network. This lets knowyourpit automatically find Fireboard, MEATER Block, and ThermoWorks Signals thermometers on your WiFi — no IP address needed.
+                  iOS will ask for permission to scan your local network. This lets knowyourpit automatically find Fireboard and MEATER Block base stations on your WiFi — no IP address needed.
                 </Text>
                 <Text style={[s.lanPermBody, { color: colors.mutedForeground, marginTop: 4 }]}>
                   Your network data never leaves your device. Tap{" "}
@@ -684,7 +684,7 @@ export default function DevicesScreen() {
                       No WiFi thermometers found
                     </Text>
                     <Text style={[s.emptySubText, { color: colors.mutedForeground }]}>
-                      Make sure your MEATER Block, Fireboard, or ThermoWorks Signals base station is powered on and connected to the same WiFi network as your phone.
+                      Make sure your MEATER Block or Fireboard base station is powered on and connected to the same WiFi network as your phone.
                     </Text>
                     <Text style={[s.emptySubText, { color: colors.mutedForeground, marginTop: 4 }]}>
                       If Local Network permission was denied, you can re-enable it in Settings.
@@ -705,8 +705,8 @@ export default function DevicesScreen() {
                     </Text>
                     <Text style={[s.emptySubText, { color: colors.mutedForeground }]}>
                       {mdnsAvailable
-                        ? "Auto-discovery (mDNS) is active — make sure your device is on the same WiFi network. Supported: Fireboard 2/Drive, MEATER Block base station, ThermoWorks Signals"
-                        : "Supported: Fireboard 2/Drive, MEATER Block base station, ThermoWorks Signals"}
+                        ? "Auto-discovery (mDNS) is active — make sure your device is on the same WiFi network. Supported: Fireboard 2/Drive, MEATER Block base station"
+                        : "Supported: Fireboard 2/Drive, MEATER Block base station"}
                     </Text>
                     <Text style={[s.emptySubText, { color: colors.mutedForeground, marginTop: 4 }]}>
                       Using MEATER probes with the MEATER app? Link your MEATER account in the{" "}
@@ -747,7 +747,7 @@ export default function DevicesScreen() {
 
                     {/* Device type picker */}
                     <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
-                      {(["meater_block", "fireboard", "thermoworks_signals"] as ManualDeviceType[]).map((type) => {
+                      {(["meater_block", "fireboard"] as ManualDeviceType[]).map((type) => {
                         const isSelected = selectedDeviceType === type;
                         return (
                           <Pressable

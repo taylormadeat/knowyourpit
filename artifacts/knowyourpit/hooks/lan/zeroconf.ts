@@ -9,7 +9,11 @@
  * -------------------------------------------------------------------------
  * MEATER Block  — port 2345, or name/host contains "meater"
  * Fireboard     — name/host contains "fireboard"
- * ThermoWorks   — name/host contains "thermoworks" or "signals"
+ *
+ * Note: ThermoWorks Signals/RFX are cloud devices (account-linked via
+ * /api/thermoworks/link) and do NOT expose a local LAN HTTP endpoint.
+ * Any mDNS advertisement from a ThermoWorks-branded host is classified
+ * as "unknown" so it is not routed to a polling adapter.
  *
  * All `_meater._tcp` services are unconditionally classified as `meater_block`
  * by the caller — `classifyService` is not invoked for those events.
@@ -18,7 +22,7 @@
  * appropriate polling adapter (pollMeaterBlock, pollFireboard, etc.).
  */
 
-export type ZeroconfDeviceType = "meater_block" | "fireboard" | "thermoworks_signals" | "unknown";
+export type ZeroconfDeviceType = "meater_block" | "fireboard" | "unknown";
 
 export interface ZeroconfService {
   name: string;
@@ -47,14 +51,6 @@ function classifyService(name: string, host: string, port: number): ZeroconfDevi
   const haystack = `${name} ${host}`.toLowerCase();
   if (port === 2345 || haystack.includes("meater")) return "meater_block";
   if (haystack.includes("fireboard")) return "fireboard";
-  if (
-    haystack.includes("thermoworks") ||
-    haystack.includes("signals") ||
-    haystack.includes("rfx-gateway") ||
-    haystack.includes("rfxgateway") ||
-    /\brfx\b/.test(haystack)
-  )
-    return "thermoworks_signals";
   return "unknown";
 }
 

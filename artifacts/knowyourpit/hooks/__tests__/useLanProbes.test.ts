@@ -60,18 +60,12 @@ const mockPollFireboard = jest.fn(
 const mockPollMeaterBlock = jest.fn(
   (_host: string): Promise<LanProbeReading[]> => Promise.resolve([]),
 );
-const mockPollThermoworksSignals = jest.fn(
-  (_host: string): Promise<LanProbeReading[]> => Promise.resolve([]),
-);
 
 jest.mock("../lan/fireboard", () => ({
   pollFireboard: (host: string) => mockPollFireboard(host),
 }));
 jest.mock("../lan/meaterBlock", () => ({
   pollMeaterBlock: (host: string) => mockPollMeaterBlock(host),
-}));
-jest.mock("../lan/thermoworksSignals", () => ({
-  pollThermoworksSignals: (host: string) => mockPollThermoworksSignals(host),
 }));
 
 // ── Import under test (after mocks are registered) ────────────────────────
@@ -113,7 +107,6 @@ beforeEach(() => {
   // Default: all adapters return empty arrays
   mockPollFireboard.mockResolvedValue([]);
   mockPollMeaterBlock.mockResolvedValue([]);
-  mockPollThermoworksSignals.mockResolvedValue([]);
 });
 
 // ── Fallback hostname resolution ──────────────────────────────────────────
@@ -341,7 +334,7 @@ describe("manual host add / remove / persist", () => {
     await act(async () => { await Promise.resolve(); });
 
     await act(async () => {
-      await result.current.addManualHost("  192.168.1.99  ", "thermoworks_signals");
+      await result.current.addManualHost("  192.168.1.99  ", "fireboard");
     });
 
     const hosts = result.current.manualEntries.map((e) => e.host);
@@ -398,7 +391,7 @@ describe("manual host add / remove / persist", () => {
   it("loads persisted ManualEntry[] from AsyncStorage on mount", async () => {
     const seeded: ManualEntry[] = [
       { host: "192.168.1.88", type: "fireboard" },
-      { host: "192.168.1.89", type: "thermoworks_signals" },
+      { host: "192.168.1.89", type: "meater_block" },
     ];
     storageData[MANUAL_KEY] = JSON.stringify(seeded);
 
@@ -409,7 +402,7 @@ describe("manual host add / remove / persist", () => {
     expect(hosts).toContain("192.168.1.88");
     expect(hosts).toContain("192.168.1.89");
     expect(result.current.manualEntries.find((e) => e.host === "192.168.1.88")?.type).toBe("fireboard");
-    expect(result.current.manualEntries.find((e) => e.host === "192.168.1.89")?.type).toBe("thermoworks_signals");
+    expect(result.current.manualEntries.find((e) => e.host === "192.168.1.89")?.type).toBe("meater_block");
 
     unmount();
   });
@@ -424,19 +417,6 @@ describe("manual host add / remove / persist", () => {
 
     const calledHosts = mockPollFireboard.mock.calls.map(([h]) => h);
     expect(calledHosts).toContain("192.168.1.55");
-
-    unmount();
-  });
-
-  it("routes manual thermoworks_signals entry to pollThermoworksSignals adapter", async () => {
-    const { result, unmount } = renderHook(() => useLanProbes({ enabled: true, pollIntervalMs: 60_000 }));
-    await act(async () => { await Promise.resolve(); });
-    mockPollThermoworksSignals.mockClear();
-
-    await act(async () => { await result.current.addManualHost("192.168.1.56", "thermoworks_signals"); });
-
-    const calledHosts = mockPollThermoworksSignals.mock.calls.map(([h]) => h);
-    expect(calledHosts).toContain("192.168.1.56");
 
     unmount();
   });
