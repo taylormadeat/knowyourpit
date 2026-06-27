@@ -93,15 +93,50 @@ setBaseUrl(apiBaseUrl);
 // pointer changes — which closes the post-mount useEffect window where a
 // freshly-mounted query could otherwise fire with the previous user's token.
 let _currentGetToken: ((opts?: { skipCache?: boolean }) => Promise<string | null>) | null = null;
-setAuthTokenGetter(async () => {
-  if (!_currentGetToken) return null;
-  // 3 s is enough for a fresh JWT from Clerk's in-memory cache.
-  // If the JWT has expired and Clerk needs a network round-trip, the fetch
-  // proceeds without a token after 3 s (returning null), the server responds
-  // 401, and SessionExpiredGuard handles the forced refresh with a longer
-  // timeout. Keeping this short prevents the 8-second UI freeze seen when
-  // the iOS Secure Enclave stalls between background and foreground.
-  return getTokenSafe(_currentGetToken, 3000);
+// Single-flight guard for forced refreshes. When a burst of queued API calls
+// all 401 at once (e.g. on return from background), each customFetch asks for a
+// forced refresh; coalescing them onto one in-flight promise means a single
+// Clerk network round-trip instead of a refresh storm.
+//
+// CRITICAL: the in-flight promise is keyed to the getToken function that
+// started it (`_inflightForceRefreshFor`). `_currentGetToken` is re-pointed to
+// the new user's getToken on account switch, so a refresh started by user A
+// must NEVER be handed to user B — doing so would attach A's bearer token to
+// B's request (cross-user data access). When the getter identity changes we
+// start a fresh refresh instead of reusing the stale promise.
+let _inflightForceRefresh: Promise<string | null> | null = null;
+let _inflightForceRefreshFor:
+  | ((opts?: { skipCache?: boolean }) => Promise<string | null>)
+  | null = null;
+setAuthTokenGetter(async (opts) => {
+  // Capture the active getter once so a mid-call account switch can't swap the
+  // user under us between the cache read and the force-refresh.
+  const getter = _currentGetToken;
+  if (!getter) return null;
+  if (opts?.forceRefresh) {
+    // Bypass Clerk's in-memory JWT cache to obtain a brand-new token. A longer
+    // timeout (10 s) is acceptable here because this only runs when the cached
+    // token was missing or the server already rejected it — never on the hot
+    // path. Only coalesce onto an existing refresh when it belongs to the SAME
+    // getter; otherwise start a fresh one for the current user.
+    if (!_inflightForceRefresh || _inflightForceRefreshFor !== getter) {
+      _inflightForceRefreshFor = getter;
+      _inflightForceRefresh = getTokenSafe(getter, 10000, true).finally(() => {
+        // Clear only if a newer refresh (e.g. after an account switch) has not
+        // already replaced this one.
+        if (_inflightForceRefreshFor === getter) {
+          _inflightForceRefresh = null;
+          _inflightForceRefreshFor = null;
+        }
+      });
+    }
+    return _inflightForceRefresh;
+  }
+  // Fast path: 3 s is enough for a fresh JWT from Clerk's in-memory cache.
+  // If the cache is cold or the iOS Secure Enclave stalls, this returns null
+  // after 3 s and customFetch forces a refresh before firing — so a slow token
+  // never freezes the UI, and a stale token is recovered via the 401 retry.
+  return getTokenSafe(getter, 3000);
 });
 
 // Clerk publishable key — two env vars are supported:

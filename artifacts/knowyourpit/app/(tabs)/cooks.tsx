@@ -464,6 +464,15 @@ export default function CooksScreen() {
         grouped[cook.sessionId].push(cook);
       }
     }
+    // A sessionId only represents a real multi-cook session when 2+ cooks share
+    // it. Single cooks created via "Start Cooking Now" carry a synthetic
+    // sessionId purely for server-side idempotency — they must render solo, not
+    // as a one-cook "session". Capture the genuine session ids from the FULL
+    // dataset before any filter narrows a group, so a filter that hides all but
+    // one member still keeps a real session grouped.
+    const realSessionIds = new Set(
+      Object.keys(grouped).filter((sid) => grouped[sid].length >= 2),
+    );
     if (techniqueFilter) {
       for (const sid of Object.keys(grouped)) {
         const techniqueCooks = grouped[sid].filter((c: any) => c.cookingMethod === techniqueFilter);
@@ -530,7 +539,7 @@ export default function CooksScreen() {
       if (sortKey === "date-asc") return a.earliestStart.getTime() - b.earliestStart.getTime();
       return b.earliestStart.getTime() - a.earliestStart.getTime();
     });
-    return groups;
+    return groups.filter((g) => realSessionIds.has(g.sessionId));
   }, [cooks, sortKey, ratedOnly, unratedOnly, techniqueFilter, meatTypeFilter]);
 
   type UnifiedItem =

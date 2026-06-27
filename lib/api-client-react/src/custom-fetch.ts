@@ -6,7 +6,9 @@ export type ErrorType<T = unknown> = ApiError<T>;
 
 export type BodyType<T> = T;
 
-export type AuthTokenGetter = () => Promise<string | null> | string | null;
+export type AuthTokenGetter = (
+  opts?: { forceRefresh?: boolean },
+) => Promise<string | null> | string | null;
 
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
@@ -373,23 +375,11 @@ export async function customFetch<T = unknown>(
     headers.set("accept", DEFAULT_JSON_ACCEPT);
   }
 
-  // Attach bearer token when an auth getter is configured and no
-  // Authorization header has been explicitly provided.
-  if (_authTokenGetter && !headers.has("authorization")) {
-    const token = await _authTokenGetter();
-    if (token) {
-      headers.set("authorization", `Bearer ${token}`);
-    } else {
-      // The getter resolved null (e.g. getTokenSafe timed out or Clerk returned
-      // null). Log a warning so the event is visible in Sentry / crash reporters.
-      // No user-facing change — if the endpoint requires auth the server will
-      // respond 401 and the existing per-call retry flow will handle it.
-      console.warn(
-        `[customFetch] Auth token getter resolved null for ${method} ${resolveUrl(input)} — ` +
-          "request will proceed without an Authorization header.",
-      );
-    }
-  }
+  // Determine whether customFetch owns auth for this request. We only manage
+  // the bearer token when an auth getter is configured AND the caller did not
+  // explicitly set an Authorization header (e.g. third-party credential calls).
+  const callerProvidedAuth = headers.has("authorization");
+  const authManaged = !!_authTokenGetter && !callerProvidedAuth;
 
   // Attach subscription status header so the API server can bypass free-tier
   // gates for Pro users. Read synchronously so it's always in sync with the
@@ -405,43 +395,89 @@ export async function customFetch<T = unknown>(
   }
 
   const requestInfo = { method, url: resolveUrl(input) };
-
-  // Build an internal AbortController for the per-request timeout.
-  // If the caller already supplied a signal, forward its abort to our
-  // controller so both paths can cancel the fetch.
-  const timeoutController = new AbortController();
   const callerSignal = init.signal as AbortSignal | null | undefined;
-  if (callerSignal) {
-    if (callerSignal.aborted) {
-      timeoutController.abort(callerSignal.reason);
-    } else {
-      callerSignal.addEventListener(
-        "abort",
-        () => timeoutController.abort(callerSignal.reason),
-        { once: true },
-      );
+
+  // Each attempt gets a FRESH AbortController + timeout. React Native's fetch
+  // polyfill does not reliably honour AbortController.signal, so the timeout is
+  // a best-effort ceiling rather than a guarantee — callers that must bound the
+  // total time (e.g. cook creation) layer their own Promise.race on top.
+  async function performFetch(): Promise<Response> {
+    const timeoutController = new AbortController();
+    if (callerSignal) {
+      if (callerSignal.aborted) {
+        timeoutController.abort(callerSignal.reason);
+      } else {
+        callerSignal.addEventListener(
+          "abort",
+          () => timeoutController.abort(callerSignal.reason),
+          { once: true },
+        );
+      }
+    }
+    const timeoutId = setTimeout(
+      () =>
+        timeoutController.abort(
+          new Error(
+            `[customFetch] Request timed out after ${FETCH_TIMEOUT_MS} ms: ${method} ${resolveUrl(input)}`,
+          ),
+        ),
+      FETCH_TIMEOUT_MS,
+    );
+    try {
+      return await fetch(input, {
+        ...init,
+        method,
+        headers,
+        signal: timeoutController.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
-  const timeoutId = setTimeout(
-    () =>
-      timeoutController.abort(
-        new Error(
-          `[customFetch] Request timed out after ${FETCH_TIMEOUT_MS} ms: ${method} ${resolveUrl(input)}`,
-        ),
-      ),
-    FETCH_TIMEOUT_MS,
-  );
 
   let response: Response;
-  try {
-    response = await fetch(input, {
-      ...init,
-      method,
-      headers,
-      signal: timeoutController.signal,
-    });
-  } finally {
-    clearTimeout(timeoutId);
+
+  if (!authManaged) {
+    response = await performFetch();
+  } else {
+    const getToken = _authTokenGetter as AuthTokenGetter;
+    // Fast path: use the cached JWT (short timeout in the getter). If it is
+    // null — Clerk's in-memory cache is cold or the read stalled — force ONE
+    // refresh before firing so we don't waste a round-trip on a request we
+    // already know will 401. If the refresh also yields null the user has no
+    // live session; we fire unauthenticated and let the server return 401,
+    // which SessionExpiredGuard surfaces as a genuine sign-out.
+    let token = await getToken();
+    let didForceRefresh = false;
+    if (token == null) {
+      token = await getToken({ forceRefresh: true });
+      didForceRefresh = true;
+    }
+    if (token) {
+      headers.set("authorization", `Bearer ${token}`);
+    } else {
+      headers.delete("authorization");
+      console.warn(
+        `[customFetch] No auth token available for ${method} ${resolveUrl(input)} after refresh — ` +
+          "request will proceed unauthenticated and likely 401.",
+      );
+    }
+
+    response = await performFetch();
+
+    // The server rejected the token — most commonly the cached JWT expired
+    // between the cache read and the request reaching the server. Force one
+    // refresh and retry exactly once. This recovers POST mutations (e.g. cook
+    // creation) that SessionExpiredGuard cannot retry, since invalidateQueries
+    // only re-runs queries. Skip if we already refreshed above (no second
+    // refresh) so a genuinely-expired session falls through to the guard.
+    if (response.status === 401 && !didForceRefresh) {
+      const fresh = await getToken({ forceRefresh: true });
+      if (fresh) {
+        headers.set("authorization", `Bearer ${fresh}`);
+        response = await performFetch();
+      }
+    }
   }
 
   if (!response.ok) {

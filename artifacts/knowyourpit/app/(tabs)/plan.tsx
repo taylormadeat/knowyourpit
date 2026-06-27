@@ -136,11 +136,13 @@ const WRAP_FINISH_STORAGE_PREFIX = "@knowyourpit:wrapFinish:";
 // response while still recovering from a genuinely dead socket.
 const AI_FETCH_TIMEOUT_MS = 45_000;
 
-// Hard upper bound on the cook-creation mutation. On a stalled or very slow
+// Per-attempt ceiling for the cook-creation mutation. On a stalled or very slow
 // connection the mutateAsync promise can hang indefinitely, leaving the
 // "Start Cooking Now" spinner frozen. Promise.race against this sentinel
-// guarantees the finally block always runs and the button re-enables.
-const MUTATION_TIMEOUT_MS = 15_000;
+// guarantees the spinner always clears and the button re-enables. 25 s gives a
+// cold-started autoscale backend room to respond on the first attempt; a
+// timed-out idempotent create is retried once (see handleSubmit).
+const MUTATION_TIMEOUT_MS = 25_000;
 
 async function loadLastCookMethod(cutName: string): Promise<QpCookMethod | null> {
   try {
@@ -1208,19 +1210,11 @@ export default function PlanScreen() {
     // returns, errors, successful navigation). The plan tab stays mounted in
     // memory by the tab navigator so we must always reset, even on push().
     try {
-    // Pre-check the Clerk session before any API call. Use the CACHED token —
-    // `skipCache: true` forces a network round-trip that, on a stalled
-    // connection, hangs this handler so "Start Cook" appears to do nothing.
-    // The mutation below carries its own auth; this is only a liveness guard,
-    // so a cached token is sufficient.
-    const sessionToken = await getTokenSafe(getToken);
-    if (!sessionToken) {
-      Alert.alert(
-        "Session Expired",
-        "Your session has expired. Please sign out from the More tab and sign in again.",
-      );
-      return;
-    }
+    // No pre-flight token check here. customFetch now attaches the cached JWT,
+    // force-refreshes when it is missing, and retries once on a 401 — so a slow
+    // or stale token no longer blocks "Start Cooking Now". A genuinely expired
+    // session still surfaces as a 401, handled by the outer catch below and the
+    // global SessionExpiredGuard.
 
     const preheatMins = preheatMinsForGrill(selectedGrill);
 
@@ -1389,12 +1383,28 @@ export default function PlanScreen() {
       }
 
       // ── CREATE path (normal new-cook flow) ───────────────────────────
-      // Promise.race provides a hard 15-second ceiling. On a stalled or very
-      // slow connection, mutateAsync can hang indefinitely — the finally block
-      // never fires, the spinner never clears, and the user is stuck until they
-      // force-quit. The timeout rejection flows through the outer catch, which
-      // shows a user-facing error and re-enables the button.
-      const createdCook = await Promise.race([
+      // "Start Cooking Now" creates an active cook. Attach a synthetic, stable
+      // sessionId so the create is idempotent server-side: the (userId,
+      // sessionId, plannedStartAt) dedup guard returns the existing cook on a
+      // retry instead of duplicating it. Scoped to "now" (active) cooks — a
+      // planned cook carrying a sessionId would be hidden behind the multi-cook
+      // grouping on the Cooks tab, and idempotency matters most for the
+      // live-cook start flow where a slow first attempt is most likely.
+      const idempotencySessionId =
+        effectiveCookNowMode === "now" && schedule?.startAt
+          ? Crypto.randomUUID()
+          : undefined;
+      // A retry is only safe when the server can dedup it (both sessionId and
+      // plannedStartAt present). Otherwise we make a single attempt so a slow
+      // network never produces a duplicate cook.
+      const canRetryCreate = !!idempotencySessionId;
+
+      // Promise.race provides a per-attempt ceiling (MUTATION_TIMEOUT_MS). On a
+      // stalled connection mutateAsync can hang indefinitely — the race rejects
+      // so the spinner always clears. iOS does not reliably honour fetch aborts,
+      // so a timed-out first attempt may still have reached the server; the
+      // retry below relies on the idempotency guard to avoid duplicates.
+      const attemptCreate = () => Promise.race([
         createCook.mutateAsync({
         data: {
           foodType: selectedCut.name,
@@ -1405,6 +1415,7 @@ export default function PlanScreen() {
           grillId: grillId ?? undefined,
           notes: noteParts.join("\n\n") || undefined,
           status: effectiveCookNowMode === "now" ? "active" : "planned",
+          ...(idempotencySessionId ? { sessionId: idempotencySessionId } : {}),
           ...(effectiveCookNowMode === "now"
             ? {
                 actualStartAt: new Date() as any,
@@ -1474,6 +1485,26 @@ export default function PlanScreen() {
           )
         ),
       ]);
+
+      const createdCook = await (async () => {
+        try {
+          return await attemptCreate();
+        } catch (attemptErr: any) {
+          const attemptTimedOut =
+            attemptErr?.message === "COOK_MUTATION_TIMEOUT" ||
+            attemptErr?.name === "AbortError" ||
+            (typeof attemptErr?.message === "string" &&
+              attemptErr.message.includes("timed out"));
+          // Retry exactly once on a timeout when the create is idempotent. The
+          // server returns the already-created cook (200) via the dedup guard,
+          // so this never creates a duplicate. Non-idempotent or non-timeout
+          // errors propagate unchanged to the outer catch.
+          if (attemptTimedOut && canRetryCreate) {
+            return await attemptCreate();
+          }
+          throw attemptErr;
+        }
+      })();
       // Fire-and-forget: schedule the thaw/temper/preheat alerts immediately
       // so they're armed even if the user never opens the cook detail screen.
       // The cook detail screen's hook will re-reconcile these on mount.

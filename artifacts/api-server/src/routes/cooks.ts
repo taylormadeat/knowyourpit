@@ -204,6 +204,41 @@ router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
     return;
   }
 
+  // ── Idempotency guard ────────────────────────────────────────────────────
+  // If the request carries both a sessionId and a plannedStartAt, check
+  // whether a cook for this user + sessionId + plannedStartAt already exists.
+  // Timed-out retries (single-cook "Start Cooking Now" and the multi-cook
+  // flow) would otherwise create duplicates. This runs BEFORE the free-tier
+  // caps so a retry of an already-succeeded create returns the existing cook
+  // (200) instead of tripping the active/planned cap with a false 402.
+  const incomingSessionId = parsed.data.sessionId ?? null;
+  const incomingPlannedStartAt = parsed.data.plannedStartAt ?? null;
+  if (incomingSessionId && incomingPlannedStartAt) {
+    const [existing] = await db
+      .select()
+      .from(cooksTable)
+      .where(
+        and(
+          eq(cooksTable.userId, req.userId),
+          eq(cooksTable.sessionId, incomingSessionId),
+          eq(cooksTable.plannedStartAt, incomingPlannedStartAt as unknown as Date),
+        ),
+      )
+      .limit(1);
+    if (existing) {
+      let existingGrillName: string | null = null;
+      if (existing.grillId) {
+        const [g] = await db
+          .select({ name: grillsTable.name })
+          .from(grillsTable)
+          .where(eq(grillsTable.id, existing.grillId));
+        existingGrillName = g?.name ?? null;
+      }
+      res.status(200).json({ ...normalizeCookProbeAssignments(existing), grillName: existingGrillName });
+      return;
+    }
+  }
+
   // Free-tier caps. Pro subscribers and PAYWALL_ENABLED=false bypass all gates.
   if (!(await userBypassesPaywall(req))) {
     // 1. Total cook cap
@@ -243,38 +278,6 @@ router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
     // No lifetime gradedCooks gate. Manual analyze is bounded only by the
     // daily AI scan cap enforced on the /analyze endpoint (3/day for free).
     // Live auto-grading every 30 minutes is a Pro feature gated client-side.
-  }
-
-  // ── Idempotency guard for multi-cook retries ─────────────────────────────
-  // If the request carries both a sessionId and a plannedStartAt, check
-  // whether a cook for this user + sessionId + plannedStartAt already exists.
-  // Timed-out retries in the multi-cook flow would otherwise create duplicates.
-  const incomingSessionId = parsed.data.sessionId ?? null;
-  const incomingPlannedStartAt = parsed.data.plannedStartAt ?? null;
-  if (incomingSessionId && incomingPlannedStartAt) {
-    const [existing] = await db
-      .select()
-      .from(cooksTable)
-      .where(
-        and(
-          eq(cooksTable.userId, req.userId),
-          eq(cooksTable.sessionId, incomingSessionId),
-          eq(cooksTable.plannedStartAt, incomingPlannedStartAt as unknown as Date),
-        ),
-      )
-      .limit(1);
-    if (existing) {
-      let existingGrillName: string | null = null;
-      if (existing.grillId) {
-        const [g] = await db
-          .select({ name: grillsTable.name })
-          .from(grillsTable)
-          .where(eq(grillsTable.id, existing.grillId));
-        existingGrillName = g?.name ?? null;
-      }
-      res.status(200).json({ ...normalizeCookProbeAssignments(existing), grillName: existingGrillName });
-      return;
-    }
   }
 
   const analysisResult = req.body.analysisResult ?? null;
