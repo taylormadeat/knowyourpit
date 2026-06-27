@@ -122,6 +122,7 @@ import { DatePickerModal, TimePickerModal } from "@/components/plan-screen/DateT
 import { MultiCookResultModal } from "@/components/plan-screen/MultiCookResultModal";
 import { MultiCookAddItemModal, type MultiItem } from "@/components/plan-screen/MultiCookAddItemModal";
 import { ThawStatusBanner } from "@/components/cook-detail/ThawStatusBanner";
+import { MultiCookBanner } from "@/components/plan-screen/MultiCookBanner";
 
 const COOK_METHOD_STORAGE_PREFIX = "@knowyourpit:cookMethod:";
 const MEAT_START_TEMP_STORAGE_PREFIX = "@knowyourpit:meatStartTemp:";
@@ -1772,7 +1773,8 @@ export default function PlanScreen() {
       <AppHeader title="Plan a Cook" dark />
 
       {/* ── Now Cooking banner ───────────────────────────────── */}
-      {activeCook && (
+      {/* One active cook → rich single banner; 2+ → condensed multi banner. */}
+      {activeCook && (activeCooks?.length ?? 0) < 2 && (
         <>
           <Pressable
             onPress={() => router.push(`/cooks/${activeCook.id}` as any)}
@@ -1788,6 +1790,7 @@ export default function PlanScreen() {
                   <Text
                     style={{
                       fontSize: 11,
+                      lineHeight: 14,
                       fontFamily: "Inter_400Regular",
                       color: "#ffffff99",
                       marginTop: 1,
@@ -1865,6 +1868,15 @@ export default function PlanScreen() {
             );
           })()}
         </>
+      )}
+
+      {/* ── Multi-cook condensed banner (2+ simultaneous cooks) ── */}
+      {(activeCooks?.length ?? 0) >= 2 && (
+        <MultiCookBanner
+          cooks={activeCooks!}
+          nowMs={bannerNowMs}
+          onPressCook={(id) => router.push(`/cooks/${id}` as any)}
+        />
       )}
 
       <KeyboardAwareScrollView

@@ -272,12 +272,12 @@ export const planStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 11,
+    paddingVertical: 12,
     gap: 8,
   },
   nowCookingLeft: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
   nowCookingDot: { width: 8, height: 8, borderRadius: 4, opacity: 0.9 },
-  nowCookingTitle: { flex: 1, fontSize: 14, fontFamily: "Inter_700Bold", color: "#fff" },
+  nowCookingTitle: { flex: 1, fontSize: 14, lineHeight: 18, fontFamily: "Inter_700Bold", color: "#fff" },
   nowCookingElapsed: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff", opacity: 0.85 },
 
   // Prep guide
