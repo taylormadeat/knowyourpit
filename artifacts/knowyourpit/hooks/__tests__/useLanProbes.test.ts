@@ -274,6 +274,184 @@ describe("consecutive-failure eviction", () => {
 
     unmount();
   });
+
+  // ── IP-change recovery (full round-trip) ───────────────────────────────
+  // These tests validate the scenario the task is specifically about:
+  // a DHCP reassignment or router reboot changes a probe's IP mid-cook.
+  // The expected behaviour:
+  //   1. 3 consecutive failed polls against the stale (old) IP → evictHost + rescan
+  //   2. mDNS re-discovers the device at the new IP (mockDiscovered updated)
+  //   3. Next poll cycle uses the new IP and readings resume automatically
+
+  it("MEATER Block: readings resume automatically after IP change", async () => {
+    const OLD_IP = "192.168.1.50";
+    const NEW_IP = "192.168.1.75";
+    const newReading = makeReading({ host: NEW_IP, deviceId: "mb-1" });
+
+    mockDiscovered = { meater_block: [OLD_IP] };
+    // OLD_IP always returns empty (device no longer at that address)
+    // NEW_IP returns a valid reading (device found at new address)
+    mockPollMeaterBlock.mockImplementation((host: string) => {
+      if (host === NEW_IP) return Promise.resolve([newReading]);
+      return Promise.resolve([]);
+    });
+
+    // Use props-based renderHook so rerender() can force a re-render
+    // after mockDiscovered is updated, ensuring discoveredRef picks up
+    // the new value before the recovery poll reads it.
+    const { result, rerender, unmount } = renderHook(
+      ({ pollIntervalMs }: { pollIntervalMs: number }) =>
+        useLanProbes({ enabled: true, pollIntervalMs }),
+      { initialProps: { pollIntervalMs: 60_000 } },
+    );
+
+    // ── 3 failing poll cycles → eviction ──────────────────────────────────
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { result.current.scan(); await Promise.resolve(); });
+    await act(async () => { result.current.scan(); await Promise.resolve(); });
+
+    expect(mockEvictHost).toHaveBeenCalledWith("meater_block", OLD_IP);
+    expect(mockRescan).toHaveBeenCalled();
+
+    // ── Simulate mDNS re-discovering device at NEW_IP ─────────────────────
+    // In production the "resolved" mDNS event calls setDiscovered(), which
+    // triggers a re-render and updates discoveredRef.current.  In tests we
+    // simulate the same effect: update mockDiscovered, then force a render
+    // so the ref is current before the next doPoll reads it.
+    mockDiscovered = { meater_block: [NEW_IP] };
+    rerender({ pollIntervalMs: 60_000 });
+
+    // ── Next poll uses NEW_IP and readings come back ───────────────────────
+    await act(async () => { result.current.scan(); await Promise.resolve(); });
+
+    expect(result.current.probes).toHaveLength(1);
+    expect(result.current.probes[0].host).toBe(NEW_IP);
+    // Device should appear connected with the new readings
+    const device = result.current.devices.find((d) => d.host === NEW_IP);
+    expect(device?.connected).toBe(true);
+
+    unmount();
+  });
+
+  it("Fireboard: evicts and rescans after 3 consecutive failures on the mDNS IP", async () => {
+    const FB_IP = "192.168.1.60";
+    mockDiscovered = { fireboard: [FB_IP] };
+    mockPollFireboard.mockResolvedValue([]);
+
+    const { result, unmount } = renderHook(() =>
+      useLanProbes({ enabled: true, pollIntervalMs: 60_000 }),
+    );
+
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { result.current.scan(); await Promise.resolve(); });
+    await act(async () => { result.current.scan(); await Promise.resolve(); });
+
+    expect(mockEvictHost).toHaveBeenCalledWith("fireboard", FB_IP);
+    expect(mockRescan).toHaveBeenCalled();
+
+    unmount();
+  });
+
+  it("Fireboard: readings resume at new IP after IP change mid-cook", async () => {
+    const OLD_FB = "192.168.1.60";
+    const NEW_FB = "192.168.1.85";
+    const newReading = makeReading({ host: NEW_FB, deviceId: "fb-1" });
+
+    mockDiscovered = { fireboard: [OLD_FB] };
+    mockPollFireboard.mockImplementation((host: string) => {
+      if (host === NEW_FB) return Promise.resolve([newReading]);
+      return Promise.resolve([]);
+    });
+
+    const { result, rerender, unmount } = renderHook(
+      ({ pollIntervalMs }: { pollIntervalMs: number }) =>
+        useLanProbes({ enabled: true, pollIntervalMs }),
+      { initialProps: { pollIntervalMs: 60_000 } },
+    );
+
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { result.current.scan(); await Promise.resolve(); });
+    await act(async () => { result.current.scan(); await Promise.resolve(); });
+
+    expect(mockEvictHost).toHaveBeenCalledWith("fireboard", OLD_FB);
+
+    // Simulate mDNS re-discovering device at NEW_FB + force re-render so
+    // discoveredRef.current is updated before the recovery poll fires.
+    mockDiscovered = { fireboard: [NEW_FB] };
+    rerender({ pollIntervalMs: 60_000 });
+
+    await act(async () => { result.current.scan(); await Promise.resolve(); });
+
+    expect(result.current.probes).toHaveLength(1);
+    expect(result.current.probes[0].host).toBe(NEW_FB);
+
+    unmount();
+  });
+
+  it("new IP starts with a fresh failure counter — does not inherit old IP's history", async () => {
+    const OLD_IP = "192.168.1.50";
+    const NEW_IP = "192.168.1.75";
+
+    mockDiscovered = { meater_block: [OLD_IP] };
+    mockPollMeaterBlock.mockResolvedValue([]);
+
+    const { result, rerender, unmount } = renderHook(
+      ({ pollIntervalMs }: { pollIntervalMs: number }) =>
+        useLanProbes({ enabled: true, pollIntervalMs }),
+      { initialProps: { pollIntervalMs: 60_000 } },
+    );
+
+    // 3 failures on OLD_IP → eviction
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { result.current.scan(); await Promise.resolve(); });
+    await act(async () => { result.current.scan(); await Promise.resolve(); });
+    expect(mockEvictHost).toHaveBeenCalledWith("meater_block", OLD_IP);
+    mockEvictHost.mockClear();
+
+    // Rescan found NEW_IP — force re-render so discoveredRef picks up NEW_IP
+    mockDiscovered = { meater_block: [NEW_IP] };
+    rerender({ pollIntervalMs: 60_000 });
+
+    // 2 failures at the new address (below the eviction threshold)
+    await act(async () => { result.current.scan(); await Promise.resolve(); });
+    await act(async () => { result.current.scan(); await Promise.resolve(); });
+
+    // NEW_IP should NOT be evicted — only 2 failures so far (threshold is 3)
+    expect(mockEvictHost).not.toHaveBeenCalled();
+
+    unmount();
+  });
+
+  it("evicts only the failing device type — the working type is unaffected", async () => {
+    const FB_IP = "192.168.1.60";
+    const MB_IP = "192.168.1.70";
+    const meaterReading = makeReading({ host: MB_IP, deviceId: "mb-1" });
+
+    mockDiscovered = { fireboard: [FB_IP], meater_block: [MB_IP] };
+    // Fireboard fails, MEATER Block still responds normally
+    mockPollFireboard.mockResolvedValue([]);
+    mockPollMeaterBlock.mockImplementation((host: string) =>
+      host === MB_IP ? Promise.resolve([meaterReading]) : Promise.resolve([]),
+    );
+
+    const { result, unmount } = renderHook(() =>
+      useLanProbes({ enabled: true, pollIntervalMs: 60_000 }),
+    );
+
+    // 3 cycles — Fireboard always fails, MEATER Block always succeeds
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { result.current.scan(); await Promise.resolve(); });
+    await act(async () => { result.current.scan(); await Promise.resolve(); });
+
+    // Fireboard IP should be evicted
+    expect(mockEvictHost).toHaveBeenCalledWith("fireboard", FB_IP);
+    // MEATER Block should never be evicted
+    expect(mockEvictHost).not.toHaveBeenCalledWith("meater_block", MB_IP);
+    // MEATER Block readings should still be present
+    expect(result.current.probes.some((p) => p.host === MB_IP)).toBe(true);
+
+    unmount();
+  });
 });
 
 // ── Manual host add / remove / persist ───────────────────────────────────
