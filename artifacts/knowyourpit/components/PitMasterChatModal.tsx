@@ -125,6 +125,8 @@ export interface PitMasterChatModalProps {
   onClose: () => void;
   seedMessage?: string;
   contextLabel?: string;
+  /** Cook-specific suggested questions. When provided, replaces the generic SUGGESTED list and adjusts the welcome title. */
+  cookSuggestions?: string[];
 }
 
 export function PitMasterChatModal({
@@ -132,6 +134,7 @@ export function PitMasterChatModal({
   onClose,
   seedMessage,
   contextLabel,
+  cookSuggestions,
 }: PitMasterChatModalProps) {
   const colors = useColors();
   const botInset = useBottomInset();
@@ -796,9 +799,13 @@ export function PitMasterChatModal({
         >
           {messages.length === 0 && !loading && !seedMessage && (
             <View style={s.welcome}>
-              <Text style={[s.welcomeTitle, { color: colors.foreground }]}>What are you throwing on?</Text>
+              <Text style={[s.welcomeTitle, { color: colors.foreground }]}>
+                {cookSuggestions
+                  ? `What do you want to know about your ${contextLabel ?? "cook"}?`
+                  : "What are you throwing on?"}
+              </Text>
               <View style={s.suggestions}>
-                {SUGGESTED.map((q) => (
+                {(cookSuggestions ?? SUGGESTED).map((q) => (
                   <Pressable
                     key={q}
                     onPress={() => sendMessage(q)}

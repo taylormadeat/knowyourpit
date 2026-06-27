@@ -10,6 +10,30 @@ import { CheckinPreviewSheet } from "@/components/cook-detail/CheckinPreviewShee
 import { PitMasterChatModal } from "@/components/PitMasterChatModal";
 import { RateCookSheet } from "@/components/cook-detail/RateCookSheet";
 
+/** Returns 3–4 suggested questions tailored to the cook's food type. */
+function getCookSuggestions(foodType: string | null | undefined): string[] {
+  const lower = (foodType ?? "").toLowerCase();
+  if (lower.includes("brisket")) {
+    return ["Am I in the stall?", "Should I wrap now?", "How's my bark looking?", "When should I pull it off?"];
+  }
+  if (lower.includes("rib") || lower.includes("spare") || lower.includes("baby back")) {
+    return ["Is it time to wrap the ribs?", "How do I know when they're done?", "What does good bark look like?", "My color looks off — what's going on?"];
+  }
+  if (lower.includes("pork") || lower.includes("butt") || lower.includes("shoulder") || lower.includes("pulled")) {
+    return ["Am I in the stall?", "When should I wrap?", "How do I know it's ready to pull?", "How do I get a better bark?"];
+  }
+  if (lower.includes("chicken") || lower.includes("wing") || lower.includes("turkey")) {
+    return ["How do I get crispier skin?", "Is my temp on track?", "How do I know when it's fully cooked?", "Should I be spritzing?"];
+  }
+  if (lower.includes("salmon") || lower.includes("fish")) {
+    return ["What temp should I pull the salmon?", "How do I know when it's done?", "Should I brine it first?", "What wood pairs best?"];
+  }
+  if (lower.includes("tri tip") || lower.includes("tri-tip") || lower.includes("steak")) {
+    return ["What internal temp should I target?", "Should I reverse sear?", "How long should I rest it?", "How do I get a better crust?"];
+  }
+  return ["Temp stalled — now what?", "Am I on track with timing?", "Is it time to wrap?", "How do I get better bark?"];
+}
+
 interface CookModalsProps {
   // Shared
   cookStatus: string | undefined;
@@ -201,7 +225,12 @@ export function CookModals({
       )}
 
       <CheckinPreviewSheet visible={plannedCheckinPreviewSc != null} onClose={() => setPlannedCheckinPreviewSc(null)} colors={colors} sc={plannedCheckinPreviewSc} meatOnMs={cookSeqData?.schedule?.[0]?.meatOnAt ? new Date(cookSeqData.schedule[0].meatOnAt).getTime() : null} aiCheckins={cookSeqData?.aiCheckins ?? null} />
-      <PitMasterChatModal visible={chatModalVisible} onClose={() => setChatModalVisible(false)} />
+      <PitMasterChatModal
+        visible={chatModalVisible}
+        onClose={() => setChatModalVisible(false)}
+        contextLabel={cook?.foodType ?? undefined}
+        cookSuggestions={getCookSuggestions(cook?.foodType)}
+      />
       <RateCookSheet visible={showRatingPrompt} colors={colors} saving={rateSaving} onSave={async (t, f, b) => { await saveRatings(t, f, b); setShowRatingPrompt(false); }} onSkip={() => setShowRatingPrompt(false)} />
     </>
   );

@@ -721,7 +721,7 @@ export function LiveCookSection(p: Props) {
         >
           <Feather name="edit-3" size={13} color={tempMode === "manual" ? colors.primary : colors.mutedForeground} />
           <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: tempMode === "manual" ? colors.primary : colors.mutedForeground }}>
-            Manual Entry
+            Log at Check-In
           </Text>
         </Pressable>
         {/* Scan button — triggers a fresh BLE + LAN scan */}
@@ -745,15 +745,6 @@ export function LiveCookSection(p: Props) {
         </Pressable>
       </View>
 
-      {/* Manual Entry mode: just a short note — temps are entered during check-in */}
-      {tempMode === "manual" && (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 14, marginBottom: 12, padding: 10, borderRadius: 8, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
-          <Feather name="edit-3" size={13} color={colors.mutedForeground} />
-          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground, flex: 1 }}>
-            Enter probe and pit temperatures during your check-in.
-          </Text>
-        </View>
-      )}
 
       {/* Connected Probe mode: show all available probe sources */}
       {tempMode === "probe" && selectedMeatProbeId != null && liveReadings.length < 2 && (
@@ -1783,7 +1774,7 @@ export function LiveCookSection(p: Props) {
               })}
             >
               <Feather name="message-circle" size={13} color={colors.mutedForeground} />
-              <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.foreground }}>Chat</Text>
+              <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.foreground }}>Ask Pitmaster</Text>
             </Pressable>
           </View>
         </View>
