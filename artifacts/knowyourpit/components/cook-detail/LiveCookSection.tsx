@@ -2,7 +2,7 @@ import React from "react";
 import { useRouter } from "expo-router";
 import { CookFactorsSheet, type QualFactor } from "@/components/CookFactorsSheet";
 import type { FactorBreakdownItem } from "@/components/cook-detail/types";
-import { View, Text, Pressable, ActivityIndicator, Animated, TextInput, Modal, ScrollView } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, Animated, TextInput, Modal, ScrollView, Platform, Linking } from "react-native";
 import { BleWizardSheet } from "./BleWizardSheet";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { InkbirdProbeReading } from "@/hooks/useInkbirdBLE";
@@ -41,6 +41,10 @@ interface Props {
   inkbirdProbes?: InkbirdProbeReading[];
   bleContextDevices?: BleDevice[];
   lanProbes?: LanProbeReading[];
+  /** LAN discovery diagnostics (threaded from useLanProbes) for actionable no-probe UX. */
+  lanMdnsAvailable?: boolean;
+  lanMdnsScanEmpty?: boolean;
+  lanScanning?: boolean;
   autoAssignBanner?: string | null;
   onDismissAutoAssignBanner?: () => void;
   reconnectBanner?: ReconnectBanner | null;
@@ -139,6 +143,7 @@ export function LiveCookSection(p: Props) {
   const {
     c, colors, weather, meaterLinked, meaterProbes, thermoworksLinked, thermoworksProbes,
     inkbirdProbes = [], bleContextDevices = [], lanProbes = [],
+    lanMdnsAvailable = false, lanMdnsScanEmpty = false, lanScanning = false,
     autoAssignBanner, onDismissAutoAssignBanner,
     reconnectBanner, onDismissReconnectBanner,
     tempMode = "manual", onSetTempMode,
@@ -403,6 +408,14 @@ export function LiveCookSection(p: Props) {
     bleContextDevices.length > 0 ||
     lanProbes.length > 0;
   const noneSelected = tempMode === "probe" && hasAnyProbe && selectedMeatProbeId == null && selectedPitProbeId == null;
+  // A scan is genuinely in flight when either the BLE scan or the LAN (mDNS/HTTP) scan is active.
+  const anyProbeScanning = inkbirdScanning || lanScanning;
+  // On iOS, an empty mDNS cycle (module loaded, browse returned nothing) is the strongest signal we
+  // have for either denied Local Network permission OR nothing-found (AP isolation, wrong Wi-Fi, off).
+  const lanScanEndedEmpty = Platform.OS === "ios" && lanMdnsAvailable === true && lanMdnsScanEmpty === true;
+  // Account is linked (MEATER/ThermoWorks) yet no live probe is reporting — a distinct failure from
+  // "nothing connected": the fix is to power on the probe / refresh, not to link an account.
+  const linkedButEmpty = !hasAnyProbe && (meaterLinked === true || thermoworksLinked === true);
 
   if (c.status !== "active") return null;
 
@@ -421,7 +434,11 @@ export function LiveCookSection(p: Props) {
               ? `Tracking ${activeProbeName ?? "selected probe"} · auto-updating every 15s`
               : hasAnyProbe
               ? "Tap a probe below to assign roles for this cook"
-              : "No probe detected · scanning nearby devices"}
+              : anyProbeScanning
+              ? "Scanning nearby devices…"
+              : linkedButEmpty
+              ? "No live probes found · check your probe is on"
+              : "No probe detected · tap below to connect"}
           </Text>
         </View>
         <View style={[s.connectedBadgeSmall, { backgroundColor: "#FF6B2B18" }]}>
@@ -1374,41 +1391,82 @@ export function LiveCookSection(p: Props) {
         </Pressable>
       )}
 
-      {tempMode === "probe" && meaterLinked !== true && thermoworksLinked !== true && inkbirdProbes.length === 0 && bleContextDevices.length === 0 && lanProbes.length === 0 && (
-        <View style={{ borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "column", alignItems: "center", gap: 12, padding: 16 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, alignSelf: "stretch" }}>
-            <Feather name="thermometer" size={20} color={colors.mutedForeground} />
-            <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground }]}>
-              {inkbirdScanning ? "Scanning for nearby probes…" : "No probes found. Bring your Inkbird probe into range, or link MEATER / ThermoWorks in Profile."}
+      {tempMode === "probe" && !hasAnyProbe && (
+        <View style={{ borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "column", alignItems: "stretch", gap: 12, padding: 16 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            {anyProbeScanning
+              ? <ActivityIndicator size="small" color={colors.mutedForeground} />
+              : <Feather name={linkedButEmpty ? "alert-circle" : "thermometer"} size={20} color={colors.mutedForeground} />}
+            <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground, flex: 1 }]}>
+              {anyProbeScanning
+                ? "Scanning for nearby probes…"
+                : linkedButEmpty
+                ? "Connected to your account, but no live probes were found. Make sure your probe is powered on and in range, then refresh."
+                : "No probe detected. Inkbird probes connect over Bluetooth; MEATER and ThermoWorks connect through your account."}
             </Text>
           </View>
-          <Pressable
-            onPress={onRestartScan}
-            disabled={inkbirdScanning}
-            style={{
-              flexDirection: "row", alignItems: "center", gap: 6,
-              paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8,
-              backgroundColor: inkbirdScanning ? colors.border + "40" : "#FF6B2B18",
-              borderWidth: 1, borderColor: inkbirdScanning ? colors.border : "#FF6B2B60",
-            }}
-          >
-            {inkbirdScanning
-              ? <ActivityIndicator size="small" color={colors.mutedForeground} />
-              : <Feather name="radio" size={14} color="#FF6B2B" />}
-            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: inkbirdScanning ? colors.mutedForeground : "#FF6B2B" }}>
-              {inkbirdScanning ? "Scanning…" : "Scan for Probes"}
+
+          {/* iOS Local Network troubleshooting — only once a LAN scan cycle finished with nothing found.
+              Deliberately not framed as a definitive "permission denied": an empty mDNS browse can also
+              mean AP isolation, a different Wi-Fi/VLAN, or a powered-off base station. */}
+          {!anyProbeScanning && lanScanEndedEmpty && (
+            <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 10, borderRadius: 8, backgroundColor: "#F59E0B12", borderWidth: 1, borderColor: "#F59E0B40" }}>
+              <Feather name="wifi-off" size={14} color="#F59E0B" style={{ marginTop: 1 }} />
+              <Text style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 12, color: "#F59E0B", lineHeight: 17 }}>
+                No WiFi thermometer found. Local Network access may be off, or the base station may be on a different Wi-Fi. Confirm both are on the same network, then enable Local Network in Settings.
+              </Text>
+            </View>
+          )}
+
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            <Pressable
+              onPress={onRestartScan}
+              disabled={anyProbeScanning}
+              style={{
+                flexDirection: "row", alignItems: "center", gap: 6,
+                paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8,
+                backgroundColor: anyProbeScanning ? colors.border + "40" : "#FF6B2B18",
+                borderWidth: 1, borderColor: anyProbeScanning ? colors.border : "#FF6B2B60",
+              }}
+            >
+              {anyProbeScanning
+                ? <ActivityIndicator size="small" color={colors.mutedForeground} />
+                : <Feather name="radio" size={14} color="#FF6B2B" />}
+              <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: anyProbeScanning ? colors.mutedForeground : "#FF6B2B" }}>
+                {anyProbeScanning ? "Scanning…" : "Scan again"}
+              </Text>
+            </Pressable>
+
+            {/* Primary path to actually connect: /devices hosts the ThermoWorks / MEATER account-link
+                cards and manual-IP entry for Fireboard / MEATER Block. */}
+            <Pressable
+              onPress={() => router.push("/devices" as any)}
+              style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: colors.primary + "18", borderWidth: 1, borderColor: colors.primary + "60" }}
+            >
+              <Feather name={linkedButEmpty ? "sliders" : "link"} size={14} color={colors.primary} />
+              <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.primary }}>
+                {linkedButEmpty ? "Manage devices" : "Connect a device"}
+              </Text>
+            </Pressable>
+
+            {!anyProbeScanning && lanScanEndedEmpty && (
+              <Pressable
+                onPress={() => Linking.openSettings()}
+                style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border }}
+              >
+                <Feather name="settings" size={14} color={colors.mutedForeground} />
+                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.mutedForeground }}>
+                  Open Settings
+                </Text>
+              </Pressable>
+            )}
+          </View>
+
+          {!linkedButEmpty && (
+            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, lineHeight: 15 }}>
+              ThermoWorks Signals & RFX read through your ThermoWorks account — tap “Connect a device” to link it. Fireboard and MEATER Block are discovered on Wi-Fi.
             </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push("/devices" as any)}
-            hitSlop={8}
-            style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
-          >
-            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: colors.mutedForeground }}>
-              Go to Connected Devices
-            </Text>
-            <Feather name="chevron-right" size={12} color={colors.mutedForeground} />
-          </Pressable>
+          )}
         </View>
       )}
 

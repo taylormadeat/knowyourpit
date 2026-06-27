@@ -107,7 +107,7 @@ const DEFAULT_FIREBOARD_HOST = "fireboard.local";
  * Different MEATER Block firmware versions use different names.
  */
 const DEFAULT_MEATER_BLOCK_HOSTS = ["meaterblock.local", "meater-block.local", "MEATER_block.local"];
-const DEFAULT_SIGNALS_HOSTS = ["thermoworks-signals.local", "signals.local"];
+const DEFAULT_SIGNALS_HOSTS = ["thermoworks-signals.local", "signals.local", "thermoworks.local", "rfx.local", "rfx-gateway.local"];
 
 /**
  * AsyncStorage key for user-supplied manual device entries.

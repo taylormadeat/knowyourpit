@@ -149,7 +149,7 @@ export default function CookDetailScreen() {
     selectedLanProbe, selectedLanPitProbe,
     inkbirdProbes, inkbirdScanning, combinedReconnecting, lastKnownInkbirdDeviceId,
     bleContextDevices, reconnectBanner, dismissReconnectBanner,
-    lanProbes, hasActiveProbe, knownProbeIds, probeIntervalMs,
+    lanProbes, lanMdnsAvailable, lanMdnsScanEmpty, lanScanning, hasActiveProbe, knownProbeIds, probeIntervalMs,
     meatProbeSlots,
     handleSelectMeatProbe, handleAddMeatProbeSlot, handleRemoveMeatProbeSlot,
     handleSelectPitProbe, handleSetProbeLabel,
@@ -609,6 +609,7 @@ export default function CookDetailScreen() {
             c={c} colors={colors} weather={weather} meaterLinked={meaterLinked} meaterProbes={meaterProbes}
             thermoworksLinked={thermoworksLinked} thermoworksProbes={thermoworksProbes}
             inkbirdProbes={inkbirdProbes} bleContextDevices={bleContextDevices} lanProbes={lanProbes}
+            lanMdnsAvailable={lanMdnsAvailable} lanMdnsScanEmpty={lanMdnsScanEmpty} lanScanning={lanScanning}
             autoAssignBanner={autoAssignBanner} onDismissAutoAssignBanner={() => setAutoAssignBanner(null)}
             reconnectBanner={reconnectBanner} onDismissReconnectBanner={dismissReconnectBanner}
             tempMode={tempMode} onSetTempMode={setTempMode}

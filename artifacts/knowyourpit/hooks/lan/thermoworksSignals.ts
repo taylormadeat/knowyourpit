@@ -20,7 +20,7 @@
 
 import type { LanProbeReading } from "@/hooks/useLanProbes";
 
-const DEFAULT_SIGNALS_HOSTS = ["thermoworks-signals.local", "signals.local"];
+const DEFAULT_SIGNALS_HOSTS = ["thermoworks-signals.local", "signals.local", "thermoworks.local", "rfx.local", "rfx-gateway.local"];
 const SIGNALS_PORT = 80;
 const SIGNALS_TIMEOUT_MS = 3000;
 

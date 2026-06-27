@@ -7,3 +7,4 @@
 - [Playwright on NixOS](playwright-nixos.md) — Playwright's downloaded headless-shell binary needs glibc at FHS paths; NixOS blocks it. Use runTest() in dev; e2e files are valid for Ubuntu CI.
 - [AppCheckCore pod install blocker](appcheckcore-pod-blocker.md) — CocoaPods pre-install validation blocks all EAS builds; every pre-install fix tried so far causes new RN pod conflicts; requires Mac + local pod install to debug.
 - [Mutation 401 retry & per-user token refresh](mutation-401-retry.md) — react-query guard only re-runs queries not mutations; retry mutation 401s in customFetch; key force-refresh single-flight per user; idempotent create makes timeout-retry safe.
+- [ThermoWorks probe detection path](thermoworks-probe-detection.md) — Signals/RFX are cloud (account-link via /devices), the LAN /status adapter is dead; empty iOS mDNS ≠ definitive permission denial.

@@ -47,7 +47,14 @@ function classifyService(name: string, host: string, port: number): ZeroconfDevi
   const haystack = `${name} ${host}`.toLowerCase();
   if (port === 2345 || haystack.includes("meater")) return "meater_block";
   if (haystack.includes("fireboard")) return "fireboard";
-  if (haystack.includes("thermoworks") || haystack.includes("signals")) return "thermoworks_signals";
+  if (
+    haystack.includes("thermoworks") ||
+    haystack.includes("signals") ||
+    haystack.includes("rfx-gateway") ||
+    haystack.includes("rfxgateway") ||
+    /\brfx\b/.test(haystack)
+  )
+    return "thermoworks_signals";
   return "unknown";
 }
 

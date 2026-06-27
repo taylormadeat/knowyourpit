@@ -231,7 +231,7 @@ export function useProbeState({
 
   const bleContextDevices = allBleDevices.filter((d) => d.connectionState === "connected" && d.paired);
 
-  const { probes: lanProbes, scan: scanLan } = useLanProbes({ enabled: cookStatus === "active" && tempMode === "probe", pollIntervalMs: 15_000 });
+  const { probes: lanProbes, scan: scanLan, mdnsAvailable: lanMdnsAvailable, mdnsScanEmpty: lanMdnsScanEmpty, scanning: lanScanning } = useLanProbes({ enabled: cookStatus === "active" && tempMode === "probe", pollIntervalMs: 15_000 });
 
   const handleRestartScan = useCallback(() => { bleStop(); bleScan(); scanLan(); inkbirdRescan(); }, [bleStop, bleScan, scanLan, inkbirdRescan]);
 
@@ -487,7 +487,7 @@ export function useProbeState({
     inkbirdProbes, inkbirdScanning, inkbirdReconnecting, lastKnownInkbirdDeviceId,
     bleContextDevices, reconnectBanner, dismissReconnectBanner,
     combinedReconnecting, handleRestartScan,
-    lanProbes,
+    lanProbes, lanMdnsAvailable, lanMdnsScanEmpty, lanScanning,
     // Computed
     hasActiveProbe, knownProbeIds, probeIntervalMs,
     // Handlers
