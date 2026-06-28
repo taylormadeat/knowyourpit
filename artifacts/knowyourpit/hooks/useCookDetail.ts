@@ -525,6 +525,10 @@ export function useCookDetail(id: string | undefined) {
 
     let updatedSeqData: SequenceData | null = null;
     const ripplableSteps = ["grillLight", "meatOn", "pullOff"] as const;
+    // actualTime is always new Date() regardless of whether the scheduled time has
+    // passed yet. This means early-confirms (tapped before the clock time arrives)
+    // and late-confirms both flow through the same ripple path — subsequent step
+    // timestamps are recalculated from the actual confirmation moment in both cases.
     if (isConfirming && itemIdx >= 0 && cookSeqData?.schedule) {
       const rippleStep = step as (typeof ripplableSteps)[number];
       if ((ripplableSteps as readonly string[]).includes(rippleStep)) {

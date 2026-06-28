@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from "react";
-import { View, Text, Pressable, Animated } from "react-native";
+import { View, Text, Pressable, Animated, Alert } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { s } from "./styles";
@@ -252,6 +252,21 @@ export function SequenceSchedule(p: Props) {
                                 ? <Feather name="check-circle" size={14} color="#f59e0b" />
                                 : <View style={[s.seqTlDot, { backgroundColor: colors.mutedForeground, opacity: 0.45 }]} />}
                             </Pressable>
+                          ) : isNextGrillLight ? (
+                            <Pressable
+                              onPress={() => Alert.alert(
+                                "Mark as done?",
+                                "Record this step at the current time?",
+                                [
+                                  { text: "Cancel", style: "cancel" },
+                                  { text: "Confirm", onPress: () => toggleConfirmedStep(`${idx}_grillLight`) },
+                                ],
+                              )}
+                              hitSlop={8}
+                              style={s.seqTlDotBtn}
+                            >
+                              <View style={[s.seqTlDot, { backgroundColor: "#f59e0b" }]} />
+                            </Pressable>
                           ) : (
                             <View style={[s.seqTlDot, { backgroundColor: "#f59e0b" }]} />
                           )}
@@ -286,6 +301,21 @@ export function SequenceSchedule(p: Props) {
                               {confirmedSteps[`${idx}_meatOn`]
                                 ? <Feather name="check-circle" size={14} color="#EB6C2B" />
                                 : <View style={[s.seqTlDot, { backgroundColor: colors.mutedForeground, opacity: 0.45 }]} />}
+                            </Pressable>
+                          ) : isNextMeatOn ? (
+                            <Pressable
+                              onPress={() => Alert.alert(
+                                "Mark as done?",
+                                "Record this step at the current time?",
+                                [
+                                  { text: "Cancel", style: "cancel" },
+                                  { text: "Confirm", onPress: () => toggleConfirmedStep(`${idx}_meatOn`) },
+                                ],
+                              )}
+                              hitSlop={8}
+                              style={s.seqTlDotBtn}
+                            >
+                              <View style={[s.seqTlDot, { backgroundColor: "#EB6C2B" }]} />
                             </Pressable>
                           ) : (
                             <View style={[s.seqTlDot, { backgroundColor: "#EB6C2B" }]} />
@@ -415,6 +445,21 @@ export function SequenceSchedule(p: Props) {
                                           {confirmedSteps[`${idx}_wrap`]
                                             ? <Feather name="check-circle" size={14} color={wrapColor} />
                                             : <View style={[s.seqTlDot, { backgroundColor: colors.mutedForeground, opacity: 0.45 }]} />}
+                                        </Pressable>
+                                      ) : isNextWrap ? (
+                                        <Pressable
+                                          onPress={() => Alert.alert(
+                                            "Mark as done?",
+                                            "Record this step at the current time?",
+                                            [
+                                              { text: "Cancel", style: "cancel" },
+                                              { text: "Confirm", onPress: () => toggleConfirmedStep(`${idx}_wrap`) },
+                                            ],
+                                          )}
+                                          hitSlop={8}
+                                          style={s.seqTlDotBtn}
+                                        >
+                                          <View style={[s.seqTlDot, { backgroundColor: wrapColor }]} />
                                         </Pressable>
                                       ) : (
                                         <View style={[s.seqTlDot, { backgroundColor: wrapColor }]} />
