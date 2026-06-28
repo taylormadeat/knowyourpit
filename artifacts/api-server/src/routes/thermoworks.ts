@@ -342,17 +342,26 @@ function toFahrenheit(value: number, units: string | null): number {
   return value;
 }
 
-export function isChannelLive(c: ChannelReading): boolean {
-  // RFX-specific: explicit disconnected flag takes priority over all other checks.
-  // RFX Gateway provisioned slots echo the last reading even with no probe — this
-  // boolean is the only reliable way to tell an empty RFX slot from a live one.
-  if (c.connected === false) return false;
-  // Some ThermoWorks RFX firmware versions omit the `connected` field entirely
-  // for empty slots instead of setting it to false.  Non-RFX devices also have
-  // `connected: null`, but they never carry a `signalStrength` value — we use
-  // that as the discriminator: an RFX-type channel with null/absent `connected`
-  // and zero signal has no physical RF link and must be treated as an empty slot.
-  if (c.connected == null && c.signalStrength !== null && c.signalStrength === 0) return false;
+export function isChannelLive(c: ChannelReading, isRfx = false): boolean {
+  // RFX-specific: when the device is an RFX receiver, only channels where the
+  // `connected` field is explicitly `true` correspond to a physically inserted
+  // probe.  Any other value (false, null, or absent) means the slot is empty —
+  // the RFX gateway provisions all 4 MEAT channel slots in Firestore and echoes
+  // a stale temperature on each one regardless of whether a probe is present.
+  if (isRfx) {
+    if (c.connected !== true) return false;
+  } else {
+    // Non-RFX path: explicit disconnected flag is still honoured.
+    // RFX Gateway provisioned slots echo the last reading even with no probe — this
+    // boolean is the only reliable way to tell an empty RFX slot from a live one.
+    if (c.connected === false) return false;
+    // Some ThermoWorks RFX firmware versions omit the `connected` field entirely
+    // for empty slots instead of setting it to false.  Non-RFX devices also have
+    // `connected: null`, but they never carry a `signalStrength` value — we use
+    // that as the discriminator: an RFX-type channel with null/absent `connected`
+    // and zero signal has no physical RF link and must be treated as an empty slot.
+    if (c.connected == null && c.signalStrength !== null && c.signalStrength === 0) return false;
+  }
   if (c.value == null) return false;
   // Allowlist: only statuses that indicate a probe is physically connected.
   // A null/empty status or any unrecognized value (e.g. "OPEN") is treated as "no probe".
@@ -546,6 +555,12 @@ router.get("/thermoworks/readings", requireAuth, async (req: any, res): Promise<
     const probes: Probe[] = [];
     devices.forEach((d, idx) => {
       const channels = perDeviceChannels[idx];
+      // Detect RFX gateway devices by their Firestore `type` field or device label.
+      // RFX MEAT receivers provision all 4 channel slots unconditionally, so only
+      // channels with `connected === true` correspond to a physically inserted probe.
+      const isRfx =
+        (d.type != null && d.type.toUpperCase().includes("RFX")) ||
+        d.label.toUpperCase().includes("RFX");
       for (const c of channels) {
         const ageSec = c.lastSeen ? Math.round((Date.now() - c.lastSeen.getTime()) / 1000) : null;
         req.log.info(
@@ -558,10 +573,11 @@ router.get("/thermoworks/readings", requireAuth, async (req: any, res): Promise<
             ageSec,
             connected: c.connected,
             signalStrength: c.signalStrength,
+            isRfx,
           },
           "thermoworks channel raw",
         );
-        if (!isChannelLive(c)) continue;
+        if (!isChannelLive(c, isRfx)) continue;
         probes.push({
           deviceId: d.serial,
           deviceName: d.label,

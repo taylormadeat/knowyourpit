@@ -37,6 +37,52 @@ describe("isChannelLive", () => {
     ).toBe(true);
   });
 
+  describe("isRfx=true (RFX MEAT receiver ghost-slot guard)", () => {
+    it("returns false when connected is null and signalStrength is null (phantom RFX MEAT channel slot)", () => {
+      expect(
+        isChannelLive(
+          channel({ connected: null, signalStrength: null, status: "CONNECTED", value: 155, lastSeen: freshDate() }),
+          true,
+        ),
+      ).toBe(false);
+    });
+
+    it("returns false when connected is false (explicitly empty RFX slot)", () => {
+      expect(
+        isChannelLive(channel({ connected: false, status: "CONNECTED", value: 155, lastSeen: freshDate() }), true),
+      ).toBe(false);
+    });
+
+    it("returns false when connected is null and signalStrength is 0", () => {
+      expect(
+        isChannelLive(
+          channel({ connected: null, signalStrength: 0, status: "CONNECTED", value: 155, lastSeen: freshDate() }),
+          true,
+        ),
+      ).toBe(false);
+    });
+
+    it("returns true when connected is explicitly true and channel is otherwise healthy", () => {
+      expect(
+        isChannelLive(
+          channel({ connected: true, status: "CONNECTED", value: 155, lastSeen: freshDate() }),
+          true,
+        ),
+      ).toBe(true);
+    });
+  });
+
+  describe("isRfx=false (non-RFX devices unaffected by RFX guard)", () => {
+    it("returns true when connected is null and signalStrength is null (normal non-RFX channel)", () => {
+      expect(
+        isChannelLive(
+          channel({ connected: null, signalStrength: null, status: "CONNECTED", value: 155, lastSeen: freshDate() }),
+          false,
+        ),
+      ).toBe(true);
+    });
+  });
+
   it("returns true when connected is true with valid status and fresh timestamp", () => {
     expect(
       isChannelLive(
