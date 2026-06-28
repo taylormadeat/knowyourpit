@@ -142,6 +142,21 @@ export function useProbeState({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, (cook as any)?.status, (cook as any)?.probeAssignments]);
 
+  // Retry tempMode switch when Pro entitlement loads after the rehydration
+  // effect has already run. The rehydration effect checks effectiveProRef.current
+  // at the moment it executes; if RevenueCat is still loading at that point,
+  // the switch to "probe" is silently skipped with no retry. This effect closes
+  // that gap: when effectivePro transitions to true and the probe is already
+  // assigned (meatProbeSlots populated), switch now — but only if the user
+  // has not already set a mode explicitly this session.
+  useEffect(() => {
+    if (!effectivePro) return;
+    if (meatProbeSlots.length === 0) return;
+    if (SESSION_TEMP_MODES.get(String(id)) != null) return;
+    setTempModeState("probe");
+    if (id) SESSION_TEMP_MODES.set(String(id), "probe");
+  }, [effectivePro, meatProbeSlots, id]);
+
   // Other cook assignments
   useEffect(() => {
     if (Platform.OS === "web" || !id || !allCooksForCount) return;

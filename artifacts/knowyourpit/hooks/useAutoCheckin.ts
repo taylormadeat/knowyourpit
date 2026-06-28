@@ -65,12 +65,20 @@ export function useAutoCheckin({
   const firedKeysRef = useRef<Set<string>>(new Set());
 
   /**
+   * Guard for the "both probes connected" instant check-in.
+   * Separate from firedKeysRef so it resets independently when navigating
+   * between cooks but doesn't interfere with milestone dedup.
+   */
+  const probeConnectedFiredRef = useRef(false);
+
+  /**
    * Track the last cook ID so we reset the fired set when the user
    * navigates between different cooks.
    */
   const lastCookIdRef = useRef<number | null | undefined>(undefined);
   if (lastCookIdRef.current !== cookId) {
     firedKeysRef.current = new Set();
+    probeConnectedFiredRef.current = false;
     lastCookIdRef.current = cookId;
   }
 
@@ -143,4 +151,63 @@ export function useAutoCheckin({
   useEffect(() => {
     checkAndFire().catch(() => {});
   }, [checkAndFire]);
+
+  // ── "Both probes connected" instant check-in ─────────────────────────────
+  // Fires once per cook (session-guarded) as soon as both internal temp AND
+  // pit/ambient temp are available from the probe. This gives the user an
+  // immediate baseline reading the moment they plug in — no waiting for a
+  // scheduled milestone. The server records it with phaseKey "probe_connected"
+  // so the activity timeline can distinguish it from milestone check-ins.
+  const checkAndFireProbeConnected = useCallback(async () => {
+    if (!cookId || cookStatus !== "active") return;
+    if (probeConnectedFiredRef.current) return;
+    if (!probeReading) return;
+    if (probeReading.internalTempF == null || probeReading.pitTempF == null) return;
+
+    const readingAge = Date.now() - probeReading.fetchedAtMs;
+    if (readingAge > PROBE_FRESH_MS) return;
+
+    const alreadyLogged = existingCheckinsRef.current.some(
+      (ci) => ci.phaseKey === "probe_connected",
+    );
+    if (alreadyLogged) {
+      probeConnectedFiredRef.current = true;
+      return;
+    }
+
+    probeConnectedFiredRef.current = true;
+
+    try {
+      await createCheckin.mutateAsync({
+        id: cookId,
+        data: {
+          scheduledAt: new Date().toISOString(),
+          internalTempF: probeReading.internalTempF,
+          pitTempF: probeReading.pitTempF,
+          statusFlag: null,
+          userNote: null,
+          photoKey: null,
+          aiGuidanceShown: null,
+          isAutomatic: true,
+          probeSource: probeReading.probeSource,
+          phaseKey: "probe_connected",
+          phaseLabel: "Probes Connected",
+        },
+      });
+
+      onAutoCheckinFiredRef.current({
+        phaseKey: "probe_connected",
+        phaseLabel: "Probes Connected",
+        internalTempF: probeReading.internalTempF,
+        pitTempF: probeReading.pitTempF,
+      });
+    } catch (err) {
+      console.warn("[useAutoCheckin] probe-connected check-in POST failed:", err);
+      probeConnectedFiredRef.current = false;
+    }
+  }, [cookId, cookStatus, probeReading, createCheckin]);
+
+  useEffect(() => {
+    checkAndFireProbeConnected().catch(() => {});
+  }, [checkAndFireProbeConnected]);
 }

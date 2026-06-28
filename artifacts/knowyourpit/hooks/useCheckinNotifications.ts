@@ -420,11 +420,21 @@ export function useCheckinNotifications(
       if (!isCurrent()) return;
       const aiCheckins = cookSeqData?.aiCheckins ?? null;
       await scheduleCheckinNotifications(cookId, checkins, foodType, isCurrent, aiCheckins);
-      // Expose only the non-removed, still-future checkins to the UI.
+      // Expose non-removed checkins to useAutoCheckin. Include items up to
+      // AUTO_CHECKIN_TOLERANCE_MS in the past so that if this effect reruns
+      // right at/after a scheduled milestone (e.g. due to an adaptive-ETA
+      // query invalidation), useAutoCheckin still has a chance to fire within
+      // its ±2-minute tolerance window. The notification scheduler already
+      // skips past items with its own `scheduledAt <= now` guard.
+      const AUTO_CHECKIN_TOLERANCE_MS = 2 * 60 * 1000;
       const nowMs = Date.now();
       if (isCurrent()) {
         setScheduledCheckins(
-          checkins.filter((sc) => !removedKeys.has(sc.phaseKey) && sc.scheduledAt > nowMs),
+          checkins.filter(
+            (sc) =>
+              !removedKeys.has(sc.phaseKey) &&
+              sc.scheduledAt >= nowMs - AUTO_CHECKIN_TOLERANCE_MS,
+          ),
         );
       }
     })().catch(() => {});
