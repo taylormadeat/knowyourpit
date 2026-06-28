@@ -802,16 +802,20 @@ function IsolatedQueryProvider({ children }: { children: React.ReactNode }) {
 // current QueryClient. When one fires it means either:
 //   (a) the short-lived Clerk JWT expired while the app was backgrounded, or
 //   (b) the Clerk session itself was revoked (signed out on another device).
+//   (c) a transient failure — the token timed out because the iOS Secure Enclave
+//       was stalling or the API server was briefly restarting (autoscale cold-start).
 //
-// We disambiguate by attempting a forced token refresh (skipCache: true) with a
-// 5 s timeout. If Clerk returns a fresh token the session is alive — we just
-// invalidate queries so they retry with the new token and skip the sign-out
-// entirely. If the refresh also fails (null / throws), the session is genuinely
-// gone and we sign the user out.
+// Two-phase disambiguation:
+//   Phase 1 — forced token refresh (12 s). If Clerk returns a fresh token the
+//              session is alive; invalidate queries so they retry. Done.
+//   Phase 2 — if Phase 1 returns null (could be genuine expiry or transient),
+//              wait 15 s and try once more. This grace period lets the iOS Secure
+//              Enclave and the API server recover from a cold-start without
+//              prematurely signing the user out. If Phase 2 also returns null,
+//              the session is genuinely gone and we sign out.
 //
 // A `confirmInProgress` flag prevents concurrent 401s from spawning multiple
-// refresh attempts. Once either path (sign-out or invalidate) resolves, the
-// flag is cleared so the guard is ready for a future genuine expiry.
+// refresh attempts while either phase is in flight.
 //
 // Must be rendered inside both ClerkProvider and IsolatedQueryProvider so it
 // has access to both useAuth() and useQueryClient().
@@ -822,6 +826,14 @@ function SessionExpiredGuard() {
     if (!isSignedIn) return;
     let signedOut = false;
     let confirmInProgress = false;
+
+    function doSignOut() {
+      if (signedOut) return;
+      signedOut = true;
+      client.clear();
+      void signOut().catch(() => {});
+    }
+
     const handle401 = (err: unknown) => {
       if (signedOut || confirmInProgress) return;
       // Only act on genuine Clerk auth failures — the auth middleware always
@@ -833,33 +845,47 @@ function SessionExpiredGuard() {
         (err as any)?.data?.error === "Unauthorized"
       ) {
         confirmInProgress = true;
-        // 12 s gives Clerk time to complete a genuine network round-trip
-        // for a token refresh even on a slow connection. The previous 5 s
-        // was too short — on iOS the Secure Enclave can stall for 4-8 s
-        // right after backgrounding, causing the forced-refresh attempt to
-        // also time out and incorrectly sign the user out.
+        // Phase 1: attempt a forced token refresh (12 s).
+        // 12 s gives Clerk time to complete a genuine network round-trip even
+        // on a slow connection. The previous 5 s was too short — on iOS the
+        // Secure Enclave can stall for 4-8 s right after backgrounding.
         void getTokenSafe(getToken, 12000, true)
           .then((freshToken) => {
-            confirmInProgress = false;
             if (signedOut) return;
             if (freshToken) {
-              // JWT was stale but the session is still alive (e.g. returned
-              // from background). Invalidate all queries so they retry with
-              // the newly-refreshed token — do NOT sign out.
+              // Token refreshed — session is alive. Retry all queries.
+              confirmInProgress = false;
               void client.invalidateQueries();
-            } else {
-              // Fresh-refresh also failed — session is genuinely gone.
-              signedOut = true;
-              client.clear();
-              void signOut().catch(() => {});
+              return;
             }
+            // Phase 2: getTokenSafe returned null, which could mean the
+            // session is truly gone OR the Secure Enclave / server restarted
+            // and timed out transiently (e.g. after an autoscale cold-start).
+            // Wait 15 s and try once more before committing to a sign-out.
+            // This prevents false sign-outs when the server briefly restarts.
+            setTimeout(() => {
+              if (signedOut) return;
+              void getTokenSafe(getToken, 12000, true)
+                .then((retryToken) => {
+                  confirmInProgress = false;
+                  if (signedOut) return;
+                  if (retryToken) {
+                    // Session recovered — invalidate so queries get fresh tokens.
+                    void client.invalidateQueries();
+                  } else {
+                    // Both attempts failed — session is genuinely expired.
+                    doSignOut();
+                  }
+                })
+                .catch(() => {
+                  confirmInProgress = false;
+                  doSignOut();
+                });
+            }, 15000);
           })
           .catch(() => {
             confirmInProgress = false;
-            if (signedOut) return;
-            signedOut = true;
-            client.clear();
-            void signOut().catch(() => {});
+            doSignOut();
           });
       }
     };
