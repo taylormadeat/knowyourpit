@@ -59,7 +59,7 @@ import { useAutoCheckin } from "@/hooks/useAutoCheckin";
 import { useCheckinNotifications, useCheckinDeepLink, rescheduleCheckinNotifications, cancelCheckinNotificationForPhase, scheduleCheckinNotifications, loadRemovedCheckinPhaseKeys } from "@/hooks/useCheckinNotifications";
 import { scheduleStepNotifications, cancelStoredStepNotifications } from "@/hooks/useScheduleStepNotifications";
 import { getCheckinSchedule, generateCheckinSchedule } from "@/constants/checkinKnowledge";
-import type { ScheduledCheckin, CheckinSequenceAnchor } from "@/constants/checkinKnowledge";
+import type { AiCheckinItem, ScheduledCheckin, CheckinSequenceAnchor } from "@/constants/checkinKnowledge";
 import { computeNextStep, rippleScheduleTimestamps } from "@/components/cook-detail/utils";
 import { letterGrade, VERDICT_SCORE } from "@/utils/gradeUtils";
 import { STATUS_COLORS } from "@/components/cook-detail/constants";
@@ -353,13 +353,76 @@ export default function CookDetailScreen() {
     storedGraphProbes.length > 0 ? storedGraphProbes : completedCookReadingsProbes,
   [storedGraphProbes, completedCookReadingsProbes]);
 
+  /**
+   * How far into the past (or future) a scheduled milestone can be and still
+   * be matched to a manual check-in opened "around that time".
+   */
+  const MILESTONE_MATCH_WINDOW_MS = 20 * 60 * 1000; // ±20 min
+
+  /**
+   * Full AI-plan check-in schedule derived directly from `cookSeqData.aiCheckins`.
+   * Unlike `storedScheduledCheckins` (which is pruned to ≥ now − 2 min), this
+   * covers all milestones so we can match ones that passed up to 20 min ago.
+   */
+  const fullAiSchedule = useMemo<ScheduledCheckin[]>(() => {
+    const first = cookSeqData?.schedule?.[0];
+    const aiCheckins = cookSeqData?.aiCheckins;
+    if (!first?.meatOnAt || !aiCheckins?.length) return [];
+    const meatOnMs = new Date(first.meatOnAt).getTime();
+    const meatSchedule = getCheckinSchedule(first.foodType ?? null);
+    const fallbackPhase = meatSchedule.phases[0];
+    return (aiCheckins as AiCheckinItem[]).map((ci, idx) => ({
+      id: `ai_checkin_${idx}_full`,
+      phaseKey: `ai_checkin_${idx}`,
+      phaseLabel: ci.label,
+      scheduledAt: meatOnMs + ci.offsetMinutes * 60_000,
+      phase: fallbackPhase,
+    }));
+  }, [cookSeqData]);
+
   const { nextCheckinMs, nextCheckinLabel, nextCheckinSc, upcomingCheckinsForCard } = useMemo(() => {
     const hasPlan = (cookSeqData?.schedule?.length ?? 0) > 0;
-    const upcoming = (hasPlan && storedScheduledCheckins.length > 0 ? storedScheduledCheckins : noPlanScheduledCheckins)
-      .filter((sc: ScheduledCheckin) => sc.scheduledAt > nowMs);
-    const next = upcoming[0] ?? null;
-    return { nextCheckinMs: next?.scheduledAt ?? null, nextCheckinLabel: next?.phaseLabel ?? null, nextCheckinSc: next, upcomingCheckinsForCard: upcoming.slice(1, 5) };
-  }, [cookSeqData, storedScheduledCheckins, noPlanScheduledCheckins, nowMs]);
+    const loggedKeys = new Set(
+      (cookCheckins as CookCheckin[])?.map((ci) => ci.phaseKey).filter(Boolean) ?? [],
+    );
+
+    // Use the full AI schedule (covers past > 2 min) for AI-plan cooks; fall
+    // back to storedScheduledCheckins when no aiCheckins are available, then to
+    // the no-plan schedule for cooks without a plan.
+    const sourceList: ScheduledCheckin[] =
+      hasPlan
+        ? (fullAiSchedule.length > 0 ? fullAiSchedule : storedScheduledCheckins)
+        : noPlanScheduledCheckins;
+
+    // Strictly-future unlogged milestones (for the upcoming card list)
+    const future = sourceList.filter(
+      (sc) => !loggedKeys.has(sc.phaseKey) && sc.scheduledAt > nowMs,
+    );
+
+    // Recently-past unlogged milestones within the match window
+    const recentPast = sourceList.filter(
+      (sc) =>
+        !loggedKeys.has(sc.phaseKey) &&
+        sc.scheduledAt <= nowMs &&
+        sc.scheduledAt >= nowMs - MILESTONE_MATCH_WINDOW_MS,
+    );
+
+    // Pick the closest unlogged milestone to now (past or future)
+    const allCandidates = [...recentPast, ...future].sort(
+      (a, b) => Math.abs(a.scheduledAt - nowMs) - Math.abs(b.scheduledAt - nowMs),
+    );
+    const next = allCandidates[0] ?? null;
+
+    // Upcoming card shows strictly-future milestones (skip `next` if it's one of them)
+    const upcomingForCard = future.filter((sc) => sc.phaseKey !== next?.phaseKey).slice(0, 4);
+
+    return {
+      nextCheckinMs: next?.scheduledAt ?? null,
+      nextCheckinLabel: next?.phaseLabel ?? null,
+      nextCheckinSc: next,
+      upcomingCheckinsForCard: upcomingForCard,
+    };
+  }, [cookSeqData, fullAiSchedule, storedScheduledCheckins, noPlanScheduledCheckins, nowMs, cookCheckins, MILESTONE_MATCH_WINDOW_MS]);
 
   const plannedSequenceCheckins = useMemo<ScheduledCheckin[]>(() => {
     if (cookStatus !== "planned") return [];
@@ -374,17 +437,45 @@ export default function CookDetailScreen() {
 
   const handlePitMasterCheckIn = useCallback(() => {
     const hasPlan = (cookSeqData?.schedule?.length ?? 0) > 0;
-    const upcoming = (hasPlan && storedScheduledCheckins.length > 0 ? storedScheduledCheckins : noPlanScheduledCheckins)
-      .filter((sc: ScheduledCheckin) => sc.scheduledAt > nowMs);
-    const targetSc = pendingCheckinSc ?? upcoming[0] ?? null;
-    if (targetSc) { openCheckin(targetSc); }
-    else {
+    const loggedKeys = new Set(
+      (cookCheckins as CookCheckin[])?.map((ci) => ci.phaseKey).filter(Boolean) ?? [],
+    );
+
+    // Source: full AI schedule (past + future) for AI-plan cooks; no-plan
+    // schedule for cooks without a plan. storedScheduledCheckins is intentionally
+    // skipped here — it is pruned to ≥ now − 2 min and would miss milestones
+    // that passed 3–20 minutes ago.
+    const sourceList: ScheduledCheckin[] =
+      hasPlan
+        ? (fullAiSchedule.length > 0 ? fullAiSchedule : storedScheduledCheckins)
+        : noPlanScheduledCheckins;
+
+    // Find the closest unlogged milestone within the ±20 min match window.
+    const nearbyUnlogged = sourceList
+      .filter(
+        (sc) =>
+          !loggedKeys.has(sc.phaseKey) &&
+          Math.abs(sc.scheduledAt - nowMs) <= MILESTONE_MATCH_WINDOW_MS,
+      )
+      .sort((a, b) => Math.abs(a.scheduledAt - nowMs) - Math.abs(b.scheduledAt - nowMs));
+
+    // Fall back to first strictly-future unlogged milestone, then generic manual.
+    const fallbackFuture = sourceList.find(
+      (sc) => !loggedKeys.has(sc.phaseKey) && sc.scheduledAt > nowMs,
+    ) ?? null;
+
+    const targetSc =
+      pendingCheckinSc ?? nearbyUnlogged[0] ?? fallbackFuture ?? null;
+
+    if (targetSc) {
+      openCheckin(targetSc);
+    } else {
       const schedule = getCheckinSchedule((cook as any)?.foodType ?? null);
       const phase = schedule.phases[0];
       openCheckin({ id: `manual_${Date.now()}`, phaseKey: phase.key, phaseLabel: phase.label, scheduledAt: Date.now(), phase });
     }
     setPendingCheckinSc(null);
-  }, [cook, cookSeqData, storedScheduledCheckins, noPlanScheduledCheckins, nowMs, pendingCheckinSc, openCheckin, setPendingCheckinSc]);
+  }, [cook, cookSeqData, fullAiSchedule, storedScheduledCheckins, noPlanScheduledCheckins, nowMs, cookCheckins, pendingCheckinSc, openCheckin, setPendingCheckinSc, MILESTONE_MATCH_WINDOW_MS]);
 
   const handleCheckInNext = useCallback(() => {
     if (nextCheckinSc) openCheckin(nextCheckinSc);
