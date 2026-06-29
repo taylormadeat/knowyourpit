@@ -78,6 +78,7 @@ import { LiveProbeSection } from "@/components/cook-detail/LiveProbeSection";
 import { CookAnalysisSection } from "@/components/cook-detail/CookAnalysisSection";
 import { TechniquesSection } from "@/components/cook-detail/TechniquesSection";
 import { CookModals } from "@/components/cook-detail/CookModals";
+import { UndoToast } from "@/components/cook-detail/UndoToast";
 
 LogBox.ignoreLogs(["ref.measureLayout must be called with a ref"]);
 const logoImg = require("@/assets/images/icon-transparent-light.png");
@@ -102,6 +103,7 @@ export default function CookDetailScreen() {
     rateTenderness, setRateTenderness, rateFlavor, setRateFlavor, rateBark, setRateBark,
     rateSaving, showRatingPrompt, setShowRatingPrompt, saveRatings,
     confirmedSteps, toggleConfirmedStep: _toggleConfirmedStep, confirmWrap,
+    undoPending, undoConfirmedStep, clearUndoPending,
     wrapTempPending, setWrapTempPending, wrapAdjustedFinishMs, setWrapAdjustedFinishMs, pendingWrapClearRef,
     markingThaw, handleMarkThawStarted,
     editVisible, setEditVisible, editGrillPickerVisible, setEditGrillPickerVisible,
@@ -843,6 +845,15 @@ export default function CookDetailScreen() {
           qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
         }}
       />
+
+      {undoPending && (
+        <UndoToast
+          stepLabel={undoPending.stepLabel}
+          bottom={90 + insets.bottom}
+          onUndo={undoConfirmedStep}
+          onDismiss={clearUndoPending}
+        />
+      )}
 
       <CookModals
         cookStatus={cookStatus} cookSeqData={cookSeqData} cook={cook} id={id!}

@@ -56,6 +56,23 @@ const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
   (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
 
+const STEP_LABELS: Record<string, string> = {
+  grillLight: "Light Grill",
+  meatOn: "Meat On",
+  wrap: "Wrap",
+  pullOff: "Pull Off",
+  serve: "Serve",
+  stall: "Stall",
+  probeTender: "Probe Tender",
+};
+
+interface UndoPending {
+  key: string;
+  stepLabel: string;
+  prevConfirmedSteps: Record<string, string>;
+  prevSeqData: SequenceData | null;
+}
+
 export type CookDetailState = ReturnType<typeof useCookDetail>;
 
 export function useCookDetail(id: string | undefined) {
@@ -172,6 +189,9 @@ export function useCookDetail(id: string | undefined) {
     const stored = cook?.confirmedSteps;
     setConfirmedSteps(stored && typeof stored === "object" ? stored : {});
   }, [id, cook?.confirmedSteps]);
+
+  // Undo pending (5 s window after any step confirm)
+  const [undoPending, setUndoPending] = useState<UndoPending | null>(null);
 
   // Wrap temp pending
   const [wrapTempPending, setWrapTempPending] = useState<{ key: string; itemIdx: number } | null>(null);
@@ -506,6 +526,7 @@ export function useCookDetail(id: string | undefined) {
     const step = sep >= 0 ? key.slice(sep + 1) : key;
     const prev = confirmedSteps;
     const isConfirming = !prev[key];
+    const savedPrevSeqData = cookSeqData ? { ...cookSeqData } : null;
 
     if (isConfirming && step === "wrap" && cookSeqData?.schedule?.[itemIdx]) {
       setWrapTempPending({ key, itemIdx });
@@ -542,6 +563,12 @@ export function useCookDetail(id: string | undefined) {
     try {
       await updateCook.mutateAsync({ id: Number(id), data: { confirmedSteps: next, ...(updatedSeqData ? { sequenceData: updatedSeqData } : {}) } as any });
       qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+
+      if (isConfirming) {
+        setUndoPending({ key, stepLabel: STEP_LABELS[step] ?? step, prevConfirmedSteps: prev, prevSeqData: savedPrevSeqData });
+      } else {
+        setUndoPending(null);
+      }
 
       if (step === "stall" || step === "probeTender") {
         const noteText = step === "stall" ? "Stall detected" : "Probe tender achieved";
@@ -582,6 +609,7 @@ export function useCookDetail(id: string | undefined) {
   const confirmWrap = async (key: string, itemIdx: number, tempF: number | null) => {
     setWrapTempPending(null);
     const prev = confirmedSteps;
+    const savedPrevSeqData = cookSeqData ? { ...cookSeqData } : null;
     const actualTime = new Date();
     const next = { ...prev, [key]: actualTime.toISOString() };
     setConfirmedSteps(next);
@@ -602,11 +630,55 @@ export function useCookDetail(id: string | undefined) {
     try {
       await updateCook.mutateAsync({ id: Number(id), data: { confirmedSteps: next, ...(updatedSeqData ? { sequenceData: updatedSeqData } : {}) } as any });
       qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+      setUndoPending({ key, stepLabel: STEP_LABELS["wrap"], prevConfirmedSteps: prev, prevSeqData: savedPrevSeqData });
     } catch (e: any) {
       setConfirmedSteps(prev);
       setWrapAdjustedFinishMs(null);
       const isTimeout = e?.name === "AbortError" || (typeof e?.message === "string" && e.message.includes("timed out"));
       Alert.alert("Step not saved", isTimeout ? "Request timed out — check your connection and try again." : (e?.message || "Could not save wrap step. Please try again."));
+    }
+  };
+
+  const clearUndoPending = () => setUndoPending(null);
+
+  const undoConfirmedStep = async () => {
+    if (!undoPending) return;
+    const { key, prevConfirmedSteps, prevSeqData } = undoPending;
+    const sep = key.indexOf("_");
+    const step = sep >= 0 ? key.slice(sep + 1) : key;
+    const currentConfirmedSteps = confirmedSteps;
+    const currentWrapAdjustedFinishMs = wrapAdjustedFinishMs;
+    setUndoPending(null);
+    setConfirmedSteps(prevConfirmedSteps);
+    if (step === "wrap") setWrapAdjustedFinishMs(null);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const data: any = { confirmedSteps: prevConfirmedSteps };
+    if (prevSeqData !== null) data.sequenceData = prevSeqData;
+    try {
+      await updateCook.mutateAsync({ id: Number(id), data });
+      qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+      if (step === "stall" || step === "probeTender") {
+        try {
+          const token = await getTokenSafe(getToken);
+          const headers: Record<string, string> = {};
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+          const eventsRes = await fetch(`${API_BASE_URL}/api/cooks/${Number(id)}/events`, { headers });
+          if (eventsRes.ok) {
+            const events: { id: number; eventType: string; note: string | null; metadata: Record<string, unknown> | null }[] = await eventsRes.json();
+            const match = [...events].reverse().find((e) => e.eventType === "user_note" && e.metadata?.milestoneStep === step);
+            if (match) {
+              await fetch(`${API_BASE_URL}/api/cooks/${Number(id)}/events/${match.id}`, {
+                method: "DELETE", headers: token ? { Authorization: `Bearer ${token}` } : {},
+              });
+            }
+          }
+          qc.invalidateQueries({ queryKey: [`/api/cooks/${Number(id)}/events`] });
+        } catch {}
+      }
+    } catch {
+      setConfirmedSteps(currentConfirmedSteps);
+      if (step === "wrap") setWrapAdjustedFinishMs(currentWrapAdjustedFinishMs);
+      Alert.alert("Could not undo", "Tap the confirmed step again to unconfirm it manually.");
     }
   };
 
@@ -755,6 +827,7 @@ export function useCookDetail(id: string | undefined) {
     saveRatings,
     // Confirmed steps
     confirmedSteps, toggleConfirmedStep, confirmWrap,
+    undoPending, undoConfirmedStep, clearUndoPending,
     wrapTempPending, setWrapTempPending,
     wrapAdjustedFinishMs, setWrapAdjustedFinishMs, pendingWrapClearRef,
     // Thaw
