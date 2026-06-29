@@ -29,7 +29,6 @@ import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useProactiveAlerts } from "@/hooks/useProactiveAlerts";
 import { BlurredProSection } from "@/components/BlurredProSection";
 import { NextUpBanner } from "@/components/NextUpBanner";
-import { CookHealthScoreCard } from "@/components/cook-detail/CookHealthScoreCard";
 import { LiveCookSection } from "@/components/cook-detail/LiveCookSection";
 import { CookSummaryCard } from "@/components/cook-detail/CookSummaryCard";
 import { CookTimelineSection } from "@/components/cook-detail/CookTimelineSection";
@@ -659,12 +658,9 @@ export default function CookDetailScreen() {
       <ScrollView ref={scheduleScrollViewRef} contentContainerStyle={{ padding: 20, paddingBottom: botPad + 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={isTablet ? { width: "100%", maxWidth: detailMaxWidth, alignSelf: "center", gap: 16 } : null}>
           <CookStatusSection
-            c={c} cook={cook} colors={colors} cookStatus={cookStatus} statusColor={statusColor}
+            c={c} colors={colors} cookStatus={cookStatus} statusColor={statusColor}
             id={id!} dismissCookOutlier={dismissCookOutlier}
-            checkinsLoading={checkinsLoading} cookCheckins={cookCheckins as any[]}
-            firstCheckinNudgeDismissed={firstCheckinNudgeDismissed}
-            setFirstCheckinNudgeDismissed={setFirstCheckinNudgeDismissed}
-            openCheckin={openCheckin} cookSeqData={cookSeqData}
+            cookSeqData={cookSeqData}
             effectiveMeatOnMs={effectiveMeatOnMs} nowMs={nowMs}
             handleMarkThawStarted={handleMarkThawStarted} markingThaw={markingThaw}
           />
@@ -686,16 +682,13 @@ export default function CookDetailScreen() {
           />
 
           <CookAnalysisSection
-            colors={colors} cookStatus={cookStatus} cookId={Number(id)} isMeatOn={isMeatOn}
-            checkinCount={(cookCheckins as CookCheckin[]).length}
-            lastDecision={cookStatus === "active" ? (c.analysisResult?.decisions?.[0] ?? null) : null}
-            onGradeChange={(grade, quip) => { if (cookStatus === "active") setFGradeQuip(grade === "F" ? quip : null); }}
+            colors={colors} cookStatus={cookStatus}
             proactiveCoachingNote={proactiveCoachingNote}
             setProactiveCoachingNote={setProactiveCoachingNote}
             fGradeQuip={fGradeQuip}
-            compact={cookStatus === "completed"}
-            healthBreakdownOpen={healthBreakdownOpen}
-            onHealthBreakdownOpenHandled={() => setHealthBreakdownOpen(false)}
+            cookId={Number(id)}
+            healthBreakdownOpen={cookStatus === "completed" ? healthBreakdownOpen : undefined}
+            onHealthBreakdownOpenHandled={cookStatus === "completed" ? () => setHealthBreakdownOpen(false) : undefined}
           />
 
           <LiveCookSection
@@ -735,6 +728,13 @@ export default function CookDetailScreen() {
             factorBreakdown={cookSeqData?.factorBreakdown ?? null}
             planTimedOut={cookSeqData?.planTimedOut ?? null}
             qualFactors={qualFactors}
+            cookId={Number(id)}
+            cookStatus={cookStatus}
+            checkinCount={(cookCheckins as CookCheckin[]).length}
+            lastDecision={cookStatus === "active" ? (c.analysisResult?.decisions?.[0] ?? null) : null}
+            onGradeChange={(grade, quip) => { if (cookStatus === "active") setFGradeQuip(grade === "F" ? quip : null); }}
+            healthBreakdownOpen={healthBreakdownOpen}
+            onHealthBreakdownOpenHandled={() => setHealthBreakdownOpen(false)}
           />
 
           {cookStatus === "planned" && (

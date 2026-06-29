@@ -5,22 +5,14 @@ import { useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetCookQueryKey, getListCooksQueryKey } from "@workspace/api-client-react";
 import { ThawStatusBanner } from "@/components/cook-detail/ThawStatusBanner";
-import { getCheckinSchedule } from "@/constants/checkinKnowledge";
-import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
 
 interface CookStatusSectionProps {
   c: any;
-  cook: any;
   colors: any;
   cookStatus: string | undefined;
   statusColor: string;
   id: string;
   dismissCookOutlier: { mutateAsync: (args: any) => Promise<any>; isPending?: boolean };
-  checkinsLoading: boolean;
-  cookCheckins: any[];
-  firstCheckinNudgeDismissed: boolean;
-  setFirstCheckinNudgeDismissed: (v: boolean) => void;
-  openCheckin: (sc: ScheduledCheckin) => void;
   cookSeqData: any;
   effectiveMeatOnMs: number | null;
   nowMs: number;
@@ -29,9 +21,8 @@ interface CookStatusSectionProps {
 }
 
 export function CookStatusSection({
-  c, cook, colors, cookStatus, statusColor, id,
-  dismissCookOutlier, checkinsLoading, cookCheckins,
-  firstCheckinNudgeDismissed, setFirstCheckinNudgeDismissed, openCheckin,
+  c, colors, cookStatus, statusColor, id,
+  dismissCookOutlier,
   cookSeqData, effectiveMeatOnMs, nowMs, handleMarkThawStarted, markingThaw,
 }: CookStatusSectionProps) {
   const qc = useQueryClient();
@@ -40,25 +31,27 @@ export function CookStatusSection({
 
   return (
     <>
-      <View style={[{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: colors.radius, borderWidth: 1, borderColor: statusColor + "40", backgroundColor: statusColor + "18" }]}>
-        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: statusColor }} />
-        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 12, color: statusColor, textTransform: "uppercase", letterSpacing: 0.8 }}>{c.status?.toUpperCase()}</Text>
-        {(() => {
-          const sizeText = (c.sizingLabel as string | null | undefined) ?? (typeof c.weightLbs === "number" ? `${c.weightLbs} lbs` : null);
-          if (!sizeText) return null;
-          return <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.card, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: colors.border, marginLeft: 4 }}><Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: colors.foreground }}>{sizeText}</Text></View>;
-        })()}
-        {(c.ratingTenderness || c.ratingBark || c.ratingFlavor) && (
-          <View style={{ flexDirection: "row", gap: 5, marginLeft: 4 }}>
-            {[{ label: "T", val: c.ratingTenderness }, { label: "F", val: c.ratingFlavor }, { label: "B", val: c.ratingBark }].filter(r => r.val).map((r, i) => (
-              <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
-                <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: colors.mutedForeground }}>{r.label}</Text>
-                <Text style={{ fontSize: 10, color: "#eab308" }}>{"★".repeat(r.val!)}{"☆".repeat(5 - r.val!)}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
+      {cookStatus !== "active" && (
+        <View style={[{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: colors.radius, borderWidth: 1, borderColor: statusColor + "40", backgroundColor: statusColor + "18" }]}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: statusColor }} />
+          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 12, color: statusColor, textTransform: "uppercase", letterSpacing: 0.8 }}>{c.status?.toUpperCase()}</Text>
+          {(() => {
+            const sizeText = (c.sizingLabel as string | null | undefined) ?? (typeof c.weightLbs === "number" ? `${c.weightLbs} lbs` : null);
+            if (!sizeText) return null;
+            return <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.card, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: colors.border, marginLeft: 4 }}><Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: colors.foreground }}>{sizeText}</Text></View>;
+          })()}
+          {(c.ratingTenderness || c.ratingBark || c.ratingFlavor) && (
+            <View style={{ flexDirection: "row", gap: 5, marginLeft: 4 }}>
+              {[{ label: "T", val: c.ratingTenderness }, { label: "F", val: c.ratingFlavor }, { label: "B", val: c.ratingBark }].filter(r => r.val).map((r, i) => (
+                <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                  <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: colors.mutedForeground }}>{r.label}</Text>
+                  <Text style={{ fontSize: 10, color: "#eab308" }}>{"★".repeat(r.val!)}{"☆".repeat(5 - r.val!)}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
 
       {c.status === "completed" && c.isOutlier && !c.outlierDismissed && (
         <View style={{ borderRadius: colors.radius, backgroundColor: "#f59e0b12", borderWidth: 1, borderColor: "#f59e0b40", paddingHorizontal: 14, paddingVertical: 11, gap: 8 }}>
@@ -75,18 +68,6 @@ export function CookStatusSection({
             <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: "#f59e0b" }}>Mark as accurate</Text>
           </Pressable>
         </View>
-      )}
-
-      {cookStatus === "active" && !checkinsLoading && (cookCheckins as any[]).length === 0 && !firstCheckinNudgeDismissed && (
-        <Pressable onPress={() => {
-          const s2 = getCheckinSchedule((cook as any)?.foodType ?? null);
-          const ph = s2.phases[0];
-          openCheckin({ id: `manual_${Date.now()}`, phaseKey: ph.key, phaseLabel: ph.label, scheduledAt: Date.now(), phase: ph });
-        }} style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: colors.radius, borderWidth: 1, borderColor: "#F59E0B60", backgroundColor: "#F59E0B12", paddingHorizontal: 14, paddingVertical: 12, opacity: pressed ? 0.82 : 1 })}>
-          <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: "#F59E0B", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Feather name="thermometer" size={16} color="#fff" /></View>
-          <View style={{ flex: 1 }}><Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: "#F59E0B", marginBottom: 2 }}>No temperatures logged yet</Text><Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>Tap to log your first check-in and get PitMaster coaching</Text></View>
-          <Pressable onPress={(e) => { e.stopPropagation(); setFirstCheckinNudgeDismissed(true); }} hitSlop={8} style={{ padding: 4 }}><Feather name="x" size={16} color={colors.mutedForeground as string} /></Pressable>
-        </Pressable>
       )}
 
       <ThawStatusBanner

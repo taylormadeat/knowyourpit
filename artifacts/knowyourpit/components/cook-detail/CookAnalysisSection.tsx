@@ -2,26 +2,21 @@ import React from "react";
 import { View, Text, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { CookHealthScoreCard } from "@/components/cook-detail/CookHealthScoreCard";
+
 interface CookAnalysisSectionProps {
   colors: any;
   cookStatus: string | undefined;
-  cookId: number;
-  isMeatOn: boolean;
-  checkinCount: number;
-  lastDecision: any;
-  onGradeChange: (grade: string, quip: string | null) => void;
   proactiveCoachingNote: string | null;
   setProactiveCoachingNote: (v: string | null) => void;
   fGradeQuip: string | null;
-  compact?: boolean;
+  cookId?: number;
   healthBreakdownOpen?: boolean;
   onHealthBreakdownOpenHandled?: () => void;
 }
 
 export function CookAnalysisSection({
-  colors, cookStatus, cookId, isMeatOn, checkinCount, lastDecision, onGradeChange,
-  proactiveCoachingNote, setProactiveCoachingNote, fGradeQuip, compact,
-  healthBreakdownOpen, onHealthBreakdownOpenHandled,
+  colors, cookStatus, proactiveCoachingNote, setProactiveCoachingNote, fGradeQuip,
+  cookId, healthBreakdownOpen, onHealthBreakdownOpenHandled,
 }: CookAnalysisSectionProps) {
   return (
     <>
@@ -46,13 +41,15 @@ export function CookAnalysisSection({
         </View>
       )}
 
-      {(cookStatus === "active" || cookStatus === "completed") && (cookStatus !== "active" || isMeatOn) && (
+      {cookStatus === "completed" && cookId != null && (
         <CookHealthScoreCard
-          cookId={cookId} colors={colors} cookStatus={cookStatus}
-          checkinCount={checkinCount}
-          lastDecision={cookStatus === "active" ? (lastDecision ?? null) : null}
-          onGradeChange={(grade, quip) => { if (cookStatus === "active") onGradeChange(grade, quip); }}
-          compact={compact}
+          cookId={cookId}
+          colors={colors}
+          cookStatus={cookStatus}
+          checkinCount={0}
+          lastDecision={null}
+          onGradeChange={undefined}
+          compact={true}
           externalOpen={healthBreakdownOpen}
           onExternalOpenHandled={onHealthBreakdownOpenHandled}
         />

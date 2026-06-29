@@ -2,6 +2,7 @@ import React from "react";
 import { useRouter } from "expo-router";
 import { CookFactorsSheet, type QualFactor } from "@/components/CookFactorsSheet";
 import type { FactorBreakdownItem } from "@/components/cook-detail/types";
+import { CookHealthScoreCard } from "@/components/cook-detail/CookHealthScoreCard";
 import { View, Text, Pressable, ActivityIndicator, Animated, TextInput, Modal, ScrollView, Platform, Linking } from "react-native";
 import { BleWizardSheet } from "./BleWizardSheet";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -119,6 +120,14 @@ interface Props {
   onAddMeatProbeSlot?: (probeId: string, label: string) => void;
   /** Called to remove a specific probe from its meat slot */
   onRemoveMeatProbeSlot?: (probeId: string) => void;
+  /** Cook ID — required to render CookHealthScoreCard above the progress bar. */
+  cookId?: number;
+  cookStatus?: string;
+  checkinCount?: number;
+  lastDecision?: any;
+  onGradeChange?: (grade: string, quip: string | null) => void;
+  healthBreakdownOpen?: boolean;
+  onHealthBreakdownOpenHandled?: () => void;
 }
 
 function fmtLastChecked(lastAnalyzedAtMs: number, nowMs: number): string {
@@ -167,6 +176,13 @@ export function LiveCookSection(p: Props) {
     meatProbeSlots = [],
     onAddMeatProbeSlot,
     onRemoveMeatProbeSlot,
+    cookId,
+    cookStatus,
+    checkinCount = 0,
+    lastDecision,
+    onGradeChange,
+    healthBreakdownOpen,
+    onHealthBreakdownOpenHandled,
   } = p;
 
   const router = useRouter();
@@ -538,6 +554,22 @@ export function LiveCookSection(p: Props) {
           }}>
             Plan generated from a rough estimate
           </Text>
+        </View>
+      )}
+
+      {cookId != null && isMeatOn && (
+        <View style={{ paddingHorizontal: 14, paddingTop: 10 }}>
+          <CookHealthScoreCard
+            cookId={cookId}
+            colors={colors}
+            cookStatus={cookStatus ?? "active"}
+            checkinCount={checkinCount}
+            lastDecision={lastDecision ?? null}
+            onGradeChange={onGradeChange}
+            compact={false}
+            externalOpen={healthBreakdownOpen}
+            onExternalOpenHandled={onHealthBreakdownOpenHandled}
+          />
         </View>
       )}
 
