@@ -281,7 +281,14 @@ export function SequenceSchedule(p: Props) {
                               )}
                             </View>
                             <Text style={[s.seqTlTime, { color: isDoneGrillLight ? colors.mutedForeground : colors.foreground, opacity: isDoneGrillLight ? 0.55 : 1 }]}>
-                              {new Date(item.grillLightAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
+                              {typeof confirmedSteps[`${idx}_grillLight`] === "string"
+                                ? new Date(confirmedSteps[`${idx}_grillLight`] as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })
+                                : new Date(item.grillLightAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
+                              {typeof confirmedSteps[`${idx}_grillLight`] === "string" && (
+                                <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
+                                  {" "}· planned {new Date(item.grillLightAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
+                                </Text>
+                              )}
                               {(cookStatus === "active" || cookStatus === "planned") && !isDoneGrillLight && (
                                 <Text style={[s.seqTlMeta, { color: "#f59e0b" }]}>
                                   {" "}· {relCountdown(new Date(item.grillLightAt).getTime(), nowMs)}
@@ -331,7 +338,14 @@ export function SequenceSchedule(p: Props) {
                               )}
                             </View>
                             <Text style={[s.seqTlTime, { color: isDoneMeatOn ? colors.mutedForeground : colors.foreground, opacity: isDoneMeatOn ? 0.55 : 1 }]}>
-                              {new Date(item.meatOnAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
+                              {typeof confirmedSteps[`${idx}_meatOn`] === "string"
+                                ? new Date(confirmedSteps[`${idx}_meatOn`] as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })
+                                : new Date(item.meatOnAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
+                              {typeof confirmedSteps[`${idx}_meatOn`] === "string" && (
+                                <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
+                                  {" "}· planned {new Date(item.meatOnAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
+                                </Text>
+                              )}
                               {(cookStatus === "active" || cookStatus === "planned") && !isDoneMeatOn && (
                                 <Text style={[s.seqTlMeta, { color: "#EB6C2B" }]}>
                                   {" "}· {relCountdown(new Date(item.meatOnAt).getTime(), nowMs)}
@@ -475,7 +489,14 @@ export function SequenceSchedule(p: Props) {
                                           )}
                                         </View>
                                         <Text style={[s.seqTlTime, { color: isDoneWrap ? colors.mutedForeground : colors.foreground, opacity: isDoneWrap ? 0.55 : 1 }]}>
-                                          {wrapInferred ? "≈ " : ""}{itemWrapMs != null ? new Date(itemWrapMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }) : ""}
+                                          {typeof confirmedSteps[`${idx}_wrap`] === "string"
+                                            ? new Date(confirmedSteps[`${idx}_wrap`] as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })
+                                            : `${wrapInferred ? "≈ " : ""}${itemWrapMs != null ? new Date(itemWrapMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }) : ""}`}
+                                          {typeof confirmedSteps[`${idx}_wrap`] === "string" && itemWrapMs != null && (
+                                            <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
+                                              {" "}· planned {wrapInferred ? "≈ " : ""}{new Date(itemWrapMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
+                                            </Text>
+                                          )}
                                           {itemWrapMs != null && (cookStatus === "active" || cookStatus === "planned") && !isDoneWrap && (
                                             <Text style={[s.seqTlMeta, { color: wrapColor }]}>{" "}· {relCountdown(itemWrapMs, nowMs)}</Text>
                                           )}
