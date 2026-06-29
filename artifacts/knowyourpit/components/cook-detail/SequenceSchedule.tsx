@@ -63,6 +63,23 @@ interface Props {
   nextCheckinSc?: ScheduledCheckin | null;
 }
 
+function driftAnnotation(
+  confirmedIso: string,
+  plannedMs: number,
+): { text: string; color: string } | null {
+  const deltaMin = Math.round(
+    (new Date(confirmedIso).getTime() - plannedMs) / 60_000,
+  );
+  if (Math.abs(deltaMin) < 1) return null;
+  if (deltaMin < 0) {
+    return { text: `${Math.abs(deltaMin)} min early`, color: "#22c55e" };
+  }
+  return {
+    text: `${deltaMin} min late`,
+    color: deltaMin > 15 ? "#f59e0b" : "#6b7280",
+  };
+}
+
 function isStallProneMeat(foodType: string): boolean {
   const ft = (foodType ?? "").toLowerCase();
   return (
@@ -284,11 +301,12 @@ export function SequenceSchedule(p: Props) {
                               {typeof confirmedSteps[`${idx}_grillLight`] === "string"
                                 ? new Date(confirmedSteps[`${idx}_grillLight`] as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })
                                 : new Date(item.grillLightAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
-                              {typeof confirmedSteps[`${idx}_grillLight`] === "string" && (
-                                <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
-                                  {" "}· planned {new Date(item.grillLightAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
-                                </Text>
-                              )}
+                              {typeof confirmedSteps[`${idx}_grillLight`] === "string" && (() => {
+                                const drift = driftAnnotation(confirmedSteps[`${idx}_grillLight`] as string, new Date(item.grillLightAt).getTime());
+                                return drift
+                                  ? <Text style={[s.seqTlMeta, { color: drift.color }]}>{" "}· {drift.text}</Text>
+                                  : <Text style={[s.seqTlMeta, { color: "#22c55e" }]}>{" "}· on time</Text>;
+                              })()}
                               {(cookStatus === "active" || cookStatus === "planned") && !isDoneGrillLight && (
                                 <Text style={[s.seqTlMeta, { color: "#f59e0b" }]}>
                                   {" "}· {relCountdown(new Date(item.grillLightAt).getTime(), nowMs)}
@@ -341,11 +359,12 @@ export function SequenceSchedule(p: Props) {
                               {typeof confirmedSteps[`${idx}_meatOn`] === "string"
                                 ? new Date(confirmedSteps[`${idx}_meatOn`] as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })
                                 : new Date(item.meatOnAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
-                              {typeof confirmedSteps[`${idx}_meatOn`] === "string" && (
-                                <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
-                                  {" "}· planned {new Date(item.meatOnAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
-                                </Text>
-                              )}
+                              {typeof confirmedSteps[`${idx}_meatOn`] === "string" && (() => {
+                                const drift = driftAnnotation(confirmedSteps[`${idx}_meatOn`] as string, new Date(item.meatOnAt).getTime());
+                                return drift
+                                  ? <Text style={[s.seqTlMeta, { color: drift.color }]}>{" "}· {drift.text}</Text>
+                                  : <Text style={[s.seqTlMeta, { color: "#22c55e" }]}>{" "}· on time</Text>;
+                              })()}
                               {(cookStatus === "active" || cookStatus === "planned") && !isDoneMeatOn && (
                                 <Text style={[s.seqTlMeta, { color: "#EB6C2B" }]}>
                                   {" "}· {relCountdown(new Date(item.meatOnAt).getTime(), nowMs)}
@@ -492,11 +511,12 @@ export function SequenceSchedule(p: Props) {
                                           {typeof confirmedSteps[`${idx}_wrap`] === "string"
                                             ? new Date(confirmedSteps[`${idx}_wrap`] as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })
                                             : `${wrapInferred ? "≈ " : ""}${itemWrapMs != null ? new Date(itemWrapMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }) : ""}`}
-                                          {typeof confirmedSteps[`${idx}_wrap`] === "string" && itemWrapMs != null && (
-                                            <Text style={[s.seqTlMeta, { color: colors.mutedForeground }]}>
-                                              {" "}· planned {wrapInferred ? "≈ " : ""}{new Date(itemWrapMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
-                                            </Text>
-                                          )}
+                                          {typeof confirmedSteps[`${idx}_wrap`] === "string" && itemWrapMs != null && (() => {
+                                            const drift = driftAnnotation(confirmedSteps[`${idx}_wrap`] as string, itemWrapMs);
+                                            return drift
+                                              ? <Text style={[s.seqTlMeta, { color: drift.color }]}>{" "}· {drift.text}</Text>
+                                              : <Text style={[s.seqTlMeta, { color: "#22c55e" }]}>{" "}· on time</Text>;
+                                          })()}
                                           {itemWrapMs != null && (cookStatus === "active" || cookStatus === "planned") && !isDoneWrap && (
                                             <Text style={[s.seqTlMeta, { color: wrapColor }]}>{" "}· {relCountdown(itemWrapMs, nowMs)}</Text>
                                           )}
@@ -712,7 +732,15 @@ export function SequenceSchedule(p: Props) {
                               )}
                             </View>
                             <Text style={[s.seqTlTime, { color: isDonePullOff ? colors.mutedForeground : colors.foreground, opacity: isDonePullOff ? 0.55 : 1 }]}>
-                              {new Date(item.estimatedFinishAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
+                              {typeof confirmedSteps[`${idx}_pullOff`] === "string"
+                                ? new Date(confirmedSteps[`${idx}_pullOff`] as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })
+                                : new Date(item.estimatedFinishAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
+                              {typeof confirmedSteps[`${idx}_pullOff`] === "string" && (() => {
+                                const drift = driftAnnotation(confirmedSteps[`${idx}_pullOff`] as string, new Date(item.estimatedFinishAt).getTime());
+                                return drift
+                                  ? <Text style={[s.seqTlMeta, { color: drift.color }]}>{" "}· {drift.text}</Text>
+                                  : <Text style={[s.seqTlMeta, { color: "#22c55e" }]}>{" "}· on time</Text>;
+                              })()}
                               {(cookStatus === "active" || cookStatus === "planned") && !isDonePullOff && (
                                 <Text style={[s.seqTlMeta, { color: "#22c55e" }]}>
                                   {" "}· {relCountdown(new Date(item.estimatedFinishAt).getTime(), nowMs)}
@@ -750,7 +778,15 @@ export function SequenceSchedule(p: Props) {
                                 )}
                               </View>
                               <Text style={[s.seqTlTime, { color: isDoneServe ? colors.mutedForeground : colors.foreground, opacity: isDoneServe ? 0.55 : 1 }]}>
-                                {new Date(serveMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
+                                {typeof confirmedSteps[`${idx}_serve`] === "string"
+                                  ? new Date(confirmedSteps[`${idx}_serve`] as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })
+                                  : new Date(serveMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
+                                {typeof confirmedSteps[`${idx}_serve`] === "string" && (() => {
+                                  const drift = driftAnnotation(confirmedSteps[`${idx}_serve`] as string, serveMs);
+                                  return drift
+                                    ? <Text style={[s.seqTlMeta, { color: drift.color }]}>{" "}· {drift.text}</Text>
+                                    : <Text style={[s.seqTlMeta, { color: "#22c55e" }]}>{" "}· on time</Text>;
+                                })()}
                                 {(cookStatus === "active" || cookStatus === "planned") && !isDoneServe && (
                                   <Text style={[s.seqTlMeta, { color: "#6366f1" }]}>
                                     {" "}· {relCountdown(serveMs, nowMs)}
