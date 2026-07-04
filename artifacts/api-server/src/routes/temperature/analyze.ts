@@ -96,6 +96,16 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
       // The first selected channel's reading is still passed as userEnteredTempF
       // for backward-compat; probeChannels gives PitMaster the full picture.
       probeChannels?: Array<{ channelLabel: string; probeTempF: number }> | null;
+      // Per-step plan-vs-actual drift data computed on the client from confirmedSteps + sequenceData.
+      // Each entry is a confirmed step where both a planned and actual timestamp exist.
+      // deltaMinutes: positive = ran late, negative = ran early.
+      stepDrift?: Array<{
+        stepKey: string;
+        stepLabel: string;
+        plannedAt: string;
+        actualAt: string;
+        deltaMinutes: number;
+      }> | null;
     } | null;
   };
 
@@ -312,6 +322,29 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
         contextLines.push(`Active cook duration (grill time only, excludes thaw): ${fmtDur(activeDurMs)}`);
       }
     }
+  }
+
+  // ── Step drift (plan-vs-actual per confirmed step) ───────────────────────
+  // Only present for completed or nearly-complete cooks where the pitmaster
+  // confirmed steps using the timeline in the app. Each entry has both a
+  // planned and actual timestamp so we can compute the per-step delta.
+  const stepDrift = Array.isArray(cookContext?.stepDrift) ? cookContext.stepDrift : [];
+  const validStepDrift = stepDrift.filter(
+    (s): s is { stepKey: string; stepLabel: string; plannedAt: string; actualAt: string; deltaMinutes: number } =>
+      s != null &&
+      typeof s.stepKey === "string" && typeof s.stepLabel === "string" &&
+      typeof s.plannedAt === "string" && typeof s.actualAt === "string" &&
+      typeof s.deltaMinutes === "number" && isFinite(s.deltaMinutes),
+  );
+
+  if (validStepDrift.length > 0) {
+    const driftLines = validStepDrift.map((s) => {
+      const absMins = Math.abs(s.deltaMinutes);
+      if (absMins < 2) return `  • ${s.stepLabel}: right on time`;
+      const direction = s.deltaMinutes > 0 ? "late" : "early";
+      return `  • ${s.stepLabel}: ${absMins} min ${direction}`;
+    });
+    contextLines.push(`Step-by-step timeline accuracy (plan vs actual):\n${driftLines.join("\n")}`);
   }
 
   // ── Live MEATER readings analysis ────────────────────────────────────────

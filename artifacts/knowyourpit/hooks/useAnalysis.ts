@@ -288,6 +288,65 @@ export function useAnalysis({
             thawMethod: c?.thawMethod ?? null,
             actualThawStartAt: c?.actualThawStartAt ? new Date(c.actualThawStartAt).toISOString() : null,
             actualEndAt: c?.actualEndAt ? new Date(c.actualEndAt).toISOString() : null,
+            stepDrift: (() => {
+              const seqData = c.sequenceData as { schedule: any[] } | null | undefined;
+              const confSteps = c.confirmedSteps as Record<string, string> | null | undefined;
+              if (!seqData?.schedule?.length || !confSteps || !Object.keys(confSteps).length) return null;
+
+              // Find item index matching this cook (same logic as CookTimelineSection)
+              const cookFT = (c.foodType ?? "").toLowerCase().trim();
+              const meatOnMs = c.plannedStartAt ? new Date(c.plannedStartAt).getTime() : null;
+              let itemIdx = 0;
+              if (meatOnMs !== null) {
+                let bestDelta = Infinity;
+                seqData.schedule.forEach((schedItem: any, idx: number) => {
+                  if ((schedItem.foodType ?? "").toLowerCase().trim() !== cookFT) return;
+                  const t = schedItem.meatOnAt ? new Date(schedItem.meatOnAt).getTime() : null;
+                  if (t === null) return;
+                  const delta = Math.abs(t - meatOnMs);
+                  if (delta < bestDelta) { bestDelta = delta; itemIdx = idx; }
+                });
+              }
+
+              const schedItem = seqData.schedule[itemIdx];
+              if (!schedItem) return null;
+
+              const steps: Array<{ stepKey: string; stepLabel: string; plannedAt: string; actualAt: string; deltaMinutes: number }> = [];
+
+              const grillLightActual = confSteps[`${itemIdx}_grillLight`];
+              if (schedItem.grillLightAt && grillLightActual) {
+                const deltaMs = new Date(grillLightActual).getTime() - new Date(schedItem.grillLightAt).getTime();
+                steps.push({ stepKey: "grillLight", stepLabel: "Light grill", plannedAt: schedItem.grillLightAt, actualAt: grillLightActual, deltaMinutes: Math.round(deltaMs / 60000) });
+              }
+
+              const meatOnActual = confSteps[`${itemIdx}_meatOn`];
+              if (schedItem.meatOnAt && meatOnActual) {
+                const deltaMs = new Date(meatOnActual).getTime() - new Date(schedItem.meatOnAt).getTime();
+                steps.push({ stepKey: "meatOn", stepLabel: "Meat on", plannedAt: schedItem.meatOnAt, actualAt: meatOnActual, deltaMinutes: Math.round(deltaMs / 60000) });
+              }
+
+              const wrapActual = confSteps[`${itemIdx}_wrap`];
+              if (schedItem.wrapMethod && schedItem.wrapMethod !== "none" && schedItem.meatOnAt && (schedItem.wrapAtMinutes ?? 0) > 0 && wrapActual) {
+                const plannedWrapAt = new Date(new Date(schedItem.meatOnAt).getTime() + (schedItem.wrapAtMinutes ?? 0) * 60000).toISOString();
+                const deltaMs = new Date(wrapActual).getTime() - new Date(plannedWrapAt).getTime();
+                steps.push({ stepKey: "wrap", stepLabel: "Wrap", plannedAt: plannedWrapAt, actualAt: wrapActual, deltaMinutes: Math.round(deltaMs / 60000) });
+              }
+
+              const pullOffActual = confSteps[`${itemIdx}_pullOff`];
+              if (schedItem.estimatedFinishAt && pullOffActual) {
+                const deltaMs = new Date(pullOffActual).getTime() - new Date(schedItem.estimatedFinishAt).getTime();
+                steps.push({ stepKey: "pullOff", stepLabel: "Pull off", plannedAt: schedItem.estimatedFinishAt, actualAt: pullOffActual, deltaMinutes: Math.round(deltaMs / 60000) });
+              }
+
+              const serveActual = confSteps[`${itemIdx}_serve`];
+              if ((schedItem.restMinutes ?? 0) > 0 && schedItem.estimatedFinishAt && serveActual) {
+                const plannedServeAt = new Date(new Date(schedItem.estimatedFinishAt).getTime() + (schedItem.restMinutes ?? 0) * 60000).toISOString();
+                const deltaMs = new Date(serveActual).getTime() - new Date(plannedServeAt).getTime();
+                steps.push({ stepKey: "serve", stepLabel: "Ready to serve", plannedAt: plannedServeAt, actualAt: serveActual, deltaMinutes: Math.round(deltaMs / 60000) });
+              }
+
+              return steps.length > 0 ? steps : null;
+            })(),
             probeChannels: (() => {
               const channels: Array<{ channelLabel: string; probeTempF: number }> = [];
               // Multi-probe: include all assigned meat slots with their labels
