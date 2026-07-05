@@ -148,10 +148,20 @@ export interface Cook {
    */
   healthScoreReason?: string | null;
   /**
-   * Latest internal probe temperature reading for this cook (null when no readings exist)
+   * Latest internal probe temperature reading for this cook, regardless of probe role (null when no readings exist)
    * @nullable
    */
   currentTempF?: number | null;
+  /**
+   * Latest meat-probe temperature reading for this cook, resolved via probeAssignments.meatProbes/meatProbeId (null when no meat-probe reading exists)
+   * @nullable
+   */
+  currentMeatTempF?: number | null;
+  /**
+   * Latest pit-probe temperature reading for this cook, resolved via probeAssignments.pitProbeId (null when no pit-probe reading exists)
+   * @nullable
+   */
+  currentPitTempF?: number | null;
   /**
    * Server-persisted probe assignments and labels for this cook
    * @nullable

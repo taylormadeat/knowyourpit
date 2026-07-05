@@ -789,7 +789,19 @@ export const ListCooksResponseItem = zod.object({
     .number()
     .nullish()
     .describe(
-      "Latest internal probe temperature reading for this cook (null when no readings exist)",
+      "Latest internal probe temperature reading for this cook, regardless of probe role (null when no readings exist)",
+    ),
+  currentMeatTempF: zod
+    .number()
+    .nullish()
+    .describe(
+      "Latest meat-probe temperature reading for this cook, resolved via probeAssignments.meatProbes\/meatProbeId (null when no meat-probe reading exists)",
+    ),
+  currentPitTempF: zod
+    .number()
+    .nullish()
+    .describe(
+      "Latest pit-probe temperature reading for this cook, resolved via probeAssignments.pitProbeId (null when no pit-probe reading exists)",
     ),
   probeAssignments: zod
     .object({
@@ -1107,7 +1119,19 @@ export const GetCookResponse = zod.object({
     .number()
     .nullish()
     .describe(
-      "Latest internal probe temperature reading for this cook (null when no readings exist)",
+      "Latest internal probe temperature reading for this cook, regardless of probe role (null when no readings exist)",
+    ),
+  currentMeatTempF: zod
+    .number()
+    .nullish()
+    .describe(
+      "Latest meat-probe temperature reading for this cook, resolved via probeAssignments.meatProbes\/meatProbeId (null when no meat-probe reading exists)",
+    ),
+  currentPitTempF: zod
+    .number()
+    .nullish()
+    .describe(
+      "Latest pit-probe temperature reading for this cook, resolved via probeAssignments.pitProbeId (null when no pit-probe reading exists)",
     ),
   probeAssignments: zod
     .object({
@@ -1429,7 +1453,19 @@ export const UpdateCookResponse = zod.object({
     .number()
     .nullish()
     .describe(
-      "Latest internal probe temperature reading for this cook (null when no readings exist)",
+      "Latest internal probe temperature reading for this cook, regardless of probe role (null when no readings exist)",
+    ),
+  currentMeatTempF: zod
+    .number()
+    .nullish()
+    .describe(
+      "Latest meat-probe temperature reading for this cook, resolved via probeAssignments.meatProbes\/meatProbeId (null when no meat-probe reading exists)",
+    ),
+  currentPitTempF: zod
+    .number()
+    .nullish()
+    .describe(
+      "Latest pit-probe temperature reading for this cook, resolved via probeAssignments.pitProbeId (null when no pit-probe reading exists)",
     ),
   probeAssignments: zod
     .object({
@@ -1924,7 +1960,19 @@ export const AddItemsToLiveCookResponse = zod.object({
           .number()
           .nullish()
           .describe(
-            "Latest internal probe temperature reading for this cook (null when no readings exist)",
+            "Latest internal probe temperature reading for this cook, regardless of probe role (null when no readings exist)",
+          ),
+        currentMeatTempF: zod
+          .number()
+          .nullish()
+          .describe(
+            "Latest meat-probe temperature reading for this cook, resolved via probeAssignments.meatProbes\/meatProbeId (null when no meat-probe reading exists)",
+          ),
+        currentPitTempF: zod
+          .number()
+          .nullish()
+          .describe(
+            "Latest pit-probe temperature reading for this cook, resolved via probeAssignments.pitProbeId (null when no pit-probe reading exists)",
           ),
         probeAssignments: zod
           .object({
@@ -2898,7 +2946,19 @@ export const GetRecentCooksResponseItem = zod.object({
     .number()
     .nullish()
     .describe(
-      "Latest internal probe temperature reading for this cook (null when no readings exist)",
+      "Latest internal probe temperature reading for this cook, regardless of probe role (null when no readings exist)",
+    ),
+  currentMeatTempF: zod
+    .number()
+    .nullish()
+    .describe(
+      "Latest meat-probe temperature reading for this cook, resolved via probeAssignments.meatProbes\/meatProbeId (null when no meat-probe reading exists)",
+    ),
+  currentPitTempF: zod
+    .number()
+    .nullish()
+    .describe(
+      "Latest pit-probe temperature reading for this cook, resolved via probeAssignments.pitProbeId (null when no pit-probe reading exists)",
     ),
   probeAssignments: zod
     .object({

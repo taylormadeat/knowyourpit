@@ -234,125 +234,109 @@ export function ActiveCookCard({ activeCook, nowMs, insights }: ActiveCookCardPr
         )}
 
         {/* Temp chips */}
-        {(activeCook.targetTempF != null ||
-          activeCook.cookTempF != null ||
-          activeCook.currentTempF != null) && (
-          <View
-            style={{
-              flexDirection: "row",
-              gap: 6,
-              marginTop: 6,
-              marginBottom: 2,
-              flexWrap: "wrap",
-            }}
-          >
-            {activeCook.targetTempF != null && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 4,
-                  paddingHorizontal: 7,
-                  paddingVertical: 3,
-                  borderRadius: 6,
-                  backgroundColor: "#22c55e12",
-                  borderWidth: 1,
-                  borderColor: "#22c55e30",
-                }}
-              >
-                <Feather name="thermometer" size={10} color="#22c55e" />
-                <Text
+        {(() => {
+          const hasMeatReading = activeCook.currentMeatTempF != null;
+          const hasPitReading = activeCook.currentPitTempF != null;
+          const meatDisplayTempF = hasMeatReading
+            ? activeCook.currentMeatTempF
+            : activeCook.targetTempF;
+          const pitDisplayTempF = hasPitReading
+            ? activeCook.currentPitTempF
+            : activeCook.cookTempF;
+
+          if (meatDisplayTempF == null && pitDisplayTempF == null) return null;
+
+          return (
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 6,
+                marginTop: 6,
+                marginBottom: 2,
+                flexWrap: "wrap",
+              }}
+            >
+              {meatDisplayTempF != null && (
+                <View
                   style={{
-                    fontFamily: "Inter_600SemiBold",
-                    fontSize: 10,
-                    color: "#22c55e",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 4,
+                    paddingHorizontal: 7,
+                    paddingVertical: 3,
+                    borderRadius: 6,
+                    backgroundColor: "#22c55e12",
+                    borderWidth: 1,
+                    borderColor: "#22c55e30",
                   }}
                 >
-                  {activeCook.targetTempF}°F
-                </Text>
-                <Text
+                  <Feather
+                    name={hasMeatReading ? "activity" : "thermometer"}
+                    size={10}
+                    color="#22c55e"
+                  />
+                  <Text
+                    style={{
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 10,
+                      color: "#22c55e",
+                    }}
+                  >
+                    {meatDisplayTempF}°F
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: "Inter_400Regular",
+                      fontSize: 10,
+                      color: "#22c55e99",
+                    }}
+                  >
+                    {hasMeatReading ? "meat" : "target"}
+                  </Text>
+                </View>
+              )}
+              {pitDisplayTempF != null && (
+                <View
                   style={{
-                    fontFamily: "Inter_400Regular",
-                    fontSize: 10,
-                    color: "#22c55e99",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 4,
+                    paddingHorizontal: 7,
+                    paddingVertical: 3,
+                    borderRadius: 6,
+                    backgroundColor: "#3b82f612",
+                    borderWidth: 1,
+                    borderColor: "#3b82f630",
                   }}
                 >
-                  target
-                </Text>
-              </View>
-            )}
-            {activeCook.cookTempF != null && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 4,
-                  paddingHorizontal: 7,
-                  paddingVertical: 3,
-                  borderRadius: 6,
-                  backgroundColor: "#3b82f612",
-                  borderWidth: 1,
-                  borderColor: "#3b82f630",
-                }}
-              >
-                <Feather name="wind" size={10} color="#3b82f6" />
-                <Text
-                  style={{
-                    fontFamily: "Inter_600SemiBold",
-                    fontSize: 10,
-                    color: "#3b82f6",
-                  }}
-                >
-                  {activeCook.cookTempF}°F
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: "Inter_400Regular",
-                    fontSize: 10,
-                    color: "#3b82f699",
-                  }}
-                >
-                  pit
-                </Text>
-              </View>
-            )}
-            {activeCook.currentTempF != null && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 4,
-                  paddingHorizontal: 7,
-                  paddingVertical: 3,
-                  borderRadius: 6,
-                  backgroundColor: "#F59E0B12",
-                  borderWidth: 1,
-                  borderColor: "#F59E0B30",
-                }}
-              >
-                <Feather name="activity" size={10} color="#F59E0B" />
-                <Text
-                  style={{
-                    fontFamily: "Inter_600SemiBold",
-                    fontSize: 10,
-                    color: "#F59E0B",
-                  }}
-                >
-                  {activeCook.currentTempF}°F
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: "Inter_400Regular",
-                    fontSize: 10,
-                    color: "#F59E0B99",
-                  }}
-                >
-                  probe
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
+                  <Feather
+                    name={hasPitReading ? "activity" : "wind"}
+                    size={10}
+                    color="#3b82f6"
+                  />
+                  <Text
+                    style={{
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 10,
+                      color: "#3b82f6",
+                    }}
+                  >
+                    {pitDisplayTempF}°F
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: "Inter_400Regular",
+                      fontSize: 10,
+                      color: "#3b82f699",
+                    }}
+                  >
+                    {hasPitReading ? "pit" : "pit setpoint"}
+                  </Text>
+                </View>
+              )}
+            </View>
+          );
+        })()}
 
         {/* Decision block / CTA */}
         {cookTopDecision ? (

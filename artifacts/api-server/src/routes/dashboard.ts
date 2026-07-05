@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, sql, desc, and, inArray } from "drizzle-orm";
 import { db, grillsTable, cooksTable, temperatureReadingsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
+import { isPitProbe } from "./ai/shared";
 
 const router: IRouter = Router();
 
@@ -104,16 +105,22 @@ router.get("/dashboard/recent-cooks", requireAuth, async (req: any, res): Promis
       grillName = grill?.name ?? null;
     }
     let currentTempF: number | null = null;
+    let currentMeatTempF: number | null = null;
+    let currentPitTempF: number | null = null;
     if (cook.status === "active") {
-      const [latest] = await db
-        .select({ tempF: temperatureReadingsTable.tempF })
+      const recentReadings = await db
+        .select({ tempF: temperatureReadingsTable.tempF, probeName: temperatureReadingsTable.probeName })
         .from(temperatureReadingsTable)
         .where(eq(temperatureReadingsTable.cookId, cook.id))
         .orderBy(desc(temperatureReadingsTable.recordedAt))
-        .limit(1);
-      currentTempF = latest?.tempF ?? null;
+        .limit(20);
+      currentTempF = recentReadings[0]?.tempF ?? null;
+      const latestMeat = recentReadings.find((r) => !isPitProbe(r.probeName));
+      const latestPit = recentReadings.find((r) => isPitProbe(r.probeName));
+      currentMeatTempF = latestMeat?.tempF ?? null;
+      currentPitTempF = latestPit?.tempF ?? null;
     }
-    return { ...cook, grillName, currentTempF };
+    return { ...cook, grillName, currentTempF, currentMeatTempF, currentPitTempF };
   }));
   res.json(result);
 });
