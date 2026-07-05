@@ -9,3 +9,4 @@
 - [Mutation 401 retry & per-user token refresh](mutation-401-retry.md) — react-query guard only re-runs queries not mutations; retry mutation 401s in customFetch; key force-refresh single-flight per user; idempotent create makes timeout-retry safe.
 - [ThermoWorks probe detection path](thermoworks-probe-detection.md) — Signals/RFX are cloud (account-link via /devices), the LAN /status adapter is dead; empty iOS mDNS ≠ definitive permission denial.
 - [Query staleness across Expo Router tabs](refetch-on-focus-tabs.md) — invalidateQueries() before navigation can race a tab's focus transition; refetch explicitly on focus instead.
+- [EAS iOS submit "invalid curve name" blocker](eas-submit-invalid-curve-name.md) — TestFlight submit fails server-side (fastlane/OpenSSL); confirmed not fixable via key reformatting on our end.
