@@ -104,6 +104,40 @@ export function processMultiCookResult(
     }
   }
 
+  // Deterministically re-align each feasible item's timestamps to the
+  // requested serveAt.  The AI is asked to do this backward math itself
+  // (estimatedFinishAt = serveAt - restMinutes, etc.), but LLM arithmetic
+  // occasionally drifts by a consistent offset across the whole schedule
+  // (e.g. every item lands 20 minutes late). Rather than trust the AI's
+  // timestamps for the final schedule, recompute them from serveAt using
+  // only the AI's estimated duration/preheat/rest values — this guarantees
+  // the schedule always finishes exactly at serveAt when feasible.
+  //
+  // "Feasible" mirrors the AI's own INFEASIBILITY RULE: if working
+  // backwards would push meatOnAt before now + 30 minutes, the AI already
+  // switched to an "earliest achievable" schedule anchored to the current
+  // time instead of serveAt — in that case we leave its values alone.
+  const nowMs = Date.now();
+  const FEASIBILITY_BUFFER_MS = 30 * 60_000;
+  for (const item of schedule) {
+    const cookMin = typeof item.estimatedDurationMinutes === "number" ? item.estimatedDurationMinutes : 0;
+    const restMin = typeof item.restMinutes === "number" ? item.restMinutes : 0;
+    const preheatMin = typeof item.preheatMinutes === "number" ? item.preheatMinutes : 0;
+
+    const idealFinishMs = serveAtDate.getTime() - restMin * 60_000;
+    const idealMeatOnMs = idealFinishMs - cookMin * 60_000;
+    const idealGrillLightMs = item.isSharedGrillFollowOn
+      ? idealMeatOnMs
+      : idealMeatOnMs - preheatMin * 60_000;
+
+    const isFeasible = idealMeatOnMs >= nowMs + FEASIBILITY_BUFFER_MS;
+    if (isFeasible) {
+      item.estimatedFinishAt = new Date(idealFinishMs).toISOString();
+      item.meatOnAt = new Date(idealMeatOnMs).toISOString();
+      item.grillLightAt = new Date(idealGrillLightMs).toISOString();
+    }
+  }
+
   // Compute actual serve time = max(estimatedFinishAt + restMinutes) across
   // all items.  This may differ from the requested serveAt when the schedule
   // is infeasible (longest cook can't finish in time).

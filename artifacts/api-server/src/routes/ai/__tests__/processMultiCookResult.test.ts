@@ -407,3 +407,124 @@ describe("edge cases", () => {
     expect(result.schedule).toHaveLength(0);
   });
 });
+
+// ── Deterministic realignment to serveAt (feasible schedules) ────────────────
+// Regression coverage for the multi-cook sequencer bug where the AI's own
+// backward-math timestamps landed a consistent 20 minutes after the
+// requested serveAt for every item, even though grillLightAt/meatOnAt/
+// estimatedFinishAt were internally self-consistent with each other.
+
+describe("deterministic realignment to serveAt", () => {
+  // Use a serveAt far enough in the future that every item's backward-computed
+  // meatOnAt is comfortably after "now + 30min" (i.e. feasible).
+  const FUTURE_SERVE_AT = new Date(Date.now() + 10 * 60 * 60 * 1000); // 10h from now
+
+  function isoMinus(base: Date, minutes: number): string {
+    return new Date(base.getTime() - minutes * 60_000).toISOString();
+  }
+
+  it("overrides AI timestamps that are consistently late so the item finishes exactly at serveAt", () => {
+    // Mirrors the reported bug: AI's own math is 20 minutes later than
+    // needed for both meatOnAt and estimatedFinishAt, while remaining
+    // internally self-consistent (meatOnAt + duration = finish).
+    const restMin = 30;
+    const cookMin = 240; // 4h
+    const preheatMin = 25;
+
+    // AI's (buggy) values: everything shifted 20 min later than ideal.
+    const aiMeatOnAt = isoMinus(FUTURE_SERVE_AT, restMin + cookMin - 20);
+    const aiFinishAt = isoMinus(FUTURE_SERVE_AT, restMin - 20);
+    const aiGrillLightAt = isoMinus(FUTURE_SERVE_AT, restMin + cookMin + preheatMin - 20);
+
+    const raw = {
+      schedule: [
+        schedItem({
+          foodType: "Chuck Roast",
+          grillLightAt: aiGrillLightAt,
+          meatOnAt: aiMeatOnAt,
+          estimatedFinishAt: aiFinishAt,
+          estimatedDurationMinutes: cookMin,
+          restMinutes: restMin,
+          preheatMinutes: preheatMin,
+        }),
+      ],
+      sharedGrillTips: null,
+    };
+
+    const result = processMultiCookResult(raw, FUTURE_SERVE_AT, [reqItem("Chuck Roast", "Spider Grills Huntsman")]);
+    const item = result.schedule[0];
+
+    // Ready-to-serve (finish + rest) must land exactly on the target, not 20 min late.
+    expect(new Date(item.estimatedFinishAt).getTime() + restMin * 60_000).toBe(FUTURE_SERVE_AT.getTime());
+    expect(result.serveAt).toBe(FUTURE_SERVE_AT.toISOString());
+    // meatOnAt and grillLightAt are re-derived consistently from the corrected finish time.
+    expect(new Date(item.meatOnAt).getTime()).toBe(new Date(item.estimatedFinishAt).getTime() - cookMin * 60_000);
+    expect(new Date(item.grillLightAt).getTime()).toBe(new Date(item.meatOnAt).getTime() - preheatMin * 60_000);
+  });
+
+  it("aligns multiple items on different grills so all finish (with rest) exactly at serveAt", () => {
+    const item1 = schedItem({
+      foodType: "Chuck Roast",
+      grillLightAt: isoMinus(FUTURE_SERVE_AT, 300), // AI's raw values are irrelevant post-override
+      meatOnAt: isoMinus(FUTURE_SERVE_AT, 275),
+      estimatedFinishAt: isoMinus(FUTURE_SERVE_AT, 35),
+      estimatedDurationMinutes: 240,
+      restMinutes: 30,
+      preheatMinutes: 25,
+    });
+    const item2 = schedItem({
+      foodType: "Tomahawk Steak",
+      grillLightAt: isoMinus(FUTURE_SERVE_AT, 120),
+      meatOnAt: isoMinus(FUTURE_SERVE_AT, 105),
+      estimatedFinishAt: isoMinus(FUTURE_SERVE_AT, 20),
+      estimatedDurationMinutes: 90,
+      restMinutes: 15,
+      preheatMinutes: 15,
+    });
+
+    const raw = { schedule: [item1, item2], sharedGrillTips: null };
+    const result = processMultiCookResult(raw, FUTURE_SERVE_AT, [
+      reqItem("Chuck Roast", "Spider Grills Huntsman"),
+      reqItem("Tomahawk Steak", "Pit Boss Champion"),
+    ]);
+
+    for (const item of result.schedule) {
+      const restMin = item.restMinutes as number;
+      const readyMs = new Date(item.estimatedFinishAt).getTime() + restMin * 60_000;
+      expect(readyMs).toBe(FUTURE_SERVE_AT.getTime());
+    }
+    expect(result.serveAt).toBe(FUTURE_SERVE_AT.toISOString());
+  });
+
+  it("does not override an infeasible item (backward math would land meatOnAt in the past)", () => {
+    // serveAt is only 10 minutes from now — far too soon for a 4h cook,
+    // so meatOnAt would need to be in the past. The AI is expected to have
+    // already applied its "earliest achievable" fallback; we must not
+    // clobber it with an impossible past timestamp.
+    const nearServeAt = new Date(Date.now() + 10 * 60_000);
+    const aiEarliestMeatOn = new Date(Date.now() + 5 * 60_000).toISOString();
+    const aiEarliestGrillLight = new Date(Date.now() + 1 * 60_000).toISOString();
+    const aiEarliestFinish = new Date(new Date(aiEarliestMeatOn).getTime() + 240 * 60_000).toISOString();
+
+    const raw = {
+      schedule: [
+        schedItem({
+          foodType: "Chuck Roast",
+          grillLightAt: aiEarliestGrillLight,
+          meatOnAt: aiEarliestMeatOn,
+          estimatedFinishAt: aiEarliestFinish,
+          estimatedDurationMinutes: 240,
+          restMinutes: 30,
+          preheatMinutes: 25,
+        }),
+      ],
+      sharedGrillTips: null,
+    };
+
+    const result = processMultiCookResult(raw, nearServeAt, [reqItem("Chuck Roast")]);
+    const item = result.schedule[0];
+    // Left untouched — still anchored to "earliest achievable", not serveAt.
+    expect(item.meatOnAt).toBe(aiEarliestMeatOn);
+    expect(item.estimatedFinishAt).toBe(aiEarliestFinish);
+  });
+});
