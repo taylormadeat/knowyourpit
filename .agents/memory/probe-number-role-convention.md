@@ -22,7 +22,12 @@ are opaque client identifiers — they do NOT map to any column on
 
 **How to apply:** When a server route needs the latest reading for a specific
 role (e.g. dashboard "current meat/pit temp"), query
-`WHERE cookId = ? AND probeNumber = 0|1 ORDER BY recordedAt DESC LIMIT 1`
-per role — do not use `probeName` string matching and do not cap a single
+`WHERE cookId = ? AND probeNumber = 1 ORDER BY recordedAt DESC LIMIT 1` for
+pit, and `WHERE cookId = ? AND probeNumber != 1 ORDER BY recordedAt DESC LIMIT 1`
+for meat (not `probeNumber = 0`) — the generic `/temperature/upload` endpoint
+accepts arbitrary probeNumbers from the client (future multi-meat-probe
+support, CSV imports), so matching "anything that isn't the pit probe" is
+what actually captures a second/third meat probe instead of silently
+dropping it. Do not use `probeName` string matching and do not cap a single
 combined query to some fixed row count and then filter client-side (misses
 readings if the capped window doesn't include a recent row for that role).

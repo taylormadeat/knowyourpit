@@ -153,7 +153,7 @@ export interface Cook {
    */
   currentTempF?: number | null;
   /**
-   * Latest meat-probe temperature reading for this cook, resolved via probeNumber = 0 (null when no meat-probe reading exists)
+   * Latest meat-probe temperature reading for this cook, resolved as the most recent reading with probeNumber != 1 (any probe not tagged as the pit probe, so a second/third meat probe is still picked up; null when no meat-probe reading exists)
    * @nullable
    */
   currentMeatTempF?: number | null;

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, desc, and, inArray } from "drizzle-orm";
+import { eq, ne, sql, desc, and, inArray } from "drizzle-orm";
 import { db, grillsTable, cooksTable, temperatureReadingsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 
@@ -114,10 +114,19 @@ router.get("/dashboard/recent-cooks", requireAuth, async (req: any, res): Promis
           .where(eq(temperatureReadingsTable.cookId, cook.id))
           .orderBy(desc(temperatureReadingsTable.recordedAt))
           .limit(1),
+        // Meat role = any probe NOT tagged as the pit probe (probeNumber = 1).
+        // The primary upload path only ever writes probeNumber 0 (meat) or 1
+        // (pit), but the generic /temperature/upload endpoint accepts
+        // arbitrary probeNumbers (e.g. future multi-meat-probe support, CSV
+        // imports). Matching "!= 1" instead of "= 0" means a second/third
+        // meat probe reporting under a different probeNumber is still picked
+        // up as the latest meat reading instead of being silently dropped
+        // (which previously caused an incorrect fallback to the planned
+        // target temp even though a live reading existed).
         db
           .select({ tempF: temperatureReadingsTable.tempF })
           .from(temperatureReadingsTable)
-          .where(and(eq(temperatureReadingsTable.cookId, cook.id), eq(temperatureReadingsTable.probeNumber, 0)))
+          .where(and(eq(temperatureReadingsTable.cookId, cook.id), ne(temperatureReadingsTable.probeNumber, 1)))
           .orderBy(desc(temperatureReadingsTable.recordedAt))
           .limit(1),
         db
