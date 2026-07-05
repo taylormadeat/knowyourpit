@@ -5,12 +5,10 @@ import {
   ScrollView,
   StyleSheet,
   Pressable,
-  Platform,
   ActivityIndicator,
   Alert,
   Image,
   TextInput,
-  KeyboardAvoidingView,
   LayoutChangeEvent,
   Modal,
   FlatList,
@@ -25,6 +23,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { useTopInset } from "@/hooks/useTopInset";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -806,9 +805,8 @@ export default function LogCookScreen() {
   const graphProbes = (result?.probes ?? []).filter((p) => p.timeSeries && p.timeSeries.length >= 2);
 
   return (
-    <KeyboardAvoidingView
+    <AppKeyboardAvoidingView
       style={[s.root, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <LogoBackground opacity={0.04} />
 
@@ -1697,7 +1695,7 @@ export default function LogCookScreen() {
         animationType="slide"
         onRequestClose={() => setCustomCutEditorVisible(false)}
       >
-        <KeyboardAvoidingView style={gp.modalWrap} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <AppKeyboardAvoidingView style={gp.modalWrap}>
           <Pressable style={gp.backdrop} onPress={() => setCustomCutEditorVisible(false)} />
           <View style={[gp.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16, maxHeight: "90%" }]}>
             <View style={[gp.handle, { backgroundColor: colors.border }]} />
@@ -1820,7 +1818,7 @@ export default function LogCookScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </AppKeyboardAvoidingView>
       </Modal>
 
       <OptionBottomSheet
@@ -1904,7 +1902,7 @@ export default function LogCookScreen() {
           </View>
         </View>
       </Modal>
-    </KeyboardAvoidingView>
+    </AppKeyboardAvoidingView>
   );
 }
 

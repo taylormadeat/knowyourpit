@@ -6,10 +6,8 @@ import {
   FlatList,
   StyleSheet,
   Pressable,
-  Platform,
   ActivityIndicator,
   TextInput,
-  KeyboardAvoidingView,
   Alert,
   Modal,
   ScrollView,
@@ -792,9 +790,8 @@ export function PitMasterChatModal({
           {headerRight}
         </View>
 
-        <KeyboardAvoidingView
+        <AppKeyboardAvoidingView
           style={[{ flex: 1 }, isTablet && { width: "100%", maxWidth: contentMaxWidth, alignSelf: "center" }]}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={0}
         >
           {messages.length === 0 && !loading && !seedMessage && (
@@ -927,7 +924,7 @@ export function PitMasterChatModal({
               </Pressable>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </AppKeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
   );

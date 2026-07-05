@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
   LayoutChangeEvent,
   Alert,
@@ -21,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { useStoredScheduledCheckins } from "@/hooks/useCheckinNotifications";
 import { setPendingCheckin } from "@/lib/pendingCheckinNotif";
 import { useLayout } from "@/hooks/useLayout";
@@ -1100,9 +1100,8 @@ export default function SessionDetailScreen() {
         animationType="slide"
         onRequestClose={() => setEditVisible(false)}
       >
-        <KeyboardAvoidingView
+        <AppKeyboardAvoidingView
           style={s.modalOverlay}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
           <Pressable style={s.modalBackdrop} onPress={() => setEditVisible(false)} />
           <View style={[s.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -1187,7 +1186,7 @@ export default function SessionDetailScreen() {
               )}
             </Pressable>
           </View>
-        </KeyboardAvoidingView>
+        </AppKeyboardAvoidingView>
       </Modal>
 
       <EditCookModal
