@@ -1732,10 +1732,10 @@ components:
           description: Latest internal probe temperature reading for this cook, regardless of probe role (null when no readings exist)
         currentMeatTempF:
           type: ["number", "null"]
-          description: Latest meat-probe temperature reading for this cook, resolved via probeAssignments.meatProbes/meatProbeId (null when no meat-probe reading exists)
+          description: Latest meat-probe temperature reading for this cook, resolved via probeNumber = 0 (null when no meat-probe reading exists)
         currentPitTempF:
           type: ["number", "null"]
-          description: Latest pit-probe temperature reading for this cook, resolved via probeAssignments.pitProbeId (null when no pit-probe reading exists)
+          description: Latest pit-probe temperature reading for this cook, resolved via probeNumber = 1 (null when no pit-probe reading exists)
         probeAssignments:
           type: ["object", "null"]
           description: Server-persisted probe assignments and labels for this cook

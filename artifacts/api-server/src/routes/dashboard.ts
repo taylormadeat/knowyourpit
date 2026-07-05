@@ -2,7 +2,6 @@ import { Router, type IRouter } from "express";
 import { eq, sql, desc, and, inArray } from "drizzle-orm";
 import { db, grillsTable, cooksTable, temperatureReadingsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
-import { isPitProbe } from "./ai/shared";
 
 const router: IRouter = Router();
 
@@ -108,17 +107,29 @@ router.get("/dashboard/recent-cooks", requireAuth, async (req: any, res): Promis
     let currentMeatTempF: number | null = null;
     let currentPitTempF: number | null = null;
     if (cook.status === "active") {
-      const recentReadings = await db
-        .select({ tempF: temperatureReadingsTable.tempF, probeName: temperatureReadingsTable.probeName })
-        .from(temperatureReadingsTable)
-        .where(eq(temperatureReadingsTable.cookId, cook.id))
-        .orderBy(desc(temperatureReadingsTable.recordedAt))
-        .limit(20);
-      currentTempF = recentReadings[0]?.tempF ?? null;
-      const latestMeat = recentReadings.find((r) => !isPitProbe(r.probeName));
-      const latestPit = recentReadings.find((r) => isPitProbe(r.probeName));
-      currentMeatTempF = latestMeat?.tempF ?? null;
-      currentPitTempF = latestPit?.tempF ?? null;
+      const [latestOverall, latestMeat, latestPit] = await Promise.all([
+        db
+          .select({ tempF: temperatureReadingsTable.tempF })
+          .from(temperatureReadingsTable)
+          .where(eq(temperatureReadingsTable.cookId, cook.id))
+          .orderBy(desc(temperatureReadingsTable.recordedAt))
+          .limit(1),
+        db
+          .select({ tempF: temperatureReadingsTable.tempF })
+          .from(temperatureReadingsTable)
+          .where(and(eq(temperatureReadingsTable.cookId, cook.id), eq(temperatureReadingsTable.probeNumber, 0)))
+          .orderBy(desc(temperatureReadingsTable.recordedAt))
+          .limit(1),
+        db
+          .select({ tempF: temperatureReadingsTable.tempF })
+          .from(temperatureReadingsTable)
+          .where(and(eq(temperatureReadingsTable.cookId, cook.id), eq(temperatureReadingsTable.probeNumber, 1)))
+          .orderBy(desc(temperatureReadingsTable.recordedAt))
+          .limit(1),
+      ]);
+      currentTempF = latestOverall[0]?.tempF ?? null;
+      currentMeatTempF = latestMeat[0]?.tempF ?? null;
+      currentPitTempF = latestPit[0]?.tempF ?? null;
     }
     return { ...cook, grillName, currentTempF, currentMeatTempF, currentPitTempF };
   }));
