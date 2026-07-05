@@ -673,6 +673,7 @@ export default function CookDetailScreen() {
             selectedBleContextDevice={selectedBleContextDevice}
             selectedLanProbe={selectedLanProbe}
             selectedInkbirdProbe={selectedInkbirdProbe}
+            currentPitTempF={currentPitTempF}
           />
 
           <CookSummaryCard c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs}
