@@ -22,6 +22,7 @@ import { useLayout } from "@/hooks/useLayout";
 import { LogoBackground } from "@/components/LogoBackground";
 import { useGetDashboardSummary, useGetRecentCooks, getGetRecentCooksQueryKey, useListGrills } from "@workspace/api-client-react";
 import { useHomeInsights, useHomeTips } from "@/hooks/useHomeInsights";
+import { useRefetchOnFocus } from "@/hooks/useRefetchOnFocus";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePaywall } from "@/contexts/PaywallContext";
@@ -136,7 +137,7 @@ export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
   const { user } = useUser();
-  const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
+  const { data: summary, isLoading: summaryLoading, refetch: refetchSummary } = useGetDashboardSummary();
   // Prefetch grills with a long staleTime so the Plan tab has them cached on cold start
   useListGrills({ query: { staleTime: 5 * 60 * 1000 } } as any);
 
@@ -153,13 +154,19 @@ export default function HomeScreen() {
   // 30-second polling interval when there is actually something live to update.
   const [hasActiveCook, setHasActiveCook] = useState(false);
 
-  const { data: recentCooks, isLoading: cooksLoading } = useGetRecentCooks({
+  const { data: recentCooks, isLoading: cooksLoading, refetch: refetchRecentCooks } = useGetRecentCooks({
     query: {
       queryKey: getGetRecentCooksQueryKey(),
       refetchInterval: isFocused && hasActiveCook ? 30_000 : false,
     },
   });
-  const { data: insights, isLoading: insightsLoading } = useHomeInsights();
+  const { data: insights, isLoading: insightsLoading, refetch: refetchInsights } = useHomeInsights();
+
+  // Force a refetch of the dashboard widgets every time this tab regains
+  // focus (e.g. after saving a planned cook from the Plan tab). See
+  // useRefetchOnFocus for why this is necessary in addition to the Plan
+  // screen's invalidateQueries() calls.
+  useRefetchOnFocus(refetchSummary, refetchRecentCooks, refetchInsights);
   const { isPro, isIdentityLinked, isInTrial, expirationDate } = useSubscription();
 
   // ── Pro trial banner state ───────────────────────────────────────────

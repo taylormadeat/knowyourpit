@@ -46,6 +46,7 @@ import { fmtRemaining, barColor, clamp, AnimatedBarFill } from "@/components/coo
 import { cancelStoredFrozenNotifications } from "@/hooks/useFrozenStageNotifications";
 import { cancelStoredCheckinNotifications } from "@/hooks/useCheckinNotifications";
 import { cancelStoredSpritzNotifications } from "@/hooks/useSpritzNotifications";
+import { useRefetchOnFocus } from "@/hooks/useRefetchOnFocus";
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -369,6 +370,11 @@ export default function CooksScreen() {
       retry: 2,
     } as any,
   });
+  // Force a refetch every time this tab gains focus (e.g. after saving a
+  // planned cook from the Plan tab and navigating back here). See
+  // useRefetchOnFocus for why this is necessary in addition to the Plan
+  // screen's invalidateQueries() calls.
+  useRefetchOnFocus(refetch);
   const { data: techniqueStats } = useGetCookTechniqueStats();
   const updateSession = useUpdateSession();
   const deleteCook = useDeleteCook();
