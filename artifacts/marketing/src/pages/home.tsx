@@ -7,12 +7,6 @@ const BASE = import.meta.env.BASE_URL;
 
 const SHOTS = [
   {
-    src: "ss-image-scanner.png",
-    title: "Any thermometer. Any app. Any data source.",
-    caption: "Already using MEATER, ThermoWorks, or another thermometer app? Upload a screenshot of the graph. Got an analog gauge on your pit? Take a photo. Prefer to log readings by hand? That works too. knowyourpit pulls the numbers from wherever they live and runs the analysis — no specific hardware required.",
-    alt: "PitMaster Image Scanner reading a temperature graph from photos",
-  },
-  {
     src: "ss-plan-cook.png",
     title: "A plan built for your pit — or your whole spread",
     caption: "Tell PitMaster what you're cooking and when you want to serve. It builds a step-by-step schedule tailored to your rig and history. Flag a cut as frozen and it folds in thaw time and a temper window automatically — so the plan accounts for the full timeline, not just the smoke.",

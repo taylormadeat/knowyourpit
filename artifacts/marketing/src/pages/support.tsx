@@ -102,7 +102,7 @@ export default function Support() {
             <AccordionItem value="item-photos">
               <AccordionTrigger>Can I attach photos to a cook?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Yes — open any cook and tap the photo section to add images from your camera roll or take a new one. PitMaster can also analyze the photo to pull temperature readings from probe graphs or analog gauges automatically.
+                Yes — open any cook and tap the photo section to add images from your camera roll or take a new one.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-5">

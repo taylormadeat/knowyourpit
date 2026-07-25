@@ -47,14 +47,6 @@ export default function Privacy() {
           visible to other users.
         </p>
 
-        <p><strong>Photos and images</strong></p>
-        <p>
-          If you use the image-scanning feature, photos you capture or select
-          are sent to our server for AI analysis and are not stored
-          permanently — they are processed in memory and discarded after the
-          analysis result is returned.
-        </p>
-
         <p><strong>MEATER thermometer data</strong></p>
         <p>
           If you link your MEATER account, we store your MEATER token
