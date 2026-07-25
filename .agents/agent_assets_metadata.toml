@@ -137,3 +137,9 @@ id = "eDqTjq1VJ2SMEZAA3gn-k"
 uri = "file://knowyourpit-living-reference.md"
 type = "text"
 title = "knowyourpit Living Reference"
+
+[[outputs]]
+id = "772zStNPdi7hCfShKxZWJ"
+uri = "file://knowyourpit-instagram-launch-posts.md"
+type = "text"
+title = "knowyourpit Instagram Launch Posts"
