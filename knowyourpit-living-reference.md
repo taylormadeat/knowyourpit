@@ -134,8 +134,8 @@ Generated output locations:
 | Permission | Reason |
 |---|---|
 | `NSLocationWhenInUse` | Outdoor temp during live cook sessions |
-| `NSPhotoLibrary` | Attach photos to cooks; AI temp scan from image |
-| `NSCamera` | Cook photos; AI temp scan |
+| `NSPhotoLibrary` | Attach photos to cooks |
+| `NSCamera` | Cook photos |
 | `NSUserNotification` | Probe target alerts; fuel reminders |
 | `NSBluetoothAlways` | BLE read from Inkbird thermometer |
 | `NSLocalNetwork` | WiFi thermometer mDNS discovery (MEATER Block, ThermoWorks, Fireboard) |
@@ -146,7 +146,7 @@ Generated output locations:
 ### Android permissions declared
 
 - `ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION` — WiFi thermometer discovery
-- `CAMERA`, `READ_MEDIA_IMAGES` — Cook photos + AI scan
+- `CAMERA`, `READ_MEDIA_IMAGES` — Cook photos
 - `BLUETOOTH`, `BLUETOOTH_ADMIN`, `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN` — Inkbird BLE
 
 ### Screen structure (Expo Router)
@@ -248,7 +248,7 @@ app/
 | **Grills** | `GET /grills`, `POST /grills`, `GET /grills/:id`, `PATCH /grills/:id`, `DELETE /grills/:id`, `GET /grills/:id/stats`, `GET /grills/:id/insights`, `GET /grills/:id/fingerprint`, `GET /grills/:id/temperature-history` |
 | **Cooks** | `GET /cooks/technique-stats`, `GET /cooks`, `POST /cooks`, `GET /cooks/:id`, `PATCH /cooks/:id`, `POST /cooks/:id/add-items`, `POST /cooks/:id/outlier-dismiss`, `DELETE /cooks/:id` |
 | **Sessions** | `GET /sessions/:sessionId`, `PATCH /sessions/:sessionId`, `DELETE /sessions/:sessionId` |
-| **Temperature** | `POST /temperature/upload`, `POST /temperature/scan` (AI image scan), `POST /temperature/analyze`, `GET /temperature/manual`, `POST /temperature/manual` |
+| **Temperature** | `POST /temperature/upload`, `POST /temperature/analyze`, `GET /temperature/manual`, `POST /temperature/manual` |
 | **AI** | `POST /ai/chat`, `POST /ai/predict`, `POST /ai/multi-cook`, `GET /ai/insights`, `GET /ai/knowledge`, `GET /ai/meat-baselines` |
 | **Dashboard** | `GET /dashboard/recent-cooks`, `GET /dashboard/summary` |
 | **Profile** | `GET /profile/me`, `PATCH /profile/me`, `DELETE /profile/me` (account deletion — full data wipe + Clerk delete) |
@@ -461,7 +461,7 @@ Per-user overrides of technique presets, same shape as system presets.
 | `meater_credentials` | Stored MEATER account credentials per user |
 | `thermoworks_credentials` | Stored ThermoWorks account credentials per user |
 | `contact_messages` | Contact form submissions |
-| `ai_analyze_events` | Tracks per-user AI image analysis calls (for rate limiting) |
+| `ai_analyze_events` | Tracks per-user AI analysis calls (for rate limiting) |
 | `frozen_timeline_events` | Events in the frozen cook planning timeline |
 | `live_activities` | iOS Live Activity push tokens per user/cook |
 | `custom_meat_cuts` | User-defined meat cut records |
@@ -487,7 +487,6 @@ Per-user overrides of technique presets, same shape as system presets.
 |---|---|
 | Total cooks | 3 cooks |
 | AI chat messages | 3 / day |
-| AI image analysis (temp scan) | 1 / day |
 | Frozen-to-Table planning | 1 lifetime free trial |
 
 ### Pro tier limits
@@ -496,7 +495,6 @@ Per-user overrides of technique presets, same shape as system presets.
 |---|---|
 | Cooks | Unlimited |
 | AI chat messages | 20 / day |
-| AI image analysis | Unlimited |
 | Frozen-to-Table planning | Unlimited |
 
 ### Gate response
@@ -664,12 +662,6 @@ Accessible from: More tab → "Delete account"
 - Route: `GET /ai/insights`
 - Dashboard-level personalized tips based on recent cook history
 - Cached server-side (cache cleared on cook events)
-
-### AI Image Temperature Scan
-
-- Route: `POST /temperature/scan`
-- Upload a photo of a probe display or meat; AI extracts temperature reading
-- Daily limit: 1/day free, unlimited Pro
 
 ### BBQ Knowledge Base
 
