@@ -131,3 +131,9 @@ id = "MRGIbyxzDwhVIClJTpdgn"
 uri = "file://scripts/output/knowyourpit-knowledge.pdf"
 type = "pdf"
 title = "knowyourpit Knowledge PDF"
+
+[[outputs]]
+id = "eDqTjq1VJ2SMEZAA3gn-k"
+uri = "file://knowyourpit-living-reference.md"
+type = "text"
+title = "knowyourpit Living Reference"
