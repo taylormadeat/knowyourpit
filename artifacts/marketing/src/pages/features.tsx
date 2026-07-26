@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarClock, Zap, ChefHat, Wifi, BookOpen, ClipboardList, Snowflake, Droplets } from "lucide-react";
+import { CalendarClock, Zap, ChefHat, Camera, BookOpen, ClipboardList, Snowflake, Droplets } from "lucide-react";
 
 const FEATURES = [
   {
@@ -28,10 +28,10 @@ const FEATURES = [
     body: "Tell PitMaster what you're cooking and when you want to serve. It builds an hour-by-hour schedule around your specific smoker, your past cook times, and today's outdoor temperature. You get a start time for your fire, a time to put meat on, wrap checkpoints, and a target pull window — all calculated for your pit, not a textbook estimate.",
   },
   {
-    icon: Wifi,
+    icon: Camera,
     title: "Any Thermometer. Any Data Source.",
     shortTitle: "Any Thermometer",
-    body: "Connect any Bluetooth or WiFi probe and your readings flow straight into PitMaster — no manual logging required. MEATER and ThermoWorks Signals link directly, with support for additional brands. Prefer to log by hand? That works too. No specific hardware required.",
+    body: "Connect any Bluetooth or WiFi probe and your readings flow straight into PitMaster — no manual logging required. MEATER and ThermoWorks Signals link directly, with support for additional brands. Running an analog gauge? Take a photo and PitMaster reads it. Prefer to log by hand? That works too. No specific hardware required.",
   },
   {
     icon: BookOpen,
