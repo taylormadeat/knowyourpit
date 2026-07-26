@@ -155,3 +155,81 @@ id = "FDWwpK6GDwf3HdGLH6TN6"
 uri = "file://attached_assets/generated_images/launch-facebook.png"
 type = "image"
 title = "Facebook launch post"
+
+[[outputs]]
+id = "u1cf_bJ5x7Q7EFWk-YaBN"
+uri = "file://.agents/outputs/style-guide/page_01.png"
+type = "image"
+title = "Style guide — page 1"
+
+[[outputs]]
+id = "FZBB3r0ESWqTGB7CyYQBb"
+uri = "file://.agents/outputs/style-guide/page_02.png"
+type = "image"
+title = "Style guide — page 2"
+
+[[outputs]]
+id = "NOEt1aumW3CA7Xpct3qN0"
+uri = "file://.agents/outputs/style-guide/page_03.png"
+type = "image"
+title = "Style guide — page 3"
+
+[[outputs]]
+id = "SrJq6rI_bp0Gp3dj-jfAw"
+uri = "file://.agents/outputs/style-guide/page_04.png"
+type = "image"
+title = "Style guide — page 4"
+
+[[outputs]]
+id = "FnCw8Emmb9JAMxh_TDOi8"
+uri = "file://.agents/outputs/style-guide/page_05.png"
+type = "image"
+title = "Style guide — page 5"
+
+[[outputs]]
+id = "YVAoW2D2eZrSmcB7e9u4u"
+uri = "file://.agents/outputs/style-guide/page_06.png"
+type = "image"
+title = "Style guide — page 6"
+
+[[outputs]]
+id = "4qYPTt-Uc9MXbun5hTy4O"
+uri = "file://.agents/outputs/style-guide/page_07.png"
+type = "image"
+title = "Style guide — page 7"
+
+[[outputs]]
+id = "Y9U8RXuNpcya6Ik77pugq"
+uri = "file://.agents/outputs/style-guide/page_08.png"
+type = "image"
+title = "Style guide — page 8"
+
+[[outputs]]
+id = "sHugoy_LrWXAK8X1K-uKb"
+uri = "file://.agents/outputs/style-guide/page_09.png"
+type = "image"
+title = "Style guide — page 9"
+
+[[outputs]]
+id = "7vWbo6m2HAjUe7ESRlwLM"
+uri = "file://.agents/outputs/style-guide/page_10.png"
+type = "image"
+title = "Style guide — page 10"
+
+[[outputs]]
+id = "d-PpBaxdBnRV_6HW1_LS_"
+uri = "file://.agents/outputs/style-guide/page_11.png"
+type = "image"
+title = "Style guide — page 11"
+
+[[outputs]]
+id = "8U_v_Q4Lt7jM4tWIpfIi6"
+uri = "file://.agents/outputs/style-guide/page_12.png"
+type = "image"
+title = "Style guide — page 12"
+
+[[outputs]]
+id = "SZyTWED_MgJ1xw0yr24bw"
+uri = "file://.agents/outputs/style-guide/page_13.png"
+type = "image"
+title = "Style guide — page 13"
