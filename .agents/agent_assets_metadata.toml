@@ -143,3 +143,15 @@ id = "772zStNPdi7hCfShKxZWJ"
 uri = "file://knowyourpit-instagram-launch-posts.md"
 type = "text"
 title = "knowyourpit Instagram Launch Posts"
+
+[[outputs]]
+id = "ae5-uc7RxAyJ2nIynIZ7w"
+uri = "file://attached_assets/generated_images/launch-instagram.png"
+type = "image"
+title = "Instagram launch post background"
+
+[[outputs]]
+id = "FDWwpK6GDwf3HdGLH6TN6"
+uri = "file://attached_assets/generated_images/launch-facebook.png"
+type = "image"
+title = "Facebook launch post"
