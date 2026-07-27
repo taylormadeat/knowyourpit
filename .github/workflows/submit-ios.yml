@@ -26,24 +26,14 @@ jobs:
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
-          python3 - <<'PYEOF'
-          import os, re
-          content = os.environ["ASC_API_KEY_P8"].replace("\\n", "\n")
-          match = re.search(
-              r"-----BEGIN PRIVATE KEY-----(.*?)-----END PRIVATE KEY-----",
-              content, re.DOTALL
-          )
-          if not match:
-              raise ValueError("ASC_API_KEY_P8 does not contain a valid PEM key")
-          b64 = re.sub(r"\s+", "", match.group(1))
-          chunks = [b64[i:i+64] for i in range(0, len(b64), 64)]
-          pem = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(chunks) + "\n-----END PRIVATE KEY-----\n"
-          key_id = os.environ["ASC_API_KEY_ID"]
-          path = os.path.expanduser(f"~/.appstoreconnect/private_keys/AuthKey_{key_id}.p8")
-          with open(path, "w") as f:
-              f.write(pem)
-          print(f"Key written to {path}")
-          PYEOF
+          # Write raw value to temp file then let openssl reformat it.
+          # Avoids embedding any PEM header strings in the script (GitHub
+          # would mask them, breaking the parse).
+          printf '%s' "$ASC_API_KEY_P8" > /tmp/raw_key.pem
+          openssl pkey -in /tmp/raw_key.pem \
+            -out ~/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8
+          rm /tmp/raw_key.pem
+          echo "Key written"
 
       - name: Upload to TestFlight via altool
         id: altool
