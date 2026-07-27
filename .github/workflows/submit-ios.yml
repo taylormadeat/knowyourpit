@@ -38,32 +38,37 @@ jobs:
           print('Key written:', path)
           "
 
-      - name: Upload to TestFlight via altool
-        id: altool
-        continue-on-error: true
+      # Use Python subprocess so the '--' flags are passed as a list directly
+      # to the process — GitHub's shell-level secret masking can't touch them.
+      - name: Upload to TestFlight
         env:
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
         run: |
-          xcrun altool --upload-app \
-            --type ios \
-            --file app.ipa \
-            --apiKey "$ASC_API_KEY_ID" \
-            --apiIssuer "$ASC_API_ISSUER_ID" \
-            --verbose
+          python3 - <<'PYEOF'
+          import subprocess, os, sys
 
-      - name: Upload to TestFlight via fastlane (fallback)
-        if: steps.altool.outcome == 'failure'
-        env:
-          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
-          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
-        run: |
-          gem install fastlane --no-document -q
-          # Key file already written by 'Install ASC API Key' step
-          fastlane pilot upload \
-            --ipa app.ipa \
-            --api_key_path ~/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8 \
-            --api_key_id "$ASC_API_KEY_ID" \
-            --api_key_issuer_id "$ASC_API_ISSUER_ID" \
-            --skip_waiting_for_build_processing true \
-            --verbose
+          key_id    = os.environ.get('ASC_API_KEY_ID', '')
+          issuer_id = os.environ.get('ASC_API_ISSUER_ID', '')
+
+          print(f"key_id length:    {len(key_id)}")
+          print(f"issuer_id length: {len(issuer_id)}")
+
+          if not key_id or not issuer_id:
+              print("ERROR: key_id or issuer_id is empty")
+              sys.exit(1)
+
+          # Build arg list — bypasses shell masking entirely
+          cmd = [
+              'xcrun', 'altool',
+              '--upload-app',
+              '--type', 'ios',
+              '--file', 'app.ipa',
+              '--apiKey', key_id,
+              '--apiIssuer', issuer_id,
+              '--verbose',
+          ]
+
+          result = subprocess.run(cmd)
+          sys.exit(result.returncode)
+          PYEOF
