@@ -233,3 +233,21 @@ id = "SZyTWED_MgJ1xw0yr24bw"
 uri = "file://.agents/outputs/style-guide/page_13.png"
 type = "image"
 title = "Style guide — page 13"
+
+[[outputs]]
+id = "EL8h8zfDuNiqb0Rvau2u1"
+uri = "file://attached_assets/generated_images/kyp_launch_hero.jpg"
+type = "image"
+title = "Image 1 — The Pit (hero / brand)"
+
+[[outputs]]
+id = "ThoCGrIc68I5DCDPfuxsP"
+uri = "file://attached_assets/generated_images/kyp_launch_wrap.jpg"
+type = "image"
+title = "Image 2 — The Wrap Call (AI coaching moment)"
+
+[[outputs]]
+id = "8b3DvToBlCycT7G-6hP5d"
+uri = "file://attached_assets/generated_images/kyp_launch_multiprotein.jpg"
+type = "image"
+title = "Image 3 — Multi-Protein Cook"
