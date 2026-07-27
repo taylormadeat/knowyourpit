@@ -41,7 +41,7 @@
     "@workspace/api-client-react": "workspace:*",
     "@workspace/checkin-schedule": "workspace:*",
     "debug": "^4.4.3",
-    "eas-cli": "18.11.0",
+    "eas-cli": "21.2.0",
     "expo": "~54.0.33",
     "expo-blur": "~15.0.8",
     "expo-constants": "~18.0.11",
