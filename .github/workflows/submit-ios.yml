@@ -38,6 +38,14 @@ jobs:
           print('Key written:', dest)
           "
 
+      - name: Verify secret lengths (bash)
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID_NODASH: ${{ secrets.ASC_API_ISSUER_ID_NODASH }}
+        run: |
+          echo "KEY_ID bash length: ${#ASC_API_KEY_ID}"
+          echo "NODASH bash length: ${#ASC_API_ISSUER_ID_NODASH}"
+
       # ASC_API_ISSUER_ID_NODASH has no dashes — safe to store as a GitHub secret.
       # ASC_API_KEY_ID is alphanumeric only — safe too.
       # Both raw UUID dashes and '--' flags are built at runtime via chr(45)
