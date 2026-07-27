@@ -51,8 +51,8 @@ jobs:
           key_id    = os.environ.get('ASC_API_KEY_ID', '')
           issuer_id = os.environ.get('ASC_API_ISSUER_ID', '')
 
-          print(f"key_id length:    {len(key_id)}")
-          print(f"issuer_id length: {len(issuer_id)}")
+          print(f"key_id length:    {len(key_id)}", flush=True)
+          print(f"issuer_id length: {len(issuer_id)}", flush=True)
 
           if not key_id or not issuer_id:
               print("ERROR: key_id or issuer_id is empty")
