@@ -6,7 +6,7 @@ on:
       ipa_url:
         description: 'IPA download URL (from EAS build artifacts)'
         required: true
-        default: 'https://expo.dev/artifacts/eas/05GszWoPE93NPsuNFEDcL9XK-Sx4oqwNQJg_ND4lnGU.ipa'
+        default: 'https://expo.dev/artifacts/eas/kqIFgpU8wZFUkdilmwPBKE0y8kwoHcJhlhQT0M8GeGA.ipa'
 
 jobs:
   submit:
