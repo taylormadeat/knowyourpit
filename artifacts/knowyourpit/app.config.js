@@ -6,7 +6,7 @@
 const config = {
   name: "knowyourpit",
   slug: "knowyourpit",
-  version: "1.0.17",
+  version: "1.0.18",
   sdkVersion: "54.0.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
