@@ -55,11 +55,11 @@ jobs:
       - name: Upload to TestFlight via fastlane (fallback)
         if: steps.altool.outcome == 'failure'
         env:
-          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
         run: |
           gem install fastlane --no-document -q
+          # Key file already written by 'Install ASC API Key' step
           fastlane pilot upload \
             --ipa app.ipa \
             --api_key_path ~/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8 \
