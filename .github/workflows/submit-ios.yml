@@ -20,9 +20,8 @@ jobs:
           curl -L "${{ github.event.inputs.ipa_url }}" -o app.ipa
           ls -lh app.ipa
 
-      # The key is stored as base64(properly-formatted PEM) in ASC_API_KEY_P8_B64.
-      # Base64 contains no dashes, so GitHub never masks '-----' or any flag.
-      # Decoding it gives a ready-to-use multi-line PEM — no parsing needed.
+      # Key stored as base64(formatted PEM) — no dashes, no masking side-effects.
+      # ASC_API_KEY_ID is alphanumeric only — also safe.
       - name: Install ASC API Key
         env:
           ASC_API_KEY_P8_B64: ${{ secrets.ASC_API_KEY_P8_B64 }}
@@ -33,45 +32,51 @@ jobs:
           import base64, os
           pem = base64.b64decode(os.environ['ASC_API_KEY_P8_B64'])
           key_id = os.environ['ASC_API_KEY_ID']
-          path = os.path.expanduser(f'~/.appstoreconnect/private_keys/AuthKey_{key_id}.p8')
-          open(path, 'wb').write(pem)
-          print('Key written:', path)
+          import pathlib
+          dest = pathlib.Path.home() / '.appstoreconnect' / 'private_keys' / ('AuthKey_' + key_id + '.p8')
+          dest.write_bytes(pem)
+          print('Key written:', dest)
           "
 
-      # Use Python subprocess so the '--' flags are passed as a list directly
-      # to the process — GitHub's shell-level secret masking can't touch them.
+      # ASC_API_ISSUER_ID_NODASH has no dashes — safe to store as a GitHub secret.
+      # ASC_API_KEY_ID is alphanumeric only — safe too.
+      # Both raw UUID dashes and '--' flags are built at runtime via chr(45)
+      # so no literal '-' or '--' ever appears in this script text for GitHub to mask.
       - name: Upload to TestFlight
         env:
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
-          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_ISSUER_ID_NODASH: ${{ secrets.ASC_API_ISSUER_ID_NODASH }}
         run: |
           python3 - <<'PYEOF'
           import subprocess, os, sys
 
           key_id    = os.environ.get('ASC_API_KEY_ID', '')
-          issuer_id = os.environ.get('ASC_API_ISSUER_ID', '')
+          nd        = os.environ.get('ASC_API_ISSUER_ID_NODASH', '')
 
           print(f"key_id length:    {len(key_id)}", flush=True)
-          print(f"issuer_id length: {len(issuer_id)}", flush=True)
+          print(f"nodash length:    {len(nd)}", flush=True)
 
-          if not key_id or not issuer_id:
-              print("ERROR: key_id or issuer_id is empty")
+          if not key_id or not nd:
+              print("ERROR: key_id or issuer nodash is empty", flush=True)
               sys.exit(1)
 
-          # Build flags at runtime so the script text never contains '--'
-          # (GitHub rewrites heredoc text, replacing masked substrings before
-          #  bash executes it — literal '--' would become '***')
-          d = chr(45) + chr(45)   # '--' constructed at runtime
+          # Reconstruct UUID: 8-4-4-4-12  using chr(45) so no literal '-' in source
+          h = chr(45)
+          issuer_id = nd[:8] + h + nd[8:12] + h + nd[12:16] + h + nd[16:20] + h + nd[20:]
+          print(f"issuer length:    {len(issuer_id)}", flush=True)
+
+          # Build flags at runtime — no literal '--' in source text
+          d = chr(45) + chr(45)
           cmd = [
               'xcrun', 'altool',
-              d + 'upload-app',
+              d + 'upload' + h + 'app',
               d + 'type', 'ios',
               d + 'file', 'app.ipa',
               d + 'apiKey', key_id,
               d + 'apiIssuer', issuer_id,
               d + 'verbose',
           ]
-          print(f"Running: {cmd[0]} {cmd[1]} {cmd[2]} ...", flush=True)
+          print(f"Running: xcrun altool --upload-app ...", flush=True)
           result = subprocess.run(cmd)
           sys.exit(result.returncode)
           PYEOF
