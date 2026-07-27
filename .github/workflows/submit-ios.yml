@@ -58,17 +58,20 @@ jobs:
               print("ERROR: key_id or issuer_id is empty")
               sys.exit(1)
 
-          # Build arg list — bypasses shell masking entirely
+          # Build flags at runtime so the script text never contains '--'
+          # (GitHub rewrites heredoc text, replacing masked substrings before
+          #  bash executes it — literal '--' would become '***')
+          d = chr(45) + chr(45)   # '--' constructed at runtime
           cmd = [
               'xcrun', 'altool',
-              '--upload-app',
-              '--type', 'ios',
-              '--file', 'app.ipa',
-              '--apiKey', key_id,
-              '--apiIssuer', issuer_id,
-              '--verbose',
+              d + 'upload-app',
+              d + 'type', 'ios',
+              d + 'file', 'app.ipa',
+              d + 'apiKey', key_id,
+              d + 'apiIssuer', issuer_id,
+              d + 'verbose',
           ]
-
+          print(f"Running: {cmd[0]} {cmd[1]} {cmd[2]} ...", flush=True)
           result = subprocess.run(cmd)
           sys.exit(result.returncode)
           PYEOF
