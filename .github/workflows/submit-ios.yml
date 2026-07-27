@@ -20,37 +20,23 @@ jobs:
           curl -L "${{ github.event.inputs.ipa_url }}" -o app.ipa
           ls -lh app.ipa
 
-      # Step A: ONLY writes the secret to a file — no other commands in this
-      # step so GitHub has nothing to mask with the PEM-derived patterns.
-      - name: Write ASC API Key (raw)
+      # The key is stored as base64(properly-formatted PEM) in ASC_API_KEY_P8_B64.
+      # Base64 contains no dashes, so GitHub never masks '-----' or any flag.
+      # Decoding it gives a ready-to-use multi-line PEM — no parsing needed.
+      - name: Install ASC API Key
         env:
-          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
-        run: printf '%s' "$ASC_API_KEY_P8" > /tmp/raw_key.pem
-
-      # Step B: reads from the file, no secret in env — GitHub won't mask
-      # any flags here. Python reformats the single-line PEM into proper
-      # multi-line PEM that xcrun altool / fastlane expect.
-      - name: Format and install ASC API Key
-        env:
+          ASC_API_KEY_P8_B64: ${{ secrets.ASC_API_KEY_P8_B64 }}
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
-          python3 - /tmp/raw_key.pem \
-            ~/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8 <<'PYEOF'
-          import sys
-          data = open(sys.argv[1]).read().strip()
-          parts = data.split('-----')
-          # parts: ['', 'BEGIN PRIVATE KEY', '', '<base64>', '', 'END PRIVATE KEY', '']
-          if len(parts) < 6:
-              raise ValueError(f"Unexpected PEM structure: {len(parts)} parts")
-          b64 = parts[3].strip()
-          chunks = [b64[i:i+64] for i in range(0, len(b64), 64)]
-          sep = chr(45) * 5  # '-----' without hardcoding (avoids masking)
-          pem = sep + parts[1] + sep + '\n' + '\n'.join(chunks) + '\n' + sep + parts[5] + sep + '\n'
-          open(sys.argv[2], 'w').write(pem)
-          print(f"Key written ({len(b64)} base64 chars, {len(chunks)} lines)")
-          PYEOF
-          rm /tmp/raw_key.pem
+          python3 -c "
+          import base64, os
+          pem = base64.b64decode(os.environ['ASC_API_KEY_P8_B64'])
+          key_id = os.environ['ASC_API_KEY_ID']
+          path = os.path.expanduser(f'~/.appstoreconnect/private_keys/AuthKey_{key_id}.p8')
+          open(path, 'wb').write(pem)
+          print('Key written:', path)
+          "
 
       - name: Upload to TestFlight via altool
         id: altool
