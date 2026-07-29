@@ -1,5 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq, sql, and, desc } from "drizzle-orm";
+import rateLimit from "express-rate-limit";
+import { z } from "zod";
+import { Resend } from "resend";
 import { db, grillsTable, cooksTable, temperatureReadingsTable } from "@workspace/db";
 import {
   CreateGrillBody,
@@ -12,6 +15,7 @@ import {
 import { requireAuth } from "../middlewares/requireAuth";
 import { computeSmokerInsights } from "../lib/smokerCalibration";
 import { respondPaywall, userBypassesPaywall } from "../lib/paywall";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -363,6 +367,69 @@ router.get("/grills/:id/temperature-history", requireAuth, async (req: any, res)
   }));
 
   res.json({ grillId: idNum, cooks: result });
+});
+
+// ── Report a missing grill ──────────────────────────────────────────────────
+
+const reportMissingGrillSchema = z.object({
+  brand: z.string().trim().min(1, "Brand is required").max(120),
+  model: z.string().trim().min(1, "Model is required").max(200),
+  grillType: z.string().trim().max(80).optional(),
+  notes: z.string().trim().max(500).optional(),
+});
+
+const reportMissingLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many reports submitted. Please try again later." },
+});
+
+function getResend(): Resend | null {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return null;
+  return new Resend(key);
+}
+
+router.post("/grills/report-missing", reportMissingLimiter, async (req, res): Promise<void> => {
+  const parsed = reportMissingGrillSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues.map(i => i.message).join(", ") });
+    return;
+  }
+
+  const { brand, model, grillType, notes } = parsed.data;
+
+  logger.info({ brand, model, grillType }, "Missing grill report received");
+
+  const resend = getResend();
+  if (resend) {
+    const typeLabel = grillType ? `<tr><td style="padding:8px 0;color:#666;width:100px;"><strong>Grill Type</strong></td><td style="padding:8px 0;">${grillType}</td></tr>` : "";
+    const notesLabel = notes ? `<tr><td style="padding:8px 0;color:#666;"><strong>Notes</strong></td><td style="padding:8px 0;">${notes}</td></tr>` : "";
+
+    await resend.emails.send({
+      from: "knowyourpit <noreply@knowyourpit.com>",
+      to: "support@knowyourpit.com",
+      subject: `Missing Grill Report: ${brand} ${model}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+          <h2 style="color:#E84520;">Missing Grill Report</h2>
+          <p style="color:#555;">A user reported that their grill is not in the catalog.</p>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+            <tr><td style="padding:8px 0;color:#666;width:100px;"><strong>Brand</strong></td><td style="padding:8px 0;">${brand}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Model</strong></td><td style="padding:8px 0;">${model}</td></tr>
+            ${typeLabel}
+            ${notesLabel}
+          </table>
+        </div>
+      `,
+    }).catch((err: unknown) => {
+      logger.warn({ err }, "Failed to send missing grill report email");
+    });
+  }
+
+  res.status(200).json({ ok: true });
 });
 
 export default router;

@@ -11,7 +11,12 @@ import {
   ScrollView,
   Image,
 } from "react-native";
+import { fetch as expoFetch } from "expo/fetch";
 import { useRouter } from "expo-router";
+
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -377,6 +382,14 @@ export default function GrillsScreen() {
   const [expandedCatalogBrands, setExpandedCatalogBrands] = useState<Set<string>>(new Set());
   const [logoErrorBrands, setLogoErrorBrands] = useState<Set<string>>(new Set());
 
+  // Report missing grill state
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportBrand, setReportBrand] = useState("");
+  const [reportModel, setReportModel] = useState("");
+  const [reportGrillType, setReportGrillType] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportStep, setReportStep] = useState<"form" | "success">("form");
+
   // Custom form fields
   const [grillName, setGrillName] = useState("");
   const [grillType, setGrillType] = useState("");
@@ -556,7 +569,51 @@ export default function GrillsScreen() {
     setCatalogSearch("");
     setExpandedCatalogBrands(new Set());
     resetCustomForm();
+    setShowReportForm(false);
+    setReportBrand("");
+    setReportModel("");
+    setReportGrillType("");
+    setReportStep("form");
     setShowAddModal(true);
+  };
+
+  const handleReportMissing = async () => {
+    if (!reportBrand.trim()) {
+      Alert.alert("Required", "Please enter the brand name.");
+      return;
+    }
+    if (!reportModel.trim()) {
+      Alert.alert("Required", "Please enter the model name.");
+      return;
+    }
+    if (!API_BASE_URL) {
+      Alert.alert("Error", "The app isn't configured to reach the server. Please email support@knowyourpit.com directly.");
+      return;
+    }
+    setReportSubmitting(true);
+    try {
+      const res = await expoFetch(`${API_BASE_URL}/api/grills/report-missing`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand: reportBrand.trim(),
+          model: reportModel.trim(),
+          grillType: reportGrillType || undefined,
+        }),
+      });
+      if (!res.ok) {
+        let body: { error?: string } = {};
+        try { body = (await res.json()) as typeof body; } catch {}
+        Alert.alert("Error", body.error ?? "Couldn't submit your report. Please try again.");
+        return;
+      }
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setReportStep("success");
+    } catch {
+      Alert.alert("Error", "Couldn't reach the server. Please check your connection.");
+    } finally {
+      setReportSubmitting(false);
+    }
   };
 
   const addBtn = (
@@ -905,10 +962,105 @@ export default function GrillsScreen() {
                 })}
               </View>
 
+              {/* Report missing grill */}
+              <View style={[s.reportSection, { borderTopColor: colors.border }]}>
+                {reportStep === "success" ? (
+                  <View style={[s.reportSuccess, { backgroundColor: "#22c55e10", borderColor: "#22c55e40", borderRadius: colors.radius }]}>
+                    <Feather name="check-circle" size={20} color="#22c55e" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[s.reportSuccessTitle, { color: colors.foreground }]}>Report received!</Text>
+                      <Text style={[s.reportSuccessText, { color: colors.mutedForeground }]}>
+                        Thanks — we'll review your grill and add it to the catalog.
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                    <Pressable
+                      style={[s.reportToggleBtn, { borderColor: colors.border, backgroundColor: colors.card, borderRadius: colors.radius }]}
+                      onPress={() => setShowReportForm((v) => !v)}
+                    >
+                      <Feather name="alert-circle" size={14} color={colors.mutedForeground} />
+                      <Text style={[s.reportToggleText, { color: colors.foreground }]}>
+                        My grill isn't listed
+                      </Text>
+                      <Feather name={showReportForm ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} style={{ marginLeft: "auto" }} />
+                    </Pressable>
+
+                    {showReportForm && (
+                      <View style={[s.reportForm, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                        <Text style={[s.reportFormTitle, { color: colors.foreground }]}>
+                          Let us know what grill you have and we'll add it to the catalog.
+                        </Text>
+
+                        <Text style={[s.label, { color: colors.foreground }]}>Brand *</Text>
+                        <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                          <TextInput
+                            style={[s.input, { color: colors.foreground }]}
+                            placeholder="e.g. Even Embers, Char-Broil"
+                            placeholderTextColor={colors.mutedForeground}
+                            value={reportBrand}
+                            onChangeText={setReportBrand}
+                          />
+                        </View>
+
+                        <Text style={[s.label, { color: colors.foreground }]}>Model *</Text>
+                        <View style={[s.inputWrap, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
+                          <TextInput
+                            style={[s.input, { color: colors.foreground }]}
+                            placeholder="e.g. PE-1001E, Gravity 980"
+                            placeholderTextColor={colors.mutedForeground}
+                            value={reportModel}
+                            onChangeText={setReportModel}
+                          />
+                        </View>
+
+                        <Text style={[s.label, { color: colors.foreground }]}>Grill Type (optional)</Text>
+                        <View style={s.chips}>
+                          {GRILL_TYPES.map((t) => (
+                            <Pressable
+                              key={t}
+                              onPress={() => setReportGrillType(t === reportGrillType ? "" : t)}
+                              style={[s.chip, { backgroundColor: reportGrillType === t ? colors.primary : colors.background, borderColor: reportGrillType === t ? colors.primary : colors.border, borderRadius: 8 }]}
+                            >
+                              <Text style={[s.chipText, { color: reportGrillType === t ? "#fff" : colors.foreground }]}>{t}</Text>
+                            </Pressable>
+                          ))}
+                        </View>
+
+                        <Pressable
+                          style={({ pressed }) => [
+                            s.reportSubmitBtn,
+                            { backgroundColor: colors.primary, borderRadius: colors.radius },
+                            (reportSubmitting || pressed) && { opacity: 0.7 },
+                          ]}
+                          onPress={handleReportMissing}
+                          disabled={reportSubmitting}
+                        >
+                          {reportSubmitting
+                            ? <ActivityIndicator color="#fff" />
+                            : (
+                              <>
+                                <Feather name="send" size={14} color="#fff" />
+                                <Text style={s.reportSubmitText}>Send Report</Text>
+                              </>
+                            )
+                          }
+                        </Pressable>
+
+                        <Text style={[s.reportFormHint, { color: colors.mutedForeground }]}>
+                          You can still add your grill manually below while we review your report.
+                        </Text>
+                      </View>
+                    )}
+                  </>
+                )}
+              </View>
+
               {/* Custom grill divider */}
               <View style={[s.customDivider, { borderTopColor: colors.border }]}>
                 <Text style={[s.customDividerText, { color: colors.mutedForeground }]}>
-                  Don't see your grill?
+                  Add manually in the meantime
                 </Text>
                 <Pressable
                   style={[s.customToggleBtn, { borderColor: colors.border, backgroundColor: colors.card, borderRadius: colors.radius }]}
@@ -1172,6 +1324,75 @@ const s = StyleSheet.create({
   helperText: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: -4, marginBottom: 4 },
   wifiToggle: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, marginTop: 12 },
   wifiToggleText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+
+  /* Report missing grill */
+  reportSection: {
+    marginTop: 16,
+    marginHorizontal: 12,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+  },
+  reportToggleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  reportToggleText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
+  reportForm: {
+    borderWidth: 1,
+    padding: 14,
+    gap: 4,
+  },
+  reportFormTitle: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  reportSubmitBtn: {
+    marginTop: 14,
+    paddingVertical: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+  reportSubmitText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
+  },
+  reportFormHint: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    marginTop: 6,
+    lineHeight: 15,
+  },
+  reportSuccess: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    borderWidth: 1,
+    padding: 14,
+  },
+  reportSuccessTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 3,
+  },
+  reportSuccessText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 17,
+  },
 
   /* Ask PitMaster button */
   askPitMasterBtn: {
