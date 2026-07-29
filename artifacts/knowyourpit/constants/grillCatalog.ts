@@ -204,6 +204,28 @@ export const GRILL_CATALOG: GrillCategory[] = [
           { name: "PG1000 Fast Eddy's", type: "Pellet Grill", fuelType: "Pellets", tempRange: "150°F – 700°F", cookingSurface: "1500 sq in", features: ["Stainless commercial-grade", "Dual cooking zones", "Heavy hopper"] },
         ],
       },
+      {
+        brand: "Even Embers",
+        models: [
+          { name: "8-in-1 Wood Pellet Grill & Smoker (PE-1001E)", type: "Pellet Grill", fuelType: "Pellets", tempRange: "180°F – 450°F", cookingSurface: "1010 sq in", features: ["8-in-1 versatility", "Digital controller", "Two meat probes included"], notes: "Tractor Supply Co. store brand — popular budget pellet grill" },
+          { name: "4-in-1 Wood Pellet Grill 572 sq in", type: "Pellet Grill", fuelType: "Pellets", tempRange: "180°F – 450°F", cookingSurface: "572 sq in", features: ["Digital temperature controller", "Folding side shelf", "Porcelain-coated grates"] },
+          { name: "Pellet & Gas Combo Grill", type: "Combo", fuelType: "Pellets + Propane", tempRange: "180°F – 550°F", cookingSurface: "860 sq in", features: ["Pellet smoker + 2-burner gas side", "Digital pellet controller", "Dual-zone cooking"] },
+        ],
+      },
+      {
+        brand: "Expert Grill",
+        models: [
+          { name: "4-in-1 Pellet Grill & Smoker 1010 sq in", type: "Pellet Grill", fuelType: "Pellets", tempRange: "180°F – 450°F", cookingSurface: "1010 sq in", features: ["Digital controller", "Two cooking grates", "Folding front shelf"], notes: "Walmart exclusive budget pellet grill" },
+          { name: "Portable Pellet Grill 450 sq in", type: "Pellet Grill", fuelType: "Pellets", tempRange: "180°F – 450°F", cookingSurface: "450 sq in", features: ["Compact design", "Digital temperature display", "Easy ash cleanout"] },
+        ],
+      },
+      {
+        brand: "Royal Gourmet",
+        models: [
+          { name: "PD1300 Pellet Grill", type: "Pellet Grill", fuelType: "Pellets", tempRange: "180°F – 450°F", cookingSurface: "770 sq in", features: ["8-in-1 cooking", "Digital LED controller", "Dual meat probes"], notes: "Budget-friendly pellet grill popular on Amazon" },
+          { name: "PD2400 24 lb Hopper Pellet Grill", type: "Pellet Grill", fuelType: "Pellets", tempRange: "180°F – 450°F", cookingSurface: "1200 sq in", features: ["Large 24 lb hopper", "PID controller", "Two side shelves"] },
+        ],
+      },
     ],
   },
 
@@ -520,6 +542,19 @@ export const GRILL_CATALOG: GrillCategory[] = [
           },
         ],
       },
+      {
+        brand: "Nexgrill",
+        models: [
+          { name: "Deluxe 22\" Charcoal Kettle Grill", type: "Kettle", fuelType: "Charcoal", tempRange: "300°F – 600°F", cookingSurface: "363 sq in", features: ["Porcelain-enameled bowl and lid", "One-touch ash removal", "Hinged cooking grate"], notes: "Home Depot exclusive charcoal kettle" },
+          { name: "22\" Kettle Charcoal Grill with Cart", type: "Kettle", fuelType: "Charcoal", tempRange: "300°F – 600°F", cookingSurface: "363 sq in", features: ["Built-in thermometer", "Bottom storage shelf", "Side table"] },
+        ],
+      },
+      {
+        brand: "Expert Grill",
+        models: [
+          { name: "22\" Kettle Charcoal Grill", type: "Kettle", fuelType: "Charcoal", tempRange: "300°F – 600°F", cookingSurface: "363 sq in", features: ["Porcelain-enameled bowl", "One-touch ash removal", "Lid hook"], notes: "Walmart budget kettle grill" },
+        ],
+      },
     ],
   },
 
@@ -711,6 +746,46 @@ export const GRILL_CATALOG: GrillCategory[] = [
           { name: "Mesa 605BZS", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 600°F", cookingSurface: "748 sq in", features: ["6 stainless burners", "Sear burner", "Foldable side shelves"] },
         ],
       },
+      {
+        brand: "Even Embers",
+        models: [
+          { name: "2-Burner Gas Grill", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 550°F", cookingSurface: "360 sq in", features: ["2 burners", "Porcelain-coated grates", "Push-button ignition"], notes: "Tractor Supply Co. entry-level propane grill" },
+          { name: "4-Burner Gas Grill", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 550°F", cookingSurface: "536 sq in", features: ["4 burners", "Side burner", "Folding side shelves"] },
+          { name: "4-Burner Gas Grill with Rotisserie", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 550°F", cookingSurface: "600 sq in", features: ["4 burners", "Rear rotisserie burner", "Side burner", "Push-button ignition"] },
+        ],
+      },
+      {
+        brand: "Expert Grill",
+        models: [
+          { name: "2-Burner Portable Gas Grill", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 550°F", cookingSurface: "280 sq in", features: ["Portable", "2 burners", "Folding legs"], notes: "Walmart exclusive budget portable grill" },
+          { name: "4-Burner 36,000 BTU Gas Grill", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 550°F", cookingSurface: "480 sq in", features: ["4 burners", "Side burner", "Porcelain-coated grates"] },
+          { name: "6-Burner Gas Grill with Side Burner", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 550°F", cookingSurface: "667 sq in", features: ["6 burners", "Side burner", "Stainless lid"] },
+        ],
+      },
+      {
+        brand: "Nexgrill",
+        models: [
+          { name: "4-Burner 48,000 BTU Gas Grill", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 600°F", cookingSurface: "630 sq in", features: ["4 burners", "Side burner", "Porcelain-coated grates"], notes: "Home Depot exclusive — one of the best-selling gas grills in the US" },
+          { name: "Deluxe 6-Burner 66,000 BTU Gas Grill", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 600°F", cookingSurface: "860 sq in", features: ["6 burners", "Side burner", "Sear station"] },
+          { name: "2-Burner Portable Gas Grill", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 550°F", cookingSurface: "280 sq in", features: ["Portable", "2 burners", "Fold-down legs"] },
+        ],
+      },
+      {
+        brand: "Master Forge",
+        models: [
+          { name: "2-Burner Gas Grill", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 550°F", cookingSurface: "372 sq in", features: ["2 stainless burners", "Porcelain-coated grates", "Push-button ignition"], notes: "Lowe's exclusive store brand" },
+          { name: "3-Burner Gas Grill", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 550°F", cookingSurface: "495 sq in", features: ["3 burners", "Side burner", "Folding side tables"] },
+          { name: "Vertical Propane Smoker", type: "Cabinet Smoker", fuelType: "Gas", tempRange: "150°F – 350°F", cookingSurface: "784 sq in", features: ["Propane-fueled", "4 cooking grates", "Push-button ignition", "Porcelain-coated water pan"] },
+        ],
+      },
+      {
+        brand: "Royal Gourmet",
+        models: [
+          { name: "GB4001 4-Burner Gas Grill", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 550°F", cookingSurface: "536 sq in", features: ["4 burners", "Side burner", "Porcelain-enameled grates"] },
+          { name: "SG6002 6-Burner Gas Grill", type: "Gas Grill", fuelType: "Gas", tempRange: "300°F – 550°F", cookingSurface: "724 sq in", features: ["6 burners", "Side burner", "Foldable shelves"] },
+          { name: "CC1830 Charcoal Grill", type: "Charcoal Grill", fuelType: "Charcoal", tempRange: "250°F – 600°F", cookingSurface: "511 sq in", features: ["Offset smoker firebox", "Height-adjustable charcoal pan", "Side shelf"], notes: "Best-selling Royal Gourmet charcoal combo" },
+        ],
+      },
     ],
   },
 
@@ -817,6 +892,33 @@ export const GRILL_CATALOG: GrillCategory[] = [
         logoUrl: "https://logo.clearbit.com/bradleysmoker.com",
         models: [
           { name: "P10 Professional Smoker", type: "Electric Smoker", fuelType: "Electric", tempRange: "100°F – 320°F", cookingSurface: "858 sq in", features: ["Industrial PID controller", "10 stainless racks", "Auto bisquette feeder"] },
+        ],
+      },
+    ],
+  },
+
+  {
+    category: "Griddles",
+    icon: "square",
+    brands: [
+      {
+        brand: "Blackstone",
+        logoUrl: "https://logo.clearbit.com/blackstoneproducts.com",
+        models: [
+          { name: "17\" Tabletop Griddle", type: "Griddle", fuelType: "Gas", tempRange: "300°F – 600°F", cookingSurface: "267 sq in", features: ["Single burner", "Portable", "Grease trap"], notes: "Most portable Blackstone — great for tailgating and camping" },
+          { name: "22\" Tabletop Griddle", type: "Griddle", fuelType: "Gas", tempRange: "300°F – 600°F", cookingSurface: "361 sq in", features: ["Two burners", "Portable", "Rear grease management"] },
+          { name: "28\" 2-Burner Griddle", type: "Griddle", fuelType: "Gas", tempRange: "300°F – 600°F", cookingSurface: "470 sq in", features: ["2 burners", "H-shaped burners", "Side shelf"] },
+          { name: "36\" 4-Burner Griddle", type: "Griddle", fuelType: "Gas", tempRange: "300°F – 600°F", cookingSurface: "720 sq in", features: ["4 independent burners", "Rear grease management", "Two side shelves"], notes: "The most popular Blackstone — the backyard standard flat-top" },
+          { name: "36\" 4-Burner Griddle with Hood", type: "Griddle", fuelType: "Gas", tempRange: "300°F – 600°F", cookingSurface: "720 sq in", features: ["4 independent burners", "Hinged hood", "Rear grease management", "Two side shelves"] },
+          { name: "36\" Air Fryer Combo", type: "Griddle", fuelType: "Gas", tempRange: "300°F – 600°F", cookingSurface: "548 sq in", features: ["Griddle + built-in air fryer", "4 burners", "Stainless steel exterior"] },
+        ],
+      },
+      {
+        brand: "Camp Chef",
+        logoUrl: "https://logo.clearbit.com/campchef.com",
+        models: [
+          { name: "Flat Top 600", type: "Griddle", fuelType: "Gas", tempRange: "300°F – 600°F", cookingSurface: "604 sq in", features: ["4 burners", "Seasoned flat top", "Grease management system"] },
+          { name: "Flat Top 900", type: "Griddle", fuelType: "Gas", tempRange: "300°F – 600°F", cookingSurface: "900 sq in", features: ["6 burners", "5-sided grease trap", "Built-in thermometer"] },
         ],
       },
     ],
