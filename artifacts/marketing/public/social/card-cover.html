@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 820px; height: 462px; overflow: hidden;
+    background: #131110;
+    font-family: 'Inter', -apple-system, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .bg-glow {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 70% 90% at 50% 50%, rgba(232,64,28,0.12) 0%, transparent 65%);
+  }
+  .content {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .logo { width: 320px; object-fit: contain; }
+</style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="content">
+    <img class="logo" src="../logo.png" alt="know your pit">
+  </div>
+</body>
+</html>
