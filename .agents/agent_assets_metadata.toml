@@ -269,3 +269,9 @@ id = "DvdF30W0LNdEvlI9uuWFd"
 uri = "file://attached_assets/generated_images/kyp_social_launch.jpg"
 type = "image"
 title = "Card 3 — Launch Announcement"
+
+[[outputs]]
+id = "aAaEtWidJ9OQPjxb5CJ3g"
+uri = "file://attached_assets/generated_images/kyp_social_brand_square.jpg"
+type = "image"
+title = "Card 1 — Square (1080×1080) Facebook post"
