@@ -1,60 +1,72 @@
-# knowyourpit — First Launch Posts
+# knowyourpit — Social Launch Posts
 
-Brand voice: direct, specific, pitmaster-friend coaching tone.
+**Launch day. Both posts go live at the same time.**
+
+Brand voice check before reading: direct, specific, like a pitmaster friend coaching you.
 No hype. No apologies. No vagueness. Name what it does.
-Brand name: always **knowyourpit** — lowercase, no spaces, never "Know Your Pit."
+Brand name is always **knowyourpit** — lowercase, no spaces, never "Know Your Pit."
 
 ---
 
 ## INSTAGRAM — Launch Day Post
 
 **Visual direction:**
-App icon centered on deep charcoal (#0E0E10). Below it, the tagline in Barlow Semi Condensed, all lowercase, white. No fire photos, no meat shots — the launch post earns attention through restraint. Let the mark breathe.
+App icon centered on a deep charcoal (#0E0E10) background. The tagline — *knowyourpit. own your cook.* — set in Barlow Semi Condensed, all lowercase, white, directly below the mark. Nothing else. No fire. No meat. The mark earns the attention. Let it breathe.
 
 **Caption:**
 
+> We built this for the cook who wants a call, not a number.
+>
 > knowyourpit is live on the App Store.
 >
-> An AI BBQ coach in your corner — reading your cook in real time and calling the next move, from fire-up to serve.
+> An AI BBQ coach in your corner — reading your temperature curve in real time, telling you when to wrap, when to pull, and why. Planning every window from fire-up to serve. Connecting to the MEATER or ThermoWorks probe you already own and alerting you the moment your cut hits the mark.
 >
-> Not another readout. The value isn't the number. It's the decision.
+> Not another readout. The decision behind the data.
 >
 > Free to download. Link in bio.
 >
 > knowyourpit. own your cook.
 
 **Hashtags:**
-`#knowyourpit #BBQ #Pitmaster #BBQCoach #Smoker #BBQApp #SmokeMeat #LowAndSlow #BBQLife #Brisket`
+`#knowyourpit #BBQ #Pitmaster #BBQCoach #Smoker #BBQApp #SmokeMeat #LowAndSlow #BBQLife #Brisket #MEATER #ThermoWorks #BackyardBBQ`
 
 ---
 
 ## FACEBOOK — Launch Day Post
 
 **Visual direction:**
-Same app icon on charcoal background as the Instagram post — consistency across the launch moment. Or a short looping screen recording (no sound needed) showing the home screen, a live cook card, and the PitMaster coaching call. Keep it under 15 seconds if video.
+Same app icon on deep charcoal (#0E0E10) background, tagline below. Clean and restrained — let the post copy carry the weight. If boosting later, this creative holds up at any placement size.
 
 **Caption:**
 
-> We built knowyourpit because BBQ apps tell you what's happening. They don't tell you what to do about it.
+> We built knowyourpit for the cook who wants a real call — not just a number on a screen.
 >
-> knowyourpit is an AI BBQ coach — it reads your temperature curve in real time and calls the next move. Wrap now. Hold the pit. You're in a stall, expect 45 more minutes. Not a generic tip. A specific call based on what's actually happening in your pit.
+> Today it's live on the App Store.
 >
-> Plan a cook from cut to serve time. Run multiple proteins to the same table. Connect your MEATER, ThermoWorks, or any Bluetooth probe and let the data flow in. No notes app, no guessing.
+> Here's what it does:
+>
+> **Plan, start to serve.** Tell it the cut, the weight, and when you want to eat. It builds every window — light the fire, meat on, wrap checkpoint, pull time, rest — and alerts you at each one.
+>
+> **Live probe coaching.** Connect MEATER, ThermoWorks Signals, Inkbird, or Govee. Readings come straight in. Set a target alert and it tells you the moment your cut hits the mark.
+>
+> **Multi-cook sequencer.** Brisket, ribs, and chicken all need different times. Tell it your serve time and it works backwards — so everything finishes together.
+>
+> **Frozen to the table.** Pulled it from the freezer? It factors in your thaw method and rebuilds the timeline so you still hit serve time, safely.
 >
 > It's free to download. Pro is $4.99/month or $29.99/year.
 >
-> Download on the App Store → [link]
+> Download on the App Store → https://apps.apple.com/app/knowyourpit
 >
 > knowyourpit. own your cook.
 
 **Hashtags:**
-`#knowyourpit #BBQ #Pitmaster #BBQCoach #SmokeMeat #LowAndSlow`
+`#knowyourpit #BBQCoach #Pitmaster #SmokeMeat #BBQApp`
 
 ---
 
 ## Notes
 
-- **Instagram** leans on restraint — one punchy idea, the tagline, done. Subsequent posts do the feature work.
-- **Facebook** earns the longer read — the audience there will actually read it, so name the proof points and give them the price. Swap `[link]` for the App Store URL before posting.
-- Both sign off with "knowyourpit. own your cook." — this is non-negotiable on every post, every platform.
-- Neither post mentions the mid-cook meat photo analysis feature, which has been removed.
+- Post both simultaneously on launch day — the visual is the same, the copy is platform-native.
+- Instagram: "link in bio" points to the App Store or knowyourpit.com download page.
+- Facebook: direct App Store link is inline; update the URL once the listing is live if the link above is a placeholder.
+- Neither post references the subsequent content calendar in `knowyourpit-instagram-launch-posts.md` — those go up in the days and weeks following launch.
