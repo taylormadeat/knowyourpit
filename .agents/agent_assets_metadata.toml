@@ -251,3 +251,21 @@ id = "8b3DvToBlCycT7G-6hP5d"
 uri = "file://attached_assets/generated_images/kyp_launch_multiprotein.jpg"
 type = "image"
 title = "Image 3 — Multi-Protein Cook"
+
+[[outputs]]
+id = "c5KqtAq2kdbd9EZ8HhXn3"
+uri = "file://attached_assets/generated_images/kyp_social_brand.jpg"
+type = "image"
+title = "Card 1 — Brand / Logo"
+
+[[outputs]]
+id = "boJiOVSEYtEf1i8vxhzAr"
+uri = "file://attached_assets/generated_images/kyp_social_coaching.jpg"
+type = "image"
+title = "Card 2 — AI Coaching (Wrap now.)"
+
+[[outputs]]
+id = "DvdF30W0LNdEvlI9uuWFd"
+uri = "file://attached_assets/generated_images/kyp_social_launch.jpg"
+type = "image"
+title = "Card 3 — Launch Announcement"

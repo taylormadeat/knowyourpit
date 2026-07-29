@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1200px; height: 630px; overflow: hidden;
+    background: #131110;
+    font-family: 'Inter', -apple-system, sans-serif;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 72px 96px;
+  }
+  .bg-glow {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 50% 80% at 75% 50%, rgba(232,64,28,0.09) 0%, transparent 65%);
+  }
+  .left {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column; justify-content: space-between;
+    height: 100%;
+    max-width: 560px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .brand-icon { width: 36px; height: 36px; object-fit: contain; }
+  .brand-name {
+    font-size: 16px; font-weight: 600; color: rgba(232,223,212,0.7);
+    letter-spacing: -0.01em;
+  }
+  .brand-name span { color: #E8401C; }
+  .calls {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .call {
+    font-size: 52px; font-weight: 700; line-height: 1.1;
+    color: #E8DFD4; letter-spacing: -0.02em;
+  }
+  .call.accent { color: #E8401C; }
+  .sub {
+    font-size: 18px; font-weight: 400; color: rgba(232,223,212,0.5);
+    margin-top: 28px; line-height: 1.6;
+    max-width: 480px;
+  }
+  .right {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
+  }
+  .divider-v {
+    width: 1px; height: 220px;
+    background: linear-gradient(180deg, transparent, rgba(232,64,28,0.4), transparent);
+    margin-right: 64px;
+  }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="left">
+    <div class="brand">
+      <img class="brand-icon" src="../icon-transparent-light.png" alt="">
+      <span class="brand-name">know <span>your</span> pit</span>
+    </div>
+    <div>
+      <div class="calls">
+        <div class="call accent">Wrap now.</div>
+        <div class="call">Hold the pit.</div>
+        <div class="call">45 more minutes.</div>
+      </div>
+      <p class="sub">Not a generic tip. A specific call based on what's actually happening in your pit.</p>
+    </div>
+  </div>
+  <div class="right">
+    <div class="divider-v"></div>
+  </div>
+</body>
+</html>
