@@ -275,3 +275,9 @@ id = "aAaEtWidJ9OQPjxb5CJ3g"
 uri = "file://attached_assets/generated_images/kyp_social_brand_square.jpg"
 type = "image"
 title = "Card 1 — Final"
+
+[[outputs]]
+id = "WPecY9_14JimGN0sF06i4"
+uri = "file://attached_assets/generated_images/kyp_social_brand_instagram.jpg"
+type = "image"
+title = "Card 1 — Instagram (1080×1350)"
