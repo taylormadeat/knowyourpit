@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -28,21 +28,21 @@
 
   /* ── Left column ── */
   .left {
-    width: 460px; flex-shrink: 0;
+    width: 440px; flex-shrink: 0;
     display: flex; flex-direction: column;
-    padding: 52px 52px 52px 68px;
+    padding: 52px 48px 52px 64px;
     position: relative; z-index: 1;
   }
   .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
   .brand-icon { width: 30px; height: 30px; object-fit: contain; }
-  .brand-name { font-size: 14px; font-weight: 600; color: rgba(244,241,234,0.52); letter-spacing: -0.01em; }
+  .brand-name { font-size: 15px; font-weight: 600; color: rgba(244,241,234,0.52); letter-spacing: -0.01em; }
   .brand-name span { color: #D3642D; }
 
-  .copy { margin-top: 36px; flex: 1; }
-  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #D3642D; margin-bottom: 14px; }
-  .headline { font-size: 54px; font-weight: 700; line-height: 1.06; letter-spacing: -0.03em; color: #F4F1EA; }
+  .copy { margin-top: 32px; flex: 1; }
+  .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #D3642D; margin-bottom: 12px; }
+  .headline { font-size: 52px; font-weight: 700; line-height: 1.06; letter-spacing: -0.03em; color: #F4F1EA; }
   .headline .accent { color: #D3642D; }
-  .sub { font-size: 16px; font-weight: 400; color: rgba(244,241,234,0.42); margin-top: 16px; line-height: 1.55; }
+  .sub { font-size: 17px; font-weight: 400; color: rgba(244,241,234,0.42); margin-top: 14px; line-height: 1.5; }
 
   .tagline { font-size: 14px; font-weight: 400; color: rgba(244,241,234,0.32); flex-shrink: 0; margin-top: auto; }
   .tagline strong { font-weight: 600; color: rgba(244,241,234,0.48); }
@@ -58,65 +58,60 @@
   .right {
     flex: 1;
     display: flex; flex-direction: column; justify-content: center;
-    padding: 52px 68px 52px 52px;
+    padding: 48px 64px 48px 48px;
     position: relative; z-index: 1;
-    gap: 32px;
+    gap: 24px;
   }
 
   .timeline-label {
-    font-size: 10px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase;
-    color: rgba(244,241,234,0.22); font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase;
+    color: rgba(244,241,234,0.25); font-family: 'JetBrains Mono', monospace;
     flex-shrink: 0;
   }
 
-  .timeline { position: relative; display: flex; flex-direction: column; gap: 16px; flex-shrink: 0; }
+  .timeline { position: relative; display: flex; flex-direction: column; gap: 12px; flex-shrink: 0; }
 
   .serve-line {
     position: absolute; right: 0; top: 0; bottom: 0; width: 1px;
-    background: linear-gradient(180deg, transparent 2%, rgba(211,100,45,0.55) 10%, rgba(211,100,45,0.55) 90%, transparent 98%);
+    background: linear-gradient(180deg, rgba(211,100,45,0.55) 0%, rgba(211,100,45,0.55) 92%, transparent 100%);
   }
   .serve-label {
-    position: absolute; right: 0; top: -22px; transform: translateX(50%);
-    font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+    position: absolute; right: 0; top: -24px; transform: translateX(50%);
+    font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
     color: #D3642D; font-family: 'JetBrains Mono', monospace; white-space: nowrap;
   }
 
   .cook-row { display: flex; align-items: center; }
-  .cook-label {
-    width: 80px; flex-shrink: 0;
-    font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
-    color: rgba(244,241,234,0.38); font-family: 'JetBrains Mono', monospace;
-    text-align: right; padding-right: 14px;
-  }
-  .bar-track { flex: 1; height: 52px; position: relative; display: flex; align-items: center; }
+  .bar-track { flex: 1; height: 62px; position: relative; display: flex; align-items: center; }
   .bar-spacer { flex-shrink: 0; }
   .bar-fill {
-    flex: 1; height: 52px; border-radius: 5px;
-    position: relative; display: flex; align-items: center; padding-right: 50px;
+    flex: 1; height: 62px; border-radius: 6px;
+    position: relative; display: flex; align-items: center;
+    padding: 0 18px;
+    justify-content: space-between;
   }
   .bar-brisket .bar-fill {
-    background: linear-gradient(90deg, rgba(167,40,49,0.48) 0%, rgba(193,73,49,0.72) 50%, rgba(211,100,45,0.9) 100%);
+    background: linear-gradient(90deg, rgba(167,40,49,0.58) 0%, rgba(193,73,49,0.78) 50%, rgba(211,100,45,0.95) 100%);
   }
   .bar-ribs .bar-fill {
-    background: linear-gradient(90deg, rgba(193,73,49,0.3) 0%, rgba(211,100,45,0.62) 100%);
+    background: linear-gradient(90deg, rgba(193,73,49,0.36) 0%, rgba(211,100,45,0.68) 100%);
   }
   .bar-chicken .bar-fill {
-    background: linear-gradient(90deg, rgba(211,100,45,0.17) 0%, rgba(211,100,45,0.48) 100%);
+    background: linear-gradient(90deg, rgba(211,100,45,0.2) 0%, rgba(211,100,45,0.52) 100%);
   }
+  .bar-name {
+    font-size: 15px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: rgba(244,241,234,0.9);
+  }
+  .bar-right { display: flex; align-items: center; gap: 12px; }
   .bar-temp {
-    position: absolute; right: 0; top: 50%; transform: translateY(-50%);
-    font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500;
-    color: rgba(244,241,234,0.55); background: #0E0E10; padding: 2px 0 2px 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 600;
+    color: rgba(244,241,234,0.85);
   }
   .bar-dot {
     position: absolute; right: -6px; top: 50%; transform: translateY(-50%);
     width: 12px; height: 12px; border-radius: 50%;
-    background: #D3642D; box-shadow: 0 0 10px rgba(211,100,45,0.65); z-index: 2;
-  }
-  .cook-duration {
-    width: 44px; flex-shrink: 0; padding-left: 14px;
-    font-family: 'JetBrains Mono', monospace; font-size: 11px;
-    color: rgba(244,241,234,0.22); white-space: nowrap;
+    background: #D3642D; box-shadow: 0 0 10px rgba(211,100,45,0.7); z-index: 2;
   }
 </style>
 </head>
@@ -146,39 +141,42 @@
       <span class="serve-label">serve</span>
 
       <div class="cook-row bar-brisket">
-        <span class="cook-label">Brisket</span>
         <div class="bar-track">
           <div class="bar-spacer" style="width:0%"></div>
           <div class="bar-fill">
-            <span class="bar-temp">203°F</span>
-            <div class="bar-dot"></div>
+            <span class="bar-name">Brisket</span>
+            <div class="bar-right">
+              <span class="bar-temp">203°F</span>
+              <div class="bar-dot"></div>
+            </div>
           </div>
         </div>
-        <span class="cook-duration">12 h</span>
       </div>
 
       <div class="cook-row bar-ribs">
-        <span class="cook-label">Ribs</span>
         <div class="bar-track">
           <div class="bar-spacer" style="width:58.3%"></div>
           <div class="bar-fill">
-            <span class="bar-temp">195°F</span>
-            <div class="bar-dot"></div>
+            <span class="bar-name">Ribs</span>
+            <div class="bar-right">
+              <span class="bar-temp">195°F</span>
+              <div class="bar-dot"></div>
+            </div>
           </div>
         </div>
-        <span class="cook-duration">5 h</span>
       </div>
 
       <div class="cook-row bar-chicken">
-        <span class="cook-label">Chicken</span>
         <div class="bar-track">
           <div class="bar-spacer" style="width:75%"></div>
           <div class="bar-fill">
-            <span class="bar-temp">165°F</span>
-            <div class="bar-dot"></div>
+            <span class="bar-name">Chicken</span>
+            <div class="bar-right">
+              <span class="bar-temp">165°F</span>
+              <div class="bar-dot"></div>
+            </div>
           </div>
         </div>
-        <span class="cook-duration">3 h</span>
       </div>
     </div>
   </div>
