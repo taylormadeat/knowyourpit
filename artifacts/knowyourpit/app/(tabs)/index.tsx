@@ -32,6 +32,7 @@ import { AnimatedBarFill } from "@/components/cook-detail/CookProgressBar";
 import { ThawStatusBanner } from "@/components/cook-detail/ThawStatusBanner";
 import { PitMasterChatModal } from "@/components/PitMasterChatModal";
 import { ActiveCookCard } from "@/components/home/ActiveCookCard";
+import { SetDisplayNameModal, NAME_PROMPT_SEEN_KEY } from "@/components/SetDisplayNameModal";
 
 const logoImg = require("@/assets/images/icon-transparent-light.png");
 
@@ -333,6 +334,37 @@ export default function HomeScreen() {
     tipsExpanded && effectivePro && hasCooksForTips
   );
   const tips = tipsData?.tips ?? [];
+
+  // ── Name prompt (Apple Sign-In users with no name) ───────────────────────
+  // Show once to users who have no firstName and no displayName. Apple Sign-In
+  // users who hide their email receive no name from Apple, so they'd otherwise
+  // always see "Pitmaster". We check AsyncStorage so we only prompt once.
+  const [namePromptVisible, setNamePromptVisible] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    const hasName =
+      !!(user.unsafeMetadata?.displayName as string | undefined) ||
+      !!user.firstName;
+    if (hasName) return;
+    let cancelled = false;
+    AsyncStorage.getItem(NAME_PROMPT_SEEN_KEY)
+      .then((v) => {
+        if (!cancelled && v !== "1") {
+          setNamePromptVisible(true);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  // Re-run only when user identity changes, not on every name edit
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const handleNamePromptDismiss = () => {
+    setNamePromptVisible(false);
+    AsyncStorage.setItem(NAME_PROMPT_SEEN_KEY, "1").catch(() => {});
+  };
 
   const toggleTips = (expand?: boolean) => {
     setTipsExpanded((prev) => (expand !== undefined ? expand : !prev));
@@ -845,6 +877,11 @@ export default function HomeScreen() {
       <PitMasterChatModal
         visible={pitMasterChatOpen}
         onClose={() => setPitMasterChatOpen(false)}
+      />
+
+      <SetDisplayNameModal
+        visible={namePromptVisible}
+        onDismiss={handleNamePromptDismiss}
       />
     </View>
   );
