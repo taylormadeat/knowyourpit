@@ -10,194 +10,134 @@
     background: #0E0E10;
     font-family: 'Inter', -apple-system, sans-serif;
     display: flex; flex-direction: column;
-    padding: 80px;
+    padding: 72px 80px 68px;
     position: relative;
+    gap: 0;
   }
 
-  /* Ember glow anchored at the serve time (right side, vertically centered on timeline) */
   .glow-serve {
-    position: absolute;
-    right: -60px;
-    top: 50%;
-    transform: translateY(-30px);
-    width: 420px; height: 320px;
-    background: radial-gradient(ellipse at 85% 50%, rgba(211,100,45,0.22) 0%, rgba(167,40,49,0.08) 40%, transparent 70%);
+    position: absolute; right: -40px; top: 55%; transform: translateY(-50%);
+    width: 420px; height: 420px;
+    background: radial-gradient(ellipse at 80% 50%, rgba(211,100,45,0.22) 0%, rgba(167,40,49,0.07) 45%, transparent 70%);
     pointer-events: none;
   }
   .glow-top {
-    position: absolute;
-    left: -100px; top: -80px;
-    width: 500px; height: 400px;
+    position: absolute; left: -80px; top: -80px;
+    width: 480px; height: 360px;
     background: radial-gradient(ellipse at 20% 20%, rgba(211,100,45,0.06) 0%, transparent 60%);
     pointer-events: none;
   }
 
-  /* ── Header ── */
+  /* ── Top ── */
+  .top { position: relative; z-index: 1; flex-shrink: 0; }
+
   .eyebrow {
     font-size: 13px; font-weight: 600; letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: #D3642D;
-    margin-bottom: 20px;
+    text-transform: uppercase; color: #D3642D; margin-bottom: 18px;
   }
   .headline {
-    font-size: 68px; font-weight: 700; line-height: 1.06;
-    letter-spacing: -0.03em;
-    color: #F4F1EA;
-    margin-bottom: 0;
+    font-size: 80px; font-weight: 700; line-height: 1.04;
+    letter-spacing: -0.03em; color: #F4F1EA;
   }
   .headline .accent { color: #D3642D; }
-
-  /* ── Timeline block ── */
-  .timeline-wrapper {
-    flex: 1;
-    display: flex; flex-direction: column; justify-content: center;
-    position: relative;
-    margin: 48px 0 0;
-    z-index: 1;
+  .sub {
+    font-size: 20px; font-weight: 400; color: rgba(244,241,234,0.42);
+    margin-top: 20px; line-height: 1.5; max-width: 720px;
   }
 
-  /* serve-time hairline */
+  /* ── Timeline ── */
+  .timeline {
+    position: relative; z-index: 1;
+    margin-top: 52px;
+    flex-shrink: 0;
+  }
+
   .serve-line {
-    position: absolute;
-    right: 0; top: 0; bottom: 0;
-    width: 1px;
-    background: linear-gradient(180deg, transparent 4%, rgba(211,100,45,0.55) 20%, rgba(211,100,45,0.55) 80%, transparent 96%);
+    position: absolute; right: 0; top: 0; bottom: 0; width: 1px;
+    background: linear-gradient(180deg, transparent 2%, rgba(211,100,45,0.55) 10%, rgba(211,100,45,0.55) 90%, transparent 98%);
   }
   .serve-label {
-    position: absolute;
-    right: 0; top: -28px;
-    transform: translateX(50%);
-    font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
-    color: #D3642D;
-    font-family: 'JetBrains Mono', monospace;
-    white-space: nowrap;
+    position: absolute; right: 0; top: -26px; transform: translateX(50%);
+    font-size: 11px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase;
+    color: #D3642D; font-family: 'JetBrains Mono', monospace; white-space: nowrap;
   }
 
   .cook-row {
-    display: flex; align-items: center;
-    gap: 0;
-    margin-bottom: 26px;
-    position: relative;
+    display: flex; align-items: center; margin-bottom: 20px;
   }
   .cook-row:last-child { margin-bottom: 0; }
 
   .cook-label {
-    width: 96px; flex-shrink: 0;
-    font-size: 11px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase;
-    color: rgba(244,241,234,0.4);
-    font-family: 'JetBrains Mono', monospace;
-    text-align: right;
-    padding-right: 18px;
+    width: 110px; flex-shrink: 0;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+    color: rgba(244,241,234,0.45); font-family: 'JetBrains Mono', monospace;
+    text-align: right; padding-right: 20px;
   }
-
   .bar-track {
-    flex: 1;
-    height: 38px;
-    position: relative;
-    display: flex; align-items: center;
+    flex: 1; height: 110px; position: relative; display: flex; align-items: center;
   }
-
-  /* spacer: pushes bar to start at the right offset */
   .bar-spacer { flex-shrink: 0; }
-
   .bar-fill {
-    flex: 1;
-    height: 38px;
-    border-radius: 4px;
-    position: relative;
-    display: flex; align-items: center;
-    padding-right: 44px;
+    flex: 1; height: 110px; border-radius: 8px;
+    position: relative; display: flex; align-items: center; padding-right: 64px;
   }
-
-  /* brisket — ember full */
   .bar-brisket .bar-fill {
-    background: linear-gradient(90deg, rgba(167,40,49,0.5) 0%, rgba(193,73,49,0.75) 50%, rgba(211,100,45,0.9) 100%);
+    background: linear-gradient(90deg, rgba(167,40,49,0.5) 0%, rgba(193,73,49,0.75) 50%, rgba(211,100,45,0.92) 100%);
   }
-  /* ribs — ember medium */
   .bar-ribs .bar-fill {
-    background: linear-gradient(90deg, rgba(193,73,49,0.35) 0%, rgba(211,100,45,0.65) 100%);
+    background: linear-gradient(90deg, rgba(193,73,49,0.32) 0%, rgba(211,100,45,0.65) 100%);
   }
-  /* chicken — ember lighter */
   .bar-chicken .bar-fill {
-    background: linear-gradient(90deg, rgba(211,100,45,0.2) 0%, rgba(211,100,45,0.5) 100%);
+    background: linear-gradient(90deg, rgba(211,100,45,0.18) 0%, rgba(211,100,45,0.5) 100%);
   }
-
   .bar-temp {
     position: absolute; right: 0; top: 50%; transform: translateY(-50%);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px; font-weight: 500;
-    color: rgba(244,241,234,0.55);
-    background: #0E0E10;
-    padding: 2px 0 2px 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 500;
+    color: rgba(244,241,234,0.6); background: #0E0E10; padding: 2px 0 2px 10px;
   }
-
-  /* endpoint dot — on the serve line */
   .bar-dot {
-    position: absolute; right: -6px; top: 50%; transform: translateY(-50%);
-    width: 12px; height: 12px; border-radius: 50%;
-    background: #D3642D;
-    box-shadow: 0 0 10px rgba(211,100,45,0.7);
-    z-index: 2;
-    flex-shrink: 0;
+    position: absolute; right: -8px; top: 50%; transform: translateY(-50%);
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #D3642D; box-shadow: 0 0 14px rgba(211,100,45,0.75); z-index: 2;
   }
-
   .cook-duration {
-    width: 52px; flex-shrink: 0;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px; color: rgba(244,241,234,0.28);
-    padding-left: 14px;
-    white-space: nowrap;
+    width: 56px; flex-shrink: 0; padding-left: 18px;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    color: rgba(244,241,234,0.25); white-space: nowrap;
   }
 
   /* ── Footer ── */
   .footer {
+    margin-top: auto;
     display: flex; align-items: center; justify-content: space-between;
-    margin-top: 52px;
-    z-index: 1; position: relative;
+    position: relative; z-index: 1;
   }
-  .tagline {
-    font-size: 16px; font-weight: 400; color: rgba(244,241,234,0.38);
-    letter-spacing: 0.01em;
-  }
-  .tagline strong { font-weight: 600; color: rgba(244,241,234,0.55); }
-  .brand {
-    display: flex; align-items: center; gap: 10px;
-  }
-  .brand-icon { width: 30px; height: 30px; object-fit: contain; }
-  .brand-name {
-    font-size: 14px; font-weight: 600;
-    color: rgba(244,241,234,0.55);
-    letter-spacing: -0.01em;
-  }
+  .tagline { font-size: 17px; font-weight: 400; color: rgba(244,241,234,0.35); }
+  .tagline strong { font-weight: 600; color: rgba(244,241,234,0.52); }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-icon { width: 32px; height: 32px; object-fit: contain; }
+  .brand-name { font-size: 15px; font-weight: 600; color: rgba(244,241,234,0.52); letter-spacing: -0.01em; }
   .brand-name span { color: #D3642D; }
-
-  /* sub-headline below main headline */
-  .sub {
-    font-size: 18px; font-weight: 400; color: rgba(244,241,234,0.42);
-    margin-top: 20px; line-height: 1.55;
-    max-width: 680px;
-  }
 </style>
 </head>
 <body>
   <div class="glow-top"></div>
   <div class="glow-serve"></div>
 
-  <!-- Header -->
-  <p class="eyebrow">Multi-Cook</p>
-  <h1 class="headline">brisket, ribs, chicken.<br><span class="accent">all at the same time.</span></h1>
-  <p class="sub">Tell it every cut. Set one serve time. It builds the schedule backwards — so everything comes off the pit together.</p>
+  <div class="top">
+    <p class="eyebrow">Multi-Cook</p>
+    <h1 class="headline">brisket, ribs,<br>chicken.<br><span class="accent">all at the same time.</span></h1>
+    <p class="sub">Tell it every cut. Set one serve time. It builds the schedule backwards — so everything comes off the pit together.</p>
+  </div>
 
-  <!-- Timeline -->
-  <div class="timeline-wrapper">
+  <div class="timeline">
     <div class="serve-line"></div>
     <span class="serve-label">serve</span>
 
-    <!-- Brisket: 12 h cook — fills full width -->
     <div class="cook-row bar-brisket">
       <span class="cook-label">Brisket</span>
       <div class="bar-track">
-        <div class="bar-spacer" style="width: 0%;"></div>
+        <div class="bar-spacer" style="width:0%"></div>
         <div class="bar-fill">
           <span class="bar-temp">203°F</span>
           <div class="bar-dot"></div>
@@ -206,11 +146,10 @@
       <span class="cook-duration">12 h</span>
     </div>
 
-    <!-- Ribs: 5 h cook — starts 58% in -->
     <div class="cook-row bar-ribs">
       <span class="cook-label">Ribs</span>
       <div class="bar-track">
-        <div class="bar-spacer" style="width: 58.3%;"></div>
+        <div class="bar-spacer" style="width:58.3%"></div>
         <div class="bar-fill">
           <span class="bar-temp">195°F</span>
           <div class="bar-dot"></div>
@@ -219,11 +158,10 @@
       <span class="cook-duration">5 h</span>
     </div>
 
-    <!-- Chicken: 3 h cook — starts 75% in -->
     <div class="cook-row bar-chicken">
       <span class="cook-label">Chicken</span>
       <div class="bar-track">
-        <div class="bar-spacer" style="width: 75%;"></div>
+        <div class="bar-spacer" style="width:75%"></div>
         <div class="bar-fill">
           <span class="bar-temp">165°F</span>
           <div class="bar-dot"></div>
@@ -233,7 +171,6 @@
     </div>
   </div>
 
-  <!-- Footer -->
   <div class="footer">
     <span class="tagline"><strong>knowyourpit.</strong> own your cook.</span>
     <div class="brand">
