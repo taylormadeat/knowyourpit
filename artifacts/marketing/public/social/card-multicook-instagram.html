@@ -31,7 +31,7 @@
   .top { position: relative; z-index: 1; flex-shrink: 0; }
 
   .eyebrow {
-    font-size: 15px; font-weight: 600; letter-spacing: 0.16em;
+    font-size: 21px; font-weight: 600; letter-spacing: 0.16em;
     text-transform: uppercase; color: #D3642D; margin-bottom: 16px;
   }
   .headline {
@@ -40,7 +40,7 @@
   }
   .headline .accent { color: #D3642D; }
   .sub {
-    font-size: 24px; font-weight: 400; color: rgba(244,241,234,0.45);
+    font-size: 34px; font-weight: 400; color: rgba(244,241,234,0.45);
     margin-top: 20px; line-height: 1.45; max-width: 820px;
   }
 
@@ -56,7 +56,7 @@
   }
   .serve-label {
     position: absolute; right: 0; top: -30px; transform: translateX(50%);
-    font-size: 14px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase;
+    font-size: 20px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase;
     color: #D3642D; font-family: 'JetBrains Mono', monospace; white-space: nowrap;
   }
 
@@ -72,9 +72,10 @@
   .bar-fill {
     flex: 1; height: 100px; border-radius: 8px;
     position: relative; display: flex; align-items: center;
-    padding: 0 20px;
+    padding: 0 20px; gap: 16px;
     justify-content: space-between;
   }
+  .bar-name { flex: 1; min-width: 0; white-space: nowrap; }
 
   .bar-brisket .bar-fill {
     background: linear-gradient(90deg, rgba(167,40,49,0.6) 0%, rgba(193,73,49,0.8) 50%, rgba(211,100,45,0.95) 100%);
@@ -87,14 +88,14 @@
   }
 
   .bar-name {
-    font-size: 20px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    font-size: 28px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
     color: rgba(244,241,234,0.9);
   }
   .bar-right {
     display: flex; align-items: center; gap: 16px;
   }
   .bar-temp {
-    font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 600;
     color: rgba(244,241,234,0.85);
   }
   .bar-dot {
@@ -110,11 +111,11 @@
     display: flex; align-items: center; justify-content: space-between;
     position: relative; z-index: 1;
   }
-  .tagline { font-size: 19px; font-weight: 400; color: rgba(244,241,234,0.35); }
+  .tagline { font-size: 27px; font-weight: 400; color: rgba(244,241,234,0.35); }
   .tagline strong { font-weight: 600; color: rgba(244,241,234,0.55); }
   .brand { display: flex; align-items: center; gap: 10px; }
   .brand-icon { width: 34px; height: 34px; object-fit: contain; }
-  .brand-name { font-size: 17px; font-weight: 600; color: rgba(244,241,234,0.55); letter-spacing: -0.01em; }
+  .brand-name { font-size: 24px; font-weight: 600; color: rgba(244,241,234,0.55); letter-spacing: -0.01em; }
   .brand-name span { color: #D3642D; }
 </style>
 </head>

@@ -35,16 +35,16 @@
   }
   .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
   .brand-icon { width: 30px; height: 30px; object-fit: contain; }
-  .brand-name { font-size: 15px; font-weight: 600; color: rgba(244,241,234,0.52); letter-spacing: -0.01em; }
+  .brand-name { font-size: 21px; font-weight: 600; color: rgba(244,241,234,0.52); letter-spacing: -0.01em; }
   .brand-name span { color: #D3642D; }
 
   .copy { margin-top: 32px; flex: 1; }
-  .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #D3642D; margin-bottom: 12px; }
+  .eyebrow { font-size: 17px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #D3642D; margin-bottom: 12px; }
   .headline { font-size: 52px; font-weight: 700; line-height: 1.06; letter-spacing: -0.03em; color: #F4F1EA; }
   .headline .accent { color: #D3642D; }
-  .sub { font-size: 17px; font-weight: 400; color: rgba(244,241,234,0.42); margin-top: 14px; line-height: 1.5; }
+  .sub { font-size: 24px; font-weight: 400; color: rgba(244,241,234,0.42); margin-top: 14px; line-height: 1.5; }
 
-  .tagline { font-size: 14px; font-weight: 400; color: rgba(244,241,234,0.32); flex-shrink: 0; margin-top: auto; }
+  .tagline { font-size: 20px; font-weight: 400; color: rgba(244,241,234,0.32); flex-shrink: 0; margin-top: auto; }
   .tagline strong { font-weight: 600; color: rgba(244,241,234,0.48); }
 
   /* divider */
@@ -64,7 +64,7 @@
   }
 
   .timeline-label {
-    font-size: 12px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase;
+    font-size: 17px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase;
     color: rgba(244,241,234,0.25); font-family: 'JetBrains Mono', monospace;
     flex-shrink: 0;
   }
@@ -77,7 +77,7 @@
   }
   .serve-label {
     position: absolute; right: 0; top: -24px; transform: translateX(50%);
-    font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+    font-size: 17px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
     color: #D3642D; font-family: 'JetBrains Mono', monospace; white-space: nowrap;
   }
 
@@ -87,9 +87,10 @@
   .bar-fill {
     flex: 1; height: 62px; border-radius: 6px;
     position: relative; display: flex; align-items: center;
-    padding: 0 18px;
+    padding: 0 18px; gap: 12px;
     justify-content: space-between;
   }
+  .bar-name { flex: 1; min-width: 0; white-space: nowrap; }
   .bar-brisket .bar-fill {
     background: linear-gradient(90deg, rgba(167,40,49,0.58) 0%, rgba(193,73,49,0.78) 50%, rgba(211,100,45,0.95) 100%);
   }
@@ -100,12 +101,12 @@
     background: linear-gradient(90deg, rgba(211,100,45,0.2) 0%, rgba(211,100,45,0.52) 100%);
   }
   .bar-name {
-    font-size: 15px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    font-size: 21px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
     color: rgba(244,241,234,0.9);
   }
   .bar-right { display: flex; align-items: center; gap: 12px; }
   .bar-temp {
-    font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace; font-size: 21px; font-weight: 600;
     color: rgba(244,241,234,0.85);
   }
   .bar-dot {
