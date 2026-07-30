@@ -47,6 +47,7 @@ import { cancelStoredFrozenNotifications } from "@/hooks/useFrozenStageNotificat
 import { cancelStoredCheckinNotifications } from "@/hooks/useCheckinNotifications";
 import { cancelStoredSpritzNotifications } from "@/hooks/useSpritzNotifications";
 import { useRefetchOnFocus } from "@/hooks/useRefetchOnFocus";
+import { useAuth } from "@clerk/expo";
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -364,8 +365,10 @@ export default function CooksScreen() {
   const [outlierReviewCookId, setOutlierReviewCookId] = useState<number | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [reviewRating, setReviewRating] = useState<number | null>(null);
+  const { isSignedIn } = useAuth();
   const { data: cooks, isLoading, refetch } = useListCooks(undefined, {
     query: {
+      enabled: !!isSignedIn,
       staleTime: 30_000,
       retry: 2,
     } as any,
@@ -375,7 +378,9 @@ export default function CooksScreen() {
   // useRefetchOnFocus for why this is necessary in addition to the Plan
   // screen's invalidateQueries() calls.
   useRefetchOnFocus(refetch);
-  const { data: techniqueStats } = useGetCookTechniqueStats();
+  const { data: techniqueStats } = useGetCookTechniqueStats({
+    query: { enabled: !!isSignedIn } as any,
+  });
   const updateSession = useUpdateSession();
   const deleteCook = useDeleteCook();
   const dismissOutlier = useDismissCookOutlier();
