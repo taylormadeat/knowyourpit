@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1200px; height: 630px; overflow: hidden;
+    background: #0E0E10;
+    font-family: 'Inter', -apple-system, sans-serif;
+    display: flex; align-items: stretch;
+    position: relative;
+  }
+
+  /* Glows */
+  .glow-right {
+    position: absolute;
+    right: -40px; top: 50%; transform: translateY(-50%);
+    width: 500px; height: 400px;
+    background: radial-gradient(ellipse at 80% 50%, rgba(211,100,45,0.2) 0%, rgba(167,40,49,0.07) 45%, transparent 70%);
+    pointer-events: none;
+  }
+  .glow-left {
+    position: absolute;
+    left: -60px; top: -60px;
+    width: 400px; height: 360px;
+    background: radial-gradient(ellipse at 20% 20%, rgba(211,100,45,0.07) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  /* ── Left column (copy) ── */
+  .left {
+    width: 490px; flex-shrink: 0;
+    display: flex; flex-direction: column; justify-content: space-between;
+    padding: 64px 56px 64px 72px;
+    position: relative; z-index: 1;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .brand-icon { width: 32px; height: 32px; object-fit: contain; }
+  .brand-name {
+    font-size: 15px; font-weight: 600;
+    color: rgba(244,241,234,0.55);
+    letter-spacing: -0.01em;
+  }
+  .brand-name span { color: #D3642D; }
+
+  .copy { }
+  .eyebrow {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #D3642D; margin-bottom: 16px;
+  }
+  .headline {
+    font-size: 48px; font-weight: 700; line-height: 1.07; letter-spacing: -0.03em;
+    color: #F4F1EA;
+    margin-bottom: 8px;
+  }
+  .headline .accent { color: #D3642D; }
+  .sub {
+    font-size: 16px; font-weight: 400; color: rgba(244,241,234,0.42);
+    margin-top: 18px; line-height: 1.6;
+  }
+
+  .tagline {
+    font-size: 14px; font-weight: 400; color: rgba(244,241,234,0.35);
+  }
+  .tagline strong { font-weight: 600; color: rgba(244,241,234,0.5); }
+
+  /* vertical divider */
+  .divider {
+    width: 1px; flex-shrink: 0;
+    background: linear-gradient(180deg, transparent 5%, rgba(244,241,234,0.07) 30%, rgba(244,241,234,0.07) 70%, transparent 95%);
+    margin: 0;
+    position: relative; z-index: 1;
+  }
+
+  /* ── Right column (timeline) ── */
+  .right {
+    flex: 1;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 56px 72px 56px 56px;
+    position: relative; z-index: 1;
+  }
+
+  .timeline-label {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+    color: rgba(244,241,234,0.25); margin-bottom: 28px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .timeline-area {
+    flex: 1; max-height: 300px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    position: relative;
+  }
+
+  /* serve-time line */
+  .serve-line {
+    position: absolute;
+    right: 0; top: 0; bottom: 0; width: 1px;
+    background: linear-gradient(180deg, transparent 2%, rgba(211,100,45,0.5) 15%, rgba(211,100,45,0.5) 85%, transparent 98%);
+  }
+  .serve-label {
+    position: absolute;
+    right: 0; top: -22px;
+    transform: translateX(50%);
+    font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #D3642D;
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+  }
+
+  .cook-row {
+    display: flex; align-items: center; gap: 0;
+  }
+  .cook-label {
+    width: 78px; flex-shrink: 0;
+    font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+    color: rgba(244,241,234,0.38);
+    font-family: 'JetBrains Mono', monospace;
+    text-align: right; padding-right: 14px;
+  }
+  .bar-track {
+    flex: 1; height: 32px; position: relative;
+    display: flex; align-items: center;
+  }
+  .bar-spacer { flex-shrink: 0; }
+  .bar-fill {
+    flex: 1; height: 32px; border-radius: 3px;
+    position: relative; display: flex; align-items: center;
+    padding-right: 38px;
+  }
+  .bar-brisket .bar-fill {
+    background: linear-gradient(90deg, rgba(167,40,49,0.45) 0%, rgba(193,73,49,0.7) 50%, rgba(211,100,45,0.88) 100%);
+  }
+  .bar-ribs .bar-fill {
+    background: linear-gradient(90deg, rgba(193,73,49,0.3) 0%, rgba(211,100,45,0.62) 100%);
+  }
+  .bar-chicken .bar-fill {
+    background: linear-gradient(90deg, rgba(211,100,45,0.18) 0%, rgba(211,100,45,0.48) 100%);
+  }
+  .bar-temp {
+    position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500;
+    color: rgba(244,241,234,0.5);
+    background: #0E0E10; padding: 2px 0 2px 6px;
+  }
+  .bar-dot {
+    position: absolute; right: -5px; top: 50%; transform: translateY(-50%);
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #D3642D;
+    box-shadow: 0 0 8px rgba(211,100,45,0.65);
+    z-index: 2;
+  }
+  .cook-duration {
+    width: 42px; flex-shrink: 0; padding-left: 12px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: rgba(244,241,234,0.22); white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+  <div class="glow-left"></div>
+  <div class="glow-right"></div>
+
+  <!-- Left: copy -->
+  <div class="left">
+    <div class="brand">
+      <img class="brand-icon" src="../icon-transparent-light.png" alt="">
+      <span class="brand-name">know<span>your</span>pit</span>
+    </div>
+    <div class="copy">
+      <p class="eyebrow">Multi-Cook</p>
+      <h1 class="headline">brisket, ribs,<br>chicken.<br><span class="accent">all at once.</span></h1>
+      <p class="sub">Set one serve time. It works backwards and tells you exactly when each cut goes on the pit.</p>
+    </div>
+    <span class="tagline"><strong>knowyourpit.</strong> own your cook.</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Right: timeline -->
+  <div class="right">
+    <p class="timeline-label">cook schedule</p>
+    <div class="timeline-area">
+      <div class="serve-line"></div>
+      <span class="serve-label">serve</span>
+
+      <div class="cook-row bar-brisket">
+        <span class="cook-label">Brisket</span>
+        <div class="bar-track">
+          <div class="bar-spacer" style="width: 0%;"></div>
+          <div class="bar-fill">
+            <span class="bar-temp">203°F</span>
+            <div class="bar-dot"></div>
+          </div>
+        </div>
+        <span class="cook-duration">12 h</span>
+      </div>
+
+      <div class="cook-row bar-ribs">
+        <span class="cook-label">Ribs</span>
+        <div class="bar-track">
+          <div class="bar-spacer" style="width: 58.3%;"></div>
+          <div class="bar-fill">
+            <span class="bar-temp">195°F</span>
+            <div class="bar-dot"></div>
+          </div>
+        </div>
+        <span class="cook-duration">5 h</span>
+      </div>
+
+      <div class="cook-row bar-chicken">
+        <span class="cook-label">Chicken</span>
+        <div class="bar-track">
+          <div class="bar-spacer" style="width: 75%;"></div>
+          <div class="bar-fill">
+            <span class="bar-temp">165°F</span>
+            <div class="bar-dot"></div>
+          </div>
+        </div>
+        <span class="cook-duration">3 h</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
