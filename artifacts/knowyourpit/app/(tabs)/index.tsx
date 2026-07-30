@@ -226,10 +226,15 @@ export default function HomeScreen() {
   const { showPaywall } = usePaywall();
 
   const isGuest = !user;
+  const emailAddress = user?.emailAddresses?.[0]?.emailAddress;
+  const emailPrefix =
+    emailAddress && !emailAddress.endsWith("privaterelay.appleid.com")
+      ? emailAddress.split("@")[0]
+      : undefined;
   const firstName =
     (user?.unsafeMetadata?.displayName as string | undefined) ||
     user?.firstName ||
-    user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] ||
+    emailPrefix ||
     (isGuest ? "Guest" : "Pitmaster");
 
   const topPad = useTopInset();
