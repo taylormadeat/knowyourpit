@@ -287,3 +287,15 @@ id = "PBxDRk2AdfV1aW8swSbkE"
 uri = "file://attached_assets/generated_images/kyp_facebook_cover.jpg"
 type = "image"
 title = "Facebook Cover Photo (1702×630)"
+
+[[outputs]]
+id = "oiiB2deeLLddcuMNsbaCC"
+uri = "file://attached_assets/generated_images/kyp_social_multicook_instagram.jpg"
+type = "image"
+title = "Multi-Cook — Instagram (1080×1080)"
+
+[[outputs]]
+id = "ZcxDCm_-KhNNRSA8p0AiD"
+uri = "file://attached_assets/generated_images/kyp_social_multicook_facebook.jpg"
+type = "image"
+title = "Multi-Cook — Facebook (1200×630)"
