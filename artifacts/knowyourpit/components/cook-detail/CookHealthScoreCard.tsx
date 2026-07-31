@@ -4,6 +4,7 @@ import { View, Text, Pressable, Modal, ScrollView } from "react-native";
 import type { DimensionValue } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useAuth } from "@clerk/expo";
 import { useGetCookHealth, getGetCookHealthQueryKey } from "@workspace/api-client-react";
 
 type FeatherName = ComponentProps<typeof Feather>["name"];
@@ -70,6 +71,7 @@ interface Props {
 }
 
 export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, lastDecision, onGradeChange, compact, externalOpen, onExternalOpenHandled }: Props) {
+  const { isSignedIn } = useAuth();
   const [breakdownVisible, setBreakdownVisible] = useState(false);
 
   useEffect(() => {
@@ -82,7 +84,7 @@ export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, 
   const { data: health, isLoading } = useGetCookHealth(cookId, {
     query: {
       queryKey: getGetCookHealthQueryKey(cookId),
-      enabled: cookStatus === "active" || cookStatus === "completed",
+      enabled: !!isSignedIn && (cookStatus === "active" || cookStatus === "completed"),
       refetchInterval: cookStatus === "active" ? 60000 : false,
     },
   });

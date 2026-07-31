@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useAuth } from "@clerk/expo";
 import type { ComponentProps } from "react";
 import {
   View,
@@ -1130,6 +1131,7 @@ export function CookActivityTimeline({
   const prevCountRef = useRef(0);
   const isAtBottomRef = useRef(true);
 
+  const { isSignedIn } = useAuth();
   const isActive = cookStatus === "active";
   const isCompleted = cookStatus === "completed";
   const isPlanned = cookStatus === "planned";
@@ -1137,7 +1139,7 @@ export function CookActivityTimeline({
   const { data: cookEvents = [], isLoading: eventsLoading, error: eventsError } = useListCookEvents(cookId, {
     query: {
       queryKey: getListCookEventsQueryKey(cookId),
-      enabled: isActive || isCompleted,
+      enabled: !!isSignedIn && (isActive || isCompleted),
       refetchInterval: isActive ? refetchIntervalMs : false,
       // Short staleTime prevents isLoading from flipping back to true on a
       // fast re-navigation — the data is already fresh from the initial fetch.
