@@ -43,9 +43,19 @@ Apple requires Xcode 26+ for all App Store submissions since April 28, 2026.
 Always use `macos-sequoia-15.6-xcode-26.2` (or newer) for production builds.
 Xcode 16.x builds will be rejected at submission time.
 
-## Submission
-After queuing the build with `--no-wait`, poll with `eas build:view <id>` until status is `finished`, then submit:
+## Submission — default method: GitHub Actions
+After the build finishes, submit via the GitHub Actions workflow (not `eas submit` or `submit-ios.sh`). EAS submit fails with the "invalid curve name" OpenSSL error on their runner; the GH Actions workflow uses `xcrun altool` on a macOS runner and is reliable.
+
 ```bash
-cd artifacts/knowyourpit && bash scripts/submit-ios.sh
+curl -s -X POST \
+  -H "Authorization: token $GITHUB_PAT" \
+  -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/taylormadeat/knowyourpit/actions/workflows/submit-ios.yml/dispatches" \
+  -d '{"ref":"main","inputs":{"ipa_url":"<IPA_URL_FROM_EAS_BUILD_VIEW>"}}'
 ```
-Check submission status via EAS GraphQL (offset 0, limit 5) to confirm FINISHED vs ERRORED.
+
+Get the IPA URL from `eas build:view <id>` → `Application Archive URL` field.
+
+**Why:** EAS `eas submit` hits an OpenSSL/fastlane "invalid curve name" error on their hosted runner that is not fixable from the repo. The GitHub Actions workflow bypasses EAS's submit infrastructure entirely.
+
+**Note:** If `GITHUB_PAT` returns "Bad credentials", the token has expired — user needs to regenerate it in GitHub Settings → Developer settings → Personal access tokens and update the Replit secret.
