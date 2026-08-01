@@ -209,8 +209,9 @@ export default function PlanScreen() {
   const colors = useColors();
   const router = useRouter();
   const qc = useQueryClient();
+  const { isSignedIn } = useAuth();
 
-  const { data: grills } = useListGrills({ query: { staleTime: 5 * 60 * 1000 } } as any);
+  const { data: grills } = useListGrills({ query: { staleTime: 5 * 60 * 1000, enabled: !!isSignedIn } } as any);
   const createCook = useCreateCook();
   const updateCook = useUpdateCook();
   const deleteCook = useDeleteCook();
@@ -226,7 +227,7 @@ export default function PlanScreen() {
   const { data: replanCookData } = useGetCook(replanCookIdNum!, {
     query: {
       queryKey: getGetCookQueryKey(replanCookIdNum!),
-      enabled: !!replanCookIdNum,
+      enabled: !!isSignedIn && !!replanCookIdNum,
     },
   });
   const replanActualThawStartAt: string | null =
@@ -240,10 +241,10 @@ export default function PlanScreen() {
       ? ((replanCookData as { sequenceData?: SequenceData | null } | undefined)?.sequenceData ?? null)
       : null;
 
-  const { data: activeCooks } = useListCooks({ status: ListCooksStatus.active });
+  const { data: activeCooks } = useListCooks({ status: ListCooksStatus.active }, { query: { enabled: !!isSignedIn } as any });
   const activeCook: Cook | null = activeCooks?.[0] ?? null;
 
-  const { data: plannedCooks } = useListCooks({ status: ListCooksStatus.planned });
+  const { data: plannedCooks } = useListCooks({ status: ListCooksStatus.planned }, { query: { enabled: !!isSignedIn } as any });
 
   // Edit times sheet (correct active cook timestamps)
   const [editTimesVisible, setEditTimesVisible] = useState(false);
@@ -469,7 +470,7 @@ export default function PlanScreen() {
   const { data: allPresets } = useGetTechniquePresets(
     {},
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { query: { staleTime: 10 * 60 * 1000 } as any },
+    { query: { staleTime: 10 * 60 * 1000, enabled: !!isSignedIn } as any },
   );
   const cutPresets = useMemo(
     () => allPresets?.filter(p => p.cutName === selectedCut?.name) ?? [],
@@ -480,7 +481,7 @@ export default function PlanScreen() {
   const { data: allUserPresets, refetch: refetchUserPresets } = useListUserTechniquePresets(
     {},
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { query: { staleTime: 5 * 60 * 1000 } as any },
+    { query: { staleTime: 5 * 60 * 1000, enabled: !!isSignedIn } as any },
   );
   const cutUserPresets = useMemo(
     () => allUserPresets?.filter(p => p.cutName === selectedCut?.name) ?? [],

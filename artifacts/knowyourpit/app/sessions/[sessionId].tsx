@@ -16,6 +16,7 @@ import * as Notifications from "expo-notifications";
 import { fmtMinutes } from "@/utils/duration";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useAuth } from "@clerk/expo";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
@@ -299,8 +300,11 @@ export default function SessionDetailScreen() {
   const insets = useSafeAreaInsets();
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const queryClient = useQueryClient();
+  const { isSignedIn } = useAuth();
 
-  const { data: cooks, isLoading, isError } = useGetSessionCooks(sessionId ?? "");
+  const { data: cooks, isLoading, isError } = useGetSessionCooks(sessionId ?? "", {
+    query: { enabled: !!isSignedIn && !!sessionId } as any,
+  });
   const updateSession = useUpdateSession();
   const deleteSession = useDeleteSession();
   const removeCookFromSession = useRemoveCookFromSession(sessionId ?? "");
@@ -431,7 +435,7 @@ export default function SessionDetailScreen() {
   const [cookEditSaving, setCookEditSaving] = useState(false);
 
   const cookEditDates = useMemo(() => getEditDates(), []);
-  const { data: grillsList } = useListGrills();
+  const { data: grillsList } = useListGrills({ query: { enabled: !!isSignedIn } } as any);
   const grills: any[] = Array.isArray(grillsList) ? grillsList : [];
   const cookEditSelectedGrill = useMemo(
     () => grills.find((g: any) => g.id === cookEditGrillId) ?? null,

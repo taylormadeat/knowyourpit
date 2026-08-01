@@ -78,7 +78,7 @@ export type CookDetailState = ReturnType<typeof useCookDetail>;
 export function useCookDetail(id: string | undefined) {
   const router = useRouter();
   const qc = useQueryClient();
-  const { getToken } = useAuth();
+  const { getToken, isSignedIn } = useAuth();
   const { showPaywall, parseAndShowFromError } = usePaywall();
   const { data: paywallUsage } = usePaywallUsage();
   const effectivePro = useEffectivePro();
@@ -104,6 +104,7 @@ export function useCookDetail(id: string | undefined) {
     {
       query: {
         staleTime: 20_000,
+        enabled: !!isSignedIn && !!id,
         initialData: cookFromListCache,
         initialDataUpdatedAt: cookFromListCache ? 0 : undefined,
       } as any,
@@ -121,7 +122,7 @@ export function useCookDetail(id: string | undefined) {
   const { data: allCooksForCount } = useListCooks(undefined, {
     query: {
       queryKey: [...getListCooksQueryKey(), "active_count"],
-      enabled: cookStatus === "active",
+      enabled: !!isSignedIn && cookStatus === "active",
       staleTime: 30_000,
     },
   });
@@ -135,7 +136,7 @@ export function useCookDetail(id: string | undefined) {
     {
       query: {
         queryKey: getListCookCheckinsQueryKey(Number(id)),
-        enabled: cookStatus === "active" || cookStatus === "completed" || cookStatus === "planned",
+        enabled: !!isSignedIn && (cookStatus === "active" || cookStatus === "completed" || cookStatus === "planned"),
         refetchOnWindowFocus: cookStatus === "active",
       },
     },
@@ -164,7 +165,7 @@ export function useCookDetail(id: string | undefined) {
   const cookFinishUpper: string | null = cookWithFinishWindow?.finishTimeRangeUpper ?? null;
   const cookCurrentTempF: number | null = cookWithFinishWindow?.currentTempF ?? null;
 
-  const { data: grillsList } = useListGrills();
+  const { data: grillsList } = useListGrills({ query: { enabled: !!isSignedIn } } as any);
   const grills: any[] = Array.isArray(grillsList) ? grillsList : [];
 
   // Ratings state

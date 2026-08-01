@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@clerk/expo";
 import { planStyles as s } from "./styles";
 import { MEAT_CATEGORIES, MEAT_CUTS_BY_CATEGORY, isProduce, type MeatCut } from "@/constants/meatCuts";
 import {
@@ -209,12 +210,13 @@ export function MultiCookAddItemModal(p: Props) {
   const isEditMode = editIndex != null && editItem != null;
 
   const qc = useQueryClient();
-  const { data: customCutsData } = useListCustomMeatCuts();
+  const { isSignedIn } = useAuth();
+  const { data: customCutsData } = useListCustomMeatCuts({ query: { enabled: !!isSignedIn } } as any);
   const deleteCustomCut = useDeleteCustomMeatCut();
   const updateCustomCut = useUpdateCustomMeatCut();
   const customCuts: any[] = Array.isArray(customCutsData) ? customCutsData : [];
 
-  const { data: grillsList } = useListGrills();
+  const { data: grillsList } = useListGrills({ query: { enabled: !!isSignedIn } } as any);
   const grills: any[] = Array.isArray(grillsList) ? grillsList : [];
 
   const cutsForCategory = useMemo((): PickerCut[] => {
@@ -240,7 +242,7 @@ export function MultiCookAddItemModal(p: Props) {
   const { data: allPresets } = useGetTechniquePresets(
     {},
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { query: { staleTime: 10 * 60 * 1000 } as any },
+    { query: { staleTime: 10 * 60 * 1000, enabled: !!isSignedIn } as any },
   );
   const cutPresets = useMemo(
     () => allPresets?.filter(p => p.cutName === multiPickedCut?.name) ?? [],
@@ -251,7 +253,7 @@ export function MultiCookAddItemModal(p: Props) {
   const { data: allUserPresets, refetch: refetchUserPresets } = useListUserTechniquePresets(
     {},
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { query: { staleTime: 5 * 60 * 1000 } as any },
+    { query: { staleTime: 5 * 60 * 1000, enabled: !!isSignedIn } as any },
   );
   const cutUserPresets = useMemo(
     () => allUserPresets?.filter(p => p.cutName === multiPickedCut?.name) ?? [],

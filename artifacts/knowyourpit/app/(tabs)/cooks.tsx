@@ -377,7 +377,7 @@ export default function CooksScreen() {
   // planned cook from the Plan tab and navigating back here). See
   // useRefetchOnFocus for why this is necessary in addition to the Plan
   // screen's invalidateQueries() calls.
-  useRefetchOnFocus(refetch);
+  useRefetchOnFocus(!!isSignedIn, refetch);
   const { data: techniqueStats } = useGetCookTechniqueStats({
     query: { enabled: !!isSignedIn } as any,
   });

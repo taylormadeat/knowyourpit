@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { fetch as expoFetch } from "expo/fetch";
 import { useRouter } from "expo-router";
+import { useAuth } from "@clerk/expo";
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -139,10 +140,11 @@ function GrillFingerprintSection({
 }) {
   const [expanded, setExpanded] = React.useState(false);
 
+  const { isSignedIn } = useAuth();
   const { data, isLoading } = useGetGrillInsights(grillId, {
     query: {
       queryKey: getGetGrillInsightsQueryKey(grillId),
-      enabled: completedCookCount > 0,
+      enabled: !!isSignedIn && completedCookCount > 0,
       retry: false,
       staleTime: 5 * 60 * 1000,
     },
@@ -348,8 +350,9 @@ export default function GrillsScreen() {
   const colors = useColors();
   const qc = useQueryClient();
   const router = useRouter();
+  const { isSignedIn } = useAuth();
 
-  const { data: grills, isLoading } = useListGrills();
+  const { data: grills, isLoading } = useListGrills({ query: { enabled: !!isSignedIn } } as any);
   const createGrill = useCreateGrill();
   const updateGrill = useUpdateGrill();
   const deleteGrill = useDeleteGrill();

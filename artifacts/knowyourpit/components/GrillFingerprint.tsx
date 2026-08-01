@@ -7,6 +7,7 @@ import {
   getGetGrillFingerprintQueryKey,
   type GrillFingerprintDurationPattern,
 } from "@workspace/api-client-react";
+import { useAuth } from "@clerk/expo";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { BlurredProSection } from "@/components/BlurredProSection";
@@ -25,6 +26,7 @@ const CONFIDENCE_LABELS: Record<string, { label: string; segments: number }> = {
 
 export function GrillFingerprint({ grillId, grillName }: Props) {
   const colors = useColors();
+  const { isSignedIn } = useAuth();
   const effectivePro = useEffectivePro();
   const { showPaywall } = usePaywall();
   // Pro-only feature. Free users see a ghost "fingerprint is building"
@@ -34,7 +36,7 @@ export function GrillFingerprint({ grillId, grillName }: Props) {
   // payload from the server (which also enforces a 402 paywall response).
   const { data, isLoading, error } = useGetGrillFingerprint(grillId, {
     query: {
-      enabled: effectivePro,
+      enabled: !!isSignedIn && effectivePro,
       queryKey: getGetGrillFingerprintQueryKey(grillId),
     },
   });

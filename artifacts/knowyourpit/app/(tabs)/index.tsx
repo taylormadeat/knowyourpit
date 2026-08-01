@@ -15,7 +15,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
-import { useUser } from "@clerk/expo";
+import { useUser, useAuth } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
 import { useTopInset } from "@/hooks/useTopInset";
 import { useLayout } from "@/hooks/useLayout";
@@ -138,9 +138,12 @@ export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
   const { user } = useUser();
-  const { data: summary, isLoading: summaryLoading, refetch: refetchSummary } = useGetDashboardSummary();
+  const { isSignedIn } = useAuth();
+  const { data: summary, isLoading: summaryLoading, refetch: refetchSummary } = useGetDashboardSummary({
+    query: { enabled: !!isSignedIn },
+  } as any);
   // Prefetch grills with a long staleTime so the Plan tab has them cached on cold start
-  useListGrills({ query: { staleTime: 5 * 60 * 1000 } } as any);
+  useListGrills({ query: { staleTime: 5 * 60 * 1000, enabled: !!isSignedIn } } as any);
 
   // Track tab focus so we can poll while the user is watching the dashboard.
   const [isFocused, setIsFocused] = useState(false);
@@ -159,15 +162,16 @@ export default function HomeScreen() {
     query: {
       queryKey: getGetRecentCooksQueryKey(),
       refetchInterval: isFocused && hasActiveCook ? 30_000 : false,
+      enabled: !!isSignedIn,
     },
   });
-  const { data: insights, isLoading: insightsLoading, refetch: refetchInsights } = useHomeInsights();
+  const { data: insights, isLoading: insightsLoading, refetch: refetchInsights } = useHomeInsights(!!isSignedIn);
 
   // Force a refetch of the dashboard widgets every time this tab regains
   // focus (e.g. after saving a planned cook from the Plan tab). See
   // useRefetchOnFocus for why this is necessary in addition to the Plan
   // screen's invalidateQueries() calls.
-  useRefetchOnFocus(refetchSummary, refetchRecentCooks, refetchInsights);
+  useRefetchOnFocus(!!isSignedIn, refetchSummary, refetchRecentCooks, refetchInsights);
   const { isPro, isIdentityLinked, isInTrial, expirationDate } = useSubscription();
 
   // ── Pro trial banner state ───────────────────────────────────────────

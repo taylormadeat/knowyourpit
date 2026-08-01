@@ -78,11 +78,15 @@ export function getSessionCooks(sessionId: string): Promise<SessionCook[]> {
   return customFetch<SessionCook[]>(`/api/sessions/${encodeURIComponent(sessionId)}`);
 }
 
-export function useGetSessionCooks(sessionId: string) {
+export function useGetSessionCooks(
+  sessionId: string,
+  options?: { query?: { enabled?: boolean; [key: string]: unknown } },
+) {
   return useQuery<SessionCook[]>({
     queryKey: getGetSessionCooksQueryKey(sessionId),
     queryFn: () => getSessionCooks(sessionId),
     enabled: Boolean(sessionId),
+    ...options?.query,
   });
 }
 

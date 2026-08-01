@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
+import { useAuth } from "@clerk/expo";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { Feather } from "@expo/vector-icons";
@@ -319,6 +320,7 @@ export default function DevicesScreen() {
   const botPad = useBottomInset();
   const effectivePro = useEffectivePro();
   const { showPaywall, parseAndShowFromError } = usePaywall();
+  const { isSignedIn } = useAuth();
 
   const { data: meaterStatus, isLoading: meaterLoading } = useGetMeaterStatus({
     query: {
@@ -328,6 +330,7 @@ export default function DevicesScreen() {
       // resolved. Background refetch still fires silently after 60 s.
       staleTime: 60_000,
       placeholderData: keepPreviousData,
+      enabled: !!isSignedIn,
     },
   });
   const [meaterEmail, setMeaterEmail] = useState("");
@@ -360,6 +363,7 @@ export default function DevicesScreen() {
       // Same staleTime / placeholderData contract as useGetMeaterStatus above.
       staleTime: 60_000,
       placeholderData: keepPreviousData,
+      enabled: !!isSignedIn,
     },
   });
   const linkThermoworks = useLinkThermoworks();

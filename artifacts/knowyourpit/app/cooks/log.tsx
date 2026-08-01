@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useAuth } from "@clerk/expo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -310,7 +311,8 @@ export default function LogCookScreen() {
   const [ccCookMethod, setCcCookMethod] = useState("");
   const [ccCookMethodSheetOpen, setCcCookMethodSheetOpen] = useState(false);
 
-  const { data: customCutsData } = useListCustomMeatCuts();
+  const { isSignedIn } = useAuth();
+  const { data: customCutsData } = useListCustomMeatCuts({ query: { enabled: !!isSignedIn } } as any);
   const customCuts: any[] = Array.isArray(customCutsData) ? customCutsData : [];
   const createCustomCut = useCreateCustomMeatCut();
   const updateCustomCut = useUpdateCustomMeatCut();
@@ -454,7 +456,7 @@ export default function LogCookScreen() {
     return n <= cap ? n : d;
   });
 
-  const { data: grillsList } = useListGrills();
+  const { data: grillsList } = useListGrills({ query: { enabled: !!isSignedIn } } as any);
   const grills: any[] = Array.isArray(grillsList) ? grillsList : [];
   const selectedGrill = useMemo(() => grills.find((g: any) => g.id === selectedGrillId) ?? null, [grills, selectedGrillId]);
 

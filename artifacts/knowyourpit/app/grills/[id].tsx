@@ -9,6 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useAuth } from "@clerk/expo";
 import { useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
@@ -53,6 +54,7 @@ export default function GrillDetailScreen() {
   const topPad = useTopInset();
   const botPad = useBottomInset();
 
+  const { isSignedIn } = useAuth();
   const grillId = Number(id);
 
   const grillFromListCache = useMemo(() => {
@@ -68,6 +70,7 @@ export default function GrillDetailScreen() {
     query: {
       queryKey: getGetGrillQueryKey(grillId),
       staleTime: 30_000,
+      enabled: !!isSignedIn,
       initialData: grillFromListCache,
       initialDataUpdatedAt: grillFromListCache ? 0 : undefined,
     } as any,
@@ -77,7 +80,7 @@ export default function GrillDetailScreen() {
     query: {
       queryKey: getGetGrillStatsQueryKey(grillId),
       staleTime: 60_000,
-      enabled: !!grill,
+      enabled: !!isSignedIn && !!grill,
     },
   });
 

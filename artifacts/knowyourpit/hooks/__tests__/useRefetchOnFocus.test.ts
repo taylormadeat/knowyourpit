@@ -69,4 +69,25 @@ describe("useRefetchOnFocus", () => {
     expect(refetchRecentCooks).toHaveBeenCalledTimes(1);
     expect(refetchInsights).toHaveBeenCalledTimes(1);
   });
+
+  it("skips refetch when enabled=false (auth not yet resolved on cold start)", () => {
+    const refetch = jest.fn();
+    renderHook(() => useRefetchOnFocus(false, refetch));
+
+    focusCallback?.(); // initial mount — skipped
+    focusCallback?.(); // regains focus, but disabled
+    expect(refetch).not.toHaveBeenCalled();
+  });
+
+  it("fires refetch when enabled=true — stable refetch functions used directly", () => {
+    const refetchSummary = jest.fn();
+    const refetchRecentCooks = jest.fn();
+    renderHook(() => useRefetchOnFocus(true, refetchSummary, refetchRecentCooks));
+
+    focusCallback?.(); // initial mount — skipped
+    focusCallback?.(); // regains focus with auth resolved
+
+    expect(refetchSummary).toHaveBeenCalledTimes(1);
+    expect(refetchRecentCooks).toHaveBeenCalledTimes(1);
+  });
 });

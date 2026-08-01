@@ -41,9 +41,9 @@ export function AddItemToLiveCookModal({
   effectivePro = false,
   onSuccess,
 }: Props) {
-  const { getToken } = useAuth();
+  const { getToken, isSignedIn } = useAuth();
   const weather = useAmbientWeather();
-  const { data: grillsList } = useListGrills();
+  const { data: grillsList } = useListGrills({ query: { enabled: !!isSignedIn } } as any);
   const grills: any[] = Array.isArray(grillsList) ? grillsList : [];
 
   // State for MultiCookAddItemModal

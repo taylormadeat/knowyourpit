@@ -14,7 +14,7 @@ import {
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
-import { useUser } from "@clerk/expo";
+import { useUser, useAuth } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { useLayout } from "@/hooks/useLayout";
@@ -55,8 +55,9 @@ export default function ProfileScreen() {
   const colors = useColors();
   const { isTablet, contentMaxWidth } = useLayout();
   const { user } = useUser();
-  const { data: grills } = useListGrills();
-  const { data: cooks } = useListCooks();
+  const { isSignedIn } = useAuth();
+  const { data: grills } = useListGrills({ query: { enabled: !!isSignedIn } } as any);
+  const { data: cooks } = useListCooks(undefined, { query: { enabled: !!isSignedIn } as any });
   const { isPro, isIdentityLinked, expirationDate } = useSubscription();
   const effectivePro = useEffectivePro();
   const { showPaywall } = usePaywall();
