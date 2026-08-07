@@ -305,3 +305,10 @@ id = "7nmwwBhBXzSWWW7KlfXBb"
 uri = "file://attached_assets/generated_images/kyp_social_cooklog_reference.jpg"
 type = "image"
 title = "Cook Log + AI Analysis — Reference Image"
+
+[[outputs]]
+id = "nzI5P1XeBcLuLFfF1Emnz"
+uri = "file://artifacts/marketing/public/print/kypflyer-fixed-qr.png"
+type = "image"
+title = "kypyourpit flyer — fixed QR code"
+description = "Same design, QR replaced with a valid 220px code linking to the App Store."
