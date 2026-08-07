@@ -317,5 +317,5 @@ description = "Valid QR code, sized to fit below the callout box without overlap
 id = "_3xqab2VDQpmC8k5eoso0"
 uri = "file://artifacts/marketing/public/print/flyer-android-beta.png"
 type = "image"
-title = "Android Beta Tester — Sign-Up Flyer"
-description = "Print-ready 8.5×11 flyer. QR links to the Google Form sign-up."
+title = "Android Beta Tester — Sign-Up Flyer (v2)"
+description = "Text fits inside the card, unofficial icon removed. QR links to the Google Form."
