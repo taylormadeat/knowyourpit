@@ -319,3 +319,24 @@ uri = "file://artifacts/marketing/public/print/flyer-android-beta.png"
 type = "image"
 title = "Android Beta Tester — Sign-Up Flyer (v2)"
 description = "Text fits inside the card, unofficial icon removed. QR links to the Google Form."
+
+[[outputs]]
+id = "zW9PxV-Pm5IUbMEH0hzmC"
+uri = "file://artifacts/marketing/public/print/flyer-screenshots-planning.png"
+type = "image"
+title = "Flyer — Cook smarter. Finish together."
+description = "Planning flow: Select a Food → Cook Sequence → Sequence Plan"
+
+[[outputs]]
+id = "SoAn_IdVNA9tS3SihJ7ii"
+uri = "file://artifacts/marketing/public/print/flyer-screenshots-live.png"
+type = "image"
+title = "Flyer — Live coaching while you cook."
+description = "Active cooking: My Grills → Whole Turkey live → Tri-Tip timeline"
+
+[[outputs]]
+id = "HjoyA6TIXlXCWqc8WMlca"
+uri = "file://artifacts/marketing/public/print/flyer-screenshots-analysis.png"
+type = "image"
+title = "Flyer — Grade every cook. Get better every time."
+description = "Post-cook analysis: PitMaster Score → Short Ribs B- → Tomahawk A Perfect Cook"
