@@ -408,6 +408,202 @@ describe("edge cases", () => {
   });
 });
 
+// ── Direct-heat wrap suppression ─────────────────────────────────────────────
+// Regression coverage for the method-aware coaching engine gate that forces
+// wrapMethod = "none" (and clears all wrap fields) when cookingMethod is a
+// direct-heat variant, regardless of what the AI JSON returns.
+
+describe("direct-heat wrap suppression in processMultiCookResult", () => {
+  const FUTURE_SERVE_AT = new Date(Date.now() + 10 * 60 * 60 * 1000); // 10h from now
+
+  function reqItemWithMethod(
+    foodType: string,
+    cookingMethod: string | null,
+    grillName: string | null = null,
+  ) {
+    return {
+      foodType,
+      grillName,
+      grillId: null,
+      weightLbs: 5,
+      cookTempF: 450,
+      targetTempF: 165,
+      preheatMinutes: 15,
+      cookingMethod,
+      cookingStylePreset: null,
+      fromFrozen: false,
+      thawMethod: null,
+    };
+  }
+
+  const directHeatMethods = [
+    "Direct Heat",
+    "direct heat",
+    "Sear",
+    "sear",
+    "Griddle",
+    "griddle",
+    "Direct Heat / Sear",
+  ];
+
+  // Each method variant must suppress wrap regardless of what the AI returns.
+  for (const method of directHeatMethods) {
+    describe(`cookingMethod = "${method}"`, () => {
+      const AI_WRAP_VALUES = [
+        { wrapMethod: "foil",          wrapAtMinutes: 30, wrapTempF: 165, wrapReason: "Prevents stalling" },
+        { wrapMethod: "butcher_paper", wrapAtMinutes: 45, wrapTempF: 170, wrapReason: "Keeps bark crispy" },
+        { wrapMethod: null,            wrapAtMinutes: null, wrapTempF: null, wrapReason: null },
+      ];
+
+      for (const aiWrap of AI_WRAP_VALUES) {
+        it(`forces wrapMethod = "none" even when AI returns wrapMethod = ${JSON.stringify(aiWrap.wrapMethod)}`, () => {
+          const raw = {
+            schedule: [
+              {
+                foodType: "Chicken Thighs",
+                grillLightAt: new Date(Date.now() + 30 * 60_000).toISOString(),
+                meatOnAt: new Date(Date.now() + 45 * 60_000).toISOString(),
+                estimatedFinishAt: new Date(Date.now() + 105 * 60_000).toISOString(),
+                estimatedDurationMinutes: 60,
+                preheatMinutes: 15,
+                restMinutes: 5,
+                ...aiWrap,
+                notes: "Cook over direct heat.",
+              },
+            ],
+            sharedGrillTips: null,
+          };
+
+          const result = processMultiCookResult(
+            raw,
+            FUTURE_SERVE_AT,
+            [reqItemWithMethod("Chicken Thighs", method)],
+          );
+
+          const item = result.schedule[0];
+          expect(item.wrapMethod).toBe("none");
+        });
+
+        it(`clears wrapAtMinutes to null when AI returns wrapAtMinutes = ${JSON.stringify(aiWrap.wrapAtMinutes)}`, () => {
+          const raw = {
+            schedule: [
+              {
+                foodType: "Steak",
+                grillLightAt: new Date(Date.now() + 30 * 60_000).toISOString(),
+                meatOnAt: new Date(Date.now() + 45 * 60_000).toISOString(),
+                estimatedFinishAt: new Date(Date.now() + 75 * 60_000).toISOString(),
+                estimatedDurationMinutes: 30,
+                preheatMinutes: 15,
+                restMinutes: 10,
+                ...aiWrap,
+                notes: "Sear over direct flame.",
+              },
+            ],
+            sharedGrillTips: null,
+          };
+
+          const result = processMultiCookResult(
+            raw,
+            FUTURE_SERVE_AT,
+            [reqItemWithMethod("Steak", method)],
+          );
+
+          const item = result.schedule[0];
+          expect(item.wrapAtMinutes).toBeNull();
+          expect(item.wrapTempF).toBeNull();
+          expect(item.wrapReason).toBeNull();
+        });
+      }
+    });
+  }
+
+  it("does NOT suppress wrap for a smoke method even when the AI returns foil wrap", () => {
+    const raw = {
+      schedule: [
+        {
+          foodType: "Brisket",
+          grillLightAt: new Date(Date.now() + 30 * 60_000).toISOString(),
+          meatOnAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+          estimatedFinishAt: new Date(Date.now() + 900 * 60_000).toISOString(),
+          estimatedDurationMinutes: 840,
+          preheatMinutes: 30,
+          restMinutes: 60,
+          wrapMethod: "foil",
+          wrapAtMinutes: 300,
+          wrapTempF: 165,
+          wrapReason: "Push through the stall.",
+          notes: "Long smoke.",
+        },
+      ],
+      sharedGrillTips: null,
+    };
+
+    const result = processMultiCookResult(
+      raw,
+      FUTURE_SERVE_AT,
+      [reqItemWithMethod("Brisket", "Low and Slow")],
+    );
+
+    const item = result.schedule[0];
+    expect(item.wrapMethod).toBe("foil");
+    expect(item.wrapAtMinutes).not.toBeNull();
+  });
+
+  it("correctly suppresses wrap for a direct-heat item while preserving wrap on a smoke item in the same schedule", () => {
+    const raw = {
+      schedule: [
+        {
+          foodType: "Brisket",
+          grillLightAt: new Date(Date.now() + 30 * 60_000).toISOString(),
+          meatOnAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+          estimatedFinishAt: new Date(Date.now() + 900 * 60_000).toISOString(),
+          estimatedDurationMinutes: 840,
+          preheatMinutes: 30,
+          restMinutes: 60,
+          wrapMethod: "foil",
+          wrapAtMinutes: 300,
+          wrapTempF: 165,
+          wrapReason: "Push through stall.",
+          notes: "Long smoke.",
+        },
+        {
+          foodType: "Corn",
+          grillLightAt: new Date(Date.now() + 31 * 60_000).toISOString(),
+          meatOnAt: new Date(Date.now() + 46 * 60_000).toISOString(),
+          estimatedFinishAt: new Date(Date.now() + 76 * 60_000).toISOString(),
+          estimatedDurationMinutes: 30,
+          preheatMinutes: 15,
+          restMinutes: 0,
+          wrapMethod: "foil",     // AI incorrectly suggests foil for a direct-heat item
+          wrapAtMinutes: 15,
+          wrapTempF: null,
+          wrapReason: "Lock in moisture.",
+          notes: "Quick grill.",
+        },
+      ],
+      sharedGrillTips: null,
+    };
+
+    const result = processMultiCookResult(raw, FUTURE_SERVE_AT, [
+      reqItemWithMethod("Brisket", "Low and Slow", "Offset Smoker"),
+      reqItemWithMethod("Corn", "Direct Heat", "Gas Grill"),
+    ]);
+
+    const brisket = result.schedule.find((s: any) => s.foodType === "Brisket");
+    const corn = result.schedule.find((s: any) => s.foodType === "Corn");
+
+    // Smoke item: wrap preserved
+    expect(brisket.wrapMethod).toBe("foil");
+    expect(brisket.wrapAtMinutes).not.toBeNull();
+
+    // Direct-heat item: wrap suppressed
+    expect(corn.wrapMethod).toBe("none");
+    expect(corn.wrapAtMinutes).toBeNull();
+    expect(corn.wrapTempF).toBeNull();
+    expect(corn.wrapReason).toBeNull();
+  });
+});
+
 // ── Deterministic realignment to serveAt (feasible schedules) ────────────────
 // Regression coverage for the multi-cook sequencer bug where the AI's own
 // backward-math timestamps landed a consistent 20 minutes after the

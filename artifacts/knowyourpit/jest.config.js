@@ -1,7 +1,10 @@
 /** @type {import('jest').Config} */
 const config = {
   preset: "jest-expo",
-  testMatch: ["**/hooks/**/__tests__/**/*.test.[jt]s?(x)"],
+  testMatch: [
+    "**/hooks/**/__tests__/**/*.test.[jt]s?(x)",
+    "**/utils/__tests__/**/*.test.[jt]s?(x)",
+  ],
   // pnpm stores packages in node_modules/.pnpm/<name>@<ver>/node_modules/<name>
   // so the naive `node_modules/(?!react-native...)` pattern matches the .pnpm
   // directory and excludes everything from transformation.  This pattern handles

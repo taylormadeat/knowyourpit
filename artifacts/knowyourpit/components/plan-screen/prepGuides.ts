@@ -106,7 +106,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Rest uncovered overnight in the fridge for better bark.",
     ],
     tip: "At 160°F the stall hits. Wrap in butcher paper to power through.",
-    directHeatTip: "Indirect heat, 275°F, fat cap up. The stall still hits — push through or wrap in foil at 160°F. Pull at 195–205°F for pulling.",
+    directHeatTip: "For direct-heat pork, slice the shoulder into 1-inch steaks or cube it for skewers — a whole shoulder needs low-and-slow heat. Grill over medium-high, 5–6 min per side, and pull at 145°F. Rest 5 minutes before serving.",
   },
   ribs: {
     steps: [
@@ -116,7 +116,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Let sit 30–60 minutes before cooking, or overnight in the fridge.",
     ],
     tip: "3-2-1 method (3h smoke, 2h wrapped, 1h unwrapped) works great for baby backs.",
-    directHeatTip: "Indirect heat setup: coals to the sides, ribs in the center. 250–275°F, 3–4 hours. No foil needed — glaze in the last 20 minutes.",
+    directHeatTip: "For direct-heat ribs, country-style or thin-cut spare ribs work best. Medium heat, lid down, flip every 5–7 minutes. Move to a cooler zone if they're charring before they're cooked through. Pull when they bend easily and hit 190°F+.",
   },
   pork_belly: {
     steps: [
