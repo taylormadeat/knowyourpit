@@ -985,7 +985,13 @@ export default function CooksScreen() {
           )}
           {isActive && elapsedMs !== null && (
             <Text style={[s.liveElapsed, { color: "#E84820" }]}>
-              {fmtElapsed(elapsedMs)} on the smoker
+              {fmtElapsed(elapsedMs)} {(() => {
+                const m = ((item as any).cookingMethod ?? "").toLowerCase();
+                if (m.includes("smoke") || m.includes("low and slow") || m.includes("low & slow")) return "on the smoker";
+                if (m.includes("rotisserie")) return "on the rotisserie";
+                if (m.includes("griddle")) return "on the griddle";
+                return "on the grill";
+              })()}
             </Text>
           )}
           {isActive && (() => {

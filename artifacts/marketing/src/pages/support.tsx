@@ -114,7 +114,7 @@ export default function Support() {
             <AccordionItem value="item-6">
               <AccordionTrigger>The AI cook time prediction seems off — what should I do?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                AI predictions improve as you log more cooks with ratings. After each session, rate your results (tenderness, flavor, bark) so the app can refine its estimates for your grill and cook style. If predictions are consistently off, check that your grill profile (type, size, fuel) is set up accurately in Settings.
+                AI predictions improve as you log more cooks with ratings. After each session, rate your results (tenderness, flavor, bark or crust) so the app can refine its estimates for your grill and cook style. If predictions are consistently off, check that your grill profile (type, size, fuel) is set up accurately in Settings.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-7">

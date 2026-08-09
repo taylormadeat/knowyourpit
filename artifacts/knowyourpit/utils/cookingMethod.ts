@@ -48,6 +48,36 @@ export function cookMethodDisplayLabel(method: string | null | undefined): strin
   }
 }
 
+/**
+ * Method-aware label for the cook-chamber temperature sensor.
+ * Direct-heat methods → "Grill Temp"
+ * Smoke / indirect / rotisserie → "Pit Temp"
+ * Unknown → "Cook Temp"
+ */
+export function pitTempLabel(
+  method: string | null | undefined,
+  withUnit = false,
+): string {
+  const cls = classifyCookingMethod(method);
+  let label: string;
+  switch (cls) {
+    case "direct":
+    case "sear":
+    case "griddle":
+      label = "Grill Temp";
+      break;
+    case "smoke":
+    case "indirect":
+    case "reverse_sear":
+    case "rotisserie":
+      label = "Pit Temp";
+      break;
+    default:
+      label = "Cook Temp";
+  }
+  return withUnit ? `${label} (°F)` : label;
+}
+
 /** Verb phrase for use in context copy, e.g. "on the smoker" → "on the grill". */
 export function cookMethodContextPhrase(method: string | null | undefined): string {
   const cls = classifyCookingMethod(method);

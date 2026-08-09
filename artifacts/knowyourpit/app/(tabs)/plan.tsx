@@ -118,6 +118,7 @@ import { SettingsRow } from "@/components/plan-screen/SettingsRow";
 import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
 import { MeatPickerModal } from "@/components/plan-screen/MeatPickerModal";
 import { isProduce } from "@/constants/meatCuts";
+import { pitTempLabel } from "@/utils/cookingMethod";
 import { DatePickerModal, TimePickerModal } from "@/components/plan-screen/DateTimePickerModals";
 import { MultiCookResultModal } from "@/components/plan-screen/MultiCookResultModal";
 import { MultiCookAddItemModal, type MultiItem } from "@/components/plan-screen/MultiCookAddItemModal";
@@ -2439,7 +2440,7 @@ export default function PlanScreen() {
           )}
           <View style={{ width: 12 }} />
           <View style={{ flex: 1 }}>
-            <Label colors={colors}>Pit Temp (°F)</Label>
+            <Label colors={colors}>{pitTempLabel(qpCookMethod, true)}</Label>
             <View style={[s.inputWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
               <TextInput
                 style={[s.input, { color: colors.foreground }]}

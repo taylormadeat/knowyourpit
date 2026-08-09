@@ -7,12 +7,19 @@ const logoImg = require("@/assets/images/icon-transparent-light.png");
 
 const CARD_SIZE = 1080;
 
-const FALLBACK_VERDICT = "Smoked low and slow with knowyourpit.";
+function fallbackVerdict(cookingMethod?: string | null): string {
+  const m = (cookingMethod ?? "").toLowerCase();
+  if (m.includes("smoke") || m.includes("low and slow") || m.includes("low & slow")) return "Smoked low and slow with knowyourpit.";
+  if (m.includes("direct") || m.includes("sear") || m.includes("griddle")) return "Grilled to perfection with knowyourpit.";
+  if (m.includes("rotisserie")) return "Rotisserie cooked with knowyourpit.";
+  return "Cooked with knowyourpit.";
+}
 
-function firstSentence(text: string | null | undefined): string {
-  if (!text) return FALLBACK_VERDICT;
+function firstSentence(text: string | null | undefined, cookingMethod?: string | null): string {
+  const fb = fallbackVerdict(cookingMethod);
+  if (!text) return fb;
   const trimmed = text.trim();
-  if (!trimmed) return FALLBACK_VERDICT;
+  if (!trimmed) return fb;
   const match = trimmed.match(/^[^.!?]+[.!?]/);
   const sentence = (match ? match[0] : trimmed).trim();
   if (sentence.length > 180) {
@@ -51,7 +58,9 @@ export const CookShareCard = forwardRef<ViewShotRef, Props>(({ cook }, ref) => {
     ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
     : 0;
 
-  const verdict = firstSentence(cook?.analysisResult?.assessment?.summary);
+  const cookingMethod = cook?.cookingMethod ?? null;
+  const isDirectHeatCook = (() => { const m = (cookingMethod ?? "").toLowerCase(); return m.includes("direct") || m.includes("sear") || m.includes("griddle"); })();
+  const verdict = firstSentence(cook?.analysisResult?.assessment?.summary, cookingMethod);
   const duration = fmtCookDuration(cook);
   const meatType = cook?.foodType || "Cook";
   const grillName = cook?.grillName ?? null;
@@ -97,7 +106,7 @@ export const CookShareCard = forwardRef<ViewShotRef, Props>(({ cook }, ref) => {
             {[
               { label: "Tenderness", val: tenderness },
               { label: "Flavor", val: flavor },
-              { label: "Bark", val: bark },
+              { label: isDirectHeatCook ? "Crust" : "Bark", val: bark },
             ].map((r) => (
               <View key={r.label} style={cs.ratingRow}>
                 <Text style={cs.ratingLabel}>{r.label}</Text>

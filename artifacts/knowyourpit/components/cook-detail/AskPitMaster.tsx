@@ -167,7 +167,7 @@ export function AskPitMaster(p: Props) {
                   </Text>
                 </View>
                 <View style={[qs.tempReadBox, { flex: 1, backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
-                  <Text style={[qs.tempReadLabel, { color: colors.mutedForeground }]}>Pit temp</Text>
+                  <Text style={[qs.tempReadLabel, { color: colors.mutedForeground }]}>Cook temp</Text>
                   <Text style={[qs.tempReadValue, { color: colors.foreground }]}>
                     {lastCheckinPitTempF != null ? `${lastCheckinPitTempF}°F` : "—"}
                   </Text>
@@ -184,8 +184,8 @@ export function AskPitMaster(p: Props) {
               <Feather name="thermometer" size={15} color={colors.mutedForeground as string} />
               <Text style={[qs.noCheckinText, { color: colors.mutedForeground }]}>
                 {meaterLinked === true && meaterProbes.length > 0 && liveMeaterTemp != null
-                  ? `Live probe at ${liveMeaterTemp}°F · tap "Check In with PitMaster" to log your pit temp too`
-                  : `Tap "Check In with PitMaster" to log your probe and pit temperatures.`}
+                  ? `Live probe at ${liveMeaterTemp}°F · tap "Check In with PitMaster" to log your cook temp too`
+                  : `Tap "Check In with PitMaster" to log your probe and cook temperatures.`}
               </Text>
             </View>
           )}

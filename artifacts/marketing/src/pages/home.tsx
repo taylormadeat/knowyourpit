@@ -15,7 +15,7 @@ const SHOTS = [
   {
     src: "ss-plan-cook.png",
     title: "A plan built for your pit — or your whole spread",
-    caption: "Tell PitMaster what you're cooking and when you want to serve. It builds a step-by-step schedule tailored to your rig and history. Flag a cut as frozen and it folds in thaw time and a temper window automatically — so the plan accounts for the full timeline, not just the smoke.",
+    caption: "Tell PitMaster what you're cooking and when you want to serve. It builds a step-by-step schedule tailored to your rig and history. Flag a cut as frozen and it folds in thaw time and a temper window automatically — so the plan accounts for the full timeline, not just the cook window.",
     alt: "Plan a Cook screen with Pulled Pork selected and a prep guide open",
   },
   {
@@ -129,7 +129,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           >
-            PitMaster analyzes your live probe and pit temperatures, tells you what to do next with the reasoning behind the call, and sequences multi-cook spreads so everything finishes at once. Cooking from frozen? It folds in thaw time and temper windows so the full schedule is accounted for — not just the smoke.
+            PitMaster analyzes your live probe and cook temperatures, tells you what to do next with the reasoning behind the call, and sequences multi-cook spreads so everything finishes at once. Cooking from frozen? It folds in thaw time and temper windows so the full schedule is accounted for.
           </motion.p>
 
           <motion.div
@@ -239,11 +239,11 @@ export default function Home() {
                 Live probe data. Stall detected. Next move clear.
               </h2>
               <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-6">
-                PitMaster reads your probe and pit temperatures the moment a session starts. It detects stalls and climbs from the actual data, tells you what to do next with the reasoning behind the call, and updates its read as your cook evolves.
+                PitMaster reads your probe and cook temperatures the moment a session starts. It analyzes the temperature curve from actual data, tells you what to do next with the reasoning behind the call, and updates its read as your cook evolves.
               </p>
               <ul className="space-y-3 text-sm md:text-base text-muted-foreground mb-8 text-left w-full max-w-sm md:max-w-none">
                 {[
-                  "Live probe and pit temps feed the analysis — stall and climb detection from real data",
+                  "Live probe and cook temps feed the analysis — temperature pattern detection from real data",
                   "PitMaster tells you what to do next and explains why — based on what's actually happening in your pit",
                   "Check in at any point for a fresh read — the recommendation updates against your current curve",
                 ].map((point) => (

@@ -381,8 +381,11 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
     ];
     if (cookContext?.currentPitTempF) hintLines.push(`Current pit/ambient temp: ${cookContext.currentPitTempF}°F`);
     if (cookContext?.elapsedMinutes) hintLines.push(`Elapsed cook time: ${cookContext.elapsedMinutes} min`);
-    if (heuristicEstimates.timeToStallMinutes != null) hintLines.push(`Heuristic estimate — time to stall: ~${heuristicEstimates.timeToStallMinutes} min`);
-    if (heuristicEstimates.stallDurationMinutes != null) hintLines.push(`Heuristic estimate — stall duration: ~${heuristicEstimates.stallDurationMinutes} min`);
+    // Stall estimates only apply to low-and-slow / indirect methods.
+    const analyzeMethodStr = ((cookContext as any)?.cookingMethod ?? "").toLowerCase();
+    const analyzeIsDirect = analyzeMethodStr.includes("direct") || analyzeMethodStr.includes("sear") || analyzeMethodStr.includes("griddle");
+    if (!analyzeIsDirect && heuristicEstimates.timeToStallMinutes != null) hintLines.push(`Heuristic estimate — time to stall: ~${heuristicEstimates.timeToStallMinutes} min`);
+    if (!analyzeIsDirect && heuristicEstimates.stallDurationMinutes != null) hintLines.push(`Heuristic estimate — stall duration: ~${heuristicEstimates.stallDurationMinutes} min`);
     if (heuristicEstimates.timeToFinishMinutes != null) hintLines.push(`Heuristic estimate — time to finish: ~${heuristicEstimates.timeToFinishMinutes} min`);
 
     // Include a snapshot of the readings

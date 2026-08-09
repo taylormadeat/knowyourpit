@@ -150,7 +150,11 @@ router.get("/ai/home-insights/tips", requireAuth, async (req: any, res): Promise
         const parts = [c.foodType || "unknown"];
         if (c.rating) parts.push(`rated ${c.rating}/5`);
         if (c.ratingTenderness) parts.push(`tenderness ${c.ratingTenderness}/5`);
-        if (c.ratingBark) parts.push(`bark ${c.ratingBark}/5`);
+        if (c.ratingBark) {
+          const barkM = ((c as any).cookingMethod ?? "").toLowerCase();
+          const barkLabel = (barkM.includes("direct") || barkM.includes("sear") || barkM.includes("griddle")) ? "crust" : "bark";
+          parts.push(`${barkLabel} ${c.ratingBark}/5`);
+        }
         if (c.ratingFlavor) parts.push(`flavor ${c.ratingFlavor}/5`);
         const assessment = getAssessment(c.analysisResult);
         if (assessment?.verdict) parts.push(`verdict: "${assessment.verdict}"`);

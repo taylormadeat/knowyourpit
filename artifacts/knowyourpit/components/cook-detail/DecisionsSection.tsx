@@ -6,8 +6,8 @@ import type { Decision } from "./types";
 const ACTION_CONFIG: Record<string, { label: string; icon: string; colorHex: string }> = {
   wrap:            { label: "Wrap",            icon: "package",       colorHex: "#F97316" },
   spritz:          { label: "Spritz",          icon: "wind",          colorHex: "#0EA5E9" },
-  increase_pit:    { label: "Raise Pit Temp",  icon: "trending-up",   colorHex: "#EF4444" },
-  decrease_pit:    { label: "Lower Pit Temp",  icon: "trending-down", colorHex: "#22C55E" },
+  increase_pit:    { label: "Raise Cook Temp", icon: "trending-up",   colorHex: "#EF4444" },
+  decrease_pit:    { label: "Lower Cook Temp", icon: "trending-down", colorHex: "#22C55E" },
   pull:            { label: "Pull Off",        icon: "check-circle",  colorHex: "#22C55E" },
   recover_schedule:{ label: "Recover",         icon: "refresh-cw",    colorHex: "#6C3BF5" },
   maintain:        { label: "Maintain",        icon: "activity",      colorHex: "#6B7280" },

@@ -238,7 +238,7 @@ export default function GrillDetailScreen() {
             {stats?.avgPitTempF != null && (
               <StatItem
                 icon="thermometer"
-                label="Avg Pit Temp"
+                label="Avg Cook Temp"
                 value={`${Math.round(stats.avgPitTempF)}°F`}
                 colors={colors}
               />

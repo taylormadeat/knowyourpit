@@ -226,7 +226,7 @@ export function useAnalysis({
     if (!hasAnyInput && !hasMeaterTemp && !hasLiveProbeTemp) {
       if (auto) return;
       if (cookStatus === "active") {
-        Alert.alert("Nothing to check in with", "Log a check-in with your probe and pit temperatures, or add a note about what's happening.");
+        Alert.alert("Nothing to check in with", "Log a check-in with your probe and cook temperatures, or add a note about what's happening.");
       } else {
         Alert.alert("Add something", "Upload a thermometer image, enter your temperature reading, or add cook notes before analyzing.");
       }

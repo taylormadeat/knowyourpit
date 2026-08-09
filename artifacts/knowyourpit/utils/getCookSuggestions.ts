@@ -144,6 +144,14 @@ export function getCookSuggestions(
       "How do I get a better crust?",
     ];
   }
+  if (isDirect) {
+    return [
+      "Am I on track with timing?",
+      "How do I get a better crust?",
+      "When should I flip?",
+      "How long should I rest it?",
+    ];
+  }
   return [
     "Temp stalled — now what?",
     "Am I on track with timing?",

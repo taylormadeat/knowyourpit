@@ -12,6 +12,8 @@ export interface ProactiveAlertOptions {
   /** Mid-point of the current checkin phase's expected internal temp range. */
   expectedInternalTempF: number | null | undefined;
   foodType: string | null | undefined;
+  /** Cooking method — stall alerts are suppressed for direct-heat cooks. */
+  cookingMethod?: string | null;
 }
 
 interface FiredState {
@@ -143,7 +145,11 @@ export function useProactiveAlerts() {
         probeInternalTempF >= stallMin &&
         probeInternalTempF <= stallMax;
 
-      if (spread < STALL_THRESHOLD_F && belowTarget && inStallZone) {
+      // Stall is only meaningful for low-and-slow / indirect cooks; skip for direct heat.
+      const m = (opts?.cookingMethod ?? "").toLowerCase();
+      const isDirectHeatCook =
+        m.includes("direct") || m.includes("sear") || m.includes("griddle");
+      if (!isDirectHeatCook && spread < STALL_THRESHOLD_F && belowTarget && inStallZone) {
         fired.stall = true;
         const note = `Internal temp has been stuck between ${Math.round(windowMin)}–${Math.round(windowMax)}°F for the last ${STALL_WINDOW} readings — stall is in progress.`;
         safeScheduleNotification(

@@ -32,6 +32,7 @@ import { AnimatedBarFill } from "@/components/cook-detail/CookProgressBar";
 import { ThawStatusBanner } from "@/components/cook-detail/ThawStatusBanner";
 import { PitMasterChatModal } from "@/components/PitMasterChatModal";
 import { ActiveCookCard } from "@/components/home/ActiveCookCard";
+import { cookMethodContextPhrase } from "@/utils/cookingMethod";
 import { SetDisplayNameModal, NAME_PROMPT_SEEN_KEY } from "@/components/SetDisplayNameModal";
 
 const logoImg = require("@/assets/images/icon-transparent-light.png");
@@ -285,10 +286,10 @@ export default function HomeScreen() {
   const primaryIsMeatOn = primarySeqMeatOnMs == null || primarySeqMeatOnMs <= nowMs;
 
   const heroSub = activeCooks.length > 1
-    ? `${activeCooks.length} cooks on the smoker right now`
+    ? `${activeCooks.length} cooks on right now`
     : primaryActiveCook
     ? primaryIsMeatOn
-      ? `${(primaryActiveCook as any).foodType || "Your cook"} is on the smoker right now`
+      ? `${(primaryActiveCook as any).foodType || "Your cook"} is ${cookMethodContextPhrase((primaryActiveCook as any).cookingMethod)}`
       : `${(primaryActiveCook as any).foodType || "Your cook"} is thawing right now`
     : upcomingCook
     ? `${(upcomingCook as any).foodType || "Your cook"} is coming up — time to prep`

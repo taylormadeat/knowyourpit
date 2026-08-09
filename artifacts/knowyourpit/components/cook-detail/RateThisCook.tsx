@@ -16,10 +16,13 @@ interface Props {
   setRateBark: (v: number) => void;
   rateSaving: boolean;
   saveRatings: (t: number, f: number, b: number) => void;
+  cookingMethod?: string | null;
 }
 
 export function RateThisCook(p: Props) {
-  const { c, colors, rateTenderness, setRateTenderness, rateFlavor, setRateFlavor, rateBark, setRateBark, rateSaving, saveRatings } = p;
+  const { c, colors, rateTenderness, setRateTenderness, rateFlavor, setRateFlavor, rateBark, setRateBark, rateSaving, saveRatings, cookingMethod } = p;
+  const m = (cookingMethod ?? "").toLowerCase();
+  const isDirectHeat = m.includes("direct") || m.includes("sear") || m.includes("griddle");
   if (c.status !== "completed") return null;
 
   return (
@@ -39,7 +42,7 @@ export function RateThisCook(p: Props) {
       {[
         { label: "Tenderness", icon: "droplet" as const, value: rateTenderness, setter: setRateTenderness, field: "tenderness" },
         { label: "Flavor",     icon: "heart"   as const, value: rateFlavor,    setter: setRateFlavor,    field: "flavor"    },
-        { label: "Bark/Color", icon: "layers"  as const, value: rateBark,      setter: setRateBark,      field: "bark"      },
+        { label: isDirectHeat ? "Crust / Char" : "Bark / Color", icon: "layers" as const, value: rateBark, setter: setRateBark, field: "bark" },
       ].map((row) => (
         <View key={row.label} style={[s.rateRow, { borderTopColor: colors.border }]}>
           <View style={s.rateRowLeft}>

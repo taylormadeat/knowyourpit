@@ -56,10 +56,10 @@ interface ConversationGroup {
 const HISTORY_LIMIT = 20;
 
 const SUGGESTED = [
-  "Brisket hit the stall — now what?",
   "How long per lb for pork butt?",
-  "How do I get better bark?",
   "Best wood for beef ribs?",
+  "How do I manage heat zones on my grill?",
+  "How do I get a better crust on steak?",
 ];
 
 const INPUT_BAR_GAP_ABOVE_TABS = 10;

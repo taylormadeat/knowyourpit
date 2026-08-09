@@ -708,7 +708,7 @@ export function UnifiedCheckinSheet({
                     color: "#F59E0B",
                   }}
                 >
-                  Pit Temp {pitDriftDir === "high" ? "Running Hot" : "Running Cold"}
+                  Cook Temp {pitDriftDir === "high" ? "Running Hot" : "Running Cold"}
                 </Text>
                 <Text
                   style={{
@@ -865,7 +865,7 @@ export function UnifiedCheckinSheet({
                       color: colors.mutedForeground,
                     }}
                   >
-                    Pit Temp
+                    Cook Temp
                   </Text>
                   {currentPitTempF != null && (
                     <View
@@ -948,7 +948,7 @@ export function UnifiedCheckinSheet({
                   marginTop: 2,
                 }}
               >
-                {isProduceCook ? "Enter pit temp to check in" : "Enter both internal and pit temps to check in"}
+                {isProduceCook ? "Enter cook temp to check in" : "Enter both internal and cook temps to check in"}
               </Text>
             )}
 

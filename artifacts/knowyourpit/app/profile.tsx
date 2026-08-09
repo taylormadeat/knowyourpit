@@ -475,7 +475,7 @@ export default function ProfileScreen() {
                       lineHeight: 16,
                     }}
                   >
-                    See tenderness, bark, and flavor trends across all your cooks with Pro.
+                    See tenderness, bark/crust, and flavor trends across all your cooks with Pro.
                   </Text>
                 </View>
                 <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
@@ -574,7 +574,7 @@ export default function ProfileScreen() {
                             <View style={s.qualityRow}>
                               {[
                                 { label: "T", fullLabel: "Tenderness", value: t },
-                                { label: "B", fullLabel: "Bark", value: b },
+                                { label: "B", fullLabel: "Bark/Crust", value: b },
                                 { label: "F", fullLabel: "Flavor", value: f },
                               ].map((item) => (
                                 <View key={item.label} style={s.qualityItemCompact}>
@@ -627,7 +627,7 @@ export default function ProfileScreen() {
                       <View style={s.qualityRow}>
                         {[
                           { label: "Tenderness", value: avgTenderness },
-                          { label: "Bark", value: avgBark },
+                          { label: "Bark/Crust", value: avgBark },
                           { label: "Flavor", value: avgFlavor },
                         ].map((item) => (
                           <View key={item.label} style={s.qualityItem}>

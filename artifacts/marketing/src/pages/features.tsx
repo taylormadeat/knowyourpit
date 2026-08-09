@@ -25,7 +25,7 @@ const FEATURES = [
     icon: ClipboardList,
     title: "Cook Planning",
     shortTitle: "Cook Planning",
-    body: "Tell PitMaster what you're cooking and when you want to serve. It builds an hour-by-hour schedule around your specific smoker, your past cook times, and today's outdoor temperature. You get a start time for your fire, a time to put meat on, wrap checkpoints, and a target pull window — all calculated for your pit, not a textbook estimate.",
+    body: "Tell PitMaster what you're cooking and when you want to serve. It builds an hour-by-hour schedule around your specific grill or smoker, your past cook times, and today's outdoor temperature. You get a start time for your fire, a time to put meat on, and a target pull window — all calculated for your setup, not a textbook estimate.",
   },
   {
     icon: Camera,
@@ -37,7 +37,7 @@ const FEATURES = [
     icon: BookOpen,
     title: "Cook History & Debrief",
     shortTitle: "Cook History",
-    body: "After every session, PitMaster runs through your temperature data and tells you what happened — where you hit your plan, where you fell off, and what likely caused the difference. Rate tenderness, flavor, and bark, and that feedback carries forward into every future cook. Over time, PitMaster's understanding of how your pit runs gets sharper with every session.",
+    body: "After every session, PitMaster runs through your temperature data and tells you what happened — where you hit your plan, where you fell off, and what likely caused the difference. Rate tenderness, flavor, and bark or crust, and that feedback carries forward into every future cook. Over time, PitMaster's understanding of how your setup runs gets sharper with every session.",
   },
   {
     icon: Snowflake,
