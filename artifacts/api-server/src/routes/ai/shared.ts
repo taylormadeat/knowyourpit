@@ -3,6 +3,7 @@ import { eq, desc } from "drizzle-orm";
 import { rateLimit } from "express-rate-limit";
 import { db, cooksTable, grillsTable } from "@workspace/db";
 import { computeSmokerInsights, formatSmokerProfile } from "../../lib/smokerCalibration";
+import { isDirectHeat } from "../../lib/grillClassify";
 
 export interface AuthedRequest extends Request {
   userId: string;
@@ -250,20 +251,29 @@ ${dataSection}${context ? `\n\nAdditional context: ${context}` : ""}`;
   return prompt;
 }
 
-export function pickChatSuggestions(): string[] {
-  return [
+export function pickChatSuggestions(cookingMethod?: string | null): string[] {
+  const isDirect = isDirectHeat(cookingMethod);
+
+  // Smoke/indirect-only suggestions — bark and stall language is not relevant for direct-heat cooks.
+  const smokeOnly = [
+    "How can I improve my bark score?",
+    "How do I push through the stall?",
+  ];
+
+  const always = [
     "How long did my last brisket take?",
     "What's my highest-rated cook?",
     "What should I cook next based on my history?",
     "Which grill do I use most?",
-    "How can I improve my bark score?",
     "What temperature should I cook brisket to?",
-    "How do I push through the stall?",
     "What wood pairs best with pork ribs?",
     "How do I get a better crust on steak?",
     "What's the best way to manage flare-ups?",
     "How do I set up a two-zone fire?",
     "When should I flip chicken thighs?",
     "What temp should I pull a ribeye for medium-rare?",
-  ].sort(() => Math.random() - 0.5).slice(0, 3);
+  ];
+
+  const pool = isDirect ? always : [...always, ...smokeOnly];
+  return pool.sort(() => Math.random() - 0.5).slice(0, 3);
 }

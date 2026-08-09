@@ -5,7 +5,7 @@ import { AiPredictBody } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../../middlewares/requireAuth";
 import { computeSmokerInsights, formatSmokerProfile, simplifyFoodType } from "../../lib/smokerCalibration";
-import { classifyGrillType, grillClassCoachingNote, grillClassPreheatMins } from "../../lib/grillClassify";
+import { classifyGrillType, grillClassCoachingNote, grillClassPreheatMins, isDirectHeat } from "../../lib/grillClassify";
 import { aiRateLimit, isPitProbe, getAssessment } from "./shared";
 import { getMeatBaseline } from "./meatBaselines";
 import type { AiCheckinItem } from "@workspace/checkin-schedule";
@@ -299,13 +299,14 @@ Note: Factor this grill's real-world temperature behavior into your estimate.`;
   });
   const hasRichHistory = similarWithFeedback.length >= 2;
 
+  const baselineIsDirect = isDirectHeat(cookingMethod);
   const baselineSection = baseline ? `
 VERIFIED BASELINE for "${foodType}" (from BBQ knowledge database):
 - Standard cook time: ~${baseline.minsPerLb} min/lb at ${baseline.cookTempF}°F pit temp
 - Target internal temp: ${baseline.targetTempF === 0 ? "time-based (visual doneness — no internal temp target, apply PRODUCE RULES)" : `${baseline.targetTempF}°F`}
 - Recommended rest: ${baseline.restMins} min
 - Wrap recommendation: ${baseline.wrapRec}${baseline.wrapAtMins ? ` at ~${baseline.wrapAtMins} min into cook` : ""}${baseline.wrapTempF ? ` / ${baseline.wrapTempF}°F internal` : ""}
-${baseline.wrapNote ? `- Wrap guidance: ${baseline.wrapNote}` : ""}
+${baseline.wrapNote && !baselineIsDirect ? `- Wrap guidance: ${baseline.wrapNote}` : ""}
 Use this as your primary baseline. Adjust based on actual user data, grill specifics, and any deviations noted.` : "";
 
   const userHistorySection = similarCookSummaries.length > 0

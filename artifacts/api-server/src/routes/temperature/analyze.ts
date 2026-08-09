@@ -24,6 +24,7 @@ import {
   computeHeuristics,
 } from "./shared";
 import { buildAnalyzeSystemPrompt } from "./analyzePrompt";
+import { isDirectHeat } from "../../lib/grillClassify";
 
 const router: IRouter = Router();
 
@@ -35,7 +36,7 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
   // mobile UI hits via useAnalyzeCook (cooks/log.tsx + cooks/[id].tsx).
   const bypass = await userBypassesPaywall(req);
   if (!bypass) {
-    const userId = (req as AuthedRequest).userId;
+        const userId = (req as AuthedRequest).userId;
     const used = await countAiAnalyzesToday(userId);
     if (used >= FREE_AI_ANALYZE_DAILY_LIMIT) {
       respondPaywall(res, {
@@ -160,30 +161,14 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
 
   // Build cook context section for the prompt
   const contextLines: string[] = [];
-  if (cookContext?.foodType) contextLines.push(`Food: ${cookContext.foodType}`);
-  if (cookContext?.weightLbs) contextLines.push(`Weight: ${cookContext.weightLbs} lbs`);
-  if (cookContext?.cookTempF) contextLines.push(`Pit/cook temperature: ${cookContext.cookTempF}°F`);
-  if (cookContext?.targetTempF) contextLines.push(`Target internal temp: ${cookContext.targetTempF}°F`);
-  if (cookContext?.userEnteredTempF != null) contextLines.push(`Current internal meat temperature (probe reading — NOT the pit/grill temperature): ${cookContext.userEnteredTempF}°F`);
-  if (cookContext?.outdoorTempF != null) contextLines.push(`Current outdoor/ambient air temperature: ${cookContext.outdoorTempF}°F (factor this into heat management, stall timing, and cold-weather adjustments)`);
-  if (cookContext?.preheatMinutes) contextLines.push(`Preheat time: ${cookContext.preheatMinutes} min`);
 
-  // Timing context — pass ISO strings directly so the AI interprets them correctly
-  // (avoid server-side toLocaleString which would use UTC and confuse the AI)
-  if (cookContext?.actualStartAt) contextLines.push(`Actual cook start time (ISO): ${cookContext.actualStartAt}`);
-  if (cookContext?.plannedEndAt) contextLines.push(`Planned serve time (ISO): ${cookContext.plannedEndAt}`);
-
-  // plannedStartAt in the DB is the GRILL LIGHT time (before preheat).
-  // The planned meat-on time = plannedStartAt + preheatMinutes.
-  // We compare that against actualStartAt (when meat actually went on) so the
-  // deviation calculation is apples-to-apples.
-  if (cookContext?.plannedStartAt) {
+    const analyzeOutdoorIsDirect = isDirectHeat(cookContext.cookingMethod);
     const preheatMs = (cookContext?.preheatMinutes ?? 0) * 60 * 1000;
     const plannedMeatOnMs = new Date(cookContext.plannedStartAt).getTime() + preheatMs;
     contextLines.push(`Planned meat-on time (ISO): ${new Date(plannedMeatOnMs).toISOString()}`);
 
     if (cookContext?.actualStartAt) {
-      const actualStart = new Date(cookContext.actualStartAt).getTime();
+    const actualStart = new Date(cookContext.actualStartAt).getTime();
       const diffMin = Math.round((actualStart - plannedMeatOnMs) / 60000);
       if (Math.abs(diffMin) >= 5) {
         const timingNote = diffMin > 0
@@ -678,3 +663,7 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
 });
 
 export default router;
+
+    const outdoorNote = analyzeOutdoorIsDirect
+      ? `Current outdoor/ambient air temperature: ${cookContext.outdoorTempF}°F (factor this into heat management and cold-weather adjustments)`
+      : `Current outdoor/ambient air temperature: ${cookContext.outdoorTempF}°F (factor this into heat management, stall timing, and cold-weather adjustments)`;

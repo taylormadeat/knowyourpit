@@ -190,6 +190,22 @@ export default function CookDetailScreen() {
   const [addItemWarning, setAddItemWarning] = useState<string | null>(null);
   const proactiveAlerts = useProactiveAlerts();
   useEffect(() => { proactiveAlerts.reset(); }, [id]);
+  // Fire proactive alert checks whenever the probe internal temp updates.
+  // cookingMethod is passed so stall alerts are suppressed for direct-heat cooks.
+  useEffect(() => {
+    if (!autoCheckinProbeReading?.internalTempF) return;
+    proactiveAlerts.check({
+      cookId: cook?.id ?? null,
+      cookStatus: cook?.status,
+      probeInternalTempF: autoCheckinProbeReading.internalTempF,
+      pitTempF: autoCheckinProbeReading.pitTempF ?? null,
+      targetCookTempF: cook?.cookTempF ?? null,
+      expectedInternalTempF: null,
+      foodType: cook?.foodType ?? null,
+      cookingMethod: cook?.cookingMethod ?? null,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCheckinProbeReading?.internalTempF]);
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data ?? {};
@@ -819,7 +835,7 @@ export default function CookDetailScreen() {
 
           <Cook2NudgeBanner cookStatus={cookStatus} colors={colors} effectivePro={effectivePro} showPaywall={showPaywall as any} foodType={cook?.foodType ?? null} />
 
-          <RateThisCook c={c} colors={colors} rateTenderness={rateTenderness} setRateTenderness={setRateTenderness} rateFlavor={rateFlavor} setRateFlavor={setRateFlavor} rateBark={rateBark} setRateBark={setRateBark} rateSaving={rateSaving} saveRatings={saveRatings} />
+          <RateThisCook c={c} colors={colors} rateTenderness={rateTenderness} setRateTenderness={setRateTenderness} rateFlavor={rateFlavor} setRateFlavor={setRateFlavor} rateBark={rateBark} setRateBark={setRateBark} rateSaving={rateSaving} saveRatings={saveRatings} cookingMethod={c?.cookingMethod} />
           <ShareCookButton cook={c} colors={colors} />
 
           {nextStatus && cookStatus !== "planned" && (

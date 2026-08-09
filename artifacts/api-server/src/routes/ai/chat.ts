@@ -128,6 +128,15 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
   }
   const { message, context, sessionId: requestedSessionId } = parsed.data;
 
+  // Parse the context JSON string (if present) to extract cookingMethod for method-aware suggestions.
+  let parsedContextCookingMethod: string | null = null;
+  if (context) {
+    try {
+      const ctxObj = JSON.parse(context);
+      parsedContextCookingMethod = ctxObj?.cookingMethod ?? null;
+    } catch { /* ignore malformed context */ }
+  }
+
   const bypasses = await userBypassesPaywall(req);
   const isPro = bypasses && isPaywallEnabled();
   const usedBeforeThisMessage = await countAiChatMessagesToday(req.userId);
@@ -168,7 +177,7 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
     } else {
       await db.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, resolvedSessionId));
     }
-    res.json({ reply: kbAnswer, suggestions: pickChatSuggestions(), sessionId: resolvedSessionId, remaining: remainingAfterThisMessage, ...(kbTitle ? { title: kbTitle } : {}) });
+    res.json({ reply: kbAnswer, suggestions: pickChatSuggestions(parsedContextCookingMethod), sessionId: resolvedSessionId, remaining: remainingAfterThisMessage, ...(kbTitle ? { title: kbTitle } : {}) });
     return;
   }
 
@@ -225,7 +234,7 @@ router.post("/ai/chat", requireAuth, aiRateLimit, async (req: any, res): Promise
       .where(eq(conversations.id, resolvedSessionId));
   }
 
-  const suggestions = pickChatSuggestions();
+  const suggestions = pickChatSuggestions(parsedContextCookingMethod);
 
   res.json({
     reply,
@@ -243,6 +252,15 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
     return;
   }
   const { message, context, sessionId: requestedSessionId } = parsed.data;
+
+  // Parse the context JSON string (if present) to extract cookingMethod for method-aware suggestions.
+  let streamContextCookingMethod: string | null = null;
+  if (context) {
+    try {
+      const ctxObj = JSON.parse(context);
+      streamContextCookingMethod = ctxObj?.cookingMethod ?? null;
+    } catch { /* ignore malformed context */ }
+  }
 
   const bypasses = await userBypassesPaywall(req);
   const streamIsPro = bypasses && isPaywallEnabled();
@@ -311,7 +329,7 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
       } else {
         await db.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, resolvedSessionId));
       }
-      const doneEvt: Record<string, unknown> = { type: "done", suggestions: pickChatSuggestions(), remaining: streamRemainingAfter };
+      const doneEvt: Record<string, unknown> = { type: "done", suggestions: pickChatSuggestions(streamContextCookingMethod), remaining: streamRemainingAfter };
       if (kbTitle) doneEvt.title = kbTitle;
       writeEvent(doneEvt);
       return;
@@ -389,7 +407,7 @@ router.post("/ai/chat/stream", requireAuth, aiRateLimit, async (req: any, res): 
 
       const doneEvent: Record<string, unknown> = {
         type: "done",
-        suggestions: pickChatSuggestions(),
+        suggestions: pickChatSuggestions(streamContextCookingMethod),
         remaining: streamRemainingAfter,
       };
       if (generatedTitle) doneEvent.title = generatedTitle;
