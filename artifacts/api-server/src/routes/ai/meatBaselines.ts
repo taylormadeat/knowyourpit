@@ -51,6 +51,38 @@ export const MEAT_KB: Array<{ keywords: string[]; baseline: MeatBaseline }> = [
     baseline: { minsPerLb: 20, cookTempF: 225, targetTempF: 130, restMins: 10, wrapRec: "none", wrapNote: "Reverse-sear: smoke to 10°F below target, then sear over screaming hot grill 60–90s per side. Rest uncovered — tenting steaks causes steam and softens the crust." },
   },
   {
+    keywords: ["porterhouse", "t-bone", "t bone"],
+    baseline: { minsPerLb: 22, cookTempF: 250, targetTempF: 130, restMins: 12, wrapRec: "none", wrapNote: "Reverse-sear: smoke to 120°F, then sear over screaming-hot grates 60–90s per side. Position bone toward the hottest zone — the tenderloin side cooks faster than the strip side." },
+  },
+  {
+    keywords: ["london broil", "top round steak"],
+    baseline: { minsPerLb: 8, cookTempF: 450, targetTempF: 135, restMins: 10, wrapRec: "none", wrapNote: "Marinate at least 24h to break down the lean muscle fibers. Sear over high direct heat — about 5 min per side. Rest 10 min then slice paper-thin against the grain." },
+  },
+  {
+    keywords: ["top round roast"],
+    baseline: { minsPerLb: 25, cookTempF: 250, targetTempF: 135, restMins: 20, wrapRec: "none", wrapNote: "Smoke low and slow to 130–135°F. Very lean — don't overcook or it'll be dry. Slice thin against the grain for best texture." },
+  },
+  {
+    keywords: ["bottom round", "rump roast"],
+    baseline: { minsPerLb: 30, cookTempF: 250, targetTempF: 145, restMins: 20, wrapRec: "none", wrapNote: "Very lean cut — keep moisture in with a light baste or spritzing. Slice thin against the grain. Great for sandwich meat or sliced thin like deli roast beef." },
+  },
+  {
+    keywords: ["eye of round"],
+    baseline: { minsPerLb: 25, cookTempF: 225, targetTempF: 135, restMins: 15, wrapRec: "none", wrapNote: "The leanest beef roast — smoke low and slow to 130–135°F. Do not overcook. Slice paper-thin against the grain for best texture; this is the classic smoked roast beef cut." },
+  },
+  {
+    keywords: ["bavette", "sirloin flap"],
+    baseline: { minsPerLb: 8, cookTempF: 450, targetTempF: 130, restMins: 8, wrapRec: "none", wrapNote: "Coarse-grained like skirt steak — marinate first. Sear over screaming-hot direct heat 3–4 min per side. Always slice against the grain; the fibers run at an angle so be deliberate." },
+  },
+  {
+    keywords: ["beef kabob", "shish kabob", "beef skewer"],
+    baseline: { minsPerLb: 12, cookTempF: 400, targetTempF: 145, restMins: 3, wrapRec: "none", wrapNote: "1.5\" cubes cook evenly over medium-high direct heat. Leave small gaps between pieces on the skewer. Turn every 2–3 min. Done when all sides are browned and internal temp hits 145°F." },
+  },
+  {
+    keywords: ["carne asada"],
+    baseline: { minsPerLb: 6, cookTempF: 500, targetTempF: 130, restMins: 5, wrapRec: "none", wrapNote: "Screaming-hot grates, thin slices — this cooks in minutes. Marinate in citrus and garlic. Sear 2–3 min per side max. Slice against the grain and serve immediately." },
+  },
+  {
     keywords: ["whole chicken"],
     baseline: { minsPerLb: 22, cookTempF: 325, targetTempF: 165, restMins: 15, wrapRec: "none", wrapNote: "No wrap needed. Spatchcocking cuts 30% off cook time. Pull at 160°F breast / 170°F thigh — carryover brings it to safe temp. Rest loosely tented." },
   },
