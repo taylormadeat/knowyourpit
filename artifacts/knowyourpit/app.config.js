@@ -74,7 +74,6 @@ const config = {
       "react-native-ble-plx",
       {
         isBackgroundEnabled: false,
-        modes: ["central"],
         bluetoothAlwaysPermission:
           "knowyourpit uses Bluetooth to read live temperatures from your Inkbird wireless thermometer.",
       },
