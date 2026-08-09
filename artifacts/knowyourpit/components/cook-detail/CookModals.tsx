@@ -10,9 +10,33 @@ import { CheckinPreviewSheet } from "@/components/cook-detail/CheckinPreviewShee
 import { PitMasterChatModal } from "@/components/PitMasterChatModal";
 import { RateCookSheet } from "@/components/cook-detail/RateCookSheet";
 
-/** Returns 3–4 suggested questions tailored to the cook's food type. */
-function getCookSuggestions(foodType: string | null | undefined): string[] {
+/** Returns 3–4 suggested questions tailored to the cook's food type and cooking method. */
+function getCookSuggestions(foodType: string | null | undefined, cookingMethod?: string | null): string[] {
   const lower = (foodType ?? "").toLowerCase();
+  const method = (cookingMethod ?? "").toLowerCase();
+  const isDirect = method.includes("direct") || method.includes("sear") || method.includes("griddle");
+
+  // ── Direct-heat / grilling prompts ──────────────────────────────────────
+  if (isDirect) {
+    if (lower.includes("steak") || lower.includes("ribeye") || lower.includes("strip") || lower.includes("tri-tip") || lower.includes("tri tip")) {
+      return ["What internal temp should I target?", "When should I flip it?", "How long should I rest it?", "How do I get a better crust?"];
+    }
+    if (lower.includes("burger") || lower.includes("patty")) {
+      return ["When do I flip?", "How do I know when it's done?", "How do I prevent flare-ups?", "Should I smash it?"];
+    }
+    if (lower.includes("chicken") || lower.includes("wing") || lower.includes("turkey")) {
+      return ["How do I get crispier skin?", "Is my temp on track?", "How do I prevent burning?", "Should I use two zones?"];
+    }
+    if (lower.includes("salmon") || lower.includes("fish") || lower.includes("shrimp")) {
+      return ["How do I stop it sticking to the grates?", "What temp should I pull it?", "How do I know when it's done?", "Should I use a fish basket?"];
+    }
+    if (lower.includes("pork") || lower.includes("chop")) {
+      return ["What temp should I pull pork chops?", "Should I use two-zone heat?", "How do I prevent drying out?", "How long should I rest it?"];
+    }
+    return ["What internal temp should I target?", "When should I flip it?", "How do I prevent flare-ups?", "How long should I rest it?"];
+  }
+
+  // ── Smoke / indirect prompts ─────────────────────────────────────────────
   if (lower.includes("brisket")) {
     return ["Am I in the stall?", "Should I wrap now?", "How's my bark looking?", "When should I pull it off?"];
   }
@@ -229,9 +253,9 @@ export function CookModals({
         visible={chatModalVisible}
         onClose={() => setChatModalVisible(false)}
         contextLabel={cook?.foodType ?? undefined}
-        cookSuggestions={getCookSuggestions(cook?.foodType)}
+        cookSuggestions={getCookSuggestions(cook?.foodType, cook?.cookingMethod)}
       />
-      <RateCookSheet visible={showRatingPrompt} colors={colors} saving={rateSaving} onSave={async (t, f, b) => { await saveRatings(t, f, b); setShowRatingPrompt(false); }} onSkip={() => setShowRatingPrompt(false)} />
+      <RateCookSheet visible={showRatingPrompt} colors={colors} saving={rateSaving} cookingMethod={cook?.cookingMethod ?? null} onSave={async (t, f, b) => { await saveRatings(t, f, b); setShowRatingPrompt(false); }} onSkip={() => setShowRatingPrompt(false)} />
     </>
   );
 }

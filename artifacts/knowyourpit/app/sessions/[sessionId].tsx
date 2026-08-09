@@ -864,7 +864,14 @@ export default function SessionDetailScreen() {
                         </View>
                         {isActive && elapsedMs !== null && (
                           <Text style={[s.elapsed, { color: "#E84820" }]}>
-                            {fmtElapsed(elapsedMs)} on the smoker
+                            {fmtElapsed(elapsedMs)}{" "}
+                            {(() => {
+                              const m = ((cook as any).cookingMethod ?? "").toLowerCase();
+                              if (m.includes("sear") || m.includes("direct") || m.includes("griddle")) return "on the grill";
+                              if (m.includes("smoke") || m.includes("low and slow")) return "on the smoker";
+                              if (m.includes("rotisserie")) return "on the rotisserie";
+                              return "on the grill";
+                            })()}
                           </Text>
                         )}
                         {isActive && (

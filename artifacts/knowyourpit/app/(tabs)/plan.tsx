@@ -2603,7 +2603,15 @@ export default function PlanScreen() {
                             ))}
                             <View style={[s.prepTipCard, { backgroundColor: colors.primary + "12", borderRadius: colors.radius }]}>
                               <Feather name="zap" size={14} color={colors.primary} />
-                              <Text style={[s.prepTipText, { color: colors.foreground }]}>{prep.tip}</Text>
+                              <Text style={[s.prepTipText, { color: colors.foreground }]}>
+                                {prep.directHeatTip && qpCookMethod && (
+                                  (qpCookMethod as string).toLowerCase().includes("direct") ||
+                                  (qpCookMethod as string).toLowerCase().includes("sear") ||
+                                  (qpCookMethod as string).toLowerCase().includes("griddle")
+                                )
+                                  ? prep.directHeatTip
+                                  : prep.tip}
+                              </Text>
                             </View>
                           </View>
                         )}

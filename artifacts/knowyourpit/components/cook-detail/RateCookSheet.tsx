@@ -16,17 +16,24 @@ interface Props {
   visible: boolean;
   colors: Colors;
   saving: boolean;
+  cookingMethod?: string | null;
   onSave: (tenderness: number, flavor: number, bark: number) => Promise<void>;
   onSkip: () => void;
 }
 
-const ROWS = [
-  { label: "Tenderness", icon: "droplet" as const, key: "tenderness" as const },
-  { label: "Flavor",     icon: "heart"   as const, key: "flavor"     as const },
-  { label: "Bark/Color", icon: "layers"  as const, key: "bark"       as const },
-];
+export function RateCookSheet({ visible, colors, saving, cookingMethod, onSave, onSkip }: Props) {
+  // Label the surface-quality criterion based on cooking method:
+  // Direct heat → "Crust / Char"; smoke/indirect → "Bark / Color"
+  const isDirect = (() => {
+    const m = (cookingMethod ?? "").toLowerCase();
+    return m.includes("direct") || m.includes("sear") || m.includes("griddle");
+  })();
 
-export function RateCookSheet({ visible, colors, saving, onSave, onSkip }: Props) {
+  const ROWS = [
+    { label: "Tenderness",                       icon: "droplet" as const, key: "tenderness" as const },
+    { label: "Flavor",                            icon: "heart"   as const, key: "flavor"     as const },
+    { label: isDirect ? "Crust / Char" : "Bark / Color", icon: "layers"  as const, key: "bark"       as const },
+  ];
   const insets = useSafeAreaInsets();
   const [tenderness, setTenderness] = useState(0);
   const [flavor, setFlavor] = useState(0);

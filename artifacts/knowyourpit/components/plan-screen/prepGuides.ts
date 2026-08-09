@@ -2,7 +2,10 @@ import type { MeatCut } from "@/constants/meatCuts";
 
 export interface MeatPrepGuide {
   steps: string[];
+  /** Tip for smoke / indirect cooking (the default). */
   tip: string;
+  /** Alternate tip when cooking method is direct heat / grilling. Omit if the base tip already applies. */
+  directHeatTip?: string;
 }
 
 export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
@@ -72,6 +75,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Let come to room temperature for 30 minutes.",
     ],
     tip: "Reverse sear: smoke to 115°F internal, then sear in a screaming hot cast iron for the perfect crust.",
+    directHeatTip: "Two-zone setup: sear over high heat 60–90 sec per side, then finish on the cool side. Rest 5–8 min before cutting — never skip the rest.",
   },
   tenderloin_beef: {
     steps: [
@@ -102,6 +106,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Rest uncovered overnight in the fridge for better bark.",
     ],
     tip: "At 160°F the stall hits. Wrap in butcher paper to power through.",
+    directHeatTip: "Indirect heat, 275°F, fat cap up. The stall still hits — push through or wrap in foil at 160°F. Pull at 195–205°F for pulling.",
   },
   ribs: {
     steps: [
@@ -111,6 +116,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Let sit 30–60 minutes before cooking, or overnight in the fridge.",
     ],
     tip: "3-2-1 method (3h smoke, 2h wrapped, 1h unwrapped) works great for baby backs.",
+    directHeatTip: "Indirect heat setup: coals to the sides, ribs in the center. 250–275°F, 3–4 hours. No foil needed — glaze in the last 20 minutes.",
   },
   pork_belly: {
     steps: [
@@ -120,6 +126,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Bring to room temperature 30 minutes before cooking.",
     ],
     tip: "Low and slow at 225°F, then blast with high heat at the end for a crackling crust.",
+    directHeatTip: "High heat on the fat side first to render and blister; flip to finish. Watch for fat flare-ups and move to a cooler zone as needed.",
   },
   pork_loin: {
     steps: [
@@ -166,6 +173,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Apply oil or mayo on outside, then season liberally.",
     ],
     tip: "Spatchcock for faster, more even cooking and better bark all around.",
+    directHeatTip: "Two-zone setup: start skin-side down over medium-high heat, render the skin, then move to indirect to cook through. Flip back to direct for 2 min to crisp. Pull at 165°F.",
   },
   chicken_wings: {
     steps: [
@@ -175,6 +183,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Bring to room temperature 20 minutes before cooking.",
     ],
     tip: "Finish wings at 400°F+ (or blast under a broiler) to set the crispy skin — smoke alone won't do it.",
+    directHeatTip: "Medium heat, turn every 5–7 minutes for even browning. Move to indirect if they're browning faster than cooking through. Sauce in the last 5 minutes only — earlier and the sugar burns.",
   },
   turkey: {
     steps: [

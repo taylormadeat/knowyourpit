@@ -122,7 +122,16 @@ export function ActiveCookCard({ activeCook, nowMs, insights }: ActiveCookCardPr
         <View style={s.activeLiveRow}>
           <View style={[s.liveDot, !cookIsMeatOn && { backgroundColor: "#38bdf8" }]} />
           <Text style={[s.liveLabel, !cookIsMeatOn && { color: "#38bdf8" }]}>
-            {cookIsMeatOn ? "LIVE ON THE SMOKER" : "THAWING"}
+            {cookIsMeatOn
+              ? (() => {
+                  const m = ((activeCook as any).cookingMethod ?? "").toLowerCase();
+                  if (m.includes("sear") || m.includes("direct") || m.includes("griddle")) return "LIVE ON THE GRILL";
+                  if (m.includes("smoke") || m.includes("low and slow")) return "LIVE ON THE SMOKER";
+                  if (m.includes("indirect")) return "LIVE COOKING";
+                  if (m.includes("rotisserie")) return "LIVE ON THE ROTISSERIE";
+                  return "LIVE COOKING";
+                })()
+              : "THAWING"}
           </Text>
           {cookIsMeatOn ? (
             ((cookSeqMeatOnMs != null && cookSeqMeatOnMs <= nowMs) ||

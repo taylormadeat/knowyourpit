@@ -92,9 +92,42 @@ router.get("/grills", requireAuth, async (req: any, res): Promise<void> => {
 
   const mostByGrill = pickMostCookedByGrill(foodCountsRows);
 
+  // Method-split stats: cook count and hours per (grill, cookingMethod).
+  // This lets the UI (and calibration) show separate summaries for
+  // smoke sessions vs. grill sessions on the same equipment.
+  const methodStatsRows = grills.length === 0 ? [] : await db
+    .select({
+      grillId: cooksTable.grillId,
+      cookingMethod: cooksTable.cookingMethod,
+      cookCount: sql<number>`cast(count(*) as int)`,
+      totalHours: sql<number | null>`round(cast(sum(extract(epoch from (${cooksTable.actualEndAt} - ${cooksTable.actualStartAt}))) filter (where ${cooksTable.actualStartAt} is not null and ${cooksTable.actualEndAt} is not null) / 3600.0 as numeric), 1)`,
+    })
+    .from(cooksTable)
+    .where(
+      and(
+        eq(cooksTable.userId, req.userId),
+        eq(cooksTable.status, "completed"),
+        sql`${cooksTable.cookingMethod} is not null`,
+      )
+    )
+    .groupBy(cooksTable.grillId, cooksTable.cookingMethod)
+    .orderBy(cooksTable.grillId);
+
+  const methodStatsByGrill = new Map<number, Array<{ method: string; cookCount: number; totalHours: number }>>();
+  for (const row of methodStatsRows) {
+    if (row.grillId == null) continue;
+    if (!methodStatsByGrill.has(row.grillId)) methodStatsByGrill.set(row.grillId, []);
+    methodStatsByGrill.get(row.grillId)!.push({
+      method: row.cookingMethod!,
+      cookCount: row.cookCount,
+      totalHours: typeof row.totalHours === "number" ? row.totalHours : parseFloat(row.totalHours as any ?? "0"),
+    });
+  }
+
   const result = grills.map((g) => ({
     ...g,
     mostCookedFood: mostByGrill.get(g.id)?.food ?? null,
+    methodStats: methodStatsByGrill.get(g.id) ?? [],
   }));
   res.json(result);
 });

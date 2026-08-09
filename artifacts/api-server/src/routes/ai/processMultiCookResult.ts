@@ -4,9 +4,16 @@
  * it can be unit-tested without any side-effect dependencies.
  */
 
+function isDirectHeatMethod(method: string | null | undefined): boolean {
+  if (!method) return false;
+  const m = method.toLowerCase();
+  return m.includes("direct") || m.includes("sear") || m.includes("griddle");
+}
+
 type RequestItem = {
   foodType: string;
   grillName?: string | null;
+  cookingMethod?: string | null;
   [key: string]: unknown;
 };
 
@@ -27,9 +34,27 @@ export function processMultiCookResult(
     return null;
   };
 
+  // Pre-build a foodType → cookingMethod lookup so we can enforce
+  // direct-heat wrap suppression inside the schedule .map() below.
+  // Use the same consume-splice pattern as the grillName lookup so
+  // duplicate food types resolve independently.
+  const methodLookupItems = [...requestItems];
+  const methodByScheduleIndex: Array<string | null> = [];
+  for (const rawItem of (raw.schedule ?? [])) {
+    const normalised = ((rawItem as any).foodType ?? "").trim().toLowerCase();
+    const idx = methodLookupItems.findIndex(
+      ri => ri.foodType.trim().toLowerCase() === normalised,
+    );
+    const matched = idx >= 0 ? methodLookupItems.splice(idx, 1)[0] : undefined;
+    methodByScheduleIndex.push(matched?.cookingMethod ?? null);
+  }
+
   const schedule = (raw.schedule ?? [])
-    .map((item: any) => {
-      const wrapMethod = normalizeWrapMethod(item.wrapMethod);
+    .map((item: any, i: number) => {
+      const cookingMethod = methodByScheduleIndex[i] ?? null;
+      const forceSuppressWrap = isDirectHeatMethod(cookingMethod);
+
+      const wrapMethod = forceSuppressWrap ? "none" : normalizeWrapMethod(item.wrapMethod);
       const isNoWrap = wrapMethod == null || wrapMethod === "none";
       const cookMin = typeof item.estimatedDurationMinutes === "number"
         ? item.estimatedDurationMinutes
@@ -37,7 +62,10 @@ export function processMultiCookResult(
       const explicitWrapAt = typeof item.wrapAtMinutes === "number" && item.wrapAtMinutes > 0
         ? Math.round(item.wrapAtMinutes)
         : null;
-      const inferredWrapAt = cookMin > 0 ? Math.max(30, Math.round(cookMin * 0.55)) : null;
+      // Only infer wrap for indirect/smoke cooks — never for direct heat.
+      const inferredWrapAt = (!forceSuppressWrap && cookMin > 0)
+        ? Math.max(30, Math.round(cookMin * 0.55))
+        : null;
       const wrapAtMinutes = isNoWrap
         ? null
         : (explicitWrapAt ?? inferredWrapAt);

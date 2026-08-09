@@ -1,6 +1,18 @@
 import { and, avg, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, cooksTable, temperatureReadingsTable } from "@workspace/db";
 
+// ── Cooking method helpers (local to avoid circular deps) ─────────────────────
+function methodIsDirectHeat(method: string | null | undefined): boolean {
+  if (!method) return false;
+  const m = method.toLowerCase();
+  return m.includes("direct") || m.includes("sear") || m.includes("griddle");
+}
+function methodIsSmoke(method: string | null | undefined): boolean {
+  if (!method) return false;
+  const m = method.toLowerCase();
+  return m.includes("smoke") || m.includes("low and slow") || m.includes("low & slow") || m.includes("indirect");
+}
+
 // ── In-memory cache ───────────────────────────────────────────────────────────
 // Keyed by `${userId}:${grillId ?? "all"}`.  TTL is 10 minutes.
 // Invalidated whenever a cook is marked completed so the fingerprint stays fresh.
@@ -14,16 +26,25 @@ interface CacheEntry {
 
 const insightsCache = new Map<string, CacheEntry>();
 
-function cacheKey(userId: string, grillId?: number): string {
-  return `${userId}:${grillId ?? "all"}`;
+function cacheKey(userId: string, grillId?: number, cookingMethod?: string): string {
+  // Normalise method to a broad class so "Direct Heat" and "direct" share a cache slot.
+  let methodSlot = "all";
+  if (cookingMethod) {
+    if (methodIsDirectHeat(cookingMethod)) methodSlot = "direct";
+    else if (methodIsSmoke(cookingMethod)) methodSlot = "smoke";
+  }
+  return `${userId}:${grillId ?? "all"}:${methodSlot}`;
 }
 
 /** Invalidate all cached entries for a given user (and optionally a specific grill). */
 export function invalidateSmokerInsightsCache(userId: string, grillId?: number): void {
-  if (grillId != null) {
-    insightsCache.delete(cacheKey(userId, grillId));
+  // Clear all keys that start with this user (covers all grill+method combinations).
+  const prefix = `${userId}:`;
+  for (const key of insightsCache.keys()) {
+    if (key.startsWith(prefix)) insightsCache.delete(key);
   }
-  // Always clear the "all grills" entry — it aggregates across grills.
+  // Belt-and-suspenders: also explicitly delete the legacy key shapes.
+  if (grillId != null) insightsCache.delete(cacheKey(userId, grillId));
   insightsCache.delete(cacheKey(userId));
 }
 
@@ -90,8 +111,12 @@ export function confidenceLevelFor(cookCount: number): ConfidenceLevel {
   return "none";
 }
 
-export async function computeSmokerInsights(userId: string, grillId?: number): Promise<SmokerInsights> {
-  const key = cacheKey(userId, grillId);
+export async function computeSmokerInsights(
+  userId: string,
+  grillId?: number,
+  cookingMethod?: string,
+): Promise<SmokerInsights> {
+  const key = cacheKey(userId, grillId, cookingMethod);
   const cached = insightsCache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;
@@ -182,8 +207,25 @@ export async function computeSmokerInsights(userId: string, grillId?: number): P
       : null;
 
   // ── Duration patterns ────────────────────────────────────────────────────
+  // When a specific cooking method is requested, partition duration data to only
+  // include cooks of the same broad method class (direct vs smoke/indirect).
+  // If the filtered sample is too small (< 3), fall back to all cooks.
+  const targetIsDirect  = cookingMethod ? methodIsDirectHeat(cookingMethod) : null;
+  const targetIsSmoke   = cookingMethod ? methodIsSmoke(cookingMethod) : null;
+
+  function cookMatchesTargetMethod(c: typeof completedCooks[number]): boolean {
+    if (targetIsDirect === null) return true; // no method filter
+    if (targetIsDirect) return methodIsDirectHeat(c.cookingMethod);
+    if (targetIsSmoke)  return methodIsSmoke(c.cookingMethod);
+    return true;
+  }
+
+  const methodFilteredCooks = completedCooks.filter(cookMatchesTargetMethod);
+  // Fall back to all cooks when the method-filtered sample is too thin.
+  const durationCooks = methodFilteredCooks.length >= 3 ? methodFilteredCooks : completedCooks;
+
   const durationData: Record<string, { total: number; count: number }> = {};
-  for (const cook of completedCooks) {
+  for (const cook of durationCooks) {
     if (!cook.actualStartAt || !cook.actualEndAt || !cook.weightLbs || cook.weightLbs < 0.5) continue;
     const mins =
       (new Date(cook.actualEndAt).getTime() - new Date(cook.actualStartAt).getTime()) / 60000;
@@ -234,11 +276,12 @@ export async function computeSmokerInsights(userId: string, grillId?: number): P
   return result;
 }
 
-export function formatSmokerProfile(insights: SmokerInsights): string {
+export function formatSmokerProfile(insights: SmokerInsights, methodLabel?: string): string {
   if (insights.cookCount < 2) return "";
 
+  const profileTag = methodLabel ? `${methodLabel.toUpperCase()} ` : "";
   const lines: string[] = [
-    "=== YOUR SMOKER PROFILE (learned from this pitmaster's cook history) ===",
+    `=== YOUR ${profileTag}COOK PROFILE (learned from this pitmaster's cook history) ===`,
   ];
 
   if (insights.pitBiasF != null) {

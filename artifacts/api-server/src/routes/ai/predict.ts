@@ -136,8 +136,8 @@ async function buildPredictContext(userId: string, data: ReturnType<typeof AiPre
       .where(and(eq(cooksTable.status, "completed"), eq(cooksTable.userId, userId)))
       .orderBy(desc(cooksTable.createdAt))
       .limit(30),
-    computeSmokerInsights(userId),
-    grillId ? computeSmokerInsights(userId, grillId) : Promise.resolve(null),
+    computeSmokerInsights(userId, undefined, cookingMethod ?? undefined),
+    grillId ? computeSmokerInsights(userId, grillId, cookingMethod ?? undefined) : Promise.resolve(null),
   ]);
 
   if (grillRow) {

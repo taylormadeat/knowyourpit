@@ -95,6 +95,70 @@ export function grillClassCoachingNote(
   }
 }
 
+// ── Cooking method classification ────────────────────────────────────────────
+
+export type CookingMethodClass =
+  | "smoke"
+  | "indirect"
+  | "direct"
+  | "sear"
+  | "reverse_sear"
+  | "rotisserie"
+  | "griddle"
+  | "unknown";
+
+/**
+ * Classify a raw cookingMethod string into a canonical CookingMethodClass.
+ * Case-insensitive; returns "unknown" for nullish or unrecognised values.
+ */
+export function classifyCookingMethod(method: string | null | undefined): CookingMethodClass {
+  if (!method) return "unknown";
+  const m = method.toLowerCase();
+  if (m.includes("reverse sear") || m.includes("reverse-sear")) return "reverse_sear";
+  if (m.includes("sear")) return "sear";
+  if (m.includes("rotisserie") || m.includes("rotary")) return "rotisserie";
+  if (m.includes("griddle")) return "griddle";
+  if (m.includes("direct")) return "direct";
+  if (m.includes("smoke") || m.includes("low and slow") || m.includes("low & slow")) return "smoke";
+  if (m.includes("indirect")) return "indirect";
+  return "unknown";
+}
+
+/**
+ * Returns true for cooking methods that use direct/high heat and should NOT
+ * receive wrap, stall, bark, or smoke-ring coaching.
+ */
+export function isDirectHeat(method: string | null | undefined): boolean {
+  const cls = classifyCookingMethod(method);
+  return cls === "direct" || cls === "sear" || cls === "griddle";
+}
+
+/**
+ * Returns a short human-readable display label for a cooking method.
+ * Falls back to grill-class inference when method is unknown.
+ */
+export function cookMethodDisplayLabel(
+  method: string | null | undefined,
+  grillClass?: GrillClass,
+): string {
+  const cls = classifyCookingMethod(method);
+  switch (cls) {
+    case "smoke":        return "Smoking";
+    case "indirect":     return "Indirect";
+    case "direct":       return "Grilling";
+    case "sear":         return "Searing";
+    case "reverse_sear": return "Reverse Searing";
+    case "rotisserie":   return "Rotisserie";
+    case "griddle":      return "Griddling";
+    default:
+      if (grillClass === "griddle")                            return "Griddling";
+      if (grillClass === "offset" || grillClass === "cabinet") return "Smoking";
+      return "Cooking";
+  }
+}
+
+// ── Preheat defaults ─────────────────────────────────────────────────────────
+
 /**
  * Returns the recommended preheat time in minutes for a given grill class.
  * Used to fix the preheat default logic that was always returning 25 min

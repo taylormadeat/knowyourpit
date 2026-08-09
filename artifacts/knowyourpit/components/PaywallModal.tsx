@@ -133,7 +133,7 @@ function triggerHeadline(
       return "You already have a planned cook";
     case "ai_message_limit_reached":
       return food
-        ? `Out of free chats — and your ${food} is on the smoker`
+        ? `Out of free chats — and your ${food} is on the grill`
         : "You've used your free AI chats today";
     case "ai_analyze_limit_reached":
       return food ? `Want PitMaster's tips on your ${food}?` : "You've used your free AI scans today";

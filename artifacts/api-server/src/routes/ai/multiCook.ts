@@ -84,16 +84,31 @@ async function buildMultiCookContext(
     ...uniqueGrillIds.map(gid => computeSmokerInsights(userId, gid)),
   ]);
 
-  // Build one grill-type coaching line per unique grill.
+  // Build grill-type coaching lines per unique (grill × method) combination.
+  // If a single grill has items with different cooking methods (e.g. smoke + direct),
+  // emit one coaching note per method so the AI gets accurate guidance for each.
   const grillTypeById = Object.fromEntries(grillRows.map(g => [g.id, g.type]));
   const grillCoachingLines: string[] = [];
   for (const gid of uniqueGrillIds) {
     const grillName = items.find((it: typeof items[number]) => it.grillId === gid)?.grillName;
     const grillClass = classifyGrillType(grillTypeById[gid]);
-    // Pick the dominant cooking method for items on this grill
-    const cookingMethod = items.find((it: typeof items[number]) => it.grillId === gid)?.cookingMethod ?? null;
-    const note = grillClassCoachingNote(grillClass, cookingMethod);
-    if (note && grillName) grillCoachingLines.push(`"${grillName}": ${note}`);
+    const methodsOnGrill = [
+      ...new Set(
+        (items as Array<typeof items[number]>)
+          .filter(it => it.grillId === gid)
+          .map(it => it.cookingMethod as string | null | undefined)
+          .filter((m): m is string => !!m),
+      ),
+    ];
+    if (methodsOnGrill.length <= 1) {
+      const note = grillClassCoachingNote(grillClass, methodsOnGrill[0] ?? null);
+      if (note && grillName) grillCoachingLines.push(`"${grillName}": ${note}`);
+    } else {
+      for (const method of methodsOnGrill) {
+        const note = grillClassCoachingNote(grillClass, method);
+        if (note && grillName) grillCoachingLines.push(`"${grillName}" (${method}): ${note}`);
+      }
+    }
   }
 
   // Build the smoker profile section. When all items share a single grill,
@@ -107,8 +122,8 @@ async function buildMultiCookContext(
     const profile = formatSmokerProfile(perGrillInsights[0]);
     if (profile) {
       smokerProfileSection = profile.replace(
-        "=== YOUR SMOKER PROFILE",
-        `=== SMOKER PROFILE FOR "${grillName.toUpperCase()}"`,
+        "=== YOUR COOK PROFILE",
+        `=== COOK PROFILE FOR "${grillName.toUpperCase()}"`,
       );
     }
   } else if (uniqueGrillIds.length > 1) {
@@ -120,8 +135,8 @@ async function buildMultiCookContext(
       const profile = formatSmokerProfile(perGrillInsights[i]);
       if (profile) {
         sections.push(profile.replace(
-          "=== YOUR SMOKER PROFILE",
-          `=== SMOKER PROFILE FOR "${grillName.toUpperCase()}"`,
+          "=== YOUR COOK PROFILE",
+          `=== COOK PROFILE FOR "${grillName.toUpperCase()}"`,
         ));
       }
     }
@@ -454,9 +469,23 @@ export async function callAddItemsSequencer(
   for (const gid of uniqueGrillIds) {
     const grillName = newItems.find(it => it.grillId === gid)?.grillName;
     const grillClass = classifyGrillType(grillTypeById[gid]);
-    const cookingMethod = newItems.find(it => it.grillId === gid)?.cookingMethod ?? null;
-    const note = grillClassCoachingNote(grillClass, cookingMethod);
-    if (note && grillName) grillCoachingLines.push(`"${grillName}": ${note}`);
+    const methodsOnGrill = [
+      ...new Set(
+        newItems
+          .filter(it => it.grillId === gid)
+          .map(it => it.cookingMethod as string | null | undefined)
+          .filter((m): m is string => !!m),
+      ),
+    ];
+    if (methodsOnGrill.length <= 1) {
+      const note = grillClassCoachingNote(grillClass, methodsOnGrill[0] ?? null);
+      if (note && grillName) grillCoachingLines.push(`"${grillName}": ${note}`);
+    } else {
+      for (const method of methodsOnGrill) {
+        const note = grillClassCoachingNote(grillClass, method);
+        if (note && grillName) grillCoachingLines.push(`"${grillName}" (${method}): ${note}`);
+      }
+    }
   }
   const grillTypeSection = grillCoachingLines.length > 0
     ? `\nGRILL-SPECIFIC NOTES:\n${grillCoachingLines.map(l => `- ${l}`).join("\n")}\n`
@@ -466,14 +495,14 @@ export async function callAddItemsSequencer(
   if (uniqueGrillIds.length === 1 && perGrillInsights.length === 1) {
     const grillName = newItems.find(it => it.grillId === uniqueGrillIds[0])?.grillName ?? "your grill";
     const profile = formatSmokerProfile(perGrillInsights[0]);
-    if (profile) smokerProfileSection = profile.replace("=== YOUR SMOKER PROFILE", `=== SMOKER PROFILE FOR "${grillName.toUpperCase()}"`);
+    if (profile) smokerProfileSection = profile.replace("=== YOUR COOK PROFILE", `=== COOK PROFILE FOR "${grillName.toUpperCase()}"`);
   } else if (uniqueGrillIds.length > 1) {
     const sections: string[] = [];
     for (let i = 0; i < uniqueGrillIds.length; i++) {
       const gid = uniqueGrillIds[i];
       const grillName = newItems.find(it => it.grillId === gid)?.grillName ?? `Grill ${gid}`;
       const profile = formatSmokerProfile(perGrillInsights[i]);
-      if (profile) sections.push(profile.replace("=== YOUR SMOKER PROFILE", `=== SMOKER PROFILE FOR "${grillName.toUpperCase()}"`));
+      if (profile) sections.push(profile.replace("=== YOUR COOK PROFILE", `=== COOK PROFILE FOR "${grillName.toUpperCase()}"`));
     }
     smokerProfileSection = sections.join("\n\n") || formatSmokerProfile(allGrillsInsights);
   } else {
