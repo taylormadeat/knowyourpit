@@ -5,6 +5,7 @@ import { AiPredictBody } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../../middlewares/requireAuth";
 import { computeSmokerInsights, formatSmokerProfile, simplifyFoodType } from "../../lib/smokerCalibration";
+import { classifyGrillType, grillClassCoachingNote, grillClassPreheatMins } from "../../lib/grillClassify";
 import { aiRateLimit, isPitProbe, getAssessment } from "./shared";
 import { getMeatBaseline } from "./meatBaselines";
 import type { AiCheckinItem } from "@workspace/checkin-schedule";
@@ -154,6 +155,13 @@ async function buildPredictContext(userId: string, data: ReturnType<typeof AiPre
       `total cooks logged: ${grillRow.totalCooks}`,
     ].filter(Boolean) as string[];
     grillContext = `Grill: ${specs.join(" · ")}`;
+
+    // Append grill-class-specific coaching so the AI knows which
+    // techniques apply (fire management, hopper checks, vent control, etc.)
+    // and whether wrap/stall advice is relevant for this equipment type.
+    const grillClass = classifyGrillType(grillType);
+    const coachingNote = grillClassCoachingNote(grillClass, cookingMethod);
+    if (coachingNote) grillContext += `\n${coachingNote}`;
 
     if (grillRow.cookingSurfaceSqIn != null && pieceCount != null && pieceCount > 1 && isIndividualCook === false && weightLbs != null && weightLbs > 0) {
       const densityLbsPerSqIn = weightLbs / grillRow.cookingSurfaceSqIn;

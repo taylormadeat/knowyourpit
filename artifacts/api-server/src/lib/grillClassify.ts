@@ -1,0 +1,111 @@
+/**
+ * Canonical grill type classification.
+ *
+ * Maps free-form grills.type strings (e.g. "Pellet Grill", "Offset Smoker",
+ * "Kamado") to a stable class used to tailor PitMaster coaching and preheat
+ * defaults across predict, multi-cook, and chat prompts.
+ */
+
+export type GrillClass =
+  | "pellet"
+  | "offset"
+  | "kamado"
+  | "cabinet"
+  | "kettle"
+  | "charcoal"
+  | "gas"
+  | "griddle"
+  | "combo"
+  | "other";
+
+/**
+ * Classify a raw grills.type string into a canonical GrillClass.
+ * Case-insensitive; returns "other" for nullish or unrecognised values.
+ */
+export function classifyGrillType(type: string | null | undefined): GrillClass {
+  if (!type) return "other";
+  const t = type.toLowerCase();
+  if (t.includes("pellet")) return "pellet";
+  if (t.includes("offset") || t.includes("reverse flow") || t.includes("stick burner")) return "offset";
+  if (t.includes("kamado") || t.includes("ceramic") || t.includes("egg")) return "kamado";
+  if (t.includes("cabinet") || t.includes("vertical") || t.includes("bullet")) return "cabinet";
+  if (t.includes("kettle")) return "kettle";
+  // "charcoal" check must come before "gas" so "charcoal gas" combos still hit charcoal
+  if (t.includes("charcoal")) return "charcoal";
+  if (t.includes("gas") || t.includes("propane") || t.includes("natural gas")) return "gas";
+  if (t.includes("griddle")) return "griddle";
+  if (t.includes("combo")) return "combo";
+  return "other";
+}
+
+/**
+ * Returns a concise, actionable coaching note to inject into AI prompts.
+ * Tailored by grill class and, where relevant, the cooking method.
+ * Returns an empty string for the "other" class so callers can skip it safely.
+ */
+export function grillClassCoachingNote(
+  grillClass: GrillClass,
+  cookingMethod?: string | null,
+): string {
+  const isDirect =
+    !!cookingMethod &&
+    (cookingMethod.toLowerCase().includes("direct") ||
+      cookingMethod.toLowerCase().includes("sear"));
+
+  switch (grillClass) {
+    case "pellet":
+      return isDirect
+        ? "Pellet grill note: Pellet grills top out lower than gas or charcoal — use the highest temp setting and preheat grates 15+ min. Open the flame broiler insert if the model has one. Sear marks will be lighter than cast-iron; a cast-iron grate insert helps. Wrap guidance usually doesn't apply for direct-heat cooks on a pellet grill."
+        : "Pellet grill note: Temperature is self-regulated — set it and trust it. Smoke ring will be lighter than offset or charcoal; enable Super Smoke mode (if available) in the first 1–2 hours for maximum penetration. Check the hopper level before long cooks and add extra time in cold weather (pellet augers slow down below 35°F).";
+
+    case "offset":
+      return "Offset smoker note: Active fire management required. Maintain thin blue smoke — white billowing smoke means incomplete combustion and bitter flavor. Add pre-split hardwood splits every 45–90 min. There is a significant left-to-right heat gradient (firebox side runs hotter) — rotate the cook at the midpoint for even results. Wrap recommendations still apply; butcher paper at stall is the classic offset approach.";
+
+    case "kamado":
+      return isDirect
+        ? "Kamado note: Ceramics retain heat exceptionally well — fully preheat 30+ min before searing. Remove the plate setter / heat deflector for direct searing. Use small vent adjustments; kamados respond slowly but hold temp rock-solid once dialed in. Wrap guidance doesn't apply for direct searing on a kamado."
+        : "Kamado note: Ceramics retain heat exceptionally well — set vents small and be patient. Never fully open dampers or temp will overshoot badly and be very hard to bring back down. Very fuel-efficient; refueling is rarely needed even for 12-hour cooks. Dial in temp before adding meat. Stall behavior is similar to offset — wrap recommendations apply normally.";
+
+    case "cabinet":
+      return "Cabinet/vertical smoker note: Vertical airflow means the top rack runs 10–20°F hotter than the bottom. Place thicker cuts up top for faster bark or rotate racks halfway through. Fill the water pan before lighting to stabilize temps. Load fuel from the side door to avoid heat loss from the main chamber. Wrap recommendations apply normally.";
+
+    case "kettle":
+      return isDirect
+        ? "Kettle grill note: Two-zone fire — coals banked on one side, open space on the other. Sear directly over the coals. Bottom vent controls airflow and heat intensity (more open = hotter); top vent controls smoke draw. Keep lid on to prevent flare-ups. No wrap needed for direct-heat cooks on a kettle."
+        : "Kettle grill note: Two-zone indirect setup — coals banked to one side, meat on the opposite side over a drip pan. Add 2–3 hardwood chunks directly on the coals for smoke (no soaking needed). Adjust top and bottom vents in small increments; kettles respond quickly. Add fresh coals every 60–90 min for long cooks. Wrap recommendations apply normally.";
+
+    case "charcoal":
+      return isDirect
+        ? "Charcoal grill note: Wait until coals are fully ashed over (20+ min) before cooking — flames mean flare-up risk. Two-zone setup: coals on one side for direct heat, open space for finishing. Watch for fat flare-ups; close the lid briefly to smother them. No wrap for direct-heat charcoal cooks."
+        : "Charcoal grill note: Two-zone indirect setup with coals banked to the sides and a drip pan in the center. Add hardwood chunks directly on the coals for smoke (no soaking needed). Bottom vent controls heat; top vent controls draw. Add coals every 60–90 min for long cooks. Wrap recommendations apply normally.";
+
+    case "gas":
+      return isDirect
+        ? "Gas grill note: Preheat all burners on high for 10–15 min, then set zones. Sear over lit burners — clean, oiled grates give the best marks. Quick cook; watch internal temp closely. No wrap needed for direct-heat gas grill cooks."
+        : "Gas grill note: For indirect cooking, light only the outer burners and leave the center burners off. Add a smoker box or foil packet of wood chips over a lit burner for smoke flavor — without it this will taste oven-roasted, not smoked. Gas produces a lighter smoke profile; don't expect a heavy smoke ring. Wrap recommendations still apply to push through the stall.";
+
+    case "griddle":
+      return "Griddle note: Season the surface and preheat all zones for 10 min. Use different heat zones — high for searing, medium for cooking through, low for holding warm. Push food to the cooler zone to finish without burning. Manage grease toward the drain channel throughout the cook. Wrap guidance does not apply on a griddle.";
+
+    case "combo":
+      return "Combo grill note: Use the right zone for each item — smoke chamber for low-and-slow cuts, gas/griddle side for direct-heat items. If running both zones simultaneously, the smoke chamber won't reach gas-side temps — factor that into timing when sequencing items. Wrap recommendations apply to items in the smoke chamber only.";
+
+    default:
+      return "";
+  }
+}
+
+/**
+ * Returns the recommended preheat time in minutes for a given grill class.
+ * Used to fix the preheat default logic that was always returning 25 min
+ * due to a case-mismatch between catalog values and the old string literals.
+ */
+export function grillClassPreheatMins(grillClass: GrillClass): number {
+  switch (grillClass) {
+    case "gas":      return 15; // gas heats up quickly
+    case "pellet":   return 20; // auger + fire-pot startup
+    case "kamado":   return 30; // ceramics need time to soak heat
+    case "griddle":  return 15; // flat top heats fast
+    default:         return 25; // charcoal, offset, cabinet, kettle, combo, other
+  }
+}

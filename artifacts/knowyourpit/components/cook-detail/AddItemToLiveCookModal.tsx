@@ -91,7 +91,18 @@ export function AddItemToLiveCookModal({
       const baselineEstimateMinutes = pendingItem.cut.minsPerLb > 0 && weightLbs != null && weightLbs > 0
         ? Math.round(pendingItem.cut.minsPerLb * weightLbs)
         : undefined;
-      const preheatMins = grill?.type === "gas" ? 15 : grill?.type === "pellet" ? 20 : 25;
+      // Normalise the free-form grills.type string (e.g. "Pellet Grill", "Gas Grill")
+      // to pick the right preheat default.  The old exact-match on lowercase "gas"/"pellet"
+      // never matched because catalog values are title-cased.
+      const grillTypeLower = grill?.type?.toLowerCase() ?? "";
+      const preheatMins =
+        grillTypeLower.includes("gas") || grillTypeLower.includes("propane")
+          ? 15
+          : grillTypeLower.includes("pellet")
+          ? 20
+          : grillTypeLower.includes("kamado") || grillTypeLower.includes("ceramic") || grillTypeLower.includes("egg")
+          ? 30
+          : 25;
 
       const payload = {
         items: [{

@@ -1,10 +1,13 @@
 import { Router, type IRouter } from "express";
+import { eq, inArray } from "drizzle-orm";
+import { db, grillsTable } from "@workspace/db";
 import { AiMultiCookBody } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth } from "../../middlewares/requireAuth";
 import { computeSmokerInsights, formatSmokerProfile } from "../../lib/smokerCalibration";
 import { respondPaywall, userBypassesPaywall } from "../../lib/paywall";
 import { aiRateLimit, buildUserCookHistory } from "./shared";
+import { classifyGrillType, grillClassCoachingNote } from "../../lib/grillClassify";
 import { processMultiCookResult } from "./processMultiCookResult";
 
 const router: IRouter = Router();
@@ -69,12 +72,29 @@ async function buildMultiCookContext(
     .filter(([, n]) => n > 1)
     .map(([name]) => name);
 
-  // Fetch user cook history + per-grill calibration profiles in parallel.
-  const [cookHistory, allGrillsInsights, ...perGrillInsights] = await Promise.all([
+  // Fetch user cook history, per-grill calibration profiles, and grill rows in parallel.
+  const [cookHistory, allGrillsInsights, grillRows, ...perGrillInsights] = await Promise.all([
     buildUserCookHistory(userId),
     computeSmokerInsights(userId),
+    uniqueGrillIds.length > 0
+      ? db.select({ id: grillsTable.id, type: grillsTable.type })
+          .from(grillsTable)
+          .where(inArray(grillsTable.id, uniqueGrillIds))
+      : Promise.resolve([] as { id: number; type: string }[]),
     ...uniqueGrillIds.map(gid => computeSmokerInsights(userId, gid)),
   ]);
+
+  // Build one grill-type coaching line per unique grill.
+  const grillTypeById = Object.fromEntries(grillRows.map(g => [g.id, g.type]));
+  const grillCoachingLines: string[] = [];
+  for (const gid of uniqueGrillIds) {
+    const grillName = items.find((it: typeof items[number]) => it.grillId === gid)?.grillName;
+    const grillClass = classifyGrillType(grillTypeById[gid]);
+    // Pick the dominant cooking method for items on this grill
+    const cookingMethod = items.find((it: typeof items[number]) => it.grillId === gid)?.cookingMethod ?? null;
+    const note = grillClassCoachingNote(grillClass, cookingMethod);
+    if (note && grillName) grillCoachingLines.push(`"${grillName}": ${note}`);
+  }
 
   // Build the smoker profile section. When all items share a single grill,
   // use only that grill's profile. When multiple grills are involved, show
@@ -133,6 +153,10 @@ SHARED GRILL RULES: No items share a grill in this session. Set "sharedGrillTips
 
   const currentTimeStr = new Date().toLocaleString("en-US", { timeZoneName: "short" });
 
+  const grillTypeSection = grillCoachingLines.length > 0
+    ? `\nGRILL-SPECIFIC NOTES (apply to all scheduling, wrap, and technique decisions for items on each grill):\n${grillCoachingLines.map(l => `- ${l}`).join("\n")}\n`
+    : "";
+
   const systemPrompt = `You are knowyourpit AI, a world-class BBQ pit master. You are sequencing a multi-cook session where everything must be ready to serve at the same time.
 
 Current time: ${currentTimeStr}
@@ -171,7 +195,7 @@ Wrap guidance by cut:
 - Sausage / hot dogs: none
 - Other lean cuts (tri-tip, flat iron): none or butcher_paper briefly if stalling
 - Vegetables / fruit: almost always none; exception is foil-wrapped whole vegetables (potato, beet, corn in husk) where foil is part of the technique
-${sharedGrillInstruction}
+${grillTypeSection}${sharedGrillInstruction}
 Return ONLY valid JSON, no markdown:
 {
   "schedule": [
@@ -414,11 +438,29 @@ export async function callAddItemsSequencer(
       .filter((id): id is number => typeof id === "number"),
   )];
 
-  const [cookHistory, allGrillsInsights, ...perGrillInsights] = await Promise.all([
+  const [cookHistory, allGrillsInsights, grillRows, ...perGrillInsights] = await Promise.all([
     buildUserCookHistory(userId),
     computeSmokerInsights(userId),
+    uniqueGrillIds.length > 0
+      ? db.select({ id: grillsTable.id, type: grillsTable.type })
+          .from(grillsTable)
+          .where(inArray(grillsTable.id, uniqueGrillIds))
+      : Promise.resolve([] as { id: number; type: string }[]),
     ...uniqueGrillIds.map(gid => computeSmokerInsights(userId, gid)),
   ]);
+
+  const grillTypeById = Object.fromEntries(grillRows.map(g => [g.id, g.type]));
+  const grillCoachingLines: string[] = [];
+  for (const gid of uniqueGrillIds) {
+    const grillName = newItems.find(it => it.grillId === gid)?.grillName;
+    const grillClass = classifyGrillType(grillTypeById[gid]);
+    const cookingMethod = newItems.find(it => it.grillId === gid)?.cookingMethod ?? null;
+    const note = grillClassCoachingNote(grillClass, cookingMethod);
+    if (note && grillName) grillCoachingLines.push(`"${grillName}": ${note}`);
+  }
+  const grillTypeSection = grillCoachingLines.length > 0
+    ? `\nGRILL-SPECIFIC NOTES:\n${grillCoachingLines.map(l => `- ${l}`).join("\n")}\n`
+    : "";
 
   let smokerProfileSection = "";
   if (uniqueGrillIds.length === 1 && perGrillInsights.length === 1) {
@@ -495,7 +537,7 @@ SHARED GRILL RULES (applies to: ${sharedGrillNames.map(n => `"${n}"`).join(", ")
 
 Current time: ${currentTimeStr}
 ${anchorSection}
-${sharedGrillInstruction}
+${grillTypeSection}${sharedGrillInstruction}
 
 For each NEW item, calculate working BACKWARDS from the serve time (${serveAtDate.toLocaleString()}):
 - estimatedDurationMinutes: START from baselineEstimateMinutes if provided. Adjust ±25% max based on smoker profile and ambient temp.
