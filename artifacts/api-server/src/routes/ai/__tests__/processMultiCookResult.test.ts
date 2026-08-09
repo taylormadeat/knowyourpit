@@ -602,6 +602,89 @@ describe("direct-heat wrap suppression in processMultiCookResult", () => {
     expect(corn.wrapTempF).toBeNull();
     expect(corn.wrapReason).toBeNull();
   });
+
+  // ── Griddle + smoke on a combo grill ───────────────────────────────────────
+  // Regression: AI hallucinates a wrapMethod on a griddle item on a combo cook.
+  // The Griddle cookingMethod must suppress wrap even when paired with a
+  // simultaneously-running smoke item that legitimately needs wrap guidance.
+
+  describe("combo grill: Griddle item alongside a smoke item (mixed-method schedule)", () => {
+    // AI response where the griddle item (Smash Burgers) has hallucinated wrap
+    // fields and the smoke item (Pork Shoulder) has legitimate wrap fields.
+    const makeRaw = (griddle_cookingMethod_in_request: string) => ({
+      schedule: [
+        {
+          foodType: "Pork Shoulder",
+          grillLightAt: new Date(Date.now() + 30 * 60_000).toISOString(),
+          meatOnAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+          estimatedFinishAt: new Date(Date.now() + 540 * 60_000).toISOString(),
+          estimatedDurationMinutes: 480,
+          preheatMinutes: 30,
+          restMinutes: 30,
+          wrapMethod: "butcher_paper",
+          wrapAtMinutes: 240,
+          wrapTempF: 165,
+          wrapReason: "Push through the stall and set the bark.",
+          notes: "Low and slow in the smoke chamber.",
+        },
+        {
+          foodType: "Smash Burgers",
+          grillLightAt: new Date(Date.now() + 31 * 60_000).toISOString(),
+          meatOnAt: new Date(Date.now() + 46 * 60_000).toISOString(),
+          estimatedFinishAt: new Date(Date.now() + 66 * 60_000).toISOString(),
+          estimatedDurationMinutes: 20,
+          preheatMinutes: 15,
+          restMinutes: 5,
+          // AI hallucinates wrap for a griddle item
+          wrapMethod: "foil",
+          wrapAtMinutes: 10,
+          wrapTempF: 160,
+          wrapReason: "Keeps the cheese melted.",
+          notes: "Cook on the griddle side at high heat.",
+        },
+      ],
+      sharedGrillTips: "Use smoke chamber for shoulder; griddle side for burgers.",
+    });
+
+    for (const griddleMethod of ["Griddle", "griddle"]) {
+      describe(`griddle item with cookingMethod = "${griddleMethod}"`, () => {
+        it("preserves butcher_paper wrap on the smoke item", () => {
+          const raw = makeRaw(griddleMethod);
+          const result = processMultiCookResult(raw, FUTURE_SERVE_AT, [
+            reqItemWithMethod("Pork Shoulder", "Low and Slow", "Pitts & Spitts Maverick Combo"),
+            reqItemWithMethod("Smash Burgers", griddleMethod, "Pitts & Spitts Maverick Combo"),
+          ]);
+          const shoulder = result.schedule.find((s: any) => s.foodType === "Pork Shoulder");
+          expect(shoulder.wrapMethod).toBe("butcher_paper");
+          expect(shoulder.wrapAtMinutes).not.toBeNull();
+          expect(shoulder.wrapTempF).not.toBeNull();
+          expect(shoulder.wrapReason).not.toBeNull();
+        });
+
+        it("forces wrapMethod = \"none\" on the griddle item", () => {
+          const raw = makeRaw(griddleMethod);
+          const result = processMultiCookResult(raw, FUTURE_SERVE_AT, [
+            reqItemWithMethod("Pork Shoulder", "Low and Slow", "Pitts & Spitts Maverick Combo"),
+            reqItemWithMethod("Smash Burgers", griddleMethod, "Pitts & Spitts Maverick Combo"),
+          ]);
+          const burgers = result.schedule.find((s: any) => s.foodType === "Smash Burgers");
+          expect(burgers.wrapMethod).toBe("none");
+        });
+
+        it("clears wrapAtMinutes, wrapTempF, and wrapReason to null on the griddle item", () => {
+          const raw = makeRaw(griddleMethod);
+          const result = processMultiCookResult(raw, FUTURE_SERVE_AT, [
+            reqItemWithMethod("Pork Shoulder", "Low and Slow", "Pitts & Spitts Maverick Combo"),
+            reqItemWithMethod("Smash Burgers", griddleMethod, "Pitts & Spitts Maverick Combo"),
+          ]);
+          const burgers = result.schedule.find((s: any) => s.foodType === "Smash Burgers");
+          expect(burgers.wrapAtMinutes).toBeNull();
+          expect(burgers.wrapTempF).toBeNull();
+          expect(burgers.wrapReason).toBeNull();
+        });
+      });
+    }
+  });
 });
 
 // ── Deterministic realignment to serveAt (feasible schedules) ────────────────
