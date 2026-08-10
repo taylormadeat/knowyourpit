@@ -68,7 +68,7 @@ import type { ProbeTimeSeries } from "@/components/TempGraph";
 import { QP_COOK_METHODS, QP_INJECTION_OPTIONS, QP_SPRITZ_FREQUENCIES, QP_WRAP_FINISH_OPTIONS } from "@/constants/cookQuickPicks";
 import { type QualFactor } from "@/components/CookFactorsSheet";
 import { getMeatPrep } from "@/components/plan-screen/prepGuides";
-import { isDirectHeat } from "@/utils/cookingMethod";
+import { isDirectHeat, includesSear } from "@/utils/cookingMethod";
 import { MEAT_CUTS } from "@/constants/meatCuts";
 
 import { useCookDetail } from "@/hooks/useCookDetail";
@@ -802,7 +802,7 @@ export default function CookDetailScreen() {
             ) ?? (foodType ? { name: foodType, category: "" } : null);
             const prep = getMeatPrep(matchedCut as any);
             if (!prep) return null;
-            const tip = prep.directHeatTip && isDirectHeat(c.cookingMethod)
+            const tip = prep.directHeatTip && includesSear(c.cookingMethod)
               ? prep.directHeatTip
               : prep.tip;
             return (

@@ -35,6 +35,16 @@ export function isDirectHeat(method: string | null | undefined): boolean {
   return cls === "direct" || cls === "sear" || cls === "griddle";
 }
 
+/**
+ * True for any method that includes a searing phase — direct, sear, griddle,
+ * and reverse_sear (which ends with a direct-heat sear). Use this for tip
+ * selection so reverse-sear cooks see grilling-specific advice.
+ */
+export function includesSear(method: string | null | undefined): boolean {
+  const cls = classifyCookingMethod(method);
+  return cls === "direct" || cls === "sear" || cls === "griddle" || cls === "reverse_sear";
+}
+
 /** Short display label for a cooking method, e.g. "Smoking", "Grilling". */
 export function cookMethodDisplayLabel(method: string | null | undefined): string {
   const cls = classifyCookingMethod(method);
