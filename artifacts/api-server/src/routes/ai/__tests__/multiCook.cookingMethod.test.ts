@@ -87,9 +87,14 @@ vi.mock("../shared", () => ({
 }));
 
 // Grill classifier: return null coaching notes (no grill rows in this test).
+// isDirectHeat must be included because buildMultiCookContext uses it to scope
+// wrap guidance in the system prompt.
 vi.mock("../../../lib/grillClassify", () => ({
   classifyGrillType: vi.fn().mockReturnValue(null),
   grillClassCoachingNote: vi.fn().mockReturnValue(null),
+  isDirectHeat: vi.fn((m: string | null) =>
+    typeof m === "string" && /direct|sear|griddle/i.test(m)
+  ),
 }));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

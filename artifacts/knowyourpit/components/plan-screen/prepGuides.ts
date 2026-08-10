@@ -28,7 +28,8 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Let the rub sit uncovered in the fridge for at least 4 hours, ideally overnight.",
       "Remove from fridge 30 minutes before cooking.",
     ],
-    tip: "Beef ribs need more time and higher pit temps than pork ribs — 275°F and patience are your best tools.",
+    tip: "Beef ribs need more time and higher ambient temps than pork ribs — 275°F and patience are your best tools.",
+    directHeatTip: "For direct-heat beef ribs, flanken-cut (cross-cut) or thin-cut short ribs work best. Grill over high heat 4–5 min per side, then move to indirect to finish. Pull when the meat pulls back from the bone and registers 160°F+.",
   },
   chuck_roast: {
     steps: [
@@ -67,6 +68,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Arrange in a single layer with space for airflow.",
     ],
     tip: "Oxtail is done when the meat is nearly falling off the bone and a probe slides through with zero resistance — usually 210°F+.",
+    directHeatTip: "Oxtail needs moist slow heat to break down — direct grilling alone won't get there. Braise first until tender (210°F+), then finish over high direct heat 3–4 min per side for a charred crust. It's worth the extra step.",
   },
   steak: {
     steps: [
@@ -161,7 +163,8 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Season with salt, pepper, garlic powder, and smoked paprika.",
       "Bring to room temperature 20 minutes before cooking.",
     ],
-    tip: "Thick chops do great with a reverse sear — smoke to 130°F then sear over high heat.",
+    tip: "Thick chops do great with a reverse sear — bring to 130°F indirect, then sear over high heat for the crust.",
+    directHeatTip: "Direct heat is ideal for pork chops: sear over high heat 3–4 min per side, then move to a cooler zone if they need more time. Pull at 140°F and rest 5 minutes — carryover heat finishes the job.",
   },
 
   // ── Poultry ───────────────────────────────────────────────────────────
@@ -231,6 +234,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Bring to room temperature for 30–45 minutes before cooking.",
     ],
     tip: "Goat is leaner than lamb — low and slow at 250°F keeps it moist. Baste regularly.",
+    directHeatTip: "Goat grills best as chops or kebabs. Marinate well (garlic, lemon, herbs, oil), then grill over medium-high heat 4–5 min per side. Baste frequently to keep it moist. Pull at 160°F and rest 5 minutes.",
   },
 
   // ── Seafood ───────────────────────────────────────────────────────────
@@ -297,7 +301,8 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Apply a bold rub and marinate overnight after brining.",
       "Bring to room temperature 30–45 minutes before cooking.",
     ],
-    tip: "Game roasts are lean — baste frequently or wrap at the stall to retain moisture.",
+    tip: "Game roasts are lean — baste frequently and consider wrapping to retain moisture during the long cook.",
+    directHeatTip: "For direct-heat game, slice into steaks or chops — roasts need low-and-slow. Grill over medium heat, 4–5 min per side, and pull at 145°F for venison or 160°F for wild boar. Rest 5 minutes; lean game dries out fast if you skip the rest.",
   },
   rabbit: {
     steps: [

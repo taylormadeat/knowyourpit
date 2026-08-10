@@ -33,7 +33,11 @@ async function buildUserCookHistory(userId: string): Promise<string> {
       parts.push(`duration: ${mins} min`);
     }
     if (c.rating) parts.push(`rated ${c.rating}/5`);
-    if (c.ratingBark) parts.push(`bark ${c.ratingBark}/5`);
+    if (c.ratingBark) {
+      const barkM = ((c as any).cookingMethod ?? "").toLowerCase();
+      const barkLabel2 = (barkM.includes("direct") || barkM.includes("sear") || barkM.includes("griddle")) ? "crust" : "bark";
+      parts.push(`${barkLabel2} ${c.ratingBark}/5`);
+    }
     if (c.ratingFlavor) parts.push(`flavor ${c.ratingFlavor}/5`);
     if (c.wrapMethod && c.wrapMethod !== "none") parts.push(`wrapped: ${c.wrapMethod}`);
     if (c.notes) parts.push(`notes: "${c.notes}"`);

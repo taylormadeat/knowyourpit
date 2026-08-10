@@ -1632,13 +1632,13 @@ export function LiveCookSection(p: Props) {
                     ) : null}
                     {hasTimingChips && (
                       <View style={s.phaseChips}>
-                        {pp.timeToStallMinutes != null && pp.phase === "heat_up" && (
+                        {pp.timeToStallMinutes != null && pp.phase === "heat_up" && !(/direct|sear|griddle/i.test(c.cookingMethod ?? "")) && (
                           <View style={[s.timeChip, { backgroundColor: phaseColor + "20", borderColor: phaseColor + "40" }]}>
                             <Feather name="clock" size={11} color={phaseColor} />
                             <Text style={[s.timeChipText, { color: phaseColor }]}>Stall in {fmtTime(pp.timeToStallMinutes)}</Text>
                           </View>
                         )}
-                        {pp.stallDurationMinutes != null && pp.phase === "stall" && (
+                        {pp.stallDurationMinutes != null && pp.phase === "stall" && !(/direct|sear|griddle/i.test(c.cookingMethod ?? "")) && (
                           <View style={[s.timeChip, { backgroundColor: "#F59E0B20", borderColor: "#F59E0B40" }]}>
                             <Feather name="pause-circle" size={11} color="#F59E0B" />
                             <Text style={[s.timeChipText, { color: "#F59E0B" }]}>Stall ends in {fmtTime(pp.stallDurationMinutes)}</Text>

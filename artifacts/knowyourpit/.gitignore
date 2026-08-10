@@ -9,9 +9,24 @@ dist/
 web-build/
 expo-env.d.ts
 
-# Native
-ios/
+# Native — android is fully ignored.
 android/
+# ios/ contents are ignored broadly, but two specific files must be tracked:
+#   - ios/knowyourpit/PrivacyInfo.xcprivacy  (Apple-required privacy manifest)
+#   - ios/knowyourpit.xcodeproj/project.pbxproj  (its Xcode project registration)
+# EAS builds upload the ios/ directory directly (bypassing expo prebuild), so
+# these files must be committed so EAS includes them in the submitted archive.
+#
+# Git requires un-ignoring each parent directory in the chain before files
+# inside can be negated. `ios/` (directory ignore) blocks all negations;
+# `ios/*` (glob on contents) allows the step-by-step pattern below to work.
+ios/*
+!ios/knowyourpit/
+ios/knowyourpit/*
+!ios/knowyourpit/PrivacyInfo.xcprivacy
+!ios/knowyourpit.xcodeproj/
+ios/knowyourpit.xcodeproj/*
+!ios/knowyourpit.xcodeproj/project.pbxproj
 *.orig.*
 *.jks
 *.p8

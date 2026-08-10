@@ -3324,7 +3324,7 @@ export default function PlanScreen() {
                 sub={`~${fmtDuration(schedule.cookMins)} cook time`}
                 colors={colors}
               />
-              {schedule.wrap && (
+              {schedule.wrap && !(/direct|sear|griddle/i.test(qpCookMethod ?? "")) && (
                 <>
                   <View style={[s.scheduleLine, { backgroundColor: colors.border }]} />
                   <ScheduleRow

@@ -305,7 +305,7 @@ VERIFIED BASELINE for "${foodType}" (from BBQ knowledge database):
 - Standard cook time: ~${baseline.minsPerLb} min/lb at ${baseline.cookTempF}°F pit temp
 - Target internal temp: ${baseline.targetTempF === 0 ? "time-based (visual doneness — no internal temp target, apply PRODUCE RULES)" : `${baseline.targetTempF}°F`}
 - Recommended rest: ${baseline.restMins} min
-- Wrap recommendation: ${baseline.wrapRec}${baseline.wrapAtMins ? ` at ~${baseline.wrapAtMins} min into cook` : ""}${baseline.wrapTempF ? ` / ${baseline.wrapTempF}°F internal` : ""}
+${!baselineIsDirect ? `- Wrap recommendation: ${baseline.wrapRec}${baseline.wrapAtMins ? ` at ~${baseline.wrapAtMins} min into cook` : ""}${baseline.wrapTempF ? ` / ${baseline.wrapTempF}°F internal` : ""}` : ""}
 ${baseline.wrapNote && !baselineIsDirect ? `- Wrap guidance: ${baseline.wrapNote}` : ""}
 Use this as your primary baseline. Adjust based on actual user data, grill specifics, and any deviations noted.` : "";
 

@@ -7,7 +7,7 @@ import { requireAuth } from "../../middlewares/requireAuth";
 import { computeSmokerInsights, formatSmokerProfile } from "../../lib/smokerCalibration";
 import { respondPaywall, userBypassesPaywall } from "../../lib/paywall";
 import { aiRateLimit, buildUserCookHistory } from "./shared";
-import { classifyGrillType, grillClassCoachingNote } from "../../lib/grillClassify";
+import { classifyGrillType, grillClassCoachingNote, isDirectHeat } from "../../lib/grillClassify";
 import { processMultiCookResult } from "./processMultiCookResult";
 
 const router: IRouter = Router();
@@ -168,6 +168,30 @@ SHARED GRILL RULES: No items share a grill in this session. Set "sharedGrillTips
 
   const currentTimeStr = new Date().toLocaleString("en-US", { timeZoneName: "short" });
 
+  // Scope wrap guidance to cooking method — direct-heat sessions don't stall or wrap.
+  const allItemsDirect = items.every((item: typeof items[number]) => isDirectHeat(item.cookingMethod ?? null));
+  const anyItemDirect = !allItemsDirect && items.some((item: typeof items[number]) => isDirectHeat(item.cookingMethod ?? null));
+  const wrapGuidanceSection = allItemsDirect
+    ? `For each item, set wrapMethod to "none" — direct-heat / grilling cooks do not use stall-based wrapping. Set wrapAtMinutes, wrapTempF, and wrapReason all to null.`
+    : `For each item, also determine wrap guidance:
+- wrapMethod: "foil" (Texas Crutch — faster, steams), "butcher_paper" (breathable, retains bark), or "none"
+- wrapAtMinutes: minutes from meatOnAt when to wrap. REQUIRED whenever wrapMethod is "foil" or "butcher_paper" — never null in that case. Null only when wrapMethod is "none".
+- wrapTempF: internal meat temperature to trigger wrap in °F (null if not applicable)
+- wrapReason: one sentence explaining the wrap strategy for this item
+
+IMPORTANT: When wrapMethod is "foil" or "butcher_paper", wrap details MUST go in the wrap fields above (wrapAtMinutes, wrapTempF, wrapReason). DO NOT mention wrapping in the "notes" field — the UI renders the wrap step as its own row in the schedule using the wrap fields, and duplicating it in notes will confuse the user.
+
+Wrap guidance by cut:
+- Brisket (whole packer, flat): butcher_paper around the stall (~160-170°F internal, ~50-60% into cook)
+- Pork shoulder / butt: foil around the stall (~160-165°F internal, ~50-60% into cook)
+- Spare ribs / St. Louis: foil (3-2-1 method: 3h smoke, 2h foil, 1h unwrapped) or butcher_paper, wrap at 2-3h in
+- Baby back ribs: foil (2-2-1 method: 2h smoke, 2h foil, 1h unwrapped), wrap at 2h in
+- Chicken / turkey: none (wrapping steams poultry, ruins skin)
+- Salmon / fish: none
+- Sausage / hot dogs: none
+- Other lean cuts (tri-tip, flat iron): none or butcher_paper briefly if stalling
+- Vegetables / fruit: almost always none; exception is foil-wrapped whole vegetables (potato, beet, corn in husk) where foil is part of the technique${anyItemDirect ? '\n\nIMPORTANT: Any item with a direct-heat or grilling cooking method must use wrapMethod: "none" — stall-based wrapping does not apply to direct-heat cooks.' : ""}`;
+
   const grillTypeSection = grillCoachingLines.length > 0
     ? `\nGRILL-SPECIFIC NOTES (apply to all scheduling, wrap, and technique decisions for items on each grill):\n${grillCoachingLines.map(l => `- ${l}`).join("\n")}\n`
     : "";
@@ -192,24 +216,7 @@ INFEASIBILITY RULE (critical): If your backward calculation puts meatOnAt before
 - The Ready To Serve time will be later than serveAt — this is correct and honest
 - Add a note: "Earliest achievable — [item] can't be ready by [serveAt time]; will be done ~[actual ready time]."
 
-For each item, also determine wrap guidance:
-- wrapMethod: "foil" (Texas Crutch — faster, steams), "butcher_paper" (breathable, retains bark), or "none"
-- wrapAtMinutes: minutes from meatOnAt when to wrap. REQUIRED whenever wrapMethod is "foil" or "butcher_paper" — never null in that case. Null only when wrapMethod is "none".
-- wrapTempF: internal meat temperature to trigger wrap in °F (null if not applicable)
-- wrapReason: one sentence explaining the wrap strategy for this item
-
-IMPORTANT: When wrapMethod is "foil" or "butcher_paper", wrap details MUST go in the wrap fields above (wrapAtMinutes, wrapTempF, wrapReason). DO NOT mention wrapping in the "notes" field — the UI renders the wrap step as its own row in the schedule using the wrap fields, and duplicating it in notes will confuse the user.
-
-Wrap guidance by cut:
-- Brisket (whole packer, flat): butcher_paper around the stall (~160-170°F internal, ~50-60% into cook)
-- Pork shoulder / butt: foil around the stall (~160-165°F internal, ~50-60% into cook)
-- Spare ribs / St. Louis: foil (3-2-1 method: 3h smoke, 2h foil, 1h unwrapped) or butcher_paper, wrap at 2-3h in
-- Baby back ribs: foil (2-2-1 method: 2h smoke, 2h foil, 1h unwrapped), wrap at 2h in
-- Chicken / turkey: none (wrapping steams poultry, ruins skin)
-- Salmon / fish: none
-- Sausage / hot dogs: none
-- Other lean cuts (tri-tip, flat iron): none or butcher_paper briefly if stalling
-- Vegetables / fruit: almost always none; exception is foil-wrapped whole vegetables (potato, beet, corn in husk) where foil is part of the technique
+${wrapGuidanceSection}
 ${grillTypeSection}${sharedGrillInstruction}
 Return ONLY valid JSON, no markdown:
 {

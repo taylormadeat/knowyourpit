@@ -637,8 +637,8 @@ export function SequenceSchedule(p: Props) {
                           );
                         })()}
 
-                        {/* ── Stall zone (brisket / pork shoulder / chuck — active cooks only) ── */}
-                        {isActive && stallProne && (
+                        {/* ── Stall zone (brisket / pork shoulder / chuck — active indirect cooks only) ── */}
+                        {isActive && stallProne && !(/direct|sear|griddle/i.test((item.cookingMethod ?? c.cookingMethod ?? "") as string)) && (
                           <View style={[s.seqTlRow, { marginLeft: 4 }]}>
                             <Pressable
                               onPress={() => toggleConfirmedStep(`${idx}_stall`)}

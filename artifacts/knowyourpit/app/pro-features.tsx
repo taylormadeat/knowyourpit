@@ -72,14 +72,14 @@ function AIPitmasterPreview({ colors }: { colors: any }) {
   return (
     <View style={pv.chatWrap}>
       <View style={[pv.bubbleUser, { backgroundColor: "#E84520" }]}>
-        <Text style={pv.bubbleUserText}>My brisket stalled at 165°F for 2 hours. Should I wrap?</Text>
+        <Text style={pv.bubbleUserText}>Pork shoulder is at 195°F and hasn't moved in 20 minutes. Is it done?</Text>
       </View>
       <View style={[pv.bubbleAI, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={pv.aiHeader}>
           <View style={pv.aiAvatar}><Feather name="cpu" size={10} color="#fff" /></View>
           <Text style={[pv.aiName, { color: colors.mutedForeground }]}>PitMaster</Text>
         </View>
-        <Text style={[pv.bubbleAIText, { color: colors.foreground }]}>Yes — wrap now with butcher paper. The stall is just collagen converting. At 165°F you're right in the window. Expect to finish around 203°F in 2–3 more hours.</Text>
+        <Text style={[pv.bubbleAIText, { color: colors.foreground }]}>Not yet — probe test it. Slide a temp probe into the thickest part: if it meets any resistance, give it another 30 minutes. You're looking for zero resistance, like pushing through warm butter. Temperature is a guide; probe feel is the call.</Text>
       </View>
     </View>
   );
@@ -173,7 +173,7 @@ function FrozenPlannerPreview({ colors }: { colors: any }) {
   const steps = [
     { label: "Thaw in fridge", time: "36 hrs", color: "#60A5FA", done: true },
     { label: "Temper at room temp", time: "2 hrs", color: "#F59E0B", done: true },
-    { label: "Fire up smoker", time: "6:00 AM", color: "#E84520", done: false },
+    { label: "Fire up your pit", time: "6:00 AM", color: "#E84520", done: false },
     { label: "Serve", time: "6:00 PM", color: "#22C55E", done: false },
   ];
   return (

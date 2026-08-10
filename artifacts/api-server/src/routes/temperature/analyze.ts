@@ -162,13 +162,13 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
   // Build cook context section for the prompt
   const contextLines: string[] = [];
 
-    const analyzeOutdoorIsDirect = isDirectHeat(cookContext.cookingMethod);
+  if (cookContext?.plannedStartAt) {
     const preheatMs = (cookContext?.preheatMinutes ?? 0) * 60 * 1000;
     const plannedMeatOnMs = new Date(cookContext.plannedStartAt).getTime() + preheatMs;
     contextLines.push(`Planned meat-on time (ISO): ${new Date(plannedMeatOnMs).toISOString()}`);
 
     if (cookContext?.actualStartAt) {
-    const actualStart = new Date(cookContext.actualStartAt).getTime();
+      const actualStart = new Date(cookContext.actualStartAt).getTime();
       const diffMin = Math.round((actualStart - plannedMeatOnMs) / 60000);
       if (Math.abs(diffMin) >= 5) {
         const timingNote = diffMin > 0
@@ -179,6 +179,13 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
         contextLines.push("The cook started right on schedule.");
       }
     }
+  }
+
+  if (cookContext?.outdoorTempF != null) {
+    const isDirectHeatCook = isDirectHeat(cookContext.cookingMethod);
+    contextLines.push(isDirectHeatCook
+      ? `Current outdoor/ambient air temperature: ${cookContext.outdoorTempF}°F (factor this into heat management and cold-weather adjustments)`
+      : `Current outdoor/ambient air temperature: ${cookContext.outdoorTempF}°F (factor this into heat management, stall timing, and cold-weather adjustments)`);
   }
 
   if (cookContext?.actualStartAt && cookContext?.plannedEndAt) {
@@ -663,7 +670,3 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
 });
 
 export default router;
-
-    const outdoorNote = analyzeOutdoorIsDirect
-      ? `Current outdoor/ambient air temperature: ${cookContext.outdoorTempF}°F (factor this into heat management and cold-weather adjustments)`
-      : `Current outdoor/ambient air temperature: ${cookContext.outdoorTempF}°F (factor this into heat management, stall timing, and cold-weather adjustments)`;
