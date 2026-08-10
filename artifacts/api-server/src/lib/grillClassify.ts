@@ -123,9 +123,9 @@ export function classifyCookingMethod(method: string | null | undefined): Cookin
   if (m.includes("sear")) return "sear";
   if (m.includes("rotisserie") || m.includes("rotary")) return "rotisserie";
   if (m.includes("griddle")) return "griddle";
+  if (m.includes("indirect")) return "indirect";
   if (m.includes("direct")) return "direct";
   if (m.includes("smoke") || m.includes("low and slow") || m.includes("low & slow")) return "smoke";
-  if (m.includes("indirect")) return "indirect";
   return "unknown";
 }
 

@@ -94,14 +94,13 @@ describe("buildChatSystemPrompt — direct-heat cookingMethod", () => {
 // ─── Smoke / indirect cook ────────────────────────────────────────────────────
 
 describe("buildChatSystemPrompt — smoke/indirect cookingMethod", () => {
-  // Note: "Indirect" / "indirect" contains the substring "direct" and is
-  // therefore classified as direct-heat by classifyCookingMethod — do not include
-  // it here. Use the explicit smoke/slow-cook labels that map unambiguously.
   const SMOKE_METHODS = [
     "Low and Slow",
     "low and slow",
     "Smoke",
     "smoke",
+    "Indirect",
+    "indirect",
   ];
 
   const SMOKER_VOCAB = ["bark", "stall", "texas crutch"];

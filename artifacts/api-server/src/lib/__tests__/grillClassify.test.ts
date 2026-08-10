@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { grillClassCoachingNote, type GrillClass } from "../grillClassify";
+import { grillClassCoachingNote, classifyCookingMethod, type GrillClass } from "../grillClassify";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -61,6 +61,22 @@ const ALL_GRILL_CLASSES: GrillClass[] = [
   "combo",
   "other",
 ];
+
+// ── classifyCookingMethod: "indirect" must not be classified as "direct" ──────
+
+describe("classifyCookingMethod — indirect classification", () => {
+  it('classifies "Indirect" as "indirect", not "direct"', () => {
+    expect(classifyCookingMethod("Indirect")).toBe("indirect");
+  });
+
+  it('classifies "indirect" as "indirect", not "direct"', () => {
+    expect(classifyCookingMethod("indirect")).toBe("indirect");
+  });
+
+  it('classifies "Direct Heat" as "direct"', () => {
+    expect(classifyCookingMethod("Direct Heat")).toBe("direct");
+  });
+});
 
 // ── Direct-heat methods suppress all wrap language ───────────────────────────
 
