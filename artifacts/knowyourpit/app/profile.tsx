@@ -26,6 +26,7 @@ import {
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePaywall } from "@/contexts/PaywallContext";
+import { isDirectHeat } from "@/utils/cookingMethod";
 
 function StarRating({ score, color }: { score: number; color: string }) {
   const stars = Array.from({ length: 5 }, (_, i) => {
@@ -572,11 +573,15 @@ export default function ProfileScreen() {
                               </View>
                             )}
                             <View style={s.qualityRow}>
-                              {[
-                                { label: "T", fullLabel: "Tenderness", value: t },
-                                { label: "B", fullLabel: "Bark/Crust", value: b },
-                                { label: "F", fullLabel: "Flavor", value: f },
-                              ].map((item) => (
+                              {(() => {
+                                const directCount = pool.filter((c) => isDirectHeat((c as any).cookingMethod)).length;
+                                const barkLabel = directCount > pool.length / 2 ? "Crust" : "Bark";
+                                return [
+                                  { label: "T", fullLabel: "Tenderness", value: t },
+                                  { label: barkLabel, fullLabel: barkLabel, value: b },
+                                  { label: "F", fullLabel: "Flavor", value: f },
+                                ];
+                              })().map((item) => (
                                 <View key={item.label} style={s.qualityItemCompact}>
                                   <Text style={[s.qualityLabelCompact, { color: colors.mutedForeground }]}>
                                     {item.label}
