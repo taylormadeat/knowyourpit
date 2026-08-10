@@ -195,6 +195,7 @@ export function CookModals({
           weatherTempF={weather?.tempF ?? null} weatherWindSpeedMph={weather?.windSpeedMph ?? null}
           cookSpritzFrequency={(cook as any)?.spritzFrequency ?? null}
           cookWrapFinish={(cook as any)?.wrapFinish ?? null}
+          cookingMethod={(cook as any)?.cookingMethod ?? null}
           onRequestAnalyze={async (opts) => { await onRequestAnalyze(opts); }}
           result={result}
           onCheckinSaved={onCheckinSaved}

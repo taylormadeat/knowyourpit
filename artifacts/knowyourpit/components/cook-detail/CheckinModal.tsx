@@ -24,6 +24,7 @@ import {
   type CheckinPhase,
 } from "@/constants/checkinKnowledge";
 import { useCreateCookCheckin, customFetch } from "@workspace/api-client-react";
+import { isDirectHeat } from "@/utils/cookingMethod";
 
 // ---------------------------------------------------------------------------
 // Standalone AI coaching helper — takes all values explicitly so it can be
@@ -149,6 +150,7 @@ interface CheckinModalProps {
   targetCookTempF?: number | null;
   weatherTempF?: number | null;
   weatherWindSpeedMph?: number | null;
+  cookingMethod?: string | null;
   onCheckinSaved?: (savedInternalTempF: number | null) => void;
 }
 
@@ -180,6 +182,7 @@ export function CheckinModal({
   targetCookTempF,
   weatherTempF,
   weatherWindSpeedMph,
+  cookingMethod,
   onCheckinSaved,
 }: CheckinModalProps) {
   const createCheckin = useCreateCookCheckin();
@@ -449,9 +452,13 @@ export function CheckinModal({
             <View style={{ backgroundColor: "#EF444420", borderColor: "#EF4444", borderWidth: 1, borderRadius: colors.radius, padding: 12, flexDirection: "row", alignItems: "center", gap: 10 }}>
               <Feather name="alert-triangle" size={16} color="#EF4444" />
               <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: "#EF4444" }}>Stall Detected</Text>
+                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: "#EF4444" }}>
+                  {isDirectHeat(cookingMethod) ? "Slow Progress" : "Stall Detected"}
+                </Text>
                 <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.foreground, marginTop: 2 }}>
-                  Internal temp moved less than {CHECKIN_STALL_THRESHOLD_F}°F since last check-in. This is normal — the stall is evaporative cooling, not a problem.
+                  {isDirectHeat(cookingMethod)
+                    ? `Internal temp has been moving slowly — less than ${CHECKIN_STALL_THRESHOLD_F}°F since last check-in. Check your heat and make sure the cook is progressing.`
+                    : `Internal temp moved less than ${CHECKIN_STALL_THRESHOLD_F}°F since last check-in. This is normal — the stall is evaporative cooling, not a problem.`}
                 </Text>
               </View>
             </View>

@@ -16,6 +16,7 @@ import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useQueryClient } from "@tanstack/react-query";
+import { isDirectHeat } from "@/utils/cookingMethod";
 import {
   useCreateCookCheckin,
   useCreateCookEvent,
@@ -110,6 +111,7 @@ interface UnifiedCheckinSheetProps {
   onCheckinSaved?: (savedInternalTempF: number | null) => void;
   cookSpritzFrequency?: string | null;
   cookWrapFinish?: string | null;
+  cookingMethod?: string | null;
   onRequestAnalyze: (opts: { internalTempF: number | null; pitTempF: number | null; notes: string }) => Promise<void>;
   result: AnalysisResult | null;
   aiCheckins?: AiCheckinItem[] | null;
@@ -158,6 +160,7 @@ export function UnifiedCheckinSheet({
   onCheckinSaved,
   cookSpritzFrequency,
   cookWrapFinish,
+  cookingMethod,
   onRequestAnalyze,
   result,
   aiCheckins,
@@ -670,7 +673,7 @@ export function UnifiedCheckinSheet({
                     color: "#EF4444",
                   }}
                 >
-                  Stall Detected
+                  {isDirectHeat(cookingMethod) ? "Slow Progress" : "Stall Detected"}
                 </Text>
                 <Text
                   style={{
@@ -680,8 +683,9 @@ export function UnifiedCheckinSheet({
                     marginTop: 2,
                   }}
                 >
-                  Internal temp moved less than {CHECKIN_STALL_THRESHOLD_F}°F since last check-in. This is
-                  normal — the stall is evaporative cooling, not a problem.
+                  {isDirectHeat(cookingMethod)
+                    ? `Internal temp has been moving slowly — less than ${CHECKIN_STALL_THRESHOLD_F}°F since last check-in. Check your heat and make sure the cook is progressing.`
+                    : `Internal temp moved less than ${CHECKIN_STALL_THRESHOLD_F}°F since last check-in. This is normal — the stall is evaporative cooling, not a problem.`}
                 </Text>
               </View>
             </View>
