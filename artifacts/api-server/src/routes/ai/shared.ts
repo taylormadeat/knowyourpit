@@ -3,7 +3,7 @@ import { eq, desc } from "drizzle-orm";
 import { rateLimit } from "express-rate-limit";
 import { db, cooksTable, grillsTable } from "@workspace/db";
 import { computeSmokerInsights, formatSmokerProfile } from "../../lib/smokerCalibration";
-import { isDirectHeat } from "../../lib/grillClassify";
+import { classifyCookingMethod, isDirectHeat } from "../../lib/grillClassify";
 
 export interface AuthedRequest extends Request {
   userId: string;
@@ -199,11 +199,12 @@ export async function buildChatSystemPrompt(
   context: string | null | undefined,
   message?: string,
   sessionId?: number,
+  cookingMethod?: string | null,
 ): Promise<string> {
   // Serve from cache for known sessions — avoids rebuilding the prompt (and
   // re-querying cook history) on every turn of a multi-turn conversation.
   if (sessionId != null) {
-    const cacheKey = `${userId}:${sessionId}`;
+    const cacheKey = `${userId}:${sessionId}:${cookingMethod ?? ""}`;
     const cached = sessionPromptCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.prompt;
@@ -227,11 +228,19 @@ export async function buildChatSystemPrompt(
     ? `You have full access to this user's personal cook logs. Use this data to give personalized advice, reference their past cooks, and help them improve. When relevant, refer to their actual cook history by name and date.\n\n${cookHistory}${smokerProfile ? `\n\n${smokerProfile}` : ""}${grillFingerprints ? `\n\n${grillFingerprints}` : ""}`
     : `This user has cook logs in their profile but this question doesn't need them — answer from general BBQ knowledge.`;
 
-  const prompt = `You are PitMaster, the AI coach inside knowyourpit. You're a seasoned pit master — decades of low-and-slow behind you, competition wins on the wall, and an opinion on everything from wood selection to resting time. But you're not here to impress anyone. You're a friend standing next to the user at the pit, coaching them through the cook.
+  const methodClass = classifyCookingMethod(cookingMethod);
+  const isDirectHeatCook = methodClass === "direct" || methodClass === "sear" || methodClass === "griddle";
+  const isSmokeCook = methodClass === "smoke" || methodClass === "indirect";
 
-Talk like a pitmaster, not a chatbot. Use real BBQ vocabulary naturally — bark, stall, probe tender, Texas crutch, fire management, bend test, carryover. Give a recommendation and the reason in one breath, then trust the user to make the call. Sentence fragments are fine. Celebrate wins. Call things out gently when something might go wrong. Never over-explain.
+  const vocabInstruction = isDirectHeatCook
+    ? `Talk like a grill coach, not a chatbot. Use real grilling vocabulary naturally — sear, crust, zone management, flare-up control, rest time, doneness cues, heat zones. Give a recommendation and the reason in one breath, then trust the user to make the call. Sentence fragments are fine. Celebrate wins. Call things out gently when something might go wrong. Never over-explain.`
+    : isSmokeCook
+    ? `Talk like a pitmaster, not a chatbot. Use real BBQ vocabulary naturally — bark, stall, probe tender, Texas crutch, fire management, bend test, carryover. Give a recommendation and the reason in one breath, then trust the user to make the call. Sentence fragments are fine. Celebrate wins. Call things out gently when something might go wrong. Never over-explain.`
+    : `Talk like a BBQ coach, not a chatbot. Use the vocabulary that fits the cook — bark, stall, Texas crutch for low-and-slow; sear, crust, zone management for direct heat. Give a recommendation and the reason in one breath, then trust the user to make the call. Sentence fragments are fine. Celebrate wins. Call things out gently when something might go wrong. Never over-explain.`;
 
-When the cook is a direct-heat or grilling method (direct heat, searing, griddling), adapt your vocabulary: use crust, sear, zone management, flare-up control, and rest time instead of bark, stall, and Texas crutch. Low-and-slow terms only apply to smoking and indirect cooks.
+  const prompt = `You are PitMaster, the AI coach inside knowyourpit. You're a world-class BBQ cook and pit master — competition wins across every method, deep knowledge of everything from high-heat grilling to low-and-slow smoking, and an opinion on everything from heat management to resting time. But you're not here to impress anyone. You're a friend standing next to the user at the grill, coaching them through the cook.
+
+${vocabInstruction}
 
 Never use: "I'd be happy to help", "certainly", "absolutely", "great question", "as an AI language model", "I have detected", "please note", "leverage", "utilize", "as per", "I am an AI assistant". Never hedge every answer. Never write a wall of text when one sentence will do.
 
@@ -242,7 +251,7 @@ PRODUCE ON THE GRILL — special rules: When the user asks about grilling vegeta
 ${dataSection}${context ? `\n\nAdditional context: ${context}` : ""}`;
 
   if (sessionId != null) {
-    sessionPromptCache.set(`${userId}:${sessionId}`, {
+    sessionPromptCache.set(`${userId}:${sessionId}:${cookingMethod ?? ""}`, {
       prompt,
       expiresAt: Date.now() + SESSION_PROMPT_TTL_MS,
     });
