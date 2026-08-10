@@ -1603,8 +1603,13 @@ export function LiveCookSection(p: Props) {
                   const m = mins % 60;
                   return m > 0 ? `~${h}h ${m}m` : `~${h}h`;
                 };
+                // Stalls are a low-and-slow phenomenon — suppress the stall
+                // phase card entirely for direct-heat cooks so grillers never
+                // see a "Stall" label or stall countdown.
+                const cookIsDirectHeat = /direct|sear|griddle/i.test(c.cookingMethod ?? "");
+                if (cookIsDirectHeat && pp.phase === "stall") return null;
                 const hasTimingChips =
-                  (pp.timeToStallMinutes != null && pp.phase === "heat_up") ||
+                  (pp.timeToStallMinutes != null && pp.phase === "heat_up" && !cookIsDirectHeat) ||
                   (pp.stallDurationMinutes != null && pp.phase === "stall") ||
                   pp.timeToFinishMinutes != null;
                 return (

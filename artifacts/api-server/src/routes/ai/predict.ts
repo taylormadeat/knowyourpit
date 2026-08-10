@@ -539,13 +539,19 @@ ${userHistorySection}${fingerprintGuidance}${baselineAnchorSection}`;
   // Used by both /ai/predict and /ai/predict/stream so the post-processing
   // stays in one place.
   function buildFinalResponse(prediction: PredictionAiOutput, timedOut: boolean): object {
-    const wrap = prediction.wrap ?? {
+    const rawWrap = prediction.wrap ?? {
       wrapAtMinutes: 0,
       method: "none",
       wrapTempF: null,
       reason: "No wrap needed for this cook.",
       restMinutes: 15,
     };
+    // Direct-heat cooks (grill, sear, griddle) don't stall and don't wrap —
+    // override any AI-returned wrap recommendation so it never surfaces in the
+    // response or in the live-cook schedule.
+    const wrap = baselineIsDirect
+      ? { ...rawWrap, method: "none" as const, wrapAtMinutes: 0, wrapTempF: null }
+      : rawWrap;
 
     const fingerprintNoteParts: string[] = [];
     if (calibratedMinsPerLb != null) {
