@@ -19,6 +19,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Remove from fridge 1 hour before cooking for more even bark formation.",
     ],
     tip: "Grain direction matters for slicing. Cut against the grain after resting.",
+    directHeatTip: "Whole brisket is not a good candidate for direct grilling — the connective tissue needs low-and-slow heat to break down. Instead, slice the flat thinly against the grain and grill over medium-high heat 2–3 min per side, or cube the point for burnt-end style bites over direct heat. Pull at 160°F and rest 5 minutes.",
   },
   beef_ribs: {
     steps: [
@@ -40,6 +41,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Remove from fridge 45 minutes before cooking.",
     ],
     tip: "Chuck roast is very forgiving — cook it like a brisket and pull it when probe tender at 205°F.",
+    directHeatTip: "Whole chuck roast needs low-and-slow heat to tenderize — direct grilling won't get it there. Slice into 1-inch steaks or cube it for kebabs. Grill over medium-high heat 5–6 min per side and pull at 145°F for steaks. Rest 5–8 minutes; chuck has great marbling and stays juicy when cooked this way.",
   },
   prime_rib: {
     steps: [
@@ -155,6 +157,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Let sit at room temperature for 30 minutes before cooking.",
     ],
     tip: "Glaze in the last 30–45 minutes of cooking so sugars caramelize without burning.",
+    directHeatTip: "Whole hams are pre-cooked — you're really just warming and glazing. Set up a two-zone grill, place the ham on the indirect side at medium heat (325°F), and glaze every 20–30 minutes. Move briefly over direct heat at the very end to set a caramelized crust. Pull at 140°F internal.",
   },
   pork_chops: {
     steps: [
@@ -196,6 +199,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Let air-dry uncovered in the fridge for 8–24h for crispier skin.",
     ],
     tip: "Tuck wings under the bird to prevent burning during the long cook.",
+    directHeatTip: "Spatchcock the turkey for even direct-heat cooking — remove the backbone and flatten it. Set up a two-zone grill at 375–400°F. Start skin-side down over indirect heat, then move over direct heat in the final 10–15 minutes to crisp the skin. Pull the breast at 160°F and thighs at 175°F. Rest 15–20 minutes before carving.",
   },
   duck: {
     steps: [
@@ -205,6 +209,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "For wild duck, a brine of 1 cup salt + ½ cup brown sugar per gallon works well.",
     ],
     tip: "Duck breast is meant to be medium (135°F) — cook it well done and it turns to shoe leather.",
+    directHeatTip: "Duck breast grills beautifully: score the skin, start skin-side down over medium heat to render the fat (8–10 min), then flip to direct high heat for 2–3 min to finish. Watch for fat flare-ups and keep the lid nearby. Pull at 130–135°F for medium. Duck legs need longer — move to indirect heat after searing and cook to 175°F.",
   },
 
   // ── Lamb & Goat ───────────────────────────────────────────────────────
@@ -216,6 +221,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Bring to room temperature 30 minutes before cooking.",
     ],
     tip: "Lamb loves smoke from cherry or apple wood — avoid mesquite, it overpowers.",
+    directHeatTip: "Lamb grills brilliantly over direct heat — leg steaks or chops over medium-high heat 3–5 min per side depending on thickness. Two-zone setup lets you finish thicker cuts without charring. Pull leg at 135°F for medium-rare, chops at 130–135°F. Rest 5 minutes — lamb tightens fast if you cut it too soon.",
   },
   rack_of_lamb: {
     steps: [
@@ -246,6 +252,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Apply light rub or glaze just before cooking.",
     ],
     tip: "Pull at 130°F for moist fish — white albumin squeezing out means it's overcooked.",
+    directHeatTip: "Oil the grates generously and preheat well — salmon sticks to a cold or dirty grate. Grill skin-side down over medium-high heat for most of the cook (4–6 min for a 1-inch fillet), then flip once for 1–2 min. A fish spatula makes flipping easier. Pull at 125–130°F and let carryover finish it. Glaze in the last 2 minutes only.",
   },
   fish_steak: {
     steps: [
@@ -293,6 +300,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Bring to room temperature 30 minutes before cooking.",
     ],
     tip: "Venison is very lean — it dries out fast. Cook to 145°F and no further. Wrap to rest.",
+    directHeatTip: "Venison steaks and chops are excellent on the grill — hot and fast is the right approach. Two-zone setup: sear over high heat 2–3 min per side for a crust, then move to indirect only if they need more time. Pull at 130–135°F for medium-rare; venison dries out quickly past 145°F. Rest 5 minutes tented in foil — the rest is important for lean game.",
   },
   game_roast: {
     steps: [

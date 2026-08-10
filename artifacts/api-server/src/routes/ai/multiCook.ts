@@ -569,6 +569,14 @@ SHARED GRILL RULES (applies to: ${sharedGrillNames.map(n => `"${n}"`).join(", ")
 
   const currentTimeStr = new Date().toLocaleString("en-US", { timeZoneName: "short" });
 
+  // Scope wrap guidance to the new items' cooking methods.
+  const allNewItemsDirect = newItems.every(it => isDirectHeat(it.cookingMethod ?? null));
+  const anyNewItemDirect = !allNewItemsDirect && newItems.some(it => isDirectHeat(it.cookingMethod ?? null));
+
+  const addItemsWrapGuidance = allNewItemsDirect
+    ? `For each item, set wrapMethod to "none" — direct-heat / grilling cooks do not use stall-based wrapping. Set wrapAtMinutes, wrapTempF, and wrapReason all to null.`
+    : `For each item also determine wrap guidance (same rules as standard multi-cook — Texas Crutch / butcher paper at the stall for low-and-slow cuts; "none" for poultry, seafood, and quick-cook items).${anyNewItemDirect ? '\n\nIMPORTANT: Any new item with a direct-heat or grilling cooking method must use wrapMethod: "none" — stall-based wrapping does not apply to direct-heat cooks.' : ""}`;
+
   const systemPrompt = `You are knowyourpit AI, a world-class BBQ pit master. You are adding new items to an already-active cook session.
 
 Current time: ${currentTimeStr}
@@ -584,7 +592,7 @@ For each NEW item, calculate working BACKWARDS from the serve time (${serveAtDat
 
 INFEASIBILITY RULE: If meatOnAt is before current time + 30 minutes, set grillLightAt = now + 5 min, meatOnAt = now + preheatMinutes + 5 min, estimatedFinishAt = meatOnAt + estimatedDurationMinutes. Add a note explaining the delay.
 
-For each item also determine wrap guidance (same rules as standard multi-cook).
+${addItemsWrapGuidance}
 
 Return ONLY valid JSON, no markdown:
 {
