@@ -55,6 +55,18 @@ function selectTip(prep: MeatPrepGuide, cookingMethod: string | null): string {
   return direct ? prep.directHeatTip! : prep.tip;
 }
 
+// ── Every entry in PREP_GUIDE_MAP has a directHeatTip ────────────────────────
+
+describe("PREP_GUIDE_MAP completeness — every cut must have a directHeatTip", () => {
+  const allEntries = Object.entries(PREP_GUIDE_MAP);
+
+  for (const [key, guide] of allEntries) {
+    it(`PREP_GUIDE_MAP.${key} has a non-empty directHeatTip`, () => {
+      expect(guide.directHeatTip).toBeTruthy();
+    });
+  }
+});
+
 // ── All directHeatTip entries are free of wrap/stall/bark language ────────────
 
 describe("directHeatTip content — no wrap/stall/bark language", () => {
