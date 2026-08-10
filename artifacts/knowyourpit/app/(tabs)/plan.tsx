@@ -118,7 +118,7 @@ import { SettingsRow } from "@/components/plan-screen/SettingsRow";
 import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
 import { MeatPickerModal } from "@/components/plan-screen/MeatPickerModal";
 import { isProduce } from "@/constants/meatCuts";
-import { pitTempLabel } from "@/utils/cookingMethod";
+import { pitTempLabel, isDirectHeat } from "@/utils/cookingMethod";
 import { DatePickerModal, TimePickerModal } from "@/components/plan-screen/DateTimePickerModals";
 import { MultiCookResultModal } from "@/components/plan-screen/MultiCookResultModal";
 import { MultiCookAddItemModal, type MultiItem } from "@/components/plan-screen/MultiCookAddItemModal";
@@ -2605,13 +2605,7 @@ export default function PlanScreen() {
                             <View style={[s.prepTipCard, { backgroundColor: colors.primary + "12", borderRadius: colors.radius }]}>
                               <Feather name="zap" size={14} color={colors.primary} />
                               <Text style={[s.prepTipText, { color: colors.foreground }]}>
-                                {prep.directHeatTip && qpCookMethod && (() => {
-                                  const m = (qpCookMethod as string).toLowerCase();
-                                  // Use word-boundary check so "Indirect" doesn't
-                                  // match the "direct" substring and trigger the
-                                  // direct-heat tip incorrectly.
-                                  return /\bdirect\b/.test(m) || m.includes("sear") || m.includes("griddle");
-                                })()
+                                {prep.directHeatTip && isDirectHeat(qpCookMethod)
                                   ? prep.directHeatTip
                                   : prep.tip}
                               </Text>

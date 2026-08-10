@@ -35,28 +35,24 @@ function containsWrapOrStallLanguage(text: string): boolean {
   return POSITIVE_WRAP_PATTERNS.some((re) => re.test(text));
 }
 
+import { isDirectHeat } from "../../utils/cookingMethod";
+
 /**
  * Mirrors the tip-selection expression from plan.tsx so we can test it in
  * isolation without rendering the full component.
  *
- * plan.tsx (line 2607-2613):
- *   prep.directHeatTip && qpCookMethod && (
- *     qpCookMethod.toLowerCase().includes("direct") ||
- *     qpCookMethod.toLowerCase().includes("sear") ||
- *     qpCookMethod.toLowerCase().includes("griddle")
- *   ) ? prep.directHeatTip : prep.tip
+ * plan.tsx:
+ *   prep.directHeatTip && isDirectHeat(qpCookMethod)
+ *     ? prep.directHeatTip
+ *     : prep.tip
+ *
+ * isDirectHeat() from cookingMethod.ts classifies the method first, so
+ * "Reverse Sear" → reverse_sear (NOT direct heat) and does NOT receive
+ * the grill-only directHeatTip.
  */
 function selectTip(prep: MeatPrepGuide, cookingMethod: string | null): string {
-  // Mirrors plan.tsx lines 2607-2613 (after the word-boundary bug fix).
-  // Uses /\bdirect\b/ so "Indirect" does NOT match the direct-heat branch.
-  const isDirectHeat =
-    !!prep.directHeatTip &&
-    !!cookingMethod &&
-    (() => {
-      const m = cookingMethod.toLowerCase();
-      return /\bdirect\b/.test(m) || m.includes("sear") || m.includes("griddle");
-    })();
-  return isDirectHeat ? prep.directHeatTip! : prep.tip;
+  const direct = !!prep.directHeatTip && isDirectHeat(cookingMethod);
+  return direct ? prep.directHeatTip! : prep.tip;
 }
 
 // ── All directHeatTip entries are free of wrap/stall/bark language ────────────
@@ -81,7 +77,9 @@ describe("directHeatTip content — no wrap/stall/bark language", () => {
 
 describe("plan.tsx tip selection gate — direct-heat routes to directHeatTip", () => {
   const DIRECT_METHODS = ["Direct Heat", "Sear", "Griddle", "direct heat", "sear"];
-  const SMOKE_METHODS = [null, "Low and Slow", "Smoke", "Indirect"];
+  // "Reverse Sear" must NOT trigger the direct-heat branch — it is a hybrid
+  // smoke-then-sear method and smoker tips are relevant for that first phase.
+  const SMOKE_METHODS = [null, "Low and Slow", "Smoke", "Indirect", "Reverse Sear"];
 
   describe("pork shoulder — was incorrectly showing indirect/wrap advice for direct heat", () => {
     const guide = PREP_GUIDE_MAP.pork_shoulder;
