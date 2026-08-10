@@ -742,8 +742,9 @@ export default function PlanScreen() {
         cookMinsOverride: aiCookMins ?? undefined,
         preheatMinsOverride: aiPreheatMins ?? undefined,
       },
+      qpCookMethod ?? null,
     );
-  }, [selectedCut, effectiveWeightLbs, serveAt, selectedGrill, frozenEnabled, thawMethod, aiCookMins, aiPreheatMins]);
+  }, [selectedCut, effectiveWeightLbs, serveAt, selectedGrill, frozenEnabled, thawMethod, aiCookMins, aiPreheatMins, qpCookMethod]);
 
   // Edge case: if frozen toggle is on and the calculated thaw start is in the
   // past, the serve time is too soon for a full thaw. We surface a warning

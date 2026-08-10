@@ -1,4 +1,5 @@
 import type { MeatCut } from "@/constants/meatCuts";
+import { isDirectHeat } from "@/utils/cookingMethod";
 import { preheatMinsForGrill } from "./utils";
 
 // USDA-aligned thaw rate estimates. Fridge: ~24h per 4-5 lbs (we use 4.5).
@@ -85,6 +86,7 @@ export function calcSchedule(
   grill: any | null,
   frozenOptions?: FrozenOptions,
   overrides?: CalcScheduleOverrides,
+  cookingMethod?: string | null,
 ): CookSchedule {
   const preheatMins = overrides?.preheatMinsOverride ?? preheatMinsForGrill(grill);
   const cookMins = overrides?.cookMinsOverride ?? Math.round(cut.minsPerLb * weightLbs);
@@ -96,7 +98,8 @@ export function calcSchedule(
   const restEndAt = serveAt;
 
   // Wrap typically happens around the stall (≈60% of cook time, ~160-170°F).
-  const wrap: WrapStage | undefined = cutHasStall(cut)
+  // Direct-heat methods (grilling, searing) don't involve a stall, so skip.
+  const wrap: WrapStage | undefined = cutHasStall(cut) && !isDirectHeat(cookingMethod)
     ? {
         wrapAt: new Date(
           meatOnAt.getTime() + Math.round(cookMins * 0.6) * 60_000,
