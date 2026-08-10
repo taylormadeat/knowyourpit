@@ -137,6 +137,116 @@ function capturedSystemPrompt(): string {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Parameterised test: every documented direct-heat alias must produce a
+ * no-wrap system prompt.  If the mobile app or a Zod schema change renames
+ * "Direct Heat" → "direct_heat" (or similar), isDirectHeat() silently stops
+ * recognising it and smoker wrap language re-enters grilling prompts.
+ *
+ * Aliases tested:
+ *   "Direct Heat"  — primary value used by the mobile app today
+ *   "Sear"         — high-temp searing sessions
+ *   "Griddle"      — flat-top griddle sessions
+ */
+describe("callAddItemsSequencer — direct-heat alias parameterisation", () => {
+  beforeEach(() => {
+    capturedMessages.length = 0;
+    mockCreate.mockClear();
+  });
+
+  const directHeatAliases: Array<{ label: string; cookingMethod: string }> = [
+    { label: "Direct Heat", cookingMethod: "Direct Heat" },
+    { label: "Sear",        cookingMethod: "Sear" },
+    { label: "Griddle",     cookingMethod: "Griddle" },
+  ];
+
+  describe.each(directHeatAliases)(
+    'cookingMethod="$label" → no-wrap system prompt',
+    ({ cookingMethod }) => {
+      it("instructs wrapMethod 'none' for all items", async () => {
+        const { callAddItemsSequencer } = await import("../multiCook");
+
+        await callAddItemsSequencer("user-alias-nowrap", ANCHOR, [
+          {
+            foodType: "Test Item",
+            weightLbs: 1.5,
+            cookTempF: 450,
+            targetTempF: 165,
+            grillId: null,
+            grillName: "Weber Kettle",
+            preheatMinutes: 15,
+            cookingMethod,
+            fromFrozen: false,
+            thawMethod: null,
+            notes: null,
+            cookingStylePreset: null,
+            baselineEstimateMinutes: 30,
+            restMins: 5,
+          },
+        ]);
+
+        const prompt = capturedSystemPrompt();
+        expect(prompt).toContain('set wrapMethod to "none"');
+        expect(prompt).toContain("direct-heat / grilling cooks do not use stall-based wrapping");
+      });
+
+      it("system prompt contains no affirmative stall/wrap prose", async () => {
+        const { callAddItemsSequencer } = await import("../multiCook");
+
+        await callAddItemsSequencer("user-alias-nowrapprose", ANCHOR, [
+          {
+            foodType: "Test Item",
+            weightLbs: 1.5,
+            cookTempF: 450,
+            targetTempF: 165,
+            grillId: null,
+            grillName: "Weber Kettle",
+            preheatMinutes: 15,
+            cookingMethod,
+            fromFrozen: false,
+            thawMethod: null,
+            notes: null,
+            cookingStylePreset: null,
+            baselineEstimateMinutes: 30,
+            restMins: 5,
+          },
+        ]);
+
+        const prompt = capturedSystemPrompt();
+        expect(prompt).not.toMatch(/texas.?crutch/i);
+        expect(prompt).not.toMatch(/butcher paper/i);
+        expect(prompt).not.toMatch(/around the stall|at the stall|push through the stall/i);
+      });
+
+      it("instructs wrapAtMinutes and wrapTempF to be null", async () => {
+        const { callAddItemsSequencer } = await import("../multiCook");
+
+        await callAddItemsSequencer("user-alias-nullwrap", ANCHOR, [
+          {
+            foodType: "Test Item",
+            weightLbs: 1.5,
+            cookTempF: 450,
+            targetTempF: 165,
+            grillId: null,
+            grillName: "Weber Kettle",
+            preheatMinutes: 15,
+            cookingMethod,
+            fromFrozen: false,
+            thawMethod: null,
+            notes: null,
+            cookingStylePreset: null,
+            baselineEstimateMinutes: 30,
+            restMins: 5,
+          },
+        ]);
+
+        const prompt = capturedSystemPrompt();
+        expect(prompt).toMatch(/wrapAtMinutes.*null|null.*wrapAtMinutes/i);
+      });
+    },
+  );
+});
+
 describe("callAddItemsSequencer — wrap guidance scoping by cooking method", () => {
   beforeEach(() => {
     capturedMessages.length = 0;
