@@ -52,6 +52,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Bring to room temperature for 1–2 hours before cooking.",
     ],
     tip: "Rest at least 30 minutes before carving — internal temp will rise another 5–10°F.",
+    directHeatTip: "Prime rib grills best with a two-zone setup. Sear all sides over high direct heat 2–3 min per side for a deep crust, then move to the cool zone with the lid down at 325°F to roast through. Pull at 120–125°F for medium-rare — carryover adds 5–10°F during the rest. Rest at least 20 minutes before carving.",
   },
   burger: {
     steps: [
@@ -61,6 +62,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Season both sides with salt and pepper just before cooking — not ahead of time.",
     ],
     tip: "Keep the patties cold until they hit the grill — warm fat melts before you get a good sear.",
+    directHeatTip: "High heat, lid down. Cook 3–4 min per side for medium — flip once and don't press down. Pressing squeezes out the fat that keeps the burger juicy. Pull at 155°F for food-safe medium, 160°F for well. Add cheese in the last minute and close the lid to melt it fast.",
   },
   oxtail: {
     steps: [
@@ -89,6 +91,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Apply a compound butter or herb paste right before going on the grill.",
     ],
     tip: "Tenderloin has very little fat — don't overcook it. Pull at 120–125°F for medium-rare.",
+    directHeatTip: "Beef tenderloin grills beautifully — it's naturally tender and cooks fast. For a whole roast, sear all sides over high direct heat 2 min per side, then move to indirect at medium-high with the lid down to finish. Pull at 120–125°F for medium-rare; carryover will bring it to 130°F. For filets, sear over high heat 3–4 min per side and pull at 125°F. Rest 5–8 minutes before cutting.",
   },
   flank_skirt: {
     steps: [
@@ -98,6 +101,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Cook hot and fast over direct heat.",
     ],
     tip: "Always slice against the grain and on a bias — these muscles have long fibers that make or break texture.",
+    directHeatTip: "Flank and skirt are made for direct high heat — grill over screaming-hot coals or max burners, 3–4 min per side for flank, 2–3 min per side for the thinner skirt. Don't move them around; let each side develop a crust before flipping once. Pull at 130–135°F for medium-rare. Slice immediately against the grain on a sharp bias — thin slices are essential for these long-fibered cuts.",
   },
 
   // ── Pork ──────────────────────────────────────────────────────────────
@@ -140,6 +144,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Let rest in the fridge uncovered for at least 1 hour before cooking.",
     ],
     tip: "Pork loin dries out easily — pull it at 140°F and let carryover heat finish the job.",
+    directHeatTip: "Two-zone setup is key for pork loin on the grill — the roast needs time to cook through without charring. Sear all sides over high direct heat 2 min per side, then move to the cool zone with the lid down at 350°F to finish. Pull at 138°F; carryover heat will bring it to a safe 145°F during the 10-minute rest. Slice into ½-inch medallions and serve immediately.",
   },
   pork_tenderloin: {
     steps: [
@@ -148,6 +153,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Pat dry and season with rub right before cooking.",
     ],
     tip: "Pork tenderloin cooks fast — check it at 20 minutes and pull at 140°F. Rest 5 minutes before slicing.",
+    directHeatTip: "Pork tenderloin is ideal for direct grilling — it's thin enough to cook through quickly. Grill over medium-high heat, turning a quarter turn every 3–4 minutes to brown all four sides evenly (12–15 minutes total). Pull at 138°F; carryover brings it to a safe 145°F during the 5-minute rest. Don't slice immediately — let it rest fully or the juices run out.",
   },
   ham: {
     steps: [
@@ -231,6 +237,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Let sit at room temperature for 30 minutes before cooking.",
     ],
     tip: "Rack of lamb is best at medium-rare (130–135°F). It's a quick cook — don't walk away.",
+    directHeatTip: "Rack of lamb thrives on direct heat — the fat renders fast and the bones char beautifully. Start fat-side down over high heat for 3–4 min to get a golden crust, then flip and sear the bone side 2–3 min. Move to indirect heat with the lid down to finish, or for a thinner rack continue over medium heat. Pull at 125–130°F for medium-rare. Rest 5–8 minutes before slicing between the bones.",
   },
   goat: {
     steps: [
@@ -262,6 +269,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Use a fish spatula and make sure grates are very clean and oiled.",
     ],
     tip: "Fish steaks cook fast over direct heat. They're done when the flesh flakes and the center is just opaque.",
+    directHeatTip: "Preheat the grates thoroughly and oil them well right before the fish goes on — this is the most important step to prevent sticking. Grill over medium-high heat 3–4 min per side for a 1-inch steak; resist moving them until they release naturally. A fish spatula helps you flip cleanly. Pull when the center just turns opaque and the flesh flakes easily — internal temp around 130–135°F. Squeeze lemon on immediately after pulling.",
   },
   shrimp: {
     steps: [
@@ -271,6 +279,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Thread on skewers to make flipping easier.",
     ],
     tip: "Shrimp are done the second they turn pink and curl into a C shape — overcooked shrimp curl into a tight O.",
+    directHeatTip: "Shrimp are perfect for direct high heat — they cook in 2–3 min total and go from raw to rubbery fast. Grill over high heat 1–2 min per side on skewers or in a grill basket so you don't lose them through the grates. Pull the moment they turn pink and form a C shape. Have your platter ready before they go on — there's no waiting once they're done.",
   },
   lobster: {
     steps: [
@@ -280,6 +289,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Keep it cold until right before it hits the grill.",
     ],
     tip: "Lobster is done at 140°F. The meat should be just opaque and pull away from the shell cleanly.",
+    directHeatTip: "Grill lobster tails meat-side down over medium-high heat for 4–5 min to get char marks and flavor, then flip shell-side down for another 3–4 min to finish cooking through. Baste with garlic butter each time you flip. Pull at 140°F — the meat should be just opaque and pull away from the shell. Don't walk away; lobster goes from perfect to rubbery in under a minute.",
   },
   whole_fish: {
     steps: [
@@ -289,6 +299,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Let rest in the fridge uncovered for 30 minutes after seasoning.",
     ],
     tip: "A well-oiled and clean grate is essential — whole fish sticks easily. Use a fish basket if you have one.",
+    directHeatTip: "A fish basket is your best friend here — it makes flipping a whole fish simple and prevents it from falling apart. Oil the fish generously inside and out, preheat the grates, and grill over medium heat 5–7 min per side for a 1–2 lb fish. The skin is done when it lifts cleanly from the grate. The fish is ready when the flesh behind the dorsal fin flakes and the eye turns white. Pull and serve immediately — whole fish don't hold well.",
   },
 
   // ── Game ──────────────────────────────────────────────────────────────
@@ -320,6 +331,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Brush with butter or olive oil right before cooking.",
     ],
     tip: "Rabbit is done at 160°F — treat the saddle (loin) like a pork loin and the legs like chicken thighs.",
+    directHeatTip: "Grill rabbit pieces over medium heat — high heat dries out the lean meat too fast. Legs go on first (they need the most time); add the saddle pieces 5–7 minutes later. Turn every 4–5 minutes for even browning. Baste with butter or olive oil throughout to keep it moist. Pull the legs at 165°F and the loin at 155°F — the loin is done when it firms up and the juices run clear. Rest 5 minutes before serving.",
   },
 };
 
