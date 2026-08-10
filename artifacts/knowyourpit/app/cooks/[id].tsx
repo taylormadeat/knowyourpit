@@ -802,13 +802,17 @@ export default function CookDetailScreen() {
             ) ?? (foodType ? { name: foodType, category: "" } : null);
             const prep = getMeatPrep(matchedCut as any);
             if (!prep) return null;
-            const tip = prep.directHeatTip && includesSear(c.cookingMethod)
-              ? prep.directHeatTip
-              : prep.tip;
+            const isGrillTip = prep.directHeatTip && includesSear(c.cookingMethod);
+            const tip = isGrillTip ? prep.directHeatTip : prep.tip;
+            const tipLabel = isGrillTip ? "Grilling Tip" : "Pit Tip";
+            const tipIcon = isGrillTip ? "zap" : "wind";
             return (
-              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: colors.primary + "12", borderRadius: colors.radius, paddingHorizontal: 14, paddingVertical: 12 }}>
-                <Feather name="zap" size={14} color={colors.primary} style={{ marginTop: 2 }} />
-                <Text style={{ flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: colors.foreground, lineHeight: 19 }}>{tip}</Text>
+              <View style={{ backgroundColor: colors.primary + "12", borderRadius: colors.radius, paddingHorizontal: 14, paddingVertical: 12, gap: 6 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Feather name={tipIcon} size={12} color={colors.primary} />
+                  <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.primary, textTransform: "uppercase", letterSpacing: 0.5 }}>{tipLabel}</Text>
+                </View>
+                <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: colors.foreground, lineHeight: 19 }}>{tip}</Text>
               </View>
             );
           })()}
