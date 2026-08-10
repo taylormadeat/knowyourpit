@@ -49,6 +49,7 @@ import { cancelStoredSpritzNotifications } from "@/hooks/useSpritzNotifications"
 import { useRefetchOnFocus } from "@/hooks/useRefetchOnFocus";
 import { useAuth } from "@clerk/expo";
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
+import { cookMethodContextPhrase } from "@/utils/cookingMethod";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
@@ -985,13 +986,7 @@ export default function CooksScreen() {
           )}
           {isActive && elapsedMs !== null && (
             <Text style={[s.liveElapsed, { color: "#E84820" }]}>
-              {fmtElapsed(elapsedMs)} {(() => {
-                const m = ((item as any).cookingMethod ?? "").toLowerCase();
-                if (m.includes("smoke") || m.includes("low and slow") || m.includes("low & slow")) return "on the smoker";
-                if (m.includes("rotisserie")) return "on the rotisserie";
-                if (m.includes("griddle")) return "on the griddle";
-                return "on the grill";
-              })()}
+              {fmtElapsed(elapsedMs)} {cookMethodContextPhrase((item as any).cookingMethod)}
             </Text>
           )}
           {isActive && (() => {

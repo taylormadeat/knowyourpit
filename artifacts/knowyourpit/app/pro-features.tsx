@@ -216,7 +216,7 @@ const FEATURES = [
   {
     id: "weather",
     headline: "Cook-Day Weather Forecast",
-    benefit: "See wind, cold, and humidity before you fire up so you can adjust smoke time accordingly.",
+    benefit: "See wind, cold, and humidity before you fire up so you can adjust your cook time accordingly.",
     Preview: WeatherPreview,
   },
   {

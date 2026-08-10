@@ -34,6 +34,7 @@ import { FingerprintCallout } from "@/components/cook-detail/FingerprintCallout"
 import { getEditDates } from "@/components/cook-detail/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { LogoBackground } from "@/components/LogoBackground";
+import { cookMethodContextPhrase } from "@/utils/cookingMethod";
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
   active: "#EB6C2B",
@@ -865,13 +866,7 @@ export default function SessionDetailScreen() {
                         {isActive && elapsedMs !== null && (
                           <Text style={[s.elapsed, { color: "#E84820" }]}>
                             {fmtElapsed(elapsedMs)}{" "}
-                            {(() => {
-                              const m = ((cook as any).cookingMethod ?? "").toLowerCase();
-                              if (m.includes("sear") || m.includes("direct") || m.includes("griddle")) return "on the grill";
-                              if (m.includes("smoke") || m.includes("low and slow")) return "on the smoker";
-                              if (m.includes("rotisserie")) return "on the rotisserie";
-                              return "on the grill";
-                            })()}
+                            {cookMethodContextPhrase((cook as any).cookingMethod)}
                           </Text>
                         )}
                         {isActive && (
