@@ -34,7 +34,7 @@ import { FingerprintCallout } from "@/components/cook-detail/FingerprintCallout"
 import { getEditDates } from "@/components/cook-detail/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { LogoBackground } from "@/components/LogoBackground";
-import { cookMethodContextPhrase } from "@/utils/cookingMethod";
+import { cookMethodContextPhrase, isDirectHeat } from "@/utils/cookingMethod";
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
   active: "#EB6C2B",
@@ -877,7 +877,7 @@ export default function SessionDetailScreen() {
                             {[
                               { label: "T", val: cook.ratingTenderness },
                               { label: "F", val: cook.ratingFlavor },
-                              { label: "B", val: cook.ratingBark },
+                              { label: isDirectHeat((cook as any).cookingMethod) ? "Crust" : "Bark", val: cook.ratingBark },
                             ].filter(r => r.val).map((r) => (
                               <View key={r.label} style={s.ratingChip}>
                                 <Text style={s.ratingLabel}>{r.label}</Text>
