@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetCookQueryKey, getListCooksQueryKey } from "@workspace/api-client-react";
 import { ThawStatusBanner } from "@/components/cook-detail/ThawStatusBanner";
+import { isDirectHeat } from "@/utils/cookingMethod";
 
 interface CookStatusSectionProps {
   c: any;
@@ -42,7 +43,7 @@ export function CookStatusSection({
           })()}
           {(c.ratingTenderness || c.ratingBark || c.ratingFlavor) && (
             <View style={{ flexDirection: "row", gap: 5, marginLeft: 4 }}>
-              {[{ label: "T", val: c.ratingTenderness }, { label: "F", val: c.ratingFlavor }, { label: "B", val: c.ratingBark }].filter(r => r.val).map((r, i) => (
+              {[{ label: "T", val: c.ratingTenderness }, { label: "F", val: c.ratingFlavor }, { label: isDirectHeat(c.cookingMethod) ? "Crust" : "Bark", val: c.ratingBark }].filter(r => r.val).map((r, i) => (
                 <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
                   <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: colors.mutedForeground }}>{r.label}</Text>
                   <Text style={{ fontSize: 10, color: "#eab308" }}>{"★".repeat(r.val!)}{"☆".repeat(5 - r.val!)}</Text>
