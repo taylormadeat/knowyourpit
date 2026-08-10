@@ -67,6 +67,9 @@ import type { SequenceData, Decision } from "@/components/cook-detail/types";
 import type { ProbeTimeSeries } from "@/components/TempGraph";
 import { QP_COOK_METHODS, QP_INJECTION_OPTIONS, QP_SPRITZ_FREQUENCIES, QP_WRAP_FINISH_OPTIONS } from "@/constants/cookQuickPicks";
 import { type QualFactor } from "@/components/CookFactorsSheet";
+import { getMeatPrep } from "@/components/plan-screen/prepGuides";
+import { isDirectHeat } from "@/utils/cookingMethod";
+import { MEAT_CUTS } from "@/constants/meatCuts";
 
 import { useCookDetail } from "@/hooks/useCookDetail";
 import { useProbeState } from "@/hooks/useProbeState";
@@ -791,6 +794,24 @@ export default function CookDetailScreen() {
               <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
             </Pressable>
           )}
+
+          {(() => {
+            const foodType = c.foodType ?? "";
+            const matchedCut = MEAT_CUTS.find(
+              (cut) => cut.name.toLowerCase() === foodType.toLowerCase(),
+            ) ?? (foodType ? { name: foodType, category: "" } : null);
+            const prep = getMeatPrep(matchedCut as any);
+            if (!prep) return null;
+            const tip = prep.directHeatTip && isDirectHeat(c.cookingMethod)
+              ? prep.directHeatTip
+              : prep.tip;
+            return (
+              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: colors.primary + "12", borderRadius: colors.radius, paddingHorizontal: 14, paddingVertical: 12 }}>
+                <Feather name="zap" size={14} color={colors.primary} style={{ marginTop: 2 }} />
+                <Text style={{ flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: colors.foreground, lineHeight: 19 }}>{tip}</Text>
+              </View>
+            );
+          })()}
 
           <TechniquesSection
             c={c} colors={colors} id={id!}
