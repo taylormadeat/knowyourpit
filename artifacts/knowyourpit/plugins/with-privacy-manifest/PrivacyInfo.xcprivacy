@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  PrivacyInfo.xcprivacy — Apple Privacy Manifest (required for App Store submission, iOS 17+)
+
+  Covers Required Reason APIs used by this app and its key dependencies:
+    - NSUserDefaults: AsyncStorage, expo-secure-store config, RevenueCat SDK, Clerk SDK
+    - File timestamp APIs: expo-file-system, image caching, Expo SDK internals
+    - System boot time: RN performance timing, BLE polling, cook elapsed-time calculations
+    - Disk space APIs: expo-file-system, image caching (cache-size decisions)
+
+  NSPrivacyTracking = false: this app does NOT engage in cross-app tracking
+  as defined by Apple's App Tracking Transparency framework.
+-->
+<dict>
+    <!-- Cross-app tracking: NONE -->
+    <key>NSPrivacyTracking</key>
+    <false/>
+
+    <!-- No third-party tracking domains -->
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+
+    <!-- ── Required Reason APIs ─────────────────────────────────────────── -->
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+
+        <!--
+          NSUserDefaults
+          Used by: @react-native-async-storage/async-storage (app state and user
+          preferences), expo-secure-store configuration, RevenueCat SDK
+          (react-native-purchases), and Clerk SDK (session persistence).
+          CA92.1: Access info from the same app that wrote it.
+        -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>CA92.1</string>
+            </array>
+        </dict>
+
+        <!--
+          File timestamp APIs
+          Used by: expo-file-system (cook photo cache), image caching layers,
+          and Expo SDK internals that check file modification dates.
+          C617.1: Display file timestamps to the user.
+          3B52.1: Avoid duplicate file processing (cache validation).
+        -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>C617.1</string>
+                <string>3B52.1</string>
+            </array>
+        </dict>
+
+        <!--
+          System boot time (mach_absolute_time / CLOCK_MONOTONIC)
+          Used by: React Native performance timing, BLE polling intervals,
+          and cook session elapsed-time calculations.
+          35F9.1: Calculate how long ago an event occurred.
+        -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>35F9.1</string>
+            </array>
+        </dict>
+
+        <!--
+          Disk space APIs (statfs / NSFileSystemFreeSize)
+          Used by: expo-file-system and image caching to decide whether to
+          persist cook photos locally.
+          E174.1: Inform the user when disk space is insufficient.
+        -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>E174.1</string>
+            </array>
+        </dict>
+
+    </array>
+
+    <!-- ── Data types collected ────────────────────────────────────────── -->
+    <!--
+      Full breakdown is in artifacts/knowyourpit/docs/app-privacy-nutrition-label.md.
+      These entries reflect what the app sends to our servers; third-party SDK
+      collection (Clerk, RevenueCat) is additive per their own manifests.
+    -->
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array>
+
+        <!-- User ID — Clerk-assigned identifier, linked to account -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeUserID</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+
+        <!-- Email address — account sign-in and support -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeEmailAddress</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+
+        <!--
+          Photos / videos — cook progress photos uploaded for AI analysis.
+          Photos are stored server-side associated with a cook record; cook
+          records are owned by (and retrievable only by) the authenticated user,
+          making photos linkable to the user's identity under Apple's definition.
+        -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypePhotosOrVideos</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+
+        <!--
+          Customer support — messages submitted via the in-app SupportModal
+          (More → Contact Support). Messages include user-entered name, email,
+          and support text sent to our support system.
+        -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeCustomerSupport</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+
+        <!--
+          Coarse location — foreground only, sent directly to Open-Meteo for
+          weather. Our servers never receive or store raw coordinates.
+        -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeCoarseLocation</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+
+        <!--
+          Other user content — cook logs, session notes, AI chat messages,
+          check-in temperature readings stored on our servers.
+          Linked to account; used solely for app functionality.
+        -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeOtherUserContent</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+
+        <!--
+          Purchase history — subscription status and entitlement data via
+          RevenueCat. Not used for tracking; gates Pro features only.
+        -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypePurchaseHistory</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+
+    </array>
+</dict>
+</plist>

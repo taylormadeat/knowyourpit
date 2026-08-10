@@ -89,6 +89,7 @@ const config = {
     "./plugins/with-android-packaging",
     "./plugins/with-pod-bundle-signing",
     "./plugins/with-live-activity",
+    "./plugins/with-privacy-manifest",
     "expo-apple-authentication",
     "expo-router",
     "expo-font",
