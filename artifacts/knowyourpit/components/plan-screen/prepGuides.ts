@@ -625,6 +625,8 @@ export function getMeatPrep(cut: MeatCut | null): MeatPrepGuide | null {
       if (name.includes("bison") && (name.includes("steak") || name.includes("ribeye"))) return PREP_GUIDE_MAP.steak;
       if (name.includes("wild boar") && (name.includes("shoulder") || name.includes("butt"))) return PREP_GUIDE_MAP.pork_shoulder;
       if (name.includes("wild boar") && name.includes("rib")) return PREP_GUIDE_MAP.ribs;
+      // Wild Hog Loin cooks like pork loin — brine + pull at 145°F
+      if (name.includes("wild hog") && name.includes("loin")) return PREP_GUIDE_MAP.pork_loin;
       // Venison tenderloin → lean_game (not the generic venison brine guide)
       if (name.includes("venison") && name.includes("tenderloin")) return PREP_GUIDE_MAP.lean_game;
       if (name.includes("venison")) return PREP_GUIDE_MAP.venison;

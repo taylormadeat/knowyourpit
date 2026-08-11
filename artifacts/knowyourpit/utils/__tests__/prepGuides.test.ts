@@ -336,6 +336,10 @@ describe("getMeatPrep routing regression — confirmed mismatches now fixed", ()
     expect(getMeatPrep(findCut("Wild Boar Shoulder"))).toBe(PREP_GUIDE_MAP.pork_shoulder);
   });
 
+  it('Wild Hog Loin → pork_loin (not game_roast)', () => {
+    expect(getMeatPrep(findCut("Wild Hog Loin"))).toBe(PREP_GUIDE_MAP.pork_loin);
+  });
+
   it('Chuck Roast → chuck_roast', () => {
     expect(getMeatPrep(findCut("Chuck Roast"))).toBe(PREP_GUIDE_MAP.chuck_roast);
   });
