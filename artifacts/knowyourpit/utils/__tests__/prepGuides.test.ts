@@ -11,7 +11,8 @@
  * selection logic is a pure expression.
  */
 
-import { PREP_GUIDE_MAP, type MeatPrepGuide } from "../../components/plan-screen/prepGuides";
+import { PREP_GUIDE_MAP, getMeatPrep, type MeatPrepGuide } from "../../components/plan-screen/prepGuides";
+import { MEAT_CUTS, isProduce } from "../../constants/meatCuts";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -81,6 +82,22 @@ describe("directHeatTip content — no wrap/stall/bark language", () => {
   for (const [key, guide] of entriesWithDirectHeatTip) {
     it(`PREP_GUIDE_MAP.${key}.directHeatTip contains no wrap/stall/bark language`, () => {
       expect(containsWrapOrStallLanguage(guide.directHeatTip!)).toBe(false);
+    });
+  }
+});
+
+// ── Every built-in non-produce cut resolves to a prep guide ──────────────────
+
+describe("getMeatPrep coverage — every non-produce cut in MEAT_CUTS has a guide", () => {
+  const nonProduceCuts = MEAT_CUTS.filter((cut) => !isProduce(cut.category));
+
+  it("has non-produce cuts to check (ensures test is not vacuous)", () => {
+    expect(nonProduceCuts.length).toBeGreaterThan(0);
+  });
+
+  for (const cut of nonProduceCuts) {
+    it(`"${cut.name}" (${cut.category}) → non-null prep guide`, () => {
+      expect(getMeatPrep(cut)).not.toBeNull();
     });
   }
 });
