@@ -451,6 +451,21 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     directHeatTip: "Two-zone setup for bone-in pieces: start skin-side down over medium heat to render the fat without scorching, then move to indirect to cook through, and finish back over direct heat for 2–3 min to crisp the skin. Boneless thighs can go straight over medium-high direct heat — 5–6 min per side. Pull dark meat at 175°F, breasts at 165°F.",
   },
 
+  // ── Turkey Breast (roast) ─────────────────────────────────────────────
+  // Bone-in or boneless breast roast (~6 lb). Cooks more like a pork loin
+  // than a whole bird — no cavity, no tucked wings, carryover matters a lot.
+  turkey_breast: {
+    steps: [
+      "Dry-brine with kosher salt (½ tsp per lb) all over — including under the skin — 24 hours ahead.",
+      "Let sit uncovered in the fridge overnight; the salt draws moisture out, then back in for a juicier roast.",
+      "Loosen the breast skin and rub a generous layer of softened butter (+ herbs: thyme, rosemary, garlic) directly on the meat.",
+      "Coat the outside with a thin layer of oil or mayo, then season with your rub.",
+      "Remove from the fridge 45 minutes before cooking so it comes up in temp evenly.",
+    ],
+    tip: "Pull at 160°F — carryover heat during the 20-minute rest will bring it to a safe 165°F. Resting is not optional: a turkey breast sliced too soon loses all its juice.",
+    directHeatTip: "Turkey breast is too thick for direct heat alone — use a two-zone setup at 375–400°F. Place skin-side up on the indirect side with the lid down to roast through, then move over direct heat for the last 5–8 minutes to crisp the skin. Pull at 160°F; carryover during the 15-minute rest brings it to 165°F. Let it rest fully before slicing — it holds heat well and the juice needs time to redistribute.",
+  },
+
   // ── Turkey Parts ──────────────────────────────────────────────────────
   turkey_parts: {
     steps: [
@@ -582,6 +597,8 @@ export function getMeatPrep(cut: MeatCut | null): MeatPrepGuide | null {
         name.includes("thigh") ||
         name.includes("wing")
       )) return PREP_GUIDE_MAP.turkey_parts;
+      // Turkey breast is a roast, not a whole bird — give it its own guide
+      if (name.includes("turkey") && name.includes("breast")) return PREP_GUIDE_MAP.turkey_breast;
       // Whole / spatchcock / beer can turkey
       if (name.includes("turkey")) return PREP_GUIDE_MAP.turkey;
       // Chicken wings (includes "Smoked Wings")

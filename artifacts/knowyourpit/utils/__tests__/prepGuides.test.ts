@@ -394,6 +394,24 @@ describe("getMeatPrep poultry parts routing — chicken and turkey parts land on
     expect(getMeatPrep(findCut("Turkey Wings"))).toBe(PREP_GUIDE_MAP.turkey_parts);
   });
 
+  // Turkey breast → its own roast guide (not whole-turkey)
+  it('Turkey Breast → turkey_breast (not whole-turkey guide)', () => {
+    expect(getMeatPrep(findCut("Turkey Breast"))).toBe(PREP_GUIDE_MAP.turkey_breast);
+  });
+
+  // Sanity: turkey_breast guide must NOT contain whole-bird language
+  it('turkey_breast guide steps do not mention cavity or tucked wings', () => {
+    const steps = PREP_GUIDE_MAP.turkey_breast.steps.join(" ");
+    expect(steps).not.toMatch(/cavity/i);
+    expect(steps).not.toMatch(/tuck.*wing|wing.*tuck/i);
+  });
+
+  // Sanity: turkey_breast tip mentions pull at 160°F with carryover
+  it('turkey_breast tip mentions 160°F pull temp with carryover to 165°F', () => {
+    expect(PREP_GUIDE_MAP.turkey_breast.tip).toMatch(/160/);
+    expect(PREP_GUIDE_MAP.turkey_breast.tip).toMatch(/165/);
+  });
+
   // Whole-bird cuts must remain unaffected
   it('Whole Chicken → chicken (whole-bird guide, unaffected)', () => {
     expect(getMeatPrep(findCut("Whole Chicken"))).toBe(PREP_GUIDE_MAP.chicken);
