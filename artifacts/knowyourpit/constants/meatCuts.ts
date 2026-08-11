@@ -255,3 +255,107 @@ export const MEAT_CUTS_BY_CATEGORY = MEAT_CATEGORIES.reduce<Record<string, MeatC
   },
   {} as Record<string, MeatCut[]>
 );
+
+// ─────────────────────────────────────────────────────────────────────
+// Sub-grouping for the cut picker.
+//
+// Within each category tab, cuts are organized into named sub-groups
+// (all steaks together, all ribs together, etc.) and sorted
+// alphabetically within each group so the list is scannable.
+// Rules are keyword-based (first match wins) so custom cuts added later
+// still land in a sensible group; anything unmatched falls into the
+// category's final catch-all group.
+// ─────────────────────────────────────────────────────────────────────
+
+export interface CutGroup {
+  title: string;
+  cuts: MeatCut[];
+}
+
+interface SubGroupRule {
+  title: string;
+  /** Lower-cased keyword fragments matched against the cut name. */
+  keywords: string[];
+}
+
+/**
+ * Ordered sub-group rules per category. A cut goes into the FIRST rule
+ * whose keyword matches its (lower-cased) name. Cuts matching no rule go
+ * into the last group of the category ("More Cuts"-style catch-all is
+ * appended automatically when needed). Categories not listed here render
+ * as a single alphabetical list.
+ */
+const SUBGROUP_RULES: Record<string, SubGroupRule[]> = {
+  Beef: [
+    { title: "Brisket & Burnt Ends", keywords: ["brisket", "burnt ends", "pastrami"] },
+    { title: "Steaks", keywords: ["steak", "ribeye", "filet mignon", "porterhouse", "carne asada", "london broil"] },
+    { title: "Ribs", keywords: ["short ribs", "back ribs"] },
+    { title: "Roasts & Whole Muscles", keywords: ["roast", "prime rib", "tenderloin", "tri-tip", "picanha", "chuck"] },
+    { title: "Burgers & Ground", keywords: ["burger", "kabob"] },
+    { title: "Low & Slow Specialties", keywords: ["cheek", "oxtail", "shank", "jerky"] },
+  ],
+  Pork: [
+    { title: "Shoulder & Whole Hog", keywords: ["shoulder", "butt", "pulled pork", "whole hog", "picnic"] },
+    { title: "Ribs", keywords: ["rib"] },
+    { title: "Belly & Bacon", keywords: ["belly", "bacon", "jowl"] },
+    { title: "Chops & Steaks", keywords: ["chop", "steak"] },
+    { title: "Loin & Ham", keywords: ["loin", "ham"] },
+    { title: "Sausages", keywords: ["sausage", "bratwurst", "andouille", "hot links"] },
+  ],
+  Poultry: [
+    { title: "Whole Birds", keywords: ["whole chicken", "spatchcock", "beer can", "whole turkey", "whole duck", "cornish", "goose", "pheasant", "quail"] },
+    { title: "Chicken Parts", keywords: ["chicken", "smoked wings"] },
+    { title: "Turkey Parts", keywords: ["turkey"] },
+    { title: "Duck", keywords: ["duck"] },
+  ],
+  "Lamb & Goat": [
+    { title: "Chops & Rack", keywords: ["chop", "rack of lamb"] },
+    { title: "Lamb Roasts & Low & Slow", keywords: ["lamb", "merguez"] },
+    { title: "Goat", keywords: ["goat"] },
+  ],
+  Seafood: [
+    { title: "Shellfish", keywords: ["shrimp", "lobster", "scallop", "oyster", "crab", "octopus", "squid", "calamari"] },
+    { title: "Fish", keywords: [] }, // catch-all for the rest of the category
+  ],
+};
+
+/** Fallback group title for cuts that match no rule in their category. */
+const CATCH_ALL_TITLE = "More Cuts";
+
+function byName(a: MeatCut, b: MeatCut): number {
+  return a.name.localeCompare(b.name);
+}
+
+/**
+ * Returns the cuts of a category organized into ordered, alphabetized
+ * sub-groups. Categories without rules (Game, Vegetables, Fruit) return a
+ * single unnamed group sorted alphabetically.
+ */
+export function getGroupedCuts(category: string, cuts?: MeatCut[]): CutGroup[] {
+  const source = cuts ?? MEAT_CUTS_BY_CATEGORY[category] ?? [];
+  const rules = SUBGROUP_RULES[category];
+
+  if (!rules) {
+    return source.length ? [{ title: "", cuts: [...source].sort(byName) }] : [];
+  }
+
+  const buckets: MeatCut[][] = rules.map(() => []);
+  const leftovers: MeatCut[] = [];
+
+  for (const cut of source) {
+    const name = cut.name.toLowerCase();
+    // Empty keyword list = explicit catch-all rule (matches everything).
+    const idx = rules.findIndex(
+      (r) => r.keywords.length === 0 || r.keywords.some((k) => name.includes(k)),
+    );
+    if (idx >= 0) buckets[idx].push(cut);
+    else leftovers.push(cut);
+  }
+
+  const groups: CutGroup[] = [];
+  rules.forEach((rule, i) => {
+    if (buckets[i].length) groups.push({ title: rule.title, cuts: buckets[i].sort(byName) });
+  });
+  if (leftovers.length) groups.push({ title: CATCH_ALL_TITLE, cuts: leftovers.sort(byName) });
+  return groups;
+}

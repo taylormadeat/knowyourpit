@@ -1,8 +1,13 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, Modal, Pressable, FlatList } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { planStyles as s } from "./styles";
-import { MEAT_CATEGORIES, MEAT_CUTS_BY_CATEGORY, type MeatCut } from "@/constants/meatCuts";
+import { MEAT_CATEGORIES, getGroupedCuts, type MeatCut } from "@/constants/meatCuts";
+
+/** Flattened FlatList row: either a sub-group header or a cut. */
+type PickerRow =
+  | { type: "header"; title: string; key: string }
+  | { type: "cut"; cut: MeatCut; key: string; showSep: boolean };
 
 type Colors = any;
 
@@ -18,6 +23,22 @@ interface Props {
 
 export function MeatPickerModal(p: Props) {
   const { visible, onClose, colors, meatCategory, setMeatCategory, selectedCut, handlePickCut } = p;
+
+  // Flatten grouped cuts into header + cut rows for the FlatList.
+  const rows = useMemo<PickerRow[]>(() => {
+    const groups = getGroupedCuts(meatCategory);
+    const out: PickerRow[] = [];
+    for (const g of groups) {
+      if (g.title) out.push({ type: "header", title: g.title, key: `h-${g.title}` });
+      g.cuts.forEach((cut, i) =>
+        // Separator only between consecutive cut rows — never directly
+        // under a sub-group header.
+        out.push({ type: "cut", cut, key: cut.name, showSep: i > 0 }),
+      );
+    }
+    return out;
+  }, [meatCategory]);
+
   return (
     <Modal
       visible={visible}
@@ -61,11 +82,31 @@ export function MeatPickerModal(p: Props) {
           </View>
 
           <FlatList
-            data={MEAT_CUTS_BY_CATEGORY[meatCategory] ?? []}
-            keyExtractor={(item) => item.name}
+            data={rows}
+            keyExtractor={(item) => item.key}
             contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 40 }}
-            ItemSeparatorComponent={() => <View style={[s.cutSep, { backgroundColor: colors.border }]} />}
-            renderItem={({ item }) => (
+            renderItem={({ item: row }) => {
+              if (row.type === "header") {
+                return (
+                  <View style={{ paddingTop: 14, paddingBottom: 6, paddingHorizontal: 2 }}>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontFamily: "Inter_600SemiBold",
+                        letterSpacing: 1,
+                        textTransform: "uppercase",
+                        color: colors.primary,
+                      }}
+                    >
+                      {row.title}
+                    </Text>
+                  </View>
+                );
+              }
+              const item = row.cut;
+              return (
+              <View>
+              {row.showSep && <View style={[s.cutSep, { backgroundColor: colors.border }]} />}
               <Pressable
                 testID={`meat-cut-${item.name.toLowerCase().replace(/\s+/g, "-")}`}
                 onPress={() => handlePickCut(item)}
@@ -90,7 +131,9 @@ export function MeatPickerModal(p: Props) {
                   <Feather name="check-circle" size={18} color={colors.primary} />
                 )}
               </Pressable>
-            )}
+              </View>
+              );
+            }}
           />
         </View>
       </View>

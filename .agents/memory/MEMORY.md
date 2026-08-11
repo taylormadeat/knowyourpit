@@ -5,7 +5,7 @@
 - [Clerk getToken on critical path](clerk-gettoken-critical-path.md) — never `getToken({skipCache:true})` before a UI render; use cached token, refresh only on 401. RN fetch needs an AbortController timeout.
 - [iOS SecureStore null-cache sign-out bug](ios-securestore-null-cache.md) — never cache null on timeout; iOS Enclave settling causes transient stalls; caching null permanently evicts the valid token for the session.
 - [Playwright on NixOS](playwright-nixos.md) — Playwright's downloaded headless-shell binary needs glibc at FHS paths; NixOS blocks it. Use runTest() in dev; e2e files are valid for Ubuntu CI.
-- [AppCheckCore pod install blocker](appcheckcore-pod-blocker.md) — CocoaPods pre-install validation blocks all EAS builds; every pre-install fix tried so far causes new RN pod conflicts; requires Mac + local pod install to debug.
+- [EAS pod install blocker root cause](appcheckcore-pod-blocker.md) — RESOLVED: unquoted `sourceTree = <group>` from a manual pbxproj injection broke CocoaPods parsing; xcode-lib values need embedded quotes.
 - [Mutation 401 retry & per-user token refresh](mutation-401-retry.md) — react-query guard only re-runs queries not mutations; retry mutation 401s in customFetch; key force-refresh single-flight per user; idempotent create makes timeout-retry safe.
 - [ThermoWorks probe detection path](thermoworks-probe-detection.md) — Signals/RFX are cloud (account-link via /devices), the LAN /status adapter is dead; empty iOS mDNS ≠ definitive permission denial.
 - [Query staleness across Expo Router tabs](refetch-on-focus-tabs.md) — invalidateQueries() before navigation can race a tab's focus transition; refetch explicitly on focus instead.

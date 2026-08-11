@@ -21,6 +21,10 @@ android/
 # inside can be negated. `ios/` (directory ignore) blocks all negations;
 # `ios/*` (glob on contents) allows the step-by-step pattern below to work.
 ios/*
+# The Live Activity widget extension must also be committed in full — its
+# sources, Info.plist, and entitlements are compiled by the target registered
+# in project.pbxproj, and EAS uploads the committed ios/ tree directly.
+!ios/KnowYourPitLiveActivity/
 !ios/knowyourpit/
 ios/knowyourpit/*
 !ios/knowyourpit/PrivacyInfo.xcprivacy

@@ -2145,6 +2145,67 @@ export default function PlanScreen() {
           <Feather name="chevron-down" size={18} color={colors.mutedForeground} />
         </Pressable>
 
+        {/* ── Prep Guide ──
+            Lives directly under the cut picker so prep advice and the
+            recommended cooking method are visible the moment a cut is
+            chosen — no need to open Advanced Options. Collapsed by
+            default with a one-line preview; tap to expand. */}
+        {(() => {
+          const prep = getMeatPrep(selectedCut);
+          if (!prep || !selectedCut) return null;
+          return (
+            <Pressable
+              onPress={() => setPrepGuideOpen(o => !o)}
+              style={[s.prepGuideCard, { marginTop: 10, backgroundColor: colors.card, borderColor: prepGuideOpen ? colors.primary : colors.border, borderRadius: colors.radius }]}
+            >
+              <View style={s.prepGuideHeader}>
+                <View style={[s.prepGuideIconWrap, { backgroundColor: colors.primary + "20" }]}>
+                  <Feather name="scissors" size={14} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <Text style={[s.prepGuideTitle, { color: colors.foreground }]}>Prep Guide</Text>
+                    {selectedCut.cookMethod ? (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.primary + "18", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                        <Feather name="wind" size={10} color={colors.primary} />
+                        <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.primary }}>
+                          Best method: {selectedCut.cookMethod}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  {!prepGuideOpen && (
+                    <Text style={[s.prepGuidePreview, { color: colors.mutedForeground }]} numberOfLines={1}>
+                      {prep.steps[0]}
+                    </Text>
+                  )}
+                </View>
+                <Feather name={prepGuideOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
+              </View>
+              {prepGuideOpen && (
+                <View style={s.prepGuideBody}>
+                  {prep.steps.map((step, i) => (
+                    <View key={i} style={s.prepStep}>
+                      <View style={[s.prepStepNum, { backgroundColor: colors.primary }]}>
+                        <Text style={s.prepStepNumText}>{i + 1}</Text>
+                      </View>
+                      <Text style={[s.prepStepText, { color: colors.foreground }]}>{step}</Text>
+                    </View>
+                  ))}
+                  <View style={[s.prepTipCard, { backgroundColor: colors.primary + "12", borderRadius: colors.radius }]}>
+                    <Feather name="zap" size={14} color={colors.primary} />
+                    <Text style={[s.prepTipText, { color: colors.foreground }]}>
+                      {prep.directHeatTip && isDirectHeat(qpCookMethod)
+                        ? prep.directHeatTip
+                        : prep.tip}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </Pressable>
+          );
+        })()}
+
         {/* ── Size ── */}
         <SizeInputRow
           cut={selectedCut}
@@ -2459,8 +2520,9 @@ export default function PlanScreen() {
         {/* ══ ZONE 3 — Advanced Options ══
             Collapsible accordion. Starts closed so new users see a clean
             form. A one-line summary appears when collapsed and any option
-            inside is configured. Cook Name, Prep Guide, Frozen timeline,
-            MEATER probes, Technique Quick-Picks, and Notes live here. */}
+            inside is configured. Cook Name, Frozen timeline, MEATER
+            probes, Technique Quick-Picks, and Notes live here. (The Prep
+            Guide lives directly under the cut picker in Zone 1.) */}
         {(() => {
           const advParts: string[] = [];
           if (cookName.trim()) advParts.push(cookName.trim());
@@ -2569,53 +2631,6 @@ export default function PlanScreen() {
                       onChangeText={setCookName}
                     />
                   </View>
-
-                  {/* ── Meat Prep Guide ── */}
-                  {(() => {
-                    const prep = getMeatPrep(selectedCut);
-                    if (!prep) return null;
-                    return (
-                      <Pressable
-                        onPress={() => setPrepGuideOpen(o => !o)}
-                        style={[s.prepGuideCard, { backgroundColor: colors.background, borderColor: prepGuideOpen ? colors.primary : colors.border, borderRadius: colors.radius }]}
-                      >
-                        <View style={s.prepGuideHeader}>
-                          <View style={[s.prepGuideIconWrap, { backgroundColor: colors.primary + "20" }]}>
-                            <Feather name="scissors" size={14} color={colors.primary} />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[s.prepGuideTitle, { color: colors.foreground }]}>Prep Guide</Text>
-                            {!prepGuideOpen && (
-                              <Text style={[s.prepGuidePreview, { color: colors.mutedForeground }]} numberOfLines={1}>
-                                {prep.steps[0]}
-                              </Text>
-                            )}
-                          </View>
-                          <Feather name={prepGuideOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
-                        </View>
-                        {prepGuideOpen && (
-                          <View style={s.prepGuideBody}>
-                            {prep.steps.map((step, i) => (
-                              <View key={i} style={s.prepStep}>
-                                <View style={[s.prepStepNum, { backgroundColor: colors.primary }]}>
-                                  <Text style={s.prepStepNumText}>{i + 1}</Text>
-                                </View>
-                                <Text style={[s.prepStepText, { color: colors.foreground }]}>{step}</Text>
-                              </View>
-                            ))}
-                            <View style={[s.prepTipCard, { backgroundColor: colors.primary + "12", borderRadius: colors.radius }]}>
-                              <Feather name="zap" size={14} color={colors.primary} />
-                              <Text style={[s.prepTipText, { color: colors.foreground }]}>
-                                {prep.directHeatTip && isDirectHeat(qpCookMethod)
-                                  ? prep.directHeatTip
-                                  : prep.tip}
-                              </Text>
-                            </View>
-                          </View>
-                        )}
-                      </Pressable>
-                    );
-                  })()}
 
                   {/* ── Frozen-to-Table Toggle + Thaw Method (compact grouped rows) ── */}
                   {/* Frozen planning is not applicable to produce (no thaw needed) */}

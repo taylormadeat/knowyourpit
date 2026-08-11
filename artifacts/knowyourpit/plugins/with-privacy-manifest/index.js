@@ -110,16 +110,72 @@ function withRegisterPrivacyManifest(config) {
       return cfg;
     }
 
-    // Add PBXFileReference, then add to group and Resources build phase.
-    // project.addResourceFile returns the build file key.
-    const appGroup = project.hash.project.objects["PBXGroup"][appGroupKey];
-    const filePath = `${appName}/${MANIFEST_FILENAME}`;
+    // Manually add PBXFileReference + PBXBuildFile + wire into group/Resources
+    // instead of using project.addResourceFile(), which has a null-deref bug in
+    // xcode@3.x when the group path is undefined.
+    const objects = project.hash.project.objects;
+    const crypto = require("crypto");
 
-    project.addResourceFile(filePath, {
-      target: project.getFirstTarget().uuid,
+    // Generate deterministic-ish UUIDs (24 hex chars, uppercase) that are
+    // stable across prebuild runs so the .pbxproj diff stays minimal.
+    const seed = (suffix) =>
+      crypto
+        .createHash("sha1")
+        .update(`com.knowyourpit.privacy-manifest.${suffix}`)
+        .digest("hex")
+        .slice(0, 24)
+        .toUpperCase();
+
+    const fileRefKey = seed("fileref");
+    const buildFileKey = seed("buildfile");
+
+    // 1. PBXFileReference
+    if (!objects["PBXFileReference"]) objects["PBXFileReference"] = {};
+    objects["PBXFileReference"][fileRefKey] = {
+      isa: "PBXFileReference",
       lastKnownFileType: "text.xml",
-      sourceTree: "<group>",
-    });
+      name: MANIFEST_FILENAME,
+      path: `${appName}/${MANIFEST_FILENAME}`,
+      sourceTree: '"<group>"',
+    };
+    // xcode lib stores a comment key alongside each entry
+    objects["PBXFileReference"][`${fileRefKey}_comment`] = MANIFEST_FILENAME;
+
+    // 2. Add to the app group's children list
+    const appGroup = objects["PBXGroup"][appGroupKey];
+    if (appGroup && Array.isArray(appGroup.children)) {
+      const alreadyChild = appGroup.children.some(
+        (c) => c.value === fileRefKey,
+      );
+      if (!alreadyChild) {
+        appGroup.children.push({ value: fileRefKey, comment: MANIFEST_FILENAME });
+      }
+    }
+
+    // 3. PBXBuildFile
+    if (!objects["PBXBuildFile"]) objects["PBXBuildFile"] = {};
+    objects["PBXBuildFile"][buildFileKey] = {
+      isa: "PBXBuildFile",
+      fileRef: fileRefKey,
+      fileRef_comment: MANIFEST_FILENAME,
+    };
+    objects["PBXBuildFile"][`${buildFileKey}_comment`] =
+      `${MANIFEST_FILENAME} in Resources`;
+
+    // 4. Add PBXBuildFile to the Resources build phase of the first target
+    const buildPhases = objects["PBXResourcesBuildPhase"] ?? {};
+    for (const [, phase] of Object.entries(buildPhases)) {
+      if (typeof phase === "object" && Array.isArray(phase.files)) {
+        const alreadyInPhase = phase.files.some((f) => f.value === buildFileKey);
+        if (!alreadyInPhase) {
+          phase.files.push({
+            value: buildFileKey,
+            comment: `${MANIFEST_FILENAME} in Resources`,
+          });
+        }
+        break; // only add to the first Resources phase (the app target's)
+      }
+    }
 
     console.log("[with-privacy-manifest] Registered PrivacyInfo.xcprivacy in Xcode project.");
     return cfg;

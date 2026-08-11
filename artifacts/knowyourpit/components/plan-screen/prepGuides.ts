@@ -333,6 +333,70 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     tip: "Rabbit is done at 160°F — treat the saddle (loin) like a pork loin and the legs like chicken thighs.",
     directHeatTip: "Grill rabbit pieces over medium heat — high heat dries out the lean meat too fast. Legs go on first (they need the most time); add the saddle pieces 5–7 minutes later. Turn every 4–5 minutes for even browning. Baste with butter or olive oil throughout to keep it moist. Pull the legs at 165°F and the loin at 155°F — the loin is done when it firms up and the juices run clear. Rest 5 minutes before serving.",
   },
+
+  // ── Sausages & cured ──────────────────────────────────────────────────
+  sausage: {
+    steps: [
+      "Keep sausages cold until they hit the smoker — warm casings split more easily.",
+      "Do NOT prick the casings; the fat inside is the flavor and moisture.",
+      "Pat dry so smoke adheres to the casing.",
+      "Space links so smoke can circulate on all sides.",
+    ],
+    tip: "Pre-cooked links (andouille, hot links, smoked sausage) only need to be warmed through to ~150°F; raw sausage like bratwurst or Italian must reach 160°F.",
+    directHeatTip: "Grill over medium — not high — heat, turning often. High heat splits casings and squeezes out the juices. If flare-ups start, move links to the cooler side and finish them there to 160°F internal.",
+  },
+  jerky: {
+    steps: [
+      "Start with a lean cut (eye of round or top round) and trim ALL visible fat — fat is what turns jerky rancid.",
+      "Partially freeze 1–2 hours, then slice ¼ inch thick — with the grain for chewy, against for tender.",
+      "Marinate 12–24 hours in the fridge (soy, Worcestershire, and cure if storing long-term).",
+      "Pat slices completely dry and lay in a single layer with space between pieces.",
+    ],
+    tip: "Jerky is done when a piece bends and cracks without snapping in half — typically 4–6 hours at 160–180°F. It firms further as it cools.",
+    directHeatTip: "Jerky can't be made over direct flame — it needs long, gentle drying, not cooking. Set up the coolest indirect zone you can hold at 160–180°F, keep the slices far from the heat source, and leave the lid vented so moisture escapes. Pieces are done when they bend and crack without snapping.",
+  },
+  round_roast: {
+    steps: [
+      "Trim silver skin but leave any thin fat cap — round cuts are very lean and need all the help they can get.",
+      "Season generously with salt at least 4 hours ahead (dry brine) to help retain moisture.",
+      "Tie with butcher's twine if the roast is uneven, for consistent doneness.",
+      "Bring toward room temperature for 45–60 minutes before cooking.",
+    ],
+    tip: "Round cuts are lean — cook to 130–135°F max and slice paper thin against the grain. Past medium they turn to shoe leather.",
+    directHeatTip: "Sear all sides hard over direct heat, then move to the indirect side to finish gently to 130°F. Rest 15 minutes and slice as thin as you can — thin slices are what make lean round eat tender.",
+  },
+  kabobs: {
+    steps: [
+      "Cut meat into even 1–1.5 inch cubes so every piece cooks at the same rate.",
+      "Marinate 2–8 hours; anything acidic beyond that starts breaking down the texture.",
+      "Skewer meat and vegetables separately — they cook at different speeds.",
+      "Leave a small gap between pieces so heat reaches all sides.",
+    ],
+    tip: "If using wooden skewers, soak them 30 minutes so they don't burn.",
+    directHeatTip: "Kabobs are built for direct heat — grill hot and fast, turning a quarter rotation every 2–3 minutes. Beef cubes are best pulled at 130–135°F for medium-rare.",
+  },
+
+  // ── Produce ───────────────────────────────────────────────────────────
+  grilled_vegetables: {
+    steps: [
+      "Cut to even sizes so every piece finishes at the same time.",
+      "Coat lightly with a high smoke-point oil (avocado or canola) — just enough to prevent sticking.",
+      "Season simply with coarse salt and pepper; delicate herbs go on after cooking, not before.",
+      "Keep pieces in a single layer — use a grill basket or skewers for anything smaller than the grate gaps.",
+    ],
+    tip: "Vegetables are done by look and feel, not internal temp — pull them when they're charred at the edges and just tender when pierced. Carryover softening continues off the grill.",
+    directHeatTip: "High heat is your friend for most vegetables — you want char before they turn mushy. Get the grates screaming hot, oil the vegetables (not the grates), and resist moving them for the first few minutes so grill marks can set.",
+  },
+  grilled_fruit: {
+    steps: [
+      "Choose fruit that's ripe but still firm — overripe fruit collapses on the grill.",
+      "Halve and pit (or slice thick); leave the skin on to hold everything together.",
+      "Brush the cut face lightly with neutral oil to prevent sticking.",
+      "Start cut-side down on clean, hot grates and don't move it until grill marks set.",
+    ],
+    tip: "Sugar burns fast — grill fruit over clean grates and watch closely. It's done when the cut face is caramelized and the flesh just starts to soften. A drizzle of honey or balsamic after the grill goes further than before it.",
+    directHeatTip: "Use medium direct heat, not screaming hot — fruit sugars scorch quickly. Grill cut-side down 3–5 minutes until caramelized grill marks form, then flip skin-side down for another minute or two. Pull it while the flesh still has some body; it keeps softening off the grill.",
+  },
 };
 
 export function getMeatPrep(cut: MeatCut | null): MeatPrepGuide | null {
@@ -340,9 +404,18 @@ export function getMeatPrep(cut: MeatCut | null): MeatPrepGuide | null {
   const name = cut.name.toLowerCase();
   const category = cut.category.toLowerCase();
 
+  // ── Sausages (any category) ──
+  if (name.includes("sausage") || name.includes("bratwurst") || name.includes("andouille") || name.includes("hot link")) return PREP_GUIDE_MAP.sausage;
+
   // ── Beef ──
-  if (name.includes("brisket")) return PREP_GUIDE_MAP.brisket;
-  if (name.includes("prime rib")) return PREP_GUIDE_MAP.prime_rib;
+  if (name.includes("brisket") || name.includes("burnt end") || name.includes("pastrami")) return PREP_GUIDE_MAP.brisket;
+  if (name.includes("jerky")) return PREP_GUIDE_MAP.jerky;
+  if (name.includes("kabob") || name.includes("kebab")) return PREP_GUIDE_MAP.kabobs;
+  if (name.includes("prime rib") || name.includes("standing rib")) return PREP_GUIDE_MAP.prime_rib;
+  if (name.includes("filet mignon")) return PREP_GUIDE_MAP.tenderloin_beef;
+  if (name.includes("cheek") || name.includes("beef shank")) return PREP_GUIDE_MAP.oxtail;
+  if (name.includes("london broil") || name.includes("carne asada")) return PREP_GUIDE_MAP.flank_skirt;
+  if (name.includes("round") && category === "beef") return PREP_GUIDE_MAP.round_roast;
   if (name.includes("chuck")) return PREP_GUIDE_MAP.chuck_roast;
   if (name.includes("oxtail")) return PREP_GUIDE_MAP.oxtail;
   if (name.includes("burger") || name.includes("patty") || name.includes("patties")) return PREP_GUIDE_MAP.burger;
@@ -352,7 +425,8 @@ export function getMeatPrep(cut: MeatCut | null): MeatPrepGuide | null {
   if (name.includes("steak") || name.includes("tri-tip") || name.includes("ribeye") || name.includes("strip")) return PREP_GUIDE_MAP.steak;
 
   // ── Pork ──
-  if (name.includes("belly")) return PREP_GUIDE_MAP.pork_belly;
+  if (name.includes("belly") || name.includes("bacon") || name.includes("jowl")) return PREP_GUIDE_MAP.pork_belly;
+  if (name.includes("pork shank")) return PREP_GUIDE_MAP.pork_shoulder;
   if (name.includes("wing")) return PREP_GUIDE_MAP.chicken_wings;
   if (name.includes("rib") && category === "pork") return PREP_GUIDE_MAP.ribs;
   if (name.includes("shoulder") || name.includes("butt") || name.includes("pulled")) return PREP_GUIDE_MAP.pork_shoulder;
@@ -379,6 +453,10 @@ export function getMeatPrep(cut: MeatCut | null): MeatPrepGuide | null {
   if (name.includes("whole fish") || name.includes("whole ")) return PREP_GUIDE_MAP.whole_fish;
   if (name.includes("swordfish") || name.includes("tuna")) return PREP_GUIDE_MAP.fish_steak;
   if (category === "seafood") return PREP_GUIDE_MAP.fish_steak;
+
+  // ── Produce (Vegetables & Fruit) ──
+  if (category === "vegetables") return PREP_GUIDE_MAP.grilled_vegetables;
+  if (category === "fruit") return PREP_GUIDE_MAP.grilled_fruit;
 
   // ── Game ──
   if (name.includes("bison") && name.includes("brisket")) return PREP_GUIDE_MAP.brisket;
