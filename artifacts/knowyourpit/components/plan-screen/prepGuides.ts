@@ -405,7 +405,7 @@ export function getMeatPrep(cut: MeatCut | null): MeatPrepGuide | null {
   const category = cut.category.toLowerCase();
 
   // ── Sausages (any category) ──
-  if (name.includes("sausage") || name.includes("bratwurst") || name.includes("andouille") || name.includes("hot link")) return PREP_GUIDE_MAP.sausage;
+  if (name.includes("sausage") || name.includes("bratwurst") || name.includes("andouille") || name.includes("hot link") || name.includes("merguez")) return PREP_GUIDE_MAP.sausage;
 
   // ── Beef ──
   if (name.includes("brisket") || name.includes("burnt end") || name.includes("pastrami")) return PREP_GUIDE_MAP.brisket;
@@ -432,8 +432,10 @@ export function getMeatPrep(cut: MeatCut | null): MeatPrepGuide | null {
   if (name.includes("shoulder") || name.includes("butt") || name.includes("pulled")) return PREP_GUIDE_MAP.pork_shoulder;
   if (name.includes("tenderloin") && category === "pork") return PREP_GUIDE_MAP.pork_tenderloin;
   if (name.includes("loin")) return PREP_GUIDE_MAP.pork_loin;
-  if (name.includes("ham")) return PREP_GUIDE_MAP.ham;
+  if (name.includes("ham") && !name.includes("hog")) return PREP_GUIDE_MAP.ham;
   if (name.includes("chop")) return PREP_GUIDE_MAP.pork_chops;
+  if (name.includes("jowl") || name.includes("bacon")) return PREP_GUIDE_MAP.pork_belly;
+  if (name.includes("whole hog") || name.includes("wild hog")) return PREP_GUIDE_MAP.pork_shoulder;
 
   // ── Poultry ──
   if (name.includes("turkey")) return PREP_GUIDE_MAP.turkey;
@@ -450,7 +452,7 @@ export function getMeatPrep(cut: MeatCut | null): MeatPrepGuide | null {
   if (name.includes("salmon")) return PREP_GUIDE_MAP.salmon;
   if (name.includes("shrimp")) return PREP_GUIDE_MAP.shrimp;
   if (name.includes("lobster")) return PREP_GUIDE_MAP.lobster;
-  if (name.includes("whole fish") || name.includes("whole ")) return PREP_GUIDE_MAP.whole_fish;
+  if (name.includes("whole fish") || (category === "seafood" && name.includes("whole"))) return PREP_GUIDE_MAP.whole_fish;
   if (name.includes("swordfish") || name.includes("tuna")) return PREP_GUIDE_MAP.fish_steak;
   if (category === "seafood") return PREP_GUIDE_MAP.fish_steak;
 
@@ -465,6 +467,17 @@ export function getMeatPrep(cut: MeatCut | null): MeatPrepGuide | null {
   if (name.includes("rabbit")) return PREP_GUIDE_MAP.rabbit;
   if (name.includes("duck")) return PREP_GUIDE_MAP.duck;
   if (category === "game") return PREP_GUIDE_MAP.game_roast;
+
+  // ── Generic fallbacks by recommended method so no meat cut is left without a guide ──
+  const method = (cut.cookMethod ?? "").toLowerCase();
+  if (category === "beef") {
+    if (method.includes("direct") || method.includes("sear")) return PREP_GUIDE_MAP.steak;
+    return PREP_GUIDE_MAP.chuck_roast;
+  }
+  if (category === "pork") {
+    if (method.includes("direct")) return PREP_GUIDE_MAP.pork_chops;
+    return PREP_GUIDE_MAP.pork_shoulder;
+  }
 
   return null;
 }

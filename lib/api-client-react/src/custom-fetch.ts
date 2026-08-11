@@ -448,11 +448,10 @@ export async function customFetch<T = unknown>(
     // live session; we fire unauthenticated and let the server return 401,
     // which SessionExpiredGuard surfaces as a genuine sign-out.
     let token = await getToken();
+    let didForceRefresh = false;
     if (token == null) {
-      // Fast-path cache is cold (iOS Secure Enclave stall, app returning from
-      // background, etc.). Force one refresh now so we don't waste a round-trip
-      // on a request we already know will 401.
       token = await getToken({ forceRefresh: true });
+      didForceRefresh = true;
     }
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
@@ -466,20 +465,13 @@ export async function customFetch<T = unknown>(
 
     response = await performFetch();
 
-    // The server rejected the token — force ONE refresh and retry exactly once.
-    // This covers two cases:
-    //   1. The cached JWT expired between the cache read and the server receiving
-    //      the request (common after brief backgrounding).
-    //   2. The fast-path returned null (cold cache / Enclave stall), we did a
-    //      preemptive refresh, but the server still returned 401 due to a
-    //      transient issue (server restart, brief network error). Without this
-    //      retry, delete/create mutations would fail permanently in that window
-    //      because SessionExpiredGuard only re-runs queries, not mutations.
-    //
-    // Loop protection: performFetch() is called at most once more here. If the
-    // session is genuinely expired, Clerk's force-refresh returns null and the
-    // retry is skipped — the 401 then falls through to SessionExpiredGuard.
-    if (response.status === 401) {
+    // The server rejected the token — most commonly the cached JWT expired
+    // between the cache read and the request reaching the server. Force one
+    // refresh and retry exactly once. This recovers POST mutations (e.g. cook
+    // creation) that SessionExpiredGuard cannot retry, since invalidateQueries
+    // only re-runs queries. Skip if we already refreshed above (no second
+    // refresh) so a genuinely-expired session falls through to the guard.
+    if (response.status === 401 && !didForceRefresh) {
       const fresh = await getToken({ forceRefresh: true });
       if (fresh) {
         headers.set("authorization", `Bearer ${fresh}`);

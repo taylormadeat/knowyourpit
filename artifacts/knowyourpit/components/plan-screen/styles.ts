@@ -253,6 +253,8 @@ export const planStyles = StyleSheet.create({
   catTabText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 
   cutRow: { paddingVertical: 12, paddingHorizontal: 4, flexDirection: "row", alignItems: "center" },
+  cutGroupHeader: { paddingTop: 18, paddingBottom: 6, paddingHorizontal: 4 },
+  cutGroupHeaderText: { fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 1, textTransform: "uppercase" },
   cutSep: { height: 1, marginHorizontal: 4 },
   cutName: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
   cutMeta: { fontSize: 12, fontFamily: "Inter_400Regular" },
@@ -286,6 +288,9 @@ export const planStyles = StyleSheet.create({
   prepGuideIconWrap: { width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   prepGuideTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginBottom: 1 },
   prepGuidePreview: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  prepMethodRow: { flexDirection: "row", alignItems: "center", gap: 6, marginHorizontal: 14, marginBottom: 12, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8 },
+  prepMethodLabel: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.8, textTransform: "uppercase" },
+  prepMethodValue: { fontSize: 13, fontFamily: "Inter_700Bold", marginLeft: 2 },
   prepGuideBody: { paddingHorizontal: 14, paddingBottom: 14, gap: 12 },
   prepStep: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
   prepStepNum: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center", marginTop: 1 },

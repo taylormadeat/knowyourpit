@@ -11,3 +11,4 @@
 - [Query staleness across Expo Router tabs](refetch-on-focus-tabs.md) — invalidateQueries() before navigation can race a tab's focus transition; refetch explicitly on focus instead.
 - [EAS iOS submit "invalid curve name" blocker](eas-submit-invalid-curve-name.md) — TestFlight submit fails server-side (fastlane/OpenSSL); confirmed not fixable via key reformatting on our end.
 - [Probe role convention](probe-number-role-convention.md) — temperature_readings.probeNumber (0=meat,1=pit) is authoritative for role; probeName heuristics & probeAssignments IDs are not reliable for this.
+- [Task commits sweep the working tree](task-commit-sweep.md) — completion commits include prior sessions leftover edits; git status before first markTaskComplete.
