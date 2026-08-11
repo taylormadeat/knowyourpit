@@ -438,6 +438,32 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     directHeatTip: "Cold-smoked salmon (lox) cannot be made with direct heat — the process requires a smoker held below 80°F for hours. If you want grilled salmon instead, use the regular salmon guide and cook it hot and fast. Lox needs a dedicated cold-smoke setup or a smoke tube with no heat source.",
   },
 
+  // ── Chicken Parts ─────────────────────────────────────────────────────
+  chicken_parts: {
+    steps: [
+      "Pat pieces completely dry — surface moisture is the enemy of crispy skin.",
+      "Dry-brine with kosher salt (½ tsp per lb) at least 4 hours ahead, ideally overnight uncovered in the fridge.",
+      "For bone-in pieces: slide your fingers under the skin and rub butter or seasoning directly on the meat.",
+      "Coat the outside with oil or mayo, then apply your rub liberally.",
+      "Breast pieces pull at 165°F; thighs, drumsticks, and leg quarters pull at 175°F for best texture — the collagen needs that extra heat.",
+    ],
+    tip: "Thighs and drumsticks are very forgiving — they won't dry out past 165°F the way a breast will. 175°F is the sweet spot for dark meat.",
+    directHeatTip: "Two-zone setup for bone-in pieces: start skin-side down over medium heat to render the fat without scorching, then move to indirect to cook through, and finish back over direct heat for 2–3 min to crisp the skin. Boneless thighs can go straight over medium-high direct heat — 5–6 min per side. Pull dark meat at 175°F, breasts at 165°F.",
+  },
+
+  // ── Turkey Parts ──────────────────────────────────────────────────────
+  turkey_parts: {
+    steps: [
+      "Brine parts 8–12 hours in salt water (1 cup salt per gallon) — dark-meat parts especially benefit.",
+      "Pat completely dry after brining, inside any skin folds.",
+      "For legs and thighs: score the skin in a few places to help fat render during cooking.",
+      "Rub butter or seasoning under the skin on thighs; coat all pieces in oil or mayo, then season.",
+      "Legs and thighs target 175°F; turkey wings target 175°F for fall-off-the-bone texture.",
+    ],
+    tip: "Turkey parts cook much faster than a whole bird — start checking internal temps after 90 minutes at 275°F. Dark meat improves past 165°F; pull at 175°F for the best texture.",
+    directHeatTip: "Two-zone setup: sear turkey parts skin-side down over medium-high direct heat 4–5 min to render the skin, then move to indirect heat to cook through. Legs and thighs can handle longer indirect time — they're done at 175°F and won't dry out easily. Finish back over direct heat for 2–3 min to crisp the skin before serving.",
+  },
+
   // ── Produce ───────────────────────────────────────────────────────────
   grilled_vegetables: {
     steps: [
@@ -533,9 +559,27 @@ export function getMeatPrep(cut: MeatCut | null): MeatPrepGuide | null {
 
     // ── Poultry ───────────────────────────────────────────────────────
     case "poultry": {
-      if (name.includes("turkey")) return PREP_GUIDE_MAP.turkey;
+      // Duck first — "duck" is unambiguous
       if (name.includes("duck")) return PREP_GUIDE_MAP.duck;
+      // Turkey parts before whole turkey, so "Turkey Legs" / "Turkey Thighs" / "Turkey Wings"
+      // are caught before the generic turkey fallback
+      if (name.includes("turkey") && (
+        name.includes("leg") ||
+        name.includes("thigh") ||
+        name.includes("wing")
+      )) return PREP_GUIDE_MAP.turkey_parts;
+      // Whole / spatchcock / beer can turkey
+      if (name.includes("turkey")) return PREP_GUIDE_MAP.turkey;
+      // Chicken wings (includes "Smoked Wings")
       if (name.includes("wing")) return PREP_GUIDE_MAP.chicken_wings;
+      // Chicken parts — check part keywords before falling back to whole-bird guide
+      if (
+        name.includes("thigh") ||
+        name.includes("drumstick") ||
+        name.includes("leg quarter") ||
+        name.includes("breast")
+      ) return PREP_GUIDE_MAP.chicken_parts;
+      // Whole Chicken, Spatchcock Chicken, Beer Can Chicken, Cornish Hen, Pheasant, Goose, Quail
       return PREP_GUIDE_MAP.chicken;
     }
 

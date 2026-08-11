@@ -348,3 +348,80 @@ describe("getMeatPrep routing regression — confirmed mismatches now fixed", ()
     expect(getMeatPrep(findCut("Pork Tenderloin"))).toBe(PREP_GUIDE_MAP.pork_tenderloin);
   });
 });
+
+// ── Poultry parts routing — previously misrouted to whole-bird guides ──────────
+
+describe("getMeatPrep poultry parts routing — chicken and turkey parts land on the correct guide", () => {
+  // Chicken parts → chicken_parts (not the whole-bird chicken guide)
+  it('Chicken Thighs (Bone-In) → chicken_parts (not whole-bird chicken guide)', () => {
+    expect(getMeatPrep(findCut("Chicken Thighs (Bone-In)"))).toBe(PREP_GUIDE_MAP.chicken_parts);
+  });
+
+  it('Chicken Thighs (Boneless) → chicken_parts (not whole-bird chicken guide)', () => {
+    expect(getMeatPrep(findCut("Chicken Thighs (Boneless)"))).toBe(PREP_GUIDE_MAP.chicken_parts);
+  });
+
+  it('Chicken Drumsticks → chicken_parts (not whole-bird chicken guide)', () => {
+    expect(getMeatPrep(findCut("Chicken Drumsticks"))).toBe(PREP_GUIDE_MAP.chicken_parts);
+  });
+
+  it('Chicken Leg Quarters → chicken_parts (not whole-bird chicken guide)', () => {
+    expect(getMeatPrep(findCut("Chicken Leg Quarters"))).toBe(PREP_GUIDE_MAP.chicken_parts);
+  });
+
+  it('Chicken Breast (Bone-In) → chicken_parts (not whole-bird chicken guide)', () => {
+    expect(getMeatPrep(findCut("Chicken Breast (Bone-In)"))).toBe(PREP_GUIDE_MAP.chicken_parts);
+  });
+
+  it('Chicken Breast (Boneless) → chicken_parts (not whole-bird chicken guide)', () => {
+    expect(getMeatPrep(findCut("Chicken Breast (Boneless)"))).toBe(PREP_GUIDE_MAP.chicken_parts);
+  });
+
+  // Turkey parts → turkey_parts (not whole-turkey guide)
+  it('Turkey Legs → turkey_parts (not whole-turkey guide)', () => {
+    expect(getMeatPrep(findCut("Turkey Legs"))).toBe(PREP_GUIDE_MAP.turkey_parts);
+  });
+
+  it('Turkey Thighs → turkey_parts (not whole-turkey guide)', () => {
+    expect(getMeatPrep(findCut("Turkey Thighs"))).toBe(PREP_GUIDE_MAP.turkey_parts);
+  });
+
+  it('Turkey Wings → turkey_parts (not whole-turkey guide)', () => {
+    expect(getMeatPrep(findCut("Turkey Wings"))).toBe(PREP_GUIDE_MAP.turkey_parts);
+  });
+
+  // Whole-bird cuts must remain unaffected
+  it('Whole Chicken → chicken (whole-bird guide, unaffected)', () => {
+    expect(getMeatPrep(findCut("Whole Chicken"))).toBe(PREP_GUIDE_MAP.chicken);
+  });
+
+  it('Spatchcock Chicken → chicken (whole-bird guide, unaffected)', () => {
+    expect(getMeatPrep(findCut("Spatchcock Chicken"))).toBe(PREP_GUIDE_MAP.chicken);
+  });
+
+  it('Beer Can Chicken → chicken (whole-bird guide, unaffected)', () => {
+    expect(getMeatPrep(findCut("Beer Can Chicken"))).toBe(PREP_GUIDE_MAP.chicken);
+  });
+
+  it('Whole Turkey → turkey (whole-turkey guide, unaffected)', () => {
+    expect(getMeatPrep(findCut("Whole Turkey"))).toBe(PREP_GUIDE_MAP.turkey);
+  });
+
+  it('Spatchcock Turkey → turkey (whole-turkey guide, unaffected)', () => {
+    expect(getMeatPrep(findCut("Spatchcock Turkey"))).toBe(PREP_GUIDE_MAP.turkey);
+  });
+
+  // Sanity: chicken_parts guide must NOT contain whole-bird spatchcock/cavity language
+  it('chicken_parts guide steps do not mention spatchcock or cavity', () => {
+    const steps = PREP_GUIDE_MAP.chicken_parts.steps.join(" ");
+    expect(steps).not.toMatch(/spatchcock/i);
+    expect(steps).not.toMatch(/cavity/i);
+  });
+
+  // Sanity: chicken_parts guide addresses the 175°F vs 165°F dark/white meat distinction
+  it('chicken_parts guide distinguishes 175°F dark meat from 165°F breast', () => {
+    const steps = PREP_GUIDE_MAP.chicken_parts.steps.join(" ");
+    expect(steps).toMatch(/175/);
+    expect(steps).toMatch(/165/);
+  });
+});
