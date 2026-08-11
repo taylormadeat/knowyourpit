@@ -464,6 +464,20 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     directHeatTip: "Two-zone setup: sear turkey parts skin-side down over medium-high direct heat 4–5 min to render the skin, then move to indirect heat to cook through. Legs and thighs can handle longer indirect time — they're done at 175°F and won't dry out easily. Finish back over direct heat for 2–3 min to crisp the skin before serving.",
   },
 
+  // ── General / unknown-category fallback ───────────────────────────────
+  // Returned when the cut's category doesn't match any known switch case —
+  // most commonly for fully custom cuts users have added themselves.
+  general: {
+    steps: [
+      "Pat the meat completely dry on all sides — surface moisture is the enemy of a good crust.",
+      "Season generously with coarse salt and black pepper at a minimum; add garlic powder, paprika, or your preferred rub.",
+      "Let the seasoning rest on the meat for at least 30 minutes (or overnight uncovered in the fridge for a dry-brine effect).",
+      "Bring the meat to room temperature 20–30 minutes before cooking for more even results.",
+    ],
+    tip: "Low-and-slow works for most cuts — cook at 225–250°F until you reach your target internal temp, then rest tented in foil for at least 10 minutes before slicing.",
+    directHeatTip: "For direct-heat cooking, use a two-zone setup: sear over high heat for a crust, then finish on the cooler side if the cut needs more time. Rest 5–10 minutes before cutting so the juices redistribute.",
+  },
+
   // ── Produce ───────────────────────────────────────────────────────────
   grilled_vegetables: {
     steps: [
@@ -638,6 +652,9 @@ export function getMeatPrep(cut: MeatCut | null): MeatPrepGuide | null {
     }
 
     default:
-      return null;
+      // Unknown / fully-custom category — return a generic guide that gives
+      // reasonable advice for any protein. This prevents the prep section
+      // from disappearing silently for cuts the user added themselves.
+      return PREP_GUIDE_MAP.general;
   }
 }

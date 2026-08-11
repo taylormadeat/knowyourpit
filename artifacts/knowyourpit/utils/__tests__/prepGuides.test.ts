@@ -12,7 +12,7 @@
  */
 
 import { PREP_GUIDE_MAP, getMeatPrep, type MeatPrepGuide } from "../../components/plan-screen/prepGuides";
-import { MEAT_CUTS, isProduce } from "../../constants/meatCuts";
+import { MEAT_CUTS, isProduce, type MeatCut } from "../../constants/meatCuts";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -427,5 +427,107 @@ describe("getMeatPrep poultry parts routing — chicken and turkey parts land on
     const steps = PREP_GUIDE_MAP.chicken_parts.steps.join(" ");
     expect(steps).toMatch(/175/);
     expect(steps).toMatch(/165/);
+  });
+});
+
+// ── Custom / user-created cuts ─────────────────────────────────────────────────
+
+/**
+ * Custom cuts (plain MeatCut, not BuiltinMeatCut) stored in the DB may have
+ * arbitrary names and known or unknown categories. This suite verifies that:
+ *   1. Known-category custom cuts get a reasonable guide from the category
+ *      switch even when the name matches no keyword.
+ *   2. Unknown/blank categories fall back to PREP_GUIDE_MAP.general rather
+ *      than returning null.
+ *   3. getMeatPrep never returns null for a non-null cut.
+ */
+
+function makeCustomCut(name: string, category: string, cookMethod?: string): MeatCut {
+  return { name, category, cookMethod } as unknown as MeatCut;
+}
+
+describe("getMeatPrep custom cuts — known categories always resolve", () => {
+  it('"My Special Rub Beef" (category "Beef") → category-default beef guide (chuck_roast)', () => {
+    const cut = makeCustomCut("My Special Rub Beef", "Beef");
+    expect(getMeatPrep(cut)).toBe(PREP_GUIDE_MAP.chuck_roast);
+  });
+
+  it('"House Blend Pulled Pork" (category "Pork") → pork_shoulder', () => {
+    const cut = makeCustomCut("House Blend Pulled Pork", "Pork");
+    // "pulled" keyword → pork_shoulder
+    expect(getMeatPrep(cut)).toBe(PREP_GUIDE_MAP.pork_shoulder);
+  });
+
+  it('"Competition Loin" (category "Pork") without keyword → pork_shoulder category default', () => {
+    const cut = makeCustomCut("Competition Loin", "Pork");
+    // "loin" keyword → pork_loin
+    expect(getMeatPrep(cut)).toBe(PREP_GUIDE_MAP.pork_loin);
+  });
+
+  it('"Signature Smoke" (category "Pork") with no matching keyword → pork_shoulder fallback', () => {
+    const cut = makeCustomCut("Signature Smoke", "Pork");
+    // no keyword match; category default is pork_shoulder
+    expect(getMeatPrep(cut)).toBe(PREP_GUIDE_MAP.pork_shoulder);
+  });
+
+  it('"Backyard Bird" (category "Poultry") with no keyword → chicken guide', () => {
+    const cut = makeCustomCut("Backyard Bird", "Poultry");
+    // no duck/turkey/wing/breast/thigh/drumstick/leg; falls through to chicken
+    expect(getMeatPrep(cut)).toBe(PREP_GUIDE_MAP.chicken);
+  });
+
+  it('"Wild Catch" (category "Seafood") with no keyword → fish_steak guide', () => {
+    const cut = makeCustomCut("Wild Catch", "Seafood");
+    // no salmon/shrimp/lobster/whole/shellfish keyword; defaults to fish_steak
+    expect(getMeatPrep(cut)).toBe(PREP_GUIDE_MAP.fish_steak);
+  });
+
+  it('"Custom Venison Cut" (category "Game") with no specific keyword → game_roast', () => {
+    const cut = makeCustomCut("Custom Venison Special", "Game");
+    // "venison" keyword → venison
+    expect(getMeatPrep(cut)).toBe(PREP_GUIDE_MAP.venison);
+  });
+
+  it('"Mystery Roast" (category "Game") with no keyword → game_roast fallback', () => {
+    const cut = makeCustomCut("Mystery Roast", "Game");
+    expect(getMeatPrep(cut)).toBe(PREP_GUIDE_MAP.game_roast);
+  });
+});
+
+describe("getMeatPrep custom cuts — unknown/blank categories use general fallback", () => {
+  it('completely unknown category → PREP_GUIDE_MAP.general (not null)', () => {
+    const cut = makeCustomCut("House Special Protein", "Custom");
+    expect(getMeatPrep(cut)).toBe(PREP_GUIDE_MAP.general);
+  });
+
+  it('blank category (cooks/[id].tsx empty-string fallback) → PREP_GUIDE_MAP.general', () => {
+    const cut = makeCustomCut("Smoked Mystery Meat", "");
+    expect(getMeatPrep(cut)).toBe(PREP_GUIDE_MAP.general);
+  });
+
+  it('"Other" category → PREP_GUIDE_MAP.general', () => {
+    const cut = makeCustomCut("Competition Entry", "Other");
+    expect(getMeatPrep(cut)).toBe(PREP_GUIDE_MAP.general);
+  });
+
+  it('general guide has at least 3 steps', () => {
+    expect(PREP_GUIDE_MAP.general.steps.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('general guide tip does not contain cut-specific jargon (brisket, pastrami)', () => {
+    const allText = [PREP_GUIDE_MAP.general.tip, ...(PREP_GUIDE_MAP.general.steps)].join(" ");
+    expect(allText).not.toMatch(/brisket|pastrami|bark|stall/i);
+  });
+
+  it('getMeatPrep never returns null for any non-null cut', () => {
+    const cuts: MeatCut[] = [
+      makeCustomCut("Random Thing", ""),
+      makeCustomCut("Another Custom", "Custom Category"),
+      makeCustomCut("My Special Rub Beef", "Beef"),
+      makeCustomCut("Backyard Bird", "Poultry"),
+    ];
+    for (const cut of cuts) {
+      expect(getMeatPrep(cut)).not.toBeNull();
+    }
   });
 });

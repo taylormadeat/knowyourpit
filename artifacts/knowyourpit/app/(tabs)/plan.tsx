@@ -2152,7 +2152,29 @@ export default function PlanScreen() {
             default with a one-line preview; tap to expand. */}
         {(() => {
           const prep = getMeatPrep(selectedCut);
-          if (!prep || !selectedCut) return null;
+          // getMeatPrep returns null only when selectedCut is null.
+          // The general fallback in getMeatPrep handles unknown categories so
+          // custom cuts always get a guide. If for any reason prep is still
+          // null (edge case), show a minimal notice rather than hiding the
+          // section entirely.
+          if (!selectedCut) return null;
+          if (!prep) {
+            return (
+              <View style={[s.prepGuideCard, { marginTop: 10, backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                <View style={s.prepGuideHeader}>
+                  <View style={[s.prepGuideIconWrap, { backgroundColor: colors.primary + "20" }]}>
+                    <Feather name="scissors" size={14} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.prepGuideTitle, { color: colors.foreground }]}>Prep Guide</Text>
+                    <Text style={[s.prepGuidePreview, { color: colors.mutedForeground }]}>
+                      Pat dry, season well, and rest before and after cooking.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            );
+          }
           return (
             <Pressable
               onPress={() => setPrepGuideOpen(o => !o)}
