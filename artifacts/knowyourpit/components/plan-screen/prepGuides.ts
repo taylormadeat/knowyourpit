@@ -376,6 +376,68 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     directHeatTip: "Kabobs are built for direct heat — grill hot and fast, turning a quarter rotation every 2–3 minutes. Beef cubes are best pulled at 130–135°F for medium-rare.",
   },
 
+  // ── Shellfish ─────────────────────────────────────────────────────────
+  shellfish: {
+    steps: [
+      "Pat shellfish completely dry — excess moisture causes steaming instead of searing.",
+      "Season lightly with salt and a brush of neutral oil or garlic butter.",
+      "Preheat grates or pan to high heat so shellfish release cleanly without sticking.",
+      "Have everything ready before they go on — shellfish cook in minutes.",
+    ],
+    tip: "Shellfish tell you when they're done: scallops turn opaque with a golden crust, oysters pop open, crab legs are heated through at 140°F. Don't overcook — they go rubbery fast.",
+    directHeatTip: "High heat is essential for shellfish. Scallops: sear 90 sec per side on a screaming-hot surface — move them once, don't fuss. Oysters: grill shell-side down over high heat until they pop open (5–8 min), then add butter. Crab legs: split and grill cut-side down 4–5 min until heated through. Squid/octopus: pre-cook until tender, then char 1–2 min per side over screaming heat. Pull everything the moment it's done.",
+  },
+
+  // ── Pork Steak ────────────────────────────────────────────────────────
+  pork_steak: {
+    steps: [
+      "These are shoulder steaks — expect marbling and a tougher grain than loin cuts.",
+      "Season generously with salt, pepper, garlic powder, and smoked paprika.",
+      "Optional: marinate 2–4 hours in a vinegar-based BBQ sauce for extra tenderness.",
+      "Pat dry before cooking so the surface sears rather than steams.",
+      "Bring to room temperature 20 minutes before cooking.",
+    ],
+    tip: "Pork steaks are a St. Louis classic — cook them low and slow to 190–195°F for fork-tender results, then sauce and caramelize in the last 15 minutes.",
+    directHeatTip: "Two-zone setup for pork steaks: sear over medium-high heat 4–5 min per side for color, then move to the indirect side and cook to 195°F — shoulder muscle needs time to break down even on the grill. Sauce in the last 5 minutes only so the sugars caramelize without burning. Rest 5 minutes before serving.",
+  },
+
+  // ── Picanha ───────────────────────────────────────────────────────────
+  picanha: {
+    steps: [
+      "Score the fat cap in a 1-inch crosshatch pattern — don't cut into the meat.",
+      "Season generously with coarse salt (and pepper if desired) — Brazilians often use salt only.",
+      "Let rest uncovered in the fridge for at least 1 hour, or overnight for best flavor.",
+      "Bring to room temperature 30 minutes before cooking.",
+    ],
+    tip: "Reverse sear is ideal: smoke fat-side up to 115°F, then sear fat-side down over high heat to render and crisp the cap. Slice against the grain into thin strips.",
+    directHeatTip: "Fold slices into a C-shape (fat-side out) and skewer them Brazilian-style, then grill over high heat turning often. Alternatively, grill the whole cap fat-side down over medium-high heat to render the fat (5–7 min), then flip and finish to 130–135°F. Let the fat crisp up — that's the signature. Slice thin against the grain and serve immediately.",
+  },
+
+  // ── Lean Game (Tenderloin / Backstrap) ────────────────────────────────
+  lean_game: {
+    steps: [
+      "Remove all silverskin and sinew — it won't break down and will tighten during cooking.",
+      "Skip the long brine — venison tenderloin is delicate; a 30-minute herb-oil marinade is enough.",
+      "Pat dry and season simply: salt, pepper, garlic, and fresh rosemary.",
+      "Bring to room temperature 20 minutes before cooking.",
+    ],
+    tip: "Venison tenderloin is the most tender and leanest cut — treat it like filet mignon. Pull at 125–130°F for medium-rare and rest 5 minutes tented in foil. It dries out dramatically past 140°F.",
+    directHeatTip: "Grill over high heat 2–3 min per side — lean game tenderloins are thin and cook extremely fast. Turn to sear all sides for an even crust, then move to indirect only if the center needs more time. Pull at 125–130°F for medium-rare; carryover will bring it to 130–135°F during the rest. Rest 5 minutes tented in foil — never skip it on lean cuts.",
+  },
+
+  // ── Lox / Cold-Smoked Salmon ──────────────────────────────────────────
+  lox: {
+    steps: [
+      "Cure first: coat flesh side with a mix of coarse salt (2 parts), sugar (1 part), and optional dill or citrus zest.",
+      "Wrap tightly in plastic and refrigerate 24–48 hours, flipping once halfway through.",
+      "Rinse thoroughly under cold water and pat completely dry.",
+      "Air-dry uncovered in the fridge for 1–2 hours until the surface is dry and slightly tacky (pellicle).",
+      "Keep the smoker under 80°F — this is cold smoke, not hot smoke.",
+    ],
+    tip: "Cold-smoked salmon is a curing process, not a cooking one. The pellicle is essential — it's what smoke adheres to. Skip the pellicle and the smoke flavor won't penetrate.",
+    directHeatTip: "Cold-smoked salmon (lox) cannot be made with direct heat — the process requires a smoker held below 80°F for hours. If you want grilled salmon instead, use the regular salmon guide and cook it hot and fast. Lox needs a dedicated cold-smoke setup or a smoke tube with no heat source.",
+  },
+
   // ── Produce ───────────────────────────────────────────────────────────
   grilled_vegetables: {
     steps: [
@@ -403,81 +465,133 @@ export function getMeatPrep(cut: MeatCut | null): MeatPrepGuide | null {
   if (!cut) return null;
   const name = cut.name.toLowerCase();
   const category = cut.category.toLowerCase();
-
-  // ── Sausages (any category) ──
-  if (name.includes("sausage") || name.includes("bratwurst") || name.includes("andouille") || name.includes("hot link") || name.includes("merguez")) return PREP_GUIDE_MAP.sausage;
-
-  // ── Beef ──
-  if (name.includes("brisket") || name.includes("burnt end") || name.includes("pastrami")) return PREP_GUIDE_MAP.brisket;
-  if (name.includes("jerky")) return PREP_GUIDE_MAP.jerky;
-  if (name.includes("kabob") || name.includes("kebab")) return PREP_GUIDE_MAP.kabobs;
-  if (name.includes("prime rib") || name.includes("standing rib")) return PREP_GUIDE_MAP.prime_rib;
-  if (name.includes("filet mignon")) return PREP_GUIDE_MAP.tenderloin_beef;
-  if (name.includes("cheek") || name.includes("beef shank")) return PREP_GUIDE_MAP.oxtail;
-  if (name.includes("london broil") || name.includes("carne asada")) return PREP_GUIDE_MAP.flank_skirt;
-  if (name.includes("round") && category === "beef") return PREP_GUIDE_MAP.round_roast;
-  if (name.includes("chuck")) return PREP_GUIDE_MAP.chuck_roast;
-  if (name.includes("oxtail")) return PREP_GUIDE_MAP.oxtail;
-  if (name.includes("burger") || name.includes("patty") || name.includes("patties")) return PREP_GUIDE_MAP.burger;
-  if (name.includes("flank") || name.includes("skirt")) return PREP_GUIDE_MAP.flank_skirt;
-  if (name.includes("tenderloin") && category === "beef") return PREP_GUIDE_MAP.tenderloin_beef;
-  if (name.includes("short rib") || name.includes("back rib")) return PREP_GUIDE_MAP.beef_ribs;
-  if (name.includes("steak") || name.includes("tri-tip") || name.includes("ribeye") || name.includes("strip")) return PREP_GUIDE_MAP.steak;
-
-  // ── Pork ──
-  if (name.includes("belly") || name.includes("bacon") || name.includes("jowl")) return PREP_GUIDE_MAP.pork_belly;
-  if (name.includes("pork shank")) return PREP_GUIDE_MAP.pork_shoulder;
-  if (name.includes("wing")) return PREP_GUIDE_MAP.chicken_wings;
-  if (name.includes("rib") && category === "pork") return PREP_GUIDE_MAP.ribs;
-  if (name.includes("shoulder") || name.includes("butt") || name.includes("pulled")) return PREP_GUIDE_MAP.pork_shoulder;
-  if (name.includes("tenderloin") && category === "pork") return PREP_GUIDE_MAP.pork_tenderloin;
-  if (name.includes("loin")) return PREP_GUIDE_MAP.pork_loin;
-  if (name.includes("ham") && !name.includes("hog")) return PREP_GUIDE_MAP.ham;
-  if (name.includes("chop")) return PREP_GUIDE_MAP.pork_chops;
-  if (name.includes("jowl") || name.includes("bacon")) return PREP_GUIDE_MAP.pork_belly;
-  if (name.includes("whole hog") || name.includes("wild hog")) return PREP_GUIDE_MAP.pork_shoulder;
-
-  // ── Poultry ──
-  if (name.includes("turkey")) return PREP_GUIDE_MAP.turkey;
-  if (name.includes("duck")) return PREP_GUIDE_MAP.duck;
-  if (name.includes("wing")) return PREP_GUIDE_MAP.chicken_wings;
-  if (name.includes("chicken") || name.includes("cornish") || category === "poultry") return PREP_GUIDE_MAP.chicken;
-
-  // ── Lamb & Goat ──
-  if (name.includes("rack of lamb")) return PREP_GUIDE_MAP.rack_of_lamb;
-  if (name.includes("goat")) return PREP_GUIDE_MAP.goat;
-  if (category === "lamb & goat" || name.includes("lamb")) return PREP_GUIDE_MAP.lamb;
-
-  // ── Seafood ──
-  if (name.includes("salmon")) return PREP_GUIDE_MAP.salmon;
-  if (name.includes("shrimp")) return PREP_GUIDE_MAP.shrimp;
-  if (name.includes("lobster")) return PREP_GUIDE_MAP.lobster;
-  if (name.includes("whole fish") || (category === "seafood" && name.includes("whole"))) return PREP_GUIDE_MAP.whole_fish;
-  if (name.includes("swordfish") || name.includes("tuna")) return PREP_GUIDE_MAP.fish_steak;
-  if (category === "seafood") return PREP_GUIDE_MAP.fish_steak;
-
-  // ── Produce (Vegetables & Fruit) ──
-  if (category === "vegetables") return PREP_GUIDE_MAP.grilled_vegetables;
-  if (category === "fruit") return PREP_GUIDE_MAP.grilled_fruit;
-
-  // ── Game ──
-  if (name.includes("bison") && name.includes("brisket")) return PREP_GUIDE_MAP.brisket;
-  if (name.includes("wild boar") && (name.includes("shoulder") || name.includes("butt"))) return PREP_GUIDE_MAP.pork_shoulder;
-  if (name.includes("venison")) return PREP_GUIDE_MAP.venison;
-  if (name.includes("rabbit")) return PREP_GUIDE_MAP.rabbit;
-  if (name.includes("duck")) return PREP_GUIDE_MAP.duck;
-  if (category === "game") return PREP_GUIDE_MAP.game_roast;
-
-  // ── Generic fallbacks by recommended method so no meat cut is left without a guide ──
   const method = (cut.cookMethod ?? "").toLowerCase();
-  if (category === "beef") {
-    if (method.includes("direct") || method.includes("sear")) return PREP_GUIDE_MAP.steak;
-    return PREP_GUIDE_MAP.chuck_roast;
-  }
-  if (category === "pork") {
-    if (method.includes("direct")) return PREP_GUIDE_MAP.pork_chops;
-    return PREP_GUIDE_MAP.pork_shoulder;
-  }
 
-  return null;
+  // ── Sausages (any category) — matched before category branching ──
+  if (
+    name.includes("sausage") ||
+    name.includes("bratwurst") ||
+    name.includes("andouille") ||
+    name.includes("hot link") ||
+    name.includes("merguez")
+  )
+    return PREP_GUIDE_MAP.sausage;
+
+  // ── Category-scoped routing — beef keywords can never capture seafood/pork/game cuts ──
+  switch (category) {
+    // ── Beef ──────────────────────────────────────────────────────────
+    case "beef": {
+      if (name.includes("brisket") || name.includes("pastrami")) return PREP_GUIDE_MAP.brisket;
+      if (name.includes("burnt end")) return PREP_GUIDE_MAP.brisket;
+      if (name.includes("jerky")) return PREP_GUIDE_MAP.jerky;
+      if (name.includes("kabob") || name.includes("kebab")) return PREP_GUIDE_MAP.kabobs;
+      if (name.includes("prime rib") || name.includes("standing rib")) return PREP_GUIDE_MAP.prime_rib;
+      if (name.includes("filet mignon")) return PREP_GUIDE_MAP.tenderloin_beef;
+      if (name.includes("cheek") || name.includes("shank")) return PREP_GUIDE_MAP.oxtail;
+      if (name.includes("oxtail")) return PREP_GUIDE_MAP.oxtail;
+      if (name.includes("london broil") || name.includes("carne asada")) return PREP_GUIDE_MAP.flank_skirt;
+      if (name.includes("round")) return PREP_GUIDE_MAP.round_roast;
+      if (name.includes("flank") || name.includes("skirt")) return PREP_GUIDE_MAP.flank_skirt;
+      if (name.includes("tenderloin")) return PREP_GUIDE_MAP.tenderloin_beef;
+      // Ribs before chuck, so "Beef Short Ribs (Chuck)" routes to beef_ribs, not chuck_roast
+      if (name.includes("short rib") || name.includes("back rib")) return PREP_GUIDE_MAP.beef_ribs;
+      if (name.includes("picanha") || name.includes("sirloin cap")) return PREP_GUIDE_MAP.picanha;
+      // Chuck Eye Steak → steak; plain chuck roast → chuck_roast
+      if (name.includes("chuck") && name.includes("steak")) return PREP_GUIDE_MAP.steak;
+      if (name.includes("chuck")) return PREP_GUIDE_MAP.chuck_roast;
+      if (name.includes("burger") || name.includes("patty") || name.includes("patties")) return PREP_GUIDE_MAP.burger;
+      if (
+        name.includes("steak") ||
+        name.includes("tri-tip") ||
+        name.includes("ribeye") ||
+        // "strip" only after confirming beef category so Striped Bass is excluded
+        name.includes("strip")
+      )
+        return PREP_GUIDE_MAP.steak;
+      if (method.includes("direct") || method.includes("sear")) return PREP_GUIDE_MAP.steak;
+      return PREP_GUIDE_MAP.chuck_roast;
+    }
+
+    // ── Pork ──────────────────────────────────────────────────────────
+    case "pork": {
+      // Belly check before burnt-ends would match (belly → pork_belly, not brisket)
+      if (name.includes("belly") || name.includes("bacon") || name.includes("jowl")) return PREP_GUIDE_MAP.pork_belly;
+      if (name.includes("shank")) return PREP_GUIDE_MAP.pork_shoulder;
+      if (name.includes("wing")) return PREP_GUIDE_MAP.chicken_wings;
+      if (name.includes("rib")) return PREP_GUIDE_MAP.ribs;
+      if (name.includes("shoulder") || name.includes("butt") || name.includes("pulled")) return PREP_GUIDE_MAP.pork_shoulder;
+      if (name.includes("tenderloin")) return PREP_GUIDE_MAP.pork_tenderloin;
+      // Pork Steaks (shoulder steaks) → pork_steak, not beef steak guide
+      if (name.includes("steak")) return PREP_GUIDE_MAP.pork_steak;
+      if (name.includes("loin")) return PREP_GUIDE_MAP.pork_loin;
+      if (name.includes("ham") && !name.includes("hog")) return PREP_GUIDE_MAP.ham;
+      if (name.includes("chop")) return PREP_GUIDE_MAP.pork_chops;
+      if (name.includes("whole hog") || name.includes("wild hog")) return PREP_GUIDE_MAP.pork_shoulder;
+      if (method.includes("direct")) return PREP_GUIDE_MAP.pork_chops;
+      return PREP_GUIDE_MAP.pork_shoulder;
+    }
+
+    // ── Poultry ───────────────────────────────────────────────────────
+    case "poultry": {
+      if (name.includes("turkey")) return PREP_GUIDE_MAP.turkey;
+      if (name.includes("duck")) return PREP_GUIDE_MAP.duck;
+      if (name.includes("wing")) return PREP_GUIDE_MAP.chicken_wings;
+      return PREP_GUIDE_MAP.chicken;
+    }
+
+    // ── Lamb & Goat ───────────────────────────────────────────────────
+    case "lamb & goat": {
+      if (name.includes("rack of lamb")) return PREP_GUIDE_MAP.rack_of_lamb;
+      if (name.includes("goat")) return PREP_GUIDE_MAP.goat;
+      return PREP_GUIDE_MAP.lamb;
+    }
+
+    // ── Seafood ───────────────────────────────────────────────────────
+    case "seafood": {
+      // Cold-smoked / lox before regular salmon
+      if (name.includes("salmon") && (name.includes("cold") || name.includes("lox"))) return PREP_GUIDE_MAP.lox;
+      if (name.includes("salmon")) return PREP_GUIDE_MAP.salmon;
+      if (name.includes("shrimp")) return PREP_GUIDE_MAP.shrimp;
+      if (name.includes("lobster")) return PREP_GUIDE_MAP.lobster;
+      if (name.includes("whole")) return PREP_GUIDE_MAP.whole_fish;
+      // Shellfish: scallops, oysters, crab legs, octopus, squid/calamari
+      if (
+        name.includes("scallop") ||
+        name.includes("oyster") ||
+        name.includes("crab") ||
+        name.includes("octopus") ||
+        name.includes("squid") ||
+        name.includes("calamari")
+      )
+        return PREP_GUIDE_MAP.shellfish;
+      // Everything else (fish steaks, fillets): fish_steak guide
+      return PREP_GUIDE_MAP.fish_steak;
+    }
+
+    // ── Produce ───────────────────────────────────────────────────────
+    case "vegetables":
+      return PREP_GUIDE_MAP.grilled_vegetables;
+    case "fruit":
+      return PREP_GUIDE_MAP.grilled_fruit;
+
+    // ── Game ──────────────────────────────────────────────────────────
+    case "game": {
+      if (name.includes("bison") && name.includes("brisket")) return PREP_GUIDE_MAP.brisket;
+      if (name.includes("bison") && (name.includes("burger") || name.includes("patty"))) return PREP_GUIDE_MAP.burger;
+      if (name.includes("bison") && (name.includes("steak") || name.includes("ribeye"))) return PREP_GUIDE_MAP.steak;
+      if (name.includes("wild boar") && (name.includes("shoulder") || name.includes("butt"))) return PREP_GUIDE_MAP.pork_shoulder;
+      if (name.includes("wild boar") && name.includes("rib")) return PREP_GUIDE_MAP.ribs;
+      // Venison tenderloin → lean_game (not the generic venison brine guide)
+      if (name.includes("venison") && name.includes("tenderloin")) return PREP_GUIDE_MAP.lean_game;
+      if (name.includes("venison")) return PREP_GUIDE_MAP.venison;
+      if (name.includes("elk") && name.includes("steak")) return PREP_GUIDE_MAP.venison;
+      if (name.includes("rabbit")) return PREP_GUIDE_MAP.rabbit;
+      if (name.includes("duck")) return PREP_GUIDE_MAP.duck;
+      if (name.includes("turkey")) return PREP_GUIDE_MAP.turkey;
+      return PREP_GUIDE_MAP.game_roast;
+    }
+
+    default:
+      return null;
+  }
 }

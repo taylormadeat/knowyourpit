@@ -176,3 +176,175 @@ describe("plan.tsx tip selection gate — direct-heat routes to directHeatTip", 
     }
   });
 });
+
+// ── Routing regression tests ───────────────────────────────────────────────────
+
+/**
+ * Asserts the exact guide key for every confirmed mismatch from the audit, plus
+ * a representative sample of already-correct cuts to prevent regressions.
+ *
+ * The helper looks up the guide in PREP_GUIDE_MAP by the expected key so that
+ * the test fails with a meaningful message if the guide is ever renamed.
+ */
+function findCut(name: string) {
+  const cut = MEAT_CUTS.find((c) => c.name === name);
+  if (!cut) throw new Error(`Test setup: cut "${name}" not found in MEAT_CUTS`);
+  return cut;
+}
+
+describe("getMeatPrep routing regression — confirmed mismatches now fixed", () => {
+  // ── Previously misrouted cuts ──────────────────────────────────────────
+
+  it('Baby Back Ribs (Pork) → ribs (pork rib guide, NOT beef_ribs)', () => {
+    const result = getMeatPrep(findCut("Baby Back Ribs"));
+    expect(result).toBe(PREP_GUIDE_MAP.ribs);
+    // Sanity: the ribs guide tells you to REMOVE the membrane, not leave it on
+    expect(result?.steps.join(" ")).toMatch(/remove the membrane/i);
+  });
+
+  it('Pork Belly Burnt Ends → pork_belly (NOT brisket)', () => {
+    expect(getMeatPrep(findCut("Pork Belly Burnt Ends"))).toBe(PREP_GUIDE_MAP.pork_belly);
+  });
+
+  it('Tuna Steak → fish_steak (NOT steak)', () => {
+    expect(getMeatPrep(findCut("Tuna Steak"))).toBe(PREP_GUIDE_MAP.fish_steak);
+  });
+
+  it('Swordfish Steak → fish_steak (NOT steak)', () => {
+    expect(getMeatPrep(findCut("Swordfish Steak"))).toBe(PREP_GUIDE_MAP.fish_steak);
+  });
+
+  it('Striped Bass → fish_steak (NOT steak via "strip" substring)', () => {
+    expect(getMeatPrep(findCut("Striped Bass"))).toBe(PREP_GUIDE_MAP.fish_steak);
+  });
+
+  it('Chuck Eye Steak → steak (NOT chuck_roast braising guide)', () => {
+    expect(getMeatPrep(findCut("Chuck Eye Steak"))).toBe(PREP_GUIDE_MAP.steak);
+  });
+
+  it('Beef Short Ribs (Chuck) → beef_ribs (NOT chuck_roast)', () => {
+    expect(getMeatPrep(findCut("Beef Short Ribs (Chuck)"))).toBe(PREP_GUIDE_MAP.beef_ribs);
+  });
+
+  it('Picanha (Top Sirloin Cap) → picanha (NOT pork_loin)', () => {
+    expect(getMeatPrep(findCut("Picanha (Top Sirloin Cap)"))).toBe(PREP_GUIDE_MAP.picanha);
+    // Sanity: picanha guide mentions fat cap
+    expect(PREP_GUIDE_MAP.picanha.steps.join(" ")).toMatch(/fat cap/i);
+  });
+
+  it('Venison Tenderloin → lean_game (NOT pork_loin)', () => {
+    expect(getMeatPrep(findCut("Venison Tenderloin"))).toBe(PREP_GUIDE_MAP.lean_game);
+  });
+
+  it('Lamb Loin Chops → lamb (NOT pork_loin)', () => {
+    expect(getMeatPrep(findCut("Lamb Loin Chops"))).toBe(PREP_GUIDE_MAP.lamb);
+  });
+
+  it('Pork Steaks → pork_steak (NOT beef steak guide)', () => {
+    expect(getMeatPrep(findCut("Pork Steaks"))).toBe(PREP_GUIDE_MAP.pork_steak);
+  });
+
+  it('Scallops → shellfish (NOT fish_steak)', () => {
+    expect(getMeatPrep(findCut("Scallops"))).toBe(PREP_GUIDE_MAP.shellfish);
+  });
+
+  it('Oysters (in Shell) → shellfish (NOT fish_steak)', () => {
+    expect(getMeatPrep(findCut("Oysters (in Shell)"))).toBe(PREP_GUIDE_MAP.shellfish);
+  });
+
+  it('Crab Legs → shellfish (NOT fish_steak)', () => {
+    expect(getMeatPrep(findCut("Crab Legs"))).toBe(PREP_GUIDE_MAP.shellfish);
+  });
+
+  it('Octopus → shellfish (NOT fish_steak)', () => {
+    expect(getMeatPrep(findCut("Octopus"))).toBe(PREP_GUIDE_MAP.shellfish);
+  });
+
+  it('Squid / Calamari → shellfish (NOT fish_steak)', () => {
+    expect(getMeatPrep(findCut("Squid / Calamari"))).toBe(PREP_GUIDE_MAP.shellfish);
+  });
+
+  it('Cold-Smoked Salmon (Lox) → lox (NOT regular salmon guide)', () => {
+    expect(getMeatPrep(findCut("Cold-Smoked Salmon (Lox)"))).toBe(PREP_GUIDE_MAP.lox);
+  });
+
+  // ── Already-correct cuts — must not regress ───────────────────────────
+
+  it('Brisket (Whole Packer) → brisket', () => {
+    expect(getMeatPrep(findCut("Brisket (Whole Packer)"))).toBe(PREP_GUIDE_MAP.brisket);
+  });
+
+  it('Beef Short Ribs (Plate) → beef_ribs', () => {
+    expect(getMeatPrep(findCut("Beef Short Ribs (Plate)"))).toBe(PREP_GUIDE_MAP.beef_ribs);
+  });
+
+  it('Beef Back Ribs → beef_ribs', () => {
+    expect(getMeatPrep(findCut("Beef Back Ribs"))).toBe(PREP_GUIDE_MAP.beef_ribs);
+  });
+
+  it('Ribeye Steak → steak', () => {
+    expect(getMeatPrep(findCut("Ribeye Steak"))).toBe(PREP_GUIDE_MAP.steak);
+  });
+
+  it('Strip Steak (NY Strip) → steak', () => {
+    expect(getMeatPrep(findCut("Strip Steak (NY Strip)"))).toBe(PREP_GUIDE_MAP.steak);
+  });
+
+  it('Pork Shoulder / Boston Butt → pork_shoulder', () => {
+    expect(getMeatPrep(findCut("Pork Shoulder / Boston Butt"))).toBe(PREP_GUIDE_MAP.pork_shoulder);
+  });
+
+  it('Spare Ribs (St. Louis) → ribs', () => {
+    expect(getMeatPrep(findCut("Spare Ribs (St. Louis)"))).toBe(PREP_GUIDE_MAP.ribs);
+  });
+
+  it('Baby Back Ribs membrane advice is correct (remove, not leave on)', () => {
+    const guide = getMeatPrep(findCut("Baby Back Ribs"));
+    // beef_ribs guide says "Leave the membrane on" — this must NOT appear for pork ribs
+    expect(guide?.steps.join(" ")).not.toMatch(/leave the membrane on/i);
+  });
+
+  it('Rack of Lamb → rack_of_lamb', () => {
+    expect(getMeatPrep(findCut("Rack of Lamb"))).toBe(PREP_GUIDE_MAP.rack_of_lamb);
+  });
+
+  it('Lamb Chops → lamb', () => {
+    expect(getMeatPrep(findCut("Lamb Chops"))).toBe(PREP_GUIDE_MAP.lamb);
+  });
+
+  it('Salmon Fillet → salmon', () => {
+    expect(getMeatPrep(findCut("Salmon Fillet"))).toBe(PREP_GUIDE_MAP.salmon);
+  });
+
+  it('Shrimp (Shell-On) → shrimp', () => {
+    expect(getMeatPrep(findCut("Shrimp (Shell-On)"))).toBe(PREP_GUIDE_MAP.shrimp);
+  });
+
+  it('Venison Backstrap → venison', () => {
+    expect(getMeatPrep(findCut("Venison Backstrap"))).toBe(PREP_GUIDE_MAP.venison);
+  });
+
+  it('Venison Roast → venison', () => {
+    expect(getMeatPrep(findCut("Venison Roast"))).toBe(PREP_GUIDE_MAP.venison);
+  });
+
+  it('Bison Brisket → brisket', () => {
+    expect(getMeatPrep(findCut("Bison Brisket"))).toBe(PREP_GUIDE_MAP.brisket);
+  });
+
+  it('Wild Boar Shoulder → pork_shoulder', () => {
+    expect(getMeatPrep(findCut("Wild Boar Shoulder"))).toBe(PREP_GUIDE_MAP.pork_shoulder);
+  });
+
+  it('Chuck Roast → chuck_roast', () => {
+    expect(getMeatPrep(findCut("Chuck Roast"))).toBe(PREP_GUIDE_MAP.chuck_roast);
+  });
+
+  it('Pork Loin (Boneless) → pork_loin', () => {
+    expect(getMeatPrep(findCut("Pork Loin (Boneless)"))).toBe(PREP_GUIDE_MAP.pork_loin);
+  });
+
+  it('Pork Tenderloin → pork_tenderloin', () => {
+    expect(getMeatPrep(findCut("Pork Tenderloin"))).toBe(PREP_GUIDE_MAP.pork_tenderloin);
+  });
+});
