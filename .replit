@@ -4,6 +4,10 @@ modules = ["nodejs-24", "python-3.11", "postgresql-16"]
 router = "application"
 deploymentTarget = "autoscale"
 
+[deployment.build]
+args = ["pnpm", "--filter", "@workspace/marketing", "run", "build"]
+env = { "CI" = "true" }
+
 [deployment.postBuild]
 args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }

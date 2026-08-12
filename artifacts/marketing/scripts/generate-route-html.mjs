@@ -15,9 +15,17 @@ const src = join(distDir, "index.html");
 const routes = ["features", "privacy", "terms", "support"];
 
 for (const route of routes) {
-  const dest = join(distDir, `${route}.html`);
-  copyFileSync(src, dest);
+  // flat file: privacy.html (for servers that strip extensions)
+  const flatDest = join(distDir, `${route}.html`);
+  copyFileSync(src, flatDest);
   console.log(`  copied index.html → ${route}.html`);
+
+  // directory index: privacy/index.html (for servers that don't)
+  const dir = join(distDir, route);
+  mkdirSync(dir, { recursive: true });
+  const dirDest = join(dir, "index.html");
+  copyFileSync(src, dirDest);
+  console.log(`  copied index.html → ${route}/index.html`);
 }
 
 console.log("Route HTML generation complete.");
