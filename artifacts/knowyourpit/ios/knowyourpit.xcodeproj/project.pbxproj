@@ -7,22 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A1B2C3D4E5F60002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60001 /* PrivacyInfo.xcprivacy */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
-		2CDF9ADA4DB44EC38858262C /* CookActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 874FDB26B81443FF9AFEEF6D /* CookActivityAttributes.swift */; };
-		E516A554D42F4B68BADB8A5C /* CookLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9A811DF88484D96B67E081C /* CookLiveActivityBundle.swift */; };
-		13603918A6FF4BCA98CEE3F2 /* CookLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54ECD0B88300433F9125943D /* CookLiveActivityWidget.swift */; };
-		1A0E0846D47844AE943C7A70 /* KnowYourPitLiveActivity.appex in Copy Files */ = {isa = PBXBuildFile; fileRef = 84150A778B83432C95208AB0 /* KnowYourPitLiveActivity.appex */; };
-		73F850788DAB4BF5B658A5C4 /* CookActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 874FDB26B81443FF9AFEEF6D /* CookActivityAttributes.swift */; settings = {}; };
-		3AC74B020F4E4C93A8C276BA /* CookLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9A811DF88484D96B67E081C /* CookLiveActivityBundle.swift */; settings = {}; };
-		D52BA69270244E0EA5E96B6D /* CookLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54ECD0B88300433F9125943D /* CookLiveActivityWidget.swift */; settings = {}; };
+		72E2B729EE3748D38F83F925 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 16DD8EA8A1744A88BF941BBA /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A1B2C3D4E5F60001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = knowyourpit/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* knowyourpit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = knowyourpit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = knowyourpit/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = knowyourpit/Info.plist; sourceTree = "<group>"; };
@@ -31,21 +23,11 @@
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = knowyourpit/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* knowyourpit-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "knowyourpit-Bridging-Header.h"; path = "knowyourpit/knowyourpit-Bridging-Header.h"; sourceTree = "<group>"; };
-		874FDB26B81443FF9AFEEF6D /* CookActivityAttributes.swift */ = {isa = PBXFileReference; name = "CookActivityAttributes.swift"; path = "KnowYourPitLiveActivity/CookActivityAttributes.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; explicitFileType = undefined; includeInIndex = 0; };
-		C9A811DF88484D96B67E081C /* CookLiveActivityBundle.swift */ = {isa = PBXFileReference; name = "CookLiveActivityBundle.swift"; path = "KnowYourPitLiveActivity/CookLiveActivityBundle.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; explicitFileType = undefined; includeInIndex = 0; };
-		54ECD0B88300433F9125943D /* CookLiveActivityWidget.swift */ = {isa = PBXFileReference; name = "CookLiveActivityWidget.swift"; path = "KnowYourPitLiveActivity/CookLiveActivityWidget.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; explicitFileType = undefined; includeInIndex = 0; };
-		84150A778B83432C95208AB0 /* KnowYourPitLiveActivity.appex */ = {isa = PBXFileReference; name = "KnowYourPitLiveActivity.appex"; path = "KnowYourPitLiveActivity.appex"; sourceTree = BUILT_PRODUCTS_DIR; fileEncoding = undefined; lastKnownFileType = undefined; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; };
+		16DD8EA8A1744A88BF941BBA /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = "PrivacyInfo.xcprivacy"; path = "PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		13B07F8C1A680F5B00A75B9A /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F688C1DCAC74450696FB1D9B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -64,7 +46,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				A1B2C3D4E5F60001 /* PrivacyInfo.xcprivacy */,
+				16DD8EA8A1744A88BF941BBA /* PrivacyInfo.xcprivacy */,
 			);
 			name = knowyourpit;
 			sourceTree = "<group>";
@@ -101,7 +83,6 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* knowyourpit.app */,
-				84150A778B83432C95208AB0 /* KnowYourPitLiveActivity.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -113,17 +94,6 @@
 			);
 			name = Supporting;
 			path = knowyourpit/Supporting;
-			sourceTree = "<group>";
-		};
-		850B3DAB79D24AFA93FE5823 /* KnowYourPitLiveActivity */ = {
-			isa = PBXGroup;
-			children = (
-				874FDB26B81443FF9AFEEF6D /* CookActivityAttributes.swift */,
-				C9A811DF88484D96B67E081C /* CookLiveActivityBundle.swift */,
-				54ECD0B88300433F9125943D /* CookLiveActivityWidget.swift */,
-			);
-			name = KnowYourPitLiveActivity;
-			path = KnowYourPitLiveActivity;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -139,7 +109,6 @@
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				4336FE70083F471684E07212 /* Copy Files */,
 			);
 			buildRules = (
 			);
@@ -149,23 +118,6 @@
 			productName = knowyourpit;
 			productReference = 13B07F961A680F5B00A75B9A /* knowyourpit.app */;
 			productType = "com.apple.product-type.application";
-		};
-		28663EB90A0D484990684E4F /* "KnowYourPitLiveActivity" */ = {
-			isa = PBXNativeTarget;
-			name = "KnowYourPitLiveActivity";
-			productName = "KnowYourPitLiveActivity";
-			productReference = 84150A778B83432C95208AB0;
-			productType = "com.apple.product-type.app-extension";
-			buildConfigurationList = 2B4B2B0DBCC6497CB278D072;
-			buildPhases = (
-				FF1C39C0EC1749DA9DC8153B /* Sources */,
-				F688C1DCAC74450696FB1D9B /* Frameworks */,
-				FE8EF2C3F1544385AA51B4DC /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
 		};
 /* End PBXNativeTarget section */
 
@@ -194,7 +146,6 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* knowyourpit */,
-				28663EB90A0D484990684E4F /* "KnowYourPitLiveActivity" */,
 			);
 		};
 /* End PBXProject section */
@@ -207,14 +158,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				A1B2C3D4E5F60002 /* PrivacyInfo.xcprivacy in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FE8EF2C3F1544385AA51B4DC /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
+				72E2B729EE3748D38F83F925 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -290,16 +234,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FF1C39C0EC1749DA9DC8153B /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				73F850788DAB4BF5B658A5C4 /* CookActivityAttributes.swift in Sources */,
-				3AC74B020F4E4C93A8C276BA /* CookLiveActivityBundle.swift in Sources */,
-				D52BA69270244E0EA5E96B6D /* CookLiveActivityWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -481,54 +415,6 @@
 			};
 			name = Release;
 		};
-		C8B54023CB6E4E61BAFD0F0E /* Debug */ = {
-			name = Debug;
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				INFOPLIST_FILE = KnowYourPitLiveActivity/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				PRODUCT_NAME = "knowyourpit Live Activity";
-				SKIP_INSTALL = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.knowyourpit.app.liveactivity";
-				SWIFT_VERSION = 5.0;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_STYLE = Manual;
-				CODE_SIGNING_REQUIRED = YES;
-				CODE_SIGN_IDENTITY = "iPhone Distribution";
-				DEVELOPMENT_TEAM = W8AY23XJTF;
-				PROVISIONING_PROFILE = "e7196644-26e1-4e65-9dab-d5d09eefd6e7";
-				PROVISIONING_PROFILE_SPECIFIER = "KnowYourPit Live Activity Distribution";
-				CODE_SIGN_ENTITLEMENTS = KnowYourPitLiveActivity/LiveActivity.entitlements;
-			};
-		};
-		35324CF49FD14E6688F03BFE /* Release */ = {
-			name = Release;
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				INFOPLIST_FILE = KnowYourPitLiveActivity/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				PRODUCT_NAME = "knowyourpit Live Activity";
-				SKIP_INSTALL = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.knowyourpit.app.liveactivity";
-				SWIFT_VERSION = 5.0;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_STYLE = Manual;
-				CODE_SIGNING_REQUIRED = YES;
-				CODE_SIGN_IDENTITY = "iPhone Distribution";
-				DEVELOPMENT_TEAM = W8AY23XJTF;
-				PROVISIONING_PROFILE = "e7196644-26e1-4e65-9dab-d5d09eefd6e7";
-				PROVISIONING_PROFILE_SPECIFIER = "KnowYourPit Live Activity Distribution";
-				CODE_SIGN_ENTITLEMENTS = KnowYourPitLiveActivity/LiveActivity.entitlements;
-			};
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -550,30 +436,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		2B4B2B0DBCC6497CB278D072 /* Build configuration list for PBXNativeTarget "KnowYourPitLiveActivity" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C8B54023CB6E4E61BAFD0F0E /* Debug */,
-				35324CF49FD14E6688F03BFE /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 /* End XCConfigurationList section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		4336FE70083F471684E07212 /* Copy Files */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				1A0E0846D47844AE943C7A70 /* KnowYourPitLiveActivity.appex in Copy Files */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			name = "Copy Files";
-			dstPath = "";
-			dstSubfolderSpec = 13;
-		};
-/* End PBXCopyFilesBuildPhase section */
 	};
 	rootObject = 83CBB9F71A601CBA00E9B192 /* Project object */;
 }

@@ -20,7 +20,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { withXcodeProject, withDangerousMod, IOSConfig } = require("@expo/config-plugins");
+const { withXcodeProject, withDangerousMod } = require("@expo/config-plugins");
 
 const MANIFEST_FILENAME = "PrivacyInfo.xcprivacy";
 const MARKER = "// PIT_PRIVACY_MANIFEST_ADDED";
@@ -110,16 +110,52 @@ function withRegisterPrivacyManifest(config) {
       return cfg;
     }
 
-    // Add PBXFileReference, then add to group and Resources build phase.
-    // project.addResourceFile returns the build file key.
-    const appGroup = project.hash.project.objects["PBXGroup"][appGroupKey];
-    const filePath = `${appName}/${MANIFEST_FILENAME}`;
+    // Manually add PBXFileReference + PBXBuildFile + wire into group & Resources
+    // phase. We avoid project.addResourceFile() because its internal
+    // correctForPath() crashes when the group's "path" property is null
+    // (which Expo's generated projects sometimes produce).
+    const uuid = () => project.generateUuid();
 
-    project.addResourceFile(filePath, {
-      target: project.getFirstTarget().uuid,
+    const fileRefUuid = uuid();
+    const buildFileUuid = uuid();
+
+    // 1. PBXFileReference
+    project.hash.project.objects["PBXFileReference"][fileRefUuid] = {
+      isa: "PBXFileReference",
+      fileEncoding: 4,
       lastKnownFileType: "text.xml",
-      sourceTree: "<group>",
-    });
+      name: `"${MANIFEST_FILENAME}"`,
+      path: `"${MANIFEST_FILENAME}"`,
+      sourceTree: '"<group>"',
+    };
+    project.hash.project.objects["PBXFileReference"][`${fileRefUuid}_comment`] =
+      MANIFEST_FILENAME;
+
+    // 2. Add to app group's children list
+    const appGroup = project.hash.project.objects["PBXGroup"][appGroupKey];
+    if (!Array.isArray(appGroup.children)) {
+      appGroup.children = [];
+    }
+    appGroup.children.push({ value: fileRefUuid, comment: MANIFEST_FILENAME });
+
+    // 3. PBXBuildFile
+    const targetUuid = project.getFirstTarget().uuid;
+    project.hash.project.objects["PBXBuildFile"][buildFileUuid] = {
+      isa: "PBXBuildFile",
+      fileRef: fileRefUuid,
+      fileRef_comment: MANIFEST_FILENAME,
+    };
+    project.hash.project.objects["PBXBuildFile"][`${buildFileUuid}_comment`] =
+      `${MANIFEST_FILENAME} in Resources`;
+
+    // 4. Add to Resources build phase of the app target
+    const buildPhases = project.hash.project.objects["PBXResourcesBuildPhase"] ?? {};
+    for (const [, phase] of Object.entries(buildPhases)) {
+      if (typeof phase !== "object" || !Array.isArray(phase.files)) continue;
+      // Only add to the phase that belongs to our target
+      phase.files.push({ value: buildFileUuid, comment: `${MANIFEST_FILENAME} in Resources` });
+      break; // there is normally only one Resources phase per target
+    }
 
     console.log("[with-privacy-manifest] Registered PrivacyInfo.xcprivacy in Xcode project.");
     return cfg;
