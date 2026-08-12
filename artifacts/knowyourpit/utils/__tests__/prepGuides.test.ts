@@ -11,7 +11,7 @@
  * selection logic is a pure expression.
  */
 
-import { PREP_GUIDE_MAP, getMeatPrep, type MeatPrepGuide } from "../../components/plan-screen/prepGuides";
+import { PREP_GUIDE_MAP, getMeatPrep, selectPrepTip, type MeatPrepGuide } from "../../components/plan-screen/prepGuides";
 import { MEAT_CUTS, isProduce, type MeatCut } from "../../constants/meatCuts";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -36,24 +36,12 @@ function containsWrapOrStallLanguage(text: string): boolean {
   return POSITIVE_WRAP_PATTERNS.some((re) => re.test(text));
 }
 
-import { isDirectHeat } from "../../utils/cookingMethod";
-
 /**
- * Mirrors the tip-selection expression from plan.tsx so we can test it in
- * isolation without rendering the full component.
- *
- * plan.tsx:
- *   prep.directHeatTip && isDirectHeat(qpCookMethod)
- *     ? prep.directHeatTip
- *     : prep.tip
- *
- * isDirectHeat() from cookingMethod.ts classifies the method first, so
- * "Reverse Sear" → reverse_sear (NOT direct heat) and does NOT receive
- * the grill-only directHeatTip.
+ * Delegates to selectPrepTip() from prepGuides so the test mirrors the exact
+ * logic used in plan.tsx — keeping them in sync is the whole point.
  */
 function selectTip(prep: MeatPrepGuide, cookingMethod: string | null): string {
-  const direct = !!prep.directHeatTip && isDirectHeat(cookingMethod);
-  return direct ? prep.directHeatTip! : prep.tip;
+  return selectPrepTip(prep, cookingMethod);
 }
 
 // ── Every entry in PREP_GUIDE_MAP has a directHeatTip ────────────────────────
@@ -548,4 +536,250 @@ describe("getMeatPrep custom cuts — unknown/blank categories use general fallb
       expect(getMeatPrep(cut)).not.toBeNull();
     }
   });
+});
+
+// ── Method-specific tip routing regression tests ───────────────────────────────
+
+/**
+ * These tests cover the five cook methods that previously fell through to the
+ * smoke/low-and-slow `tip` fallback. Each test asserts:
+ *   1. The correct method-specific tip is returned.
+ *   2. For Reverse Sear on steak-family cuts, no smoke-specific language appears.
+ */
+
+const SMOKE_LANGUAGE_PATTERNS = [
+  /275°F and patience/i,
+  /probe tender/i,
+  /\bstall hits\b/i,
+  /spatchcock for faster/i,
+];
+
+function containsSmokeLanguage(text: string): boolean {
+  return SMOKE_LANGUAGE_PATTERNS.some((re) => re.test(text));
+}
+
+describe("selectPrepTip — Reverse Sear routes to reverseSearTip", () => {
+  const REVERSE_SEAR_METHODS = ["Reverse Sear", "reverse sear", "Reverse-Sear"];
+
+  describe("steak — Reverse Sear shows reverseSearTip, not the base tip", () => {
+    const guide = PREP_GUIDE_MAP.steak;
+
+    for (const method of REVERSE_SEAR_METHODS) {
+      it(`method "${method}" → returns reverseSearTip`, () => {
+        expect(selectPrepTip(guide, method)).toBe(guide.reverseSearTip);
+      });
+
+      it(`method "${method}" → tip contains no smoke-specific language`, () => {
+        const tip = selectPrepTip(guide, method);
+        expect(containsSmokeLanguage(tip)).toBe(false);
+      });
+    }
+
+    it("null method → returns base tip (not reverseSearTip)", () => {
+      expect(selectPrepTip(guide, null)).toBe(guide.tip);
+    });
+
+    it("Direct Heat → returns directHeatTip, not reverseSearTip", () => {
+      expect(selectPrepTip(guide, "Direct Heat")).toBe(guide.directHeatTip);
+    });
+  });
+
+  describe("pork_chops — Reverse Sear shows reverseSearTip", () => {
+    const guide = PREP_GUIDE_MAP.pork_chops;
+    it('method "Reverse Sear" → returns reverseSearTip', () => {
+      expect(selectPrepTip(guide, "Reverse Sear")).toBe(guide.reverseSearTip);
+    });
+  });
+
+  describe("venison — Reverse Sear shows reverseSearTip", () => {
+    const guide = PREP_GUIDE_MAP.venison;
+    it('method "Reverse Sear" → returns reverseSearTip', () => {
+      expect(selectPrepTip(guide, "Reverse Sear")).toBe(guide.reverseSearTip);
+    });
+    it('Reverse Sear tip contains no smoke-specific language', () => {
+      const tip = selectPrepTip(guide, "Reverse Sear");
+      expect(containsSmokeLanguage(tip)).toBe(false);
+    });
+  });
+
+  describe("rack_of_lamb — Reverse Sear shows reverseSearTip", () => {
+    const guide = PREP_GUIDE_MAP.rack_of_lamb;
+    it('method "Reverse Sear" → returns reverseSearTip', () => {
+      expect(selectPrepTip(guide, "Reverse Sear")).toBe(guide.reverseSearTip);
+    });
+  });
+
+  describe("lean_game (venison tenderloin) — Reverse Sear shows reverseSearTip", () => {
+    const guide = PREP_GUIDE_MAP.lean_game;
+    it('method "Reverse Sear" → returns reverseSearTip', () => {
+      expect(selectPrepTip(guide, "Reverse Sear")).toBe(guide.reverseSearTip);
+    });
+  });
+
+  it("steak reverseSearTip exists and is non-empty", () => {
+    expect(PREP_GUIDE_MAP.steak.reverseSearTip).toBeTruthy();
+  });
+});
+
+describe("selectPrepTip — Hot & Fast routes to hotAndFastTip", () => {
+  const HOT_FAST_METHODS = ["Hot & Fast", "hot & fast", "Hot and Fast", "hot and fast"];
+
+  describe("brisket — Hot & Fast shows hotAndFastTip", () => {
+    const guide = PREP_GUIDE_MAP.brisket;
+
+    for (const method of HOT_FAST_METHODS) {
+      it(`method "${method}" → returns hotAndFastTip`, () => {
+        expect(selectPrepTip(guide, method)).toBe(guide.hotAndFastTip);
+      });
+    }
+
+    it("null method → returns base tip (not hotAndFastTip)", () => {
+      expect(selectPrepTip(guide, null)).toBe(guide.tip);
+    });
+
+    it("Direct Heat → returns directHeatTip, not hotAndFastTip", () => {
+      expect(selectPrepTip(guide, "Direct Heat")).toBe(guide.directHeatTip);
+    });
+  });
+
+  describe("ribs — Hot & Fast shows hotAndFastTip", () => {
+    const guide = PREP_GUIDE_MAP.ribs;
+    it('method "Hot & Fast" → returns hotAndFastTip', () => {
+      expect(selectPrepTip(guide, "Hot & Fast")).toBe(guide.hotAndFastTip);
+    });
+  });
+
+  describe("pork_shoulder — Hot & Fast shows hotAndFastTip", () => {
+    const guide = PREP_GUIDE_MAP.pork_shoulder;
+    it('method "Hot & Fast" → returns hotAndFastTip', () => {
+      expect(selectPrepTip(guide, "Hot & Fast")).toBe(guide.hotAndFastTip);
+    });
+  });
+
+  describe("chicken — Hot & Fast shows hotAndFastTip", () => {
+    const guide = PREP_GUIDE_MAP.chicken;
+    it('method "Hot & Fast" → returns hotAndFastTip', () => {
+      expect(selectPrepTip(guide, "Hot & Fast")).toBe(guide.hotAndFastTip);
+    });
+  });
+
+  it("brisket hotAndFastTip exists and is non-empty", () => {
+    expect(PREP_GUIDE_MAP.brisket.hotAndFastTip).toBeTruthy();
+  });
+});
+
+describe("selectPrepTip — Rotisserie routes to rotisserieTip", () => {
+  const ROTISSERIE_METHODS = ["Rotisserie", "rotisserie", "Rotary"];
+
+  describe("chicken — Rotisserie shows rotisserieTip", () => {
+    const guide = PREP_GUIDE_MAP.chicken;
+
+    for (const method of ROTISSERIE_METHODS) {
+      it(`method "${method}" → returns rotisserieTip`, () => {
+        expect(selectPrepTip(guide, method)).toBe(guide.rotisserieTip);
+      });
+    }
+
+    it("null method → returns base tip (not rotisserieTip)", () => {
+      expect(selectPrepTip(guide, null)).toBe(guide.tip);
+    });
+  });
+
+  describe("turkey — Rotisserie shows rotisserieTip", () => {
+    const guide = PREP_GUIDE_MAP.turkey;
+    it('method "Rotisserie" → returns rotisserieTip', () => {
+      expect(selectPrepTip(guide, "Rotisserie")).toBe(guide.rotisserieTip);
+    });
+  });
+
+  describe("prime_rib — Rotisserie shows rotisserieTip", () => {
+    const guide = PREP_GUIDE_MAP.prime_rib;
+    it('method "Rotisserie" → returns rotisserieTip', () => {
+      expect(selectPrepTip(guide, "Rotisserie")).toBe(guide.rotisserieTip);
+    });
+  });
+
+  describe("pork_loin — Rotisserie shows rotisserieTip", () => {
+    const guide = PREP_GUIDE_MAP.pork_loin;
+    it('method "Rotisserie" → returns rotisserieTip', () => {
+      expect(selectPrepTip(guide, "Rotisserie")).toBe(guide.rotisserieTip);
+    });
+  });
+
+  it("chicken rotisserieTip exists and is non-empty", () => {
+    expect(PREP_GUIDE_MAP.chicken.rotisserieTip).toBeTruthy();
+  });
+});
+
+describe("selectPrepTip — Braised routes to braisedTip", () => {
+  const BRAISED_METHODS = ["Braised", "braised", "Braise", "braise"];
+
+  describe("chuck_roast — Braised shows braisedTip", () => {
+    const guide = PREP_GUIDE_MAP.chuck_roast;
+
+    for (const method of BRAISED_METHODS) {
+      it(`method "${method}" → returns braisedTip`, () => {
+        expect(selectPrepTip(guide, method)).toBe(guide.braisedTip);
+      });
+    }
+
+    it("null method → returns base tip (not braisedTip)", () => {
+      expect(selectPrepTip(guide, null)).toBe(guide.tip);
+    });
+
+    it("Direct Heat → returns directHeatTip, not braisedTip", () => {
+      expect(selectPrepTip(guide, "Direct Heat")).toBe(guide.directHeatTip);
+    });
+  });
+
+  describe("oxtail — Braised shows braisedTip", () => {
+    const guide = PREP_GUIDE_MAP.oxtail;
+    it('method "Braised" → returns braisedTip', () => {
+      expect(selectPrepTip(guide, "Braised")).toBe(guide.braisedTip);
+    });
+  });
+
+  describe("pork_shoulder — Braised shows braisedTip", () => {
+    const guide = PREP_GUIDE_MAP.pork_shoulder;
+    it('method "Braised" → returns braisedTip', () => {
+      expect(selectPrepTip(guide, "Braised")).toBe(guide.braisedTip);
+    });
+  });
+
+  describe("beef_ribs — Braised shows braisedTip", () => {
+    const guide = PREP_GUIDE_MAP.beef_ribs;
+    it('method "Braised" → returns braisedTip', () => {
+      expect(selectPrepTip(guide, "Braised")).toBe(guide.braisedTip);
+    });
+  });
+
+  describe("lamb — Braised shows braisedTip", () => {
+    const guide = PREP_GUIDE_MAP.lamb;
+    it('method "Braised" → returns braisedTip', () => {
+      expect(selectPrepTip(guide, "Braised")).toBe(guide.braisedTip);
+    });
+  });
+
+  it("chuck_roast braisedTip exists and is non-empty", () => {
+    expect(PREP_GUIDE_MAP.chuck_roast.braisedTip).toBeTruthy();
+  });
+});
+
+describe("selectPrepTip — method-specific tips never show smoke-tip language for steak-family cuts", () => {
+  const STEAK_GUIDES: Array<[string, keyof typeof PREP_GUIDE_MAP]> = [
+    ["steak", "steak"],
+    ["venison", "venison"],
+    ["lean_game", "lean_game"],
+    ["rack_of_lamb", "rack_of_lamb"],
+    ["tenderloin_beef", "tenderloin_beef"],
+    ["pork_chops", "pork_chops"],
+  ];
+
+  for (const [label, key] of STEAK_GUIDES) {
+    it(`${label} + Reverse Sear → tip does not contain smoke-specific language`, () => {
+      const guide = PREP_GUIDE_MAP[key];
+      const tip = selectPrepTip(guide, "Reverse Sear");
+      expect(containsSmokeLanguage(tip)).toBe(false);
+    });
+  }
 });

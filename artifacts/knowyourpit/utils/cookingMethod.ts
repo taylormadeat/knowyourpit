@@ -12,6 +12,8 @@ export type CookingMethodClass =
   | "reverse_sear"
   | "rotisserie"
   | "griddle"
+  | "hot_fast"
+  | "braised"
   | "unknown";
 
 export function classifyCookingMethod(method: string | null | undefined): CookingMethodClass {
@@ -21,6 +23,10 @@ export function classifyCookingMethod(method: string | null | undefined): Cookin
   if (m.includes("sear")) return "sear";
   if (m.includes("rotisserie") || m.includes("rotary")) return "rotisserie";
   if (m.includes("griddle")) return "griddle";
+  // "hot and fast" / "hot & fast" before indirect/direct so it isn't mis-classified
+  if (m.includes("hot and fast") || m.includes("hot & fast")) return "hot_fast";
+  // "braised" / "braise" before indirect so it isn't mis-classified
+  if (m.includes("brais")) return "braised";
   // Check "indirect" before "direct" — "indirect" contains the substring
   // "direct" and would otherwise be mis-classified as direct heat.
   if (m.includes("indirect")) return "indirect";

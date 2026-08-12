@@ -1,11 +1,49 @@
 import type { MeatCut } from "@/constants/meatCuts";
+import { classifyCookingMethod } from "@/utils/cookingMethod";
 
 export interface MeatPrepGuide {
   steps: string[];
-  /** Tip for smoke / indirect cooking (the default). */
+  /** Tip for smoke / indirect / low-and-slow cooking (the default fallback). */
   tip: string;
-  /** Alternate tip when cooking method is direct heat / grilling. Omit if the base tip already applies. */
+  /** Alternate tip when cooking method is Direct Heat / Sear / Griddle. */
   directHeatTip?: string;
+  /** Alternate tip when cooking method is Reverse Sear. */
+  reverseSearTip?: string;
+  /** Alternate tip when cooking method is Hot & Fast. */
+  hotAndFastTip?: string;
+  /** Alternate tip when cooking method is Rotisserie. */
+  rotisserieTip?: string;
+  /** Alternate tip when cooking method is Braised. */
+  braisedTip?: string;
+  /** Alternate tip when cooking method is Indirect Heat (and meaningfully different from smoke). */
+  indirectHeatTip?: string;
+}
+
+/**
+ * Selects the most specific prep tip for a given cook method.
+ * Falls back to `directHeatTip` → `tip` in order of specificity.
+ * Mirrors the selection logic in plan.tsx — keep both in sync.
+ */
+export function selectPrepTip(prep: MeatPrepGuide, method: string | null | undefined): string {
+  const cls = classifyCookingMethod(method);
+  switch (cls) {
+    case "direct":
+    case "sear":
+    case "griddle":
+      return prep.directHeatTip ?? prep.tip;
+    case "reverse_sear":
+      return prep.reverseSearTip ?? prep.tip;
+    case "hot_fast":
+      return prep.hotAndFastTip ?? prep.tip;
+    case "rotisserie":
+      return prep.rotisserieTip ?? prep.tip;
+    case "braised":
+      return prep.braisedTip ?? prep.tip;
+    case "indirect":
+      return prep.indirectHeatTip ?? prep.tip;
+    default:
+      return prep.tip;
+  }
 }
 
 export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
@@ -20,6 +58,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "Grain direction matters for slicing. Cut against the grain after resting.",
     directHeatTip: "Whole brisket is not a good candidate for direct grilling — the connective tissue needs low-and-slow heat to break down. Instead, slice the flat thinly against the grain and grill over medium-high heat 2–3 min per side, or cube the point for burnt-end style bites over direct heat. Pull at 160°F and rest 5 minutes.",
+    hotAndFastTip: "Hot and fast changes the playbook: run your cooker at 325–350°F and let the bark set before wrapping in butcher paper (typically around 165–170°F). The stall won't last long at this temp — push through it and keep the heat up. Expect 6–8 hours total instead of 12–16. The bark is thinner but the beef flavor is intense and the flat stays moist. Pull at 195–203°F probe tender.",
   },
   beef_ribs: {
     steps: [
@@ -31,6 +70,8 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "Beef ribs need more time and higher ambient temps than pork ribs — 275°F and patience are your best tools.",
     directHeatTip: "For direct-heat beef ribs, flanken-cut (cross-cut) or thin-cut short ribs work best. Grill over high heat 4–5 min per side, then move to indirect to finish. Pull when the meat pulls back from the bone and registers 160°F+.",
+    hotAndFastTip: "Hot and fast beef ribs: cook at 325°F and wrap in butcher paper when the bark is set and the stall begins (around 175°F). The heavy collagen and marbling keep them moist at higher temps — they're forgiving. Expect 4–5 hours instead of 8+. Pull when a skewer slides through with zero resistance, typically 200–205°F.",
+    braisedTip: "Braised beef short ribs are a showstopper: sear each rib in batches in a hot Dutch oven until deeply browned on all sides — don't skip this step, it builds the flavor base. Add red wine, beef stock, and aromatics to just below the top of the ribs. Cover and braise at 325°F for 3–4 hours until the meat is nearly falling off the bone. Rest in the braising liquid 20 min before serving; reduce the liquid into a rich sauce.",
   },
   chuck_roast: {
     steps: [
@@ -42,6 +83,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "Chuck roast is very forgiving — cook it like a brisket and pull it when probe tender at 205°F.",
     directHeatTip: "Whole chuck roast needs low-and-slow heat to tenderize — direct grilling won't get it there. Slice into 1-inch steaks or cube it for kebabs. Grill over medium-high heat 5–6 min per side and pull at 145°F for steaks. Rest 5–8 minutes; chuck has great marbling and stays juicy when cooked this way.",
+    braisedTip: "Braising is chuck roast's best method: sear all sides hard in a Dutch oven over high heat until a deep crust forms, then add braising liquid (beef broth, red wine, aromatics) to just below — not over — the top of the meat. Cover and cook at 325°F for 3–4 hours. It's done when a fork twists out easily — usually 200–210°F. The braising liquid becomes a rich, ready-made sauce.",
   },
   prime_rib: {
     steps: [
@@ -53,6 +95,8 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "Rest at least 30 minutes before carving — internal temp will rise another 5–10°F.",
     directHeatTip: "Prime rib grills best with a two-zone setup. Sear all sides over high direct heat 2–3 min per side for a deep crust, then move to the cool zone with the lid down at 325°F to roast through. Pull at 120–125°F for medium-rare — carryover adds 5–10°F during the rest. Rest at least 20 minutes before carving.",
+    reverseSearTip: "Reverse sear brings exceptional control for prime rib: roast low-and-slow at 225–250°F until 10–15°F below your target (e.g. 110°F for medium-rare), then blast over screaming-high direct heat or a broiler for 8–10 minutes to develop a deep crust all over. Resting is already built into the slow phase — slice promptly after the final sear.",
+    rotisserieTip: "Rotisserie prime rib is exceptional — the constant rotation self-bastes the roast in its own dripping fat. Tie the roast at 1-inch intervals between the bones and balance it carefully on the spit. Run indirect at 325°F with a drip pan below. Pull at 120°F for medium-rare; carryover during the 20-minute rest brings it to 125–130°F.",
   },
   burger: {
     steps: [
@@ -73,6 +117,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "Oxtail is done when the meat is nearly falling off the bone and a probe slides through with zero resistance — usually 210°F+.",
     directHeatTip: "Oxtail needs moist slow heat to break down — direct grilling alone won't get there. Braise first until tender (210°F+), then finish over high direct heat 3–4 min per side for a charred crust. It's worth the extra step.",
+    braisedTip: "Braising is the definitive method for oxtail: sear pieces in batches in a hot Dutch oven until deeply browned on all sides, then braise covered in red wine and beef stock (liquid to just below the meat's top) at 325°F for 3–4 hours. Pull when the meat is nearly falling from the bone and a fork twists out cleanly at 210°F+. Skim the fat and reduce the braising liquid into a glossy sauce.",
   },
   steak: {
     steps: [
@@ -80,8 +125,9 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Pat completely dry just before cooking — surface moisture is the enemy of a crust.",
       "Let come to room temperature for 30 minutes.",
     ],
-    tip: "Reverse sear: smoke to 115°F internal, then sear in a screaming hot cast iron for the perfect crust.",
+    tip: "Low and slow at 225–250°F to your preferred doneness, then rest 10 minutes before serving.",
     directHeatTip: "Two-zone setup: sear over high heat 60–90 sec per side, then finish on the cool side. Rest 5–8 min before cutting — never skip the rest.",
+    reverseSearTip: "Reverse sear delivers the perfect crust: cook low-and-slow at 225–250°F until 10–15°F below target, then sear in a screaming-hot cast iron or over max grill heat 60–90 sec per side. Pull at 130–135°F for medium-rare including carryover — the final sear adds 5–10°F. Rest 5 minutes before cutting.",
   },
   tenderloin_beef: {
     steps: [
@@ -92,6 +138,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "Tenderloin has very little fat — don't overcook it. Pull at 120–125°F for medium-rare.",
     directHeatTip: "Beef tenderloin grills beautifully — it's naturally tender and cooks fast. For a whole roast, sear all sides over high direct heat 2 min per side, then move to indirect at medium-high with the lid down to finish. Pull at 120–125°F for medium-rare; carryover will bring it to 130°F. For filets, sear over high heat 3–4 min per side and pull at 125°F. Rest 5–8 minutes before cutting.",
+    reverseSearTip: "Reverse sear is ideal for beef tenderloin: cook at 225–250°F to 110°F internal, then sear all sides over screaming-high heat 45–60 sec per side for a golden crust. Pull at 120–125°F for medium-rare — the roast is lean, so don't let it go past 135°F or it loses its silky texture. Rest 5–8 minutes before cutting.",
   },
   flank_skirt: {
     steps: [
@@ -115,6 +162,8 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "At 160°F the stall hits. Wrap in butcher paper to power through.",
     directHeatTip: "For direct-heat pork, slice the shoulder into 1-inch steaks or cube it for skewers — a whole shoulder needs low-and-slow heat. Grill over medium-high, 5–6 min per side, and pull at 145°F. Rest 5 minutes before serving.",
+    hotAndFastTip: "Hot and fast pork shoulder: cook at 300–325°F and wrap in butcher paper when the bark is set and the stall begins (around 165°F). The collagen still breaks down — it just happens faster. Expect 6–8 hours for an 8 lb shoulder instead of 14+. Pull at 200–205°F probe tender; rest wrapped for at least 1 hour before pulling.",
+    braisedTip: "Braised pork shoulder: cut into 3–4 inch chunks or keep whole. Sear in a hot Dutch oven until a deep brown crust forms on all sides, then add liquid (cider, broth, aromatics) to ⅔ the height of the meat. Cover and braise at 325°F for 3–4 hours. Pull when a fork twists out easily at 200–205°F. The braising liquid becomes a rich, ready-made sauce.",
   },
   ribs: {
     steps: [
@@ -125,6 +174,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "3-2-1 method (3h smoke, 2h wrapped, 1h unwrapped) works great for baby backs.",
     directHeatTip: "For direct-heat ribs, country-style or thin-cut spare ribs work best. Medium heat, lid down, flip every 5–7 minutes. Move to a cooler zone if they're charring before they're cooked through. Pull when they bend easily and hit 190°F+.",
+    hotAndFastTip: "Hot and fast ribs cut total cook time dramatically: run at 325–350°F and wrap in foil with a splash of apple juice or honey butter when the bark is set (around 165°F). They'll finish in 3–4 hours instead of 6+. The texture is slightly firmer than low-and-slow but the flavor is excellent. Pull when they bend easily and a toothpick slides between the bones with zero resistance.",
   },
   pork_belly: {
     steps: [
@@ -145,6 +195,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "Pork loin dries out easily — pull it at 140°F and let carryover heat finish the job.",
     directHeatTip: "Two-zone setup is key for pork loin on the grill — the roast needs time to cook through without charring. Sear all sides over high direct heat 2 min per side, then move to the cool zone with the lid down at 350°F to finish. Pull at 138°F; carryover heat will bring it to a safe 145°F during the 10-minute rest. Slice into ½-inch medallions and serve immediately.",
+    rotisserieTip: "Rotisserie pork loin stays remarkably moist — the rotation self-bastes and the even heat prevents hot spots. Tie at 1-inch intervals for a uniform shape and balance the roast on the spit. Run indirect at 325–350°F. Brush with a glaze (apple, mustard, or honey-garlic) every 20 minutes in the last hour. Pull at 138°F; carryover brings it to a safe 145°F during the 10-minute rest.",
   },
   pork_tenderloin: {
     steps: [
@@ -154,6 +205,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "Pork tenderloin cooks fast — check it at 20 minutes and pull at 140°F. Rest 5 minutes before slicing.",
     directHeatTip: "Pork tenderloin is ideal for direct grilling — it's thin enough to cook through quickly. Grill over medium-high heat, turning a quarter turn every 3–4 minutes to brown all four sides evenly (12–15 minutes total). Pull at 138°F; carryover brings it to a safe 145°F during the 5-minute rest. Don't slice immediately — let it rest fully or the juices run out.",
+    reverseSearTip: "Reverse sear works beautifully for pork tenderloin: cook at 225°F to 125°F internal, then sear over high heat turning every 30 seconds for 2–3 min total to brown all sides. Pull at 138°F; carryover brings it to a safe 145°F during the 5-minute rest. Slice into medallions and serve immediately — don't skip the rest or the juices run out.",
   },
   ham: {
     steps: [
@@ -172,8 +224,9 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Season with salt, pepper, garlic powder, and smoked paprika.",
       "Bring to room temperature 20 minutes before cooking.",
     ],
-    tip: "Thick chops do great with a reverse sear — bring to 130°F indirect, then sear over high heat for the crust.",
+    tip: "Thick chops cook well low-and-slow at 225–250°F — pull at 140°F and rest 5 minutes before serving.",
     directHeatTip: "Direct heat is ideal for pork chops: sear over high heat 3–4 min per side, then move to a cooler zone if they need more time. Pull at 140°F and rest 5 minutes — carryover heat finishes the job.",
+    reverseSearTip: "Reverse sear is the move for thick-cut chops (1 inch+): cook at 225–250°F to 130°F internal, then sear over screaming-high heat 60–90 sec per side for a golden crust. Pull at 140°F including carryover — the final sear adds ~10°F. Rest 5 minutes before plating; the interior will be perfectly even edge to edge.",
   },
 
   // ── Poultry ───────────────────────────────────────────────────────────
@@ -184,8 +237,10 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Separate skin from breast and rub butter and seasoning directly on the meat.",
       "Apply oil or mayo on outside, then season liberally.",
     ],
-    tip: "Spatchcock for faster, more even cooking and better bark all around.",
+    tip: "Spatchcock for faster, more even cooking and better skin all around.",
     directHeatTip: "Two-zone setup: start skin-side down over medium-high heat, render the skin, then move to indirect to cook through. Flip back to direct for 2 min to crisp. Pull at 165°F.",
+    hotAndFastTip: "Hot and fast whole chicken at 350–375°F delivers crispier skin in less time — about 60–75 minutes for a spatchcocked bird. No need to wrap; the higher heat renders the fat and sets the skin. Pull breast at 160°F and thighs at 175°F. Spatchcock before cooking for the fastest, most even result.",
+    rotisserieTip: "Rotisserie chicken is the gold standard: truss tightly — legs tied to the tail, wings tucked — so nothing flaps and the bird stays balanced on the spit. Run at 350°F indirect with a drip pan below for self-basting. Plan 15–18 min per lb. Pull breast at 160°F (carryover finishes it to 165°F). Let the bird coast on the spit with the heat off for 10 minutes before carving.",
   },
   chicken_wings: {
     steps: [
@@ -196,6 +251,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "Finish wings at 400°F+ (or blast under a broiler) to set the crispy skin — smoke alone won't do it.",
     directHeatTip: "Medium heat, turn every 5–7 minutes for even browning. Move to indirect if they're browning faster than cooking through. Sauce in the last 5 minutes only — earlier and the sugar burns.",
+    hotAndFastTip: "Wings thrive at hot and fast temps: cook at 375–400°F for 45–60 min, flipping once halfway. The high heat renders fat, crisps the skin, and cooks them through — no finishing blast needed. Sauce in the last 10 minutes and flip once to caramelize.",
   },
   turkey: {
     steps: [
@@ -206,6 +262,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "Tuck wings under the bird to prevent burning during the long cook.",
     directHeatTip: "Spatchcock the turkey for even direct-heat cooking — remove the backbone and flatten it. Set up a two-zone grill at 375–400°F. Start skin-side down over indirect heat, then move over direct heat in the final 10–15 minutes to crisp the skin. Pull the breast at 160°F and thighs at 175°F. Rest 15–20 minutes before carving.",
+    rotisserieTip: "Rotisserie turkey takes some setup but the result is outstanding: truss tightly — legs tied to the tail, wings secured with twine or skewers so nothing flaps. Balance the bird carefully on the spit before committing. Run indirect at 325–350°F with a drip pan below. Plan 12–15 min per lb. Pull breast at 160°F and thighs at 175°F. Let the bird coast on the spit with heat off for 10 minutes before carving.",
   },
   duck: {
     steps: [
@@ -228,6 +285,8 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "Lamb loves smoke from cherry or apple wood — avoid mesquite, it overpowers.",
     directHeatTip: "Lamb grills brilliantly over direct heat — leg steaks or chops over medium-high heat 3–5 min per side depending on thickness. Two-zone setup lets you finish thicker cuts without charring. Pull leg at 135°F for medium-rare, chops at 130–135°F. Rest 5 minutes — lamb tightens fast if you cut it too soon.",
+    reverseSearTip: "Reverse sear is excellent for thick lamb leg steaks or a boneless leg: cook at 225–250°F to 115°F internal, then sear over screaming-high heat 60–90 sec per side for a charred crust. Pull at 130–135°F for medium-rare including carryover. Rest 5 minutes — lamb tightens fast if you cut too soon.",
+    braisedTip: "Braised lamb (shanks or shoulder): sear in a hot Dutch oven until deeply browned on all sides, then braise in red wine, stock, and aromatics at 325°F for 2–3 hours for shoulder/chops, 3–4 hours for shanks. Pull when the meat pulls away from the bone cleanly at 195°F+. The braising liquid reduces into a silky, richly flavored sauce — don't discard it.",
   },
   rack_of_lamb: {
     steps: [
@@ -238,6 +297,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "Rack of lamb is best at medium-rare (130–135°F). It's a quick cook — don't walk away.",
     directHeatTip: "Rack of lamb thrives on direct heat — the fat renders fast and the bones char beautifully. Start fat-side down over high heat for 3–4 min to get a golden crust, then flip and sear the bone side 2–3 min. Move to indirect heat with the lid down to finish, or for a thinner rack continue over medium heat. Pull at 125–130°F for medium-rare. Rest 5–8 minutes before slicing between the bones.",
+    reverseSearTip: "Reverse sear rack of lamb for perfect edge-to-edge medium-rare: cook at 225–250°F to 110–115°F internal, then sear fat-side down over screaming-high heat for 2–3 min and quickly sear the bone side. Pull at 125–130°F with carryover. The rack is small — the final sear goes fast, so don't walk away.",
   },
   goat: {
     steps: [
@@ -248,6 +308,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "Goat is leaner than lamb — low and slow at 250°F keeps it moist. Baste regularly.",
     directHeatTip: "Goat grills best as chops or kebabs. Marinate well (garlic, lemon, herbs, oil), then grill over medium-high heat 4–5 min per side. Baste frequently to keep it moist. Pull at 160°F and rest 5 minutes.",
+    braisedTip: "Braised goat develops deep, complex flavor: sear pieces until browned on all sides, then braise in spiced liquid (tomatoes, garlic, cumin, coriander, stock) at 325°F for 2.5–3.5 hours. Goat is lean — the braising liquid keeps it moist while the long cook drives in flavor. Pull when the meat is falling off the bone at 195°F+.",
   },
 
   // ── Seafood ───────────────────────────────────────────────────────────
@@ -310,8 +371,9 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
       "Apply a bold rub: salt, pepper, garlic, smoked paprika, and a touch of juniper.",
       "Bring to room temperature 30 minutes before cooking.",
     ],
-    tip: "Venison is very lean — it dries out fast. Cook to 145°F and no further. Wrap to rest.",
+    tip: "Venison is very lean — it dries out fast. Cook to 145°F and no further. Rest wrapped in foil.",
     directHeatTip: "Venison steaks and chops are excellent on the grill — hot and fast is the right approach. Two-zone setup: sear over high heat 2–3 min per side for a crust, then move to indirect only if they need more time. Pull at 130–135°F for medium-rare; venison dries out quickly past 145°F. Rest 5 minutes tented in foil — the rest is important for lean game.",
+    reverseSearTip: "Reverse sear is ideal for venison — the gradual low heat keeps lean meat moist while the final sear builds crust without overcooking. Cook at 225°F to 110–115°F internal, then sear over maximum heat 45–60 sec per side. Pull at 128–130°F for medium-rare; venison dries out fast past 145°F. Rest 5 minutes tented in foil.",
   },
   game_roast: {
     steps: [
@@ -322,6 +384,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "Game roasts are lean — baste frequently and consider wrapping to retain moisture during the long cook.",
     directHeatTip: "For direct-heat game, slice into steaks or chops — roasts need low-and-slow. Grill over medium heat, 4–5 min per side, and pull at 145°F for venison or 160°F for wild boar. Rest 5 minutes; lean game dries out fast if you skip the rest.",
+    reverseSearTip: "Reverse sear is excellent for lean game roasts: cook at 225°F until 10–15°F below your target, then sear over screaming-high heat 60–90 sec per side for a crust. Pull at 130–135°F for medium-rare on deer/elk, 145°F for wild boar. The gradual heat keeps lean meat moist where direct roasting often dries it out. Rest 8–10 minutes tented in foil.",
   },
   rabbit: {
     steps: [
@@ -423,6 +486,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "Venison tenderloin is the most tender and leanest cut — treat it like filet mignon. Pull at 125–130°F for medium-rare and rest 5 minutes tented in foil. It dries out dramatically past 140°F.",
     directHeatTip: "Grill over high heat 2–3 min per side — lean game tenderloins are thin and cook extremely fast. Turn to sear all sides for an even crust, then move to indirect only if the center needs more time. Pull at 125–130°F for medium-rare; carryover will bring it to 130–135°F during the rest. Rest 5 minutes tented in foil — never skip it on lean cuts.",
+    reverseSearTip: "Reverse sear is the best method for venison tenderloin and backstrap: cook at 225°F to 110–115°F internal, then sear over maximum heat 45–60 sec per side for a fast crust. Pull at 125–130°F for medium-rare; lean game dries out quickly past 140°F. Rest 5 minutes tented in foil — don't skip it.",
   },
 
   // ── Lox / Cold-Smoked Salmon ──────────────────────────────────────────
@@ -449,6 +513,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     ],
     tip: "Thighs and drumsticks are very forgiving — they won't dry out past 165°F the way a breast will. 175°F is the sweet spot for dark meat.",
     directHeatTip: "Two-zone setup for bone-in pieces: start skin-side down over medium heat to render the fat without scorching, then move to indirect to cook through, and finish back over direct heat for 2–3 min to crisp the skin. Boneless thighs can go straight over medium-high direct heat — 5–6 min per side. Pull dark meat at 175°F, breasts at 165°F.",
+    hotAndFastTip: "Chicken parts thrive at hot and fast temps: cook at 350–375°F — the higher heat renders the fat and crisps the skin faster than low-and-slow can. Thighs and drumsticks take 45–55 min; boneless breasts take 20–25 min. Pull dark meat at 175°F, breasts at 165°F.",
   },
 
   // ── Turkey Breast (roast) ─────────────────────────────────────────────

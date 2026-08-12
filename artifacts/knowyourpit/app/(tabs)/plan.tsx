@@ -111,6 +111,7 @@ import {
 } from "@/components/plan-screen/frozenSchedule";
 import {
   getMeatPrep,
+  selectPrepTip,
 } from "@/components/plan-screen/prepGuides";
 import { Label, StatCell, ScheduleRow } from "@/components/plan-screen/MiniRows";
 import { SizeInputRow, SizeInputRowOutput } from "@/components/plan-screen/SizeInputRow";
@@ -118,7 +119,7 @@ import { SettingsRow } from "@/components/plan-screen/SettingsRow";
 import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
 import { MeatPickerModal } from "@/components/plan-screen/MeatPickerModal";
 import { isProduce } from "@/constants/meatCuts";
-import { pitTempLabel, isDirectHeat } from "@/utils/cookingMethod";
+import { pitTempLabel } from "@/utils/cookingMethod";
 import { DatePickerModal, TimePickerModal } from "@/components/plan-screen/DateTimePickerModals";
 import { MultiCookResultModal } from "@/components/plan-screen/MultiCookResultModal";
 import { MultiCookAddItemModal, type MultiItem } from "@/components/plan-screen/MultiCookAddItemModal";
@@ -2217,9 +2218,7 @@ export default function PlanScreen() {
                   <View style={[s.prepTipCard, { backgroundColor: colors.primary + "12", borderRadius: colors.radius }]}>
                     <Feather name="zap" size={14} color={colors.primary} />
                     <Text style={[s.prepTipText, { color: colors.foreground }]}>
-                      {prep.directHeatTip && isDirectHeat(qpCookMethod)
-                        ? prep.directHeatTip
-                        : prep.tip}
+                      {selectPrepTip(prep, qpCookMethod)}
                     </Text>
                   </View>
                 </View>
