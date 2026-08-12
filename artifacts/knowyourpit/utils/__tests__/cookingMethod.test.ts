@@ -191,6 +191,111 @@ describe("classifyCookingMethod — variant / alias strings", () => {
   }
 });
 
+// ── AI-returned variant strings — five new methods ───────────────────────────
+//
+// When a cook is created via Quick Plan or PitMaster suggestion the AI may
+// return cook-method strings that differ from the canonical UI labels.
+// These tests assert that each realistic AI variant still resolves to the
+// correct CookingMethodClass so prep tips remain accurate regardless of source.
+
+describe("classifyCookingMethod — AI-returned variant strings (Hot & Fast)", () => {
+  const cases: [string, CookingMethodClass][] = [
+    // Canonical and common variants the AI may echo back
+    ["Hot & Fast",                "hot_fast"],
+    ["hot & fast",                "hot_fast"],
+    ["Hot and Fast",              "hot_fast"],
+    ["hot and fast",              "hot_fast"],
+    // AI may omit the connector entirely
+    ["Hot Fast",                  "hot_fast"],
+    ["hot fast",                  "hot_fast"],
+    // AI may prefix with a popular technique name
+    ["Texas Crutch Hot & Fast",   "hot_fast"],
+    ["High Heat Hot & Fast Cook", "hot_fast"],
+  ];
+  for (const [input, expected] of cases) {
+    it(`"${input}" → "${expected}"`, () => {
+      expect(classifyCookingMethod(input)).toBe(expected);
+    });
+  }
+});
+
+describe("classifyCookingMethod — AI-returned variant strings (Reverse Sear)", () => {
+  const cases: [string, CookingMethodClass][] = [
+    ["Reverse Sear",              "reverse_sear"],
+    ["Reverse-Sear",              "reverse_sear"],
+    ["reverse sear",              "reverse_sear"],
+    // AI may use the gerund form
+    ["Reverse Searing",           "reverse_sear"],
+    ["Reverse-Sear Finish",       "reverse_sear"],
+    ["Reverse Sear Method",       "reverse_sear"],
+    ["Reverse Sear (two-stage)",  "reverse_sear"],
+  ];
+  for (const [input, expected] of cases) {
+    it(`"${input}" → "${expected}"`, () => {
+      expect(classifyCookingMethod(input)).toBe(expected);
+    });
+  }
+});
+
+describe("classifyCookingMethod — AI-returned variant strings (Rotisserie)", () => {
+  const cases: [string, CookingMethodClass][] = [
+    ["Rotisserie",          "rotisserie"],
+    ["rotisserie",          "rotisserie"],
+    ["Rotary",              "rotisserie"],
+    ["rotary spit",         "rotisserie"],
+    // AI may use the common non-technical name
+    ["Spit Roast",          "rotisserie"],
+    ["spit roast",          "rotisserie"],
+    ["Spit-Roasted",        "rotisserie"],
+    ["Rotary Spit Roast",   "rotisserie"],
+  ];
+  for (const [input, expected] of cases) {
+    it(`"${input}" → "${expected}"`, () => {
+      expect(classifyCookingMethod(input)).toBe(expected);
+    });
+  }
+});
+
+describe("classifyCookingMethod — AI-returned variant strings (Braised)", () => {
+  const cases: [string, CookingMethodClass][] = [
+    ["Braised",               "braised"],
+    ["braised",               "braised"],
+    ["Braise",                "braised"],
+    ["Braising",              "braised"],
+    // AI may append context that shouldn't change the class
+    ["Braised Low & Slow",    "braised"],
+    ["Oven Braised",          "braised"],
+    ["Braised in Liquid",     "braised"],
+    ["Braised in Foil",       "braised"],
+  ];
+  for (const [input, expected] of cases) {
+    it(`"${input}" → "${expected}"`, () => {
+      expect(classifyCookingMethod(input)).toBe(expected);
+    });
+  }
+});
+
+describe("classifyCookingMethod — AI-returned variant strings (Indirect)", () => {
+  const cases: [string, CookingMethodClass][] = [
+    ["Indirect",              "indirect"],
+    ["indirect",              "indirect"],
+    ["Indirect Heat",         "indirect"],
+    // AI may combine with "smoke" — indirect must win over the smoke check
+    ["Indirect Smoke",        "indirect"],
+    ["Indirect Grilling",     "indirect"],
+    // AI commonly describes indirect as two-zone
+    ["Two-Zone Cook",         "indirect"],
+    ["two-zone indirect",     "indirect"],
+    ["2-Zone Indirect",       "indirect"],
+    ["2-zone cook",           "indirect"],
+  ];
+  for (const [input, expected] of cases) {
+    it(`"${input}" → "${expected}"`, () => {
+      expect(classifyCookingMethod(input)).toBe(expected);
+    });
+  }
+});
+
 // ── isDirectHeat helper ───────────────────────────────────────────────────────
 
 describe("isDirectHeat", () => {

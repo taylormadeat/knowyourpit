@@ -21,15 +21,17 @@ export function classifyCookingMethod(method: string | null | undefined): Cookin
   const m = method.toLowerCase();
   if (m.includes("reverse sear") || m.includes("reverse-sear")) return "reverse_sear";
   if (m.includes("sear")) return "sear";
-  if (m.includes("rotisserie") || m.includes("rotary")) return "rotisserie";
+  if (m.includes("rotisserie") || m.includes("rotary") || m.includes("spit")) return "rotisserie";
   if (m.includes("griddle")) return "griddle";
-  // "hot and fast" / "hot & fast" before indirect/direct so it isn't mis-classified
-  if (m.includes("hot and fast") || m.includes("hot & fast")) return "hot_fast";
+  // "hot and fast" / "hot & fast" / "hot fast" before indirect/direct so it
+  // isn't mis-classified. AI may omit the connector ("Hot Fast").
+  if (m.includes("hot and fast") || m.includes("hot & fast") || m.includes("hot fast")) return "hot_fast";
   // "braised" / "braise" before indirect so it isn't mis-classified
   if (m.includes("brais")) return "braised";
   // Check "indirect" before "direct" — "indirect" contains the substring
   // "direct" and would otherwise be mis-classified as direct heat.
-  if (m.includes("indirect")) return "indirect";
+  // Also accept "two-zone" and "2-zone" which AIs commonly use for indirect cooking.
+  if (m.includes("indirect") || m.includes("two-zone") || m.includes("2-zone")) return "indirect";
   if (m.includes("direct")) return "direct";
   if (m.includes("smoke") || m.includes("low and slow") || m.includes("low & slow")) return "smoke";
   return "unknown";
