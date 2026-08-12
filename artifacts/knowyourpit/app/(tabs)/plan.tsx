@@ -119,7 +119,7 @@ import { SettingsRow } from "@/components/plan-screen/SettingsRow";
 import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
 import { MeatPickerModal } from "@/components/plan-screen/MeatPickerModal";
 import { isProduce } from "@/constants/meatCuts";
-import { pitTempLabel } from "@/utils/cookingMethod";
+import { pitTempLabel, isUnrecognisedCookMethod } from "@/utils/cookingMethod";
 import { DatePickerModal, TimePickerModal } from "@/components/plan-screen/DateTimePickerModals";
 import { MultiCookResultModal } from "@/components/plan-screen/MultiCookResultModal";
 import { MultiCookAddItemModal, type MultiItem } from "@/components/plan-screen/MultiCookAddItemModal";
@@ -784,6 +784,7 @@ export default function PlanScreen() {
     setMeatPickerOpen(false);
     setPrepGuideOpen(false);
     // Load the last-used quick-pick settings for this cut and pre-select them.
+    // The restored method came from a previous user selection — mark it as
     loadLastCookMethod(cut.name).then(method => {
       setQpCookMethod(method);
       setLastUsedCookMethod(method);
@@ -2221,6 +2222,14 @@ export default function PlanScreen() {
                       {selectPrepTip(prep, qpCookMethod)}
                     </Text>
                   </View>
+                  {!qpCookMethod && isUnrecognisedCookMethod(selectedCut?.cookMethod) && (
+                    <View style={[s.prepTipCard, { backgroundColor: "#f59e0b18", borderRadius: colors.radius, marginTop: 6 }]}>
+                      <Feather name="alert-circle" size={14} color="#f59e0b" />
+                      <Text style={[s.prepTipText, { color: colors.foreground }]}>
+                        Tip is based on general smoking advice — your cook method wasn't recognised.
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
             </Pressable>

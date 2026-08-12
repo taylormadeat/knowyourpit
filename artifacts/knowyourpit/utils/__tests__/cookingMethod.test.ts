@@ -17,6 +17,7 @@ import {
   classifyCookingMethod,
   isDirectHeat,
   includesSear,
+  isUnrecognisedCookMethod,
   cookMethodDisplayLabel,
   pitTempLabel,
   cookMethodContextPhrase,
@@ -294,6 +295,84 @@ describe("classifyCookingMethod — AI-returned variant strings (Indirect)", () 
       expect(classifyCookingMethod(input)).toBe(expected);
     });
   }
+});
+
+// ── isUnrecognisedCookMethod helper ──────────────────────────────────────────
+//
+// This guard is used on the prep-tip card to surface a warning when an
+// AI-assigned cook method on a cut doesn't map to any known category, which
+// would cause selectPrepTip to silently fall back to the smoke/low-and-slow tip.
+
+describe("isUnrecognisedCookMethod", () => {
+  // Falsy inputs — never treated as unrecognised
+  it("null → false (no method = not unrecognised)", () => {
+    expect(isUnrecognisedCookMethod(null)).toBe(false);
+  });
+
+  it("undefined → false", () => {
+    expect(isUnrecognisedCookMethod(undefined)).toBe(false);
+  });
+
+  it('empty string → false', () => {
+    expect(isUnrecognisedCookMethod("")).toBe(false);
+  });
+
+  // Recognised methods — all should return false
+  const recognised = [
+    "Low & Slow",
+    "low & slow",
+    "Indirect",
+    "Indirect Heat",
+    "Direct Heat",
+    "direct heat",
+    "Reverse Sear",
+    "Reverse-Sear",
+    "Hot & Fast",
+    "Hot and Fast",
+    "Rotisserie",
+    "rotisserie",
+    "Braised",
+    "braise",
+    "Smoke",
+    "Griddle",
+    "Sear",
+  ];
+
+  for (const method of recognised) {
+    it(`"${method}" (recognised) → false`, () => {
+      expect(isUnrecognisedCookMethod(method)).toBe(false);
+    });
+  }
+
+  // Unrecognised strings — these are the AI-assigned methods that cannot
+  // be routed to a specific prep tip and silently fall back to smoke advice.
+  // Note: strings that contain "smoke", "direct", "sear", etc. DO classify
+  // via substring matching — only methods with no matching substring are unknown.
+  const unrecognised = [
+    "Sous Vide",
+    "sous vide",
+    "Caveman Style",
+    "Deep Fry",
+    "Air Fryer",
+    "Plancha",
+    "Hibachi",
+    "unknown",
+  ];
+
+  for (const method of unrecognised) {
+    it(`"${method}" (unrecognised) → true`, () => {
+      expect(isUnrecognisedCookMethod(method)).toBe(true);
+    });
+  }
+
+  it("all MEAT_CUTS cookMethod values are recognised (warning never fires for built-in cuts)", () => {
+    const { MEAT_CUTS } = require("../../constants/meatCuts");
+    const methods: string[] = MEAT_CUTS
+      .map((c: { cookMethod?: string }) => c.cookMethod)
+      .filter((m: string | undefined): m is string => !!m);
+    const unrecognisedInData = methods.filter(isUnrecognisedCookMethod);
+    expect(unrecognisedInData).toEqual([]);
+  });
 });
 
 // ── isDirectHeat helper ───────────────────────────────────────────────────────

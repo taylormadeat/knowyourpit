@@ -854,6 +854,106 @@ describe("selectPrepTip — Braised routes to braisedTip", () => {
   });
 });
 
+// ── Unknown method fallback — warning condition ────────────────────────────────
+//
+// When a cut's AI-assigned cookMethod (selectedCut.cookMethod) doesn't map to
+// any known CookingMethodClass, selectPrepTip falls through to the base smoke
+// tip. This is the condition that triggers the "Tip is based on general smoking
+// advice — your cook method wasn't recognised." warning in plan.tsx.
+//
+// These tests verify:
+//   1. selectPrepTip gracefully falls back to prep.tip for unknown strings.
+//   2. The base tip is NOT silently wrong — it is the smoke/low-and-slow guide.
+//   3. isUnrecognisedCookMethod correctly identifies the trigger condition.
+
+describe("selectPrepTip — unknown/unrecognised method falls back to base smoke tip", () => {
+  // Only methods that match NO substring in the classifier are truly unknown.
+  // "Sous Vide + Smoke" matches "smoke" → classifies as smoke, not unknown.
+  // "Cold Smoke" also matches "smoke". Only methods with no classifier keyword
+  // are unknown and would trigger the prep-tip warning in the UI.
+  const UNKNOWN_METHODS = [
+    "Sous Vide",
+    "Deep Fry",
+    "Caveman Style",
+    "Air Fryer",
+    "Plancha",
+    "Hibachi",
+    "unknown",
+  ];
+
+  describe("brisket — unknown method falls through to base tip (smoke advice)", () => {
+    const guide = PREP_GUIDE_MAP.brisket;
+
+    for (const method of UNKNOWN_METHODS) {
+      it(`method "${method}" → returns base tip (smoke fallback)`, () => {
+        expect(selectPrepTip(guide, method)).toBe(guide.tip);
+      });
+    }
+  });
+
+  describe("steak — unknown method falls through to base tip", () => {
+    const guide = PREP_GUIDE_MAP.steak;
+
+    for (const method of UNKNOWN_METHODS) {
+      it(`method "${method}" → returns base tip, NOT directHeatTip or reverseSearTip`, () => {
+        const tip = selectPrepTip(guide, method);
+        expect(tip).toBe(guide.tip);
+        expect(tip).not.toBe(guide.directHeatTip);
+        expect(tip).not.toBe(guide.reverseSearTip);
+      });
+    }
+  });
+
+  it("pork_shoulder — unknown method falls through to base tip", () => {
+    const guide = PREP_GUIDE_MAP.pork_shoulder;
+    expect(selectPrepTip(guide, "Sous Vide + Smoke")).toBe(guide.tip);
+  });
+
+  it("chicken — unknown method falls through to base tip", () => {
+    const guide = PREP_GUIDE_MAP.chicken;
+    expect(selectPrepTip(guide, "Cold Smoke")).toBe(guide.tip);
+  });
+});
+
+// ── Warning condition: isUnrecognisedCookMethod as the UI trigger ─────────────
+//
+// plan.tsx shows the inline notice when:
+//   !qpCookMethod && isUnrecognisedCookMethod(selectedCut?.cookMethod)
+//
+// These tests verify the condition is sound — it only fires when the cut's
+// AI-assigned method is non-null AND doesn't classify.
+
+describe("prep-tip warning condition — isUnrecognisedCookMethod gate", () => {
+  const { isUnrecognisedCookMethod } = require("../../utils/cookingMethod");
+
+  it("null cookMethod → false (warning suppressed — no AI method to evaluate)", () => {
+    expect(isUnrecognisedCookMethod(null)).toBe(false);
+  });
+
+  it('"Sous Vide" cookMethod → true (warning fires — no classifier keyword)', () => {
+    expect(isUnrecognisedCookMethod("Sous Vide")).toBe(true);
+  });
+
+  it('"Low & Slow" cookMethod → false (recognised — warning suppressed)', () => {
+    expect(isUnrecognisedCookMethod("Low & Slow")).toBe(false);
+  });
+
+  it('"Deep Fry" cookMethod → true (warning fires — unsupported AI method)', () => {
+    expect(isUnrecognisedCookMethod("Deep Fry")).toBe(true);
+  });
+
+  it("all built-in MEAT_CUTS cookMethods pass without triggering the warning", () => {
+    const { MEAT_CUTS } = require("../../constants/meatCuts");
+    const methods: string[] = MEAT_CUTS
+      .map((c: { cookMethod?: string }) => c.cookMethod)
+      .filter((m: string | undefined): m is string => !!m);
+    // Every built-in method must be recognised so the warning never fires
+    // for any cut in the standard data set.
+    const triggering = methods.filter(isUnrecognisedCookMethod);
+    expect(triggering).toEqual([]);
+  });
+});
+
 describe("selectPrepTip — method-specific tips never show smoke-tip language for steak-family cuts", () => {
   const STEAK_GUIDES: Array<[string, keyof typeof PREP_GUIDE_MAP]> = [
     ["steak", "steak"],

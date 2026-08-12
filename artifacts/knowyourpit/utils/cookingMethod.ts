@@ -98,6 +98,18 @@ export function pitTempLabel(
   return withUnit ? `${label} (°F)` : label;
 }
 
+/**
+ * Returns true when the method string is non-empty but is not recognised by
+ * `classifyCookingMethod` (i.e. would produce the "unknown" fall-through).
+ * Use this to gate UI warnings for AI-suggested methods that don't map to any
+ * known category — the caller can then surface a notice rather than silently
+ * falling back to smoke-style advice.
+ */
+export function isUnrecognisedCookMethod(method: string | null | undefined): boolean {
+  if (!method) return false;
+  return classifyCookingMethod(method) === "unknown";
+}
+
 /** Verb phrase for use in context copy, e.g. "on the smoker" → "on the grill". */
 export function cookMethodContextPhrase(method: string | null | undefined): string {
   const cls = classifyCookingMethod(method);
