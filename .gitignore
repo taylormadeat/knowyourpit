@@ -2,6 +2,12 @@
 
 # compiled output
 dist
+# marketing site HTML pages must be committed so the production static handler can serve them
+!artifacts/marketing/dist/
+!artifacts/marketing/dist/public/
+!artifacts/marketing/dist/public/*.html
+!artifacts/marketing/dist/public/*/
+!artifacts/marketing/dist/public/*/index.html
 tmp
 out-tsc
 *.tsbuildinfo
