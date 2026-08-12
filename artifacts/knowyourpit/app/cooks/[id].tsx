@@ -67,8 +67,8 @@ import type { SequenceData, Decision } from "@/components/cook-detail/types";
 import type { ProbeTimeSeries } from "@/components/TempGraph";
 import { QP_COOK_METHODS, QP_INJECTION_OPTIONS, QP_SPRITZ_FREQUENCIES, QP_WRAP_FINISH_OPTIONS } from "@/constants/cookQuickPicks";
 import { type QualFactor } from "@/components/CookFactorsSheet";
-import { getMeatPrep } from "@/components/plan-screen/prepGuides";
-import { isDirectHeat, includesSear } from "@/utils/cookingMethod";
+import { getMeatPrep, selectPrepTip } from "@/components/plan-screen/prepGuides";
+import { isDirectHeat, includesSear, classifyCookingMethod } from "@/utils/cookingMethod";
 import { MEAT_CUTS } from "@/constants/meatCuts";
 
 import { useCookDetail } from "@/hooks/useCookDetail";
@@ -802,10 +802,24 @@ export default function CookDetailScreen() {
             ) ?? (foodType ? { name: foodType, category: "" } : null);
             const prep = getMeatPrep(matchedCut as any);
             if (!prep) return null;
-            const isGrillTip = prep.directHeatTip && includesSear(c.cookingMethod);
-            const tip = isGrillTip ? prep.directHeatTip : prep.tip;
-            const tipLabel = isGrillTip ? "Grilling Tip" : "Pit Tip";
-            const tipIcon = isGrillTip ? "zap" : "wind";
+            const tip = selectPrepTip(prep, c.cookingMethod);
+            const methodClass = classifyCookingMethod(c.cookingMethod);
+            const tipLabel =
+              methodClass === "direct" || methodClass === "sear" || methodClass === "griddle" ? "Grilling Tip" :
+              methodClass === "indirect" ? "Roasting Tip" :
+              methodClass === "reverse_sear" ? "Reverse Sear Tip" :
+              methodClass === "hot_fast" ? "Hot & Fast Tip" :
+              methodClass === "rotisserie" ? "Rotisserie Tip" :
+              methodClass === "braised" ? "Braising Tip" :
+              "Pit Tip";
+            const tipIcon: React.ComponentProps<typeof Feather>["name"] =
+              methodClass === "direct" || methodClass === "sear" || methodClass === "griddle" ? "zap" :
+              methodClass === "indirect" ? "thermometer" :
+              methodClass === "reverse_sear" ? "refresh-cw" :
+              methodClass === "hot_fast" ? "trending-up" :
+              methodClass === "rotisserie" ? "rotate-cw" :
+              methodClass === "braised" ? "droplet" :
+              "wind";
             return (
               <View style={{ backgroundColor: colors.primary + "12", borderRadius: colors.radius, paddingHorizontal: 14, paddingVertical: 12, gap: 6 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>

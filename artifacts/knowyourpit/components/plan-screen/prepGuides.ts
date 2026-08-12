@@ -97,6 +97,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     directHeatTip: "Prime rib grills best with a two-zone setup. Sear all sides over high direct heat 2–3 min per side for a deep crust, then move to the cool zone with the lid down at 325°F to roast through. Pull at 120–125°F for medium-rare — carryover adds 5–10°F during the rest. Rest at least 20 minutes before carving.",
     reverseSearTip: "Reverse sear brings exceptional control for prime rib: roast low-and-slow at 225–250°F until 10–15°F below your target (e.g. 110°F for medium-rare), then blast over screaming-high direct heat or a broiler for 8–10 minutes to develop a deep crust all over. Resting is already built into the slow phase — slice promptly after the final sear.",
     rotisserieTip: "Rotisserie prime rib is exceptional — the constant rotation self-bastes the roast in its own dripping fat. Tie the roast at 1-inch intervals between the bones and balance it carefully on the spit. Run indirect at 325°F with a drip pan below. Pull at 120°F for medium-rare; carryover during the 20-minute rest brings it to 125–130°F.",
+    indirectHeatTip: "Indirect heat at 325–350°F is the classic oven-roast approach for prime rib — no stall, no bark strategy, no wrap needed. Set up a two-zone grill or close all vents to create convection heat. Pull at 120–125°F for medium-rare; carryover during the 20–30 minute rest brings it to 130°F. The herb butter crust sets beautifully at this temp without the smoke influence.",
   },
   burger: {
     steps: [
@@ -196,6 +197,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     tip: "Pork loin dries out easily — pull it at 140°F and let carryover heat finish the job.",
     directHeatTip: "Two-zone setup is key for pork loin on the grill — the roast needs time to cook through without charring. Sear all sides over high direct heat 2 min per side, then move to the cool zone with the lid down at 350°F to finish. Pull at 138°F; carryover heat will bring it to a safe 145°F during the 10-minute rest. Slice into ½-inch medallions and serve immediately.",
     rotisserieTip: "Rotisserie pork loin stays remarkably moist — the rotation self-bastes and the even heat prevents hot spots. Tie at 1-inch intervals for a uniform shape and balance the roast on the spit. Run indirect at 325–350°F. Brush with a glaze (apple, mustard, or honey-garlic) every 20 minutes in the last hour. Pull at 138°F; carryover brings it to a safe 145°F during the 10-minute rest.",
+    indirectHeatTip: "Indirect heat at 325–350°F is ideal for pork loin — it's a lean roast that benefits from the faster, drier heat of a convection-style setup. No stall, no wrap needed. Cook with the fat cap up to baste the meat. Brush with a glaze (apple, mustard, or honey-garlic) in the last 20 minutes. Pull at 138°F; carryover brings it to a safe 145°F during the 10-minute rest. Don't take it past 145°F or it dries out.",
   },
   pork_tenderloin: {
     steps: [
@@ -206,6 +208,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     tip: "Pork tenderloin cooks fast — check it at 20 minutes and pull at 140°F. Rest 5 minutes before slicing.",
     directHeatTip: "Pork tenderloin is ideal for direct grilling — it's thin enough to cook through quickly. Grill over medium-high heat, turning a quarter turn every 3–4 minutes to brown all four sides evenly (12–15 minutes total). Pull at 138°F; carryover brings it to a safe 145°F during the 5-minute rest. Don't slice immediately — let it rest fully or the juices run out.",
     reverseSearTip: "Reverse sear works beautifully for pork tenderloin: cook at 225°F to 125°F internal, then sear over high heat turning every 30 seconds for 2–3 min total to brown all sides. Pull at 138°F; carryover brings it to a safe 145°F during the 5-minute rest. Slice into medallions and serve immediately — don't skip the rest or the juices run out.",
+    indirectHeatTip: "Indirect heat at 325–375°F cooks pork tenderloin fast — expect 20–30 minutes total. No stall, no wrap, no bark strategy needed. The higher temp gives a light exterior color without requiring a final sear. Flip once halfway through and pull at 138°F; carryover brings it to a safe 145°F during the 5-minute rest. Watch it closely — this cut goes from perfect to dry quickly at higher temps.",
   },
   ham: {
     steps: [
@@ -241,6 +244,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     directHeatTip: "Two-zone setup: start skin-side down over medium-high heat, render the skin, then move to indirect to cook through. Flip back to direct for 2 min to crisp. Pull at 165°F.",
     hotAndFastTip: "Hot and fast whole chicken at 350–375°F delivers crispier skin in less time — about 60–75 minutes for a spatchcocked bird. No need to wrap; the higher heat renders the fat and sets the skin. Pull breast at 160°F and thighs at 175°F. Spatchcock before cooking for the fastest, most even result.",
     rotisserieTip: "Rotisserie chicken is the gold standard: truss tightly — legs tied to the tail, wings tucked — so nothing flaps and the bird stays balanced on the spit. Run at 350°F indirect with a drip pan below for self-basting. Plan 15–18 min per lb. Pull breast at 160°F (carryover finishes it to 165°F). Let the bird coast on the spit with the heat off for 10 minutes before carving.",
+    indirectHeatTip: "Indirect heat at 325–375°F is a roasting approach — not a smoking one. Expect 60–90 minutes for a spatchcocked bird at 375°F versus 3–4 hours at 225°F. No stall, no wrap, and no bark strategy needed. The higher temp renders the fat and crisps the skin far better than low-and-slow. Pull breast at 160°F and thighs at 175°F. Spatchcock before cooking for the fastest, most even result.",
   },
   chicken_wings: {
     steps: [
@@ -263,6 +267,7 @@ export const PREP_GUIDE_MAP: Record<string, MeatPrepGuide> = {
     tip: "Tuck wings under the bird to prevent burning during the long cook.",
     directHeatTip: "Spatchcock the turkey for even direct-heat cooking — remove the backbone and flatten it. Set up a two-zone grill at 375–400°F. Start skin-side down over indirect heat, then move over direct heat in the final 10–15 minutes to crisp the skin. Pull the breast at 160°F and thighs at 175°F. Rest 15–20 minutes before carving.",
     rotisserieTip: "Rotisserie turkey takes some setup but the result is outstanding: truss tightly — legs tied to the tail, wings secured with twine or skewers so nothing flaps. Balance the bird carefully on the spit before committing. Run indirect at 325–350°F with a drip pan below. Plan 12–15 min per lb. Pull breast at 160°F and thighs at 175°F. Let the bird coast on the spit with heat off for 10 minutes before carving.",
+    indirectHeatTip: "Indirect heat at 325–375°F is the traditional roasting method for turkey — shorter cook, no stall, no bark strategy, and far crispier skin than low-and-slow smoke. A 12–14 lb bird takes roughly 2.5–3 hours at 325°F. Baste with butter every 45 minutes and tent with foil if the breast is browning faster than the thighs are cooking through. Pull breast at 160°F and thighs at 175°F. Rest 20–30 minutes before carving.",
   },
   duck: {
     steps: [

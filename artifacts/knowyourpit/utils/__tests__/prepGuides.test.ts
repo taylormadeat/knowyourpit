@@ -436,6 +436,95 @@ describe("getMeatPrep poultry parts routing — chicken and turkey parts land on
   });
 });
 
+// ── Indirect Heat tip regression ──────────────────────────────────────────────
+
+describe("selectPrepTip — Indirect Heat routes to indirectHeatTip, not the smoke default", () => {
+  const INDIRECT_METHODS = ["Indirect Heat", "indirect heat", "Indirect"];
+
+  describe("chicken — indirectHeatTip must be returned, not the smoke tip", () => {
+    const guide = PREP_GUIDE_MAP.chicken;
+
+    it("has an indirectHeatTip that differs from the base tip", () => {
+      expect(guide.indirectHeatTip).toBeTruthy();
+      expect(guide.indirectHeatTip).not.toBe(guide.tip);
+    });
+
+    for (const method of INDIRECT_METHODS) {
+      it(`method "${method}" → returns indirectHeatTip, not the smoke default`, () => {
+        const tip = selectPrepTip(guide, method);
+        expect(tip).toBe(guide.indirectHeatTip);
+        expect(tip).not.toBe(guide.tip);
+      });
+    }
+  });
+
+  describe("turkey — indirectHeatTip must be returned, not the smoke tip", () => {
+    const guide = PREP_GUIDE_MAP.turkey;
+
+    it("has an indirectHeatTip that differs from the base tip", () => {
+      expect(guide.indirectHeatTip).toBeTruthy();
+      expect(guide.indirectHeatTip).not.toBe(guide.tip);
+    });
+
+    it('method "Indirect Heat" → returns indirectHeatTip, not smoke default', () => {
+      expect(selectPrepTip(guide, "Indirect Heat")).toBe(guide.indirectHeatTip);
+    });
+  });
+
+  describe("prime_rib — indirectHeatTip must be returned, not the smoke tip", () => {
+    const guide = PREP_GUIDE_MAP.prime_rib;
+
+    it("has an indirectHeatTip that differs from the base tip", () => {
+      expect(guide.indirectHeatTip).toBeTruthy();
+      expect(guide.indirectHeatTip).not.toBe(guide.tip);
+    });
+
+    it('method "Indirect Heat" → returns indirectHeatTip, not smoke default', () => {
+      expect(selectPrepTip(guide, "Indirect Heat")).toBe(guide.indirectHeatTip);
+    });
+  });
+
+  describe("pork_loin — indirectHeatTip must be returned, not the smoke tip", () => {
+    const guide = PREP_GUIDE_MAP.pork_loin;
+
+    it("has an indirectHeatTip that differs from the base tip", () => {
+      expect(guide.indirectHeatTip).toBeTruthy();
+      expect(guide.indirectHeatTip).not.toBe(guide.tip);
+    });
+
+    it('method "Indirect Heat" → returns indirectHeatTip, not smoke default', () => {
+      expect(selectPrepTip(guide, "Indirect Heat")).toBe(guide.indirectHeatTip);
+    });
+  });
+
+  describe("pork_tenderloin — indirectHeatTip must be returned, not the smoke tip", () => {
+    const guide = PREP_GUIDE_MAP.pork_tenderloin;
+
+    it("has an indirectHeatTip that differs from the base tip", () => {
+      expect(guide.indirectHeatTip).toBeTruthy();
+      expect(guide.indirectHeatTip).not.toBe(guide.tip);
+    });
+
+    it('method "Indirect Heat" → returns indirectHeatTip, not smoke default', () => {
+      expect(selectPrepTip(guide, "Indirect Heat")).toBe(guide.indirectHeatTip);
+    });
+  });
+
+  // Smoke/null methods must still fall back to the base tip for all five cuts
+  describe("smoke/null methods still return base tip for the five updated cuts", () => {
+    const SMOKE_METHODS = [null, "Low and Slow", "Smoke"] as const;
+
+    for (const cut of ["chicken", "turkey", "prime_rib", "pork_loin", "pork_tenderloin"] as const) {
+      for (const method of SMOKE_METHODS) {
+        it(`${cut} — method ${JSON.stringify(method)} → base tip`, () => {
+          const guide = PREP_GUIDE_MAP[cut];
+          expect(selectPrepTip(guide, method)).toBe(guide.tip);
+        });
+      }
+    }
+  });
+});
+
 // ── Custom / user-created cuts ─────────────────────────────────────────────────
 
 /**
