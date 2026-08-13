@@ -66,13 +66,12 @@ fi
 
 # ── 4. Reviewer credentials ───────────────────────────────────────────────────
 echo ""
-echo "[ 4/8 ] Checking reviewer credentials in review notes …"
-REVIEW_NOTES="docs/app-store-review-notes.md"
-if grep -q "INSERT REVIEWER" "$REVIEW_NOTES" 2>/dev/null; then
-  log_fail "Reviewer credentials are still placeholders in $REVIEW_NOTES — fill in before submitting"
-else
-  log_pass "Reviewer credentials appear to be filled in"
-fi
+echo "[ 4/8 ] Checking reviewer credentials …"
+# Credentials must NOT be committed to this file. Instead, paste the review
+# notes template from docs/app-store-review-notes.md into App Store Connect's
+# "Notes for Apple" field and fill in the credentials there at submission time.
+# Source the account from 1Password "ASC Reviewer Account".
+log_warn "Confirm reviewer demo credentials are entered in App Store Connect → Notes for Apple (not stored here). Source: 1Password 'ASC Reviewer Account'."
 
 # ── 5. Privacy manifest ───────────────────────────────────────────────────────
 echo ""
@@ -112,10 +111,13 @@ fi
 # ── 8. No placeholder / test content in shipped code ─────────────────────────
 echo ""
 echo "[ 8/8 ] Checking for placeholder content in source …"
+set +o pipefail
 PLACEHOLDER_HITS=$(grep -rn "TODO\|FIXME\|PLACEHOLDER\|lorem ipsum\|test@test\|fake@" \
   --include="*.ts" --include="*.tsx" \
   --exclude-dir=node_modules --exclude-dir=__tests__ --exclude="*.test.*" --exclude="*.spec.*" \
   . 2>/dev/null | grep -v "//.*TODO\|^\s*//" | wc -l | tr -d ' ')
+set -o pipefail
+PLACEHOLDER_HITS=${PLACEHOLDER_HITS:-0}
 if [ "$PLACEHOLDER_HITS" -eq 0 ]; then
   log_pass "No placeholder / test content found in shipped source"
 else
