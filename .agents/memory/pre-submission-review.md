@@ -18,9 +18,14 @@ Before running `eas submit` or triggering the GitHub Actions submit workflow:
 4. Then submit.
 
 ## Current known blockers (as of August 2026)
-- https://knowyourpit.com/privacy returns 404 — pages not yet published (Task #1452)
-- https://knowyourpit.com/terms returns 404 — pages not yet published (Task #1452)
+- https://knowyourpit.com/privacy returns 404 — knowyourpit.com is hosted on GoDaddy (NOT the Replit marketing site); pages must be created there. Standalone HTML files exported to `artifacts/marketing/dist/standalone/privacy.html` and `terms.html` for pasting into GoDaddy's HTML block editor.
+- https://knowyourpit.com/terms returns 404 — same as above.
 - Reviewer credentials in `docs/app-store-review-notes.md` are still placeholder text
+
+## Important: knowyourpit.com hosting
+The live domain knowyourpit.com is served by GoDaddy, not by the Replit marketing artifact.
+The Replit marketing site (artifacts/marketing) is a separate codebase that does NOT serve the live domain.
+Any changes to public-facing pages (privacy, terms, support) must be made in GoDaddy's site editor.
 
 ## Script location
 `artifacts/knowyourpit/scripts/pre-submission-review.sh`

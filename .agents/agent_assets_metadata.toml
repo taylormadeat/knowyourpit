@@ -340,3 +340,17 @@ uri = "file://artifacts/marketing/public/print/flyer-screenshots-analysis.png"
 type = "image"
 title = "Flyer — Grade every cook. Get better every time."
 description = "Post-cook analysis: PitMaster Score → Short Ribs B- → Tomahawk A Perfect Cook"
+
+[[outputs]]
+id = "kDQvPhKJrce1cEqZ9d-QP"
+uri = "file://artifacts/marketing/dist/standalone/privacy.html"
+type = "text"
+title = "Privacy Policy — paste into GoDaddy"
+description = "Standalone HTML page for knowyourpit.com/privacy"
+
+[[outputs]]
+id = "u_4RdDUIg_1oYxy2ym6Cj"
+uri = "file://artifacts/marketing/dist/standalone/terms.html"
+type = "text"
+title = "Terms of Service — paste into GoDaddy"
+description = "Standalone HTML page for knowyourpit.com/terms"
