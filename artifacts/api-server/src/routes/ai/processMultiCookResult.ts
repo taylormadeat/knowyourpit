@@ -1,8 +1,10 @@
 /**
  * Pure post-processing function that converts a raw AI JSON response into the
- * final multi-cook result shape.  Extracted here (no route/DB/AI imports) so
- * it can be unit-tested without any side-effect dependencies.
+ * final multi-cook result shape.  Extracted here (no route/DB/AI imports —
+ * meatBaselines is pure static data) so it can be unit-tested without any
+ * side-effect dependencies.
  */
+import { getMeatBaseline } from "./meatBaselines";
 
 function isDirectHeatMethod(method: string | null | undefined): boolean {
   if (!method) return false;
@@ -56,9 +58,19 @@ export function processMultiCookResult(
 
       const wrapMethod = forceSuppressWrap ? "none" : normalizeWrapMethod(item.wrapMethod);
       const isNoWrap = wrapMethod == null || wrapMethod === "none";
-      const cookMin = typeof item.estimatedDurationMinutes === "number"
+      // Enforce the per-cut minimum cook duration as a server-side invariant.
+      // Method-driven cuts (ribs) need close to the full method time even at
+      // light weights; the AI is told this in the prompt but may not comply.
+      // The timestamp consistency + re-alignment passes below recompute
+      // finish/meat-on from this corrected duration.
+      const rawCookMin = typeof item.estimatedDurationMinutes === "number"
         ? item.estimatedDurationMinutes
         : 0;
+      const durationFloor = getMeatBaseline((item as any).foodType ?? "")?.minCookMins ?? 0;
+      const cookMin = rawCookMin > 0 ? Math.max(rawCookMin, durationFloor) : rawCookMin;
+      if (cookMin !== rawCookMin) {
+        item.estimatedDurationMinutes = cookMin;
+      }
       const explicitWrapAt = typeof item.wrapAtMinutes === "number" && item.wrapAtMinutes > 0
         ? Math.round(item.wrapAtMinutes)
         : null;
@@ -66,9 +78,20 @@ export function processMultiCookResult(
       const inferredWrapAt = (!forceSuppressWrap && cookMin > 0)
         ? Math.max(30, Math.round(cookMin * 0.55))
         : null;
-      const wrapAtMinutes = isNoWrap
+      let wrapAtMinutes = isNoWrap
         ? null
         : (explicitWrapAt ?? inferredWrapAt);
+      // Clamp: a wrap step must land strictly between meat-on and pull-off.
+      // The AI sometimes emits fixed hour marks (e.g. "wrap at 2h") that
+      // exceed a short cook's total duration. Re-derive proportionally, and
+      // if the cook is too short for a meaningful wrap window, drop the wrap
+      // timing entirely.
+      if (wrapAtMinutes != null && cookMin > 0 && wrapAtMinutes >= cookMin - 5) {
+        const proportional = Math.round(cookMin * 0.55);
+        wrapAtMinutes = proportional < cookMin - 5 && proportional >= 15
+          ? proportional
+          : null;
+      }
       const wrapTempF = isNoWrap
         ? null
         : (typeof item.wrapTempF === "number" ? Math.round(item.wrapTempF) : null);

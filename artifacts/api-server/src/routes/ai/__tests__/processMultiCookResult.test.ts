@@ -807,3 +807,122 @@ describe("deterministic realignment to serveAt", () => {
     expect(item.estimatedFinishAt).toBe(aiEarliestFinish);
   });
 });
+
+// ── Wrap-time clamping ─────────────────────────────────────────────────────────
+
+describe("wrap-time clamping (wrap must land strictly before pull-off)", () => {
+  const FUTURE = new Date(Date.now() + 12 * 60 * 60_000); // 12h out — feasible
+
+  function wrapItem(overrides: Record<string, unknown> = {}) {
+    return schedItem({
+      foodType: "Baby Back Ribs",
+      grillLightAt: new Date(FUTURE.getTime() - 4 * 60 * 60_000).toISOString(),
+      meatOnAt: new Date(FUTURE.getTime() - 3.5 * 60 * 60_000).toISOString(),
+      estimatedFinishAt: new Date(FUTURE.getTime() - 20 * 60_000).toISOString(),
+      wrapMethod: "foil",
+      wrapAtMinutes: 120,
+      wrapTempF: 165,
+      wrapReason: "Push through the stall.",
+      ...overrides,
+    });
+  }
+
+  it("re-derives a wrap that lands at/after pull-off (fixed 2h wrap on a 103m cook)", () => {
+    // Use a cut without a duration floor so the clamp itself is exercised.
+    const raw = { schedule: [wrapItem({ foodType: "Chuck Roast", estimatedDurationMinutes: 103, wrapAtMinutes: 120 })], sharedGrillTips: null };
+    const result = processMultiCookResult(raw, FUTURE, [reqItem("Chuck Roast")]);
+    const item = result.schedule[0];
+    expect(item.wrapAtMinutes).not.toBeNull();
+    expect(item.wrapAtMinutes).toBeLessThan(103);
+    expect(item.wrapAtMinutes).toBe(Math.round(103 * 0.55));
+  });
+
+  it("drops the wrap timing entirely when the cook is too short for a wrap window", () => {
+    const raw = { schedule: [wrapItem({ foodType: "Chuck Roast", estimatedDurationMinutes: 20, wrapAtMinutes: 120 })], sharedGrillTips: null };
+    const result = processMultiCookResult(raw, FUTURE, [reqItem("Chuck Roast")]);
+    expect(result.schedule[0].wrapAtMinutes).toBeNull();
+  });
+
+  it("leaves a valid wrap untouched (2h wrap on a 5h cook)", () => {
+    const raw = { schedule: [wrapItem({ estimatedDurationMinutes: 300, wrapAtMinutes: 120 })], sharedGrillTips: null };
+    const result = processMultiCookResult(raw, FUTURE, [reqItem("Baby Back Ribs")]);
+    expect(result.schedule[0].wrapAtMinutes).toBe(120);
+  });
+
+  it("clamps an inferred wrap the same way (no explicit wrapAtMinutes)", () => {
+    const raw = { schedule: [wrapItem({ foodType: "Chuck Roast", estimatedDurationMinutes: 150, wrapAtMinutes: null })], sharedGrillTips: null };
+    const result = processMultiCookResult(raw, FUTURE, [reqItem("Chuck Roast")]);
+    const item = result.schedule[0];
+    expect(item.wrapAtMinutes).toBe(Math.round(150 * 0.55));
+    expect(item.wrapAtMinutes).toBeLessThan(150);
+  });
+
+  it("clamps fixed pork-butt style wrap offsets (300m wrap on a 200m cook)", () => {
+    const raw = { schedule: [wrapItem({ foodType: "Pork Butt", estimatedDurationMinutes: 200, wrapAtMinutes: 300 })], sharedGrillTips: null };
+    const result = processMultiCookResult(raw, FUTURE, [reqItem("Pork Butt")]);
+    const item = result.schedule[0];
+    expect(item.wrapAtMinutes).toBe(Math.round(200 * 0.55));
+  });
+});
+
+// ── Server-side duration floor ────────────────────────────────────────────────
+
+describe("duration floor enforcement (method-driven cuts)", () => {
+  const FUTURE = new Date(Date.now() + 12 * 60 * 60_000);
+
+  it("raises a below-floor baby back duration and realigns timestamps (feasible)", () => {
+    const raw = {
+      schedule: [
+        schedItem({
+          foodType: "Baby Back Ribs",
+          grillLightAt: new Date(FUTURE.getTime() - 3 * 60 * 60_000).toISOString(),
+          meatOnAt: new Date(FUTURE.getTime() - 2.5 * 60 * 60_000).toISOString(),
+          estimatedFinishAt: new Date(FUTURE.getTime() - 20 * 60_000).toISOString(),
+          estimatedDurationMinutes: 103, // below the 240m floor
+          restMinutes: 20,
+          preheatMinutes: 25,
+          wrapMethod: "foil",
+          wrapAtMinutes: 120,
+        }),
+      ],
+      sharedGrillTips: null,
+    };
+    const result = processMultiCookResult(raw, FUTURE, [reqItem("Baby Back Ribs")]);
+    const item = result.schedule[0];
+    expect(item.estimatedDurationMinutes).toBe(240);
+    // Wrap (120m) is now valid against the floored duration.
+    expect(item.wrapAtMinutes).toBe(120);
+    // Timestamps realigned: finish = serveAt - rest, meatOn = finish - 240m.
+    const finishMs = new Date(item.estimatedFinishAt).getTime();
+    const meatOnMs = new Date(item.meatOnAt).getTime();
+    expect(finishMs).toBe(FUTURE.getTime() - 20 * 60_000);
+    expect(finishMs - meatOnMs).toBe(240 * 60_000);
+  });
+
+  it("keeps finish = meatOn + floored duration when infeasible (anchored to now)", () => {
+    const nearServeAt = new Date(Date.now() + 30 * 60_000);
+    const meatOnAt = new Date(Date.now() + 30 * 60_000).toISOString();
+    const raw = {
+      schedule: [
+        schedItem({
+          foodType: "Baby Back Ribs",
+          grillLightAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+          meatOnAt,
+          estimatedFinishAt: new Date(new Date(meatOnAt).getTime() + 103 * 60_000).toISOString(),
+          estimatedDurationMinutes: 103,
+          restMinutes: 20,
+          wrapMethod: "foil",
+          wrapAtMinutes: 120,
+        }),
+      ],
+      sharedGrillTips: null,
+    };
+    const result = processMultiCookResult(raw, nearServeAt, [reqItem("Baby Back Ribs")]);
+    const item = result.schedule[0];
+    expect(item.estimatedDurationMinutes).toBe(240);
+    const finishMs = new Date(item.estimatedFinishAt).getTime();
+    const meatOnMs = new Date(item.meatOnAt).getTime();
+    expect(finishMs - meatOnMs).toBe(240 * 60_000);
+    expect(item.wrapAtMinutes).toBe(120);
+  });
+});

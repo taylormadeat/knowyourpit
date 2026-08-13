@@ -941,7 +941,8 @@ export default function SessionDetailScreen() {
                                 </View>
                               </View>
                             )}
-                            {itemPlan.wrapMethod && itemPlan.wrapMethod !== "none" && itemPlan.wrapAtMinutes && itemPlan.wrapAtMinutes > 0 && itemPlan.meatOnAt && (
+                            {itemPlan.wrapMethod && itemPlan.wrapMethod !== "none" && itemPlan.wrapAtMinutes && itemPlan.wrapAtMinutes > 0 && itemPlan.meatOnAt &&
+                              (!itemPlan.estimatedDurationMinutes || itemPlan.wrapAtMinutes < itemPlan.estimatedDurationMinutes) && (
                               <View style={s.planStep}>
                                 <View style={[s.planDot, { backgroundColor: "#A855F7" }]} />
                                 <View style={{ flex: 1 }}>

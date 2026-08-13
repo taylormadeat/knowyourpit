@@ -140,8 +140,21 @@ export function PlannedCookTimeline({ c, colors, cookStatus, estimatedFinishMs, 
     });
   }
 
-  if (meatOnMs != null && c.wrapAtMinutes) {
-    const wrapMs = meatOnMs + (c.wrapAtMinutes as number) * 60_000;
+  const pullOffMs =
+    serveMs != null && c.restMinutes
+      ? serveMs - (c.restMinutes as number) * 60_000
+      : serveMs;
+
+  // Wrap must land strictly between meat-on and pull-off. Older saved cooks
+  // may carry a fixed wrap offset (e.g. "wrap at 2h") that exceeds a short
+  // cook's duration — hide it rather than show an impossible timeline.
+  const wrapMs =
+    meatOnMs != null && c.wrapAtMinutes
+      ? meatOnMs + (c.wrapAtMinutes as number) * 60_000
+      : null;
+  const wrapIsValid = wrapMs != null && (pullOffMs == null || wrapMs < pullOffMs);
+
+  if (wrapMs != null && wrapIsValid) {
     milestones.push({
       kind: "milestone",
       key: "wrap",
@@ -149,11 +162,6 @@ export function PlannedCookTimeline({ c, colors, cookStatus, estimatedFinishMs, 
       ms: wrapMs,
     });
   }
-
-  const pullOffMs =
-    serveMs != null && c.restMinutes
-      ? serveMs - (c.restMinutes as number) * 60_000
-      : serveMs;
 
   if (serveMs != null && c.restMinutes) {
     milestones.push({
@@ -179,7 +187,7 @@ export function PlannedCookTimeline({ c, colors, cookStatus, estimatedFinishMs, 
   const checkinSteps: CheckinStep[] = [];
   if (meatOnMs != null && pullOffMs != null && pullOffMs > meatOnMs) {
     const anchor =
-      c.wrapAtMinutes ? { wrapAtMinutes: c.wrapAtMinutes as number } : null;
+      c.wrapAtMinutes && wrapIsValid ? { wrapAtMinutes: c.wrapAtMinutes as number } : null;
     const scheduled = generateCheckinSchedule(
       (c.foodType as string | null) ?? null,
       meatOnMs,

@@ -229,7 +229,8 @@ function ScheduleCard({
             <DayBadge diff={meatOnDiff} />
           </View>
         </View>
-        {item.wrapMethod && item.wrapMethod !== "none" && item.wrapAtMinutes && item.wrapAtMinutes > 0 && (
+        {item.wrapMethod && item.wrapMethod !== "none" && item.wrapAtMinutes && item.wrapAtMinutes > 0 &&
+          (!item.estimatedDurationMinutes || item.wrapAtMinutes < item.estimatedDurationMinutes) && (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <Feather name="package" size={13} color="#A855F7" />
             <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 }}>

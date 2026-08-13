@@ -7,6 +7,13 @@ export interface MeatBaseline {
   wrapAtMins?: number;
   wrapTempF?: number;
   wrapNote?: string;
+  /**
+   * Floor on total cook time in minutes, for cuts whose duration is driven by
+   * technique/method rather than weight (e.g. ribs). Light cuts of these meats
+   * still need close to the full method time — mins/lb × weight alone would
+   * produce impossibly short schedules (and wrap steps after the finish time).
+   */
+  minCookMins?: number;
 }
 
 export const MEAT_KB: Array<{ keywords: string[]; baseline: MeatBaseline }> = [
@@ -24,11 +31,11 @@ export const MEAT_KB: Array<{ keywords: string[]; baseline: MeatBaseline }> = [
   },
   {
     keywords: ["baby back ribs", "back ribs"],
-    baseline: { minsPerLb: 45, cookTempF: 225, targetTempF: 200, restMins: 20, wrapRec: "foil", wrapAtMins: 180, wrapNote: "3-2-1 method: 3hr unwrapped, 2hr in foil with butter+brown sugar+honey, 1hr back on grate to set glaze. Bones should pull back 1/4 inch." },
+    baseline: { minsPerLb: 45, cookTempF: 225, targetTempF: 200, restMins: 20, wrapRec: "foil", wrapAtMins: 120, minCookMins: 240, wrapNote: "Classic 2-2-1 method: 2hr unwrapped smoke, 2hr in foil with butter+brown sugar+honey, 1hr back on grate to set glaze — scale the stages proportionally for shorter cooks. Bones should pull back 1/4 inch." },
   },
   {
     keywords: ["spare ribs", "st. louis", "saint louis"],
-    baseline: { minsPerLb: 50, cookTempF: 225, targetTempF: 200, restMins: 20, wrapRec: "foil", wrapAtMins: 210, wrapNote: "2-2-1 for St. Louis. Foil with butter, brown sugar, and a splash of apple juice. Bend test: ribs should crack when folded — not fall apart, not resist." },
+    baseline: { minsPerLb: 50, cookTempF: 225, targetTempF: 200, restMins: 20, wrapRec: "foil", wrapAtMins: 180, minCookMins: 300, wrapNote: "Classic 3-2-1 method: 3hr unwrapped smoke, 2hr in foil with butter, brown sugar, and a splash of apple juice, 1hr back on grate — scale the stages proportionally for shorter cooks. Bend test: ribs should crack when folded — not fall apart, not resist." },
   },
   {
     keywords: ["pork belly"],

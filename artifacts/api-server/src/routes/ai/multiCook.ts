@@ -9,6 +9,22 @@ import { respondPaywall, userBypassesPaywall } from "../../lib/paywall";
 import { aiRateLimit, buildUserCookHistory } from "./shared";
 import { classifyGrillType, grillClassCoachingNote, isDirectHeat } from "../../lib/grillClassify";
 import { processMultiCookResult } from "./processMultiCookResult";
+import { getMeatBaseline } from "./meatBaselines";
+
+/**
+ * Apply the per-cut minimum cook time floor to a client-provided baseline.
+ * Method-driven cuts (e.g. ribs) need close to the full method duration even
+ * at light weights — a pure mins/lb × weight baseline can otherwise produce
+ * impossibly short schedules with wrap steps landing after the finish time.
+ */
+export function applyBaselineFloor(
+  foodType: string,
+  baselineEstimateMinutes: number | null | undefined,
+): number | null {
+  const floor = getMeatBaseline(foodType)?.minCookMins ?? 0;
+  if (baselineEstimateMinutes == null) return floor > 0 ? floor : null;
+  return Math.max(baselineEstimateMinutes, floor);
+}
 
 const router: IRouter = Router();
 
@@ -34,8 +50,9 @@ async function buildMultiCookContext(
   // Build item lines for the prompt, including the grill name when present.
   const itemLines = items.map((item: typeof items[number], i: number) => {
     const preheat = item.preheatMinutes ?? 25;
-    const baselineH = item.baselineEstimateMinutes != null
-      ? `${Math.floor(item.baselineEstimateMinutes / 60)}h${item.baselineEstimateMinutes % 60 ? ` ${item.baselineEstimateMinutes % 60}m` : ""}`
+    const baselineMins = applyBaselineFloor(item.foodType, item.baselineEstimateMinutes);
+    const baselineH = baselineMins != null
+      ? `${Math.floor(baselineMins / 60)}h${baselineMins % 60 ? ` ${baselineMins % 60}m` : ""}`
       : null;
     const parts: string[] = [
       `${i + 1}. ${item.foodType}`,
@@ -175,7 +192,7 @@ SHARED GRILL RULES: No items share a grill in this session. Set "sharedGrillTips
     ? `For each item, set wrapMethod to "none" — direct-heat / grilling cooks do not use stall-based wrapping. Set wrapAtMinutes, wrapTempF, and wrapReason all to null.`
     : `For each item, also determine wrap guidance:
 - wrapMethod: "foil" (Texas Crutch — faster, steams), "butcher_paper" (breathable, retains bark), or "none"
-- wrapAtMinutes: minutes from meatOnAt when to wrap. REQUIRED whenever wrapMethod is "foil" or "butcher_paper" — never null in that case. Null only when wrapMethod is "none".
+- wrapAtMinutes: minutes from meatOnAt when to wrap. REQUIRED whenever wrapMethod is "foil" or "butcher_paper" — never null in that case. Null only when wrapMethod is "none". CRITICAL: wrapAtMinutes MUST be strictly less than that item's estimatedDurationMinutes — a wrap step can never land at or after the pull-off time. If the estimated cook is short, scale the wrap point proportionally (typically 40–60% into the cook) instead of using a fixed hour mark.
 - wrapTempF: internal meat temperature to trigger wrap in °F (null if not applicable)
 - wrapReason: one sentence explaining the wrap strategy for this item
 
@@ -184,8 +201,8 @@ IMPORTANT: When wrapMethod is "foil" or "butcher_paper", wrap details MUST go in
 Wrap guidance by cut:
 - Brisket (whole packer, flat): butcher_paper around the stall (~160-170°F internal, ~50-60% into cook)
 - Pork shoulder / butt: foil around the stall (~160-165°F internal, ~50-60% into cook)
-- Spare ribs / St. Louis: foil (3-2-1 method: 3h smoke, 2h foil, 1h unwrapped) or butcher_paper, wrap at 2-3h in
-- Baby back ribs: foil (2-2-1 method: 2h smoke, 2h foil, 1h unwrapped), wrap at 2h in
+- Spare ribs / St. Louis: foil or butcher_paper, wrap ~50-60% into the cook. Only cite the classic 3-2-1 method (3h smoke, 2h foil, 1h unwrapped) in notes/wrapReason when estimatedDurationMinutes is close to 6 hours — otherwise describe the stages proportionally to the actual estimate.
+- Baby back ribs: foil, wrap ~40-50% into the cook. Only cite the classic 2-2-1 method (2h smoke, 2h foil, 1h unwrapped) in notes/wrapReason when estimatedDurationMinutes is close to 5 hours — otherwise describe the stages proportionally to the actual estimate.
 - Chicken / turkey: none (wrapping steams poultry, ruins skin)
 - Salmon / fish: none
 - Sausage / hot dogs: none
@@ -533,8 +550,9 @@ ANCHOR COOK (ALREADY ACTIVE — treat as IMMUTABLE — do NOT schedule or includ
 
   const newItemLines = newItems.map((item, i) => {
     const preheat = item.preheatMinutes ?? 25;
-    const baselineH = item.baselineEstimateMinutes != null
-      ? `${Math.floor(item.baselineEstimateMinutes / 60)}h${item.baselineEstimateMinutes % 60 ? ` ${item.baselineEstimateMinutes % 60}m` : ""}`
+    const baselineMins = applyBaselineFloor(item.foodType, item.baselineEstimateMinutes);
+    const baselineH = baselineMins != null
+      ? `${Math.floor(baselineMins / 60)}h${baselineMins % 60 ? ` ${baselineMins % 60}m` : ""}`
       : null;
     const parts: string[] = [
       `${i + 1}. ${item.foodType}`,
@@ -575,7 +593,7 @@ SHARED GRILL RULES (applies to: ${sharedGrillNames.map(n => `"${n}"`).join(", ")
 
   const addItemsWrapGuidance = allNewItemsDirect
     ? `For each item, set wrapMethod to "none" — direct-heat / grilling cooks do not use stall-based wrapping. Set wrapAtMinutes, wrapTempF, and wrapReason all to null.`
-    : `For each item also determine wrap guidance (same rules as standard multi-cook — Texas Crutch / butcher paper at the stall for low-and-slow cuts; "none" for poultry, seafood, and quick-cook items).${anyNewItemDirect ? '\n\nIMPORTANT: Any new item with a direct-heat or grilling cooking method must use wrapMethod: "none" — stall-based wrapping does not apply to direct-heat cooks.' : ""}`;
+    : `For each item also determine wrap guidance (same rules as standard multi-cook — Texas Crutch / butcher paper at the stall for low-and-slow cuts; "none" for poultry, seafood, and quick-cook items). wrapAtMinutes MUST be strictly less than that item's estimatedDurationMinutes — scale the wrap point proportionally (typically 40-60% into the cook) rather than using fixed hour marks.${anyNewItemDirect ? '\n\nIMPORTANT: Any new item with a direct-heat or grilling cooking method must use wrapMethod: "none" — stall-based wrapping does not apply to direct-heat cooks.' : ""}`;
 
   const systemPrompt = `You are knowyourpit AI, a world-class BBQ pit master. You are adding new items to an already-active cook session.
 
