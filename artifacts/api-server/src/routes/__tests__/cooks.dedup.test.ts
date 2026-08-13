@@ -160,12 +160,25 @@ vi.mock("../../lib/smokerCalibration", async (importOriginal) => {
     await importOriginal<typeof import("../../lib/smokerCalibration")>();
   return { ...original, invalidateSmokerInsightsCache: vi.fn() };
 });
+vi.mock("../../lib/liveActivityPush", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("../../lib/liveActivityPush")>();
+  return { ...original, endLiveActivitiesForCook: vi.fn().mockResolvedValue(undefined) };
+});
+vi.mock("../../lib/thinTemperatureReadings", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("../../lib/thinTemperatureReadings")>();
+  return { ...original, thinTemperatureReadings: vi.fn().mockResolvedValue(undefined) };
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Imports that depend on the mocked db (must come after vi.mock calls)
 // ─────────────────────────────────────────────────────────────────────────────
 import { db, cooksTable } from "@workspace/db";
 import { clearHomeInsightsCache } from "../ai";
+import { invalidateSmokerInsightsCache } from "../../lib/smokerCalibration";
+import { endLiveActivitiesForCook } from "../../lib/liveActivityPush";
+import { thinTemperatureReadings } from "../../lib/thinTemperatureReadings";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // App factory
@@ -473,5 +486,110 @@ describe("PATCH /cooks/:id — activate idempotency guard", () => {
     expect(res.body.status).toBe("active");
     // Non-status field must be updated (guard does not apply here).
     expect(res.body.targetTempF).toBe(203);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /cooks/:id — complete idempotency guard
+// ─────────────────────────────────────────────────────────────────────────────
+describe("PATCH /cooks/:id — complete idempotency guard", () => {
+  /**
+   * Two concurrent PATCH requests race to complete the same active cook.
+   * Both should return 200 with the same cook id and status="completed".
+   * The conditional UPDATE (WHERE status != 'completed') means exactly one
+   * request wins the database UPDATE; the other hits the fallback path and
+   * returns the already-completed row. Heavy side-effects (outlier detection,
+   * temperature thinning, smoker calibration invalidation, live activity
+   * teardown) therefore fire exactly once.
+   */
+  it("concurrent PATCH complete requests both return 200 and side-effects fire exactly once", async () => {
+    const [activeCook] = await db
+      .insert(cooksTable)
+      .values({
+        userId: TEST_USER_ID,
+        foodType: "brisket",
+        targetTempF: 203,
+        cookTempF: 225,
+        status: "active",
+        actualStartAt: new Date(Date.now() - 3 * 60 * 60_000), // 3 hours ago
+      })
+      .returning();
+    createdCookIds.push(activeCook.id);
+
+    const smokerMock = vi.mocked(invalidateSmokerInsightsCache);
+    const liveActivityMock = vi.mocked(endLiveActivitiesForCook);
+    const thinMock = vi.mocked(thinTemperatureReadings);
+    smokerMock.mockClear();
+    liveActivityMock.mockClear();
+    thinMock.mockClear();
+
+    const app = buildApp();
+
+    const [res1, res2] = await Promise.all([
+      request(app)
+        .patch(`/api/cooks/${activeCook.id}`)
+        .send({ status: "completed" }),
+      request(app)
+        .patch(`/api/cooks/${activeCook.id}`)
+        .send({ status: "completed" }),
+    ]);
+
+    // Both callers receive a successful response with consistent data.
+    expect(res1.status).toBe(200);
+    expect(res2.status).toBe(200);
+    expect(res1.body.id).toBe(activeCook.id);
+    expect(res2.body.id).toBe(activeCook.id);
+    expect(res1.body.status).toBe("completed");
+    expect(res2.body.status).toBe("completed");
+
+    // The conditional UPDATE ensures exactly one request ran the full update
+    // path (including side-effects); the other hit the guard and returned early.
+    expect(smokerMock).toHaveBeenCalledTimes(1);
+    expect(liveActivityMock).toHaveBeenCalledTimes(1);
+    expect(thinMock).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * A single PATCH to complete an already-completed cook must return 200
+   * without re-running any side-effects. The conditional UPDATE returns no
+   * rows (status is already 'completed'), so the handler falls back to
+   * fetching and returning the existing row without touching any side-effect
+   * functions.
+   */
+  it("PATCH complete on an already-completed cook returns 200 without re-running side-effects", async () => {
+    const [completedCook] = await db
+      .insert(cooksTable)
+      .values({
+        userId: TEST_USER_ID,
+        foodType: "pork shoulder",
+        targetTempF: 195,
+        cookTempF: 225,
+        status: "completed",
+        actualStartAt: new Date(Date.now() - 8 * 60 * 60_000),
+        actualEndAt: new Date(Date.now() - 60_000),
+      })
+      .returning();
+    createdCookIds.push(completedCook.id);
+
+    const smokerMock = vi.mocked(invalidateSmokerInsightsCache);
+    const liveActivityMock = vi.mocked(endLiveActivitiesForCook);
+    const thinMock = vi.mocked(thinTemperatureReadings);
+    smokerMock.mockClear();
+    liveActivityMock.mockClear();
+    thinMock.mockClear();
+
+    const app = buildApp();
+    const res = await request(app)
+      .patch(`/api/cooks/${completedCook.id}`)
+      .send({ status: "completed" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(completedCook.id);
+    expect(res.body.status).toBe("completed");
+
+    // The guard short-circuits; no side-effect must have been called.
+    expect(smokerMock).not.toHaveBeenCalled();
+    expect(liveActivityMock).not.toHaveBeenCalled();
+    expect(thinMock).not.toHaveBeenCalled();
   });
 });

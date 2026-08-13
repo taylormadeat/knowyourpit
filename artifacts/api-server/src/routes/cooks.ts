@@ -689,13 +689,32 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
     Object.keys(updateData).length === 1 &&
     "status" in updateData;
 
-  const updateWhere = isStatusOnlyActivate
-    ? and(
-        eq(cooksTable.id, params.data.id),
-        eq(cooksTable.userId, req.userId),
-        ne(cooksTable.status, "active"),
-      )
-    : and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId));
+  // ── Complete transition guard (atomic) ──────────────────────────────────────
+  // Mirrors the activate guard above. Completing a cook has heavier side-effects
+  // (outlier detection, temperature thinning, smoker calibration cache
+  // invalidation, live activity teardown). Two concurrent PATCH → "completed"
+  // requests would run all of those twice. Guard this narrowly: when updateData
+  // contains only `status: "completed"`, condition the UPDATE on the cook not
+  // already being completed so the database resolves the race atomically.
+  const isStatusOnlyComplete =
+    parsed.data.status === "completed" &&
+    Object.keys(updateData).length === 1 &&
+    "status" in updateData;
+
+  const updateWhere =
+    isStatusOnlyActivate
+      ? and(
+          eq(cooksTable.id, params.data.id),
+          eq(cooksTable.userId, req.userId),
+          ne(cooksTable.status, "active"),
+        )
+      : isStatusOnlyComplete
+        ? and(
+            eq(cooksTable.id, params.data.id),
+            eq(cooksTable.userId, req.userId),
+            ne(cooksTable.status, "completed"),
+          )
+        : and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId));
 
   const [cook] = await db.update(cooksTable).set(updateData)
     .where(updateWhere)
@@ -711,6 +730,27 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
         .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)))
         .limit(1);
       if (existing?.status === "active") {
+        let existingGrillName: string | null = null;
+        if (existing.grillId) {
+          const [g] = await db
+            .select({ name: grillsTable.name })
+            .from(grillsTable)
+            .where(eq(grillsTable.id, existing.grillId));
+          existingGrillName = g?.name ?? null;
+        }
+        res.status(200).json({ ...normalizeCookProbeAssignments(existing), grillName: existingGrillName });
+        return;
+      }
+    }
+    if (isStatusOnlyComplete) {
+      // Cook is already completed — this is a duplicate completion request.
+      // Return the existing row without re-running any side-effects.
+      const [existing] = await db
+        .select()
+        .from(cooksTable)
+        .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)))
+        .limit(1);
+      if (existing?.status === "completed") {
         let existingGrillName: string | null = null;
         if (existing.grillId) {
           const [g] = await db
