@@ -18,14 +18,18 @@ Before running `eas submit` or triggering the GitHub Actions submit workflow:
 4. Then submit.
 
 ## Current known blockers (as of August 2026)
-- https://knowyourpit.com/privacy returns 404 — knowyourpit.com is hosted on GoDaddy (NOT the Replit marketing site); pages must be created there. Standalone HTML files exported to `artifacts/marketing/dist/standalone/privacy.html` and `terms.html` for pasting into GoDaddy's HTML block editor.
-- https://knowyourpit.com/terms returns 404 — same as above.
-- Reviewer credentials in `docs/app-store-review-notes.md` are still placeholder text
+- Reviewer credentials in `docs/app-store-review-notes.md` are still placeholder text (user must fill in).
 
-## Important: knowyourpit.com hosting
-The live domain knowyourpit.com is served by GoDaddy, not by the Replit marketing artifact.
-The Replit marketing site (artifacts/marketing) is a separate codebase that does NOT serve the live domain.
-Any changes to public-facing pages (privacy, terms, support) must be made in GoDaddy's site editor.
+## Important: knowyourpit.com hosting (corrected)
+knowyourpit.com IS hosted on Replit (GoDaddy is only the registrar). The verified deployment domains are
+**www.knowyourpit.com** (marketing site) and api.knowyourpit.com. The apex domain only 301-redirects at `/`;
+all other apex paths return 404 — always use www URLs for deep links (privacy/terms).
+
+**SPA routing lesson:** Replit's static artifact handler ignored the `[[services.production.rewrites]]` rules
+entirely (even `/index.html` by name returned 404 — only `/` was served). Fix: marketing artifact runs
+`vite preview` as a runnable production service instead of `serve = "static"`. A code review flagged vite
+preview as non-production-grade; accepted as a deliberate exception because the supported static+rewrite path
+was demonstrably broken on the platform. If the platform static rewrites start working, switching back is fine.
 
 ## Script location
 `artifacts/knowyourpit/scripts/pre-submission-review.sh`
@@ -35,9 +39,13 @@ Also registered as a named validation step: `pre-submission-review`
 ## Checklist covered by the script
 1. Test suite (815 tests as of August 2026)
 2. Typecheck (zero TypeScript errors)
-3. Privacy policy URL (https://knowyourpit.com/privacy) → must be 200
-4. Terms URL (https://knowyourpit.com/terms) → must be 200
+3. Privacy policy URL (https://www.knowyourpit.com/privacy) → must be 200
+4. Terms URL (https://www.knowyourpit.com/terms) → must be 200
 5. Reviewer credentials not placeholder in docs/app-store-review-notes.md
 6. PrivacyInfo.xcprivacy present with NSPrivacyTracking + NSPrivacyAccessedAPITypes
 7. ITSAppUsesNonExemptEncryption = false in app.config.js
 8. Build number readable from app.config.js (manual confirm it's higher than last Apple-accepted)
+
+## Post-URL-fix reminder
+The in-app privacy/terms links were changed to www URLs after build 132 was produced — any submission
+must be a NEW build (bump build number) so the binary contains the working www links.
