@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1200px; height: 630px; overflow: hidden;
+    background: #0E0E10;
+    font-family: 'Inter', -apple-system, sans-serif;
+    display: flex; align-items: stretch;
+  }
+
+  /* ── Left ── */
+  .left {
+    width: 520px; flex-shrink: 0;
+    display: flex; flex-direction: column;
+    padding: 56px 56px 56px 72px;
+  }
+
+  .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .brand-icon { width: 28px; height: 28px; object-fit: contain; }
+  .brand-name { font-size: 20px; font-weight: 600; color: rgba(244,241,234,0.42); letter-spacing: -0.01em; }
+  .brand-name span { color: #D3642D; }
+
+  .eyebrow {
+    margin-top: 36px;
+    font-size: 16px; font-weight: 600; letter-spacing: 0.18em;
+    text-transform: uppercase; color: #D3642D;
+  }
+
+  .headline {
+    margin-top: 14px;
+    font-size: 64px; font-weight: 800; line-height: 1.0;
+    letter-spacing: -0.04em; color: #F4F1EA;
+  }
+  .headline .accent { color: #D3642D; }
+
+  .tagline {
+    margin-top: auto;
+    font-size: 18px; font-weight: 400;
+    color: rgba(244,241,234,0.28);
+  }
+  .tagline strong { font-weight: 600; color: rgba(244,241,234,0.45); }
+
+  /* divider */
+  .divider {
+    width: 1px; flex-shrink: 0;
+    background: linear-gradient(180deg, transparent 5%, rgba(244,241,234,0.08) 25%, rgba(244,241,234,0.08) 75%, transparent 95%);
+  }
+
+  /* ── Right ── */
+  .right {
+    flex: 1;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 56px 72px 56px 56px;
+    gap: 32px;
+  }
+
+  .bullet {
+    display: flex; align-items: flex-start; gap: 22px;
+  }
+  .bullet-dot {
+    width: 11px; height: 11px; border-radius: 50%;
+    background: #D3642D; flex-shrink: 0;
+    margin-top: 10px;
+    box-shadow: 0 0 12px rgba(211,100,45,0.6);
+  }
+  .bullet-text {
+    font-size: 32px; font-weight: 600; color: rgba(244,241,234,0.85);
+    letter-spacing: -0.02em; line-height: 1.15;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+  <div class="left">
+    <div class="brand">
+      <img class="brand-icon" src="../icon-transparent-light.png" alt="">
+      <span class="brand-name">know<span>your</span>pit</span>
+    </div>
+
+    <p class="eyebrow">Multi-Cook</p>
+
+    <h1 class="headline">all at the<br><span class="accent">same time.</span></h1>
+
+    <span class="tagline"><strong>knowyourpit.</strong> own your cook.</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="right">
+    <div class="bullet">
+      <div class="bullet-dot"></div>
+      <span class="bullet-text">set one serve time</span>
+    </div>
+    <div class="bullet">
+      <div class="bullet-dot"></div>
+      <span class="bullet-text">it builds the schedule backwards</span>
+    </div>
+    <div class="bullet">
+      <div class="bullet-dot"></div>
+      <span class="bullet-text">everything comes off the pit together</span>
+    </div>
+  </div>
+</body>
+</html>
