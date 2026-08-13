@@ -165,6 +165,7 @@ vi.mock("../../lib/smokerCalibration", async (importOriginal) => {
 // Imports that depend on the mocked db (must come after vi.mock calls)
 // ─────────────────────────────────────────────────────────────────────────────
 import { db, cooksTable } from "@workspace/db";
+import { clearHomeInsightsCache } from "../ai";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // App factory
@@ -354,5 +355,123 @@ describe("POST /cooks — idempotency / dedup", () => {
     expect(res!.status).toBe(200);
     expect(res!.body.id).toBe(existingCook.id);
     expect(res!.body.foodType).toBe("brisket");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /cooks/:id — activate idempotency guard
+// ─────────────────────────────────────────────────────────────────────────────
+describe("PATCH /cooks/:id — activate idempotency guard", () => {
+  /**
+   * Two concurrent PATCH requests race to activate the same planned cook.
+   * Both should return 200 with the same cook id and status="active".
+   * The conditional UPDATE (WHERE status != 'active') means exactly one
+   * request wins the database UPDATE; the other hits the fallback path and
+   * returns the already-active row. clearHomeInsightsCache therefore fires
+   * exactly once (only from the winning request's full update path).
+   */
+  it("concurrent PATCH activate requests both return 200 and side-effects fire exactly once", async () => {
+    const [plannedCook] = await db
+      .insert(cooksTable)
+      .values({
+        userId: TEST_USER_ID,
+        foodType: "ribs",
+        targetTempF: 195,
+        cookTempF: 225,
+        status: "planned",
+      })
+      .returning();
+    createdCookIds.push(plannedCook.id);
+
+    const cacheMock = vi.mocked(clearHomeInsightsCache);
+    cacheMock.mockClear();
+
+    const app = buildApp();
+
+    const [res1, res2] = await Promise.all([
+      request(app)
+        .patch(`/api/cooks/${plannedCook.id}`)
+        .send({ status: "active" }),
+      request(app)
+        .patch(`/api/cooks/${plannedCook.id}`)
+        .send({ status: "active" }),
+    ]);
+
+    // Both callers receive a successful response with consistent data.
+    expect(res1.status).toBe(200);
+    expect(res2.status).toBe(200);
+    expect(res1.body.id).toBe(plannedCook.id);
+    expect(res2.body.id).toBe(plannedCook.id);
+    expect(res1.body.status).toBe("active");
+    expect(res2.body.status).toBe("active");
+
+    // The conditional UPDATE ensures exactly one request ran the full update
+    // path (including clearHomeInsightsCache); the other hit the guard.
+    expect(cacheMock).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * A single PATCH to activate an already-active cook must return 200 without
+   * re-running any side-effects. The conditional UPDATE returns no rows
+   * (status is already 'active'), so the handler falls back to fetching and
+   * returning the existing row without touching clearHomeInsightsCache.
+   */
+  it("PATCH activate on an already-active cook returns 200 without re-running side-effects", async () => {
+    const [activeCook] = await db
+      .insert(cooksTable)
+      .values({
+        userId: TEST_USER_ID,
+        foodType: "chicken",
+        targetTempF: 165,
+        cookTempF: 275,
+        status: "active",
+      })
+      .returning();
+    createdCookIds.push(activeCook.id);
+
+    const cacheMock = vi.mocked(clearHomeInsightsCache);
+    cacheMock.mockClear();
+
+    const app = buildApp();
+    const res = await request(app)
+      .patch(`/api/cooks/${activeCook.id}`)
+      .send({ status: "active" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(activeCook.id);
+    expect(res.body.status).toBe("active");
+    // The guard short-circuits; clearHomeInsightsCache must not be called.
+    expect(cacheMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * A combined PATCH (status + another field) to an already-active cook must
+   * still apply the non-status field changes. The narrowly-scoped guard only
+   * protects status-only activate retries and must not interfere with combined
+   * updates.
+   */
+  it("combined activate + field update on an already-active cook applies all fields", async () => {
+    const [activeCook] = await db
+      .insert(cooksTable)
+      .values({
+        userId: TEST_USER_ID,
+        foodType: "brisket",
+        targetTempF: 200,
+        cookTempF: 225,
+        status: "active",
+      })
+      .returning();
+    createdCookIds.push(activeCook.id);
+
+    const app = buildApp();
+    const res = await request(app)
+      .patch(`/api/cooks/${activeCook.id}`)
+      .send({ status: "active", targetTempF: 203 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(activeCook.id);
+    expect(res.body.status).toBe("active");
+    // Non-status field must be updated (guard does not apply here).
+    expect(res.body.targetTempF).toBe(203);
   });
 });

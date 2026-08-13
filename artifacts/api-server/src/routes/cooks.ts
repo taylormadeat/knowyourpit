@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc, count, sql } from "drizzle-orm";
+import { eq, and, desc, count, sql, ne } from "drizzle-orm";
 import { db, cooksTable, grillsTable, cookCheckins, temperatureReadingsTable } from "@workspace/db";
 import {
   CreateCookBody,
@@ -677,10 +677,54 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
     }
   }
 
+  // ── Activate transition guard (atomic) ───────────────────────────────────
+  // A pure status-only activate retry (body = { status: "active" } with no
+  // other fields) could fire twice if two concurrent requests race through.
+  // Guard this narrowly: when updateData contains only `status: "active"`,
+  // condition the UPDATE on the cook not already being active. The database
+  // resolves the race atomically — exactly one request wins the UPDATE; the
+  // other receives an empty RETURNING set and is handled below.
+  // Non-status field updates (e.g. a combined activate + note patch) always
+  // go through the unconditional UPDATE to preserve all field changes.
+  const isStatusOnlyActivate =
+    parsed.data.status === "active" &&
+    Object.keys(updateData).length === 1 &&
+    "status" in updateData;
+
+  const updateWhere = isStatusOnlyActivate
+    ? and(
+        eq(cooksTable.id, params.data.id),
+        eq(cooksTable.userId, req.userId),
+        ne(cooksTable.status, "active"),
+      )
+    : and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId));
+
   const [cook] = await db.update(cooksTable).set(updateData)
-    .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)))
+    .where(updateWhere)
     .returning();
   if (!cook) {
+    if (isStatusOnlyActivate) {
+      // Cook is already active — this is a duplicate activate request.
+      // Fetch the current row and return it so both callers see a consistent
+      // 200 without re-emitting side-effects (e.g. live activity start).
+      const [existing] = await db
+        .select()
+        .from(cooksTable)
+        .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)))
+        .limit(1);
+      if (existing?.status === "active") {
+        let existingGrillName: string | null = null;
+        if (existing.grillId) {
+          const [g] = await db
+            .select({ name: grillsTable.name })
+            .from(grillsTable)
+            .where(eq(grillsTable.id, existing.grillId));
+          existingGrillName = g?.name ?? null;
+        }
+        res.status(200).json({ ...normalizeCookProbeAssignments(existing), grillName: existingGrillName });
+        return;
+      }
+    }
     res.status(404).json({ error: "Cook not found" });
     return;
   }
