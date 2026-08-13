@@ -18,6 +18,7 @@ import { requireAuth } from "../middlewares/requireAuth";
 import type { AiCheckinItem } from "@workspace/checkin-schedule";
 import { clearHomeInsightsCache } from "./ai";
 import { invalidateSmokerInsightsCache } from "../lib/smokerCalibration";
+import { isPgError } from "../lib/pgError";
 import { endLiveActivitiesForCook } from "../lib/liveActivityPush";
 import { thinTemperatureReadings } from "../lib/thinTemperatureReadings";
 import { computeCookHealthScore } from "./cookEvents";
@@ -300,12 +301,9 @@ router.post("/cooks", requireAuth, async (req: any, res): Promise<void> => {
     // Unique constraint violation — a duplicate slipped past the pre-insert guard
     // (e.g. a race condition between two concurrent retries). Fetch and return the
     // existing row so the client treats the request as idempotent.
-    // drizzle-orm wraps pg errors in DrizzleQueryError; the real pg error code
-    // lives in err.cause.code (23505 = unique_violation). Fall back to err.code
-    // to handle any future driver that surfaces it at the top level.
-    const pgErr = err as { code?: string; cause?: { code?: string } };
-    const pgErrCode = pgErr?.code ?? pgErr?.cause?.code;
-    if (pgErrCode === "23505" && incomingSessionId && incomingPlannedStartAt) {
+    // drizzle-orm wraps pg errors in DrizzleQueryError; isPgError() checks both
+    // err.code and err.cause.code so this works regardless of driver version.
+    if (isPgError(err, "23505") && incomingSessionId && incomingPlannedStartAt) {
       const [existing] = await db
         .select()
         .from(cooksTable)
