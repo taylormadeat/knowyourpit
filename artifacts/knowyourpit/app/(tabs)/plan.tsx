@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { getTokenSafe } from "@/lib/getTokenSafe";
 import { markBgRefining, clearBgRefining, notifyBgAiRefined } from "@/lib/bgAiRefining";
 import {
@@ -12,11 +12,12 @@ import {
   FlatList,
   ScrollView,
   Platform,
+  AppState,
 } from "react-native";
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { fmtMinutes } from "@/utils/duration";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -45,6 +46,7 @@ import {
   useDeleteCook,
   useGetCook,
   useListCooks,
+  listCooks,
   useGetTechniquePresets,
   useListUserTechniquePresets,
   useCreateUserTechniquePreset,
@@ -125,6 +127,13 @@ import { MultiCookResultModal } from "@/components/plan-screen/MultiCookResultMo
 import { MultiCookAddItemModal, type MultiItem } from "@/components/plan-screen/MultiCookAddItemModal";
 import { ThawStatusBanner } from "@/components/cook-detail/ThawStatusBanner";
 import { MultiCookBanner } from "@/components/plan-screen/MultiCookBanner";
+import {
+  type PendingCreate,
+  isPendingCreateFresh,
+  shouldReusePendingCreate,
+  findPendingCook,
+  createIntentFingerprint,
+} from "@/components/plan-screen/pendingCreate";
 
 const COOK_METHOD_STORAGE_PREFIX = "@knowyourpit:cookMethod:";
 const MEAT_START_TEMP_STORAGE_PREFIX = "@knowyourpit:meatStartTemp:";
@@ -146,6 +155,9 @@ const AI_FETCH_TIMEOUT_MS = 45_000;
 // cold-started autoscale backend room to respond on the first attempt; a
 // timed-out idempotent create is retried once (see handleSubmit).
 const MUTATION_TIMEOUT_MS = 25_000;
+// How long a pending create may run before the watchdog surfaces the
+// "still working" state with a Cancel escape hatch.
+const SUBMIT_SLOW_AFTER_MS = 6_000;
 
 async function loadLastCookMethod(cutName: string): Promise<QpCookMethod | null> {
   try {
@@ -499,6 +511,20 @@ export default function PlanScreen() {
   // function while the first is still in-flight (even during the narrow
   // window before `isSubmitting` disables the button in React's render pass).
   const submitInFlightRef = useRef(false);
+  // ── Start-cook watchdog & recovery ──────────────────────────────────────
+  // submitSeqRef is a generation counter: bumping it invalidates the handlers
+  // of any submit still in flight (cancel, foreground recovery). Each
+  // handleSubmit captures its own generation and no-ops if it changed.
+  const submitSeqRef = useRef(0);
+  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // True once a submit has been pending longer than SUBMIT_SLOW_AFTER_MS —
+  // shows the "still working / Cancel" row under the submit button.
+  const [submitSlow, setSubmitSlow] = useState(false);
+  // The idempotency key of the most recent uncertain create (in flight,
+  // timed out, or cancelled). Cleared on confirmed success/failure. Reused
+  // on retry so the server dedup guard prevents duplicate cooks, and used
+  // by foreground recovery to find an already-created cook.
+  const pendingCreateRef = useRef<PendingCreate | null>(null);
   // Ref guard for handleMultiCook — prevents a rapid double-tap from queuing
   // a second concurrent AI request while the loading modal is animating in.
   const multiCookRunningRef = useRef(false);
@@ -685,6 +711,71 @@ export default function PlanScreen() {
     setFrozenConsumedThisCook(false);
     setThawMethod("fridge");
   };
+
+  // ── Start-cook watchdog: cancel & foreground recovery ────────────────
+  // Cancel the wait on a stalled create. Bumping the generation makes the
+  // in-flight submit's handlers no-op when the request eventually resolves.
+  // pendingCreateRef is intentionally KEPT: a retry reuses the same
+  // idempotency key (the server dedup guard returns the existing cook) and
+  // foreground recovery can still find an already-created cook.
+  const cancelSubmitWait = () => {
+    submitSeqRef.current++;
+    submitInFlightRef.current = false;
+    stopSubmitting();
+    setSubmitSlow(false);
+    if (slowTimerRef.current) {
+      clearTimeout(slowTimerRef.current);
+      slowTimerRef.current = null;
+    }
+  };
+
+  // If a create was in flight (or timed out / was cancelled) and the user
+  // backgrounds + foregrounds the app, check whether the cook actually made
+  // it to the server; if so, clear the stuck state and navigate to it.
+  const recoverPendingCook = async () => {
+    const pending = pendingCreateRef.current;
+    if (!isPendingCreateFresh(pending, Date.now())) {
+      if (pending) pendingCreateRef.current = null;
+      return;
+    }
+    try {
+      const cooks = await listCooks({ status: ListCooksStatus.active });
+      const match = findPendingCook(cooks as Array<Cook & { sessionId?: string | null }>, pending);
+      // Re-check the ref: a concurrent success/cancel may have handled it.
+      if (!match || pendingCreateRef.current?.sessionId !== pending.sessionId) return;
+      pendingCreateRef.current = null;
+      cancelSubmitWait(); // clears spinner state + invalidates the stale generation
+      resetForm();
+      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
+      router.push(`/cooks/${match.id}` as any);
+    } catch {
+      // Recovery is best-effort — the user can still retry manually.
+    }
+  };
+  // Keep a ref to the latest closure so the AppState listener (registered
+  // once) never calls a stale version.
+  const recoverPendingCookRef = useRef(recoverPendingCook);
+  recoverPendingCookRef.current = recoverPendingCook;
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => {
+      if (next === "active") void recoverPendingCookRef.current();
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Warm the Clerk token whenever the Plan screen gains focus. The phone is
+  // often locked/idle right before a cook starts, so the first "Start
+  // Cooking Now" tap could otherwise await a cold or stalled SecureStore
+  // read. Fire-and-forget; a null result triggers one forced refresh.
+  useFocusEffect(
+    useCallback(() => {
+      void getTokenSafe(getToken)
+        .then(t => (t === null ? getTokenSafe(getToken, 8000, true) : t))
+        .catch(() => {});
+    }, [getToken]),
+  );
 
   const resetMultiForm = () => {
     setMultiItems([]);
@@ -1210,6 +1301,21 @@ export default function PlanScreen() {
     // startSubmitting() sets isSubmitting=true synchronously — the contract
     // tested in usePlanLoadingState.test.ts.
     startSubmitting();
+    // Capture this submit's generation. Cancel / foreground recovery bump the
+    // counter, telling this invocation to no-op when its promise resolves.
+    const mySubmitSeq = ++submitSeqRef.current;
+    // The idempotency sessionId this submit ends up using (set on the CREATE
+    // path). Hoisted so the catch/finally blocks can identify "our" pending
+    // record without clobbering one owned by a newer retry.
+    let mySessionId: string | undefined;
+    // Watchdog: after SUBMIT_SLOW_AFTER_MS of pending create, surface the
+    // "still working / Cancel" row so the user is never stuck on a silent
+    // spinner for the full mutation timeout.
+    setSubmitSlow(false);
+    if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+    slowTimerRef.current = setTimeout(() => {
+      if (submitSeqRef.current === mySubmitSeq) setSubmitSlow(true);
+    }, SUBMIT_SLOW_AFTER_MS);
     await new Promise<void>(resolve => setTimeout(resolve, 0));
 
     // try/finally guarantees isSubmitting resets on every exit path (early
@@ -1396,14 +1502,57 @@ export default function PlanScreen() {
       // planned cook carrying a sessionId would be hidden behind the multi-cook
       // grouping on the Cooks tab, and idempotency matters most for the
       // live-cook start flow where a slow first attempt is most likely.
+      // If a recent create for the IDENTICAL intent is still uncertain (timed
+      // out or cancelled mid-flight), reuse its idempotency key: if that
+      // request actually landed, the server dedup guard returns the existing
+      // cook instead of creating a duplicate. Any changed form value produces
+      // a different fingerprint → a fresh key (a genuinely new cook).
+      // NOTE: no time-derived values here — they'd change every second and
+      // defeat reuse for a true identical retry.
+      const createFingerprint = createIntentFingerprint({
+        foodType: selectedCut.name,
+        weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : null,
+        sizingLabel: sizeOutput.sizingLabel ?? null,
+        targetTempF: targetTempF || null,
+        cookTempF: cookTempF || null,
+        grillId: grillId ?? null,
+        notes: noteParts.join("\n\n") || null,
+        mode: effectiveCookNowMode,
+        frozen: frozenForCook ?? null,
+        preheatMinutes: preheatMins,
+        restMinutes: restMins,
+        qp: [qpCookMethod, qpMeatStartTemp, qpInjection, qpSpritz, qpWrapFinish],
+      });
+      const reusablePending = shouldReusePendingCreate(
+        pendingCreateRef.current,
+        createFingerprint,
+        Date.now(),
+      )
+        ? pendingCreateRef.current
+        : null;
       const idempotencySessionId =
         effectiveCookNowMode === "now" && schedule?.startAt
-          ? Crypto.randomUUID()
+          ? (reusablePending?.sessionId ?? Crypto.randomUUID())
           : undefined;
+      // plannedStartAt is part of the server dedup key — a retry must send
+      // the same value as the original attempt or the dedup guard misses.
+      const idempotencyPlannedStartAt =
+        effectiveCookNowMode === "now"
+          ? (reusablePending?.plannedStartAt ?? schedule?.startAt ?? null)
+          : null;
       // A retry is only safe when the server can dedup it (both sessionId and
       // plannedStartAt present). Otherwise we make a single attempt so a slow
       // network never produces a duplicate cook.
       const canRetryCreate = !!idempotencySessionId;
+      mySessionId = idempotencySessionId;
+      if (idempotencySessionId && idempotencyPlannedStartAt) {
+        pendingCreateRef.current = {
+          sessionId: idempotencySessionId,
+          plannedStartAt: idempotencyPlannedStartAt,
+          fingerprint: createFingerprint,
+          startedAt: reusablePending?.startedAt ?? Date.now(),
+        };
+      }
 
       // Promise.race provides a per-attempt ceiling (MUTATION_TIMEOUT_MS). On a
       // stalled connection mutateAsync can hang indefinitely — the race rejects
@@ -1427,7 +1576,9 @@ export default function PlanScreen() {
                 actualStartAt: new Date() as any,
                 // Save deterministic baseline planned times so the live cook
                 // timeline has a usable schedule while background AI refines.
-                ...(schedule?.startAt ? { plannedStartAt: schedule.startAt as any } : {}),
+                // Uses the idempotency value so a retry sends the exact same
+                // plannedStartAt as the original attempt (server dedup key).
+                ...(idempotencyPlannedStartAt ? { plannedStartAt: idempotencyPlannedStartAt as any } : {}),
                 ...(schedule?.restEndAt ? { plannedEndAt: schedule.restEndAt as any } : {}),
                 // When starting a frozen cook immediately, record the thaw
                 // start time now so the cook detail screen can compute
@@ -1505,12 +1656,42 @@ export default function PlanScreen() {
           // server returns the already-created cook (200) via the dedup guard,
           // so this never creates a duplicate. Non-idempotent or non-timeout
           // errors propagate unchanged to the outer catch.
-          if (attemptTimedOut && canRetryCreate) {
+          // Gate the automatic retry on the submit generation: if the user
+          // cancelled (or foreground recovery took over) while the first
+          // attempt was pending, we must not deliberately send another
+          // request for the abandoned intent.
+          if (
+            attemptTimedOut &&
+            canRetryCreate &&
+            submitSeqRef.current === mySubmitSeq
+          ) {
             return await attemptCreate();
           }
           throw attemptErr;
         }
       })();
+      // The user cancelled the wait, or foreground recovery already handled
+      // this create, while the request was in flight. Do nothing visible —
+      // just refresh the lists so the (now confirmed) cook shows up.
+      if (submitSeqRef.current !== mySubmitSeq) {
+        // Deliberately do NOT clear pendingCreateRef here. Retries reuse the
+        // same sessionId by design, so a sessionId match cannot distinguish
+        // our record from a newer retry's — clearing could erase the key a
+        // still-running retry depends on for dedup. Leaving the record is
+        // safe: a retry with the same key resolves via the server dedup
+        // guard (and its own success path clears it), and foreground
+        // recovery simply navigates to this now-confirmed cook.
+        qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+        qc.invalidateQueries({ queryKey: ["paywall", "usage"] });
+        return;
+      }
+      // Create confirmed by the CURRENT generation — this invocation owns the
+      // active pending record (any newer submit would have bumped the
+      // generation and returned above), so it is safe to clear.
+      if (pendingCreateRef.current?.sessionId === idempotencySessionId) {
+        pendingCreateRef.current = null;
+      }
       // Fire-and-forget: schedule the thaw/temper/preheat alerts immediately
       // so they're armed even if the user never opens the cook detail screen.
       // The cook detail screen's hook will re-reconcile these on mount.
@@ -1671,17 +1852,27 @@ export default function PlanScreen() {
         router.push("/(tabs)/cooks" as any);
       }
     } catch (e: any) {
+      // Cancelled / already recovered while in flight — swallow silently.
+      if (submitSeqRef.current !== mySubmitSeq) return;
       // Cook creation timed out — connection too slow or stalled.
       const isTimeout =
         e?.message === "COOK_MUTATION_TIMEOUT" ||
         e?.name === "AbortError" ||
         (typeof e?.message === "string" && e.message.includes("timed out"));
       if (isTimeout) {
+        // Keep pendingCreateRef: the request may still have landed. A retry
+        // reuses the same idempotency key, and returning to the app later
+        // triggers foreground recovery.
         Alert.alert(
           "Connection Timeout",
-          "Request timed out — check your connection and try again.",
+          "The request timed out — your connection may be slow. Tap Start again to retry; if the cook already went through, we'll pick it up instead of duplicating it.",
         );
         return;
+      }
+      // Definitive (non-timeout) failure — the cook was not created. Clear
+      // only our own record so a newer retry's key is never erased.
+      if (mySessionId && pendingCreateRef.current?.sessionId === mySessionId) {
+        pendingCreateRef.current = null;
       }
       // Free user hit the cook cap → upgrade modal instead of generic error.
       if (parseAndShowFromError(e)) return;
@@ -1695,8 +1886,18 @@ export default function PlanScreen() {
       Alert.alert("Error", e?.message || "Failed to save cook. Please try again.");
     }
     } finally {
-      submitInFlightRef.current = false;
-      stopSubmitting();
+      // Only reset if this submit is still the active generation — cancel or
+      // foreground recovery may have reset already (and a NEW submit could
+      // even be in flight; resetting here would break its tap guard).
+      if (submitSeqRef.current === mySubmitSeq) {
+        submitInFlightRef.current = false;
+        stopSubmitting();
+        setSubmitSlow(false);
+        if (slowTimerRef.current) {
+          clearTimeout(slowTimerRef.current);
+          slowTimerRef.current = null;
+        }
+      }
     }
   };
 
@@ -3453,6 +3654,41 @@ export default function PlanScreen() {
             </>
           )}
         </Pressable>
+
+        {/* ── Slow-submit watchdog row ──
+            Appears after ~6s of pending create so the user is never stuck on
+            a silent spinner. Cancel re-enables the button; a retry reuses the
+            same idempotency key so no duplicate cook is ever created. */}
+        {isSubmitting && submitSlow && (
+          <View
+            testID="submit-slow-row"
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
+              marginTop: 8,
+              paddingHorizontal: 4,
+            }}
+          >
+            <ActivityIndicator size="small" color={colors.mutedForeground} />
+            <Text
+              style={{
+                flex: 1,
+                fontSize: 12,
+                fontFamily: "Inter_400Regular",
+                color: colors.mutedForeground,
+                lineHeight: 16,
+              }}
+            >
+              Still working — your connection looks slow. Keep waiting, or cancel and try again.
+            </Text>
+            <Pressable testID="submit-slow-cancel" onPress={cancelSubmitWait} hitSlop={8}>
+              <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.primary }}>
+                Cancel
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* ── Frozen-thaw informational callout (Cook Now + frozen, Begin Thawing Now path only) ── */}
         {frozenEnabled && cookNowMode === "now" && showBeginThawCallout && (
