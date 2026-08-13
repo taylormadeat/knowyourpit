@@ -159,8 +159,8 @@ The following URLs are referenced in the app and must be reachable without authe
 
 | URL | Location in app | Status |
 |---|---|---|
-| https://knowyourpit.com/privacy | More → Privacy Policy, PaywallModal footer | Must be public |
-| https://knowyourpit.com/terms | More → Terms of Service | Must be public |
+| https://www.knowyourpit.com/privacy | More → Privacy Policy, PaywallModal footer | Must be public |
+| https://www.knowyourpit.com/terms | More → Terms of Service | Must be public |
 | support@knowyourpit.com | More → Contact Support, in-app support modal | Email (no auth) |
 
 > **Action required before submission:** Verify both URLs load in a browser without

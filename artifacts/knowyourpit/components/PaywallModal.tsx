@@ -581,11 +581,11 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
                 <Text style={[styles.linkText, { color: colors.mutedForeground }]}>Restore purchases</Text>
               </Pressable>
               <View style={styles.policyRow}>
-                <Pressable onPress={() => Linking.openURL("https://knowyourpit.com/privacy")} hitSlop={8}>
+                <Pressable onPress={() => Linking.openURL("https://www.knowyourpit.com/privacy")} hitSlop={8}>
                   <Text style={[styles.policyLink, { color: colors.mutedForeground }]}>Privacy Policy</Text>
                 </Pressable>
                 <Text style={[styles.policySep, { color: colors.mutedForeground }]}>·</Text>
-                <Pressable onPress={() => Linking.openURL("https://knowyourpit.com/terms")} hitSlop={8}>
+                <Pressable onPress={() => Linking.openURL("https://www.knowyourpit.com/terms")} hitSlop={8}>
                   <Text style={[styles.policyLink, { color: colors.mutedForeground }]}>Terms of Service</Text>
                 </Pressable>
               </View>

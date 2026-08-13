@@ -53,7 +53,7 @@ Both the Sign In and Sign Up screens display a legal notice at the bottom of the
   "By creating an account, you agree to our Terms of Service and Privacy Policy."
 
 Both "Terms of Service" and "Privacy Policy" are underlined tappable links that open
-https://knowyourpit.com/terms and https://knowyourpit.com/privacy respectively in the
+https://www.knowyourpit.com/terms and https://www.knowyourpit.com/privacy respectively in the
 system browser.
 
 ---
@@ -90,8 +90,8 @@ The link text and destination are visible without purchasing.
 1. Tap the "More" tab.
 2. Scroll down past the Account section. A section labeled "Legal" appears.
 3. It contains two tappable rows:
-   - "Privacy Policy" — opens https://knowyourpit.com/privacy
-   - "Terms of Service" — opens https://knowyourpit.com/terms
+   - "Privacy Policy" — opens https://www.knowyourpit.com/privacy
+   - "Terms of Service" — opens https://www.knowyourpit.com/terms
 
 ---
 

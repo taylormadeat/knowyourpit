@@ -729,14 +729,14 @@ export default function SignUpScreen() {
           By creating an account, you agree to our{" "}
           <Text
             style={styles.legalNoticeLink}
-            onPress={() => Linking.openURL("https://knowyourpit.com/terms")}
+            onPress={() => Linking.openURL("https://www.knowyourpit.com/terms")}
           >
             Terms of Service
           </Text>
           {" "}and{" "}
           <Text
             style={styles.legalNoticeLink}
-            onPress={() => Linking.openURL("https://knowyourpit.com/privacy")}
+            onPress={() => Linking.openURL("https://www.knowyourpit.com/privacy")}
           >
             Privacy Policy
           </Text>

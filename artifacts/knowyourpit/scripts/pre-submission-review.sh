@@ -50,18 +50,18 @@ fi
 # ── 3. Privacy policy URL ─────────────────────────────────────────────────────
 echo ""
 echo "[ 3/8 ] Checking public URLs …"
-PRIVACY_STATUS=$(curl -sL -o /dev/null -w "%{http_code}" https://knowyourpit.com/privacy)
+PRIVACY_STATUS=$(curl -sL -o /dev/null -w "%{http_code}" https://www.knowyourpit.com/privacy)
 if [ "$PRIVACY_STATUS" = "200" ]; then
-  log_pass "https://knowyourpit.com/privacy → 200 OK"
+  log_pass "https://www.knowyourpit.com/privacy → 200 OK"
 else
-  log_fail "https://knowyourpit.com/privacy → $PRIVACY_STATUS  (Apple will reject on 5.1.1)"
+  log_fail "https://www.knowyourpit.com/privacy → $PRIVACY_STATUS  (Apple will reject on 5.1.1)"
 fi
 
-TERMS_STATUS=$(curl -sL -o /dev/null -w "%{http_code}" https://knowyourpit.com/terms)
+TERMS_STATUS=$(curl -sL -o /dev/null -w "%{http_code}" https://www.knowyourpit.com/terms)
 if [ "$TERMS_STATUS" = "200" ]; then
-  log_pass "https://knowyourpit.com/terms → 200 OK"
+  log_pass "https://www.knowyourpit.com/terms → 200 OK"
 else
-  log_fail "https://knowyourpit.com/terms → $TERMS_STATUS  (Apple requires accessible Terms link)"
+  log_fail "https://www.knowyourpit.com/terms → $TERMS_STATUS  (Apple requires accessible Terms link)"
 fi
 
 # ── 4. Reviewer credentials ───────────────────────────────────────────────────

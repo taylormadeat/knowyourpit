@@ -393,7 +393,7 @@ export default function MoreScreen() {
           <View style={[s.sectionCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
             <Pressable
               style={({ pressed }) => [s.menuItem, pressed && { opacity: 0.7 }]}
-              onPress={() => Linking.openURL("https://knowyourpit.com/privacy")}
+              onPress={() => Linking.openURL("https://www.knowyourpit.com/privacy")}
             >
               <View style={[s.menuIcon, { backgroundColor: colors.primary + "20" }]}>
                 <Feather name="shield" size={16} color={colors.primary} />
@@ -404,7 +404,7 @@ export default function MoreScreen() {
             <View style={[s.divider, { backgroundColor: colors.border }]} />
             <Pressable
               style={({ pressed }) => [s.menuItem, pressed && { opacity: 0.7 }]}
-              onPress={() => Linking.openURL("https://knowyourpit.com/terms")}
+              onPress={() => Linking.openURL("https://www.knowyourpit.com/terms")}
             >
               <View style={[s.menuIcon, { backgroundColor: colors.primary + "20" }]}>
                 <Feather name="file-text" size={16} color={colors.primary} />

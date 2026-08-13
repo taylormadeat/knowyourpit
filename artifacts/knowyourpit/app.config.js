@@ -128,7 +128,7 @@ const config = {
       projectId: "21f048d2-8424-41d4-9e01-6395719bdc30",
     },
   },
-  privacyPolicyUrl: "https://knowyourpit.com/privacy",
+  privacyPolicyUrl: "https://www.knowyourpit.com/privacy",
   owner: "taylormadeat",
 };
 
