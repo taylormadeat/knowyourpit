@@ -595,6 +595,60 @@ describe("PATCH /cooks/:id — complete idempotency guard", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// POST /cooks — null-sessionId contract
+// ─────────────────────────────────────────────────────────────────────────────
+describe("POST /cooks — null-sessionId cook contract", () => {
+  /**
+   * Cooks posted without a sessionId (e.g. quick-start cooks) are
+   * intentionally NOT deduplicated. The dedup guard in cooks.ts requires both
+   * `sessionId` and `plannedStartAt` to be present before it runs the
+   * pre-insert lookup or treats a 23505 as an idempotent retry. Without a
+   * sessionId there is no reliable identity key, so each POST creates an
+   * independent row.
+   *
+   * This test pins that contract:
+   *  - Two identical POSTs omitting sessionId must both return 201.
+   *  - The two returned cooks must have different IDs (distinct rows).
+   *
+   * If the dedup guard is ever extended to cover null-sessionId cooks via a
+   * different key (e.g. userId + foodType + plannedStartAt), this test should
+   * be updated to reflect the new intended behaviour.
+   */
+  it("two identical posts without a sessionId each create a distinct row", async () => {
+    const app = buildApp();
+
+    const body = {
+      foodType: "brisket",
+      targetTempF: 203,
+      cookTempF: 225,
+      status: "planned",
+      sessionId: null, // Explicit null — simulates quick-start cooks that send sessionId: null.
+    };
+
+    const [res1, res2] = await Promise.all([
+      request(app).post("/api/cooks").send(body),
+      request(app).post("/api/cooks").send(body),
+    ]);
+
+    // Both must succeed — the null-sessionId path has no dedup gate.
+    expect(res1.status).toBe(201);
+    expect(res2.status).toBe(201);
+
+    // Each response represents a distinct row.
+    expect(typeof res1.body.id).toBe("number");
+    expect(typeof res2.body.id).toBe("number");
+    expect(res1.body.id).not.toBe(res2.body.id);
+
+    // Track for cleanup.
+    createdCookIds.push(res1.body.id, res2.body.id);
+
+    // Neither row should carry a sessionId.
+    expect(res1.body.sessionId).toBeFalsy();
+    expect(res2.body.sessionId).toBeFalsy();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Schema smoke test — confirm the dedup unique index still exists
 // ─────────────────────────────────────────────────────────────────────────────
 describe("schema smoke test — cooks_session_dedup_idx", () => {
