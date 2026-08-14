@@ -593,3 +593,37 @@ describe("PATCH /cooks/:id — complete idempotency guard", () => {
     expect(thinMock).not.toHaveBeenCalled();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Schema smoke test — confirm the dedup unique index still exists
+// ─────────────────────────────────────────────────────────────────────────────
+describe("schema smoke test — cooks_session_dedup_idx", () => {
+  /**
+   * Query pg_indexes to assert that the unique index backing the
+   * concurrent-insert dedup guard is present on the cooks table.
+   *
+   * If a future migration accidentally drops or renames this index, the 23505
+   * constraint silently stops working and duplicate cooks can be created.
+   * This test catches that regression before it reaches users.
+   */
+  it("cooks_session_dedup_idx unique index exists on the cooks table", async () => {
+    const rows = await db.execute(
+      `SELECT indexname, tablename, indexdef
+       FROM pg_indexes
+       WHERE tablename = 'cooks'
+         AND indexname = 'cooks_session_dedup_idx'`,
+    );
+
+    expect(rows.rows).toHaveLength(1);
+
+    const idx = rows.rows[0] as {
+      indexname: string;
+      tablename: string;
+      indexdef: string;
+    };
+    expect(idx.indexname).toBe("cooks_session_dedup_idx");
+    expect(idx.tablename).toBe("cooks");
+    // Confirm the index definition describes a UNIQUE index.
+    expect(idx.indexdef.toUpperCase()).toContain("UNIQUE");
+  });
+});
