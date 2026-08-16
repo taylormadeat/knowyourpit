@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import configRouter from "./config";
 import grillsRouter from "./grills";
 import cooksRouter from "./cooks";
 import temperatureRouter from "./temperature";
@@ -23,6 +24,7 @@ import userTechniquePresetsRouter from "./userTechniquePresets";
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(configRouter);
 router.use(grillsRouter);
 router.use(cooksRouter);
 router.use(temperatureRouter);

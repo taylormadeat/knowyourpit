@@ -17,6 +17,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useUser, useAuth } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
+import { useRemoteConfig } from "@/hooks/useRemoteConfig";
+import { BigPetesHomeCard } from "@/components/partners/BigPetesHomeCard";
 import { useTopInset } from "@/hooks/useTopInset";
 import { useLayout } from "@/hooks/useLayout";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -137,6 +139,7 @@ function fmtCountdown(targetMs: number): string {
 
 export default function HomeScreen() {
   const colors = useColors();
+  const remoteConfig = useRemoteConfig();
   const router = useRouter();
   const { user } = useUser();
   const { isSignedIn } = useAuth();
@@ -811,6 +814,11 @@ export default function HomeScreen() {
           </View>
           <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
         </Pressable>
+
+        {/* ── Big Pete's partner card — shown between PitMaster and Recent Cooks ── */}
+        {remoteConfig.partnerBigPetes && (
+          <BigPetesHomeCard />
+        )}
 
         {/* ── Recent Cooks ── */}
         <View style={s.sectionHeader}>

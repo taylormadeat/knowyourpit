@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { z } from "zod";
 import { upsertEntitlementCache, invalidateProCache } from "../lib/paywall";
 import { logger } from "../lib/logger";
+import { getFlags, setFlag, type FeatureFlags } from "../lib/featureFlags";
 
 const router: IRouter = Router();
 
@@ -66,6 +67,32 @@ router.post("/admin/revoke-pro", requireAdmin, async (req, res): Promise<void> =
 
   logger.info({ msg: "admin revoke-pro", userId });
   res.json({ ok: true, userId, isPro: false });
+});
+
+const configBodySchema = z.object({
+  key: z.enum(["partnerBigPetes"] satisfies [keyof FeatureFlags, ...(keyof FeatureFlags)[]]),
+  value: z.boolean(),
+});
+
+/**
+ * POST /api/admin/config
+ *
+ * Flip a feature flag at runtime without a code change or redeploy.
+ * Requires Authorization: Bearer <ADMIN_API_TOKEN>.
+ *
+ * Body: { "key": "partnerBigPetes", "value": false }
+ */
+router.post("/admin/config", requireAdmin, (req, res): void => {
+  const parsed = configBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
+    return;
+  }
+
+  const { key, value } = parsed.data;
+  setFlag(key, value);
+  logger.info({ msg: "admin config flag set", key, value });
+  res.json({ ok: true, flags: getFlags() });
 });
 
 export default router;

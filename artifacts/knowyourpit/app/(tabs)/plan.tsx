@@ -93,6 +93,8 @@ import { usePaywallUsage } from "@/hooks/usePaywallUsage";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePlanLoadingState } from "@/hooks/usePlanLoadingState";
 import { useMultiCookLoadingState } from "@/hooks/useMultiCookLoadingState";
+import { useRemoteConfig } from "@/hooks/useRemoteConfig";
+import { BigPetesSeasoningCard } from "@/components/partners/BigPetesSeasoningCard";
 
 import { planStyles as s, probeCardStyles as sp } from "@/components/plan-screen/styles";
 import { PitMasterChatModal } from "@/components/PitMasterChatModal";
@@ -390,6 +392,8 @@ export default function PlanScreen() {
     const isOver = bannerNowMs >= finishMs;
     return fmtRemaining(remainingMs, isOver, overMs);
   }, [activeSeqData, activeCook?.plannedEndAt, bannerNowMs]);
+
+  const remoteConfig = useRemoteConfig();
 
   // ── Form state ───────────────────────────────────────────────────────
   const [cookName, setCookName] = useState("");
@@ -3654,6 +3658,14 @@ export default function PlanScreen() {
             </>
           )}
         </Pressable>
+
+        {/* ── Big Pete's seasoning card — contextual pairing for this cut ── */}
+        {remoteConfig.partnerBigPetes && cookNowMode === "now" && selectedCut && (
+          <BigPetesSeasoningCard
+            cutCategory={selectedCut.category}
+            cutName={selectedCut.name}
+          />
+        )}
 
         {/* ── Slow-submit watchdog row ──
             Appears after ~6s of pending create so the user is never stuck on
