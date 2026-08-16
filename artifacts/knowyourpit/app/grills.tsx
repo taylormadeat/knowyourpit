@@ -428,6 +428,18 @@ export default function GrillsScreen() {
     })).filter((entry) => entry.models.length > 0 || entry.brand.toLowerCase().includes(q));
   }, [catalogSearch]);
 
+  // ── Already-added catalog keys — brand+model match against the user's garage ──
+  // Key format: `${brand.toLowerCase()}|${model.toLowerCase()}` — case-insensitive
+  const alreadyAddedKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const g of (grills as any[]) ?? []) {
+      if (g.brand && g.model) {
+        set.add(`${String(g.brand).toLowerCase()}|${String(g.model).toLowerCase()}`);
+      }
+    }
+    return set;
+  }, [grills]);
+
   // ── Handlers ──
   const toggleCatalogBrand = (brand: string) => {
     setExpandedCatalogBrands((prev) => {
@@ -439,6 +451,8 @@ export default function GrillsScreen() {
 
   const handleAddFromCatalog = async (model: GrillModel, brandName: string) => {
     const key = `${brandName}|${model.name}`;
+    // Proactive guard: if this grill is already in the user's garage, skip silently.
+    if (alreadyAddedKeys.has(`${brandName.toLowerCase()}|${model.name.toLowerCase()}`)) return;
     setAddingModelKeys((prev) => new Set(prev).add(key));
 
     try {
@@ -961,6 +975,9 @@ export default function GrillsScreen() {
                           {entry.models.map((model, idx) => {
                             const modelKey = `${entry.brand}|${model.name}`;
                             const isAddingThis = addingModelKeys.has(modelKey);
+                            const isAlreadyAdded = alreadyAddedKeys.has(
+                              `${entry.brand.toLowerCase()}|${model.name.toLowerCase()}`
+                            );
                             return (
                               <Pressable
                                 key={model.name}
@@ -969,12 +986,13 @@ export default function GrillsScreen() {
                                   { borderBottomColor: colors.border },
                                   idx === entry.models.length - 1 && { borderBottomWidth: 0 },
                                   isAddingThis && { opacity: 0.6 },
+                                  isAlreadyAdded && { opacity: 0.75 },
                                 ]}
                                 onPress={() => handleAddFromCatalog(model, entry.brand)}
-                                disabled={isAddingThis}
+                                disabled={isAddingThis || isAlreadyAdded}
                               >
                                 <View style={{ flex: 1 }}>
-                                  <Text style={[s.catModelName, { color: colors.foreground }]}>{model.name}</Text>
+                                  <Text style={[s.catModelName, { color: isAlreadyAdded ? colors.mutedForeground : colors.foreground }]}>{model.name}</Text>
                                   <Text style={[s.catModelSub, { color: colors.mutedForeground }]}>
                                     {model.type} · {model.fuelType}
                                     {model.tempRange ? ` · ${model.tempRange}` : ""}
@@ -982,6 +1000,11 @@ export default function GrillsScreen() {
                                 </View>
                                 {isAddingThis ? (
                                   <ActivityIndicator size="small" color={colors.primary} />
+                                ) : isAlreadyAdded ? (
+                                  <View style={[s.addPill, { backgroundColor: "#22c55e20", borderWidth: 1, borderColor: "#22c55e50" }]}>
+                                    <Feather name="check" size={12} color="#22c55e" />
+                                    <Text style={[s.addPillText, { color: "#22c55e" }]}>Added</Text>
+                                  </View>
                                 ) : (
                                   <View style={[s.addPill, { backgroundColor: colors.primary }]}>
                                     <Feather name="plus" size={12} color="#fff" />
