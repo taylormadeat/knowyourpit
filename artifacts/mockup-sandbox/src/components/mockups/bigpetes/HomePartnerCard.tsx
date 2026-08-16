@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 
 const SEASONINGS = [
-  { name: "Steak Night",    tagline: "For beef, brisket & burgers",     desc: "The ultimate flavor for perfect steaks and burgers", img: "/__mockup/images/bp-steak-night.png",    accent: "#E84820" },
-  { name: "PORKEN",         tagline: "Competition pork & chicken rub",   desc: "Sweet & smoky — won top honors in pork & chicken", img: "/__mockup/images/bp-porken.png",         accent: "#F97316" },
-  { name: "Cajun Blast",    tagline: "Bold Cajun heat",                  desc: "Big Cajun kick with a slow-building heat for any protein", img: "/__mockup/images/bp-cajun-blast.png",    accent: "#EF4444" },
-  { name: "Everyday Tacos", tagline: "Chicken, tacos & everything",      desc: "Bold bright flavor for chicken, tacos, and beyond", img: "/__mockup/images/bp-everyday-tacos.png", accent: "#EAB308" },
+  { name: "Steak Night",    tagline: "For beef, brisket & burgers",    desc: "Steak seasoning — date night just got better",           img: "/__mockup/images/bp-steak-night.png",    accent: "#E84820" },
+  { name: "PORKEN",         tagline: "Competition pork & chicken rub", desc: "BBQ rub — your everyday meat rub for pork & chicken",   img: "/__mockup/images/bp-porken.png",         accent: "#F97316" },
+  { name: "Cajun Blast",    tagline: "Bold Cajun heat",                desc: "Cajun seasoning — blast your food with flavor",          img: "/__mockup/images/bp-cajun-blast.png",    accent: "#EF4444" },
+  { name: "Everyday Tacos", tagline: "Chicken, tacos & everything",   desc: "Taco seasoning — making tacos easy",                    img: "/__mockup/images/bp-everyday-tacos.png", accent: "#84CC16" },
 ];
 
 export default function HomePartnerCard() {
