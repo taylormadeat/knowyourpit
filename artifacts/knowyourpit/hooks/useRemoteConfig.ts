@@ -9,9 +9,10 @@ export type RemoteConfig = {
 };
 
 const DEFAULT_CONFIG: RemoteConfig = {
-  // Defaults to false so no partner cards flash visible before the first fetch
-  // resolves. The server fetch enables them once confirmed.
-  partnerBigPetes: false,
+  // Defaults to true so partner cards are visible immediately and remain visible
+  // if the config fetch times out or the server is temporarily unreachable.
+  // The server fetch can override to false if the feature needs to be disabled.
+  partnerBigPetes: true,
 };
 
 let cached: RemoteConfig | null = null;

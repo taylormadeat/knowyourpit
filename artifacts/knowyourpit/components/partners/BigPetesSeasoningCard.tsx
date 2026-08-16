@@ -139,8 +139,10 @@ export function BigPetesSeasoningCard({ cutCategory, cutName, cuts }: Props) {
           }
         }
       }
-      const distinctCategories = new Set(cuts.map(c => c.category.toLowerCase()));
-      return { pairings: merged, isMultiCook: distinctCategories.size > 1 };
+      // isMultiCook is true whenever the cuts array is provided — we're always
+      // in multi-cook mode when this prop is passed, regardless of how many
+      // distinct meat categories are represented.
+      return { pairings: merged, isMultiCook: true };
     }
     return {
       pairings: pairingsForCut(cutCategory ?? "", cutName ?? ""),
@@ -173,6 +175,11 @@ export function BigPetesSeasoningCard({ cutCategory, cutName, cuts }: Props) {
   }, [depsKey]);
 
   const current = pairings[idx];
+
+  // Guard: if pairings is ever empty or idx is transiently out of bounds
+  // (e.g. during a cut-change render before the reset effect fires), bail out
+  // safely rather than crashing on current.accent.
+  if (!current) return null;
 
   function handleShop() {
     Linking.openURL("https://bigpetesseasoning.com/store");
