@@ -124,6 +124,7 @@ import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
 import { MeatPickerModal } from "@/components/plan-screen/MeatPickerModal";
 import { isProduce } from "@/constants/meatCuts";
 import { pitTempLabel, isUnrecognisedCookMethod } from "@/utils/cookingMethod";
+import { getPitmasterDefaults } from "@/utils/pitmasterDefaults";
 import { DatePickerModal, TimePickerModal } from "@/components/plan-screen/DateTimePickerModals";
 import { MultiCookResultModal } from "@/components/plan-screen/MultiCookResultModal";
 import { MultiCookAddItemModal, type MultiItem } from "@/components/plan-screen/MultiCookAddItemModal";
@@ -532,6 +533,16 @@ export default function PlanScreen() {
   // Ref guard for handleMultiCook — prevents a rapid double-tap from queuing
   // a second concurrent AI request while the loading modal is animating in.
   const multiCookRunningRef = useRef(false);
+  // Generation counter for per-cut async hydration in handlePickCut.
+  // Incremented each time a new cut is picked, or when the user manually
+  // changes a quick-pick value. The Promise.all callback checks it before
+  // writing state so a stale (previous-cut) or invalidated (user already
+  // chose) resolution never overwrites an in-flight or user-driven value.
+  const cutPickGenRef = useRef(0);
+  // Set to true the first time any cut is picked. The mount-time global
+  // quick-pick restore skips itself once a cut has been selected, so the
+  // per-cut hydration in handlePickCut always wins.
+  const cutEverSelectedRef = useRef(false);
 
   // ── Submit state ──────────────────────────────────────────────────────
   // isSubmitting is managed by usePlanLoadingState to keep the synchronous-
@@ -569,6 +580,8 @@ export default function PlanScreen() {
   const [lastUsedSpritz, setLastUsedSpritz] = useState<QpSpritzFrequency | null>(null);
   const [qpWrapFinish, setQpWrapFinish] = useState<QpWrapFinishOption | null>(null);
   const [lastUsedWrapFinish, setLastUsedWrapFinish] = useState<QpWrapFinishOption | null>(null);
+  /** Fields whose current value was auto-filled by getPitmasterDefaults (not set by the user). */
+  const [recommendedFields, setRecommendedFields] = useState<Set<string>>(new Set());
 
   // ── User preset handlers (depend on qp* state declared above) ─────────
   const hasAnyQuickPick = !!(qpCookMethod || qpInjection || qpSpritz || qpWrapFinish || qpMeatStartTemp);
@@ -634,7 +647,7 @@ export default function PlanScreen() {
     let cancelled = false;
     AsyncStorage.getItem("plan_technique_qp")
       .then((raw) => {
-        if (cancelled || !raw) return;
+        if (cancelled || !raw || cutEverSelectedRef.current) return;
         try {
           const saved = JSON.parse(raw);
           if (cancelled) return;
@@ -714,6 +727,7 @@ export default function PlanScreen() {
     setFrozenEnabled(false);
     setFrozenConsumedThisCook(false);
     setThawMethod("fridge");
+    setRecommendedFields(new Set());
   };
 
   // ── Start-cook watchdog: cancel & foreground recovery ────────────────
@@ -878,16 +892,75 @@ export default function PlanScreen() {
     setActivePreset(null);
     setMeatPickerOpen(false);
     setPrepGuideOpen(false);
-    // Load the last-used quick-pick settings for this cut and pre-select them.
-    // The restored method came from a previous user selection — mark it as
-    loadLastCookMethod(cut.name).then(method => {
-      setQpCookMethod(method);
-      setLastUsedCookMethod(method);
+    setRecommendedFields(new Set());
+    cutEverSelectedRef.current = true;
+
+    // Load last-used quick-pick values for this cut. When no saved value
+    // exists, fall back to the PitMaster recommended default and track the
+    // field so the UI can show a "Suggested" badge.
+    // cutPickGenRef guards against two races:
+    //   (a) stale cut — user picks cut B before cut A's Promise.all resolves
+    //   (b) user chose manually — any onChange/onClear increments the gen
+    //       before this callback fires, so we skip the overwrite.
+    const thisPickGen = ++cutPickGenRef.current;
+    const defaults = getPitmasterDefaults(cut);
+    Promise.all([
+      loadLastCookMethod(cut.name),
+      loadLastMeatStartTemp(cut.name),
+      loadLastInjection(cut.name),
+      loadLastSpritz(cut.name),
+      loadLastWrapFinish(cut.name),
+    ]).then(([cookMethod, meatStartTemp, injection, spritz, wrapFinish]) => {
+      if (cutPickGenRef.current !== thisPickGen) return;
+      const recommended = new Set<string>();
+
+      if (cookMethod !== null) {
+        setQpCookMethod(cookMethod);
+        setLastUsedCookMethod(cookMethod);
+      } else {
+        setQpCookMethod(defaults.cookMethod);
+        setLastUsedCookMethod(null);
+        recommended.add("cookMethod");
+      }
+
+      if (meatStartTemp !== null) {
+        setQpMeatStartTemp(meatStartTemp);
+        setLastUsedMeatStartTemp(meatStartTemp);
+      } else {
+        setQpMeatStartTemp(defaults.meatStartTemp);
+        setLastUsedMeatStartTemp(null);
+        recommended.add("meatStartTemp");
+      }
+
+      if (injection !== null) {
+        setQpInjection(injection);
+        setLastUsedInjection(injection);
+      } else {
+        setQpInjection(defaults.injection);
+        setLastUsedInjection(null);
+        recommended.add("injection");
+      }
+
+      if (spritz !== null) {
+        setQpSpritz(spritz);
+        setLastUsedSpritz(spritz);
+      } else {
+        setQpSpritz(defaults.spritz);
+        setLastUsedSpritz(null);
+        recommended.add("spritz");
+      }
+
+      if (wrapFinish !== null) {
+        setQpWrapFinish(wrapFinish);
+        setLastUsedWrapFinish(wrapFinish);
+      } else {
+        setQpWrapFinish(defaults.wrapFinish);
+        setLastUsedWrapFinish(null);
+        recommended.add("wrapFinish");
+      }
+
+      setRecommendedFields(recommended);
     });
-    loadLastMeatStartTemp(cut.name).then(v => { setQpMeatStartTemp(v); setLastUsedMeatStartTemp(v); });
-    loadLastInjection(cut.name).then(v => { setQpInjection(v); setLastUsedInjection(v); });
-    loadLastSpritz(cut.name).then(v => { setQpSpritz(v); setLastUsedSpritz(v); });
-    loadLastWrapFinish(cut.name).then(v => { setQpWrapFinish(v); setLastUsedWrapFinish(v); });
   };
 
   // ── Multi-Cook Sequence ───────────────────────────────────────────────
@@ -2621,6 +2694,8 @@ export default function PlanScreen() {
                           }
                           if (preset.cookTempF != null) setCookTempF(String(preset.cookTempF));
                           if (preset.targetTempF != null) setTargetTempF(String(preset.targetTempF));
+                          setRecommendedFields(new Set());
+                          cutPickGenRef.current++;
                           Haptics.selectionAsync();
                         }}
                         style={{
@@ -2688,6 +2763,8 @@ export default function PlanScreen() {
                         }
                         if (preset.cookTempF != null) setCookTempF(String(preset.cookTempF));
                         if (preset.targetTempF != null) setTargetTempF(String(preset.targetTempF));
+                        setRecommendedFields(new Set());
+                        cutPickGenRef.current++;
                         Haptics.selectionAsync();
                       }}
                       style={{
@@ -3105,8 +3182,9 @@ export default function PlanScreen() {
                       value={qpCookMethod}
                       placeholder="Any"
                       onPress={() => setActiveSheet("cookMethod")}
-                      onClear={() => { setQpCookMethod(null); setActivePreset(null); }}
+                      onClear={() => { cutPickGenRef.current++; setQpCookMethod(null); setActivePreset(null); setRecommendedFields(prev => { const n = new Set(prev); n.delete("cookMethod"); return n; }); }}
                       colors={colors}
+                      recommended={recommendedFields.has("cookMethod")}
                     />
                     <SettingsRow
                       label="Meat Starting Temp"
@@ -3114,8 +3192,9 @@ export default function PlanScreen() {
                       value={qpMeatStartTemp}
                       placeholder="Any"
                       onPress={() => setActiveSheet("meatStartTemp")}
-                      onClear={() => { setQpMeatStartTemp(null); setActivePreset(null); }}
+                      onClear={() => { cutPickGenRef.current++; setQpMeatStartTemp(null); setActivePreset(null); setRecommendedFields(prev => { const n = new Set(prev); n.delete("meatStartTemp"); return n; }); }}
                       colors={colors}
+                      recommended={recommendedFields.has("meatStartTemp")}
                     />
                     <SettingsRow
                       label="Injection"
@@ -3123,8 +3202,9 @@ export default function PlanScreen() {
                       value={qpInjection}
                       placeholder="Any"
                       onPress={() => setActiveSheet("injection")}
-                      onClear={() => { setQpInjection(null); setActivePreset(null); }}
+                      onClear={() => { cutPickGenRef.current++; setQpInjection(null); setActivePreset(null); setRecommendedFields(prev => { const n = new Set(prev); n.delete("injection"); return n; }); }}
                       colors={colors}
+                      recommended={recommendedFields.has("injection")}
                     />
                     <SettingsRow
                       label="Spritz/Mop Frequency"
@@ -3132,8 +3212,9 @@ export default function PlanScreen() {
                       value={qpSpritz}
                       placeholder="Any"
                       onPress={() => setActiveSheet("spritz")}
-                      onClear={() => { setQpSpritz(null); setActivePreset(null); }}
+                      onClear={() => { cutPickGenRef.current++; setQpSpritz(null); setActivePreset(null); setRecommendedFields(prev => { const n = new Set(prev); n.delete("spritz"); return n; }); }}
                       colors={colors}
+                      recommended={recommendedFields.has("spritz")}
                     />
                     <SettingsRow
                       label="Wrap / Finish"
@@ -3141,8 +3222,9 @@ export default function PlanScreen() {
                       value={qpWrapFinish}
                       placeholder="Any"
                       onPress={() => setActiveSheet("wrapFinish")}
-                      onClear={() => { setQpWrapFinish(null); setActivePreset(null); }}
+                      onClear={() => { cutPickGenRef.current++; setQpWrapFinish(null); setActivePreset(null); setRecommendedFields(prev => { const n = new Set(prev); n.delete("wrapFinish"); return n; }); }}
                       colors={colors}
+                      recommended={recommendedFields.has("wrapFinish")}
                       isLast
                     />
                   </View>
@@ -3207,9 +3289,11 @@ export default function PlanScreen() {
                     lastUsed={lastUsedCookMethod}
                     onChange={(v) => {
                       const method = v as QpCookMethod | null;
+                      cutPickGenRef.current++;
                       setQpCookMethod(method);
                       setActivePreset(null);
                       setLastUsedCookMethod(null);
+                      setRecommendedFields(prev => { const n = new Set(prev); n.delete("cookMethod"); return n; });
                       if (selectedCut && method) {
                         saveLastCookMethod(selectedCut.name, method);
                       }
@@ -3225,9 +3309,11 @@ export default function PlanScreen() {
                     lastUsed={lastUsedMeatStartTemp}
                     onChange={(v) => {
                       const val = v as QpMeatStartTemp | null;
+                      cutPickGenRef.current++;
                       setQpMeatStartTemp(val);
                       setLastUsedMeatStartTemp(null);
                       setActivePreset(null);
+                      setRecommendedFields(prev => { const n = new Set(prev); n.delete("meatStartTemp"); return n; });
                       if (selectedCut && val) saveLastMeatStartTemp(selectedCut.name, val);
                     }}
                     onClose={() => setActiveSheet(null)}
@@ -3241,9 +3327,11 @@ export default function PlanScreen() {
                     lastUsed={lastUsedInjection}
                     onChange={(v) => {
                       const val = v as QpInjectionOption | null;
+                      cutPickGenRef.current++;
                       setQpInjection(val);
                       setActivePreset(null);
                       setLastUsedInjection(null);
+                      setRecommendedFields(prev => { const n = new Set(prev); n.delete("injection"); return n; });
                       if (selectedCut && val) saveLastInjection(selectedCut.name, val);
                     }}
                     onClose={() => setActiveSheet(null)}
@@ -3257,9 +3345,11 @@ export default function PlanScreen() {
                     lastUsed={lastUsedSpritz}
                     onChange={(v) => {
                       const val = v as QpSpritzFrequency | null;
+                      cutPickGenRef.current++;
                       setQpSpritz(val);
                       setActivePreset(null);
                       setLastUsedSpritz(null);
+                      setRecommendedFields(prev => { const n = new Set(prev); n.delete("spritz"); return n; });
                       if (selectedCut && val) saveLastSpritz(selectedCut.name, val);
                     }}
                     onClose={() => setActiveSheet(null)}
@@ -3273,9 +3363,11 @@ export default function PlanScreen() {
                     lastUsed={lastUsedWrapFinish}
                     onChange={(v) => {
                       const val = v as QpWrapFinishOption | null;
+                      cutPickGenRef.current++;
                       setQpWrapFinish(val);
                       setActivePreset(null);
                       setLastUsedWrapFinish(null);
+                      setRecommendedFields(prev => { const n = new Set(prev); n.delete("wrapFinish"); return n; });
                       if (selectedCut && val) saveLastWrapFinish(selectedCut.name, val);
                     }}
                     onClose={() => setActiveSheet(null)}

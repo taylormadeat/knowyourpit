@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { View, Text, Modal, Pressable, FlatList, TextInput, ScrollView, Alert } from "react-native";
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { Feather } from "@expo/vector-icons";
@@ -30,6 +30,7 @@ import {
   QP_WRAP_FINISH_OPTIONS, type QpWrapFinishOption,
 } from "@/constants/cookQuickPicks";
 import { type ThawMethod } from "@/components/plan-screen/frozenSchedule";
+import { getPitmasterDefaults } from "@/utils/pitmasterDefaults";
 
 type AnyThawMethod = ThawMethod | "microwave" | "counter" | "cook_from_frozen";
 
@@ -153,12 +154,15 @@ function ChipRow<T extends string>({
   selected,
   onSelect,
   colors,
+  isRecommended,
 }: {
   label: string;
   options: readonly T[];
   selected: T | null;
   onSelect: (v: T | null) => void;
   colors: Colors;
+  /** When true, shows a "★ Suggested" sub-label on the active chip. */
+  isRecommended?: boolean;
 }) {
   return (
     <View>
@@ -169,6 +173,7 @@ function ChipRow<T extends string>({
         <View style={{ flexDirection: "row", gap: 8 }}>
           {options.map(option => {
             const active = selected === option;
+            const showRecommended = active && isRecommended;
             return (
               <Pressable
                 key={option}
@@ -178,16 +183,22 @@ function ChipRow<T extends string>({
                 }}
                 style={{
                   paddingHorizontal: 12,
-                  paddingVertical: 7,
+                  paddingVertical: showRecommended ? 5 : 7,
                   borderRadius: 20,
                   borderWidth: 1,
                   borderColor: active ? colors.primary : colors.border,
                   backgroundColor: active ? colors.primary + "18" : colors.muted,
+                  alignItems: "center",
                 }}
               >
                 <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
                   {option}
                 </Text>
+                {showRecommended && (
+                  <Text style={{ fontSize: 9, fontFamily: "Inter_500Medium", color: colors.primary, opacity: 0.75, marginTop: 1 }}>
+                    ★ Suggested
+                  </Text>
+                )}
               </Pressable>
             );
           })}
@@ -273,6 +284,12 @@ export function MultiCookAddItemModal(p: Props) {
   const [selectedInjection, setSelectedInjection] = useState<QpInjectionOption | null>(null);
   const [selectedSpritz, setSelectedSpritz] = useState<QpSpritzFrequency | null>(null);
   const [selectedWrapFinish, setSelectedWrapFinish] = useState<QpWrapFinishOption | null>(null);
+  /** Fields whose current value was auto-filled by getPitmasterDefaults (not set by the user). */
+  const [recommendedFields, setRecommendedFields] = useState<Set<string>>(new Set());
+  // Incremented each time a new cut's useEffect fires (guards against the
+  // previous cut's Promise.all resolving after the new cut's data arrives)
+  // and when the user manually selects a chip (guards same-cut races).
+  const hydrateGenRef = useRef(0);
   const [isFrozen, setIsFrozen] = useState(false);
   const [thawMethod, setThawMethod] = useState<AnyThawMethod>("fridge");
   const [itemNotes, setItemNotes] = useState("");
@@ -344,6 +361,7 @@ export function MultiCookAddItemModal(p: Props) {
       setSelectedInjection(null);
       setSelectedSpritz(null);
       setSelectedWrapFinish(null);
+      setRecommendedFields(new Set());
       setIsFrozen(false);
       setThawMethod("fridge");
       setItemNotes("");
@@ -372,20 +390,66 @@ export function MultiCookAddItemModal(p: Props) {
     }
 
     setActivePreset(null);
-    loadLastCookMethod(multiPickedCut.name).then(method => {
-      setSelectedCookMethod(method);
-      setLastUsedMethod(method);
+    setRecommendedFields(new Set());
+    let cancelled = false;
+    const thisHydrateGen = ++hydrateGenRef.current;
+    const defaults = getPitmasterDefaults(multiPickedCut);
+    Promise.all([
+      loadLastCookMethod(multiPickedCut.name),
+      loadLastMeatStartTemp(multiPickedCut.name),
+      loadLastInjection(multiPickedCut.name),
+      loadLastSpritz(multiPickedCut.name),
+      loadLastWrapFinish(multiPickedCut.name),
+    ]).then(([cookMethod, meatStartTemp, injection, spritz, wrapFinish]) => {
+      if (cancelled || hydrateGenRef.current !== thisHydrateGen) return;
+      const recommended = new Set<string>();
+
+      if (cookMethod !== null) {
+        setSelectedCookMethod(cookMethod);
+        setLastUsedMethod(cookMethod);
+      } else {
+        setSelectedCookMethod(defaults.cookMethod);
+        setLastUsedMethod(null);
+        recommended.add("cookMethod");
+      }
+
+      if (meatStartTemp !== null) {
+        setSelectedMeatStartTemp(meatStartTemp);
+      } else {
+        setSelectedMeatStartTemp(defaults.meatStartTemp);
+        recommended.add("meatStartTemp");
+      }
+
+      if (injection !== null) {
+        setSelectedInjection(injection);
+      } else {
+        setSelectedInjection(defaults.injection);
+        recommended.add("injection");
+      }
+
+      if (spritz !== null) {
+        setSelectedSpritz(spritz);
+      } else {
+        setSelectedSpritz(defaults.spritz);
+        recommended.add("spritz");
+      }
+
+      if (wrapFinish !== null) {
+        setSelectedWrapFinish(wrapFinish);
+      } else {
+        setSelectedWrapFinish(defaults.wrapFinish);
+        recommended.add("wrapFinish");
+      }
+
+      setRecommendedFields(recommended);
     });
-    loadLastMeatStartTemp(multiPickedCut.name).then(v => setSelectedMeatStartTemp(v));
-    loadLastInjection(multiPickedCut.name).then(v => setSelectedInjection(v));
-    loadLastSpritz(multiPickedCut.name).then(v => setSelectedSpritz(v));
-    loadLastWrapFinish(multiPickedCut.name).then(v => setSelectedWrapFinish(v));
     setIsFrozen(false);
     setThawMethod("fridge");
     setSelectedGrillId(null);
     setTargetTempFInput("");
     setCookTempFInput("");
     setLocalSizeOutput(EMPTY_SIZE_OUTPUT);
+    return () => { cancelled = true; };
   }, [multiPickedCut?.name, editItem]);
 
   const hasAnyQuickPick = !!(selectedCookMethod || selectedInjection || selectedSpritz || selectedWrapFinish || selectedMeatStartTemp);
@@ -449,6 +513,7 @@ export function MultiCookAddItemModal(p: Props) {
     setSelectedInjection(null);
     setSelectedSpritz(null);
     setSelectedWrapFinish(null);
+    setRecommendedFields(new Set());
     setIsFrozen(false);
     setThawMethod("fridge");
     setItemNotes("");
@@ -778,6 +843,8 @@ export function MultiCookAddItemModal(p: Props) {
                                   }
                                   if (preset.cookTempF != null) setCookTempFInput(String(preset.cookTempF));
                                   if (preset.targetTempF != null) setTargetTempFInput(String(preset.targetTempF));
+                                  setRecommendedFields(new Set());
+                                  hydrateGenRef.current++;
                                   Haptics.selectionAsync();
                                 }}
                                 style={{
@@ -845,6 +912,8 @@ export function MultiCookAddItemModal(p: Props) {
                                 }
                                 if (preset.cookTempF != null) setCookTempFInput(String(preset.cookTempF));
                                 if (preset.targetTempF != null) setTargetTempFInput(String(preset.targetTempF));
+                                setRecommendedFields(new Set());
+                                hydrateGenRef.current++;
                                 Haptics.selectionAsync();
                               }}
                               style={{
@@ -877,14 +946,17 @@ export function MultiCookAddItemModal(p: Props) {
                       {QP_COOK_METHODS.map(method => {
                         const active = selectedCookMethod === method;
                         const showLastUsed = lastUsedMethod === method && active;
+                        const showRecommended = active && !showLastUsed && recommendedFields.has("cookMethod");
                         return (
                           <Pressable
                             key={method}
                             onPress={() => {
                               const next = active ? null : method;
+                              hydrateGenRef.current++;
                               setSelectedCookMethod(next);
                               setActivePreset(null);
                               setLastUsedMethod(null);
+                              setRecommendedFields(prev => { const n = new Set(prev); n.delete("cookMethod"); return n; });
                               if (multiPickedCut && next) {
                                 saveLastCookMethod(multiPickedCut.name, next);
                               }
@@ -892,7 +964,7 @@ export function MultiCookAddItemModal(p: Props) {
                             }}
                             style={{
                               paddingHorizontal: 12,
-                              paddingVertical: showLastUsed ? 5 : 7,
+                              paddingVertical: (showLastUsed || showRecommended) ? 5 : 7,
                               borderRadius: 20,
                               borderWidth: 1,
                               borderColor: active ? colors.primary : colors.border,
@@ -908,6 +980,11 @@ export function MultiCookAddItemModal(p: Props) {
                                 Last used
                               </Text>
                             )}
+                            {showRecommended && (
+                              <Text style={{ fontSize: 9, fontFamily: "Inter_500Medium", color: colors.primary, opacity: 0.75, marginTop: 1 }}>
+                                ★ Suggested
+                              </Text>
+                            )}
                           </Pressable>
                         );
                       })}
@@ -921,9 +998,12 @@ export function MultiCookAddItemModal(p: Props) {
                   options={QP_MEAT_START_TEMPS}
                   selected={selectedMeatStartTemp}
                   colors={colors}
+                  isRecommended={recommendedFields.has("meatStartTemp")}
                   onSelect={(v) => {
+                    hydrateGenRef.current++;
                     setSelectedMeatStartTemp(v);
                     setActivePreset(null);
+                    setRecommendedFields(prev => { const n = new Set(prev); n.delete("meatStartTemp"); return n; });
                     if (multiPickedCut && v) saveLastMeatStartTemp(multiPickedCut.name, v);
                   }}
                 />
@@ -934,9 +1014,12 @@ export function MultiCookAddItemModal(p: Props) {
                   options={QP_INJECTION_OPTIONS}
                   selected={selectedInjection}
                   colors={colors}
+                  isRecommended={recommendedFields.has("injection")}
                   onSelect={(v) => {
+                    hydrateGenRef.current++;
                     setSelectedInjection(v);
                     setActivePreset(null);
+                    setRecommendedFields(prev => { const n = new Set(prev); n.delete("injection"); return n; });
                     if (multiPickedCut && v) saveLastInjection(multiPickedCut.name, v);
                   }}
                 />
@@ -947,9 +1030,12 @@ export function MultiCookAddItemModal(p: Props) {
                   options={QP_SPRITZ_FREQUENCIES}
                   selected={selectedSpritz}
                   colors={colors}
+                  isRecommended={recommendedFields.has("spritz")}
                   onSelect={(v) => {
+                    hydrateGenRef.current++;
                     setSelectedSpritz(v);
                     setActivePreset(null);
+                    setRecommendedFields(prev => { const n = new Set(prev); n.delete("spritz"); return n; });
                     if (multiPickedCut && v) saveLastSpritz(multiPickedCut.name, v);
                   }}
                 />
@@ -960,9 +1046,12 @@ export function MultiCookAddItemModal(p: Props) {
                   options={QP_WRAP_FINISH_OPTIONS}
                   selected={selectedWrapFinish}
                   colors={colors}
+                  isRecommended={recommendedFields.has("wrapFinish")}
                   onSelect={(v) => {
+                    hydrateGenRef.current++;
                     setSelectedWrapFinish(v);
                     setActivePreset(null);
+                    setRecommendedFields(prev => { const n = new Set(prev); n.delete("wrapFinish"); return n; });
                     if (multiPickedCut && v) saveLastWrapFinish(multiPickedCut.name, v);
                   }}
                 />

@@ -17,6 +17,8 @@ interface SettingsRowProps {
   rightElement?: React.ReactNode;
   disabled?: boolean;
   isLast?: boolean;
+  /** When true and a value is set, shows a small "Suggested" badge below the value. */
+  recommended?: boolean;
 }
 
 export function SettingsRow({
@@ -31,6 +33,7 @@ export function SettingsRow({
   rightElement,
   disabled,
   isLast,
+  recommended,
 }: SettingsRowProps) {
   return (
     <Pressable
@@ -58,15 +61,22 @@ export function SettingsRow({
       <Text style={[sr.label, { color: colors.foreground }]}>{label}</Text>
       <View style={sr.right}>
         {rightElement ?? (
-          <Text
-            style={[
-              sr.value,
-              { color: value ? colors.mutedForeground : colors.mutedForeground + "60" },
-            ]}
-            numberOfLines={1}
-          >
-            {value ?? placeholder}
-          </Text>
+          <View style={{ alignItems: "flex-end" }}>
+            <Text
+              style={[
+                sr.value,
+                { color: value ? colors.mutedForeground : colors.mutedForeground + "60" },
+              ]}
+              numberOfLines={1}
+            >
+              {value ?? placeholder}
+            </Text>
+            {recommended && value ? (
+              <Text style={[sr.badge, { color: colors.primary }]}>
+                ★ Suggested
+              </Text>
+            ) : null}
+          </View>
         )}
         {onClear && value ? (
           <Pressable
@@ -121,6 +131,13 @@ const sr = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     textAlign: "right",
+  },
+  badge: {
+    fontSize: 9,
+    fontFamily: "Inter_500Medium",
+    textAlign: "right",
+    opacity: 0.75,
+    marginTop: 1,
   },
   clearBtn: {
     width: 18,
