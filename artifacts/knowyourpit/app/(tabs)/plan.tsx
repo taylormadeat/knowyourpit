@@ -3946,8 +3946,7 @@ export default function PlanScreen() {
 
         {remoteConfig.partnerBigPetes && multiItems.length > 0 && (
           <BigPetesSeasoningCard
-            cutCategory={multiItems[0].cut.category}
-            cutName={multiItems[0].cut.name}
+            cuts={multiItems.map(i => ({ category: i.cut.category, name: i.cut.name }))}
           />
         )}
 

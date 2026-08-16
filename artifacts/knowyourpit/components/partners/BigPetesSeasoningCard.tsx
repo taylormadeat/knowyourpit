@@ -108,18 +108,54 @@ function pairingsForCut(category: string, name: string): Seasoning[] {
 
 type Props = {
   /** selectedCut.category from plan.tsx */
-  cutCategory: string;
+  cutCategory?: string;
   /** selectedCut.name from plan.tsx */
-  cutName: string;
+  cutName?: string;
+  /**
+   * Multi-cook variant: array of all cuts in the sequencer.
+   * When provided, takes precedence over cutCategory/cutName.
+   * Pairings are derived for every cut, then deduped by name.
+   */
+  cuts?: Array<{ category: string; name: string }>;
 };
 
 const ROTATE_MS = 3_000;
 
-export function BigPetesSeasoningCard({ cutCategory, cutName }: Props) {
+export function BigPetesSeasoningCard({ cutCategory, cutName, cuts }: Props) {
   const colors = useColors();
-  const pairings = pairingsForCut(cutCategory, cutName);
+
+  // Derive the merged pairings list.
+  // When `cuts` is provided use all of them; otherwise fall back to the
+  // single-cut props so existing call sites continue working unchanged.
+  const { pairings, isMultiCook } = React.useMemo(() => {
+    if (cuts && cuts.length > 0) {
+      const seen = new Set<string>();
+      const merged: Seasoning[] = [];
+      for (const cut of cuts) {
+        for (const s of pairingsForCut(cut.category, cut.name)) {
+          if (!seen.has(s.name)) {
+            seen.add(s.name);
+            merged.push(s);
+          }
+        }
+      }
+      const distinctCategories = new Set(cuts.map(c => c.category.toLowerCase()));
+      return { pairings: merged, isMultiCook: distinctCategories.size > 1 };
+    }
+    return {
+      pairings: pairingsForCut(cutCategory ?? "", cutName ?? ""),
+      isMultiCook: false,
+    };
+  }, [cuts, cutCategory, cutName]);
+
   const [idx, setIdx] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Stable dependency key so the effect only re-runs when the cut selection
+  // actually changes (avoids resetting on every render).
+  const depsKey = cuts
+    ? cuts.map(c => `${c.category}:${c.name}`).join("|")
+    : `${cutCategory}:${cutName}`;
 
   // Reset when the cut changes
   useEffect(() => {
@@ -133,9 +169,8 @@ export function BigPetesSeasoningCard({ cutCategory, cutName }: Props) {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-    // pairings changes reference every render but is derived from the two stable props
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cutCategory, cutName]);
+  }, [depsKey]);
 
   const current = pairings[idx];
 
@@ -190,7 +225,9 @@ export function BigPetesSeasoningCard({ cutCategory, cutName }: Props) {
               {current.desc}
             </Text>
             <Text style={[s.pairing, { color: "#E84820" }]}>
-              Perfect pairing for this cook
+              {isMultiCook
+                ? "Perfect pairings for your multi-cook"
+                : "Perfect pairing for this cook"}
             </Text>
           </View>
           <Image source={current.img} style={s.image} resizeMode="contain" />
