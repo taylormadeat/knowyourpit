@@ -30,3 +30,7 @@ EAS_NO_VCS=1 eas update --skip-bundler --input-dir dist --platform ios \
 ## babel-preset-expo
 
 Must be in `artifacts/knowyourpit/package.json` devDependencies (was missing; added). Without it, `expo export` fails with "Cannot find module 'babel-preset-expo'".
+
+## Non-interactive mode: --message is required (confirmed 2026-08-16)
+
+`eas update` requires `--message` in non-interactive environments (Replit/CI). Without it: _"--channel and --message are required when updating in non-interactive mode unless --auto is specified"_. The `ota-update.sh` script now auto-generates a UTC timestamp message when the caller omits `--message`. End-to-end iOS staging update confirmed: export ~40 s, upload instant, update appeared in EAS dashboard immediately.

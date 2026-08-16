@@ -28,12 +28,18 @@
 #
 # Defaults:
 #   --channel   production
-#   --message   (empty — EAS auto-generates one)
+#   --message   (auto-generated timestamp, e.g. "OTA update 2026-08-16T03:20:00Z")
 #   --platform  all
 #
 # The script exports one platform at a time to avoid OOM errors in the Replit
 # container.  Pass --platform ios or --platform android to publish a single
 # platform if needed.
+#
+# NON-INTERACTIVE MODE NOTE
+# -------------------------
+# `eas update` requires --message in non-interactive environments (Replit,
+# CI).  When the caller omits --message, the script falls back to a UTC
+# timestamp message so the command never stalls waiting for terminal input.
 #
 # REQUIREMENTS
 # ------------
@@ -87,15 +93,20 @@ publish_platform() {
 
   echo ""
   echo "=== Publishing OTA update for platform: $plat (channel: $CHANNEL) ==="
+  # eas update requires --message in non-interactive mode.
+  # Fall back to a timestamp-based message when the caller didn't supply one.
+  local effective_msg="$MESSAGE"
+  if [[ -z "$effective_msg" ]]; then
+    effective_msg="OTA update $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  fi
+
   local update_args=(
     --skip-bundler
     --channel "$CHANNEL"
     --platform "$plat"
     --input-dir dist
+    --message "$effective_msg"
   )
-  if [[ -n "$MESSAGE" ]]; then
-    update_args+=(--message "$MESSAGE")
-  fi
   pnpm exec eas update "${update_args[@]}"
 
   echo ""
