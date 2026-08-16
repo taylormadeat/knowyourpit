@@ -31,6 +31,10 @@ EAS_NO_VCS=1 eas update --skip-bundler --input-dir dist --platform ios \
 
 Must be in `artifacts/knowyourpit/package.json` devDependencies (was missing; added). Without it, `expo export` fails with "Cannot find module 'babel-preset-expo'".
 
+## OTA silently dead in builds ≤135: EXUpdatesEnabled was false (found 2026-08-16)
+
+`ios/knowyourpit/Supporting/Expo.plist` shipped with `EXUpdatesEnabled=false` and no `EXUpdatesURL`/`EXUpdatesRuntimeVersion` — the bare `ios/` dir is used as-is by EAS, so every build through #135 had OTA disabled at the native level. No published update could ever reach devices. Fixed in the plist (enabled + URL + runtime 1.0.18); first build with it is #136+. **The plist hardcodes the runtime version — it must be bumped in lockstep with `version` in app.config.js on every release**, or OTAs stop matching.
+
 ## Android OTA — paused by user request
 
 Do NOT push OTA updates to Android until the user explicitly says they are ready for Android. iOS-only pushes only. Skip the Android export + upload step entirely.
