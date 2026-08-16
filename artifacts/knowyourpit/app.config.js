@@ -21,7 +21,7 @@ const config = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.knowyourpit.app",
-    buildNumber: "134",
+    buildNumber: "135",
     appleTeamId: "W8AY23XJTF",
     usesAppleSignIn: true,
     infoPlist: {
@@ -46,7 +46,7 @@ const config = {
   },
   android: {
     package: "com.knowyourpit.app",
-    versionCode: 4,
+    versionCode: 5,
     googleServicesFile:
       process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
     adaptiveIcon: {
