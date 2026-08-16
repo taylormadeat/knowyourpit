@@ -64,21 +64,43 @@ function pairingsForCut(category: string, name: string): Seasoning[] {
   const cat = category.toLowerCase();
   const n = name.toLowerCase();
 
-  if (cat.includes("seafood") || cat.includes("fish")) {
+  // Primary dispatch on category — every cut in the app has a precise category string,
+  // so we key on that first to avoid cross-contamination between meat types.
+
+  if (cat === "seafood" || cat.includes("seafood") || cat.includes("fish")) {
     return [S.highTide, S.cajunBlast];
   }
-  if (cat.includes("pork") || n.includes("pork") || n.includes("rib") || n.includes("bacon") || n.includes("ham") || n.includes("loin")) {
-    return [S.porken, S.cajunBlast, S.sizzle];
-  }
-  if (cat.includes("chicken") || cat.includes("poultry") || cat.includes("turkey") || n.includes("chicken") || n.includes("turkey")) {
-    return [S.porken, S.everydayTacos, S.sizzle];
-  }
-  if (cat.includes("beef") || cat.includes("brisket") || n.includes("beef") || n.includes("brisket") || n.includes("steak") || n.includes("ribeye") || n.includes("chuck")) {
+  if (cat === "beef") {
     return [S.steakNight, S.sizzle, S.cajunBlast];
   }
-  if (cat.includes("lamb") || cat.includes("game") || cat.includes("venison")) {
+  if (cat === "pork") {
+    return [S.porken, S.cajunBlast, S.sizzle];
+  }
+  if (cat === "poultry") {
+    return [S.porken, S.everydayTacos, S.sizzle];
+  }
+  if (cat === "lamb & goat" || cat.includes("lamb") || cat.includes("goat")) {
     return [S.cajunBlast, S.sizzle];
   }
+  if (cat === "game" || cat.includes("game") || cat.includes("venison")) {
+    return [S.cajunBlast, S.sizzle];
+  }
+
+  // Fallback: name-based heuristics for any future cuts with an unrecognised category.
+  // Deliberately excludes "rib" and "loin" to prevent beef/game cross-contamination.
+  if (n.includes("steak") || n.includes("brisket") || n.includes("beef") || n.includes("chuck") || n.includes("burger")) {
+    return [S.steakNight, S.sizzle, S.cajunBlast];
+  }
+  if (n.includes("pork") || n.includes("bacon") || n.includes("ham") || n.includes("sausage")) {
+    return [S.porken, S.cajunBlast, S.sizzle];
+  }
+  if (n.includes("chicken") || n.includes("turkey") || n.includes("poultry")) {
+    return [S.porken, S.everydayTacos, S.sizzle];
+  }
+  if (n.includes("salmon") || n.includes("fish") || n.includes("shrimp") || n.includes("lobster") || n.includes("seafood")) {
+    return [S.highTide, S.cajunBlast];
+  }
+
   return [S.sizzle, S.everydayTacos, S.cajunBlast];
 }
 
