@@ -3646,6 +3646,7 @@ export default function PlanScreen() {
         {/* ── Big Pete's seasoning card — contextual pairing for this cut ── */}
         {remoteConfig.partnerBigPetes && selectedCut && (
           <BigPetesSeasoningCard
+            planMode="single"
             cutCategory={selectedCut.category}
             cutName={selectedCut.name}
           />
@@ -3951,6 +3952,7 @@ export default function PlanScreen() {
 
         {remoteConfig.partnerBigPetes && multiItems.length > 0 && (
           <BigPetesSeasoningCard
+            planMode="multi"
             cuts={multiItems.map(i => ({ category: i.cut.category, name: i.cut.name }))}
           />
         )}

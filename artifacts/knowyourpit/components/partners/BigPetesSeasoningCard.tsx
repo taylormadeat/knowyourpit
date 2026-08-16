@@ -9,6 +9,7 @@ import {
   Platform,
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { trackEvent } from "@/lib/trackEvent";
 
 // ── Seasoning catalogue ────────────────────────────────────────────────────
 
@@ -117,11 +118,17 @@ type Props = {
    * Pairings are derived for every cut, then deduped by name.
    */
   cuts?: Array<{ category: string; name: string }>;
+  /**
+   * Whether the card is shown in single-cook ("single") or multi-cook
+   * ("multi") mode. Included in the analytics event so partnership ROI
+   * can be broken down by plan flow.
+   */
+  planMode: "single" | "multi";
 };
 
 const ROTATE_MS = 3_000;
 
-export function BigPetesSeasoningCard({ cutCategory, cutName, cuts }: Props) {
+export function BigPetesSeasoningCard({ cutCategory, cutName, cuts, planMode }: Props) {
   const colors = useColors();
 
   // Derive the merged pairings list.
@@ -182,6 +189,18 @@ export function BigPetesSeasoningCard({ cutCategory, cutName, cuts }: Props) {
   if (!current) return null;
 
   function handleShop() {
+    // Derive the primary cut category for single-cook mode; for multi-cook
+    // summarise as a sorted, deduplicated comma-separated list so the event
+    // is readable in the logs without being too noisy.
+    const categoryForEvent = cuts && cuts.length > 0
+      ? [...new Set(cuts.map(c => c.category))].sort().join(",")
+      : (cutCategory ?? "unknown");
+
+    trackEvent("big_petes_shop_tapped", {
+      planMode,
+      cutCategory: categoryForEvent,
+    });
+
     Linking.openURL("https://bigpetesseasoning.com/store");
   }
 
