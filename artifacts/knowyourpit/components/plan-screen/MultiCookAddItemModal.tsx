@@ -30,7 +30,7 @@ import {
   QP_WRAP_FINISH_OPTIONS, type QpWrapFinishOption,
 } from "@/constants/cookQuickPicks";
 import { type ThawMethod } from "@/components/plan-screen/frozenSchedule";
-import { getPitmasterDefaults } from "@/utils/pitmasterDefaults";
+import { mergeStoredWithDefaults } from "@/utils/pitmasterDefaults";
 
 type AnyThawMethod = ThawMethod | "microwave" | "counter" | "cook_from_frozen";
 
@@ -393,7 +393,6 @@ export function MultiCookAddItemModal(p: Props) {
     setRecommendedFields(new Set());
     let cancelled = false;
     const thisHydrateGen = ++hydrateGenRef.current;
-    const defaults = getPitmasterDefaults(multiPickedCut);
     Promise.all([
       loadLastCookMethod(multiPickedCut.name),
       loadLastMeatStartTemp(multiPickedCut.name),
@@ -402,46 +401,17 @@ export function MultiCookAddItemModal(p: Props) {
       loadLastWrapFinish(multiPickedCut.name),
     ]).then(([cookMethod, meatStartTemp, injection, spritz, wrapFinish]) => {
       if (cancelled || hydrateGenRef.current !== thisHydrateGen) return;
-      const recommended = new Set<string>();
+      const resolved = mergeStoredWithDefaults(multiPickedCut, {
+        cookMethod, meatStartTemp, injection, spritz, wrapFinish,
+      });
 
-      if (cookMethod !== null) {
-        setSelectedCookMethod(cookMethod);
-        setLastUsedMethod(cookMethod);
-      } else {
-        setSelectedCookMethod(defaults.cookMethod);
-        setLastUsedMethod(null);
-        recommended.add("cookMethod");
-      }
-
-      if (meatStartTemp !== null) {
-        setSelectedMeatStartTemp(meatStartTemp);
-      } else {
-        setSelectedMeatStartTemp(defaults.meatStartTemp);
-        recommended.add("meatStartTemp");
-      }
-
-      if (injection !== null) {
-        setSelectedInjection(injection);
-      } else {
-        setSelectedInjection(defaults.injection);
-        recommended.add("injection");
-      }
-
-      if (spritz !== null) {
-        setSelectedSpritz(spritz);
-      } else {
-        setSelectedSpritz(defaults.spritz);
-        recommended.add("spritz");
-      }
-
-      if (wrapFinish !== null) {
-        setSelectedWrapFinish(wrapFinish);
-      } else {
-        setSelectedWrapFinish(defaults.wrapFinish);
-        recommended.add("wrapFinish");
-      }
-
-      setRecommendedFields(recommended);
+      setSelectedCookMethod(resolved.cookMethod);
+      setLastUsedMethod(cookMethod !== null ? cookMethod : null);
+      setSelectedMeatStartTemp(resolved.meatStartTemp);
+      setSelectedInjection(resolved.injection);
+      setSelectedSpritz(resolved.spritz);
+      setSelectedWrapFinish(resolved.wrapFinish);
+      setRecommendedFields(resolved.recommendedFields);
     });
     setIsFrozen(false);
     setThawMethod("fridge");

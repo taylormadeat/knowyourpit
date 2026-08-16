@@ -149,3 +149,93 @@ export function getPitmasterDefaults(cut: MeatCut): PitmasterDefaults {
 
   return { cookMethod, meatStartTemp, injection, spritz, wrapFinish };
 }
+
+// ── Priority-merge helper ─────────────────────────────────────────────────────
+
+/**
+ * All five quick-pick fields, each null when no stored value was found.
+ * Mirrors the shape returned by the five `loadLast*` helpers.
+ */
+export interface StoredQuickPicks {
+  cookMethod: QpCookMethod | null;
+  meatStartTemp: QpMeatStartTemp | null;
+  injection: QpInjectionOption | null;
+  spritz: QpSpritzFrequency | null;
+  wrapFinish: QpWrapFinishOption | null;
+}
+
+/**
+ * The five resolved quick-pick values plus the set of field names that were
+ * filled by `getPitmasterDefaults` (no stored value existed). The UI uses
+ * `recommendedFields` to show the "★ Suggested" badge on those chips.
+ */
+export interface ResolvedQuickPicks {
+  cookMethod: QpCookMethod;
+  meatStartTemp: QpMeatStartTemp;
+  injection: QpInjectionOption;
+  spritz: QpSpritzFrequency;
+  wrapFinish: QpWrapFinishOption;
+  /** Names of fields that were filled from defaults — never from a stored value. */
+  recommendedFields: Set<string>;
+}
+
+/**
+ * Merges stored last-used quick-pick values with PitMaster recommended defaults.
+ *
+ * Priority rule: a stored value (non-null) ALWAYS wins over the default.
+ * Only when the stored value is null does the default apply, and only then
+ * is the field name added to `recommendedFields`.
+ *
+ * This is the single source of truth for the stored-vs-default ordering that
+ * is enforced in both the single-cook `handlePickCut` and the multi-cook
+ * `MultiCookAddItemModal` `useEffect`.
+ */
+export function mergeStoredWithDefaults(
+  cut: MeatCut,
+  stored: StoredQuickPicks,
+): ResolvedQuickPicks {
+  const defaults = getPitmasterDefaults(cut);
+  const recommendedFields = new Set<string>();
+
+  let cookMethod: QpCookMethod;
+  if (stored.cookMethod !== null) {
+    cookMethod = stored.cookMethod;
+  } else {
+    cookMethod = defaults.cookMethod;
+    recommendedFields.add("cookMethod");
+  }
+
+  let meatStartTemp: QpMeatStartTemp;
+  if (stored.meatStartTemp !== null) {
+    meatStartTemp = stored.meatStartTemp;
+  } else {
+    meatStartTemp = defaults.meatStartTemp;
+    recommendedFields.add("meatStartTemp");
+  }
+
+  let injection: QpInjectionOption;
+  if (stored.injection !== null) {
+    injection = stored.injection;
+  } else {
+    injection = defaults.injection;
+    recommendedFields.add("injection");
+  }
+
+  let spritz: QpSpritzFrequency;
+  if (stored.spritz !== null) {
+    spritz = stored.spritz;
+  } else {
+    spritz = defaults.spritz;
+    recommendedFields.add("spritz");
+  }
+
+  let wrapFinish: QpWrapFinishOption;
+  if (stored.wrapFinish !== null) {
+    wrapFinish = stored.wrapFinish;
+  } else {
+    wrapFinish = defaults.wrapFinish;
+    recommendedFields.add("wrapFinish");
+  }
+
+  return { cookMethod, meatStartTemp, injection, spritz, wrapFinish, recommendedFields };
+}

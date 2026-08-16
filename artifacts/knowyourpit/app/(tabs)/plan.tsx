@@ -124,7 +124,7 @@ import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
 import { MeatPickerModal } from "@/components/plan-screen/MeatPickerModal";
 import { isProduce } from "@/constants/meatCuts";
 import { pitTempLabel, isUnrecognisedCookMethod } from "@/utils/cookingMethod";
-import { getPitmasterDefaults } from "@/utils/pitmasterDefaults";
+import { mergeStoredWithDefaults } from "@/utils/pitmasterDefaults";
 import { DatePickerModal, TimePickerModal } from "@/components/plan-screen/DateTimePickerModals";
 import { MultiCookResultModal } from "@/components/plan-screen/MultiCookResultModal";
 import { MultiCookAddItemModal, type MultiItem } from "@/components/plan-screen/MultiCookAddItemModal";
@@ -903,7 +903,6 @@ export default function PlanScreen() {
     //   (b) user chose manually — any onChange/onClear increments the gen
     //       before this callback fires, so we skip the overwrite.
     const thisPickGen = ++cutPickGenRef.current;
-    const defaults = getPitmasterDefaults(cut);
     Promise.all([
       loadLastCookMethod(cut.name),
       loadLastMeatStartTemp(cut.name),
@@ -912,54 +911,22 @@ export default function PlanScreen() {
       loadLastWrapFinish(cut.name),
     ]).then(([cookMethod, meatStartTemp, injection, spritz, wrapFinish]) => {
       if (cutPickGenRef.current !== thisPickGen) return;
-      const recommended = new Set<string>();
+      const resolved = mergeStoredWithDefaults(cut, {
+        cookMethod, meatStartTemp, injection, spritz, wrapFinish,
+      });
 
-      if (cookMethod !== null) {
-        setQpCookMethod(cookMethod);
-        setLastUsedCookMethod(cookMethod);
-      } else {
-        setQpCookMethod(defaults.cookMethod);
-        setLastUsedCookMethod(null);
-        recommended.add("cookMethod");
-      }
+      setQpCookMethod(resolved.cookMethod);
+      setLastUsedCookMethod(cookMethod !== null ? cookMethod : null);
+      setQpMeatStartTemp(resolved.meatStartTemp);
+      setLastUsedMeatStartTemp(meatStartTemp !== null ? meatStartTemp : null);
+      setQpInjection(resolved.injection);
+      setLastUsedInjection(injection !== null ? injection : null);
+      setQpSpritz(resolved.spritz);
+      setLastUsedSpritz(spritz !== null ? spritz : null);
+      setQpWrapFinish(resolved.wrapFinish);
+      setLastUsedWrapFinish(wrapFinish !== null ? wrapFinish : null);
 
-      if (meatStartTemp !== null) {
-        setQpMeatStartTemp(meatStartTemp);
-        setLastUsedMeatStartTemp(meatStartTemp);
-      } else {
-        setQpMeatStartTemp(defaults.meatStartTemp);
-        setLastUsedMeatStartTemp(null);
-        recommended.add("meatStartTemp");
-      }
-
-      if (injection !== null) {
-        setQpInjection(injection);
-        setLastUsedInjection(injection);
-      } else {
-        setQpInjection(defaults.injection);
-        setLastUsedInjection(null);
-        recommended.add("injection");
-      }
-
-      if (spritz !== null) {
-        setQpSpritz(spritz);
-        setLastUsedSpritz(spritz);
-      } else {
-        setQpSpritz(defaults.spritz);
-        setLastUsedSpritz(null);
-        recommended.add("spritz");
-      }
-
-      if (wrapFinish !== null) {
-        setQpWrapFinish(wrapFinish);
-        setLastUsedWrapFinish(wrapFinish);
-      } else {
-        setQpWrapFinish(defaults.wrapFinish);
-        setLastUsedWrapFinish(null);
-        recommended.add("wrapFinish");
-      }
-
-      setRecommendedFields(recommended);
+      setRecommendedFields(resolved.recommendedFields);
     });
   };
 
