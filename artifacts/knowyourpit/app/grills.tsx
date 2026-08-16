@@ -481,7 +481,14 @@ export default function GrillsScreen() {
       // Refresh the list so any server-committed grill surfaces before a retry,
       // preventing the user from adding it a second time.
       qc.invalidateQueries({ queryKey: getListGrillsQueryKey() });
-      Alert.alert("Error", e?.message || "Failed to add grill");
+      if (e?.status === 409) {
+        Alert.alert(
+          "Already in Your Garage",
+          `You already have a ${brandName} ${model.name} in your garage.`,
+        );
+      } else {
+        Alert.alert("Error", e?.message || "Failed to add grill");
+      }
     }
   };
 

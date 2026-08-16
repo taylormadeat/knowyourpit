@@ -138,6 +138,16 @@ router.post("/grills", requireAuth, async (req: any, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  // Check for an existing grill with the same name for this user.
+  const [existing] = await db
+    .select({ id: grillsTable.id })
+    .from(grillsTable)
+    .where(and(eq(grillsTable.userId, req.userId), eq(grillsTable.name, parsed.data.name)))
+    .limit(1);
+  if (existing) {
+    res.status(409).json({ error: "duplicate_name", message: `You already have a grill named "${parsed.data.name}"` });
+    return;
+  }
   const [grill] = await db.insert(grillsTable).values({ ...parsed.data, userId: req.userId }).returning();
   res.status(201).json(grill);
 });
