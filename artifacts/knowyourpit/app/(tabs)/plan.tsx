@@ -125,6 +125,18 @@ import { MeatPickerModal } from "@/components/plan-screen/MeatPickerModal";
 import { isProduce } from "@/constants/meatCuts";
 import { pitTempLabel, isUnrecognisedCookMethod } from "@/utils/cookingMethod";
 import { mergeStoredWithDefaults } from "@/utils/pitmasterDefaults";
+import {
+  loadLastCookMethod,
+  saveLastCookMethod,
+  loadLastMeatStartTemp,
+  saveLastMeatStartTemp,
+  loadLastInjection,
+  saveLastInjection,
+  loadLastSpritz,
+  saveLastSpritz,
+  loadLastWrapFinish,
+  saveLastWrapFinish,
+} from "@/utils/cookQuickPickStorage";
 import { DatePickerModal, TimePickerModal } from "@/components/plan-screen/DateTimePickerModals";
 import { MultiCookResultModal } from "@/components/plan-screen/MultiCookResultModal";
 import { MultiCookAddItemModal, type MultiItem } from "@/components/plan-screen/MultiCookAddItemModal";
@@ -137,12 +149,6 @@ import {
   findPendingCook,
   createIntentFingerprint,
 } from "@/components/plan-screen/pendingCreate";
-
-const COOK_METHOD_STORAGE_PREFIX = "@knowyourpit:cookMethod:";
-const MEAT_START_TEMP_STORAGE_PREFIX = "@knowyourpit:meatStartTemp:";
-const INJECTION_STORAGE_PREFIX = "@knowyourpit:injection:";
-const SPRITZ_STORAGE_PREFIX = "@knowyourpit:spritz:";
-const WRAP_FINISH_STORAGE_PREFIX = "@knowyourpit:wrapFinish:";
 
 // Hard upper bound on every AI network call. React Native's fetch has no
 // default timeout, so a stalled connection would otherwise hang the loading
@@ -161,66 +167,6 @@ const MUTATION_TIMEOUT_MS = 25_000;
 // How long a pending create may run before the watchdog surfaces the
 // "still working" state with a Cancel escape hatch.
 const SUBMIT_SLOW_AFTER_MS = 6_000;
-
-async function loadLastCookMethod(cutName: string): Promise<QpCookMethod | null> {
-  try {
-    const stored = await AsyncStorage.getItem(COOK_METHOD_STORAGE_PREFIX + cutName);
-    if (stored && (QP_COOK_METHODS as readonly string[]).includes(stored)) {
-      return stored as QpCookMethod;
-    }
-  } catch {}
-  return null;
-}
-
-async function saveLastCookMethod(cutName: string, method: QpCookMethod): Promise<void> {
-  try {
-    await AsyncStorage.setItem(COOK_METHOD_STORAGE_PREFIX + cutName, method);
-  } catch {}
-}
-
-async function loadLastMeatStartTemp(cutName: string): Promise<QpMeatStartTemp | null> {
-  try {
-    const stored = await AsyncStorage.getItem(MEAT_START_TEMP_STORAGE_PREFIX + cutName);
-    if (stored && (QP_MEAT_START_TEMPS as readonly string[]).includes(stored)) return stored as QpMeatStartTemp;
-  } catch {}
-  return null;
-}
-async function saveLastMeatStartTemp(cutName: string, v: QpMeatStartTemp): Promise<void> {
-  try { await AsyncStorage.setItem(MEAT_START_TEMP_STORAGE_PREFIX + cutName, v); } catch {}
-}
-
-async function loadLastInjection(cutName: string): Promise<QpInjectionOption | null> {
-  try {
-    const stored = await AsyncStorage.getItem(INJECTION_STORAGE_PREFIX + cutName);
-    if (stored && (QP_INJECTION_OPTIONS as readonly string[]).includes(stored)) return stored as QpInjectionOption;
-  } catch {}
-  return null;
-}
-async function saveLastInjection(cutName: string, v: QpInjectionOption): Promise<void> {
-  try { await AsyncStorage.setItem(INJECTION_STORAGE_PREFIX + cutName, v); } catch {}
-}
-
-async function loadLastSpritz(cutName: string): Promise<QpSpritzFrequency | null> {
-  try {
-    const stored = await AsyncStorage.getItem(SPRITZ_STORAGE_PREFIX + cutName);
-    if (stored && (QP_SPRITZ_FREQUENCIES as readonly string[]).includes(stored)) return stored as QpSpritzFrequency;
-  } catch {}
-  return null;
-}
-async function saveLastSpritz(cutName: string, v: QpSpritzFrequency): Promise<void> {
-  try { await AsyncStorage.setItem(SPRITZ_STORAGE_PREFIX + cutName, v); } catch {}
-}
-
-async function loadLastWrapFinish(cutName: string): Promise<QpWrapFinishOption | null> {
-  try {
-    const stored = await AsyncStorage.getItem(WRAP_FINISH_STORAGE_PREFIX + cutName);
-    if (stored && (QP_WRAP_FINISH_OPTIONS as readonly string[]).includes(stored)) return stored as QpWrapFinishOption;
-  } catch {}
-  return null;
-}
-async function saveLastWrapFinish(cutName: string, v: QpWrapFinishOption): Promise<void> {
-  try { await AsyncStorage.setItem(WRAP_FINISH_STORAGE_PREFIX + cutName, v); } catch {}
-}
 
 export default function PlanScreen() {
   const colors = useColors();

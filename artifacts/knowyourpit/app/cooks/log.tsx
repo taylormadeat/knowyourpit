@@ -16,7 +16,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/expo";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
@@ -61,71 +60,18 @@ import { SizeInputRow, SizeInputRowOutput } from "@/components/plan-screen/SizeI
 import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
 
-const COOK_METHOD_STORAGE_PREFIX = "@knowyourpit:cookMethod:";
-const MEAT_START_TEMP_STORAGE_PREFIX = "@knowyourpit:meatStartTemp:";
-const INJECTION_STORAGE_PREFIX = "@knowyourpit:injection:";
-const SPRITZ_STORAGE_PREFIX = "@knowyourpit:spritz:";
-const WRAP_FINISH_STORAGE_PREFIX = "@knowyourpit:wrapFinish:";
-
-async function loadLastCookMethod(cutName: string): Promise<QpCookMethod | null> {
-  try {
-    const stored = await AsyncStorage.getItem(COOK_METHOD_STORAGE_PREFIX + cutName);
-    if (stored && (QP_COOK_METHODS as readonly string[]).includes(stored)) {
-      return stored as QpCookMethod;
-    }
-  } catch {}
-  return null;
-}
-
-async function saveLastCookMethod(cutName: string, method: QpCookMethod): Promise<void> {
-  try {
-    await AsyncStorage.setItem(COOK_METHOD_STORAGE_PREFIX + cutName, method);
-  } catch {}
-}
-
-async function loadLastMeatStartTemp(cutName: string): Promise<QpMeatStartTemp | null> {
-  try {
-    const stored = await AsyncStorage.getItem(MEAT_START_TEMP_STORAGE_PREFIX + cutName);
-    if (stored && (QP_MEAT_START_TEMPS as readonly string[]).includes(stored)) return stored as QpMeatStartTemp;
-  } catch {}
-  return null;
-}
-async function saveLastMeatStartTemp(cutName: string, v: QpMeatStartTemp): Promise<void> {
-  try { await AsyncStorage.setItem(MEAT_START_TEMP_STORAGE_PREFIX + cutName, v); } catch {}
-}
-
-async function loadLastInjection(cutName: string): Promise<QpInjectionOption | null> {
-  try {
-    const stored = await AsyncStorage.getItem(INJECTION_STORAGE_PREFIX + cutName);
-    if (stored && (QP_INJECTION_OPTIONS as readonly string[]).includes(stored)) return stored as QpInjectionOption;
-  } catch {}
-  return null;
-}
-async function saveLastInjection(cutName: string, v: QpInjectionOption): Promise<void> {
-  try { await AsyncStorage.setItem(INJECTION_STORAGE_PREFIX + cutName, v); } catch {}
-}
-
-async function loadLastSpritz(cutName: string): Promise<QpSpritzFrequency | null> {
-  try {
-    const stored = await AsyncStorage.getItem(SPRITZ_STORAGE_PREFIX + cutName);
-    if (stored && (QP_SPRITZ_FREQUENCIES as readonly string[]).includes(stored)) return stored as QpSpritzFrequency;
-  } catch {}
-  return null;
-}
-async function saveLastSpritz(cutName: string, v: QpSpritzFrequency): Promise<void> {
-  try { await AsyncStorage.setItem(SPRITZ_STORAGE_PREFIX + cutName, v); } catch {}
-}
-
-async function loadLastWrapFinish(cutName: string): Promise<QpWrapFinishOption | null> {
-  try {
-    const stored = await AsyncStorage.getItem(WRAP_FINISH_STORAGE_PREFIX + cutName);
-    if (stored && (QP_WRAP_FINISH_OPTIONS as readonly string[]).includes(stored)) return stored as QpWrapFinishOption;
-  } catch {}
-  return null;
-}
-async function saveLastWrapFinish(cutName: string, v: QpWrapFinishOption): Promise<void> {
-  try { await AsyncStorage.setItem(WRAP_FINISH_STORAGE_PREFIX + cutName, v); } catch {}
-}
+import {
+  loadLastCookMethod,
+  saveLastCookMethod,
+  loadLastMeatStartTemp,
+  saveLastMeatStartTemp,
+  loadLastInjection,
+  saveLastInjection,
+  loadLastSpritz,
+  saveLastSpritz,
+  loadLastWrapFinish,
+  saveLastWrapFinish,
+} from "@/utils/cookQuickPickStorage";
 
 type PickerCut = MeatCut & { isCustom?: boolean; customId?: number };
 const COOK_METHODS = ["Low & Slow", "Indirect", "Reverse Sear", "Direct Heat"];
