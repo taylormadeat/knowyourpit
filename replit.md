@@ -9,6 +9,28 @@ knowyourpit is an AI-powered BBQ planning and management application. It offers 
 - All `eas` and `expo` commands must be run from `artifacts/knowyourpit/`, never from the workspace root.
 - Do not delete the disabled Apple Watch companion app code; it is the starting point for future modernization work.
 - Never auto-initiate an EAS build. Always ask the user for confirmation before queuing any build.
+- **Never run `eas update` directly on Replit.** Use `bash scripts/ota-update.sh` instead (see "OTA Updates" section below).
+
+## OTA Updates (JS-only, no native rebuild)
+
+**Never run `eas update` directly on Replit.** The Linux hermesc binary bundled with react-native 0.81.x is Hermes 0.12.0 and rejects private class fields used in RN's own source (`DOMRectReadOnly.js`). The macOS EAS cloud builder uses a newer hermesc that handles them, but the Replit environment does not.
+
+Use the dedicated wrapper script instead:
+
+```bash
+cd artifacts/knowyourpit
+bash scripts/ota-update.sh                         # publish both platforms to production channel
+bash scripts/ota-update.sh --channel staging       # different channel
+bash scripts/ota-update.sh --platform ios          # single platform (saves memory)
+bash scripts/ota-update.sh --message "Fix: ..."    # include a custom update message
+```
+
+**What the script does:**
+1. Runs `expo export --no-bytecode` — Babel down-compiles private class fields before any hermesc step.
+2. Runs `eas update --skip-bundler` — uploads the pre-built bundle; hermesc is never invoked.
+3. Exports iOS and Android one at a time (to avoid OOM in the Replit container).
+
+The Babel plugins responsible for the down-compilation live in `artifacts/knowyourpit/babel.config.js` (`@babel/plugin-transform-class-properties`, `@babel/plugin-transform-private-methods`, `@babel/plugin-transform-private-property-in-object`, all with `loose: true`).
 
 ## Mobile UI Conventions
 
