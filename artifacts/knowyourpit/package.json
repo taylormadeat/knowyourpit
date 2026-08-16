@@ -8,15 +8,12 @@
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "android": "expo run:android",
     "ios": "expo run:ios",
     "register:app-ids": "bash scripts/register-app-ids.sh",
     "measure-archive-size": "node scripts/measure-archive-size.js",
     "eas:build:ios": "node scripts/measure-archive-size.js && eas build --platform ios",
-    "eas:build:android": "node scripts/measure-archive-size.js && eas build --platform android",
-    "eas:build:all": "node scripts/measure-archive-size.js && eas build --platform all",
-    "eas:build:preview": "node scripts/measure-archive-size.js && eas build --profile preview",
-    "eas:submit:android": "bash scripts/submit-android.sh",
+    "eas:build:preview": "node scripts/measure-archive-size.js && eas build --profile preview --platform ios",
+    "eas:update": "eas update --channel production",
     "audit-env": "node scripts/audit-env.js",
     "test": "jest",
     "test:e2e": "playwright test"
@@ -84,6 +81,7 @@
   "dependencies": {
     "@tanstack/query-async-storage-persister": "^5.99.2",
     "@tanstack/react-query-persist-client": "^5.99.2",
+    "expo": "~54.0.33",
     "expo-apple-authentication": "~7.2.4",
     "expo-auth-session": "~7.0.11",
     "expo-av": "^16.0.8",
@@ -91,13 +89,13 @@
     "expo-file-system": "~19.0.21",
     "expo-image-manipulator": "^14.0.8",
     "expo-sharing": "~14.0.8",
+    "expo-updates": "~29.0.19",
     "live-activity": "file:./modules/live-activity",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
     "react-native-ble-plx": "^3.5.1",
     "react-native-purchases": "9.7.2",
     "react-native-view-shot": "^5.0.0",
-    "react-native-zeroconf": "^0.14.0",
-    "expo": "~54.0.33",
-    "react": "19.1.0",
-    "react-native": "0.81.5"
+    "react-native-zeroconf": "^0.14.0"
   }
 }

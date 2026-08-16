@@ -11,9 +11,6 @@
         "image": "macos-sequoia-15.6-xcode-26.2",
         "simulator": true,
         "resourceClass": "m-medium"
-      },
-      "android": {
-        "buildType": "apk"
       }
     },
     "development-device": {
@@ -24,24 +21,20 @@
         "image": "macos-sequoia-15.6-xcode-26.2",
         "simulator": false,
         "resourceClass": "m-medium"
-      },
-      "android": {
-        "buildType": "apk"
       }
     },
     "preview": {
+      "channel": "preview",
       "distribution": "store",
       "credentialsSource": "remote",
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.2",
         "simulator": false,
         "resourceClass": "m-medium"
-      },
-      "android": {
-        "buildType": "apk"
       }
     },
     "production": {
+      "channel": "production",
       "credentialsSource": "remote",
       "cache": {
         "key": "v35-xcode-26"
@@ -50,9 +43,6 @@
         "image": "macos-sequoia-15.6-xcode-26.2",
         "buildConfiguration": "Release",
         "resourceClass": "m-medium"
-      },
-      "android": {
-        "buildType": "app-bundle"
       },
       "env": {
         "USE_FRAMEWORKS": "static",
@@ -70,10 +60,6 @@
         "ascApiKeyPath": "/tmp/eas_submit_key.p8",
         "ascApiKeyId": "3WTDG9D596",
         "ascApiKeyIssuerId": "2548969f-a92c-4ab7-b550-342a8afa0b37"
-      },
-      "android": {
-        "serviceAccountKeyPath": "/tmp/google-play-wif-config.json",
-        "track": "internal"
       }
     }
   }

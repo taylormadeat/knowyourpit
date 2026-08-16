@@ -18,10 +18,16 @@ const config = {
     resizeMode: "contain",
     backgroundColor: "#0e0e10",
   },
+  updates: {
+    url: "https://u.expo.dev/21f048d2-8424-41d4-9e01-6395719bdc30",
+  },
+  runtimeVersion: {
+    policy: "appVersion",
+  },
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.knowyourpit.app",
-    buildNumber: "135",
+    buildNumber: "136",
     appleTeamId: "W8AY23XJTF",
     usesAppleSignIn: true,
     infoPlist: {
@@ -91,6 +97,7 @@ const config = {
     "./plugins/with-live-activity",
     "./plugins/with-privacy-manifest",
     "expo-apple-authentication",
+    "expo-updates",
     "expo-router",
     "expo-font",
     "expo-web-browser",
