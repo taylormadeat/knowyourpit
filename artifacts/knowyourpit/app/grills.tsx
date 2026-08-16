@@ -31,12 +31,14 @@ import { useLayout } from "@/hooks/useLayout";
 import {
   useListGrills,
   useCreateGrill,
+  createGrill as createGrillRequest,
   useUpdateGrill,
   useDeleteGrill,
   getListGrillsQueryKey,
   useGetGrillInsights,
   getGetGrillInsightsQueryKey,
 } from "@workspace/api-client-react";
+import { withCatalogAddTimeout } from "@/utils/catalogAddTimeout";
 import { GRILL_CATALOG, type GrillModel } from "@/constants/grillCatalog";
 import { GrillTypeIcon, classifyGrillType, grillGradientColors } from "@/components/GrillTypeIcon";
 import { PitMasterChatModal } from "@/components/PitMasterChatModal";
@@ -378,6 +380,9 @@ export default function GrillsScreen() {
     setPitMasterChatOpen(true);
   }, []);
 
+  // Per-row loading state for catalog add — Set supports concurrent taps on different rows
+  const [addingModelKeys, setAddingModelKeys] = useState<Set<string>>(new Set());
+
   // Add modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCustomForm, setShowCustomForm] = useState(false);
@@ -433,32 +438,49 @@ export default function GrillsScreen() {
   };
 
   const handleAddFromCatalog = async (model: GrillModel, brandName: string) => {
+    const key = `${brandName}|${model.name}`;
+    setAddingModelKeys((prev) => new Set(prev).add(key));
+
     try {
       const surfaceSqIn = parseCookingSurfaceSqIn(model.cookingSurface);
       const hopperLbs = parseHopperSizeLbs(model.features);
       const wifiFromFeatures = Array.isArray(model.features)
         && model.features.some((f) => /\bwi\s*-?\s*fi\b|wifire/i.test(f));
-      await createGrill.mutateAsync({
-        data: {
-          name: `${brandName} ${model.name}`,
-          type: model.type,
-          fuelType: model.fuelType,
-          brand: brandName,
-          model: model.name,
-          tempRange: model.tempRange || undefined,
-          features: Array.isArray(model.features) && model.features.length > 0 ? model.features : undefined,
-          notes: model.notes || undefined,
-          cookingSurfaceSqIn: surfaceSqIn ?? undefined,
-          hopperSizeLbs: hopperLbs ?? undefined,
-          wifiEnabled: wifiFromFeatures ? true : undefined,
-        },
-      });
+
+      // withCatalogAddTimeout provides both AbortController (best-effort network
+      // cancellation) and a Promise.race hard deadline so the UI always settles
+      // within 15 s regardless of whether the RN fetch polyfill honours the signal.
+      await withCatalogAddTimeout(
+        (signal) =>
+          createGrillRequest(
+            {
+              name: `${brandName} ${model.name}`,
+              type: model.type,
+              fuelType: model.fuelType,
+              brand: brandName,
+              model: model.name,
+              tempRange: model.tempRange || undefined,
+              features: Array.isArray(model.features) && model.features.length > 0 ? model.features : undefined,
+              notes: model.notes || undefined,
+              cookingSurfaceSqIn: surfaceSqIn ?? undefined,
+              hopperSizeLbs: hopperLbs ?? undefined,
+              wifiEnabled: wifiFromFeatures ? true : undefined,
+            },
+            { signal },
+          ),
+        15_000,
+        () => setAddingModelKeys((prev) => { const next = new Set(prev); next.delete(key); return next; }),
+      );
+
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: getListGrillsQueryKey() });
       setShowAddModal(false);
       setCatalogSearch("");
       setExpandedCatalogBrands(new Set());
     } catch (e: any) {
+      // Refresh the list so any server-committed grill surfaces before a retry,
+      // preventing the user from adding it a second time.
+      qc.invalidateQueries({ queryKey: getListGrillsQueryKey() });
       Alert.alert("Error", e?.message || "Failed to add grill");
     }
   };
@@ -929,35 +951,39 @@ export default function GrillsScreen() {
 
                       {isOpen && (
                         <View style={[s.catModelList, { borderTopColor: colors.border }]}>
-                          {entry.models.map((model, idx) => (
-                            <Pressable
-                              key={model.name}
-                              style={[
-                                s.catModelRow,
-                                { borderBottomColor: colors.border },
-                                idx === entry.models.length - 1 && { borderBottomWidth: 0 },
-                                (createGrill.isPending) && { opacity: 0.6 },
-                              ]}
-                              onPress={() => handleAddFromCatalog(model, entry.brand)}
-                              disabled={createGrill.isPending}
-                            >
-                              <View style={{ flex: 1 }}>
-                                <Text style={[s.catModelName, { color: colors.foreground }]}>{model.name}</Text>
-                                <Text style={[s.catModelSub, { color: colors.mutedForeground }]}>
-                                  {model.type} · {model.fuelType}
-                                  {model.tempRange ? ` · ${model.tempRange}` : ""}
-                                </Text>
-                              </View>
-                              {createGrill.isPending ? (
-                                <ActivityIndicator size="small" color={colors.primary} />
-                              ) : (
-                                <View style={[s.addPill, { backgroundColor: colors.primary }]}>
-                                  <Feather name="plus" size={12} color="#fff" />
-                                  <Text style={s.addPillText}>Add</Text>
+                          {entry.models.map((model, idx) => {
+                            const modelKey = `${entry.brand}|${model.name}`;
+                            const isAddingThis = addingModelKeys.has(modelKey);
+                            return (
+                              <Pressable
+                                key={model.name}
+                                style={[
+                                  s.catModelRow,
+                                  { borderBottomColor: colors.border },
+                                  idx === entry.models.length - 1 && { borderBottomWidth: 0 },
+                                  isAddingThis && { opacity: 0.6 },
+                                ]}
+                                onPress={() => handleAddFromCatalog(model, entry.brand)}
+                                disabled={isAddingThis}
+                              >
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[s.catModelName, { color: colors.foreground }]}>{model.name}</Text>
+                                  <Text style={[s.catModelSub, { color: colors.mutedForeground }]}>
+                                    {model.type} · {model.fuelType}
+                                    {model.tempRange ? ` · ${model.tempRange}` : ""}
+                                  </Text>
                                 </View>
-                              )}
-                            </Pressable>
-                          ))}
+                                {isAddingThis ? (
+                                  <ActivityIndicator size="small" color={colors.primary} />
+                                ) : (
+                                  <View style={[s.addPill, { backgroundColor: colors.primary }]}>
+                                    <Feather name="plus" size={12} color="#fff" />
+                                    <Text style={s.addPillText}>Add</Text>
+                                  </View>
+                                )}
+                              </Pressable>
+                            );
+                          })}
                         </View>
                       )}
                     </View>
