@@ -39,7 +39,7 @@
       "channel": "production",
       "credentialsSource": "remote",
       "cache": {
-        "key": "v35-xcode-26"
+        "key": "v36-xcode-26"
       },
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.2",

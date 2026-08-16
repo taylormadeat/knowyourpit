@@ -71,3 +71,6 @@ server/
 
 # Diagnostics output
 diagnostics/
+
+# Local expo export output; never needed in EAS builds
+dist/

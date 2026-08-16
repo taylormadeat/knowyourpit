@@ -6,7 +6,7 @@
 const config = {
   name: "knowyourpit",
   slug: "knowyourpit",
-  version: "1.0.18",
+  version: "1.0.19",
   sdkVersion: "54.0.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
@@ -27,7 +27,7 @@ const config = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.knowyourpit.app",
-    buildNumber: "136",
+    buildNumber: "137",
     appleTeamId: "W8AY23XJTF",
     usesAppleSignIn: true,
     infoPlist: {
