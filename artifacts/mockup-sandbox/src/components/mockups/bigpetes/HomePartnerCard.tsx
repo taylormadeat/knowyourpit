@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 
-const seasonings = [
-  { name: "Bold & Smoky", tagline: "The brisket whisperer", desc: "Deep oak smoke with cracked pepper crust", img: "/__mockup/images/bigpetes-bold-smoky.png", accent: "#E84820" },
-  { name: "Sweet Heat", tagline: "Pork's best friend", desc: "Brown sugar crust with slow-building cayenne", img: "/__mockup/images/bigpetes-sweet-heat.png", accent: "#F97316" },
-  { name: "Honey Garlic", tagline: "The crowd pleaser", desc: "Bright garlic and honey with citrus finish", img: "/__mockup/images/bigpetes-honey-garlic.png", accent: "#EAB308" },
-  { name: "Competition Blend", tagline: "Trophy-winning all-purpose", desc: "Big Pete's secret weapon since day one", img: "/__mockup/images/bigpetes-competition.png", accent: "#8B5CF6" },
+const SEASONINGS = [
+  { name: "Steak Night",    tagline: "For beef, brisket & burgers",     desc: "The ultimate flavor for perfect steaks and burgers", img: "/__mockup/images/bp-steak-night.png",    accent: "#E84820" },
+  { name: "PORKEN",         tagline: "Competition pork & chicken rub",   desc: "Sweet & smoky — won top honors in pork & chicken", img: "/__mockup/images/bp-porken.png",         accent: "#F97316" },
+  { name: "Cajun Blast",    tagline: "Bold Cajun heat",                  desc: "Big Cajun kick with a slow-building heat for any protein", img: "/__mockup/images/bp-cajun-blast.png",    accent: "#EF4444" },
+  { name: "Everyday Tacos", tagline: "Chicken, tacos & everything",      desc: "Bold bright flavor for chicken, tacos, and beyond", img: "/__mockup/images/bp-everyday-tacos.png", accent: "#EAB308" },
 ];
 
 export default function HomePartnerCard() {
@@ -12,192 +12,169 @@ export default function HomePartnerCard() {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % seasonings.length);
+      setCurrentIndex((prev) => (prev + 1) % SEASONINGS.length);
     }, 3000);
     return () => clearInterval(timer);
   }, []);
 
-  const current = seasonings[currentIndex];
+  const currentSeasoning = SEASONINGS[currentIndex];
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-black p-4">
-      <div 
-        className="w-[390px] h-[844px] bg-[#131210] relative overflow-hidden text-[#F0E8D5] shadow-2xl ring-1 ring-white/10 flex flex-col" 
-        style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
-      >
+    <div style={{ width: 390, height: 844, backgroundColor: "#131210", fontFamily: "system-ui, -apple-system, sans-serif", color: "#F0E8D5", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden", margin: "0 auto" }}>
+      {/* Scrollable Content */}
+      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
+        
         {/* Status Bar */}
-        <div className="flex justify-between items-center px-[20px] pt-[14px] pb-[6px] text-[13px] font-medium text-[#F0E8D5]">
-          <span>9:41</span>
-          <div className="flex space-x-1.5 items-center text-[11px] text-[#8A7D70]">
-            <span>●</span>
-            <span>▲</span>
-            <span>🔋</span>
+        <div style={{ padding: "14px 20px 8px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: "#F0E8D5" }}>9:41</div>
+          <div style={{ fontSize: 11, color: "#8A7D70", letterSpacing: "1px" }}>● ▲ 🔋</div>
+        </div>
+
+        {/* Hero Banner */}
+        <div style={{ background: "linear-gradient(180deg, #1C1C1F 0%, #2D1A0E 100%)", padding: "12px 20px 18px 20px" }}>
+          <div style={{ fontSize: 13, color: "#8A7D70" }}>Good morning, Aaron 👋</div>
+          <div style={{ fontSize: 22, fontWeight: "bold", color: "#F0E8D5", marginTop: 2 }}>Ready to cook?</div>
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <div style={{ backgroundColor: "#2C2520", padding: "5px 10px", borderRadius: 20, fontSize: 12, color: "#8A7D70", display: "flex", alignItems: "center", gap: 4 }}>
+              <span>🍖</span> 12 Cooks
+            </div>
+            <div style={{ backgroundColor: "#2C2520", padding: "5px 10px", borderRadius: 20, fontSize: 12, color: "#8A7D70", display: "flex", alignItems: "center", gap: 4 }}>
+              <span>🔥</span> 3 Grills
+            </div>
+            <div style={{ backgroundColor: "#2C2520", padding: "5px 10px", borderRadius: 20, fontSize: 12, color: "#8A7D70", display: "flex", alignItems: "center", gap: 4 }}>
+              <span>✅</span> 0 Active
+            </div>
           </div>
         </div>
 
-        {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto pb-6 custom-scrollbar">
+        {/* Orange Divider */}
+        <div style={{ height: 3, backgroundColor: "#E84820", width: "100%" }} />
+
+        {/* Partner Section Header */}
+        <div style={{ margin: "18px 20px 12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 14, fontWeight: "bold", color: "#F0E8D5" }}>Featured Partner</div>
+          <div style={{ fontSize: 11, color: "#8A7D70" }}>Sponsored · bigpetesseasoning.com</div>
+        </div>
+
+        {/* Rotating Partner Card */}
+        <div style={{ 
+          margin: "0 16px 4px 16px", 
+          backgroundColor: "#1C1915", 
+          borderRadius: 16, 
+          overflow: "hidden", 
+          border: `1.5px solid ${currentSeasoning.accent}50`,
+          transition: "border-color 0.4s ease"
+        }}>
+          {/* Top Strip */}
+          <div style={{ height: 5, backgroundColor: currentSeasoning.accent, transition: "background 0.4s ease" }} />
           
-          {/* Hero Banner */}
-          <div className="w-full bg-gradient-to-b from-[#1C1C1F] to-[#2D1A0E] px-[20px] pt-[12px] pb-[16px]">
-            <div className="text-[13px] text-[#8A7D70]">Good morning, Aaron 👋</div>
-            <div className="text-[22px] font-bold text-[#F0E8D5] mt-[2px]">Ready to cook?</div>
-            
-            <div className="flex gap-[8px] mt-[12px]">
-              <div className="bg-[#2C2520] rounded-[20px] px-[10px] py-[5px] text-[12px] text-[#8A7D70]">
-                🍖 12 Cooks
-              </div>
-              <div className="bg-[#2C2520] rounded-[20px] px-[10px] py-[5px] text-[12px] text-[#8A7D70]">
-                🔥 3 Grills
-              </div>
-              <div className="bg-[#2C2520] rounded-[20px] px-[10px] py-[5px] text-[12px] text-[#8A7D70]">
-                ✅ 0 Active
-              </div>
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="h-[3px] w-full bg-[#E84820]"></div>
-
-          {/* Section Header */}
-          <div className="mx-[20px] mt-[18px] mb-[10px] flex justify-between items-end">
-            <div className="text-[14px] font-bold text-[#F0E8D5]">Featured Partner</div>
-            <div className="text-[11px] text-[#8A7D70]">Sponsored</div>
-          </div>
-
-          {/* BIG PETE'S ROTATING CARD */}
-          <div 
-            className="mx-[16px] rounded-[16px] overflow-hidden bg-[#1C1915]"
-            style={{ 
-              border: `1.5px solid ${current.accent}40`,
-              transition: 'all 0.3s ease'
-            }}
-          >
-            {/* Top Accent Strip */}
-            <div 
-              className="h-[5px] w-full"
-              style={{ 
-                backgroundColor: current.accent,
-                transition: 'all 0.3s ease'
-              }}
-            ></div>
-            
-            <div className="p-[16px]">
-              <div className="flex flex-row gap-[14px] items-center">
-                <div className="flex-1">
-                  <div 
-                    className="text-[10px] uppercase tracking-wider mb-[2px]"
-                    style={{ 
-                      color: current.accent,
-                      transition: 'color 0.3s ease'
-                    }}
-                  >
-                    {current.tagline}
-                  </div>
-                  <div className="text-[17px] font-bold text-[#F0E8D5] transition-all duration-300">
-                    {current.name}
-                  </div>
-                  <div className="text-[12px] text-[#8A7D70] leading-[17px] mt-[3px] transition-all duration-300 h-[34px]">
-                    {current.desc}
-                  </div>
-                  <div className="mt-[10px] flex items-center">
-                    <div className="bg-[#E8482015] border border-[#E8482040] rounded-[6px] px-[10px] py-[4px] text-[12px] font-semibold text-[#E84820]">
-                      Code: KYP15
-                    </div>
-                    <div className="text-[13px] text-[#E84820] ml-[10px] font-medium">
-                      Shop →
-                    </div>
-                  </div>
+          {/* Card Body */}
+          <div style={{ padding: 16 }}>
+            <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.07em", color: currentSeasoning.accent, marginBottom: 3, transition: "color 0.4s ease" }}>
+                  {currentSeasoning.tagline}
                 </div>
-                
-                <img 
-                  src={current.img} 
-                  alt={current.name}
-                  className="w-[80px] h-[80px] rounded-[12px] object-cover bg-[#2C2520]"
-                  style={{ transition: 'opacity 0.3s ease' }}
-                />
+                <div style={{ fontSize: 18, fontWeight: "bold", color: "#F0E8D5", lineHeight: "22px" }}>
+                  {currentSeasoning.name}
+                </div>
+                <div style={{ fontSize: 12, color: "#8A7D70", lineHeight: "17px", marginTop: 4 }}>
+                  {currentSeasoning.desc}
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#E84820", marginTop: 12 }}>
+                  Use code KYP15 for 15% off →
+                </div>
               </div>
-              
-              {/* Dots Indicator */}
-              <div className="mt-[12px] flex justify-center gap-[6px]">
-                {seasonings.map((_, i) => (
+              <img 
+                src={currentSeasoning.img} 
+                alt={currentSeasoning.name} 
+                style={{ width: 84, height: 84, borderRadius: 12, objectFit: "contain", backgroundColor: "#0D0C0B" }} 
+              />
+            </div>
+            
+            {/* Dot Indicator */}
+            <div style={{ marginTop: 14, display: "flex", justifyContent: "center", gap: 6 }}>
+              {SEASONINGS.map((seasoning, index) => {
+                const isActive = index === currentIndex;
+                return (
                   <div 
-                    key={i}
-                    className="h-[6px] rounded-[3px]"
+                    key={index} 
                     style={{ 
-                      backgroundColor: i === currentIndex ? current.accent : '#2C2520',
-                      width: i === currentIndex ? '20px' : '6px',
-                      transition: 'all 0.3s ease'
-                    }}
+                      width: isActive ? 20 : 6, 
+                      height: 6, 
+                      borderRadius: 3, 
+                      backgroundColor: isActive ? seasoning.accent : "#2C2520",
+                      transition: "all 0.3s ease" 
+                    }} 
                   />
-                ))}
-              </div>
+                );
+              })}
             </div>
           </div>
-
-          {/* Section Header */}
-          <div className="mx-[20px] mt-[20px] mb-[10px] flex justify-between items-end">
-            <div className="text-[17px] font-bold text-[#F0E8D5]">Recent Cooks</div>
-            <div className="text-[13px] text-[#E84820]">See all</div>
-          </div>
-
-          {/* Cook Cards */}
-          <div className="mx-[16px] mb-[8px] bg-[#1C1915] border border-[#2C2520] rounded-[12px] p-[14px] flex flex-row gap-[12px] items-center">
-            <div className="w-[40px] h-[40px] rounded-[10px] bg-gradient-to-br from-[#E84820] to-[#FF6B2B] flex-shrink-0" />
-            <div className="flex-1">
-              <div className="text-[15px] font-semibold text-[#F0E8D5]">Brisket</div>
-              <div className="text-[12px] text-[#8A7D70]">Completed · 14h 22m</div>
-            </div>
-            <div className="text-[13px] text-[#E84820] font-medium">
-              ★ 9.2
-            </div>
-          </div>
-
-          <div className="mx-[16px] mb-[8px] bg-[#1C1915] border border-[#2C2520] rounded-[12px] p-[14px] flex flex-row gap-[12px] items-center">
-            <div className="w-[40px] h-[40px] rounded-[10px] bg-[#2C2520] flex-shrink-0" />
-            <div className="flex-1">
-              <div className="text-[15px] font-semibold text-[#F0E8D5]">Pork Ribs</div>
-              <div className="text-[12px] text-[#8A7D70]">Completed · 5h 45m</div>
-            </div>
-            <div className="text-[13px] text-[#E84820] font-medium">
-              ★ 8.7
-            </div>
-          </div>
-          
-          <div className="h-[83px]" /> {/* Spacer for bottom tab bar */}
         </div>
 
-        {/* Bottom Tab Bar */}
-        <div className="absolute bottom-0 w-full h-[83px] bg-[#1C1915] border-t border-[#2C2520] flex flex-row justify-around items-center pb-[20px] pt-[12px]">
-          <div className="flex flex-col items-center gap-[3px]">
-            <div className="text-[20px] text-[#E84820]">🏠</div>
-            <div className="text-[10px] text-[#E84820]">Home</div>
+        {/* Section Header */}
+        <div style={{ margin: "20px 20px 10px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 17, fontWeight: "bold", color: "#F0E8D5", flex: 1 }}>Recent Cooks</div>
+          <div style={{ fontSize: 13, color: "#E84820" }}>See all</div>
+        </div>
+
+        {/* Two Cook Cards */}
+        <div style={{ margin: "0 16px 8px 16px", backgroundColor: "#1C1915", border: "1px solid #2C2520", borderRadius: 12, padding: 14, display: "flex", gap: 12, alignItems: "center" }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg, #E84820, #FF6B2B)", display: "flex", justifyContent: "center", alignItems: "center", fontSize: 18 }}>
+            🥩
           </div>
-          <div className="flex flex-col items-center gap-[3px]">
-            <div className="text-[20px] text-[#8A7D70]">➕</div>
-            <div className="text-[10px] text-[#8A7D70]">Plan</div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#F0E8D5" }}>Brisket</div>
+            <div style={{ fontSize: 12, color: "#8A7D70", marginTop: 2 }}>Completed · 14h 22m</div>
           </div>
-          <div className="flex flex-col items-center gap-[3px]">
-            <div className="text-[20px] text-[#8A7D70]">📋</div>
-            <div className="text-[10px] text-[#8A7D70]">Cook Log</div>
+          <div style={{ marginLeft: "auto", fontSize: 13, color: "#E84820" }}>★ 9.2</div>
+        </div>
+
+        <div style={{ margin: "0 16px 8px 16px", backgroundColor: "#1C1915", border: "1px solid #2C2520", borderRadius: 12, padding: 14, display: "flex", gap: 12, alignItems: "center" }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: "#2C2520", display: "flex", justifyContent: "center", alignItems: "center", fontSize: 18 }}>
+            🍖
           </div>
-          <div className="flex flex-col items-center gap-[3px]">
-            <div className="text-[20px] text-[#8A7D70]">☰</div>
-            <div className="text-[10px] text-[#8A7D70]">More</div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#F0E8D5" }}>Pork Ribs</div>
+            <div style={{ fontSize: 12, color: "#8A7D70", marginTop: 2 }}>Completed · 5h 45m</div>
           </div>
+          <div style={{ marginLeft: "auto", fontSize: 13, color: "#E84820" }}>★ 8.7</div>
         </div>
         
+        {/* Extra space for scroll to clear tab bar */}
+        <div style={{ height: 40 }} />
+      </div>
+
+      {/* Bottom Tab Bar */}
+      <div style={{ 
+        backgroundColor: "#1C1915", 
+        borderTop: "1px solid #2C2520", 
+        height: 83, 
+        paddingBottom: 20, 
+        display: "flex", 
+        justifyContent: "space-around", 
+        alignItems: "center",
+        flexShrink: 0
+      }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+          <div style={{ fontSize: 20 }}>🏠</div>
+          <div style={{ fontSize: 10, color: "#E84820" }}>Home</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+          <div style={{ fontSize: 20 }}>➕</div>
+          <div style={{ fontSize: 10, color: "#8A7D70" }}>Plan</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+          <div style={{ fontSize: 20 }}>📋</div>
+          <div style={{ fontSize: 10, color: "#8A7D70" }}>Cook Log</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+          <div style={{ fontSize: 20 }}>☰</div>
+          <div style={{ fontSize: 10, color: "#8A7D70" }}>More</div>
+        </div>
       </div>
       
-      <style dangerouslySetInnerHTML={{__html: `
-        .custom-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .custom-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}} />
     </div>
   );
 }
