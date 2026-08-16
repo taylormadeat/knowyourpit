@@ -25,6 +25,15 @@ transform-async-to-generator. Verify locally before burning EAS credits:
 — exit 0 there guarantees the EAS hermesc accepts it (local one is
 stricter).
 
+**Never use `loose: true`** on the class-field/private plugins: loose
+emits bare `this.x = ...` assignments, which throw "Cannot assign to
+read-only property" when a field shadows a read-only inherited prop
+(e.g. Event's NONE getter from the event-target shim). This crashed
+build 137 on launch — every fetch died before Clerk could init. Default
+(non-loose) output uses Object.defineProperty — ES5-safe on any hermesc.
+The pre-submission script now exports the bundle, greps for the loose
+pattern, and compiles with linux hermesc before any submit.
+
 Also: EAS `logFiles` URLs (from `eas build:view --json`) are
 **brotli-compressed** plain text — decode with node
 `zlib.brotliDecompressSync` to read real Xcode errors. And `curl` needs

@@ -80,9 +80,19 @@ module.exports = function (api) {
     plugins: [
       // The same ancient hermesc also lacks private class fields (#x, #y).
       // Downcompile them before hermesc sees the bundle.
-      ["@babel/plugin-transform-class-properties", { loose: true }],
-      ["@babel/plugin-transform-private-methods", { loose: true }],
-      ["@babel/plugin-transform-private-property-in-object", { loose: true }],
+      //
+      // IMPORTANT: loose MUST stay false (the default). loose:true compiles
+      // class fields to bare `this.x = ...` assignments; when a class field
+      // shadows a read-only inherited property (e.g. Event's NONE /
+      // CAPTURING_PHASE getters from the event-target shim), that assignment
+      // throws "TypeError: Cannot assign to read-only property" in strict
+      // mode. This crashed build 137 on launch — every fetch died because the
+      // Event polyfill couldn't be constructed. Non-loose output uses
+      // Object.defineProperty, which legally shadows read-only inherited
+      // properties, and is still plain ES5 that any hermesc accepts.
+      "@babel/plugin-transform-class-properties",
+      "@babel/plugin-transform-private-methods",
+      "@babel/plugin-transform-private-property-in-object",
     ],
   };
 };
