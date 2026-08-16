@@ -14,3 +14,4 @@
 - [Task commits sweep the working tree](task-commit-sweep.md) — completion commits include prior sessions leftover edits; git status before first markTaskComplete.
 - [Pre-submission review](pre-submission-review.md) — run `bash artifacts/knowyourpit/scripts/pre-submission-review.sh` before every submit; current blockers: privacy/terms 404, reviewer credentials placeholder.
 - [Big Pete's partnership — first build](big-petes-build.md) — iOS build 135 / Android versionCode 5 (v1.0.18) is the first build with the Big Pete's feature flag + partner cards.
+- [OTA update on Replit](ota-update-replit.md) — eas update fails directly; use expo export --no-bytecode + eas update --skip-bundler; export one platform at a time (OOM).

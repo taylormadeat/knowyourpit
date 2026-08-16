@@ -37,6 +37,7 @@
     "@ungap/structured-clone": "^1.3.0",
     "@workspace/api-client-react": "workspace:*",
     "@workspace/checkin-schedule": "workspace:*",
+    "babel-preset-expo": "^57.0.7",
     "debug": "^4.4.3",
     "eas-cli": "21.2.0",
     "expo": "~54.0.33",
