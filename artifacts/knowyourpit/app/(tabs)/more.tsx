@@ -11,6 +11,7 @@ import {
   Linking,
 } from "react-native";
 import { fetch as expoFetch } from "expo/fetch";
+import * as Updates from "expo-updates";
 import { type Href, useRouter } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
@@ -444,6 +445,12 @@ export default function MoreScreen() {
             </Text>
           )}
         </Pressable>
+
+        <Text style={[s.versionText, { color: colors.mutedForeground }]}>
+          v{Updates.runtimeVersion ?? "?"}
+          {" · "}
+          {Updates.updateId ? `OTA ${Updates.updateId.slice(0, 8)}` : "embedded build"}
+        </Text>
         </View>
       </ScrollView>
 
@@ -506,4 +513,8 @@ const s = StyleSheet.create({
     minHeight: 36,
   },
   restoreBtnText: { fontSize: 13, fontFamily: "Inter_400Regular", textDecorationLine: "underline" },
+  versionText: {
+    textAlign: "center", fontSize: 12, fontFamily: "Inter_400Regular",
+    marginBottom: 24,
+  },
 });
