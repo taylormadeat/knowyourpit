@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Linking,
   Platform,
 } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 
 type Seasoning = {
@@ -58,24 +59,27 @@ export function BigPetesHomeCard() {
 
   const current = SEASONINGS[idx];
 
-  function startTimer() {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setIdx(i => (i + 1) % SEASONINGS.length);
-    }, ROTATE_MS);
-  }
-
-  useEffect(() => {
-    startTimer();
-    return () => {
+  // Restart the rotation every time the home tab gains focus so the card
+  // keeps cycling even after the user navigates away and returns.
+  useFocusEffect(
+    useCallback(() => {
       if (timerRef.current) clearInterval(timerRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      timerRef.current = setInterval(() => {
+        setIdx(i => (i + 1) % SEASONINGS.length);
+      }, ROTATE_MS);
+      return () => {
+        if (timerRef.current) clearInterval(timerRef.current);
+      };
+    }, []),
+  );
 
   function handleDotPress(i: number) {
     setIdx(i);
-    startTimer();
+    // Reset the interval so the new selection gets a full 3 s before advancing.
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setIdx(prev => (prev + 1) % SEASONINGS.length);
+    }, ROTATE_MS);
   }
 
   function handleShop() {

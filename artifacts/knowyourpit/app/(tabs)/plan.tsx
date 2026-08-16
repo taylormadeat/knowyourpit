@@ -3638,6 +3638,14 @@ export default function PlanScreen() {
             {paywallUsage.remaining.plannedCooks} planned cook slot{paywallUsage.remaining.plannedCooks !== 1 ? "s" : ""} remaining
           </Text>
         )}
+        {/* ── Big Pete's seasoning card — contextual pairing for this cut ── */}
+        {remoteConfig.partnerBigPetes && selectedCut && (
+          <BigPetesSeasoningCard
+            cutCategory={selectedCut.category}
+            cutName={selectedCut.name}
+          />
+        )}
+
         {/* ── Submit ── */}
         <Pressable
           testID="submit-cook-btn"
@@ -3658,14 +3666,6 @@ export default function PlanScreen() {
             </>
           )}
         </Pressable>
-
-        {/* ── Big Pete's seasoning card — contextual pairing for this cut ── */}
-        {remoteConfig.partnerBigPetes && cookNowMode === "now" && selectedCut && (
-          <BigPetesSeasoningCard
-            cutCategory={selectedCut.category}
-            cutName={selectedCut.name}
-          />
-        )}
 
         {/* ── Slow-submit watchdog row ──
             Appears after ~6s of pending create so the user is never stuck on
