@@ -3944,6 +3944,13 @@ export default function PlanScreen() {
           }
         />
 
+        {remoteConfig.partnerBigPetes && multiItems.length > 0 && (
+          <BigPetesSeasoningCard
+            cutCategory={multiItems[0].cut.category}
+            cutName={multiItems[0].cut.name}
+          />
+        )}
+
         {/* Sequence button */}
         <Pressable
           style={({ pressed }) => [
