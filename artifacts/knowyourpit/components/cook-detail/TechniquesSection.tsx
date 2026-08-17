@@ -49,9 +49,9 @@ export function TechniquesSection({
     <>
       <View style={{ backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border }}>
         <Pressable onPress={() => setTechsExpanded((v) => !v)} style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, gap: 8 }}>
-          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 12, color: colors.mutedForeground, textTransform: "uppercase", letterSpacing: 0.8, flex: 1 }}>Techniques Used</Text>
+          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 12, color: colors.mutedForeground, textTransform: "uppercase", letterSpacing: 0.8, flexShrink: 0, marginRight: 6 }}>Techniques Used</Text>
           {hasTechValues && !techsExpanded && (
-            <View style={{ flexDirection: "row", gap: 5 }}>
+            <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 5 }}>
               {[c.cookingMethod, c.injection, c.spritzFrequency, c.wrapFinish].filter(Boolean).map((v: string, i: number) => (
                 <View key={i} style={{ paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, backgroundColor: colors.muted }}>
                   <Text style={{ fontFamily: "Inter_500Medium", fontSize: 10, color: colors.mutedForeground }}>{v}</Text>
