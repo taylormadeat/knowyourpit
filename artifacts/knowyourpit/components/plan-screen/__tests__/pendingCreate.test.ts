@@ -66,6 +66,14 @@ describe("shouldReusePendingCreate", () => {
     expect(shouldReusePendingCreate(pending(), differentCut, NOW + 5_000)).toBe(false);
   });
 
+  it("reuses the key after a cancel/blur mid-attempt so a manual re-tap never duplicates", () => {
+    // cancelSubmitWait (Cancel button or tab-blur cleanup) aborts the fetch
+    // but deliberately KEEPS the pending record. A re-tap with the unchanged
+    // intent must reuse the same idempotency key so the server dedup guard
+    // returns the original cook if the aborted request actually landed.
+    expect(shouldReusePendingCreate(pending(), FP, NOW + 30_000)).toBe(true);
+  });
+
   it("never reuses a stale key", () => {
     expect(shouldReusePendingCreate(pending(), FP, NOW + PENDING_CREATE_TTL_MS + 1)).toBe(false);
   });

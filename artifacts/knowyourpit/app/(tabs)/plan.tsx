@@ -42,6 +42,7 @@ import { useLayout } from "@/hooks/useLayout";
 import {
   useListGrills,
   useCreateCook,
+  createCook as createCookRequest,
   useUpdateCook,
   useDeleteCook,
   useGetCook,
@@ -456,6 +457,11 @@ export default function PlanScreen() {
   // on retry so the server dedup guard prevents duplicate cooks, and used
   // by foreground recovery to find an already-created cook.
   const pendingCreateRef = useRef<PendingCreate | null>(null);
+  // AbortController for the in-flight cook-create fetch. Each attemptCreate()
+  // installs a fresh controller; cancelSubmitWait aborts it so the network
+  // connection is released promptly (best-effort on iOS) instead of silently
+  // consuming a socket until customFetch's 30 s ceiling.
+  const submitAbortRef = useRef<AbortController | null>(null);
   // Ref guard for handleMultiCook — prevents a rapid double-tap from queuing
   // a second concurrent AI request while the loading modal is animating in.
   const multiCookRunningRef = useRef(false);
@@ -670,7 +676,14 @@ export default function PlanScreen() {
       clearTimeout(slowTimerRef.current);
       slowTimerRef.current = null;
     }
+    // Abort the in-flight create fetch (best-effort on iOS) so the network
+    // connection is released instead of hanging until customFetch's ceiling.
+    submitAbortRef.current?.abort();
+    submitAbortRef.current = null;
   };
+  // Latest-closure ref so the blur cleanup below never calls a stale version.
+  const cancelSubmitWaitRef = useRef(cancelSubmitWait);
+  cancelSubmitWaitRef.current = cancelSubmitWait;
 
   // If a create was in flight (or timed out / was cancelled) and the user
   // backgrounds + foregrounds the app, check whether the cook actually made
@@ -718,6 +731,20 @@ export default function PlanScreen() {
         .then(t => (t === null ? getTokenSafe(getToken, 8000, true) : t))
         .catch(() => {});
     }, [getToken]),
+  );
+
+  // Blur cleanup: if the user taps away from the Plan tab while a cook-create
+  // submit is pending, cancel the wait immediately. This clears the spinner,
+  // bumps the submit generation (so no ghost "Connection Timeout" alert fires
+  // on the destination tab), and aborts the in-flight fetch to release the
+  // connection. pendingCreateRef is kept, so foreground recovery / a manual
+  // re-tap still reuses the same idempotency key — no duplicate cooks.
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        if (submitInFlightRef.current) cancelSubmitWaitRef.current();
+      };
+    }, []),
   );
 
   const resetMultiForm = () => {
@@ -1528,9 +1555,15 @@ export default function PlanScreen() {
       // so the spinner always clears. iOS does not reliably honour fetch aborts,
       // so a timed-out first attempt may still have reached the server; the
       // retry below relies on the idempotency guard to avoid duplicates.
-      const attemptCreate = () => Promise.race([
-        createCook.mutateAsync({
-        data: {
+      // Each attempt installs a FRESH AbortController in submitAbortRef so
+      // cancelSubmitWait (Cancel button / blur cleanup) can abort the fetch,
+      // and the sentinel aborts it before rejecting so the socket is
+      // released promptly instead of lingering until customFetch's ceiling.
+      const attemptCreate = () => {
+        const controller = new AbortController();
+        submitAbortRef.current = controller;
+        return Promise.race([
+          createCookRequest({
           foodType: selectedCut.name,
           weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : undefined,
           sizingLabel: sizeOutput.sizingLabel ?? undefined,
@@ -1603,14 +1636,18 @@ export default function PlanScreen() {
           ...(qpSpritz && { spritzFrequency: qpSpritz }),
           ...(qpWrapFinish && { wrapFinish: qpWrapFinish }),
         } as any,
-        }),
+        { signal: controller.signal },
+        ),
         new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error("COOK_MUTATION_TIMEOUT")),
-            MUTATION_TIMEOUT_MS,
-          )
+          setTimeout(() => {
+            // Abort the fetch BEFORE rejecting so performFetch receives the
+            // signal promptly and the stalled socket is released.
+            controller.abort(new Error("COOK_MUTATION_TIMEOUT"));
+            reject(new Error("COOK_MUTATION_TIMEOUT"));
+          }, MUTATION_TIMEOUT_MS)
         ),
       ]);
+      };
 
       const createdCook = await (async () => {
         try {
@@ -1866,6 +1903,9 @@ export default function PlanScreen() {
           clearTimeout(slowTimerRef.current);
           slowTimerRef.current = null;
         }
+        // The create settled (success or failure) — drop the controller so a
+        // later cancelSubmitWait doesn't abort a stale, already-done request.
+        submitAbortRef.current = null;
       }
     }
   };
@@ -3646,10 +3686,10 @@ export default function PlanScreen() {
                 borderColor: colors.primary,
                 marginTop: 10,
               },
-              (createCook.isPending || pressed) && { opacity: 0.6 },
+              (isSubmitting || createCook.isPending || pressed) && { opacity: 0.6 },
             ]}
             onPress={handleSaveFrozenPlan}
-            disabled={createCook.isPending}
+            disabled={isSubmitting || createCook.isPending}
           >
             <Feather name="bookmark" size={18} color={colors.primary} />
             <Text style={[s.submitText, { color: colors.primary }]}>Save Cook Plan</Text>
