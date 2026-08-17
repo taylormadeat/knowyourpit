@@ -28,7 +28,7 @@ import {
   QP_SPRITZ_FREQUENCIES, type QpSpritzFrequency,
   QP_WRAP_FINISH_OPTIONS, type QpWrapFinishOption,
 } from "@/constants/cookQuickPicks";
-import { type ThawMethod } from "@/components/plan-screen/frozenSchedule";
+import { THAW_CHIPS, type AnyThawMethod } from "@/components/plan-screen/thawChips";
 import { SettingsRow } from "@/components/plan-screen/SettingsRow";
 import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
 import { mergeStoredWithDefaults } from "@/utils/pitmasterDefaults";
@@ -45,8 +45,6 @@ import {
   saveLastWrapFinish,
 } from "@/utils/cookQuickPickStorage";
 
-type AnyThawMethod = ThawMethod | "microwave" | "counter" | "cook_from_frozen";
-
 type Colors = any;
 
 type PickerCut = MeatCut & { isCustom?: boolean; customId?: number };
@@ -59,13 +57,6 @@ const EMPTY_SIZE_OUTPUT: SizeInputRowOutput = {
   mode: "weight",
 };
 
-const THAW_CHIPS: { value: AnyThawMethod; label: string }[] = [
-  { value: "fridge", label: "Refrigerator  (~24h / 4–5 lbs)" },
-  { value: "cold_water", label: "Cold Water  (~1h per lb)" },
-  { value: "microwave", label: "Microwave  (cook immediately)" },
-  { value: "counter", label: "Counter Thaw" },
-  { value: "cook_from_frozen", label: "Cook from Frozen  (+~50% time)" },
-];
 
 export interface MultiItem {
   cut: MeatCut;
