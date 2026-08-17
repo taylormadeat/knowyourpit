@@ -2599,8 +2599,7 @@ export default function PlanScreen() {
             <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
               Cooking Style
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ flexDirection: "row", gap: 8 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 {cutUserPresets.map((preset: UserTechniquePreset) => {
                   const active = activePreset === preset.label;
                   return (
@@ -2715,7 +2714,6 @@ export default function PlanScreen() {
                   );
                 })}
               </View>
-            </ScrollView>
           </View>
         )}
 
