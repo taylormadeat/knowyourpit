@@ -191,6 +191,7 @@ export function MultiCookAddItemModal(p: Props) {
   const [itemNotes, setItemNotes] = useState("");
   const [selectedGrillId, setSelectedGrillId] = useState<number | null>(null);
   const [grillSheetOpen, setGrillSheetOpen] = useState(false);
+  const [thawSheetOpen, setThawSheetOpen] = useState(false);
   const [targetTempFInput, setTargetTempFInput] = useState("");
   const [cookTempFInput, setCookTempFInput] = useState("");
   const [localSizeOutput, setLocalSizeOutput] = useState<SizeInputRowOutput>(EMPTY_SIZE_OUTPUT);
@@ -946,35 +947,14 @@ export function MultiCookAddItemModal(p: Props) {
                     </View>
                   </Pressable>
                   {isFrozen && (
-                    <View style={{ paddingBottom: 12, paddingTop: 8 }}>
-                      <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                        Thaw Method
-                      </Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        <View style={{ flexDirection: "row", gap: 8 }}>
-                          {THAW_CHIPS.map(opt => {
-                            const active = thawMethod === opt.value;
-                            return (
-                              <Pressable
-                                key={opt.value}
-                                onPress={() => { setThawMethod(opt.value); Haptics.selectionAsync(); }}
-                                style={{
-                                  paddingHorizontal: 12,
-                                  paddingVertical: 7,
-                                  borderRadius: 20,
-                                  borderWidth: 1,
-                                  borderColor: active ? "#3B82F6" : colors.border,
-                                  backgroundColor: active ? "#3B82F620" : colors.muted,
-                                }}
-                              >
-                                <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? "#3B82F6" : colors.mutedForeground }}>
-                                  {opt.label}
-                                </Text>
-                              </Pressable>
-                            );
-                          })}
-                        </View>
-                      </ScrollView>
+                    <View style={{ paddingTop: 4, paddingBottom: 4 }}>
+                      <SettingsRow
+                        label="Thaw Method"
+                        value={THAW_CHIPS.find(o => o.value === thawMethod)?.label ?? null}
+                        onPress={() => setThawSheetOpen(true)}
+                        colors={colors}
+                        isLast
+                      />
                     </View>
                   )}
                 </View>
@@ -1025,6 +1005,20 @@ export function MultiCookAddItemModal(p: Props) {
         onClose={() => setGrillSheetOpen(false)}
         colors={colors}
         allowDeselect
+      />
+
+      {/* ── Thaw method option sheet ─────────────────────────────────── */}
+      <OptionBottomSheet
+        visible={visible && thawSheetOpen}
+        title="Thaw Method"
+        options={THAW_CHIPS.map(o => ({ value: o.value, label: o.label }))}
+        selected={thawMethod}
+        onChange={(val) => {
+          setThawMethod((val ?? "fridge") as AnyThawMethod);
+        }}
+        onClose={() => setThawSheetOpen(false)}
+        colors={colors}
+        allowDeselect={false}
       />
 
       {/* ── Technique option sheets ───────────────────────────────────── */}
