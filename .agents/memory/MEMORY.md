@@ -14,5 +14,5 @@
 - [Task commits sweep the working tree](task-commit-sweep.md) — completion commits include prior sessions leftover edits; git status before first markTaskComplete.
 - [Pre-submission review](pre-submission-review.md) — run `bash artifacts/knowyourpit/scripts/pre-submission-review.sh` before every submit; current blockers: privacy/terms 404, reviewer credentials placeholder.
 - [Big Pete's partnership — first build](big-petes-build.md) — iOS build 135 / Android versionCode 5 (v1.0.18) is the first build with the Big Pete's feature flag + partner cards.
-- [EAS hermesc syntax lowering](eas-hermesc-syntax-lowering.md) — EAS's Pods hermesc rejects classes/async-arrows/for-await/catch-destructuring; babel must lower them; verify locally with linux hermesc; EAS logFiles are brotli.
+- [EAS hermesc syntax lowering](eas-hermesc-syntax-lowering.md) — EAS's Pods hermesc rejects ES6 classes; lowering must be non-loose AND strip annotation-only Flow fields first (build 137 & 138 crashes); smoke script + hermesc verify locally.
 - [OTA update on Replit](ota-update-replit.md) — eas update fails directly; use `bash scripts/ota-update.sh` (artifacts/knowyourpit/scripts/); script does export --no-bytecode + update --skip-bundler, one platform at a time.

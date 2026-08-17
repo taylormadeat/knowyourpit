@@ -132,11 +132,21 @@ fi
 
 # ── 9. Bundle smoke check (catches babel/hermesc breakage) ───────────────────
 echo ""
-echo "[ 9/10 ] Exporting iOS bundle and compiling with hermesc …"
-# Catches two past release-breaking failures:
+echo "[ 9/10 ] Runtime transform smoke + iOS bundle hermesc compile …"
+# Catches three past release-breaking failures:
 #   • build 137 crash: loose class-field transforms emitting bare assignments
 #     over read-only inherited props ("Cannot assign to read-only property")
+#   • build 138 crash: annotation-only Flow fields compiled into defineProperty
+#     over RN's non-configurable `state` accessor ("property is not
+#     configurable" — broke every VirtualizedList/Cook Log)
 #   • EAS hermesc rejection: un-lowered class/async syntax reaching hermesc
+# Runtime smoke EXECUTES the transformed crash patterns — hermesc compiling
+# only proves the bundle parses, not that it runs.
+if node scripts/babel-lowering-smoke.mjs; then
+  log_pass "Runtime transform smoke: all known crash patterns execute cleanly"
+else
+  log_fail "Runtime transform smoke FAILED — babel config would reproduce a shipped launch crash (see scripts/babel-lowering-smoke.mjs output above)"
+fi
 SMOKE_DIR=$(mktemp -d)
 if pnpm exec expo export --no-bytecode --platform ios --output-dir "$SMOKE_DIR" --clear >/dev/null 2>&1; then
   BUNDLE=$(find "$SMOKE_DIR/_expo/static/js/ios" -name "*.js" -print -quit 2>/dev/null || true)
@@ -146,6 +156,24 @@ if pnpm exec expo export --no-bytecode --platform ios --output-dir "$SMOKE_DIR" 
       log_pass "No loose class-field assignments over read-only props in bundle"
     else
       log_fail "Bundle contains loose class-field assignments (this.NONE=void 0) — will crash on launch (see build 137)"
+    fi
+    # Build-138 signature: annotation-only `state` field surviving into
+    # VirtualizedList's constructor as a defineProperty call.
+    STATE_HITS=$(python3 -c "
+src = open('$BUNDLE').read()
+i = src.find('_offsetFromParentVirtualizedList')
+if i < 0:
+    print('NO_ANCHOR')  # VirtualizedList module not found — check cannot run
+else:
+    start = src.rfind('__d(function', 0, i); end = src.find(chr(10), i)
+    print(src[start:end].count('\"state\",void 0'))
+" 2>/dev/null || echo "?")
+    if [ "$STATE_HITS" = "0" ]; then
+      log_pass "VirtualizedList has no lowered annotation-only state field"
+    elif [ "$STATE_HITS" = "NO_ANCHOR" ] || [ "$STATE_HITS" = "?" ]; then
+      log_fail "Could not locate VirtualizedList module in bundle (anchor missing) — build-138 regression check DID NOT RUN; update the anchor in this script"
+    else
+      log_fail "VirtualizedList defines 'state' field ($STATE_HITS hit(s)) — crashes over non-configurable accessor (see build 138)"
     fi
     HERMESC="node_modules/react-native/sdks/hermesc/linux64-bin/hermesc"
     if [ -x "$HERMESC" ]; then

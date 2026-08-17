@@ -25,6 +25,23 @@ transform-async-to-generator. Verify locally before burning EAS credits:
 — exit 0 there guarantees the EAS hermesc accepts it (local one is
 stricter).
 
+**Strip annotation-only public class fields before lowering.** RN's
+Flow source (e.g. VirtualizedList's `state: State;`) has annotation-only
+fields that Flow stripping normally deletes. If the custom lowering
+visits the Class first, it compiles them into
+`defineProperty(this, "state", void 0)`, which throws "property is not
+configurable" over the non-configurable `state` accessor RN's
+StateSafePureComponent installs — crashed build 138 (Cook Log spinner /
+error boundary on every VirtualizedList). Fix: a custom
+stripAnnotationOnlyClassFields plugin (public ClassProperty with
+typeAnnotation and no value; keep private fields — their declarations
+are required) ordered first in the lowering preset, plus the lowering
+preset listed BEFORE babel-preset-expo (presets apply in reverse).
+`scripts/babel-lowering-smoke.mjs` executes both crash patterns through
+the real config (caller must include `engine: "hermes"` or preset-expo
+lowers fields itself, loose); pre-submission check 9 runs it and greps
+the bundle for the build-138 signature.
+
 **Never use `loose: true`** on the class-field/private plugins: loose
 emits bare `this.x = ...` assignments, which throw "Cannot assign to
 read-only property" when a field shadows a read-only inherited prop
