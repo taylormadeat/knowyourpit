@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { reloadAppAsync } from "expo";
+import * as Updates from "expo-updates";
 import React, { useState } from "react";
 import {
   Modal,
@@ -50,8 +51,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {__DEV__ ? (
-        <Pressable
+      <Pressable
           onPress={() => setIsModalVisible(true)}
           accessibilityLabel="View error details"
           accessibilityRole="button"
@@ -66,7 +66,6 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
         >
           <Feather name="alert-circle" size={20} color={colors.foreground} />
         </Pressable>
-      ) : null}
 
       <View style={styles.content}>
         <Text style={[styles.title, { color: colors.foreground }]}>
@@ -97,10 +96,18 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
             Try Again
           </Text>
         </Pressable>
+
+        <Text
+          style={[styles.diagText, { color: colors.mutedForeground, fontFamily: monoFont }]}
+          selectable
+        >
+          {`${error.message}\n\nupdate: ${Updates.updateId ?? "embedded"}${
+            Updates.createdAt ? ` (${Updates.createdAt.toISOString()})` : ""
+          }`}
+        </Text>
       </View>
 
-      {__DEV__ ? (
-        <Modal
+      <Modal
           visible={isModalVisible}
           animationType="slide"
           transparent={true}
@@ -166,7 +173,6 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
             </View>
           </View>
         </Modal>
-      ) : null}
     </View>
   );
 }
@@ -197,6 +203,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "center",
     lineHeight: 24,
+  },
+  diagText: {
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: "center",
+    marginTop: 8,
   },
   topButton: {
     position: "absolute",
