@@ -56,7 +56,6 @@ interface Props {
   itemYRef: { current: Record<number, number> };
   timelineYRef: { current: Record<number, number> };
   rowYRef: { current: Record<string, number> };
-  onQuickLog?: (action: "charcoal" | "wood") => void;
   scheduledCheckins?: ScheduledCheckin[];
   cookCheckins?: CookCheckin[];
   onCheckinPress?: (sc: ScheduledCheckin) => void;
@@ -106,7 +105,6 @@ export function SequenceSchedule(p: Props) {
     seqScheduleExpanded, setSeqScheduleExpanded,
     confirmedSteps, toggleConfirmedStep,
     scheduleListYRef, itemYRef, timelineYRef, rowYRef,
-    onQuickLog,
     scheduledCheckins, cookCheckins, onCheckinPress, nextCheckinSc,
   } = p;
 
@@ -809,26 +807,6 @@ export function SequenceSchedule(p: Props) {
                   </View>
                 ) : null}
 
-                {/* ── Fuel quick-log (active cooks only) ── */}
-                {isActive && onQuickLog && (
-                  <View style={[s.seqTlFuelRow, { borderTopColor: colors.border }]}>
-                    <Text style={[s.seqTlFuelLabel, { color: colors.mutedForeground }]}>Log fuel</Text>
-                    <Pressable
-                      onPress={() => onQuickLog("charcoal")}
-                      style={[s.seqTlFuelBtn, s.seqTlFuelBtnCharcoal]}
-                    >
-                      <Feather name="grid" size={13} color="#9CA3AF" />
-                      <Text style={[s.seqTlFuelBtnText, { color: "#9CA3AF" }]}>Charcoal</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => onQuickLog("wood")}
-                      style={[s.seqTlFuelBtn, s.seqTlFuelBtnWood]}
-                    >
-                      <Feather name="wind" size={13} color="#D97706" />
-                      <Text style={[s.seqTlFuelBtnText, { color: "#D97706" }]}>Wood</Text>
-                    </Pressable>
-                  </View>
-                )}
               </View>
             );
           })}

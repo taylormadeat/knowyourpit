@@ -120,7 +120,7 @@ export default function CookDetailScreen() {
     editWrapFinish, setEditWrapFinish, editSaving, editDates, editSelectedGrill,
     openEdit, saveEdit,
     editTimesVisible, setEditTimesVisible, editTimesSaving, handleSaveCookTimes,
-    handleDelete, handleStatusUpdate, handleLogFuelEvent,
+    handleDelete, handleStatusUpdate,
     checkinModalVisible, setCheckinModalVisible, activeCheckin, setActiveCheckin,
     pendingCheckinSc, setPendingCheckinSc,
     firstCheckinNudgeDismissed, setFirstCheckinNudgeDismissed,
@@ -863,7 +863,6 @@ export default function CookDetailScreen() {
             seqScheduleExpanded={seqScheduleExpanded} setSeqScheduleExpanded={setSeqScheduleExpanded}
             confirmedSteps={confirmedSteps} toggleConfirmedStep={toggleConfirmedStep}
             scheduleListYRef={scheduleListYRef} itemYRef={itemYRef} timelineYRef={timelineYRef} rowYRef={rowYRef}
-            handleLogFuelEvent={handleLogFuelEvent as ((event: string) => void) | undefined}
             storedScheduledCheckins={storedScheduledCheckins} noPlanScheduledCheckins={noPlanScheduledCheckins}
             removedPlannedKeys={removedPlannedKeys} cookCheckins={cookCheckins as CookCheckin[]}
             checkinsLoading={checkinsLoading} openCheckin={openCheckin} nextCheckinSc={nextCheckinSc}

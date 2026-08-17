@@ -29,7 +29,6 @@ interface CookTimelineSectionProps {
   itemYRef: React.MutableRefObject<Record<number, number>>;
   timelineYRef: React.MutableRefObject<Record<number, number>>;
   rowYRef: React.MutableRefObject<Record<string, number>>;
-  handleLogFuelEvent?: (event: string) => void;
   storedScheduledCheckins: ScheduledCheckin[];
   noPlanScheduledCheckins: ScheduledCheckin[];
   removedPlannedKeys: Set<string>;
@@ -63,7 +62,7 @@ export function CookTimelineSection({
   nextStep, seqScheduleExpanded, setSeqScheduleExpanded,
   confirmedSteps, toggleConfirmedStep,
   scheduleListYRef, itemYRef, timelineYRef, rowYRef,
-  handleLogFuelEvent, storedScheduledCheckins, noPlanScheduledCheckins,
+  storedScheduledCheckins, noPlanScheduledCheckins,
   removedPlannedKeys, cookCheckins, checkinsLoading, openCheckin, nextCheckinSc,
   setPlannedCheckinPreviewSc, plannedSequenceCheckins, estimatedFinishMs,
   storedAnalysis, storedAssessment, storedVerdictCfg, effectiveStoredGraphProbes,
@@ -145,7 +144,6 @@ export function CookTimelineSection({
             confirmedSteps={confirmedSteps} toggleConfirmedStep={toggleConfirmedStep}
             scheduleListYRef={scheduleListYRef} itemYRef={itemYRef}
             timelineYRef={timelineYRef} rowYRef={rowYRef}
-            onQuickLog={undefined}
             scheduledCheckins={plannedSequenceCheckins}
             onCheckinPress={setPlannedCheckinPreviewSc}
           />
@@ -164,7 +162,6 @@ export function CookTimelineSection({
             confirmedSteps={confirmedSteps} toggleConfirmedStep={toggleConfirmedStep}
             scheduleListYRef={scheduleListYRef} itemYRef={itemYRef}
             timelineYRef={timelineYRef} rowYRef={rowYRef}
-            onQuickLog={cookStatus === "active" ? handleLogFuelEvent : undefined}
             scheduledCheckins={cookStatus === "active" ? activeScheduledCheckins : undefined}
             cookCheckins={cookCheckins as CookCheckin[]}
             onCheckinPress={cookStatus === "active" ? openCheckin : undefined}
