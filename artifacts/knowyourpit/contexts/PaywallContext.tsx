@@ -54,8 +54,6 @@ const ERROR_CODE_TO_TRIGGER: Record<string, PaywallTrigger> = {
 const FEATURE_LABELS: Record<string, string> = {
   multi_cook: "Multi-Cook Sequencer",
   home_insights: "AI Home Insights",
-  meater_link: "MEATER Connection",
-  thermoworks_link: "ThermoWorks Connection",
   cook_quality: "Cook Quality Analytics",
   frozen_timeline: "Frozen-to-Table Timeline",
 };

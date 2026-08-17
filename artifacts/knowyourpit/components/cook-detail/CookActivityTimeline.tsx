@@ -238,8 +238,6 @@ const URGENCY_COLORS: Record<string, string> = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const PROBE_SOURCE_LABELS: Record<string, string> = {
-  meater:       "MEATER Probe",
-  thermoworks:  "ThermoWorks Probe",
   inkbird:      "Inkbird Probe",
   govee:        "Govee Probe",
   ble:          "Bluetooth Probe",

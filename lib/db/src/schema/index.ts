@@ -3,8 +3,6 @@ export * from "./cooks";
 export * from "./temperature_readings";
 export * from "./conversations";
 export * from "./messages";
-export * from "./meater_credentials";
-export * from "./thermoworks_credentials";
 export * from "./contact_messages";
 export * from "./ai_analyze_events";
 export * from "./frozen_timeline_events";

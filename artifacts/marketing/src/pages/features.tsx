@@ -31,7 +31,7 @@ const FEATURES = [
     icon: Camera,
     title: "Any Thermometer. Any Data Source.",
     shortTitle: "Any Thermometer",
-    body: "Connect any Bluetooth or WiFi probe and your readings flow straight into PitMaster — no manual logging required. MEATER and ThermoWorks Signals link directly, with support for additional brands. Running an analog gauge? Take a photo and PitMaster reads it. Prefer to log by hand? That works too. No specific hardware required.",
+    body: "Connect any Bluetooth probe and your readings flow straight into PitMaster — no manual logging required. Inkbird, Govee, and other Bluetooth thermometers link directly, with support for additional brands. Running an analog gauge? Take a photo and PitMaster reads it. Prefer to log by hand? That works too. No specific hardware required.",
   },
   {
     icon: BookOpen,

@@ -35,10 +35,6 @@ interface Props {
   c: any;
   colors: Colors;
   weather: any;
-  meaterLinked: boolean | null;
-  meaterProbes: any[];
-  thermoworksLinked: boolean | null;
-  thermoworksProbes: any[];
   inkbirdProbes?: InkbirdProbeReading[];
   bleContextDevices?: BleDevice[];
   lanProbes?: LanProbeReading[];
@@ -107,7 +103,7 @@ interface Props {
   qualFactors?: QualFactor[];
   /**
    * True when at least one live connected probe is providing temperature data
-   * (MEATER, ThermoWorks, Inkbird, BLE context, or LAN probe). When false the
+   * (Inkbird, BLE context, or LAN probe). When false the
    * auto-analyze timer is suppressed and a hint is shown prompting the user to
    * check in manually to get a fresh analysis.
    */
@@ -150,7 +146,7 @@ function fmtSpritzCountdown(diffMs: number): string {
 
 export function LiveCookSection(p: Props) {
   const {
-    c, colors, weather, meaterLinked, meaterProbes, thermoworksLinked, thermoworksProbes,
+    c, colors, weather,
     inkbirdProbes = [], bleContextDevices = [], lanProbes = [],
     lanMdnsAvailable = false, lanMdnsScanEmpty = false, lanScanning = false,
     autoAssignBanner, onDismissAutoAssignBanner,
@@ -205,39 +201,18 @@ export function LiveCookSection(p: Props) {
         temp = (inkbirdProbes as any[]).find((p: any) => `ble_${p.deviceId}_${p.probeIndex}` === k)?.tempF ?? null;
       } else if (k.startsWith("bleCtx_")) {
         temp = bleContextDevices.find((d: any) => `bleCtx_${d.id}` === k)?.probeTempF ?? null;
-      } else if (k.startsWith("tw_")) {
-        temp = (thermoworksProbes as any[]).find((p: any) => `tw_${p.deviceId}_${p.channelNumber}` === k)?.tempF ?? null;
-      } else {
-        // MEATER — deviceId direct
-        temp = (meaterProbes as any[]).find((p: any) => p.deviceId === k)?.internalTempF ?? null;
       }
       results.push({ label: slot.label, tempF: temp });
     }
     // Only return if at least one slot has a live reading
     return results.some(r => r.tempF != null) ? results : null;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meatProbeSlots, lanProbes, inkbirdProbes, bleContextDevices, thermoworksProbes, meaterProbes]);
+  }, [meatProbeSlots, lanProbes, inkbirdProbes, bleContextDevices]);
 
   // All probes not already in a meat slot and not the pit probe (for "Add probe slot" picker)
   const allUnassignedProbeOptions = React.useMemo(() => {
     const inSlot = (k: string) => meatProbeSlots.some(s => s.id === k);
     const opts: Array<{key: string; name: string; temp: string}> = [];
-    if (meaterLinked === true) {
-      for (const p of meaterProbes as any[]) {
-        const k = p.deviceId as string;
-        if (!inSlot(k) && k !== selectedPitProbeId) {
-          opts.push({ key: k, name: probeLabels[k] ?? p.deviceName, temp: p.internalTempF != null ? `${p.internalTempF}°F` : "—" });
-        }
-      }
-    }
-    if (thermoworksLinked === true) {
-      for (const p of thermoworksProbes as any[]) {
-        const k = `tw_${p.deviceId}_${p.channelNumber}`;
-        if (!inSlot(k) && k !== selectedPitProbeId) {
-          opts.push({ key: k, name: probeLabels[k] ?? (p.channelLabel ? `${p.deviceName} · ${p.channelLabel}` : `${p.deviceName} · Ch ${p.channelNumber}`), temp: p.tempF != null ? `${p.tempF}°F` : "—" });
-        }
-      }
-    }
     for (const p of inkbirdProbes) {
       const k = `ble_${p.deviceId}_${p.probeIndex}`;
       if (!inSlot(k) && k !== selectedPitProbeId) {
@@ -258,7 +233,7 @@ export function LiveCookSection(p: Props) {
     }
     return opts;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meaterLinked, meaterProbes, thermoworksLinked, thermoworksProbes, inkbirdProbes, bleContextDevices, lanProbes, meatProbeSlots, selectedPitProbeId, probeLabels]);
+  }, [inkbirdProbes, bleContextDevices, lanProbes, meatProbeSlots, selectedPitProbeId, probeLabels]);
 
   const [cookFactorsSheetOpen, setCookFactorsSheetOpen] = React.useState(false);
 
@@ -314,8 +289,6 @@ export function LiveCookSection(p: Props) {
     const noProbes =
       inkbirdProbes.length === 0 &&
       bleContextDevices.length === 0 &&
-      meaterProbes.length === 0 &&
-      thermoworksProbes.length === 0 &&
       lanProbes.length === 0;
     const scanActive = tempMode === "probe" && inkbirdScanning;
     if (scanActive && noProbes) {
@@ -327,7 +300,7 @@ export function LiveCookSection(p: Props) {
       if (pairingHintTimerRef.current) clearTimeout(pairingHintTimerRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tempMode, inkbirdScanning, inkbirdProbes.length, bleContextDevices.length, meaterProbes.length, thermoworksProbes.length, lanProbes.length]);
+  }, [tempMode, inkbirdScanning, inkbirdProbes.length, bleContextDevices.length, lanProbes.length]);
 
   // Helpers for RSSI filtering
   function meetsMinSignal(rssi: number | null | undefined): boolean {
@@ -418,8 +391,7 @@ export function LiveCookSection(p: Props) {
     }).start();
   }, [lastAnalyzedAtMs, flashAnim]);
 
-  const hasAnyProbe = (meaterLinked === true && meaterProbes.length > 0) ||
-    (thermoworksLinked === true && thermoworksProbes.length > 0) ||
+  const hasAnyProbe =
     inkbirdProbes.length > 0 ||
     bleContextDevices.length > 0 ||
     lanProbes.length > 0;
@@ -429,9 +401,9 @@ export function LiveCookSection(p: Props) {
   // On iOS, an empty mDNS cycle (module loaded, browse returned nothing) is the strongest signal we
   // have for either denied Local Network permission OR nothing-found (AP isolation, wrong Wi-Fi, off).
   const lanScanEndedEmpty = Platform.OS === "ios" && lanMdnsAvailable === true && lanMdnsScanEmpty === true;
-  // Account is linked (MEATER/ThermoWorks) yet no live probe is reporting — a distinct failure from
-  // "nothing connected": the fix is to power on the probe / refresh, not to link an account.
-  const linkedButEmpty = !hasAnyProbe && (meaterLinked === true || thermoworksLinked === true);
+  // Retained for UI branching — no account-linked probe sources remain, so this
+  // is always false (all supported probes connect over Bluetooth or Wi-Fi).
+  const linkedButEmpty = false;
 
   if (c.status !== "active") return null;
 
@@ -781,7 +753,7 @@ export function LiveCookSection(p: Props) {
       {/* Connected Probe mode: show all available probe sources */}
       {tempMode === "probe" && selectedMeatProbeId != null && liveReadings.length < 2 && (
         <View style={[s.liveGraphWrap, { borderTopColor: colors.border }]}>
-          <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground, textAlign: "left" }]}>
+          <Text style={[s.probePlaceholderText, { color: colors.mutedForeground, textAlign: "left" }]}>
             📡 Collecting readings — chart will appear shortly
           </Text>
         </View>
@@ -808,211 +780,6 @@ export function LiveCookSection(p: Props) {
           </View>
         );
       })()}
-
-      {/* MEATER rows — ambient auto-provides pit; user can assign Meat or Pit role */}
-      {tempMode === "probe" && meaterLinked === true && meaterProbes.map((probe: any, i: number) => {
-        const probeKey = probe.deviceId;
-        const isMeat = isInMeatSlot(probeKey) || selectedMeatProbeId === probeKey;
-        const isPit = selectedPitProbeId === probeKey;
-        const otherCook = otherCookAssignments[probeKey];
-        const lockedByOther = !!otherCook && !isMeat && !isPit;
-        const isEditing = editingLabelKey === probeKey;
-        const isCollapsed = !isMeat && !isPit && !expandedProbeKeys.has(probeKey);
-        if (isCollapsed) {
-          return (
-            <Pressable key={`${probe.deviceId}_c_${i}`} onPress={() => toggleExpanded(probeKey)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Feather name="thermometer" size={11} color={colors.mutedForeground} />
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }} numberOfLines={1}>{probeLabels[probeKey] ?? probe.deviceName}</Text>
-              </View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.foreground }}>{probe.internalTempF != null ? `${probe.internalTempF}°F` : "—"}</Text>
-                <Feather name="chevron-down" size={12} color={colors.mutedForeground} />
-              </View>
-            </Pressable>
-          );
-        }
-        return (
-          <View
-            key={probe.deviceId + i}
-            style={[s.subSection, { borderTopColor: colors.border, paddingHorizontal: 14, paddingBottom: 12,
-              ...(isMeat ? { borderWidth: 1.5, borderColor: "#FF6B2B60", borderRadius: 10, marginHorizontal: 8, marginTop: 6, backgroundColor: "#FF6B2B08" } :
-                  isPit  ? { borderWidth: 1.5, borderColor: "#3b82f660", borderRadius: 10, marginHorizontal: 8, marginTop: 6, backgroundColor: "#3b82f608" } : {}),
-            }]}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <View style={{ flex: 1 }}>
-                {isEditing ? (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <TextInput value={labelDraft} onChangeText={setLabelDraft} placeholder={probe.deviceName} placeholderTextColor={colors.mutedForeground}
-                      style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 12, color: colors.foreground, borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 2 }}
-                      autoFocus returnKeyType="done"
-                      onSubmitEditing={() => { onSetProbeLabel?.(probeKey, labelDraft); setEditingLabelKey(null); }} />
-                    <Pressable hitSlop={8} onPress={() => { onSetProbeLabel?.(probeKey, labelDraft); setEditingLabelKey(null); }}><Feather name="check" size={14} color="#22c55e" /></Pressable>
-                    <Pressable hitSlop={8} onPress={() => setEditingLabelKey(null)}><Feather name="x" size={14} color={colors.mutedForeground} /></Pressable>
-                  </View>
-                ) : (
-                  <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
-                    {probeLabels[probeKey] ?? probe.deviceName}{probe.cookName ? ` · ${probe.cookName}` : ""}
-                  </Text>
-                )}
-              </View>
-              {!isEditing && (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Pressable hitSlop={8} onPress={() => { setEditingLabelKey(probeKey); setLabelDraft(probeLabels[probeKey] ?? ""); }}>
-                    <Feather name="edit-2" size={12} color={colors.mutedForeground} />
-                  </Pressable>
-                  {lockedByOther ? (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: colors.mutedForeground + "15" }}>
-                      <Feather name="lock" size={9} color={colors.mutedForeground} />
-                      <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: colors.mutedForeground }}>Used by {otherCook}</Text>
-                    </View>
-                  ) : (
-                    <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
-                      {otherCook && (
-                        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>⚠ {otherCook}</Text>
-                      )}
-                      {!isProduceCook && (
-                      <Pressable onPress={() => isMeat ? onRemoveMeatProbeSlot?.(probeKey) : onSelectMeatProbe?.(probeKey)}
-                        style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isMeat ? "#FF6B2B60" : "transparent" }}>
-                        <Feather name="thermometer" size={11} color={isMeat ? "#FF6B2B" : colors.mutedForeground} />
-                        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>{isMeat ? (getSlotLabel(probeKey) ?? "Meat") : "Meat"}</Text>
-                        {isMeat && <Feather name="x" size={10} color="#FF6B2B" />}
-                      </Pressable>
-                      )}
-                      <Pressable onPress={() => onSelectPitProbe?.(isPit ? null : probeKey)}
-                        style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: isPit ? "#3b82f620" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isPit ? "#3b82f660" : "transparent" }}>
-                        <Feather name="wind" size={11} color={isPit ? "#3b82f6" : colors.mutedForeground} />
-                        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isPit ? "#3b82f6" : colors.mutedForeground }}>Pit</Text>
-                        {isPit && <Feather name="check" size={10} color="#3b82f6" />}
-                      </Pressable>
-                    </View>
-                  )}
-                </View>
-              )}
-            </View>
-            <View style={s.meaterTempsRow}>
-              {!isProduceCook && (
-              <View style={s.meaterTempChip}>
-                <Feather name="thermometer" size={14} color="#FF6B2B" />
-                <View>
-                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{probe.internalTempF != null ? `${probe.internalTempF}°F` : "—"}</Text>
-                  <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Internal</Text>
-                </View>
-              </View>
-              )}
-              <View style={s.meaterTempChip}>
-                <Feather name="wind" size={14} color="#3b82f6" />
-                <View>
-                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{probe.ambientTempF != null ? `${probe.ambientTempF}°F` : "—"}</Text>
-                  <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Ambient</Text>
-                </View>
-              </View>
-              {(probe.targetMinTempF != null || probe.targetMaxTempF != null) && (
-                <View style={s.meaterTempChip}>
-                  <Feather name="target" size={14} color="#22c55e" />
-                  <View>
-                    <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{probe.targetMinTempF}–{probe.targetMaxTempF}°F</Text>
-                    <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Target</Text>
-                  </View>
-                </View>
-              )}
-            </View>
-          </View>
-        );
-      })}
-
-      {/* ThermoWorks rows — each channel can be assigned Meat or Pit */}
-      {tempMode === "probe" && thermoworksLinked === true && thermoworksProbes.map((probe: any, i: number) => {
-        const probeKey = `tw_${probe.deviceId}_${probe.channelNumber}`;
-        const isMeat = isInMeatSlot(probeKey) || selectedMeatProbeId === probeKey;
-        const isPit = selectedPitProbeId === probeKey;
-        const otherCook = otherCookAssignments[probeKey];
-        const lockedByOther = !!otherCook && !isMeat && !isPit;
-        const isEditing = editingLabelKey === probeKey;
-        const isCollapsed = !isMeat && !isPit && !expandedProbeKeys.has(probeKey);
-        if (isCollapsed) {
-          return (
-            <Pressable key={`tw_c_${probe.deviceId}_${probe.channelNumber}_${i}`} onPress={() => toggleExpanded(probeKey)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Feather name="thermometer" size={11} color="#B22222" />
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }} numberOfLines={1}>{probeLabels[probeKey] ?? (probe.channelLabel ? `${probe.deviceName} · ${probe.channelLabel}` : `${probe.deviceName} · Ch ${probe.channelNumber}`)}</Text>
-              </View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.foreground }}>{probe.tempF != null ? `${probe.tempF}°F` : "—"}</Text>
-                <Feather name="chevron-down" size={12} color={colors.mutedForeground} />
-              </View>
-            </Pressable>
-          );
-        }
-        return (
-          <View
-            key={`tw-${probe.deviceId}-${probe.channelNumber}-${i}`}
-            style={[s.subSection, { borderTopColor: colors.border, paddingHorizontal: 14, paddingBottom: 12,
-              ...(isMeat ? { borderWidth: 1.5, borderColor: "#FF6B2B60", borderRadius: 10, marginHorizontal: 8, marginTop: 6, backgroundColor: "#FF6B2B08" } :
-                  isPit  ? { borderWidth: 1.5, borderColor: "#3b82f660", borderRadius: 10, marginHorizontal: 8, marginTop: 6, backgroundColor: "#3b82f608" } : {}),
-            }]}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <View style={{ flex: 1 }}>
-                {isEditing ? (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <TextInput value={labelDraft} onChangeText={setLabelDraft} placeholder={probe.channelLabel ?? `Ch ${probe.channelNumber}`} placeholderTextColor={colors.mutedForeground}
-                      style={{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 12, color: colors.foreground, borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 2 }}
-                      autoFocus returnKeyType="done"
-                      onSubmitEditing={() => { onSetProbeLabel?.(probeKey, labelDraft); setEditingLabelKey(null); }} />
-                    <Pressable hitSlop={8} onPress={() => { onSetProbeLabel?.(probeKey, labelDraft); setEditingLabelKey(null); }}><Feather name="check" size={14} color="#22c55e" /></Pressable>
-                    <Pressable hitSlop={8} onPress={() => setEditingLabelKey(null)}><Feather name="x" size={14} color={colors.mutedForeground} /></Pressable>
-                  </View>
-                ) : (
-                  <Text style={[s.subLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
-                    {probeLabels[probeKey] ?? (probe.channelLabel ? `${probe.deviceName} · ${probe.channelLabel}` : `${probe.deviceName} · Ch ${probe.channelNumber}`)}
-                    {!probeLabels[probeKey] ? "  ·  ThermoWorks" : ""}
-                  </Text>
-                )}
-              </View>
-              {!isEditing && (
-                <Pressable hitSlop={8} onPress={() => { setEditingLabelKey(probeKey); setLabelDraft(probeLabels[probeKey] ?? ""); }}>
-                  <Feather name="edit-2" size={12} color={colors.mutedForeground} />
-                </Pressable>
-              )}
-            </View>
-            <View style={[s.meaterTempsRow, { marginBottom: 8 }]}>
-              <View style={s.meaterTempChip}>
-                <Feather name="thermometer" size={14} color="#B22222" />
-                <View>
-                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{probe.tempF != null ? `${probe.tempF}°F` : "—"}</Text>
-                  <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Temperature</Text>
-                </View>
-              </View>
-            </View>
-            {lockedByOther ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: colors.mutedForeground + "12", alignSelf: "flex-start" }}>
-                <Feather name="lock" size={10} color={colors.mutedForeground} />
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>Used by {otherCook}</Text>
-              </View>
-            ) : (
-              <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-                {otherCook && (
-                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>⚠ {otherCook}</Text>
-                )}
-                <Pressable onPress={() => onSelectMeatProbe?.(probeKey)}
-                  style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isMeat ? "#FF6B2B60" : "transparent" }}>
-                  <Feather name="thermometer" size={11} color={isMeat ? "#FF6B2B" : colors.mutedForeground} />
-                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isMeat ? "#FF6B2B" : colors.mutedForeground }}>{isMeat ? (getSlotLabel(probeKey) ?? "Meat") : "Meat"}</Text>
-                  {isMeat && <Feather name="check" size={10} color="#FF6B2B" />}
-                </Pressable>
-                <Pressable onPress={() => onSelectPitProbe?.(isPit ? null : probeKey)}
-                  style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: isPit ? "#3b82f620" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isPit ? "#3b82f660" : "transparent" }}>
-                  <Feather name="wind" size={11} color={isPit ? "#3b82f6" : colors.mutedForeground} />
-                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: isPit ? "#3b82f6" : colors.mutedForeground }}>Pit</Text>
-                  {isPit && <Feather name="check" size={10} color="#3b82f6" />}
-                </Pressable>
-              </View>
-            )}
-          </View>
-        );
-      })}
 
       {/* BLE signal filter — shown when any BLE probes are visible in probe mode */}
       {tempMode === "probe" && hasBleProbes && (
@@ -1122,12 +889,12 @@ export function LiveCookSection(p: Props) {
                 </Pressable>
               )}
             </View>
-            <View style={[s.meaterTempsRow, { marginBottom: 8 }]}>
-              <View style={s.meaterTempChip}>
+            <View style={[s.probeTempsRow, { marginBottom: 8 }]}>
+              <View style={s.probeTempChip}>
                 <Feather name="thermometer" size={14} color="#3B82F6" />
                 <View>
-                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{probe.tempF != null ? `${Math.round(probe.tempF)}°F` : "—"}</Text>
-                  <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Temperature</Text>
+                  <Text style={[s.probeTempValue, { color: colors.foreground }]}>{probe.tempF != null ? `${Math.round(probe.tempF)}°F` : "—"}</Text>
+                  <Text style={[s.probeTempLabel, { color: colors.mutedForeground }]}>Temperature</Text>
                 </View>
               </View>
             </View>
@@ -1259,20 +1026,20 @@ export function LiveCookSection(p: Props) {
                 </View>
               )}
             </View>
-            <View style={s.meaterTempsRow}>
-              <View style={s.meaterTempChip}>
+            <View style={s.probeTempsRow}>
+              <View style={s.probeTempChip}>
                 <Feather name="thermometer" size={14} color="#FF6B2B" />
                 <View>
-                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{device.probeTempF != null ? `${device.probeTempF}°F` : "—"}</Text>
-                  <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Internal</Text>
+                  <Text style={[s.probeTempValue, { color: colors.foreground }]}>{device.probeTempF != null ? `${device.probeTempF}°F` : "—"}</Text>
+                  <Text style={[s.probeTempLabel, { color: colors.mutedForeground }]}>Internal</Text>
                 </View>
               </View>
               {hasAmbient && (
-                <View style={s.meaterTempChip}>
+                <View style={s.probeTempChip}>
                   <Feather name="wind" size={14} color="#3b82f6" />
                   <View>
-                    <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{device.ambientTempF}°F</Text>
-                    <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Ambient / Pit</Text>
+                    <Text style={[s.probeTempValue, { color: colors.foreground }]}>{device.ambientTempF}°F</Text>
+                    <Text style={[s.probeTempLabel, { color: colors.mutedForeground }]}>Ambient / Pit</Text>
                   </View>
                 </View>
               )}
@@ -1298,7 +1065,7 @@ export function LiveCookSection(p: Props) {
         </View>
       )}
 
-      {/* LAN probe rows (Fireboard, MEATER Block, ThermoWorks Signals) — user assigns Meat or Pit */}
+      {/* LAN probe rows (Fireboard) — user assigns Meat or Pit */}
       {tempMode === "probe" && lanProbes.map((probe, i) => {
         const probeKey = `lan_${probe.deviceId}`;
         const isMeat = isInMeatSlot(probeKey) || selectedMeatProbeId === probeKey;
@@ -1381,20 +1148,20 @@ export function LiveCookSection(p: Props) {
                 </View>
               )}
             </View>
-            <View style={s.meaterTempsRow}>
-              <View style={s.meaterTempChip}>
+            <View style={s.probeTempsRow}>
+              <View style={s.probeTempChip}>
                 <Feather name="thermometer" size={14} color="#0EA5E9" />
                 <View>
-                  <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{probe.probeTempF}°F</Text>
-                  <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Internal</Text>
+                  <Text style={[s.probeTempValue, { color: colors.foreground }]}>{probe.probeTempF}°F</Text>
+                  <Text style={[s.probeTempLabel, { color: colors.mutedForeground }]}>Internal</Text>
                 </View>
               </View>
               {probe.ambientTempF != null && (
-                <View style={s.meaterTempChip}>
+                <View style={s.probeTempChip}>
                   <Feather name="wind" size={14} color="#3b82f6" />
                   <View>
-                    <Text style={[s.meaterTempValue, { color: colors.foreground }]}>{probe.ambientTempF}°F</Text>
-                    <Text style={[s.meaterTempLabel, { color: colors.mutedForeground }]}>Ambient / Pit</Text>
+                    <Text style={[s.probeTempValue, { color: colors.foreground }]}>{probe.ambientTempF}°F</Text>
+                    <Text style={[s.probeTempLabel, { color: colors.mutedForeground }]}>Ambient / Pit</Text>
                   </View>
                 </View>
               )}
@@ -1420,12 +1187,12 @@ export function LiveCookSection(p: Props) {
             {anyProbeScanning
               ? <ActivityIndicator size="small" color={colors.mutedForeground} />
               : <Feather name={linkedButEmpty ? "alert-circle" : "thermometer"} size={20} color={colors.mutedForeground} />}
-            <Text style={[s.meaterPlaceholderText, { color: colors.mutedForeground, flex: 1 }]}>
+            <Text style={[s.probePlaceholderText, { color: colors.mutedForeground, flex: 1 }]}>
               {anyProbeScanning
                 ? "Scanning for nearby probes…"
                 : linkedButEmpty
-                ? "Connected to your account, but no live probes were found. Make sure your probe is powered on and in range, then refresh."
-                : "No probe detected. Inkbird probes connect over Bluetooth; MEATER and ThermoWorks connect through your account."}
+                ? "No live probes were found. Make sure your probe is powered on and in range, then refresh."
+                : "No probe detected. Inkbird and other Bluetooth probes connect over Bluetooth; Fireboard connects over Wi-Fi."}
             </Text>
           </View>
 
@@ -1460,8 +1227,7 @@ export function LiveCookSection(p: Props) {
               </Text>
             </Pressable>
 
-            {/* Primary path to actually connect: /devices hosts the ThermoWorks / MEATER account-link
-                cards and manual-IP entry for Fireboard / MEATER Block. */}
+            {/* Primary path to actually connect: /devices hosts manual-IP entry for Fireboard. */}
             <Pressable
               onPress={() => router.push("/devices" as any)}
               style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: colors.primary + "18", borderWidth: 1, borderColor: colors.primary + "60" }}
@@ -1487,7 +1253,7 @@ export function LiveCookSection(p: Props) {
 
           {!linkedButEmpty && (
             <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, lineHeight: 15 }}>
-              ThermoWorks Signals & RFX read through your ThermoWorks account — tap “Connect a device” to link it. Fireboard and MEATER Block are discovered on Wi-Fi.
+              Fireboard is discovered automatically on Wi-Fi — tap “Connect a device” to add one by IP if it isn’t detected.
             </Text>
           )}
         </View>

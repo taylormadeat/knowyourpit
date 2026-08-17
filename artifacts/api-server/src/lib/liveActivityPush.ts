@@ -7,8 +7,8 @@ import { logger } from "./logger";
 /**
  * iOS Live Activity push pipeline.
  *
- * When a temperature reading lands on the server (MEATER webhook,
- * ThermoWorks poll, or manual upload), we look up any Live Activity push
+ * When a temperature reading lands on the server (probe upload or manual
+ * entry), we look up any Live Activity push
  * tokens registered for that cook and send a `liveactivity` push to APNs.
  * That push wakes the on-device Live Activity widget and updates the lock
  * screen / Dynamic Island even when the iOS app is closed.

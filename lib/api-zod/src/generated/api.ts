@@ -2189,7 +2189,7 @@ export const AnalyzeCookBody = zod.object({
         )
         .optional()
         .describe(
-          "All active probe channels from the connected LAN\/BLE device (e.g. Fireboard, ThermoWorks Signals, MEATER Block)",
+          "All active probe channels from the connected LAN\/BLE device (e.g. Fireboard)",
         ),
     })
     .nullish()
@@ -2247,9 +2247,7 @@ export const AnalyzeCookResponse = zod.object({
  */
 export const UploadTemperatureDataBody = zod.object({
   cookId: zod.number(),
-  source: zod
-    .string()
-    .describe("meater, thermoworks, inkbird, govee, csv, manual"),
+  source: zod.string().describe("inkbird, govee, csv, manual"),
   readings: zod.array(
     zod.object({
       probeNumber: zod.number(),
@@ -2274,9 +2272,7 @@ export const ListTemperatureReadingsResponseItem = zod.object({
   probeName: zod.string().nullable(),
   tempF: zod.number(),
   recordedAt: zod.coerce.date(),
-  source: zod
-    .string()
-    .describe("manual, meater, thermoworks, inkbird, govee, csv"),
+  source: zod.string().describe("manual, inkbird, govee, csv"),
 });
 export const ListTemperatureReadingsResponse = zod.array(
   ListTemperatureReadingsResponseItem,
@@ -3022,125 +3018,3 @@ export const GetTemperatureHistoryResponseItem = zod.object({
 export const GetTemperatureHistoryResponse = zod.array(
   GetTemperatureHistoryResponseItem,
 );
-
-/**
- * @summary Link MEATER Cloud account
- */
-export const LinkMeaterBody = zod.object({
-  email: zod.string().email(),
-  password: zod.string(),
-});
-
-export const LinkMeaterResponse = zod.object({
-  linked: zod.boolean(),
-});
-
-/**
- * @summary Unlink MEATER Cloud account
- */
-export const UnlinkMeaterResponse = zod.object({
-  linked: zod.boolean(),
-});
-
-/**
- * @summary Get MEATER link status and device list
- */
-export const GetMeaterStatusResponse = zod.object({
-  linked: zod.boolean(),
-  devices: zod.array(
-    zod.object({
-      id: zod.string(),
-      name: zod.string(),
-      probeNumber: zod
-        .number()
-        .describe(
-          "1-based position in the array returned by the MEATER Cloud API",
-        ),
-      hasCook: zod.boolean(),
-      cookName: zod.string().nullable(),
-      cookState: zod.string().nullable(),
-    }),
-  ),
-  tokenExpired: zod.boolean().optional(),
-});
-
-/**
- * @summary Get live readings from first active MEATER probe
- */
-export const GetMeaterReadingsResponse = zod.object({
-  linked: zod.boolean(),
-  probes: zod.array(
-    zod.object({
-      deviceId: zod.string(),
-      deviceName: zod.string(),
-      internalTempF: zod.number().nullable(),
-      ambientTempF: zod.number().nullable(),
-      targetMinTempF: zod.number().nullable(),
-      targetMaxTempF: zod.number().nullable(),
-      cookName: zod.string().nullable(),
-      cookState: zod.string().nullable(),
-    }),
-  ),
-  tokenExpired: zod.boolean().optional(),
-});
-
-/**
- * @summary Link ThermoWorks Cloud account
- */
-export const LinkThermoworksBody = zod.object({
-  email: zod.string().email(),
-  password: zod.string(),
-});
-
-export const LinkThermoworksResponse = zod.object({
-  linked: zod.boolean(),
-});
-
-/**
- * Calls Firebase sendOobCode with requestType PASSWORD_RESET. Always returns 204 even if the email is not found (mirrors Firebase enum-safe behaviour).
- * @summary Send a ThermoWorks Cloud password-reset email
- */
-export const SendThermoworksResetBody = zod.object({
-  email: zod.string().email(),
-});
-
-/**
- * @summary Unlink ThermoWorks Cloud account
- */
-export const UnlinkThermoworksResponse = zod.object({
-  linked: zod.boolean(),
-});
-
-/**
- * @summary Get ThermoWorks link status and device list
- */
-export const GetThermoworksStatusResponse = zod.object({
-  linked: zod.boolean(),
-  devices: zod.array(
-    zod.object({
-      id: zod.string(),
-      name: zod.string(),
-      type: zod.string().nullable(),
-      status: zod.string().nullable(),
-    }),
-  ),
-  error: zod.string().optional(),
-});
-
-/**
- * @summary Get live readings from active ThermoWorks probes
- */
-export const GetThermoworksReadingsResponse = zod.object({
-  linked: zod.boolean(),
-  probes: zod.array(
-    zod.object({
-      deviceId: zod.string(),
-      deviceName: zod.string(),
-      channelNumber: zod.string(),
-      channelLabel: zod.string().nullable(),
-      tempF: zod.number().nullable(),
-      lastSeenIso: zod.string().nullable(),
-    }),
-  ),
-  error: zod.string().optional(),
-});

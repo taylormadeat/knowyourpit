@@ -53,8 +53,8 @@ CORE FEATURES — what you can test without hardware
 ────────────────────────────────────────────────────────────────────────
 BLUETOOTH & PROBE FEATURES — hardware required
 ────────────────────────────────────────────────────────────────────────
-The app can connect to wireless thermometers (Inkbird IBT series via BLE;
-MEATER, Fireboard, and ThermoWorks Signals via WiFi/LAN). These features
+The app can connect to wireless thermometers (Inkbird IBT series and other
+BLE probes via Bluetooth; Fireboard via WiFi/LAN). These features
 require physical probe hardware that App Store reviewers will not have.
 
 To review these features without hardware:
@@ -67,7 +67,7 @@ To review these features without hardware:
 • Location permission is requested only when the user starts a live cook and
   the weather feature fetches outdoor temperature.
 
-If you have an Inkbird IBT-4XS, IBT-6XS, or any MEATER probe, we are happy
+If you have an Inkbird IBT-4XS or IBT-6XS probe, we are happy
 to provide a unit for testing — please contact support@knowyourpit.com.
 
 ────────────────────────────────────────────────────────────────────────

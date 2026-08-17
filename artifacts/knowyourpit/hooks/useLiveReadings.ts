@@ -20,18 +20,12 @@ interface UseLiveReadingsParams {
     | "selectedMeatProbeId"
     | "selectedPitProbeId"
     | "probeLabels"
-    | "selectedMeaterProbe"
-    | "selectedMeaterPitProbe"
-    | "selectedThermoworksProbe"
-    | "selectedThermoworksPitProbe"
     | "selectedInkbirdProbe"
     | "selectedInkbirdPitProbe"
     | "selectedBleContextDevice"
     | "selectedBleContextPitDevice"
     | "selectedLanProbe"
     | "selectedLanPitProbe"
-    | "meaterDataUpdatedAt"
-    | "thermoworksDataUpdatedAt"
     | "lanProbes"
     | "bleContextDevices"
     | "hasActiveProbe"
@@ -43,12 +37,9 @@ export type LiveReadingsState = ReturnType<typeof useLiveReadings>;
 export function useLiveReadings({ id, cookStatus, cook, cookCheckins, probeState }: UseLiveReadingsParams) {
   const {
     tempMode, selectedMeatProbeId, selectedPitProbeId, probeLabels,
-    selectedMeaterProbe, selectedMeaterPitProbe,
-    selectedThermoworksProbe, selectedThermoworksPitProbe,
     selectedInkbirdProbe, selectedInkbirdPitProbe,
     selectedBleContextDevice, selectedBleContextPitDevice,
     selectedLanProbe, selectedLanPitProbe,
-    meaterDataUpdatedAt, thermoworksDataUpdatedAt,
     lanProbes, bleContextDevices,
   } = probeState;
 
@@ -148,26 +139,6 @@ export function useLiveReadings({ id, cookStatus, cook, cookCheckins, probeState
     return startAt ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000) : 0;
   };
 
-  // Accumulate MEATER readings
-  useEffect(() => {
-    if (selectedMeaterProbe == null || selectedMeaterProbe.internalTempF == null) return;
-    const currentTemp = selectedMeaterProbe.internalTempF;
-    const elapsed = Math.round(elapsedMins() * 10) / 10;
-    setLiveReadings((prev) => [...prev, { timeMinutes: elapsed, tempF: currentTemp }]);
-    if (selectedMeaterProbe.ambientTempF != null && selectedMeaterPitProbe == null) {
-      setLivePitReadings((prev) => [...prev, { timeMinutes: elapsed, tempF: selectedMeaterProbe.ambientTempF! }]);
-    }
-  }, [selectedMeaterProbe]);
-
-  // Accumulate MEATER dedicated pit probe
-  useEffect(() => {
-    if (selectedMeaterPitProbe == null || selectedMeaterPitProbe.internalTempF == null) return;
-    if (selectedMeaterPitProbe.deviceId === selectedMeaterProbe?.deviceId) return;
-    const currentTemp = selectedMeaterPitProbe.internalTempF;
-    const elapsed = Math.round(elapsedMins() * 10) / 10;
-    setLivePitReadings((prev) => [...prev, { timeMinutes: elapsed, tempF: currentTemp }]);
-  }, [selectedMeaterPitProbe]);
-
   // Accumulate BLE context device readings
   useEffect(() => {
     if (selectedBleContextDevice == null || selectedBleContextDevice.probeTempF == null) return;
@@ -206,22 +177,6 @@ export function useLiveReadings({ id, cookStatus, cook, cookCheckins, probeState
     setLivePitReadings((prev) => [...prev, { timeMinutes: elapsed, tempF: currentTemp }]);
   }, [selectedLanPitProbe]);
 
-  // Accumulate ThermoWorks readings
-  useEffect(() => {
-    if (selectedThermoworksProbe == null || (selectedThermoworksProbe as any).tempF == null) return;
-    const currentTemp = (selectedThermoworksProbe as any).tempF as number;
-    const elapsed = Math.round(elapsedMins() * 10) / 10;
-    setLiveReadings((prev) => [...prev, { timeMinutes: elapsed, tempF: currentTemp }]);
-  }, [selectedThermoworksProbe]);
-
-  // Accumulate ThermoWorks pit readings
-  useEffect(() => {
-    if (selectedThermoworksPitProbe == null || (selectedThermoworksPitProbe as any).tempF == null) return;
-    const currentTemp = (selectedThermoworksPitProbe as any).tempF as number;
-    const elapsed = Math.round(elapsedMins() * 10) / 10;
-    setLivePitReadings((prev) => [...prev, { timeMinutes: elapsed, tempF: currentTemp }]);
-  }, [selectedThermoworksPitProbe]);
-
   // Accumulate Inkbird readings
   useEffect(() => {
     if (selectedInkbirdProbe?.tempF == null) return;
@@ -241,21 +196,6 @@ export function useLiveReadings({ id, cookStatus, cook, cookCheckins, probeState
   // Build autoCheckinProbeReading for auto-checkin + upload
   const autoCheckinProbeReading = useMemo(() => {
     if (tempMode !== "probe") return null;
-    if (selectedMeaterProbe?.internalTempF != null) {
-      const pitTempF =
-        selectedMeaterPitProbe != null && selectedMeaterPitProbe.deviceId !== selectedMeaterProbe.deviceId
-          ? (selectedMeaterPitProbe.internalTempF ?? null)
-          : (selectedMeaterProbe.ambientTempF ?? null);
-      return { internalTempF: selectedMeaterProbe.internalTempF, pitTempF, probeSource: "meater" as const, fetchedAtMs: meaterDataUpdatedAt };
-    }
-    if (selectedThermoworksProbe != null && (selectedThermoworksProbe as any).tempF != null) {
-      return {
-        internalTempF: (selectedThermoworksProbe as any).tempF,
-        pitTempF: selectedThermoworksPitProbe != null ? ((selectedThermoworksPitProbe as any).tempF ?? null) : null,
-        probeSource: "thermoworks" as const,
-        fetchedAtMs: thermoworksDataUpdatedAt,
-      };
-    }
     if (selectedInkbirdProbe?.tempF != null) {
       return { internalTempF: selectedInkbirdProbe.tempF, pitTempF: selectedInkbirdPitProbe?.tempF ?? null, probeSource: "inkbird" as const, fetchedAtMs: selectedInkbirdProbe.lastSeenMs };
     }
@@ -276,12 +216,9 @@ export function useLiveReadings({ id, cookStatus, cook, cookCheckins, probeState
     return null;
   }, [
     tempMode,
-    selectedMeaterProbe, selectedMeaterPitProbe,
-    selectedThermoworksProbe, selectedThermoworksPitProbe,
     selectedInkbirdProbe, selectedInkbirdPitProbe,
     selectedBleContextDevice, selectedBleContextPitDevice,
     selectedLanProbe, selectedLanPitProbe,
-    meaterDataUpdatedAt, thermoworksDataUpdatedAt,
   ]);
 
   // Upload probe readings to backend
@@ -300,8 +237,6 @@ export function useLiveReadings({ id, cookStatus, cook, cookCheckins, probeState
 
     const probeName =
       (meatKey && probeLabels[meatKey]) ? probeLabels[meatKey] :
-      probeSource === "meater" ? (selectedMeaterProbe?.deviceName ?? "MEATER Probe") :
-      probeSource === "thermoworks" ? ((selectedThermoworksProbe as any)?.deviceName ?? "ThermoWorks Probe") :
       probeSource === "inkbird" ? (selectedInkbirdProbe?.deviceName ?? "Inkbird Probe") :
       probeSource === "ble" ? (selectedBleContextDevice?.name ?? "BLE Probe") :
       probeSource === "lan" ? (selectedLanProbe?.deviceName ?? "LAN Probe") :
@@ -309,7 +244,6 @@ export function useLiveReadings({ id, cookStatus, cook, cookCheckins, probeState
 
     const pitProbeName =
       (pitKey && probeLabels[pitKey]) ? probeLabels[pitKey] :
-      probeSource === "thermoworks" ? ((selectedThermoworksPitProbe as any)?.deviceName ?? "ThermoWorks Pit") :
       probeSource === "inkbird" ? (selectedInkbirdPitProbe?.deviceName ?? "Inkbird Pit") :
       "Ambient / Pit";
 

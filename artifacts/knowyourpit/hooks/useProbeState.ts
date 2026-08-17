@@ -7,10 +7,6 @@ import type { UseMutateAsyncFunction } from "@tanstack/react-query";
 import {
   useListCooks,
   getListCooksQueryKey,
-  getGetMeaterReadingsQueryKey,
-  getGetThermoworksReadingsQueryKey,
-  useGetMeaterReadings,
-  useGetThermoworksReadings,
 } from "@workspace/api-client-react";
 import { getProbePollingIntervalMs } from "@/constants/polling";
 import {
@@ -194,37 +190,6 @@ export function useProbeState({
   }
   const probeIntervalMs = probeIntervalRef.current;
 
-  const { data: meaterData, isLoading: meaterLoading, dataUpdatedAt: meaterDataUpdatedAt } = useGetMeaterReadings({
-    query: {
-      queryKey: getGetMeaterReadingsQueryKey(),
-      enabled: cookStatus === "active",
-      refetchInterval: cookStatus === "active" ? probeIntervalMs : false,
-    },
-  });
-  const meaterLinked = meaterLoading ? null : (meaterData?.linked ?? false);
-  const meaterProbes = meaterData?.probes ?? [];
-
-  const { data: thermoworksData, isLoading: thermoworksLoading, dataUpdatedAt: thermoworksDataUpdatedAt } = useGetThermoworksReadings({
-    query: {
-      queryKey: getGetThermoworksReadingsQueryKey(),
-      enabled: cookStatus === "active",
-      refetchInterval: cookStatus === "active" ? probeIntervalMs : false,
-    },
-  });
-  const thermoworksLinked = thermoworksLoading ? null : (thermoworksData?.linked ?? false);
-  const thermoworksProbes = thermoworksData?.probes ?? [];
-
-  // Probe derivations
-  const selectedMeaterProbe = selectedMeatProbeId != null
-    ? (meaterProbes.find((p) => p.deviceId === selectedMeatProbeId) ?? null) : null;
-  const selectedMeaterPitProbe = selectedPitProbeId != null
-    ? (meaterProbes.find((p) => p.deviceId === selectedPitProbeId) ?? null) : null;
-  const selectedThermoworksMeatProbe = selectedMeatProbeId != null
-    ? (thermoworksProbes.find((p: any) => `tw_${p.deviceId}_${p.channelNumber}` === selectedMeatProbeId) ?? null) : null;
-  const selectedThermoworksPitProbe = selectedPitProbeId != null
-    ? (thermoworksProbes.find((p: any) => `tw_${p.deviceId}_${p.channelNumber}` === selectedPitProbeId) ?? null) : null;
-  const selectedThermoworksProbe = selectedThermoworksMeatProbe;
-
   // BLE — include ALL meat probe slots so each slot's BLE probe stays scanned
   const bleAssignedProbeKeys = [
     ...meatProbeSlots.map(s => s.id),
@@ -267,10 +232,6 @@ export function useProbeState({
 
   const hasActiveProbe =
     // Primary slot + pit (existing checks)
-    selectedMeaterProbe?.internalTempF != null ||
-    selectedMeaterPitProbe?.internalTempF != null ||
-    (selectedThermoworksProbe != null && (selectedThermoworksProbe as any).tempF != null) ||
-    (selectedThermoworksPitProbe != null && (selectedThermoworksPitProbe as any).tempF != null) ||
     selectedInkbirdProbe?.tempF != null ||
     selectedInkbirdPitProbe?.tempF != null ||
     selectedBleContextDevice?.probeTempF != null ||
@@ -280,11 +241,10 @@ export function useProbeState({
     // Additional meat probe slots (slot 2+): check each probe source
     meatProbeSlots.slice(1).some(slot => {
       const k = slot.id;
-      if (k.startsWith("tw_"))      return thermoworksProbes.some((p: any) => `tw_${p.deviceId}_${p.channelNumber}` === k && p.tempF != null);
       if (k.startsWith("ble_"))     return inkbirdProbes.some(p => `ble_${p.deviceId}_${p.probeIndex}` === k && p.tempF != null);
       if (k.startsWith("bleCtx_"))  return bleContextDevices.some(d => `bleCtx_${d.id}` === k && d.probeTempF != null);
       if (k.startsWith("lan_"))     return lanProbes.some(p => `lan_${p.deviceId}` === k && p.probeTempF != null);
-      return meaterProbes.some((p: any) => p.deviceId === k && p.internalTempF != null);
+      return false;
     });
 
   // Probe handlers
@@ -489,12 +449,7 @@ export function useProbeState({
     probeLabels,
     tempMode, setTempMode, setTempModeState,
     otherCookAssignments,
-    // Cloud probes
-    meaterLinked, meaterProbes, meaterDataUpdatedAt,
-    thermoworksLinked, thermoworksProbes, thermoworksDataUpdatedAt,
     // Selected probes
-    selectedMeaterProbe, selectedMeaterPitProbe,
-    selectedThermoworksProbe, selectedThermoworksPitProbe,
     selectedInkbirdProbe, selectedInkbirdPitProbe,
     selectedBleContextDevice, selectedBleContextPitDevice,
     selectedLanProbe, selectedLanPitProbe,

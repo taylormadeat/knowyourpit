@@ -5,8 +5,6 @@ import { Feather } from "@expo/vector-icons";
 interface LiveProbeSectionProps {
   cookStatus: string | undefined;
   c: any;
-  selectedMeaterProbe: any | null;
-  selectedThermoworksProbe: any | null;
   cookCurrentTempF: number | null;
   selectedBleContextDevice: any | null;
   selectedLanProbe: any | null;
@@ -16,18 +14,15 @@ interface LiveProbeSectionProps {
 
 export function LiveProbeSection({
   cookStatus, c,
-  selectedMeaterProbe, selectedThermoworksProbe, cookCurrentTempF,
+  cookCurrentTempF,
   selectedBleContextDevice, selectedLanProbe, selectedInkbirdProbe,
   currentPitTempF,
 }: LiveProbeSectionProps) {
   if (cookStatus !== "active") return null;
 
   // Live meat reading, same precedence used for the "LIVE ON THE SMOKER" home
-  // card and the live-activity widget: MEATER internal probe, then
-  // ThermoWorks, then BLE/LAN/Inkbird fallbacks.
+  // card and the live-activity widget: BLE/LAN/Inkbird probes.
   const liveMeatTempF =
-    selectedMeaterProbe?.internalTempF ??
-    selectedThermoworksProbe?.tempF ??
     selectedBleContextDevice?.probeTempF ??
     selectedLanProbe?.probeTempF ??
     selectedInkbirdProbe?.tempF ??
@@ -35,9 +30,7 @@ export function LiveProbeSection({
     null;
 
   let liveProbeSrcLabel: string | null = null;
-  if (selectedMeaterProbe?.internalTempF != null) liveProbeSrcLabel = (selectedMeaterProbe as any).deviceName ?? "MEATER Probe";
-  else if (selectedThermoworksProbe?.tempF != null) liveProbeSrcLabel = (selectedThermoworksProbe as any).deviceName ?? "ThermoWorks";
-  else if (selectedBleContextDevice?.probeTempF != null) liveProbeSrcLabel = selectedBleContextDevice.name ?? "BLE Probe";
+  if (selectedBleContextDevice?.probeTempF != null) liveProbeSrcLabel = selectedBleContextDevice.name ?? "BLE Probe";
   else if (selectedLanProbe?.probeTempF != null) liveProbeSrcLabel = selectedLanProbe.deviceName ?? "LAN Probe";
   else if (selectedInkbirdProbe?.tempF != null) liveProbeSrcLabel = (selectedInkbirdProbe as any).deviceName ?? "Inkbird";
 

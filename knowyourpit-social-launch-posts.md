@@ -19,7 +19,7 @@ App icon centered on a deep charcoal (#0E0E10) background. The tagline — *know
 >
 > knowyourpit is live on the App Store.
 >
-> An AI BBQ coach in your corner — reading your temperature curve in real time, telling you when to wrap, when to pull, and why. Planning every window from fire-up to serve. Connecting to the MEATER or ThermoWorks probe you already own and alerting you the moment your cut hits the mark.
+> An AI BBQ coach in your corner — reading your temperature curve in real time, telling you when to wrap, when to pull, and why. Planning every window from fire-up to serve. Connecting to the Bluetooth probe you already own and alerting you the moment your cut hits the mark.
 >
 > Not another readout. The decision behind the data.
 >
@@ -28,7 +28,7 @@ App icon centered on a deep charcoal (#0E0E10) background. The tagline — *know
 > knowyourpit. own your cook.
 
 **Hashtags:**
-`#knowyourpit #BBQ #Pitmaster #BBQCoach #Smoker #BBQApp #SmokeMeat #LowAndSlow #BBQLife #Brisket #MEATER #ThermoWorks #BackyardBBQ`
+`#knowyourpit #BBQ #Pitmaster #BBQCoach #Smoker #BBQApp #SmokeMeat #LowAndSlow #BBQLife #Brisket #Inkbird #BackyardBBQ`
 
 ---
 
@@ -47,7 +47,7 @@ Same app icon on deep charcoal (#0E0E10) background, tagline below. Clean and re
 >
 > **Plan, start to serve.** Tell it the cut, the weight, and when you want to eat. It builds every window — light the fire, meat on, wrap checkpoint, pull time, rest — and alerts you at each one.
 >
-> **Live probe coaching.** Connect MEATER, ThermoWorks Signals, Inkbird, or Govee. Readings come straight in. Set a target alert and it tells you the moment your cut hits the mark.
+> **Live probe coaching.** Connect Inkbird, Govee, or another Bluetooth probe. Readings come straight in. Set a target alert and it tells you the moment your cut hits the mark.
 >
 > **Multi-cook sequencer.** Brisket, ribs, and chicken all need different times. Tell it your serve time and it works backwards — so everything finishes together.
 >

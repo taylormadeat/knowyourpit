@@ -25,15 +25,12 @@ interface UseAnalysisParams {
   cook: any;
   cookStatus: string | undefined;
   probeState: {
-    selectedMeaterProbe: any | null;
     selectedBleContextDevice: any | null;
     selectedLanProbe: any | null;
     lanProbes: any[];
     bleContextDevices: any[];
     // Multi-probe support: ordered meat slots with labels
     meatProbeSlots?: Array<{id: string; label: string}>;
-    meaterProbes?: any[];
-    thermoworksProbes?: any[];
     inkbirdProbes?: any[];
   };
   liveReadings: Array<{ timeMinutes: number; tempF: number }>;
@@ -62,14 +59,11 @@ export function useAnalysis({
   const updateCook = useUpdateCook();
 
   const {
-    selectedMeaterProbe,
     selectedBleContextDevice,
     selectedLanProbe,
     lanProbes,
     bleContextDevices,
     meatProbeSlots = [],
-    meaterProbes = [],
-    thermoworksProbes = [],
     inkbirdProbes = [],
   } = probeState;
 
@@ -189,16 +183,13 @@ export function useAnalysis({
       : scanNotes.trim();
 
     const c = cook as any;
-    const liveMeaterInternalTempF = selectedMeaterProbe?.internalTempF != null ? (selectedMeaterProbe.internalTempF as number) : null;
     const liveBleInternalTempF = selectedBleContextDevice?.probeTempF ?? null;
     const liveBleAmbientTempF = selectedBleContextDevice?.ambientTempF ?? null;
     const liveLanInternalTempF = selectedLanProbe?.probeTempF ?? null;
     const liveLanAmbientTempF = selectedLanProbe?.ambientTempF ?? null;
-    const hasMeaterTemp = liveMeaterInternalTempF != null;
     const hasLiveProbeTemp = liveBleInternalTempF != null || liveLanInternalTempF != null;
 
     const resolvedInternalTempF =
-      liveMeaterInternalTempF ??
       liveBleInternalTempF ??
       liveLanInternalTempF ??
       opts.checkinOverride?.internalTempF ??
@@ -206,8 +197,7 @@ export function useAnalysis({
       null;
 
     let snapshotTempSourceLabel: string | null = null;
-    if (liveMeaterInternalTempF != null) snapshotTempSourceLabel = selectedMeaterProbe?.deviceName ?? "MEATER Probe";
-    else if (liveBleInternalTempF != null) snapshotTempSourceLabel = selectedBleContextDevice?.name ?? "BLE Probe";
+    if (liveBleInternalTempF != null) snapshotTempSourceLabel = selectedBleContextDevice?.name ?? "BLE Probe";
     else if (liveLanInternalTempF != null) snapshotTempSourceLabel = selectedLanProbe?.deviceName ?? "LAN Probe";
     else if (opts.checkinOverride?.internalTempF != null) snapshotTempSourceLabel = "Manual Entry";
     else if (lastCheckin?.internalTempF != null) snapshotTempSourceLabel = "Last Check-In";
@@ -216,14 +206,13 @@ export function useAnalysis({
       opts.checkinOverride?.pitTempF ??
       liveBleAmbientTempF ??
       liveLanAmbientTempF ??
-      selectedMeaterProbe?.ambientTempF ??
       lastCheckin?.pitTempF ??
       null;
 
     const hasCheckinTemp = resolvedInternalTempF != null || resolvedPitTempF != null;
     const hasAnyInput = images.length > 0 || notesForAnalysis.length > 0 || hasCheckinTemp;
 
-    if (!hasAnyInput && !hasMeaterTemp && !hasLiveProbeTemp) {
+    if (!hasAnyInput && !hasLiveProbeTemp) {
       if (auto) return;
       if (cookStatus === "active") {
         Alert.alert("Nothing to check in with", "Log a check-in with your probe and cook temperatures, or add a note about what's happening.");
@@ -361,11 +350,6 @@ export function useAnalysis({
                   temp = (inkbirdProbes as any[]).find((p: any) => `ble_${p.deviceId}_${p.probeIndex}` === k)?.tempF ?? null;
                 } else if (k.startsWith("bleCtx_")) {
                   temp = (bleContextDevices as any[]).find((d: any) => `bleCtx_${d.id}` === k)?.probeTempF ?? null;
-                } else if (k.startsWith("tw_")) {
-                  temp = (thermoworksProbes as any[]).find((p: any) => `tw_${p.deviceId}_${p.channelNumber}` === k)?.tempF ?? null;
-                } else {
-                  // MEATER — deviceId direct
-                  temp = (meaterProbes as any[]).find((p: any) => p.deviceId === k)?.internalTempF ?? null;
                 }
                 if (temp != null) channels.push({ channelLabel: slot.label, probeTempF: temp });
               }
@@ -434,22 +418,22 @@ export function useAnalysis({
     }
   }, [
     id, cook, cookStatus, scanNotes, images, liveReadings, weather, lastCheckin,
-    selectedMeaterProbe, selectedBleContextDevice, selectedLanProbe,
+    selectedBleContextDevice, selectedLanProbe,
     paywallUsage, analyzeMutation, updateCook, qc, pendingWrapClearRef,
     parseAndShowFromError, lanProbes, bleContextDevices,
-    meatProbeSlots, meaterProbes, thermoworksProbes, inkbirdProbes,
+    meatProbeSlots, inkbirdProbes,
   ]);
 
   // Auto-grade tick ref (mutable ref so timer callback always gets latest values)
-  const autoTickRef = useRef({ analyze, scanNotes, lastCheckinInternalTempF: null as number | null, selectedMeaterProbeTemp: null as number | null, analyzing, hasActiveProbe: false });
+  const autoTickRef = useRef({ analyze, scanNotes, lastCheckinInternalTempF: null as number | null, selectedProbeTemp: null as number | null, analyzing, hasActiveProbe: false });
   useEffect(() => {
     autoTickRef.current = {
       analyze,
       scanNotes,
       lastCheckinInternalTempF: lastCheckin?.internalTempF ?? null,
-      selectedMeaterProbeTemp: selectedMeaterProbe?.internalTempF ?? null,
+      selectedProbeTemp: selectedBleContextDevice?.probeTempF ?? selectedLanProbe?.probeTempF ?? null,
       analyzing,
-      hasActiveProbe: selectedMeaterProbe != null || selectedBleContextDevice != null || selectedLanProbe != null,
+      hasActiveProbe: selectedBleContextDevice != null || selectedLanProbe != null,
     };
   });
 
@@ -468,9 +452,9 @@ export function useAnalysis({
       const cur = autoTickRef.current;
       if (cur.analyzing) { timer = setTimeout(tick, AUTO_GRADE_INTERVAL_MS); return; }
       const hasCheckinTemp = cur.lastCheckinInternalTempF != null;
-      const hasMeaterTemp = cur.selectedMeaterProbeTemp != null;
+      const hasProbeTemp = cur.selectedProbeTemp != null;
       const hasNotes = cur.scanNotes.trim().length > 0;
-      if (!hasCheckinTemp && !hasMeaterTemp && !hasNotes) { timer = setTimeout(tick, AUTO_GRADE_INTERVAL_MS); return; }
+      if (!hasCheckinTemp && !hasProbeTemp && !hasNotes) { timer = setTimeout(tick, AUTO_GRADE_INTERVAL_MS); return; }
       if (!cur.hasActiveProbe) { timer = setTimeout(tick, AUTO_GRADE_INTERVAL_MS); return; }
       try { await cur.analyze({ auto: true }); } catch {}
       if (cancelled) return;

@@ -247,7 +247,7 @@ const FAQ_ITEMS = [
   {
     icon: "x-circle" as const,
     title: "Close the manufacturer app before scanning",
-    body: "Inkbird, MEATER, and Govee apps can lock the BLE connection, making the device invisible to other apps. Force-quit the manufacturer app and try again.",
+    body: "Inkbird, Govee, and other manufacturer apps can lock the BLE connection, making the device invisible to other apps. Force-quit the manufacturer app and try again.",
   },
   {
     icon: "zap" as const,
@@ -262,7 +262,7 @@ const FAQ_ITEMS = [
   {
     icon: "wifi" as const,
     title: "Wi-Fi probes need the same network",
-    body: "MEATER Block, Fireboard, and ThermoWorks Signals connect over Wi-Fi, not Bluetooth. They appear in the Connected Devices screen only when your phone and the probe are on the same Wi-Fi network.",
+    body: "Fireboard connects over Wi-Fi, not Bluetooth. It appears in the Connected Devices screen only when your phone and the probe are on the same Wi-Fi network.",
   },
   {
     icon: "settings" as const,

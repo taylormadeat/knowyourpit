@@ -9,7 +9,7 @@ import type { TemperatureReadingInput } from "./temperatureReadingInput";
 
 export interface TemperatureUploadBody {
   cookId: number;
-  /** meater, thermoworks, inkbird, govee, csv, manual */
+  /** inkbird, govee, csv, manual */
   source: string;
   readings: TemperatureReadingInput[];
 }

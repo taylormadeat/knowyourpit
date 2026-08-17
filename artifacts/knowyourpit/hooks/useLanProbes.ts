@@ -2,7 +2,7 @@
  * useLanProbes
  *
  * Discovers and polls WiFi thermometer base stations on the local network.
- * Supported devices: Fireboard 2/Drive, MEATER Block.
+ * Supported devices: Fireboard 2/Drive.
  *
  * Discovery strategy (two layers, both run concurrently):
  *
@@ -12,9 +12,9 @@
  *      any network topology without router mDNS forwarding.
  *
  *   2. Well-known .local fallback — many consumer routers do forward mDNS PTR
- *      records, so `fireboard.local` and `meaterblock.local` are still tried
- *      when no Zeroconf host is available for a given device type.  Fetch
- *      times out after 3 s if the host isn't reachable.
+ *      records, so `fireboard.local` is still tried when no Zeroconf host is
+ *      available for a given device type.  Fetch times out after 3 s if the
+ *      host isn't reachable.
  *
  * IP-change recovery
  * ------------------
@@ -30,7 +30,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { pollFireboard } from "./lan/fireboard";
-import { pollMeaterBlock } from "./lan/meaterBlock";
 import type { ZeroconfDeviceType } from "./lan/zeroconf";
 import { useZeroconfDiscovery } from "./useZeroconfDiscovery";
 
@@ -57,7 +56,7 @@ export interface LanDeviceStatus {
 }
 
 /** Device type for a manually-added LAN device */
-export type ManualDeviceType = "meater_block" | "fireboard";
+export type ManualDeviceType = "fireboard";
 
 /** A user-supplied manual LAN entry persisted across sessions */
 export interface ManualEntry {
@@ -67,7 +66,6 @@ export interface ManualEntry {
 
 /** Human-readable label for each manual device type */
 export const MANUAL_DEVICE_LABELS: Record<ManualDeviceType, string> = {
-  meater_block: "MEATER Block",
   fireboard: "Fireboard",
 };
 
@@ -99,23 +97,12 @@ interface UseLanProbesResult {
 const DEFAULT_POLL_INTERVAL_MS = 15_000;
 
 const DEFAULT_FIREBOARD_HOST = "fireboard.local";
-/**
- * Multiple well-known hostnames tried in parallel on every poll cycle.
- * Different MEATER Block firmware versions use different names.
- */
-const DEFAULT_MEATER_BLOCK_HOSTS = ["meaterblock.local", "meater-block.local", "MEATER_block.local"];
 
 /**
  * AsyncStorage key for user-supplied manual device entries.
  * Format: ManualEntry[]
  */
 const MANUAL_DEVICES_KEY = "@knowyourpit/lan/manual_v2";
-
-/**
- * Legacy key used before typed entries were introduced (stored string[]).
- * Read once on first mount to migrate existing MEATER Block manual hosts.
- */
-const LEGACY_MANUAL_KEY = "@knowyourpit/lan/manual";
 
 /**
  * Number of consecutive failed polls against a cached (mDNS-discovered) host
@@ -167,9 +154,6 @@ export function useLanProbes({
   discoveredRef.current = discovered;
 
   // Load persisted manual device entries on mount.
-  // One-time migration: if the new key is absent, check the legacy key and
-  // promote any saved MEATER Block hosts to typed ManualEntry records, then
-  // delete the old key so this only runs once per installation.
   useEffect(() => {
     if (!enabled) return;
 
@@ -178,36 +162,18 @@ export function useLanProbes({
         const raw = await AsyncStorage.getItem(MANUAL_DEVICES_KEY);
 
         if (raw) {
-          // New key exists — parse and use it
           const parsed: unknown = JSON.parse(raw);
           if (!Array.isArray(parsed)) return;
-          const entries: ManualEntry[] = parsed.map((item) =>
-            typeof item === "string"
-              ? { host: item, type: "meater_block" as ManualDeviceType }
-              : (item as ManualEntry),
-          );
+          const entries: ManualEntry[] = parsed
+            .map((item) =>
+              typeof item === "string"
+                ? { host: item, type: "fireboard" as ManualDeviceType }
+                : (item as ManualEntry),
+            )
+            // Drop any entries whose type is no longer supported
+            .filter((e) => e.type === "fireboard");
           manualEntriesRef.current = entries;
           setManualEntries(entries);
-        } else {
-          // New key absent — attempt one-time migration from legacy key
-          const legacyRaw = await AsyncStorage.getItem(LEGACY_MANUAL_KEY);
-          if (legacyRaw) {
-            try {
-              const legacyHosts: unknown = JSON.parse(legacyRaw);
-              if (Array.isArray(legacyHosts)) {
-                const entries: ManualEntry[] = (legacyHosts as string[])
-                  .filter((h) => typeof h === "string" && h.trim())
-                  .map((h) => ({ host: h.trim(), type: "meater_block" as ManualDeviceType }));
-                if (entries.length > 0) {
-                  manualEntriesRef.current = entries;
-                  setManualEntries(entries);
-                  await AsyncStorage.setItem(MANUAL_DEVICES_KEY, JSON.stringify(entries));
-                }
-              }
-            } catch { /* ignore malformed legacy data */ }
-            // Remove old key regardless so migration only runs once
-            await AsyncStorage.removeItem(LEGACY_MANUAL_KEY);
-          }
         }
       } catch { /* ignore storage errors */ }
     })();
@@ -257,19 +223,12 @@ export function useLanProbes({
       const snap = discoveredRef.current;
 
       // Partition manual entries by device type so each goes to the right adapter
-      const manualMeater = manualEntriesRef.current.filter((e) => e.type === "meater_block").map((e) => e.host);
       const manualFireboard = manualEntriesRef.current.filter((e) => e.type === "fireboard").map((e) => e.host);
 
       const fireboardHosts = dedup([
         ...(snap.fireboard ?? []),
         DEFAULT_FIREBOARD_HOST,
         ...manualFireboard,
-      ]);
-
-      const meaterHosts = dedup([
-        ...(snap.meater_block ?? []),
-        ...DEFAULT_MEATER_BLOCK_HOSTS,
-        ...manualMeater,
       ]);
 
       // ── Poll all hosts, tracking per-host results ──────────────────────────
@@ -287,10 +246,7 @@ export function useLanProbes({
         );
       }
 
-      const [fireboardPerHost, meaterPerHost] = await Promise.all([
-        pollAllHosts(fireboardHosts, pollFireboard),
-        pollAllHosts(meaterHosts, pollMeaterBlock),
-      ]);
+      const fireboardPerHost = await pollAllHosts(fireboardHosts, pollFireboard);
 
       if (!mountedRef.current) return;
 
@@ -331,17 +287,13 @@ export function useLanProbes({
       }
 
       trackFailures("fireboard", fireboardPerHost, snap.fireboard);
-      trackFailures("meater_block", meaterPerHost, snap.meater_block);
 
       // Trigger a single rescan after all evictions so mDNS can rediscover
       // the device at its new IP address.
       if (shouldRescan) rescan();
 
       // ── Flatten and deduplicate readings ──────────────────────────────────
-      const allReadings: LanProbeReading[] = [
-        ...fireboardPerHost,
-        ...meaterPerHost,
-      ].flatMap((r) => r.readings);
+      const allReadings: LanProbeReading[] = fireboardPerHost.flatMap((r) => r.readings);
 
       // Deduplicate by deviceId + channelIndex
       const seen = new Set<string>();

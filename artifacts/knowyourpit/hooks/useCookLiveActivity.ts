@@ -44,8 +44,8 @@ export function useCookLiveActivity({
   const registerToken = useRegisterCookLiveActivity();
   const endOnServer = useEndCookLiveActivity();
 
-  // Forward push tokens to the server so background pushes (MEATER webhooks
-  // etc.) can reach the activity even when the app is closed. Tokens can
+  // Forward push tokens to the server so background pushes can reach the
+  // activity even when the app is closed. Tokens can
   // rotate over the lifetime of an activity, so we listen for updates.
   useEffect(() => {
     if (Platform.OS !== "ios") return;

@@ -144,10 +144,6 @@ export default function CookDetailScreen() {
     tempMode, setTempMode,
     selectedMeatProbeId, selectedPitProbeId,
     probeLabels, otherCookAssignments,
-    meaterLinked, meaterProbes, meaterDataUpdatedAt,
-    thermoworksLinked, thermoworksProbes, thermoworksDataUpdatedAt,
-    selectedMeaterProbe, selectedMeaterPitProbe,
-    selectedThermoworksProbe, selectedThermoworksPitProbe,
     selectedInkbirdProbe, selectedInkbirdPitProbe,
     selectedBleContextDevice, selectedBleContextPitDevice,
     selectedLanProbe, selectedLanPitProbe,
@@ -303,9 +299,9 @@ export default function CookDetailScreen() {
     status: cook?.status ?? null,
     meatLabel: cook?.foodType ?? "Cook",
     startedAtIso: cook?.actualStartAt ?? null,
-    currentTempF: selectedMeaterProbe?.internalTempF ?? selectedThermoworksProbe?.tempF ?? selectedInkbirdProbe?.tempF ?? null,
+    currentTempF: selectedInkbirdProbe?.tempF ?? null,
     targetTempF: cook?.targetTempF ?? null,
-    cookTempF: selectedMeaterProbe?.ambientTempF ?? cook?.cookTempF ?? null,
+    cookTempF: cook?.cookTempF ?? null,
   });
 
   // ── Auto-scroll refs ───────────────────────────────────────────────────────
@@ -352,7 +348,7 @@ export default function CookDetailScreen() {
 
   const activeProbeName = (selectedMeatProbeId && probeLabels[selectedMeatProbeId])
     ? probeLabels[selectedMeatProbeId]
-    : selectedMeaterProbe?.deviceName ?? selectedBleContextDevice?.name ?? selectedLanProbe?.deviceName ?? selectedInkbirdProbe?.deviceName ?? "Probe";
+    : selectedBleContextDevice?.name ?? selectedLanProbe?.deviceName ?? selectedInkbirdProbe?.deviceName ?? "Probe";
   const activePitProbeName = (selectedPitProbeId && probeLabels[selectedPitProbeId])
     ? probeLabels[selectedPitProbeId] : "Pit / Ambient";
 
@@ -520,10 +516,10 @@ export default function CookDetailScreen() {
     if (first?.meatOnAt && first?.estimatedFinishAt) {
       const completedKeys = new Set((cookCheckins as CookCheckin[]).map((ci) => ci.phaseKey).filter((k): k is string => k != null));
       if (activeCheckin?.phaseKey) completedKeys.add(activeCheckin.phaseKey);
-      const adaptiveTemp = savedInternalTempF ?? selectedMeaterProbe?.internalTempF ?? selectedThermoworksProbe?.tempF ?? null;
+      const adaptiveTemp = savedInternalTempF ?? selectedInkbirdProbe?.tempF ?? null;
       rescheduleCheckinNotifications({ cookId: Number(id), foodType: first.foodType ?? null, weightLbs: cook?.weightLbs ?? null, meatOnAt: first.meatOnAt, estimatedFinishAt: first.estimatedFinishAt, wrapAtMinutes: first.wrapAtMinutes ?? null, completedPhaseKeys: completedKeys, actualInternalTempF: adaptiveTemp, aiCheckins: cookSeqData?.aiCheckins ?? null }).catch(() => {});
     }
-  }, [tempMode, cook, setLiveReadings, liveReadingsSeededRef, checkinSavedToastTimerRef, setCheckinSavedToast, pendingWrapClearRef, qc, id, cookSeqData, cookCheckins, activeCheckin, selectedMeaterProbe, selectedThermoworksProbe, rescheduleCheckinNotifications]);
+  }, [tempMode, cook, setLiveReadings, liveReadingsSeededRef, checkinSavedToastTimerRef, setCheckinSavedToast, pendingWrapClearRef, qc, id, cookSeqData, cookCheckins, activeCheckin, selectedInkbirdProbe, rescheduleCheckinNotifications]);
 
   // ── toggleConfirmedStep wrapping wrapTempPending ───────────────────────────
   const toggleConfirmedStep = useCallback(async (key: string) => {
@@ -633,7 +629,7 @@ export default function CookDetailScreen() {
   };
 
   const currentPitTempF = tempMode === "probe"
-    ? ((selectedMeaterPitProbe != null && selectedMeaterPitProbe.deviceId !== selectedMeaterProbe?.deviceId ? selectedMeaterPitProbe.internalTempF ?? null : selectedMeaterProbe?.ambientTempF ?? null) ?? (selectedThermoworksPitProbe != null ? (selectedThermoworksPitProbe as any).tempF ?? null : null) ?? selectedInkbirdPitProbe?.tempF ?? (selectedBleContextPitDevice != null && selectedBleContextPitDevice.id !== selectedBleContextDevice?.id ? selectedBleContextPitDevice.probeTempF ?? null : selectedBleContextDevice?.ambientTempF ?? null) ?? (selectedLanPitProbe != null && selectedLanPitProbe.deviceId !== selectedLanProbe?.deviceId ? selectedLanPitProbe.probeTempF ?? null : selectedLanProbe?.ambientTempF ?? null))
+    ? (selectedInkbirdPitProbe?.tempF ?? (selectedBleContextPitDevice != null && selectedBleContextPitDevice.id !== selectedBleContextDevice?.id ? selectedBleContextPitDevice.probeTempF ?? null : selectedBleContextDevice?.ambientTempF ?? null) ?? (selectedLanPitProbe != null && selectedLanPitProbe.deviceId !== selectedLanProbe?.deviceId ? selectedLanPitProbe.probeTempF ?? null : selectedLanProbe?.ambientTempF ?? null))
     : null;
 
   return (
@@ -686,8 +682,6 @@ export default function CookDetailScreen() {
 
           <LiveProbeSection
             cookStatus={cookStatus} c={c}
-            selectedMeaterProbe={selectedMeaterProbe}
-            selectedThermoworksProbe={selectedThermoworksProbe}
             cookCurrentTempF={cookCurrentTempF}
             selectedBleContextDevice={selectedBleContextDevice}
             selectedLanProbe={selectedLanProbe}
@@ -712,8 +706,7 @@ export default function CookDetailScreen() {
           />
 
           <LiveCookSection
-            c={c} colors={colors} weather={weather} meaterLinked={meaterLinked} meaterProbes={meaterProbes}
-            thermoworksLinked={thermoworksLinked} thermoworksProbes={thermoworksProbes}
+            c={c} colors={colors} weather={weather}
             inkbirdProbes={inkbirdProbes} bleContextDevices={bleContextDevices} lanProbes={lanProbes}
             lanMdnsAvailable={lanMdnsAvailable} lanMdnsScanEmpty={lanMdnsScanEmpty} lanScanning={lanScanning}
             autoAssignBanner={autoAssignBanner} onDismissAutoAssignBanner={() => setAutoAssignBanner(null)}
@@ -946,8 +939,6 @@ export default function CookDetailScreen() {
         activeCheckin={activeCheckin} checkinModalVisible={checkinModalVisible}
         setCheckinModalVisible={setCheckinModalVisible}
         currentPitTempF={currentPitTempF} tempMode={tempMode}
-        selectedMeaterProbe={selectedMeaterProbe}
-        selectedThermoworksProbe={selectedThermoworksProbe}
         selectedInkbirdProbe={selectedInkbirdProbe}
         selectedBleContextDevice={selectedBleContextDevice}
         selectedLanProbe={selectedLanProbe}

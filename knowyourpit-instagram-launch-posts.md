@@ -135,11 +135,11 @@ Screenshot of a completed cook's analysis screen — the A/B/C health grade badg
 ## POST 7 — Probe Connectivity ("Any hardware")
 
 **Visual direction:**
-Flat-lay or styled shot of multiple probe types — MEATER in the shot, ThermoWorks Signals nearby, an Inkbird on the grill grate. Phones showing the live temperature screen above them. Real gear, real setup. Alternatively: a clean graphic listing the supported brands on a charcoal background.
+Flat-lay or styled shot of multiple probe types — an Inkbird on the grill grate, a Govee nearby. Phones showing the live temperature screen above them. Real gear, real setup. Alternatively: a clean graphic listing the supported brands on a charcoal background.
 
 **Caption:**
 
-> MEATER. ThermoWorks Signals. Inkbird. Govee. Manual entry.
+> Inkbird. Govee. Bluetooth probes. Manual entry.
 >
 > knowyourpit connects to the probe you already own. Live readings flow straight in — no re-entering numbers, no switching apps.
 >
@@ -148,7 +148,7 @@ Flat-lay or styled shot of multiple probe types — MEATER in the shot, ThermoWo
 > Your hardware. Your data. knowyourpit.
 
 **Hashtags:**
-`#MEATER #ThermoWorks #Inkbird #BBQThermometer #Pitmaster #SmokeMeat #BBQ #LowAndSlow #BBQCoach #BBQLife`
+`#Inkbird #Govee #BBQThermometer #Pitmaster #SmokeMeat #BBQ #LowAndSlow #BBQCoach #BBQLife`
 
 ---
 

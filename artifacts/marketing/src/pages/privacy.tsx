@@ -42,7 +42,7 @@ export default function Privacy() {
         <p><strong>Temperature readings</strong></p>
         <p>
           We store probe temperature readings uploaded from your thermometer
-          devices (MEATER, ThermoWorks, Inkbird, Govee) or entered manually.
+          devices (Inkbird, Govee, and other Bluetooth probes) or entered manually.
           These readings are always linked to your account and are never
           visible to other users.
         </p>
@@ -55,12 +55,12 @@ export default function Privacy() {
           analysis result is returned.
         </p>
 
-        <p><strong>MEATER thermometer data</strong></p>
+        <p><strong>Thermometer data</strong></p>
         <p>
-          If you link your MEATER account, we store your MEATER token
-          (encrypted) and retrieve live probe readings during cook sessions.
-          We do not store MEATER data beyond what is needed to display live
-          readings and log completed sessions.
+          When you connect a Bluetooth thermometer, we retrieve live probe
+          readings during cook sessions. We do not store thermometer data
+          beyond what is needed to display live readings and log completed
+          sessions.
         </p>
 
         <p><strong>Location</strong></p>
@@ -109,11 +109,6 @@ export default function Privacy() {
             <strong>Open-Meteo</strong> — an open-source weather API used to
             fetch outdoor temperature by location. No personally identifiable
             information is shared beyond your approximate coordinates.
-          </li>
-          <li>
-            <strong>MEATER</strong> — if you link your MEATER account, data is
-            exchanged with MEATER's cloud API under your MEATER account's
-            terms.
           </li>
         </ul>
 

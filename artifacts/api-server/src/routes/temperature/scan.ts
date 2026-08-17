@@ -13,7 +13,7 @@ router.post("/temperature/scan-image", requireAuth, aiRateLimit, async (req, res
   }
   const safeMime = typeof mimeType === "string" && ALLOWED_MIME_TYPES.has(mimeType) ? mimeType : "image/jpeg";
 
-  const systemPrompt = `You are a BBQ temperature summary extraction assistant. You can read thermometer displays, grill controller screens, temperature graphs/charts, printed cook logs, and screenshots from apps like MEATER, ThermoWorks, FireBoard, Inkbird, and Govee.
+  const systemPrompt = `You are a BBQ temperature summary extraction assistant. You can read thermometer displays, grill controller screens, temperature graphs/charts, printed cook logs, and screenshots from apps like FireBoard, Inkbird, and Govee.
 
 Return ONLY valid JSON — no markdown, no explanation, no extra text:
 {

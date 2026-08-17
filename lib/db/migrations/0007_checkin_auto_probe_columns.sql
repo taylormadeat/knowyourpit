@@ -3,7 +3,7 @@
 --   useAutoCheckin hook (probe connected at milestone time), false for all
 --   manual check-ins.
 -- probe_source: which probe brand provided the temperature reading
---   (e.g. 'meater', 'thermoworks'). Null for manual check-ins.
+--   (e.g. 'inkbird'). Null for manual check-ins.
 -- Both columns use IF NOT EXISTS so this migration is safe to re-run against
 -- databases that already received the columns via drizzle-kit push.
 

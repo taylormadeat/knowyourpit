@@ -157,18 +157,18 @@ async function testBasicRoundTrip(): Promise<void> {
   const storage = makeMemoryStorage();
   const cookId = 42;
 
-  await saveMeatProbeId(cookId, "meater:channel-1", storage);
+  await saveMeatProbeId(cookId, "inkbird:channel-1", storage);
   await savePitProbeId(cookId, "inkbird:ch-2", storage);
 
-  let labels = buildUpdatedProbeLabels({}, "meater:channel-1", "Brisket Ch 1");
+  let labels = buildUpdatedProbeLabels({}, "inkbird:channel-1", "Brisket Ch 1");
   labels = buildUpdatedProbeLabels(labels, "inkbird:ch-2", "Pit Probe");
   await saveProbeLabels(cookId, labels, storage);
 
   // Simulate restart — in-memory React state is gone; only storage persists
   const state = await loadProbeState(cookId, storage);
-  assertEqual(state.meatProbeId, "meater:channel-1", "meatProbeId");
+  assertEqual(state.meatProbeId, "inkbird:channel-1", "meatProbeId");
   assertEqual(state.pitProbeId, "inkbird:ch-2", "pitProbeId");
-  assertEqual(state.probeLabels["meater:channel-1"], "Brisket Ch 1", "meat label");
+  assertEqual(state.probeLabels["inkbird:channel-1"], "Brisket Ch 1", "meat label");
   assertEqual(state.probeLabels["inkbird:ch-2"], "Pit Probe", "pit label");
 }
 
@@ -187,9 +187,9 @@ async function testClearMeatProbe(): Promise<void> {
   const storage = makeMemoryStorage();
   const cookId = 7;
 
-  await saveMeatProbeId(cookId, "meater:channel-3", storage);
+  await saveMeatProbeId(cookId, "inkbird:channel-3", storage);
   let state = await loadProbeState(cookId, storage);
-  assertEqual(state.meatProbeId, "meater:channel-3", "meat probe set");
+  assertEqual(state.meatProbeId, "inkbird:channel-3", "meat probe set");
 
   await saveMeatProbeId(cookId, null, storage);
   state = await loadProbeState(cookId, storage);
@@ -215,14 +215,14 @@ async function testRemoveLabelWhenEmpty(): Promise<void> {
   const storage = makeMemoryStorage();
   const cookId = 11;
 
-  const labels0 = buildUpdatedProbeLabels({}, "meater:ch-1", "My Probe");
+  const labels0 = buildUpdatedProbeLabels({}, "inkbird:ch-1", "My Probe");
   await saveProbeLabels(cookId, labels0, storage);
 
-  const labels1 = buildUpdatedProbeLabels(labels0, "meater:ch-1", "  ");
+  const labels1 = buildUpdatedProbeLabels(labels0, "inkbird:ch-1", "  ");
   await saveProbeLabels(cookId, labels1, storage);
 
   const state = await loadProbeState(cookId, storage);
-  assert(!("meater:ch-1" in state.probeLabels), "label key absent after empty save");
+  assert(!("inkbird:ch-1" in state.probeLabels), "label key absent after empty save");
 }
 
 async function testLegacyKeyMigration(): Promise<void> {
@@ -230,28 +230,28 @@ async function testLegacyKeyMigration(): Promise<void> {
   const storage = makeMemoryStorage();
   const cookId = 20;
 
-  await storage.setItem(`probe_selection_${cookId}`, "meater:legacy-ch");
+  await storage.setItem(`probe_selection_${cookId}`, "inkbird:legacy-ch");
 
   const state = await loadProbeState(cookId, storage);
-  assertEqual(state.meatProbeId, "meater:legacy-ch", "legacy key migrated → meatProbeId");
+  assertEqual(state.meatProbeId, "inkbird:legacy-ch", "legacy key migrated → meatProbeId");
 
   const legacyAfter = await storage.getItem(`probe_selection_${cookId}`);
   const meatAfter = await storage.getItem(`probe_meat_${cookId}`);
   assertEqual(legacyAfter, null, "legacy key removed after migration");
-  assertEqual(meatAfter, "meater:legacy-ch", "meat key written after migration");
+  assertEqual(meatAfter, "inkbird:legacy-ch", "meat key written after migration");
 }
 
 async function testIsolationBetweenCooks(): Promise<void> {
   console.log("\n[7] Data is isolated per cook id");
   const storage = makeMemoryStorage();
 
-  await saveMeatProbeId(1, "meater:ch-A", storage);
-  await saveMeatProbeId(2, "meater:ch-B", storage);
+  await saveMeatProbeId(1, "inkbird:ch-A", storage);
+  await saveMeatProbeId(2, "inkbird:ch-B", storage);
 
   const s1 = await loadProbeState(1, storage);
   const s2 = await loadProbeState(2, storage);
-  assertEqual(s1.meatProbeId, "meater:ch-A", "cook 1 meat probe");
-  assertEqual(s2.meatProbeId, "meater:ch-B", "cook 2 meat probe");
+  assertEqual(s1.meatProbeId, "inkbird:ch-A", "cook 1 meat probe");
+  assertEqual(s2.meatProbeId, "inkbird:ch-B", "cook 2 meat probe");
 }
 
 async function testCorruptLabelsJson(): Promise<void> {
@@ -268,7 +268,7 @@ async function testMultipleLabelsRoundTrip(): Promise<void> {
   console.log("\n[9] Multiple probes — all labels survive restart");
   const storage = makeMemoryStorage();
   const cookId = 77;
-  const keys = ["meater:ch-1", "meater:ch-2", "inkbird:ch-3", "thermoworks:ch-1"];
+  const keys = ["inkbird:ch-1", "inkbird:ch-2", "ble:ch-3", "lan:ch-1"];
 
   let labels: Record<string, string> = {};
   for (const k of keys) {

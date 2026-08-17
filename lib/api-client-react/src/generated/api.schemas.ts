@@ -976,7 +976,7 @@ export interface TemperatureReading {
   probeName: string | null;
   tempF: number;
   recordedAt: string;
-  /** manual, meater, thermoworks, inkbird, govee, csv */
+  /** manual, inkbird, govee, csv */
   source: string;
 }
 
@@ -1040,7 +1040,7 @@ export interface TemperatureReadingInput {
 
 export interface TemperatureUploadBody {
   cookId: number;
-  /** meater, thermoworks, inkbird, govee, csv, manual */
+  /** inkbird, govee, csv, manual */
   source: string;
   readings: TemperatureReadingInput[];
 }
@@ -1065,7 +1065,7 @@ export interface ProbeChannelReading {
  * @nullable
  */
 export type AnalyzeCookBodyCookContext = {
-  /** All active probe channels from the connected LAN/BLE device (e.g. Fireboard, ThermoWorks Signals, MEATER Block) */
+  /** All active probe channels from the connected LAN/BLE device (e.g. Fireboard) */
   probeChannels?: ProbeChannelReading[];
 } | null;
 
@@ -1682,102 +1682,6 @@ export interface DashboardSummary {
   /** @nullable */
   favoriteFood: string | null;
   totalHoursCooking: number;
-}
-
-export interface MeaterLinkBody {
-  email: string;
-  password: string;
-}
-
-export interface MeaterLinkedResponse {
-  linked: boolean;
-}
-
-export interface MeaterDevice {
-  id: string;
-  name: string;
-  /** 1-based position in the array returned by the MEATER Cloud API */
-  probeNumber: number;
-  hasCook: boolean;
-  /** @nullable */
-  cookName: string | null;
-  /** @nullable */
-  cookState: string | null;
-}
-
-export interface MeaterStatusResponse {
-  linked: boolean;
-  devices: MeaterDevice[];
-  tokenExpired?: boolean;
-}
-
-export interface MeaterProbeReading {
-  deviceId: string;
-  deviceName: string;
-  /** @nullable */
-  internalTempF: number | null;
-  /** @nullable */
-  ambientTempF: number | null;
-  /** @nullable */
-  targetMinTempF: number | null;
-  /** @nullable */
-  targetMaxTempF: number | null;
-  /** @nullable */
-  cookName: string | null;
-  /** @nullable */
-  cookState: string | null;
-}
-
-export interface MeaterReadingsResponse {
-  linked: boolean;
-  probes: MeaterProbeReading[];
-  tokenExpired?: boolean;
-}
-
-export interface ThermoworksSendResetBody {
-  email: string;
-}
-
-export interface ThermoworksLinkBody {
-  email: string;
-  password: string;
-}
-
-export interface ThermoworksLinkedResponse {
-  linked: boolean;
-}
-
-export interface ThermoworksDevice {
-  id: string;
-  name: string;
-  /** @nullable */
-  type: string | null;
-  /** @nullable */
-  status: string | null;
-}
-
-export interface ThermoworksStatusResponse {
-  linked: boolean;
-  devices: ThermoworksDevice[];
-  error?: string;
-}
-
-export interface ThermoworksProbeReading {
-  deviceId: string;
-  deviceName: string;
-  channelNumber: string;
-  /** @nullable */
-  channelLabel: string | null;
-  /** @nullable */
-  tempF: number | null;
-  /** @nullable */
-  lastSeenIso: string | null;
-}
-
-export interface ThermoworksReadingsResponse {
-  linked: boolean;
-  probes: ThermoworksProbeReading[];
-  error?: string;
 }
 
 export interface CustomMeatCut {

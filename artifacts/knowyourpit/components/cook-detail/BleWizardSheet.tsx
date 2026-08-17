@@ -4,7 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 
-type Brand = "inkbird" | "meater" | "govee" | "other";
+type Brand = "inkbird" | "govee" | "other";
 
 const STEPS: Record<Brand, Array<{ icon: string; text: string }>> = {
   inkbird: [
@@ -13,13 +13,6 @@ const STEPS: Record<Brand, Array<{ icon: string; text: string }>> = {
     { icon: "move", text: "Move within 1–2 metres of the probe for the initial scan, then step back once it appears." },
     { icon: "refresh-cw", text: "Press the probe's power button once to wake it if it has been idle for more than a few hours." },
     { icon: "smartphone", text: "If still not found, close and reopen the app — iOS can silently halt BLE scans after backgrounding." },
-  ],
-  meater: [
-    { icon: "battery-charging", text: "Seat the probe in its charger for 10 seconds to wake it from sleep, then remove it before scanning." },
-    { icon: "move", text: "Bring the probe within 1–2 metres of your phone. MEATER range is short until the initial GATT connection succeeds." },
-    { icon: "bluetooth", text: "Ensure no other device (tablet, MEATER app on another phone) is already connected — MEATER only allows one connection at a time." },
-    { icon: "power", text: "Enable Bluetooth before opening the cook screen. Scanning starts immediately on load." },
-    { icon: "refresh-cw", text: "Still not found? Remove the probe from the charger, wait 5 seconds, then tap 'Try scanning again'." },
   ],
   govee: [
     { icon: "power", text: "Enable Bluetooth before opening the cook screen. Govee sensors broadcast passively and are seen immediately during a scan." },
@@ -39,7 +32,6 @@ const STEPS: Record<Brand, Array<{ icon: string; text: string }>> = {
 
 const BRAND_LABELS: Record<Brand, string> = {
   inkbird: "Inkbird",
-  meater: "MEATER",
   govee: "Govee",
   other: "Other",
 };
@@ -101,7 +93,7 @@ export function BleWizardSheet({ visible, onClose, onRestartScan }: Props) {
 
           {/* Brand selector */}
           <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 20, marginBottom: 16 }}>
-            {(["inkbird", "meater", "govee", "other"] as Brand[]).map((b) => {
+            {(["inkbird", "govee", "other"] as Brand[]).map((b) => {
               const active = brand === b;
               return (
                 <Pressable

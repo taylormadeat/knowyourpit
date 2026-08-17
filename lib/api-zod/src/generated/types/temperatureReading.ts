@@ -14,6 +14,6 @@ export interface TemperatureReading {
   probeName: string | null;
   tempF: number;
   recordedAt: Date;
-  /** manual, meater, thermoworks, inkbird, govee, csv */
+  /** manual, inkbird, govee, csv */
   source: string;
 }

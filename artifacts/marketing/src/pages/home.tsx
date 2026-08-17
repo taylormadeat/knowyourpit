@@ -9,7 +9,7 @@ const SHOTS = [
   {
     src: "ss-image-scanner.png",
     title: "Any thermometer. Any app. Any data source.",
-    caption: "Already using MEATER, ThermoWorks, or another thermometer app? Upload a screenshot of the graph. Got an analog gauge on your pit? Take a photo. Prefer to log readings by hand? That works too. knowyourpit pulls the numbers from wherever they live and runs the analysis — no specific hardware required.",
+    caption: "Already using another thermometer app? Upload a screenshot of the graph. Got an analog gauge on your pit? Take a photo. Prefer to log readings by hand? That works too. knowyourpit pulls the numbers from wherever they live and runs the analysis — no specific hardware required.",
     alt: "PitMaster Image Scanner reading a temperature graph from photos",
   },
   {

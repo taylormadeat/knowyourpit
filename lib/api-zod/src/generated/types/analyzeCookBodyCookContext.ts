@@ -12,6 +12,6 @@ import type { ProbeChannelReading } from "./probeChannelReading";
  * @nullable
  */
 export type AnalyzeCookBodyCookContext = {
-  /** All active probe channels from the connected LAN/BLE device (e.g. Fireboard, ThermoWorks Signals, MEATER Block) */
+  /** All active probe channels from the connected LAN/BLE device (e.g. Fireboard) */
   probeChannels?: ProbeChannelReading[];
 } | null;

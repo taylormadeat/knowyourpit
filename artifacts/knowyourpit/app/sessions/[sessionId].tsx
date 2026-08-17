@@ -367,7 +367,7 @@ export default function SessionDetailScreen() {
   const { devices: allBleDevices, reconnectBanner, dismissReconnectBanner } = useBleProbes();
   const connectedBleDevices = allBleDevices.filter((d) => d.connectionState === "connected");
 
-  // BLE reconnect toast: fires when a MEATER / Govee probe reappears after a drop.
+  // BLE reconnect toast: fires when a Govee probe reappears after a drop.
   const [bleReconnectToast, setBleReconnectToast] = useState<string | null>(null);
   const bleReconnectToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevReconnectBannerRef = useRef<string | null>(null);
@@ -1242,7 +1242,7 @@ export default function SessionDetailScreen() {
         setEditWrapFinish={setCookEditWrapFinish}
       />
 
-      {/* ── BLE Reconnect Toast (MEATER / Govee) ─────────────── */}
+      {/* ── BLE Reconnect Toast (Govee) ─────────────── */}
       {bleReconnectToast != null && (
         <View
           style={{

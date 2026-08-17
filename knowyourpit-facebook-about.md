@@ -30,7 +30,7 @@ Most apps give you a number. knowyourpit gives you a decision. You're in the sta
 **What it does:**
 • Plan any cut from start to serve — timelines built around your grill, your weight, and your history
 • Sequence a full spread so brisket, ribs, and chicken all land at the same time
-• Connect MEATER, ThermoWorks Signals, Inkbird, and other Bluetooth probes for live temp feeds
+• Connect Inkbird, Govee, and other Bluetooth probes for live temp feeds
 • Get PitMaster coaching through every stage of the cook
 • Track a debrief after every session — health scores, drift analysis, and what to adjust next time
 

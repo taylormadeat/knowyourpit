@@ -44,7 +44,7 @@
 | Pillar | What it delivers |
 |---|---|
 | **Plan** | AI-generated cook timelines with thaw, temper, preheat, cook, wrap, rest, serve stages |
-| **Monitor** | Live temperature feeds from BLE (Inkbird), WiFi (MEATER, ThermoWorks, Fireboard), and manual entry |
+| **Monitor** | Live temperature feeds from BLE (Inkbird), WiFi (Fireboard), and manual entry |
 | **Coach** | PitMaster AI chat, per-cook analysis with drift feedback, health scores, technique insights |
 | **Log** | Rich cook records — photos, check-ins, events, ratings, notes — searchable history |
 | **Improve** | Technique stats by meat type, overall grade system, outlier flagging, historical charts |
@@ -138,8 +138,8 @@ Generated output locations:
 | `NSCamera` | Cook photos; AI temp scan |
 | `NSUserNotification` | Probe target alerts; fuel reminders |
 | `NSBluetoothAlways` | BLE read from Inkbird thermometer |
-| `NSLocalNetwork` | WiFi thermometer mDNS discovery (MEATER Block, ThermoWorks, Fireboard) |
-| Bonjour services | `_http._tcp`, `_meater._tcp` |
+| `NSLocalNetwork` | WiFi thermometer mDNS discovery (Fireboard and other LAN probes) |
+| Bonjour services | `_http._tcp` |
 | `NSAppTransportSecurity` | Local networking allowed |
 | `ITSAppUsesNonExemptEncryption` | false |
 
@@ -174,7 +174,7 @@ app/
 │   └── grills.tsx            # Grill list
 ├── sessions/
 │   └── [sessionId].tsx       # Multi-cook session schedule view
-├── devices.tsx               # Device management (MEATER, ThermoWorks, BLE)
+├── devices.tsx               # Device management (BLE and WiFi probes)
 ├── pro-features.tsx          # Pro feature showcase
 ├── profile.tsx               # User profile
 ├── temperature.tsx           # Temperature scan / upload
@@ -253,8 +253,6 @@ app/
 | **Dashboard** | `GET /dashboard/recent-cooks`, `GET /dashboard/summary` |
 | **Profile** | `GET /profile/me`, `PATCH /profile/me`, `DELETE /profile/me` (account deletion — full data wipe + Clerk delete) |
 | **Conversations** | `GET /conversations`, `POST /conversations`, `GET /conversations/:id`, `DELETE /conversations/:id`, `GET /conversations/:id/messages`, `POST /conversations/:id/messages` |
-| **MEATER** | `GET /meater/link`, `POST /meater/link`, `DELETE /meater/unlink`, `GET /meater/readings` |
-| **ThermoWorks** | `GET /thermoworks/link`, `POST /thermoworks/link`, `DELETE /thermoworks/unlink`, `GET /thermoworks/readings`, `POST /thermoworks/send-reset` |
 | **Contact** | `POST /contact` (rate-limited, no auth required) |
 | **Paywall** | `GET /paywall/status` |
 | **Webhooks** | `POST /webhooks/revenuecat` (RevenueCat subscription events) |
@@ -374,7 +372,7 @@ This ensures secondary meat probes and CSV-imported readings are not silently ig
 | `probeName` | text | |
 | `tempF` | real | |
 | `recordedAt` | timestamp tz | |
-| `source` | text | `manual`, `meater`, `thermoworks`, `inkbird`, `csv`, `govee` |
+| `source` | text | `manual`, `inkbird`, `csv`, `govee` |
 
 **Probe role convention:** `probeNumber` is authoritative. `probeName` heuristics and `probeAssignments` IDs are not reliable for role detection.
 
@@ -458,8 +456,6 @@ Per-user overrides of technique presets, same shape as system presets.
 
 | Table | Purpose |
 |---|---|
-| `meater_credentials` | Stored MEATER account credentials per user |
-| `thermoworks_credentials` | Stored ThermoWorks account credentials per user |
 | `contact_messages` | Contact form submissions |
 | `ai_analyze_events` | Tracks per-user AI image analysis calls (for rate limiting) |
 | `frozen_timeline_events` | Events in the frozen cook planning timeline |
@@ -553,7 +549,7 @@ Sign-in/sign-up handlers map Clerk error codes to user-friendly messages.
 ### Account deletion
 
 `DELETE /profile/me` — Apple App Store compliance requirement. Steps:
-1. Wipes all user data in a single DB transaction: cooks, temperature readings, conversations, messages, AI analyze events, custom meat cuts, grills, MEATER/ThermoWorks credentials, subscription entitlements, live activities.
+1. Wipes all user data in a single DB transaction: cooks, temperature readings, conversations, messages, AI analyze events, custom meat cuts, grills, subscription entitlements, live activities.
 2. Deletes the Clerk user account.
 3. If Clerk delete fails, data is already gone; client is signed out with a "contact support" message. No orphan-data state is possible.
 
@@ -570,17 +566,12 @@ Accessible from: More tab → "Delete account"
 - Discovery: BLE scan with device name/service UUID filtering
 - Debug screen: `app/ble-diagnostics.tsx`
 
-### MEATER
+### WiFi / LAN probes
 
-- Integration: Account-link via `/api/meater/link` (stores credentials in `meater_credentials`)
-- Discovery: mDNS (`_meater._tcp`) + WiFi LAN scan via `react-native-zeroconf`
+- Discovery: mDNS + WiFi LAN scan via `react-native-zeroconf`
 - Local network: `NSLocalNetworkUsageDescription` + `NSBonjourServices` declared
-
-### ThermoWorks Signals / RFX
-
-- Integration: Cloud (account-link via `/api/thermoworks/link` → `/devices`)
-- Community `/status` adapter: 3-second timeout, 5 hostname aliases
-- LAN discovery: mDNS dual browser (`_http._tcp` + `_meater._tcp`), 8-second scan window, 24-hour TTL persistence
+- Community `/status` adapter: 3-second timeout, multiple hostname aliases
+- LAN discovery: mDNS browser (`_http._tcp`), 8-second scan window, 24-hour TTL persistence
 - mDNS empty scan ≠ definitive permission denial on iOS (use `mdnsScanEmpty` proxy)
 
 ### Fireboard
@@ -1187,13 +1178,13 @@ Removed `@sentry/react-native v8` — incompatible with Expo SDK 54 / RN 0.81.5 
 
 ### Hardware test matrix (pending human testing)
 
-ThermoWorks / Fireboard / MEATER Block probe detection requires physical device testing:
+WiFi / Fireboard / LAN probe detection requires physical device testing:
 
-1. Unlinked ThermoWorks → "Connect a device" card → /devices link flow
-2. Linked TW with live probes → readings appear in Live Cook
-3. Linked TW with zero active probes → "linked but empty" card displayed
+1. Unlinked WiFi probe → "Connect a device" card → /devices link flow
+2. Linked probe with live readings → readings appear in Live Cook
+3. Linked probe with zero active probes → "linked but empty" card displayed
 4. iOS Local Network permission denied → troubleshooting card + "Open Settings" shown
-5. Fireboard / MEATER Block on same WiFi → mDNS auto-discover succeeds
+5. Fireboard or other LAN probe on same WiFi → mDNS auto-discover succeeds
 
 ### Apple Watch companion app
 

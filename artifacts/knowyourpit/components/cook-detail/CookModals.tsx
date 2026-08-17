@@ -91,8 +91,6 @@ interface CookModalsProps {
   setCheckinModalVisible: (v: boolean) => void;
   currentPitTempF: number | null;
   tempMode: "probe" | "manual";
-  selectedMeaterProbe: any | null;
-  selectedThermoworksProbe: any | null;
   selectedInkbirdProbe: any | null;
   selectedBleContextDevice: any | null;
   selectedLanProbe: any | null;
@@ -145,7 +143,7 @@ export function CookModals({
   bleReconnectToast, setBleReconnectToast,
   activeCheckin, checkinModalVisible, setCheckinModalVisible,
   currentPitTempF, tempMode,
-  selectedMeaterProbe, selectedThermoworksProbe, selectedInkbirdProbe,
+  selectedInkbirdProbe,
   selectedBleContextDevice, selectedLanProbe,
   weather, cookCheckins, onCheckinSaved, onRequestAnalyze, result,
   plannedCheckinPreviewSc, setPlannedCheckinPreviewSc,
@@ -153,11 +151,9 @@ export function CookModals({
   showRatingPrompt, rateSaving, saveRatings, setShowRatingPrompt,
 }: CookModalsProps) {
   const currentInternalTempF = tempMode === "probe"
-    ? (selectedMeaterProbe?.internalTempF ?? selectedThermoworksProbe?.tempF ?? selectedInkbirdProbe?.tempF ?? selectedBleContextDevice?.probeTempF ?? selectedLanProbe?.probeTempF ?? null)
+    ? (selectedInkbirdProbe?.tempF ?? selectedBleContextDevice?.probeTempF ?? selectedLanProbe?.probeTempF ?? null)
     : null;
-  const probeSource: "meater" | "thermoworks" | "inkbird" | null = tempMode !== "probe" ? null
-    : selectedMeaterProbe?.internalTempF != null ? "meater"
-    : selectedThermoworksProbe?.tempF != null ? "thermoworks"
+  const probeSource: "inkbird" | null = tempMode !== "probe" ? null
     : selectedInkbirdProbe?.tempF != null ? "inkbird"
     : null;
 

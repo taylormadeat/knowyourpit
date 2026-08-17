@@ -4,11 +4,10 @@
  * Runs an mDNS browser via react-native-zeroconf and returns a map of
  * device-type → discovered hosts (IP addresses or .local names).
  *
- * The browser scans both `_http._tcp` and `_meater._tcp` on the local
- * network concurrently using two independent browser instances.  Each
- * resolved service is classified into one of the known thermometer device
- * types.  The caller passes those hosts to the matching polling adapter
- * instead of the hardcoded .local defaults.
+ * The browser scans `_http._tcp` on the local network.  Each resolved
+ * service is classified into one of the known thermometer device types.
+ * The caller passes those hosts to the matching polling adapter instead of
+ * the hardcoded .local defaults.
  *
  * Persistence
  * -----------
@@ -142,7 +141,7 @@ export function removeHost(map: DiscoveredHosts, type: ZeroconfDeviceType, host:
 }
 
 /** Known classifiable device types (excludes "unknown") */
-const KNOWN_TYPES: ZeroconfDeviceType[] = ["fireboard", "meater_block"];
+const KNOWN_TYPES: ZeroconfDeviceType[] = ["fireboard"];
 
 export function useZeroconfDiscovery(enabled: boolean): UseZeroconfDiscoveryResult {
   const [discovered, setDiscovered] = useState<DiscoveredHosts>({});
@@ -150,8 +149,6 @@ export function useZeroconfDiscovery(enabled: boolean): UseZeroconfDiscoveryResu
   const [scanning, setScanning] = useState(false);
   const [mdnsScanEmpty, setMdnsScanEmpty] = useState(false);
   const browserRef = useRef<ZeroconfBrowser | null>(null);
-  // Second browser instance for _meater._tcp — MEATER Block's native service type
-  const meaterBrowserRef = useRef<ZeroconfBrowser | null>(null);
   const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   // Keep a ref to the latest discovered map so the scan-completion effect can
@@ -203,35 +200,24 @@ export function useZeroconfDiscovery(enabled: boolean): UseZeroconfDiscoveryResu
       scanTimerRef.current = null;
     }
     try { browserRef.current?.stop(); } catch {}
-    try { meaterBrowserRef.current?.stop(); } catch {}
     if (mountedRef.current) setScanning(false);
   }, []);
 
   const startScan = useCallback(() => {
     const httpBrowser = browserRef.current;
-    const meaterBrowser = meaterBrowserRef.current;
-    if (!httpBrowser && !meaterBrowser) return;
+    if (!httpBrowser) return;
 
     stopScan();
     if (!mountedRef.current) return;
     setScanning(true);
 
     let anyStarted = false;
-    if (httpBrowser) {
-      try {
-        // type and protocol WITHOUT leading underscores — native module prepends them
-        // e.g. "http" + "tcp" → _http._tcp.local.
-        httpBrowser.scan("http", "tcp", "local.");
-        anyStarted = true;
-      } catch { /* ignore */ }
-    }
-    if (meaterBrowser) {
-      try {
-        // Scan _meater._tcp — MEATER Block's native service advertisement type
-        meaterBrowser.scan("meater", "tcp", "local.");
-        anyStarted = true;
-      } catch { /* ignore */ }
-    }
+    try {
+      // type and protocol WITHOUT leading underscores — native module prepends them
+      // e.g. "http" + "tcp" → _http._tcp.local.
+      httpBrowser.scan("http", "tcp", "local.");
+      anyStarted = true;
+    } catch { /* ignore */ }
 
     if (!anyStarted) {
       if (mountedRef.current) setScanning(false);
@@ -241,42 +227,36 @@ export function useZeroconfDiscovery(enabled: boolean): UseZeroconfDiscoveryResu
     scanTimerRef.current = setTimeout(stopScan, SCAN_DURATION_MS);
   }, [stopScan]);
 
-  // Initialise both native browser instances once
+  // Initialise the native browser instance once
   useEffect(() => {
     mountedRef.current = true;
 
     if (Platform.OS === "web" || !enabled) return;
 
-    // httpBrowser  → scans _http._tcp (all LAN thermometers, classified by name/port)
-    // meaterBrowser → scans _meater._tcp (always MEATER Blocks — no classification needed)
+    // httpBrowser → scans _http._tcp (all LAN thermometers, classified by name/port)
     const httpBrowser = createZeroconfBrowser();
-    // createZeroconfBrowser wraps `new Zeroconf()` in a try/catch, so if the
-    // native module only supports one instance this returns null gracefully.
-    const meaterBrowser = createZeroconfBrowser();
 
-    if (!httpBrowser && !meaterBrowser) return;
+    if (!httpBrowser) return;
 
     // ── Shared event helpers ─────────────────────────────────────────────────
-    // forcedType is supplied by the meater browser (always "meater_block"),
-    // skipping the name/port heuristics in classifyService for those events.
-    const onResolved = (service: ZeroconfService, forcedType?: ZeroconfDeviceType) => {
+    const onResolved = (service: ZeroconfService) => {
       if (!mountedRef.current) return;
       // Prefer an IPv4 address so polling adapters can build valid URLs.
       // Avoid raw IPv6 — bracket notation is needed there and many firmwares
       // don't support IPv6 HTTP.  Fall back to .local when no IPv4 is present.
       const ipv4 = service.addresses?.find((a) => /^\d{1,3}(\.\d{1,3}){3}$/.test(a));
       const host = ipv4 ?? service.host;
-      const type = forcedType ?? classifyService(service.name, service.host, service.port);
+      const type = classifyService(service.name, service.host, service.port);
       setDiscovered((prev) => addHost(prev, type, host));
       // Persist in the background — fire-and-forget
       persistHost(type, host);
     };
 
-    const onRemoved = (service: ZeroconfService, forcedType?: ZeroconfDeviceType) => {
+    const onRemoved = (service: ZeroconfService) => {
       if (!mountedRef.current) return;
       const ipv4 = service.addresses?.find((a) => /^\d{1,3}(\.\d{1,3}){3}$/.test(a));
       const host = ipv4 ?? service.host;
-      const type = forcedType ?? classifyService(service.name, service.host, service.port);
+      const type = classifyService(service.name, service.host, service.port);
       setDiscovered((prev) => removeHost(prev, type, host));
       // Note: we intentionally do NOT remove from AsyncStorage on "removed"
       // events — the device may just have gone quiet for a moment. The 24 h
@@ -284,32 +264,20 @@ export function useZeroconfDiscovery(enabled: boolean): UseZeroconfDiscoveryResu
     };
 
     // ── Register handlers ────────────────────────────────────────────────────
-    if (httpBrowser) {
-      browserRef.current = httpBrowser;
-      httpBrowser.on("resolved", (s: ZeroconfService) => onResolved(s));
-      httpBrowser.on("removed", (s: ZeroconfService) => onRemoved(s));
-      httpBrowser.on("error", (_err: Error) => {
-        if (mountedRef.current) setScanning(false);
-      });
-    }
+    browserRef.current = httpBrowser;
+    httpBrowser.on("resolved", (s: ZeroconfService) => onResolved(s));
+    httpBrowser.on("removed", (s: ZeroconfService) => onRemoved(s));
+    httpBrowser.on("error", (_err: Error) => {
+      if (mountedRef.current) setScanning(false);
+    });
 
-    if (meaterBrowser) {
-      meaterBrowserRef.current = meaterBrowser;
-      // All _meater._tcp services are MEATER Blocks — skip classifyService
-      meaterBrowser.on("resolved", (s: ZeroconfService) => onResolved(s, "meater_block"));
-      meaterBrowser.on("removed", (s: ZeroconfService) => onRemoved(s, "meater_block"));
-      meaterBrowser.on("error", () => { /* MEATER scan error is non-fatal */ });
-    }
-
-    if (httpBrowser || meaterBrowser) setMdnsAvailable(true);
+    setMdnsAvailable(true);
 
     return () => {
       mountedRef.current = false;
       if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
       try { httpBrowser?.stop(); httpBrowser?.removeDeviceListeners(); } catch {}
-      try { meaterBrowser?.stop(); meaterBrowser?.removeDeviceListeners(); } catch {}
       browserRef.current = null;
-      meaterBrowserRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);

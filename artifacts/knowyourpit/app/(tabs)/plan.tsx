@@ -87,7 +87,6 @@ import {
   type QpSpritzFrequency,
   type QpWrapFinishOption,
 } from "@/constants/cookQuickPicks";
-import { useMeaterReadings, type MeaterProbe } from "@/hooks/useMeaterReadings";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { usePaywallUsage } from "@/hooks/usePaywallUsage";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
@@ -386,25 +385,6 @@ export default function PlanScreen() {
   const [prepGuideOpen, setPrepGuideOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
-  // ── MEATER probe picker state ─────────────────────────────────────────
-  const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
-  const { data: meaterData } = useMeaterReadings();
-  const activeProbes: MeaterProbe[] = meaterData?.linked ? (meaterData.probes ?? []) : [];
-
-  const selectProbe = (probe: MeaterProbe) => {
-    if (selectedProbeId === probe.deviceId) {
-      setSelectedProbeId(null);
-      return;
-    }
-    setSelectedProbeId(probe.deviceId);
-    if (probe.targetMaxTempF != null && !targetTempF.trim()) {
-      setTargetTempF(String(probe.targetMaxTempF));
-    }
-    if (probe.cookName && !cookName.trim()) {
-      setCookName(probe.cookName);
-    }
-  };
-
   // ── Plan mode ─────────────────────────────────────────────────────────
   const [planMode, setPlanMode] = useState<"single" | "multi">("single");
 
@@ -665,7 +645,6 @@ export default function PlanScreen() {
     setServeAt(null);
     clearAiScheduleOverride();
     setCookNowMode("now");
-    setSelectedProbeId(null);
     setPrepGuideOpen(false);
     setAdvancedOpen(false);
     setMeatPickerOpen(false);
@@ -2745,8 +2724,8 @@ export default function PlanScreen() {
         {/* ══ ZONE 3 — Advanced Options ══
             Collapsible accordion. Starts closed so new users see a clean
             form. A one-line summary appears when collapsed and any option
-            inside is configured. Cook Name, Frozen timeline, MEATER
-            probes, Technique Quick-Picks, and Notes live here. (The Prep
+            inside is configured. Cook Name, Frozen timeline,
+            Technique Quick-Picks, and Notes live here. (The Prep
             Guide lives directly under the cut picker in Zone 1.) */}
         {(() => {
           const advParts: string[] = [];
@@ -2757,7 +2736,6 @@ export default function PlanScreen() {
           if (qpInjection) advParts.push(qpInjection);
           if (qpSpritz) advParts.push(qpSpritz);
           if (qpWrapFinish) advParts.push(qpWrapFinish);
-          if (selectedProbeId) advParts.push("Probe linked");
           if (notes.trim()) advParts.push("Notes");
           const advSummary = advParts.join(" · ");
           return (
@@ -2992,89 +2970,6 @@ export default function PlanScreen() {
                       />
                     )}
                   </View>
-                  )}
-
-                  {/* ── Live MEATER probes ── */}
-                  {activeProbes.length > 0 && !isProduce(selectedCut?.category ?? "") && (
-                    <View style={[sp.probeCard, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
-                      <View style={sp.probeHeader}>
-                        <View style={[sp.probeIconWrap, { backgroundColor: "#E8482018" }]}>
-                          <Feather name="thermometer" size={16} color="#E84820" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[sp.probeTitle, { color: colors.foreground }]}>Live MEATER Probes</Text>
-                          <Text style={[sp.probeSub, { color: colors.mutedForeground }]}>
-                            Select a probe to link it to this cook
-                          </Text>
-                        </View>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                          <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#34C759" }} />
-                          <Text style={{ fontSize: 10, color: "#34C759", fontFamily: "Inter_600SemiBold" }}>LIVE</Text>
-                        </View>
-                      </View>
-
-                      {activeProbes.map((probe) => {
-                        const isSelected = selectedProbeId === probe.deviceId;
-                        return (
-                          <Pressable
-                            key={probe.deviceId}
-                            onPress={() => selectProbe(probe)}
-                            style={({ pressed }) => [
-                              sp.probeRow,
-                              {
-                                borderColor: isSelected ? "#E84820" : colors.border,
-                                backgroundColor: isSelected ? "#E8482008" : colors.background,
-                                borderRadius: colors.radius,
-                              },
-                              pressed && { opacity: 0.75 },
-                            ]}
-                          >
-                            <View style={{ flex: 1, gap: 2 }}>
-                              <Text style={{ color: colors.foreground, fontSize: 14, fontFamily: "Inter_600SemiBold" }}>
-                                {probe.deviceName}
-                              </Text>
-                              {probe.cookName ? (
-                                <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular" }}>
-                                  {probe.cookName}{probe.cookState ? ` · ${probe.cookState}` : ""}
-                                </Text>
-                              ) : null}
-                            </View>
-                            <View style={{ alignItems: "flex-end", gap: 3 }}>
-                              {probe.internalTempF != null && (
-                                <View style={[sp.tempBadge, { backgroundColor: "#E8482018" }]}>
-                                  <Text style={{ color: "#E84820", fontSize: 14, fontFamily: "Inter_700Bold" }}>
-                                    {probe.internalTempF}°F
-                                  </Text>
-                                </View>
-                              )}
-                              {probe.targetMaxTempF != null && (
-                                <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>
-                                  Target {probe.targetMaxTempF}°F
-                                </Text>
-                              )}
-                            </View>
-                            <View style={[
-                              sp.selectCircle,
-                              {
-                                borderColor: isSelected ? "#E84820" : colors.border,
-                                backgroundColor: isSelected ? "#E84820" : "transparent",
-                              },
-                            ]}>
-                              {isSelected && <Feather name="check" size={12} color="#fff" />}
-                            </View>
-                          </Pressable>
-                        );
-                      })}
-
-                      {selectedProbeId && (
-                        <View style={[sp.linkedBanner, { backgroundColor: "#E8482010", borderColor: "#E8482030", borderRadius: colors.radius }]}>
-                          <Feather name="link" size={13} color="#E84820" />
-                          <Text style={{ color: "#E84820", fontSize: 12, fontFamily: "Inter_500Medium", flex: 1 }}>
-                            Probe linked — target temp auto-filled from your live cook
-                          </Text>
-                        </View>
-                      )}
-                    </View>
                   )}
 
                   {/* ── Technique Quick-Picks (compact settings rows) ── */}

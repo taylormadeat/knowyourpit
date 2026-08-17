@@ -7,8 +7,6 @@ import {
   conversations,
   customMeatCutsTable,
   grillsTable,
-  meaterCredentialsTable,
-  thermoworksCredentialsTable,
   subscriptionEntitlements,
   aiAnalyzeEvents,
   temperatureReadingsTable,
@@ -100,8 +98,6 @@ router.delete("/profile/me", requireAuth, async (req: any, res): Promise<void> =
       await tx.delete(userTechniquePresetsTable).where(eq(userTechniquePresetsTable.userId, userId));
       await tx.delete(cooksTable).where(eq(cooksTable.userId, userId));
       await tx.delete(grillsTable).where(eq(grillsTable.userId, userId));
-      await tx.delete(meaterCredentialsTable).where(eq(meaterCredentialsTable.userId, userId));
-      await tx.delete(thermoworksCredentialsTable).where(eq(thermoworksCredentialsTable.userId, userId));
       await tx.delete(subscriptionEntitlements).where(eq(subscriptionEntitlements.userId, userId));
     });
   } catch (err) {

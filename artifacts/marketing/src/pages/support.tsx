@@ -70,15 +70,15 @@ export default function Support() {
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-2">
-              <AccordionTrigger>How do I connect my MEATER probe?</AccordionTrigger>
+              <AccordionTrigger>How do I connect my Bluetooth probe?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Go to <strong>Settings → Thermometer Devices</strong> and tap <strong>Add MEATER</strong>. Enter your MEATER account email and password. Once linked, your probe readings will appear automatically on the Cook screen during an active session.
+                Go to <strong>Settings → Thermometer Devices</strong>, make sure Bluetooth is enabled on your phone, and tap <strong>Scan</strong>. Select your probe from the list to pair it. Once linked, your probe readings will appear automatically on the Cook screen during an active session.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-3">
               <AccordionTrigger>Why isn't my probe temperature showing up?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                For MEATER: confirm your credentials are saved in Settings and the Block or Link is powered on. For Bluetooth probes (Inkbird, Govee, and others): open the Devices tab, make sure Bluetooth is enabled on your phone, and tap Scan. For ThermoWorks Signals: confirm your account is linked in Settings. If a device still won't connect, remove it and re-add it.
+                For Bluetooth probes (Inkbird, Govee, and others): open the Devices tab, make sure Bluetooth is enabled on your phone, and tap Scan. Confirm the probe is powered on and within range. If a device still won't connect, remove it and re-add it.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-ble">

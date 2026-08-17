@@ -25,7 +25,7 @@ dashboard audit.
   via `eas env:create` for `preview` and `development` profiles when testing
   against a real device.
 - **Used in**: `app/_layout.tsx`, `hooks/usePaywallUsage.ts`,
-  `hooks/useHomeInsights.ts`, `hooks/useMeaterReadings.ts`,
+  `hooks/useHomeInsights.ts`,
   `app/(tabs)/ai.tsx`, `app/(tabs)/plan.tsx`, `app/(tabs)/more.tsx`.
 - **Fallback**: If unset, the app constructs the URL from `EXPO_PUBLIC_DOMAIN`.
 
@@ -39,7 +39,7 @@ dashboard audit.
   `$REPLIT_INTERNAL_APP_DOMAIN` / `$REPLIT_DEV_DOMAIN` (build script). Never
   set in EAS; Replit-only.
 - **Used in**: `app/_layout.tsx`, `hooks/usePaywallUsage.ts`,
-  `hooks/useHomeInsights.ts`, `hooks/useMeaterReadings.ts`,
+  `hooks/useHomeInsights.ts`,
   `hooks/useSmokerProfile.ts`, `app/(tabs)/ai.tsx`, `app/(tabs)/plan.tsx`,
   `app/(tabs)/more.tsx`, `scripts/build.js`.
 

@@ -93,7 +93,7 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
       actualThawStartAt?: string | null;
       actualEndAt?: string | null;
       // Multi-channel probe readings: all active channels from a LAN/BLE device
-      // (e.g. Fireboard with 4 probes, ThermoWorks Signals, MEATER Block).
+      // (e.g. Fireboard with 4 probes).
       // The first selected channel's reading is still passed as userEnteredTempF
       // for backward-compat; probeChannels gives PitMaster the full picture.
       probeChannels?: Array<{ channelLabel: string; probeTempF: number }> | null;
@@ -219,7 +219,7 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
   if (techniqueLines.length > 0) contextLines.push(`Techniques used: ${techniqueLines.join(" · ")}`);
 
   // ── Multi-channel probe readings ─────────────────────────────────────────
-  // When a multi-probe device (Fireboard, ThermoWorks Signals, MEATER Block)
+  // When a multi-probe device (e.g. Fireboard)
   // is connected we receive all active channel readings, not just the selected
   // one. Surface each channel by label so PitMaster can reason about done-ness
   // and stall detection across different meat zones simultaneously.
@@ -339,7 +339,7 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
     contextLines.push(`Step-by-step timeline accuracy (plan vs actual):\n${driftLines.join("\n")}`);
   }
 
-  // ── Live MEATER readings analysis ────────────────────────────────────────
+  // ── Live probe readings analysis ─────────────────────────────────────────
   const rawLive = Array.isArray(cookContext?.liveReadings) ? cookContext.liveReadings : [];
   const validLive: LiveReading[] = rawLive.filter(
     (r): r is LiveReading =>
@@ -384,7 +384,7 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
     const snapshot = validLive.slice(-5).map(r => `  ${r.timeMinutes.toFixed(0)}min: ${r.tempF}°F`).join("\n");
     hintLines.push(`Recent readings:\n${snapshot}`);
 
-    phaseContext = `\n\nLIVE COOK DATA (real-time MEATER probe):\n${hintLines.filter(Boolean).join("\n")}`;
+    phaseContext = `\n\nLIVE COOK DATA (real-time probe):\n${hintLines.filter(Boolean).join("\n")}`;
   }
 
   const contextBlock = contextLines.length > 0 || phaseContext

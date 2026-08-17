@@ -222,7 +222,7 @@ const FEATURES = [
   {
     id: "probe",
     headline: "Live Thermometer Connection",
-    benefit: "Connect any thermometer — Inkbird, Govee, MEATER, ThermoWorks, Fireboard, and more — via Bluetooth or WiFi. PitMaster auto-grades every 30 minutes using live temperatures.",
+    benefit: "Connect any thermometer — Inkbird, Govee, Fireboard, and more — via Bluetooth or WiFi. PitMaster auto-grades every 30 minutes using live temperatures.",
     Preview: ProbeAutoGradePreview,
   },
   {

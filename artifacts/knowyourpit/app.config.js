@@ -42,8 +42,8 @@ const config = {
       NSBluetoothAlwaysUsageDescription:
         "knowyourpit uses Bluetooth to read live temperatures from your Inkbird wireless thermometer.",
       NSLocalNetworkUsageDescription:
-        "knowyourpit scans your local network to automatically discover WiFi thermometers (Fireboard, MEATER Block, ThermoWorks Signals) without requiring you to enter an IP address.",
-      NSBonjourServices: ["_http._tcp", "_meater._tcp"],
+        "knowyourpit scans your local network to automatically discover WiFi thermometers without requiring you to enter an IP address.",
+      NSBonjourServices: ["_http._tcp"],
       NSAppTransportSecurity: {
         NSAllowsLocalNetworking: true,
       },

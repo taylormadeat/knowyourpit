@@ -164,7 +164,7 @@ export function MainCookView() {
           style={{ fontSize: 9, color: "#555" }}
         >
           <span>🌡 Ambient: 262°F</span>
-          <span>MEATER+</span>
+          <span>Probe</span>
         </div>
 
         {/* Elapsed time */}

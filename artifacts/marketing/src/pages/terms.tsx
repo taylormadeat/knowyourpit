@@ -22,7 +22,7 @@ export default function Terms() {
         <p>You retain ownership of content you submit (cook logs, photos, recipes, forum posts). By submitting content, you grant knowyourpit a worldwide, royalty-free license to host, store, and display that content solely to operate the Service for you.</p>
 
         <h2>Hardware Integrations</h2>
-        <p>The App integrates with third-party thermometer hardware (MEATER, ThermoWorks). We are not responsible for the accuracy, availability, or behavior of third-party services or devices.</p>
+        <p>The App integrates with third-party thermometer hardware (such as Bluetooth probes from Inkbird and Govee). We are not responsible for the accuracy, availability, or behavior of third-party services or devices.</p>
 
         <h2>AI Features</h2>
         <p>knowyourpit uses AI to suggest cook timings, identify temperatures from photos, and answer questions. AI output may be inaccurate and should not be relied upon for food safety decisions. You are solely responsible for verifying meat is cooked to safe internal temperatures.</p>

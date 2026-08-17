@@ -9,8 +9,6 @@ type Colors = any;
 interface Props {
   c: any;
   colors: Colors;
-  meaterLinked: boolean | null;
-  meaterProbes: any[];
   lastCheckinInternalTempF: number | null;
   lastCheckinPitTempF: number | null;
   lastCheckinAt: string | null;
@@ -34,7 +32,6 @@ interface Props {
 export function AskPitMaster(p: Props) {
   const {
     c, colors,
-    meaterLinked, meaterProbes,
     lastCheckinInternalTempF, lastCheckinPitTempF, lastCheckinAt,
     qpMethod, qpInjection, qpSpritz, qpWrap,
     analyzing, lastAnalyzedAtMs, nowMs,
@@ -107,9 +104,6 @@ export function AskPitMaster(p: Props) {
   }, [lastCheckinAt, nowMs]);
 
   const hasLastCheckinTemps = lastCheckinInternalTempF != null || lastCheckinPitTempF != null;
-  const liveMeaterTemp = meaterProbes.length > 0 && meaterProbes[0].internalTempF != null
-    ? meaterProbes[0].internalTempF as number
-    : null;
 
   return (
     <View
@@ -147,23 +141,13 @@ export function AskPitMaster(p: Props) {
           {/* ── Last check-in temps (read-only) ──────────────────── */}
           {hasLastCheckinTemps ? (
             <View style={{ gap: 8 }}>
-              {liveMeaterTemp != null && (
-                <View style={[s.meaterAutoFillBadge, { backgroundColor: "#FF6B2B15", marginBottom: 0 }]}>
-                  <Feather name="radio" size={11} color="#FF6B2B" />
-                  <Text style={[s.meaterAutoFillText, { color: "#FF6B2B" }]}>
-                    Live from {meaterProbes[0].deviceName} · {liveMeaterTemp}°F
-                  </Text>
-                </View>
-              )}
               <View style={{ flexDirection: "row", gap: 10 }}>
                 <View style={[qs.tempReadBox, { flex: 1, backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
                   <Text style={[qs.tempReadLabel, { color: colors.mutedForeground }]}>Probe temp</Text>
-                  <Text style={[qs.tempReadValue, { color: liveMeaterTemp != null ? "#FF6B2B" : colors.foreground }]}>
-                    {liveMeaterTemp != null
-                      ? `${liveMeaterTemp}°F`
-                      : lastCheckinInternalTempF != null
-                        ? `${lastCheckinInternalTempF}°F`
-                        : "—"}
+                  <Text style={[qs.tempReadValue, { color: colors.foreground }]}>
+                    {lastCheckinInternalTempF != null
+                      ? `${lastCheckinInternalTempF}°F`
+                      : "—"}
                   </Text>
                 </View>
                 <View style={[qs.tempReadBox, { flex: 1, backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
@@ -183,9 +167,7 @@ export function AskPitMaster(p: Props) {
             <View style={[qs.noCheckinNudge, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius }]}>
               <Feather name="thermometer" size={15} color={colors.mutedForeground as string} />
               <Text style={[qs.noCheckinText, { color: colors.mutedForeground }]}>
-                {meaterLinked === true && meaterProbes.length > 0 && liveMeaterTemp != null
-                  ? `Live probe at ${liveMeaterTemp}°F · tap "Check In with PitMaster" to log your cook temp too`
-                  : `Tap "Check In with PitMaster" to log your probe and cook temperatures.`}
+                {`Tap "Check In with PitMaster" to log your probe and cook temperatures.`}
               </Text>
             </View>
           )}

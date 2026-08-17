@@ -145,7 +145,7 @@ interface CheckinModalProps {
   currentInternalTempF?: number | null;
   currentPitTempF?: number | null;
   /** Which connected probe provided the pre-filled temperatures. */
-  probeSource?: "meater" | "thermoworks" | null;
+  probeSource?: "inkbird" | null;
   lastCheckinInternalTempF?: number | null;
   targetCookTempF?: number | null;
   weatherTempF?: number | null;
@@ -491,15 +491,7 @@ export function CheckinModal({
               <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: colors.foreground, textTransform: "uppercase", letterSpacing: 0.6 }}>
                 Temperature Reading
               </Text>
-              {probeSource === "meater" && (currentInternalTempF != null || currentPitTempF != null) && (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#22c55e18", borderColor: "#22c55e", borderWidth: 1, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>
-                  <Feather name="wifi" size={11} color="#22c55e" />
-                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#22c55e" }}>
-                    Auto-filled from MEATER
-                  </Text>
-                </View>
-              )}
-              {probeSource === "thermoworks" && (currentInternalTempF != null || currentPitTempF != null) && (
+              {probeSource === "inkbird" && (currentInternalTempF != null || currentPitTempF != null) && (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#22c55e18", borderColor: "#22c55e", borderWidth: 1, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>
                   <Feather name="wifi" size={11} color="#22c55e" />
                   <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#22c55e" }}>

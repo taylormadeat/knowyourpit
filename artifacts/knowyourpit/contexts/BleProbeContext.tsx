@@ -2,10 +2,10 @@
  * BleProbeContext
  *
  * Singleton BLE manager that:
- *  - Scans for nearby BLE thermometer devices (Govee, MEATER single probe,
- *    Weber iGrill, Inkbird) using react-native-ble-plx
+ *  - Scans for nearby BLE thermometer devices (Govee, Weber iGrill, Inkbird)
+ *    using react-native-ble-plx
  *  - Maintains a registry of known/paired devices persisted to AsyncStorage
- *  - Reads temperature and battery level from GATT connections (MEATER, iGrill)
+ *  - Reads temperature and battery level from GATT connections (iGrill)
  *    or from advertisement packets (Govee, Inkbird — passive, no connection)
  *  - Tracks connection drops and fires a haptic + in-app banner when a
  *    previously-connected device reconnects
@@ -29,13 +29,6 @@ import {
   ADAPTER_LABELS,
   type BleAdapterKey,
 } from "@/hooks/ble/adapters";
-import {
-  decodeMeaterTempChar,
-  decodeBatteryChar,
-  MEATER_PROBE_SERVICE_UUID,
-  MEATER_PROBE_TEMP_CHAR_UUID,
-  MEATER_BATTERY_CHAR_UUID,
-} from "@/hooks/ble/adapters/meaterProbe";
 import {
   decodeGoveeAdvertisement,
 } from "@/hooks/ble/adapters/govee";
@@ -125,7 +118,7 @@ interface BleProbeContextValue {
   setHasActiveCook: (val: boolean) => void;
   /**
    * True when any BLE device is in an active recovery cycle — either a GATT
-   * reconnect timer is pending (MEATER / Weber iGrill) or the advertisement
+   * reconnect timer is pending (Weber iGrill) or the advertisement
    * watchdog restarted the scan for a silent paired device (Govee / Inkbird).
    */
   reconnecting: boolean;
@@ -158,7 +151,7 @@ async function requestBlePermissionsAndroid(): Promise<boolean> {
       await new Promise<void>((resolve) => {
         Alert.alert(
           "Bluetooth Access Needed",
-          "knowyourpit needs Bluetooth to scan for nearby probes (Inkbird, MEATER, Govee, Weber iGrill). Your location data is never stored or shared.",
+          "knowyourpit needs Bluetooth to scan for nearby probes (Inkbird, Govee, Weber iGrill). Your location data is never stored or shared.",
           [{ text: "Continue", onPress: () => resolve() }],
         );
       });
@@ -208,7 +201,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
   const staleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const gattPollTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
   const mountedRef = useRef(true);
-  // Tracks per-device GATT reconnect timers (MEATER / Weber iGrill)
+  // Tracks per-device GATT reconnect timers (Weber iGrill)
   const gattReconnectTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   /** Rolling RSSI buffer per device (keyed by device ID). Shared for all probe sources. */
   const rssiBuffersRef = useRef<Map<string, number[]>>(new Map());
@@ -412,31 +405,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
     async (connected: any, deviceId: string, adapter: BleAdapterKey) => {
       if (!mountedRef.current) return;
       const now = Date.now();
-      if (adapter === "meater_probe") {
-        try {
-          const tempChar = await connected.readCharacteristicForService(
-            MEATER_PROBE_SERVICE_UUID,
-            MEATER_PROBE_TEMP_CHAR_UUID,
-          );
-          const temps = decodeMeaterTempChar(tempChar?.value ?? "");
-          const batChar = await connected
-            .readCharacteristicForService(
-              "0000180f-0000-1000-8000-00805f9b34fb",
-              MEATER_BATTERY_CHAR_UUID,
-            )
-            .catch(() => null);
-          const batteryPct = batChar ? decodeBatteryChar(batChar.value ?? "") : null;
-          upsertDevice(deviceId, {
-            name: connected.name ?? deviceMapRef.current.get(deviceId)?.name ?? "MEATER Probe",
-            adapter,
-            connectionState: "connected",
-            probeTempF: temps.probeTempF,
-            ambientTempF: temps.ambientTempF,
-            batteryPct,
-            lastSeenMs: now,
-          });
-        } catch {}
-      } else if (adapter === "weber_igrill") {
+      if (adapter === "weber_igrill") {
         try {
           const probeTempF = await connected
             .readCharacteristicForService(IGRILL_SERVICE_UUID, IGRILL_PROBE_CHAR_UUIDS[0]!)
@@ -525,7 +494,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
           const current = deviceMapRef.current.get(deviceId);
           if (current?.connectionState !== "connected") return;
           await readGattCharacteristics(connected, deviceId, adapter);
-          // Poll RSSI for GATT devices (MEATER, Weber iGrill) and fold into the
+          // Poll RSSI for GATT devices (Weber iGrill) and fold into the
           // rolling buffer so the weak-signal chip works for tethered probes.
           try {
             const devWithRssi = await connected.readRSSI();

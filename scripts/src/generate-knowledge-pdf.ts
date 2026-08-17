@@ -374,7 +374,6 @@ const ROUTE_DESCRIPTIONS: Record<string, string> = {
   "health.ts": "Health check endpoint (/api/healthz)",
   "index.ts": "Root router — mounts all sub-routers under /api",
   "liveActivities.ts": "iOS Live Activity push token registration and teardown",
-  "meater.ts": "MEATER Cloud integration — link, unlink, status, live readings",
   "paywall.ts": "RevenueCat webhook receiver and subscription entitlement sync",
   "profile.ts": "User profile fetch and full account deletion",
   "temperature/analyzePrompt.ts": "AI prompt builder for temperature image analysis",
@@ -383,7 +382,6 @@ const ROUTE_DESCRIPTIONS: Record<string, string> = {
   "temperature/manual.ts": "Manual temperature reading upload and retrieval",
   "temperature/scan.ts": "AI vision scan of thermometer screenshots for readings",
   "temperature/shared.ts": "Shared temperature helpers",
-  "thermoworks.ts": "ThermoWorks Cloud integration",
   "webhooks.ts": "Inbound webhook dispatcher",
 };
 

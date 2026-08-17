@@ -102,7 +102,7 @@ interface UnifiedCheckinSheetProps {
   sizingLabel?: string | null;
   currentInternalTempF?: number | null;
   currentPitTempF?: number | null;
-  probeSource?: "meater" | "thermoworks" | "inkbird" | null;
+  probeSource?: "inkbird" | null;
   lastCheckinInternalTempF?: number | null;
   targetCookTempF?: number | null;
   targetFoodTempF?: number | null;
@@ -807,9 +807,7 @@ export function UnifiedCheckinSheet({
                         color: "#22c55e",
                       }}
                     >
-                      {probeSource === "meater"
-                        ? "Auto-filled from MEATER"
-                        : "Auto-filled from probe"}
+                      Auto-filled from probe
                     </Text>
                   </View>
                 )}

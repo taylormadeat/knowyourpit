@@ -118,16 +118,6 @@ export async function stubPlanScreenRoutes(page: Page): Promise<void> {
     }),
   );
 
-  // MEATER readings — no probes connected
-  await page.route("**/api/meater**", (route) =>
-    route.fulfill({ status: 200, json: { linked: false, probes: [] } }),
-  );
-
-  // ThermoWorks credentials — not linked
-  await page.route("**/api/thermoworks**", (route) =>
-    route.fulfill({ status: 200, json: { linked: false } }),
-  );
-
   // Profile / user techniques / custom meat cuts
   await page.route("**/api/profile**", (route) =>
     route.fulfill({ status: 200, json: { id: "user_test" } }),
