@@ -354,6 +354,7 @@ export default function PlanScreen() {
     mode: "weight",
   });
   const [grillId, setGrillId] = useState<number | null>(null);
+  const [singleGrillSheetOpen, setSingleGrillSheetOpen] = useState(false);
   const [defaultGrillSheetOpen, setDefaultGrillSheetOpen] = useState(false);
   const [itemGrillSheetIdx, setItemGrillSheetIdx] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
@@ -2521,35 +2522,33 @@ export default function PlanScreen() {
             data entry. Always visible — frequently reviewed mid-plan. */}
 
         {/* ── Grill Selection ── */}
-        <Label colors={colors}>Grill</Label>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-          {(grills as any[] || []).map((g: any) => (
-            <Pressable
-              key={g.id}
-              onPress={() => setGrillId(g.id === grillId ? null : g.id)}
-              style={[
-                s.grillChip,
-                {
-                  backgroundColor: grillId === g.id ? colors.primary : colors.card,
-                  borderColor: grillId === g.id ? colors.primary : colors.border,
-                  borderRadius: colors.radius,
-                },
-              ]}
-            >
-              <Feather name="wind" size={14} color={grillId === g.id ? "#fff" : colors.primary} />
-              <Text style={[s.chipText, { color: grillId === g.id ? "#fff" : colors.foreground }]}>
-                {g.name}
-              </Text>
-            </Pressable>
-          ))}
-          <Pressable
-            onPress={() => router.push("/grills" as any)}
-            style={[s.grillChip, { backgroundColor: colors.muted, borderColor: colors.border, borderRadius: colors.radius }]}
-          >
-            <Feather name="plus" size={14} color={colors.mutedForeground} />
-            <Text style={[s.chipText, { color: colors.mutedForeground }]}>Add Grill</Text>
-          </Pressable>
-        </View>
+        {(grills as any[] | undefined)?.length ? (
+          <>
+            <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: colors.radius, paddingHorizontal: 12, overflow: "hidden", backgroundColor: colors.card, marginBottom: 12 }}>
+              <SettingsRow
+                label="Grill (optional)"
+                value={grillId != null ? ((grills as any[]).find((g: any) => g.id === grillId)?.name ?? null) : null}
+                placeholder="None"
+                icon="wind"
+                iconColor={colors.mutedForeground}
+                onPress={() => setSingleGrillSheetOpen(true)}
+                onClear={grillId != null ? () => setGrillId(null) : undefined}
+                colors={colors}
+                isLast
+              />
+            </View>
+            <OptionBottomSheet
+              visible={singleGrillSheetOpen}
+              title="Select Grill"
+              options={(grills as any[]).map((g: any) => ({ value: String(g.id), label: g.name }))}
+              selected={grillId != null ? String(grillId) : null}
+              onChange={(val) => { setGrillId(val != null ? Number(val) : null); }}
+              onClose={() => setSingleGrillSheetOpen(false)}
+              colors={colors}
+              allowDeselect
+            />
+          </>
+        ) : null}
 
         {/* Grill stats card */}
         {selectedGrill && (
