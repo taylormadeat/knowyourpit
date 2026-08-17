@@ -93,10 +93,51 @@ publish_platform() {
   local plat="$1"
   echo ""
   echo "=== Exporting bundle for platform: $plat ==="
+
+  # ---------------------------------------------------------------------
+  # CRITICAL: inject the production public env vars from eas.json
+  # (build.production.env) into the export. EAS cloud builds get these
+  # automatically; a bare `expo export` on Replit does NOT — which shipped
+  # OTA bundles with an EMPTY Clerk publishable key, crashing every app
+  # launch at ClerkProvider mount ("Missing publishableKey").
+  # ---------------------------------------------------------------------
+  # Safe env propagation: values are shell-quoted with shlex.quote and only
+  # EXPO_PUBLIC_* names matching a strict identifier pattern are accepted —
+  # no eval of raw JSON values.
+  while IFS= read -r line; do
+    export "$line"
+  done < <(python3 - <<'PYEOF'
+import json, re
+env = json.load(open("eas.json"))["build"]["production"].get("env", {})
+for k, v in env.items():
+    if re.fullmatch(r"EXPO_PUBLIC_[A-Z0-9_]+", k) and isinstance(v, str) and "\n" not in v:
+        print(f"{k}={v}")
+PYEOF
+)
+  if [[ -z "${EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD:-}" || "${EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD:-}" != pk_live_* ]]; then
+    echo "🔴  ABORT: EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD is missing or not a pk_live_ key (check eas.json build.production.env)" >&2
+    exit 1
+  fi
+
   pnpm exec expo export \
     --no-bytecode \
     --platform "$plat" \
-    --output-dir dist
+    --output-dir dist \
+    --clear
+
+  # Verify the exported bundle actually contains the live Clerk key and the
+  # production API URL before uploading anything.
+  local bundle
+  bundle=$(ls dist/_expo/static/js/"$plat"/*.js | head -1)
+  if ! grep -qF "$EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD" "$bundle"; then
+    echo "🔴  ABORT: exported bundle does not contain the production Clerk publishable key — refusing to publish a bundle that will crash at startup." >&2
+    exit 1
+  fi
+  if ! grep -qF "$EXPO_PUBLIC_API_URL" "$bundle"; then
+    echo "🔴  ABORT: exported bundle does not contain the production API URL ($EXPO_PUBLIC_API_URL)." >&2
+    exit 1
+  fi
+  echo "✓  Bundle contains pk_live_ Clerk key and production API URL"
 
   echo ""
   echo "=== Publishing OTA update for platform: $plat (channel: $CHANNEL) ==="

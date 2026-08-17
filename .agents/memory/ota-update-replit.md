@@ -42,3 +42,5 @@ Do NOT push OTA updates to Android until the user explicitly says they are ready
 ## Non-interactive mode: --message is required (confirmed 2026-08-16)
 
 `eas update` requires `--message` in non-interactive environments (Replit/CI). Without it: _"--channel and --message are required when updating in non-interactive mode unless --auto is specified"_. The `ota-update.sh` script now auto-generates a UTC timestamp message when the caller omits `--message`. End-to-end iOS staging update confirmed: export ~40 s, upload instant, update appeared in EAS dashboard immediately.
+
+**Critical :** EAS cloud builds inject `eas.json` `build.production.env` (EXPO_PUBLIC_* vars) automatically; a bare `expo export` on Replit does NOT. Every OTA exported without them shipped an empty Clerk publishableKey + empty API base URL and crashed at startup ("Missing publishableKey"). The script must inject those vars, exports with `--clear` (Metro cache can serve stale env inlining), and greps the exported bundle for the exact pk_live key + prod API URL before publishing. Beware: `grep pk_live_` alone is fooled by Clerk SDK internals — check the exact key value.
