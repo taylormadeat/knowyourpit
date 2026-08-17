@@ -118,6 +118,7 @@ import {
   selectPrepTip,
 } from "@/components/plan-screen/prepGuides";
 import { Label, StatCell, ScheduleRow } from "@/components/plan-screen/MiniRows";
+import { PlanSubmitArea } from "@/components/plan-screen/PlanSubmitArea";
 import { SizeInputRow, SizeInputRowOutput } from "@/components/plan-screen/SizeInputRow";
 import { SettingsRow } from "@/components/plan-screen/SettingsRow";
 import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
@@ -3609,114 +3610,30 @@ export default function PlanScreen() {
           />
         )}
 
-        {/* ── Submit ── */}
-        <Pressable
-          testID="submit-cook-btn"
-          style={({ pressed }) => [
-            s.submitBtn,
-            { backgroundColor: colors.primary, borderRadius: colors.radius },
-            (isSubmitting || createCook.isPending || pressed) && { opacity: 0.7 },
-          ]}
-          onPress={() => handleSubmit()}
-          disabled={isSubmitting || createCook.isPending}
-        >
-          {(isSubmitting || createCook.isPending) ? (
-            <ActivityIndicator testID="submit-spinner" color="#fff" />
-          ) : (
-            <>
-              <Feather name={frozenEnabled && cookNowMode === "now" ? "thermometer" : cookNowMode === "now" ? "play" : "zap"} size={18} color="#fff" />
-              <Text style={s.submitText}>{frozenEnabled && cookNowMode === "now" ? "Begin Thawing Now" : cookNowMode === "now" ? "Start Cooking Now" : "Save Cook Plan"}</Text>
-            </>
-          )}
-        </Pressable>
-
-        {/* ── Slow-submit watchdog row ──
-            Appears after ~6s of pending create so the user is never stuck on
-            a silent spinner. Cancel re-enables the button; a retry reuses the
-            same idempotency key so no duplicate cook is ever created. */}
-        {isSubmitting && submitSlow && (
-          <View
-            testID="submit-slow-row"
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              marginTop: 8,
-              paddingHorizontal: 4,
-            }}
-          >
-            <ActivityIndicator size="small" color={colors.mutedForeground} />
-            <Text
-              style={{
-                flex: 1,
-                fontSize: 12,
-                fontFamily: "Inter_400Regular",
-                color: colors.mutedForeground,
-                lineHeight: 16,
-              }}
-            >
-              Still working — your connection looks slow. Keep waiting, or cancel and try again.
-            </Text>
-            <Pressable testID="submit-slow-cancel" onPress={cancelSubmitWait} hitSlop={8}>
-              <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.primary }}>
-                Cancel
-              </Text>
-            </Pressable>
-          </View>
-        )}
-
-        {/* ── Frozen-thaw informational callout (Cook Now + frozen, Begin Thawing Now path only) ── */}
-        {frozenEnabled && cookNowMode === "now" && showBeginThawCallout && (
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "flex-start",
-              gap: 8,
-              marginTop: 8,
-              backgroundColor: "#3B82F615",
-              borderWidth: 1,
-              borderColor: "#3B82F640",
-              borderRadius: colors.radius,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-            }}
-          >
-            <Feather name="info" size={13} color="#3B82F6" style={{ marginTop: 1 }} />
-            <Text
-              style={{
-                fontSize: 12,
-                fontFamily: "Inter_400Regular",
-                color: colors.foreground,
-                flex: 1,
-                lineHeight: 17,
-              }}
-            >
-              Starting this plan begins your thaw countdown. Notifications will fire when it&apos;s time to move the meat to the counter, then to the grill.
-            </Text>
-          </View>
-        )}
-
-        {/* ── Secondary: Save Cook Plan (frozen + Cook Now only) ── */}
-        {frozenEnabled && cookNowMode === "now" && (
-          <Pressable
-            style={({ pressed }) => [
-              s.submitBtn,
-              {
-                backgroundColor: "transparent",
-                borderRadius: colors.radius,
-                borderWidth: 1.5,
-                borderColor: colors.primary,
-                marginTop: 10,
-              },
-              (isSubmitting || createCook.isPending || pressed) && { opacity: 0.6 },
-            ]}
-            onPress={handleSaveFrozenPlan}
-            disabled={isSubmitting || createCook.isPending}
-          >
-            <Feather name="bookmark" size={18} color={colors.primary} />
-            <Text style={[s.submitText, { color: colors.primary }]}>Save Cook Plan</Text>
-          </Pressable>
-        )}
+        {/* ── Submit area (primary CTA, slow-submit row, frozen callout, secondary CTA) ── */}
+        <PlanSubmitArea
+          isSubmitting={isSubmitting}
+          mutatePending={createCook.isPending}
+          onSubmit={() => handleSubmit()}
+          onSavePlan={handleSaveFrozenPlan}
+          onCancelSubmitWait={cancelSubmitWait}
+          submitLabel={
+            frozenEnabled && cookNowMode === "now"
+              ? "Begin Thawing Now"
+              : cookNowMode === "now"
+              ? "Start Cooking Now"
+              : "Save Cook Plan"
+          }
+          showSavePlan={frozenEnabled && cookNowMode === "now"}
+          showThawCallout={showBeginThawCallout}
+          submitSlow={submitSlow}
+          colors={{
+            primary: colors.primary,
+            mutedForeground: colors.mutedForeground,
+            foreground: colors.foreground,
+            radius: colors.radius,
+          }}
+        />
 
         </>)}{/* end planMode === "single" */}
 

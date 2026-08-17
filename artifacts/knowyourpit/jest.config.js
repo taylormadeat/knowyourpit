@@ -17,6 +17,10 @@ const config = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
   },
+  // Runs after the react-native preset's setupFiles. Used to override the
+  // broken class-based Text mock with a functional component compatible with
+  // react@19's test renderer (see jest.setup.js for details).
+  setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
 };
 
 module.exports = config;
