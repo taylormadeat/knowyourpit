@@ -2521,11 +2521,7 @@ export default function PlanScreen() {
 
         {/* ── Grill Selection ── */}
         <Label colors={colors}>Grill</Label>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 8, marginBottom: 12 }}
-        >
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
           {(grills as any[] || []).map((g: any) => (
             <Pressable
               key={g.id}
@@ -2552,7 +2548,7 @@ export default function PlanScreen() {
             <Feather name="plus" size={14} color={colors.mutedForeground} />
             <Text style={[s.chipText, { color: colors.mutedForeground }]}>Add Grill</Text>
           </Pressable>
-        </ScrollView>
+        </View>
 
         {/* Grill stats card */}
         {selectedGrill && (
