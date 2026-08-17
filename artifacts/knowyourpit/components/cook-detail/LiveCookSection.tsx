@@ -17,6 +17,7 @@ import { weatherDescription, weatherIcon } from "@/hooks/useAmbientWeather";
 import { fmtElapsed, getOutdoorTempEffect } from "./utils";
 import { CookProgressBar } from "./CookProgressBar";
 import { SignalBars, rssiToStrength } from "@/components/SignalBars";
+import { InlineCheckinCard } from "@/components/cook-detail/InlineCheckinCard";
 
 function fmtCountdown(diffMs: number): string {
   if (diffMs <= 0) return "now";
@@ -124,6 +125,29 @@ interface Props {
   onGradeChange?: (grade: string, quip: string | null) => void;
   healthBreakdownOpen?: boolean;
   onHealthBreakdownOpenHandled?: () => void;
+  /**
+   * Called after a successful inline check-in with the saved internal temp
+   * (or null) and the phaseKey that was actually submitted.
+   */
+  onCheckinSaved?: (savedInternalTempF: number | null, submittedPhaseKey: string | null) => void;
+  /**
+   * The closest upcoming / recently-past scheduled check-in phase.
+   * Passed to InlineCheckinCard so the mutation payload carries the correct
+   * phaseKey / phaseLabel / scheduledAt when no milestone was explicitly tapped.
+   */
+  nextCheckinSc?: any | null;
+  /**
+   * The phase the user explicitly selected by tapping a timeline milestone.
+   * Takes priority over nextCheckinSc in the inline card.
+   */
+  activeCheckinSc?: any | null;
+  /** Clears the explicitly-selected activeCheckinSc after a successful submit. */
+  onClearActiveCheckin?: () => void;
+  /**
+   * Triggers a fresh PitMaster analysis with the submitted temperatures.
+   * Called automatically after each inline check-in.
+   */
+  onRequestAnalyze?: (opts: { internalTempF: number | null; pitTempF: number | null; notes: string }) => Promise<void>;
 }
 
 function fmtLastChecked(lastAnalyzedAtMs: number, nowMs: number): string {
@@ -179,6 +203,11 @@ export function LiveCookSection(p: Props) {
     onGradeChange,
     healthBreakdownOpen,
     onHealthBreakdownOpenHandled,
+    onCheckinSaved,
+    nextCheckinSc,
+    activeCheckinSc,
+    onClearActiveCheckin,
+    onRequestAnalyze,
   } = p;
 
   const router = useRouter();
@@ -1533,53 +1562,42 @@ export function LiveCookSection(p: Props) {
               </View>
             );
           })()}
-          {/* Manual-mode hint: no probe connected → analysis only fires on check-in */}
-          {!hasActiveProbe && !pitMasterAnalyzing && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 6, paddingHorizontal: 2 }}>
-              <Feather name="edit-3" size={11} color={colors.mutedForeground} />
-              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>
-                Check in to get your next analysis
-              </Text>
-            </View>
+          {/* ── Inline check-in card: pit temp + probe temp + button ── */}
+          {cookId != null && (
+            <InlineCheckinCard
+              cookId={cookId}
+              colors={colors}
+              currentInternalTempF={currentInternalTempF}
+              currentPitTempF={currentPitTempF}
+              isProduceCook={targetTempF === 0}
+              nextCheckinSc={nextCheckinSc}
+              activeCheckinSc={activeCheckinSc}
+              onClearActiveCheckin={onClearActiveCheckin}
+              onCheckinSaved={onCheckinSaved}
+              onRequestAnalyze={onRequestAnalyze}
+            />
           )}
-          <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
-            <Pressable
-              onPress={onCheckIn}
-              style={({ pressed }) => ({
-                flex: 1,
-                flexDirection: "row" as const,
-                alignItems: "center" as const,
-                justifyContent: "center" as const,
-                gap: 6,
-                paddingVertical: 9,
-                borderRadius: 8,
-                backgroundColor: "#FF6B2B",
-                opacity: pressed ? 0.82 : 1,
-              })}
-            >
-              <Feather name="thermometer" size={13} color="#fff" />
-              <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: "#fff" }}>Check In</Text>
-            </Pressable>
-            <Pressable
-              onPress={onOpenChat}
-              style={({ pressed }) => ({
-                flex: 1,
-                flexDirection: "row" as const,
-                alignItems: "center" as const,
-                justifyContent: "center" as const,
-                gap: 6,
-                paddingVertical: 9,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: colors.border,
-                backgroundColor: colors.card,
-                opacity: pressed ? 0.82 : 1,
-              })}
-            >
-              <Feather name="message-circle" size={13} color={colors.mutedForeground} />
-              <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.foreground }}>Ask Pitmaster</Text>
-            </Pressable>
-          </View>
+
+          {/* Ask Pitmaster stays as a secondary action below the card */}
+          <Pressable
+            onPress={onOpenChat}
+            style={({ pressed }) => ({
+              flexDirection: "row" as const,
+              alignItems: "center" as const,
+              justifyContent: "center" as const,
+              gap: 6,
+              paddingVertical: 9,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.card,
+              opacity: pressed ? 0.82 : 1,
+              marginTop: 6,
+            })}
+          >
+            <Feather name="message-circle" size={13} color={colors.mutedForeground} />
+            <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.foreground }}>Ask Pitmaster</Text>
+          </Pressable>
         </View>
       )}
 

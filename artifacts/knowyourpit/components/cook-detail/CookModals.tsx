@@ -177,27 +177,10 @@ export function CookModals({
       {bleReconnectToast != null && <View style={{ position: "absolute", bottom: (checkinSavedToast != null ? 60 : 0) + (autoCheckinToast != null ? 60 : 0) + (inkbirdToastMounted ? 60 : 0) + 90 + insets.bottom, left: 16, right: 16, backgroundColor: "#1C1C1F", borderColor: "#22c55e", borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 8, zIndex: 9999 }}><Feather name="wifi" size={16} color="#22c55e" /><Text style={{ flex: 1, color: "#F3EDE1", fontFamily: "Inter_400Regular", fontSize: 13 }}>{bleReconnectToast} reconnected ✓</Text><Pressable onPress={() => setBleReconnectToast(null)} hitSlop={10}><Feather name="x" size={14} color="#9CA3AF" /></Pressable></View>}
       {planUpdatedToast != null && <View style={{ position: "absolute", bottom: (checkinSavedToast != null ? 60 : 0) + (autoCheckinToast != null ? 60 : 0) + (inkbirdToastMounted ? 60 : 0) + (bleReconnectToast != null ? 60 : 0) + 90 + insets.bottom, left: 16, right: 16, backgroundColor: "#1C1C1F", borderColor: "#f97316", borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 8, zIndex: 9999 }}><Feather name="zap" size={16} color="#f97316" /><Text style={{ flex: 1, color: "#F3EDE1", fontFamily: "Inter_400Regular", fontSize: 13 }}>{planUpdatedToast}</Text><Pressable onPress={() => setPlanUpdatedToast(null)} hitSlop={10}><Feather name="x" size={14} color="#9CA3AF" /></Pressable></View>}
 
-      {activeCheckin && (
-        <UnifiedCheckinSheet
-          visible={checkinModalVisible} onClose={() => setCheckinModalVisible(false)}
-          cookId={Number(id)} colors={colors} phase={activeCheckin.phase}
-          scheduledAt={activeCheckin.scheduledAt} foodType={cook?.foodType}
-          weightLbs={cook?.weightLbs ?? null} sizingLabel={cook?.sizingLabel ?? null}
-          currentInternalTempF={currentInternalTempF}
-          currentPitTempF={currentPitTempF}
-          probeSource={probeSource}
-          lastCheckinInternalTempF={cookCheckins.length > 0 ? (cookCheckins[cookCheckins.length - 1] as any).internalTempF ?? null : null}
-          targetCookTempF={cook?.cookTempF ?? null} targetFoodTempF={cook?.targetTempF ?? null}
-          weatherTempF={weather?.tempF ?? null} weatherWindSpeedMph={weather?.windSpeedMph ?? null}
-          cookSpritzFrequency={(cook as any)?.spritzFrequency ?? null}
-          cookWrapFinish={(cook as any)?.wrapFinish ?? null}
-          cookingMethod={(cook as any)?.cookingMethod ?? null}
-          onRequestAnalyze={async (opts) => { await onRequestAnalyze(opts); }}
-          result={result}
-          onCheckinSaved={onCheckinSaved}
-          aiCheckins={cookSeqData?.aiCheckins ?? null}
-        />
-      )}
+      {/* UnifiedCheckinSheet removed — check-in is now inline on the cook detail screen
+          via InlineCheckinCard inside LiveCookSection. activeCheckin / checkinModalVisible
+          state is kept so timeline-phase taps continue to set phase context that the
+          inline card's nextCheckinSc prop already receives from [id].tsx. */}
 
       <CheckinPreviewSheet visible={plannedCheckinPreviewSc != null} onClose={() => setPlannedCheckinPreviewSc(null)} colors={colors} sc={plannedCheckinPreviewSc} meatOnMs={cookSeqData?.schedule?.[0]?.meatOnAt ? new Date(cookSeqData.schedule[0].meatOnAt).getTime() : null} aiCheckins={cookSeqData?.aiCheckins ?? null} />
       <PitMasterChatModal

@@ -498,7 +498,10 @@ export default function CookDetailScreen() {
     else handlePitMasterCheckIn();
   }, [nextCheckinSc, openCheckin, handlePitMasterCheckIn]);
 
-  const handleCheckinSaved = useCallback((savedInternalTempF: number | null) => {
+  // submittedPhaseKey: the phaseKey the inline card actually saved against.
+  // Passed explicitly so notification rescheduling always marks the right phase
+  // complete — even when no timeline milestone was tapped (activeCheckin is null).
+  const handleCheckinSaved = useCallback((savedInternalTempF: number | null, submittedPhaseKey?: string | null) => {
     if (savedInternalTempF != null && tempMode === "manual" && cook?.actualStartAt) {
       const startMs = new Date(cook.actualStartAt).getTime();
       const elapsedMins = Math.round(Math.max(0, (Date.now() - startMs) / 60000) * 10) / 10;
@@ -512,9 +515,14 @@ export default function CookDetailScreen() {
     qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
     qc.invalidateQueries({ queryKey: getListCookCheckinsQueryKey(Number(id)) });
     qc.invalidateQueries({ queryKey: getListCookEventsQueryKey(Number(id)) });
+    // Health score depends on check-in data; invalidate so the card refreshes.
+    qc.invalidateQueries({ queryKey: getGetCookHealthQueryKey(Number(id)) });
     const first = cookSeqData?.schedule?.[0];
     if (first?.meatOnAt && first?.estimatedFinishAt) {
       const completedKeys = new Set((cookCheckins as CookCheckin[]).map((ci) => ci.phaseKey).filter((k): k is string => k != null));
+      // Include the phase the sheet/card actually saved against (takes priority
+      // over activeCheckin which may lag behind when no milestone was tapped).
+      if (submittedPhaseKey) completedKeys.add(submittedPhaseKey);
       if (activeCheckin?.phaseKey) completedKeys.add(activeCheckin.phaseKey);
       const adaptiveTemp = savedInternalTempF ?? selectedInkbirdProbe?.tempF ?? null;
       rescheduleCheckinNotifications({ cookId: Number(id), foodType: first.foodType ?? null, weightLbs: cook?.weightLbs ?? null, meatOnAt: first.meatOnAt, estimatedFinishAt: first.estimatedFinishAt, wrapAtMinutes: first.wrapAtMinutes ?? null, completedPhaseKeys: completedKeys, actualInternalTempF: adaptiveTemp, aiCheckins: cookSeqData?.aiCheckins ?? null }).catch(() => {});
@@ -726,6 +734,13 @@ export default function CookDetailScreen() {
             pitMasterResult={result} pitMasterAnalyzing={analyzing}
             renderDecisions={(decisions: Decision[]) => <DecisionsSection decisions={decisions} colors={colors} expandedRationale={expandedRationale} setExpandedRationale={setExpandedRationale} showSecondaryDecisions={showSecondaryDecisions} setShowSecondaryDecisions={setShowSecondaryDecisions} />}
             onCheckIn={handlePitMasterCheckIn} onCheckInNext={handleCheckInNext}
+            onCheckinSaved={handleCheckinSaved}
+            nextCheckinSc={nextCheckinSc}
+            activeCheckinSc={activeCheckin}
+            onClearActiveCheckin={() => setActiveCheckin(null)}
+            onRequestAnalyze={async (opts) => {
+              await analyze({ extraNotes: opts?.notes || undefined, checkinOverride: { internalTempF: opts?.internalTempF ?? null, pitTempF: opts?.pitTempF ?? null } });
+            }}
             onOpenChat={() => setChatModalVisible(true)}
             lastAnalyzedAtMs={lastAnalyzedAtMs}
             lastCheckinInternalTempF={lastCheckin?.internalTempF ?? null}
