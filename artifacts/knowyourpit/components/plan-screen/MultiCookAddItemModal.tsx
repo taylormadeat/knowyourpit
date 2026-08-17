@@ -190,6 +190,7 @@ export function MultiCookAddItemModal(p: Props) {
   const [thawMethod, setThawMethod] = useState<AnyThawMethod>("fridge");
   const [itemNotes, setItemNotes] = useState("");
   const [selectedGrillId, setSelectedGrillId] = useState<number | null>(null);
+  const [grillSheetOpen, setGrillSheetOpen] = useState(false);
   const [targetTempFInput, setTargetTempFInput] = useState("");
   const [cookTempFInput, setCookTempFInput] = useState("");
   const [localSizeOutput, setLocalSizeOutput] = useState<SizeInputRowOutput>(EMPTY_SIZE_OUTPUT);
@@ -596,38 +597,19 @@ export function MultiCookAddItemModal(p: Props) {
                     <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
                       Grill (optional)
                     </Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      <View style={{ flexDirection: "row", gap: 8 }}>
-                        {grills.map((g: any) => {
-                          const active = selectedGrillId === g.id;
-                          return (
-                            <Pressable
-                              key={g.id}
-                              onPress={() => {
-                                setSelectedGrillId(active ? null : g.id);
-                                Haptics.selectionAsync();
-                              }}
-                              style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                gap: 5,
-                                paddingHorizontal: 12,
-                                paddingVertical: 7,
-                                borderRadius: 20,
-                                borderWidth: 1,
-                                borderColor: active ? colors.primary : colors.border,
-                                backgroundColor: active ? colors.primary + "18" : colors.muted,
-                              }}
-                            >
-                              <Feather name="wind" size={12} color={active ? colors.primary : colors.mutedForeground} />
-                              <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
-                                {g.name}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </ScrollView>
+                    <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: colors.radius, paddingHorizontal: 12, overflow: "hidden", backgroundColor: colors.background }}>
+                      <SettingsRow
+                        label="Grill"
+                        value={selectedGrillId != null ? (grills.find((g: any) => g.id === selectedGrillId)?.name ?? null) : null}
+                        placeholder="None (optional)"
+                        icon="wind"
+                        iconColor={colors.mutedForeground}
+                        onPress={() => setGrillSheetOpen(true)}
+                        onClear={selectedGrillId != null ? () => setSelectedGrillId(null) : undefined}
+                        colors={colors}
+                        isLast
+                      />
+                    </View>
                   </View>
                 )}
 
@@ -1030,6 +1012,20 @@ export function MultiCookAddItemModal(p: Props) {
           </View>
         </AppKeyboardAvoidingView>
       </Modal>
+
+      {/* ── Grill option sheet ───────────────────────────────────────── */}
+      <OptionBottomSheet
+        visible={visible && grillSheetOpen}
+        title="Select Grill"
+        options={grills.map((g: any) => ({ value: String(g.id), label: g.name }))}
+        selected={selectedGrillId != null ? String(selectedGrillId) : null}
+        onChange={(val) => {
+          setSelectedGrillId(val != null ? Number(val) : null);
+        }}
+        onClose={() => setGrillSheetOpen(false)}
+        colors={colors}
+        allowDeselect
+      />
 
       {/* ── Technique option sheets ───────────────────────────────────── */}
       <OptionBottomSheet

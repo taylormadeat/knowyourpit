@@ -353,6 +353,8 @@ export default function PlanScreen() {
     mode: "weight",
   });
   const [grillId, setGrillId] = useState<number | null>(null);
+  const [defaultGrillSheetOpen, setDefaultGrillSheetOpen] = useState(false);
+  const [itemGrillSheetIdx, setItemGrillSheetIdx] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [targetTempF, setTargetTempF] = useState("");
   const [cookTempF, setCookTempF] = useState("");
@@ -3232,6 +3234,32 @@ export default function PlanScreen() {
                     colors={colors}
                     allowDeselect={false}
                   />
+                  {/* Default grill picker for multi-cook sequencer */}
+                  <OptionBottomSheet
+                    visible={defaultGrillSheetOpen}
+                    title="Default Grill"
+                    options={(grills as any[] | undefined ?? []).map((g: any) => ({ value: String(g.id), label: g.name }))}
+                    selected={grillId != null ? String(grillId) : null}
+                    onChange={(val) => { setGrillId(val != null ? Number(val) : null); }}
+                    onClose={() => setDefaultGrillSheetOpen(false)}
+                    colors={colors}
+                    allowDeselect
+                  />
+                  {/* Per-item grill override picker */}
+                  <OptionBottomSheet
+                    visible={itemGrillSheetIdx != null}
+                    title="Assign Grill"
+                    options={(grills as any[] | undefined ?? []).map((g: any) => ({ value: String(g.id), label: g.name }))}
+                    selected={itemGrillSheetIdx != null ? (multiItems[itemGrillSheetIdx]?.grillId != null ? String(multiItems[itemGrillSheetIdx].grillId) : null) : null}
+                    onChange={(val) => {
+                      if (itemGrillSheetIdx == null) return;
+                      const newGrillId = val != null ? Number(val) : null;
+                      setMultiItems(prev => prev.map((it, i) => i === itemGrillSheetIdx ? { ...it, grillId: newGrillId } : it));
+                    }}
+                    onClose={() => setItemGrillSheetIdx(null)}
+                    colors={colors}
+                    allowDeselect
+                  />
                   {/* Notes sheet */}
                   <Modal
                     visible={activeSheet === "notes"}
@@ -3731,28 +3759,19 @@ export default function PlanScreen() {
         {(grills as any[] | undefined)?.length ? (
           <>
             <Label colors={colors}>Default Grill (override per item)</Label>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                {(grills as any[]).map((g: any) => (
-                  <Pressable
-                    key={g.id}
-                    onPress={() => setGrillId(grillId === g.id ? null : g.id)}
-                    style={[
-                      s.grillChip,
-                      {
-                        borderColor: grillId === g.id ? colors.primary : colors.border,
-                        backgroundColor: grillId === g.id ? colors.primary + "15" : colors.card,
-                        borderRadius: colors.radius,
-                      },
-                    ]}
-                  >
-                    <Text style={[s.grillChipText, { color: grillId === g.id ? colors.primary : colors.foreground }]}>
-                      {g.name}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </ScrollView>
+            <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: colors.radius, paddingHorizontal: 12, overflow: "hidden", backgroundColor: colors.card, marginBottom: 14 }}>
+              <SettingsRow
+                label="Default Grill"
+                value={grillId != null ? ((grills as any[]).find((g: any) => g.id === grillId)?.name ?? null) : null}
+                placeholder="None (optional)"
+                icon="wind"
+                iconColor={colors.mutedForeground}
+                onPress={() => setDefaultGrillSheetOpen(true)}
+                onClear={grillId != null ? () => setGrillId(null) : undefined}
+                colors={colors}
+                isLast
+              />
+            </View>
           </>
         ) : null}
 
@@ -3785,41 +3804,33 @@ export default function PlanScreen() {
                       {" · "}Pit: {item.cookTempF || item.cut.cookTempF}°F{item.cut.targetTempF === 0 ? " · Time-based" : ` · Target: ${item.targetTempF || item.cut.targetTempF}°F`}
                     </Text>
                     {(grills as any[] | undefined)?.length ? (
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-                        <View style={{ flexDirection: "row", gap: 6 }}>
-                          {(grills as any[]).map((g: any) => {
-                            const active = item.grillId === g.id;
-                            const inherited = item.grillId === null && grillId === g.id;
-                            const chipColor = active ? colors.primary : inherited ? colors.primary + "80" : colors.mutedForeground;
-                            return (
-                              <Pressable
-                                key={g.id}
-                                onPress={() =>
-                                  setMultiItems(prev =>
-                                    prev.map((it, i) =>
-                                      i === idx ? { ...it, grillId: active ? null : g.id } : it
-                                    )
-                                  )
-                                }
-                                style={[
-                                  s.multiItemGrillChip,
-                                  {
-                                    borderColor: active ? colors.primary : inherited ? colors.primary + "50" : colors.border,
-                                    backgroundColor: active ? colors.primary + "18" : inherited ? colors.primary + "08" : colors.muted,
-                                    borderRadius: colors.radius,
-                                    borderStyle: inherited ? "dashed" : "solid",
-                                  },
-                                ]}
-                              >
-                                <Feather name="wind" size={11} color={chipColor} />
-                                <Text style={[s.multiItemGrillChipText, { color: chipColor }]}>
-                                  {inherited ? `${g.name} (default)` : g.name}
-                                </Text>
-                              </Pressable>
-                            );
-                          })}
-                        </View>
-                      </ScrollView>
+                      <Pressable
+                        onPress={() => setItemGrillSheetIdx(idx)}
+                        style={({ pressed }) => ({
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 6,
+                          marginTop: 6,
+                          alignSelf: "flex-start",
+                          paddingHorizontal: 10,
+                          paddingVertical: 5,
+                          borderRadius: 20,
+                          borderWidth: 1,
+                          borderColor: item.grillId != null ? colors.primary : (grillId != null ? colors.primary + "50" : colors.border),
+                          backgroundColor: item.grillId != null ? colors.primary + "18" : (grillId != null ? colors.primary + "08" : colors.muted),
+                          opacity: pressed ? 0.7 : 1,
+                        })}
+                      >
+                        <Feather name="wind" size={11} color={item.grillId != null ? colors.primary : (grillId != null ? colors.primary + "80" : colors.mutedForeground)} />
+                        <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: item.grillId != null ? colors.primary : (grillId != null ? colors.primary + "80" : colors.mutedForeground) }}>
+                          {item.grillId != null
+                            ? (grills as any[]).find((g: any) => g.id === item.grillId)?.name ?? "Grill"
+                            : grillId != null
+                              ? `${(grills as any[]).find((g: any) => g.id === grillId)?.name ?? "Grill"} (default)`
+                              : "Assign grill"}
+                        </Text>
+                        <Feather name="chevron-down" size={11} color={item.grillId != null ? colors.primary : (grillId != null ? colors.primary + "80" : colors.mutedForeground)} />
+                      </Pressable>
                     ) : null}
                   </View>
                   <View style={{ flexDirection: "row", gap: 6, alignItems: "flex-start", marginTop: 2 }}>
