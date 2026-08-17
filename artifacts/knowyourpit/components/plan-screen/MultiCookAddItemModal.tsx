@@ -29,6 +29,8 @@ import {
   QP_WRAP_FINISH_OPTIONS, type QpWrapFinishOption,
 } from "@/constants/cookQuickPicks";
 import { type ThawMethod } from "@/components/plan-screen/frozenSchedule";
+import { SettingsRow } from "@/components/plan-screen/SettingsRow";
+import { OptionBottomSheet } from "@/components/plan-screen/OptionBottomSheet";
 import { mergeStoredWithDefaults } from "@/utils/pitmasterDefaults";
 import {
   loadLastCookMethod,
@@ -98,65 +100,8 @@ interface Props {
   showPaywall?: (opts: any) => void;
 }
 
-function ChipRow<T extends string>({
-  label,
-  options,
-  selected,
-  onSelect,
-  colors,
-  isRecommended,
-}: {
-  label: string;
-  options: readonly T[];
-  selected: T | null;
-  onSelect: (v: T | null) => void;
-  colors: Colors;
-  /** When true, shows a "★ Suggested" sub-label on the active chip. */
-  isRecommended?: boolean;
-}) {
-  return (
-    <View>
-      <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
-        {label}
-      </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          {options.map(option => {
-            const active = selected === option;
-            const showRecommended = active && isRecommended;
-            return (
-              <Pressable
-                key={option}
-                onPress={() => {
-                  onSelect(active ? null : option);
-                  Haptics.selectionAsync();
-                }}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: showRecommended ? 5 : 7,
-                  borderRadius: 20,
-                  borderWidth: 1,
-                  borderColor: active ? colors.primary : colors.border,
-                  backgroundColor: active ? colors.primary + "18" : colors.muted,
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
-                  {option}
-                </Text>
-                {showRecommended && (
-                  <Text style={{ fontSize: 9, fontFamily: "Inter_500Medium", color: colors.primary, opacity: 0.75, marginTop: 1 }}>
-                    ★ Suggested
-                  </Text>
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
-      </ScrollView>
-    </View>
-  );
-}
+/** Which technique bottom-sheet is currently open. */
+type TechniqueSheet = "cookMethod" | "meatStartTemp" | "injection" | "spritz" | "wrapFinish";
 
 export function MultiCookAddItemModal(p: Props) {
   const {
@@ -236,6 +181,7 @@ export function MultiCookAddItemModal(p: Props) {
   const [selectedWrapFinish, setSelectedWrapFinish] = useState<QpWrapFinishOption | null>(null);
   /** Fields whose current value was auto-filled by getPitmasterDefaults (not set by the user). */
   const [recommendedFields, setRecommendedFields] = useState<Set<string>>(new Set());
+  const [activeSheet, setActiveSheet] = useState<TechniqueSheet | null>(null);
   // Incremented each time a new cut's useEffect fires (guards against the
   // previous cut's Promise.all resolving after the new cut's data arrives)
   // and when the user manually selects a chip (guards same-cut races).
@@ -312,6 +258,7 @@ export function MultiCookAddItemModal(p: Props) {
       setSelectedSpritz(null);
       setSelectedWrapFinish(null);
       setRecommendedFields(new Set());
+      setActiveSheet(null);
       setIsFrozen(false);
       setThawMethod("fridge");
       setItemNotes("");
@@ -434,6 +381,7 @@ export function MultiCookAddItemModal(p: Props) {
     setSelectedSpritz(null);
     setSelectedWrapFinish(null);
     setRecommendedFields(new Set());
+    setActiveSheet(null);
     setIsFrozen(false);
     setThawMethod("fridge");
     setItemNotes("");
@@ -856,125 +804,96 @@ export function MultiCookAddItemModal(p: Props) {
                   </View>
                 )}
 
-                {/* Cooking method chips */}
+                {/* Techniques — collapsed rows; tap a row to open its option sheet */}
                 <View>
                   <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                    Cooking Method
+                    Techniques
                   </Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={{ flexDirection: "row", gap: 8 }}>
-                      {QP_COOK_METHODS.map(method => {
-                        const active = selectedCookMethod === method;
-                        const showLastUsed = lastUsedMethod === method && active;
-                        const showRecommended = active && !showLastUsed && recommendedFields.has("cookMethod");
-                        return (
-                          <Pressable
-                            key={method}
-                            onPress={() => {
-                              const next = active ? null : method;
-                              hydrateGenRef.current++;
-                              setSelectedCookMethod(next);
-                              setActivePreset(null);
-                              setLastUsedMethod(null);
-                              setRecommendedFields(prev => { const n = new Set(prev); n.delete("cookMethod"); return n; });
-                              if (multiPickedCut && next) {
-                                saveLastCookMethod(multiPickedCut.name, next);
-                              }
-                              Haptics.selectionAsync();
-                            }}
-                            style={{
-                              paddingHorizontal: 12,
-                              paddingVertical: (showLastUsed || showRecommended) ? 5 : 7,
-                              borderRadius: 20,
-                              borderWidth: 1,
-                              borderColor: active ? colors.primary : colors.border,
-                              backgroundColor: active ? colors.primary + "18" : colors.muted,
-                              alignItems: "center",
-                            }}
-                          >
-                            <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: active ? colors.primary : colors.mutedForeground }}>
-                              {method}
-                            </Text>
-                            {showLastUsed && (
-                              <Text style={{ fontSize: 9, fontFamily: "Inter_500Medium", color: colors.primary, opacity: 0.75, marginTop: 1 }}>
-                                Last used
-                              </Text>
-                            )}
-                            {showRecommended && (
-                              <Text style={{ fontSize: 9, fontFamily: "Inter_500Medium", color: colors.primary, opacity: 0.75, marginTop: 1 }}>
-                                ★ Suggested
-                              </Text>
-                            )}
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </ScrollView>
+                  <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: colors.radius, paddingHorizontal: 12, overflow: "hidden", backgroundColor: colors.background }}>
+                    <SettingsRow
+                      label="Cooking Method"
+                      value={selectedCookMethod}
+                      placeholder="Not set"
+                      icon="thermometer"
+                      iconColor="#E84820"
+                      recommended={recommendedFields.has("cookMethod") && !(lastUsedMethod && lastUsedMethod === selectedCookMethod)}
+                      onPress={() => setActiveSheet("cookMethod")}
+                      onClear={() => {
+                        hydrateGenRef.current++;
+                        setSelectedCookMethod(null);
+                        setActivePreset(null);
+                        setLastUsedMethod(null);
+                        setRecommendedFields(prev => { const n = new Set(prev); n.delete("cookMethod"); return n; });
+                      }}
+                      colors={colors}
+                    />
+                    <SettingsRow
+                      label="Meat Starting Temp"
+                      value={selectedMeatStartTemp}
+                      placeholder="Not set"
+                      icon="sun"
+                      iconColor="#F97316"
+                      recommended={recommendedFields.has("meatStartTemp")}
+                      onPress={() => setActiveSheet("meatStartTemp")}
+                      onClear={() => {
+                        hydrateGenRef.current++;
+                        setSelectedMeatStartTemp(null);
+                        setActivePreset(null);
+                        setRecommendedFields(prev => { const n = new Set(prev); n.delete("meatStartTemp"); return n; });
+                      }}
+                      colors={colors}
+                    />
+                    <SettingsRow
+                      label="Injection"
+                      value={selectedInjection}
+                      placeholder="Not set"
+                      icon="droplet"
+                      iconColor="#6C3BF5"
+                      recommended={recommendedFields.has("injection")}
+                      onPress={() => setActiveSheet("injection")}
+                      onClear={() => {
+                        hydrateGenRef.current++;
+                        setSelectedInjection(null);
+                        setActivePreset(null);
+                        setRecommendedFields(prev => { const n = new Set(prev); n.delete("injection"); return n; });
+                      }}
+                      colors={colors}
+                    />
+                    <SettingsRow
+                      label="Spritz"
+                      value={selectedSpritz}
+                      placeholder="Not set"
+                      icon="wind"
+                      iconColor="#0EA5E9"
+                      recommended={recommendedFields.has("spritz")}
+                      onPress={() => setActiveSheet("spritz")}
+                      onClear={() => {
+                        hydrateGenRef.current++;
+                        setSelectedSpritz(null);
+                        setActivePreset(null);
+                        setRecommendedFields(prev => { const n = new Set(prev); n.delete("spritz"); return n; });
+                      }}
+                      colors={colors}
+                    />
+                    <SettingsRow
+                      label="Wrap / Finish"
+                      value={selectedWrapFinish}
+                      placeholder="Not set"
+                      icon="package"
+                      iconColor="#F59E0B"
+                      recommended={recommendedFields.has("wrapFinish")}
+                      onPress={() => setActiveSheet("wrapFinish")}
+                      onClear={() => {
+                        hydrateGenRef.current++;
+                        setSelectedWrapFinish(null);
+                        setActivePreset(null);
+                        setRecommendedFields(prev => { const n = new Set(prev); n.delete("wrapFinish"); return n; });
+                      }}
+                      colors={colors}
+                      isLast
+                    />
+                  </View>
                 </View>
-
-                {/* Meat start temp chips */}
-                <ChipRow
-                  label="Meat Starting Temp"
-                  options={QP_MEAT_START_TEMPS}
-                  selected={selectedMeatStartTemp}
-                  colors={colors}
-                  isRecommended={recommendedFields.has("meatStartTemp")}
-                  onSelect={(v) => {
-                    hydrateGenRef.current++;
-                    setSelectedMeatStartTemp(v);
-                    setActivePreset(null);
-                    setRecommendedFields(prev => { const n = new Set(prev); n.delete("meatStartTemp"); return n; });
-                    if (multiPickedCut && v) saveLastMeatStartTemp(multiPickedCut.name, v);
-                  }}
-                />
-
-                {/* Injection chips */}
-                <ChipRow
-                  label="Injection"
-                  options={QP_INJECTION_OPTIONS}
-                  selected={selectedInjection}
-                  colors={colors}
-                  isRecommended={recommendedFields.has("injection")}
-                  onSelect={(v) => {
-                    hydrateGenRef.current++;
-                    setSelectedInjection(v);
-                    setActivePreset(null);
-                    setRecommendedFields(prev => { const n = new Set(prev); n.delete("injection"); return n; });
-                    if (multiPickedCut && v) saveLastInjection(multiPickedCut.name, v);
-                  }}
-                />
-
-                {/* Spritz chips */}
-                <ChipRow
-                  label="Spritz"
-                  options={QP_SPRITZ_FREQUENCIES}
-                  selected={selectedSpritz}
-                  colors={colors}
-                  isRecommended={recommendedFields.has("spritz")}
-                  onSelect={(v) => {
-                    hydrateGenRef.current++;
-                    setSelectedSpritz(v);
-                    setActivePreset(null);
-                    setRecommendedFields(prev => { const n = new Set(prev); n.delete("spritz"); return n; });
-                    if (multiPickedCut && v) saveLastSpritz(multiPickedCut.name, v);
-                  }}
-                />
-
-                {/* Wrap / finish chips */}
-                <ChipRow
-                  label="Wrap / Finish"
-                  options={QP_WRAP_FINISH_OPTIONS}
-                  selected={selectedWrapFinish}
-                  colors={colors}
-                  isRecommended={recommendedFields.has("wrapFinish")}
-                  onSelect={(v) => {
-                    hydrateGenRef.current++;
-                    setSelectedWrapFinish(v);
-                    setActivePreset(null);
-                    setRecommendedFields(prev => { const n = new Set(prev); n.delete("wrapFinish"); return n; });
-                    if (multiPickedCut && v) saveLastWrapFinish(multiPickedCut.name, v);
-                  }}
-                />
 
                 {/* Save as preset */}
                 {multiPickedCut && hasAnyQuickPick && (
@@ -1113,6 +1032,85 @@ export function MultiCookAddItemModal(p: Props) {
           </View>
         </AppKeyboardAvoidingView>
       </Modal>
+
+      {/* ── Technique option sheets ───────────────────────────────────── */}
+      <OptionBottomSheet
+        visible={visible && activeSheet === "cookMethod"}
+        title="Cooking Method"
+        options={QP_COOK_METHODS}
+        selected={selectedCookMethod}
+        lastUsed={lastUsedMethod}
+        onChange={(v) => {
+          hydrateGenRef.current++;
+          setSelectedCookMethod(v as QpCookMethod | null);
+          setActivePreset(null);
+          setLastUsedMethod(null);
+          setRecommendedFields(prev => { const n = new Set(prev); n.delete("cookMethod"); return n; });
+          if (multiPickedCut && v) saveLastCookMethod(multiPickedCut.name, v as QpCookMethod);
+        }}
+        onClose={() => setActiveSheet(null)}
+        colors={colors}
+      />
+      <OptionBottomSheet
+        visible={visible && activeSheet === "meatStartTemp"}
+        title="Meat Starting Temp"
+        options={QP_MEAT_START_TEMPS}
+        selected={selectedMeatStartTemp}
+        onChange={(v) => {
+          hydrateGenRef.current++;
+          setSelectedMeatStartTemp(v as QpMeatStartTemp | null);
+          setActivePreset(null);
+          setRecommendedFields(prev => { const n = new Set(prev); n.delete("meatStartTemp"); return n; });
+          if (multiPickedCut && v) saveLastMeatStartTemp(multiPickedCut.name, v as QpMeatStartTemp);
+        }}
+        onClose={() => setActiveSheet(null)}
+        colors={colors}
+      />
+      <OptionBottomSheet
+        visible={visible && activeSheet === "injection"}
+        title="Injection"
+        options={QP_INJECTION_OPTIONS}
+        selected={selectedInjection}
+        onChange={(v) => {
+          hydrateGenRef.current++;
+          setSelectedInjection(v as QpInjectionOption | null);
+          setActivePreset(null);
+          setRecommendedFields(prev => { const n = new Set(prev); n.delete("injection"); return n; });
+          if (multiPickedCut && v) saveLastInjection(multiPickedCut.name, v as QpInjectionOption);
+        }}
+        onClose={() => setActiveSheet(null)}
+        colors={colors}
+      />
+      <OptionBottomSheet
+        visible={visible && activeSheet === "spritz"}
+        title="Spritz"
+        options={QP_SPRITZ_FREQUENCIES}
+        selected={selectedSpritz}
+        onChange={(v) => {
+          hydrateGenRef.current++;
+          setSelectedSpritz(v as QpSpritzFrequency | null);
+          setActivePreset(null);
+          setRecommendedFields(prev => { const n = new Set(prev); n.delete("spritz"); return n; });
+          if (multiPickedCut && v) saveLastSpritz(multiPickedCut.name, v as QpSpritzFrequency);
+        }}
+        onClose={() => setActiveSheet(null)}
+        colors={colors}
+      />
+      <OptionBottomSheet
+        visible={visible && activeSheet === "wrapFinish"}
+        title="Wrap / Finish"
+        options={QP_WRAP_FINISH_OPTIONS}
+        selected={selectedWrapFinish}
+        onChange={(v) => {
+          hydrateGenRef.current++;
+          setSelectedWrapFinish(v as QpWrapFinishOption | null);
+          setActivePreset(null);
+          setRecommendedFields(prev => { const n = new Set(prev); n.delete("wrapFinish"); return n; });
+          if (multiPickedCut && v) saveLastWrapFinish(multiPickedCut.name, v as QpWrapFinishOption);
+        }}
+        onClose={() => setActiveSheet(null)}
+        colors={colors}
+      />
 
       {/* ── Custom cut editor (inner modal) ──────────────────────────── */}
       <Modal
