@@ -9,6 +9,8 @@ import { ClerkProvider, useAuth, useUser } from "@clerk/expo";
 import { safeTokenCache } from "@/lib/tokenCache";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QueryClient, QueryClientProvider, useQueryClient as useQueryClientInner } from "@tanstack/react-query";
+import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { type Href, Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
@@ -23,7 +25,7 @@ import { setPendingCheckin } from "@/lib/pendingCheckinNotif";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BootDiagnostic } from "@/components/BootDiagnostic";
-import { CACHE_STORAGE_KEY } from "@/constants/cache";
+import { CACHE_STORAGE_KEY, PERSIST_CACHE_KEY_V2, PERSIST_CACHE_BUSTER } from "@/constants/cache";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { PaywallProvider } from "@/contexts/PaywallContext";
 import { BleProbeProvider } from "@/contexts/BleProbeContext";
@@ -754,7 +756,7 @@ function ClerkGatedShell({
     );
   }
   return (
-    <IsolatedQueryProvider key={userId ?? "anon"}>
+    <IsolatedQueryProvider key={userId ?? "anon"} userId={userId ?? "anon"}>
       <SessionExpiredGuard />
       <SubscriptionProvider>
         <PaywallProvider>
@@ -769,18 +771,18 @@ function ClerkGatedShell({
   );
 }
 
-function IsolatedQueryProvider({ children }: { children: React.ReactNode }) {
-  // Fresh QueryClient per mount (per Clerk userId) — guaranteed clean
-  // in-memory cache. No persister is attached: nothing is written to disk,
-  // so no leakage path between accounts exists.
-  //
-  // retry: never retry a 401 — the token is gone and retrying just floods the
-  // server. Everything else retries up to 2 times (RQ default is 3).
+const PERSIST_MAX_AGE_MS = 1000 * 60 * 60 * 24; // 24 hours
+
+function IsolatedQueryProvider({ userId, children }: { userId: string; children: React.ReactNode }) {
+  // Fresh QueryClient per mount (per Clerk userId) — guaranteed clean cache.
+  // gcTime matches the persister's maxAge so restored entries are never
+  // immediately garbage-collected before any screen subscribes to them.
   const [client] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
           queries: {
+            gcTime: PERSIST_MAX_AGE_MS,
             retry: (failureCount, error: unknown) => {
               if ((error as any)?.status === 401) return false;
               return failureCount < 2;
@@ -795,7 +797,32 @@ function IsolatedQueryProvider({ children }: { children: React.ReactNode }) {
         },
       }),
   );
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+
+  // Per-user AsyncStorage persister.  Key is scoped to the userId so data
+  // from one account is never loaded into another account's QueryClient.
+  // The `kyp_rq_v2` prefix is deliberately different from CACHE_STORAGE_KEY
+  // so `purgeLegacyQueryCaches()` (which wipes `kyp_query_cache:*`) never
+  // removes these entries on boot.
+  const [persister] = useState(() =>
+    createAsyncStoragePersister({
+      storage: AsyncStorage,
+      key: `${PERSIST_CACHE_KEY_V2}:${userId}`,
+      throttleTime: 1000, // write to disk at most once per second
+    }),
+  );
+
+  return (
+    <PersistQueryClientProvider
+      client={client}
+      persistOptions={{
+        persister,
+        maxAge: PERSIST_MAX_AGE_MS,
+        buster: PERSIST_CACHE_BUSTER,
+      }}
+    >
+      {children}
+    </PersistQueryClientProvider>
+  );
 }
 
 // Watches for 401 responses across ALL react-query queries and mutations in the
