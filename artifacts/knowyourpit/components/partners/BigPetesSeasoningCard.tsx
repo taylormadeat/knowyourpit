@@ -221,7 +221,7 @@ export function BigPetesSeasoningCard({ cutCategory, cutName, cuts, planMode }: 
         {/* Header row */}
         <View style={s.headerRow}>
           <View style={[s.badge, { backgroundColor: "#E84820" + "18" }]}>
-            <Text style={s.badgeText}>🤝 Big Pete's Seasoning</Text>
+            <Text style={s.badgeText}>Big Pete's Seasoning</Text>
           </View>
           {/* Dots — only shown when there's more than one pairing */}
           {pairings.length > 1 && (

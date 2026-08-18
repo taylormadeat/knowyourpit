@@ -95,7 +95,7 @@ export function BigPetesHomeCard() {
         {/* Header row */}
         <View style={s.headerRow}>
           <View style={[s.badge, { backgroundColor: "#E84820" + "18" }]}>
-            <Text style={s.badgeText}>🤝 Big Pete's Seasoning</Text>
+            <Text style={s.badgeText}>Big Pete's Seasoning</Text>
           </View>
           {/* Dot indicator */}
           <View style={s.dots}>
