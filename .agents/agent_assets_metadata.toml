@@ -354,3 +354,31 @@ uri = "file://artifacts/marketing/dist/standalone/terms.html"
 type = "text"
 title = "Terms of Service — paste into GoDaddy"
 description = "Standalone HTML page for knowyourpit.com/terms"
+
+[[outputs]]
+id = "v8N4HvrpruH8dAI2QoS_t"
+uri = "file://attached_assets/generated_images/bp_social_post_1.jpg"
+type = "image"
+title = "Post 1 — Collab Announcement"
+description = "KnowYourPit x Big Pete's Seasoning collab reveal. Dark charcoal and ember tones with smartphone + seasoning jars. Tagline: \"The right rub. Every cook.\""
+
+[[outputs]]
+id = "WTXB4fK6e4eXBwbphYktG"
+uri = "file://attached_assets/generated_images/bp_social_post_2.jpg"
+type = "image"
+title = "Post 2 — Flavor Focus"
+description = "Moody close-up of seasoning jar + cooking app. Text: \"Your cook just got flavor.\" with promo badge KYP15."
+
+[[outputs]]
+id = "c_PhFo3eQwgh3ceDY-wzy"
+uri = "file://attached_assets/generated_images/bp_social_post_3.jpg"
+type = "image"
+title = "Post 3 — Split Brand Design"
+description = "Navy/amber split layout. Left: KnowYourPit app. Right: Big Pete's rub jars. Headline: \"Better Together.\""
+
+[[outputs]]
+id = "sXbeAQSwilmwjJIBHlZO2"
+uri = "file://attached_assets/generated_images/bp_social_story_1.jpg"
+type = "image"
+title = "Story — Vertical 9:16"
+description = "Tall Instagram story. Glowing coals at bottom, floating seasoning jars, headline: \"Cook smarter. Season better.\" Promo code KYP15 badge. Bottom strip: KnowYourPit x Big Pete's Seasoning."
