@@ -495,7 +495,7 @@ function RootLayoutNav() {
     <View style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(onboarding)" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="(onboarding)/index" options={{ gestureEnabled: false }} />
         <Stack.Screen name="(auth)/sign-in" />
         <Stack.Screen name="(auth)/sign-up" />
         <Stack.Screen name="(auth)/set-username" options={{ gestureEnabled: false }} />
@@ -503,7 +503,6 @@ function RootLayoutNav() {
         <Stack.Screen name="grills/[id]" />
         <Stack.Screen name="temperature" />
         <Stack.Screen name="profile" />
-        <Stack.Screen name="alerts" />
         <Stack.Screen name="cooks/[id]" />
         <Stack.Screen name="sessions/[sessionId]" />
         <Stack.Screen name="pro-features" />
@@ -682,10 +681,9 @@ function KeyboardProviderOrFragment({ children }: { children: React.ReactNode })
 // Waits for Clerk to finish loading, then mounts an IsolatedQueryProvider whose
 // React `key` is the current Clerk userId. When the userId changes
 // (sign-out, sign-in as a different account) the entire query cache subtree
-// unmounts and remounts with a brand-new in-memory QueryClient. Combined with
-// the absence of any on-disk persistence (see purgeLegacyQueryCaches above),
-// this makes it impossible for cached data from one account to ever be
-// displayed to another account on the same device.
+// unmounts and remounts with a brand-new QueryClient and a separately scoped
+// AsyncStorage persister. That per-user scope prevents one account's saved
+// cache from ever being displayed to another account on the same device.
 //
 // We also call setAuthTokenGetter here, BEFORE the QueryClient mounts, so that
 // the very first network request fired by any descendant screen is guaranteed

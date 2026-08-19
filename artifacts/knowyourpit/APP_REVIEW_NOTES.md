@@ -1,4 +1,4 @@
-# App Store Reviewer Notes — knowyourpit v1.0.2
+# App Store Reviewer Notes — knowyourpit v1.0.19 (build 138)
 
 > **How to use this file:** Copy everything from "NOTES FOR APP REVIEW" below and paste it into the
 > "Notes" field in App Store Connect before submitting. Fill in the two `[FILL IN]` placeholders
