@@ -122,7 +122,6 @@ interface Props {
   cookStatus?: string;
   checkinCount?: number;
   lastDecision?: any;
-  onGradeChange?: (grade: string, quip: string | null) => void;
   healthBreakdownOpen?: boolean;
   onHealthBreakdownOpenHandled?: () => void;
   /**
@@ -200,7 +199,6 @@ export function LiveCookSection(p: Props) {
     cookStatus,
     checkinCount = 0,
     lastDecision,
-    onGradeChange,
     healthBreakdownOpen,
     onHealthBreakdownOpenHandled,
     onCheckinSaved,
@@ -566,7 +564,6 @@ export function LiveCookSection(p: Props) {
             cookStatus={cookStatus ?? "active"}
             checkinCount={checkinCount}
             lastDecision={lastDecision ?? null}
-            onGradeChange={onGradeChange}
             compact={false}
             externalOpen={healthBreakdownOpen}
             onExternalOpenHandled={onHealthBreakdownOpenHandled}

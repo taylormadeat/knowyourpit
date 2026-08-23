@@ -1683,7 +1683,7 @@ export const GetCookHealthResponse = zod.object({
     ])
     .nullable()
     .describe(
-      "Letter grade: A, B, C, D, or F — null when the cook is flagged as an outlier pending review",
+      "Letter grade: A, B, C, D, or F — null when the cook is an outlier or does not have enough evidence for a reliable grade",
     ),
   reason: zod
     .string()

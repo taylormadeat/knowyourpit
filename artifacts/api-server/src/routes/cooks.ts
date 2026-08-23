@@ -442,9 +442,9 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
       ...existingHistory,
       { ...req.body.analysisResult, savedAt: new Date().toISOString() },
     ];
-    // If no health score has been stored yet (cook has no check-ins), derive one
-    // from the verdict so the list card shows a consistent grade without waiting
-    // for the first check-in.
+    // Only persist an automatic health grade when the shared scorer has enough
+    // corroborating evidence. A negative AI verdict by itself remains visible in
+    // the analysis result, but must not create a misleading stored F.
     if (!current?.healthScore) {
       const verdict = getAssessment(req.body.analysisResult)?.verdict ?? null;
       if (verdict) {
@@ -455,8 +455,10 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
           verdict,
           planAccuracyScore: null,
         });
-        updateData.healthScore = String(health.grade);
-        updateData.healthScoreReason = health.reason;
+        if (health.grade !== null) {
+          updateData.healthScore = health.grade;
+          updateData.healthScoreReason = health.reason;
+        }
       }
     }
   }

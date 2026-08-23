@@ -53,7 +53,7 @@ export interface CookHealthInput {
 }
 
 export interface CookHealthResult {
-  grade: "A" | "B" | "C" | "D" | "F";
+  grade: "A" | "B" | "C" | "D" | "F" | null;
   reason: string;
   factors: {
     tempTracking: string;
@@ -64,6 +64,13 @@ export interface CookHealthResult {
     aiVerdict: string | null;
     planAccuracyScore: number | null;
   };
+}
+
+export function isCookHealthOutlierPendingReview(
+  isOutlier: boolean | null,
+  outlierDismissed: boolean | null,
+): boolean {
+  return isOutlier === true && outlierDismissed !== true;
 }
 
 export function computePlanAccuracy(cook: {
@@ -147,9 +154,46 @@ export function computeCookHealthScore(input: CookHealthInput): CookHealthResult
   if (hasCheckinData)            { weightedSum += checkinScore      * 0.25; totalWeight += 0.25; }
   if (planAccuracyScore != null) { weightedSum += planAccuracyScore * 0.15; totalWeight += 0.15; }
 
-  const score = totalWeight > 0
-    ? Math.max(0, Math.min(100, Math.round(weightedSum / totalWeight)))
-    : checkinScore;
+  const factors = {
+    tempTracking: pitDrift ? "Off by >30°F" : "Within range",
+    stepTiming: lateCount > 0 ? `${lateCount} step(s) late` : "On time",
+    issueCount,
+    stallDetected,
+    pitDrift,
+    aiVerdict: verdict ?? null,
+    planAccuracyScore: planAccuracyScore ?? null,
+  };
+
+  // A cook without an AI assessment, check-ins/events, or timing data cannot
+  // be scored honestly. In particular, avoid treating the default clean
+  // check-in score as an A before the cook has supplied any evidence.
+  if (totalWeight === 0) {
+    return {
+      grade: null,
+      reason: "Cook Health is under review. Add a check-in, final temperature, or completed plan data to score this cook.",
+      factors,
+    };
+  }
+
+  const score = Math.max(0, Math.min(100, Math.round(weightedSum / totalWeight)));
+
+  // A negative AI verdict alone is useful coaching, but it is not enough
+  // evidence to label a cook an F. Require corroboration from temperature
+  // history, recorded issues, significantly late steps, or a major plan miss.
+  const hasReliableFailureEvidence =
+    checkins.length >= 2 ||
+    issueCount >= 2 ||
+    lateCount >= 2 ||
+    pitDrift ||
+    (planAccuracyScore != null && planAccuracyScore < 60);
+  const hasNegativeVerdict = verdict === "overcooked" || verdict === "undercooked";
+
+  if (score < 45 && !hasReliableFailureEvidence) {
+    const observation = hasNegativeVerdict
+      ? `PitMaster noted this cook may be ${verdict}, but there is not enough temperature, check-in, or plan data to confirm a failing Cook Health grade.`
+      : "Cook Health is under review because there is not enough supporting data to confirm a failing grade.";
+    return { grade: null, reason: observation, factors };
+  }
 
   // ── Letter grade + reason ────────────────────────────────────────────────
   let grade: "A" | "B" | "C" | "D" | "F";
@@ -190,19 +234,7 @@ export function computeCookHealthScore(input: CookHealthInput): CookHealthResult
     reason = "Major issues detected — review your setup, temps, and process.";
   }
 
-  return {
-    grade,
-    reason,
-    factors: {
-      tempTracking: pitDrift ? "Off by >30°F" : "Within range",
-      stepTiming: lateCount > 0 ? `${lateCount} step(s) late` : "On time",
-      issueCount,
-      stallDetected,
-      pitDrift,
-      aiVerdict: verdict ?? null,
-      planAccuracyScore: planAccuracyScore ?? null,
-    },
-  };
+  return { grade, reason, factors };
 }
 
 // ---------------------------------------------------------------------------
@@ -365,7 +397,7 @@ router.get("/cooks/:id/health", requireAuth, async (req: any, res): Promise<void
   // Outlier cooks that haven't been dismissed have unreliable data — return a
   // neutral grade so the score card communicates "review pending" instead of
   // a misleading letter grade derived from incomplete cook history.
-  if (cook.isOutlier && !cook.outlierDismissed) {
+  if (isCookHealthOutlierPendingReview(cook.isOutlier, cook.outlierDismissed)) {
     res.json({
       cookId: params.data.id,
       grade: null,

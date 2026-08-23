@@ -51,7 +51,7 @@ import { DecisionsSection } from "@/components/cook-detail/DecisionsSection";
 import {
   useListCookCheckins, useListTemperatureReadings, getListTemperatureReadingsQueryKey,
   getGetCookQueryKey, getListCooksQueryKey, getGetCookHealthQueryKey,
-  getListCookCheckinsQueryKey, getListCookEventsQueryKey, getGetDashboardSummaryQueryKey,
+  getListCookCheckinsQueryKey, getListCookEventsQueryKey, getGetDashboardSummaryQueryKey, useGetCookHealth,
   type CookCheckin, type Cook,
 } from "@workspace/api-client-react";
 import { useAutoCheckin } from "@/hooks/useAutoCheckin";
@@ -60,7 +60,6 @@ import { scheduleStepNotifications, cancelStoredStepNotifications } from "@/hook
 import { getCheckinSchedule, generateCheckinSchedule } from "@/constants/checkinKnowledge";
 import type { AiCheckinItem, ScheduledCheckin, CheckinSequenceAnchor } from "@/constants/checkinKnowledge";
 import { computeNextStep, rippleScheduleTimestamps } from "@/components/cook-detail/utils";
-import { letterGrade, VERDICT_SCORE } from "@/utils/gradeUtils";
 import { STATUS_COLORS } from "@/components/cook-detail/constants";
 import { s } from "@/components/cook-detail/styles";
 import type { SequenceData, Decision } from "@/components/cook-detail/types";
@@ -94,6 +93,7 @@ export default function CookDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const qc = useQueryClient();
+  const cookIdNum = Number(id) || 0;
 
   // ── Core hooks ────────────────────────────────────────────────────────────
   const cd = useCookDetail(id);
@@ -136,6 +136,13 @@ export default function CookDetailScreen() {
     getToken,
     statusColor, nextStatus, qualFactors,
   } = cd;
+
+  const { data: cookHealth } = useGetCookHealth(cookIdNum, {
+    query: {
+      queryKey: getGetCookHealthQueryKey(cookIdNum),
+      enabled: cookIdNum > 0 && (cookStatus === "active" || cookStatus === "completed"),
+    },
+  });
 
   const c = cook as any ?? {};
 
@@ -182,7 +189,6 @@ export default function CookDetailScreen() {
   } = analysisState;
 
   const weather = useAmbientWeather();
-  const [fGradeQuip, setFGradeQuip] = useState<string | null>(null);
   const [proactiveCoachingNote, setProactiveCoachingNote] = useState<string | null>(null);
   const [healthBreakdownOpen, setHealthBreakdownOpen] = useState(false);
   const [addItemModalOpen, setAddItemModalOpen] = useState(false);
@@ -216,7 +222,6 @@ export default function CookDetailScreen() {
   }, [id]);
 
   // ── Background AI refinement indicator ────────────────────────────────────
-  const cookIdNum = Number(id) || 0;
   const [bgAiRefining, setBgAiRefining] = useState(() => isBgRefining(cookIdNum));
   useEffect(() => {
     setBgAiRefining(isBgRefining(cookIdNum));
@@ -698,7 +703,7 @@ export default function CookDetailScreen() {
           />
 
           <CookSummaryCard c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs}
-            healthGrade={(() => { const stored: string | null | undefined = (c as any).healthScore; if (stored) return stored; const verdict: string | undefined = (c as any).analysisResult?.assessment?.verdict; return verdict !== undefined ? letterGrade(VERDICT_SCORE[verdict] ?? 50) : null; })()}
+            healthGrade={cookHealth?.grade ?? null}
             rating={(() => { const liveVals = [rateTenderness, rateFlavor, rateBark].filter((v) => v > 0); if (liveVals.length > 0) return liveVals.reduce((a, b) => a + b, 0) / liveVals.length; const r = (c as any).rating; return typeof r === "number" && r > 0 ? r : null; })()}
             onOpenHealthBreakdown={() => setHealthBreakdownOpen(true)}
           />
@@ -707,7 +712,6 @@ export default function CookDetailScreen() {
             colors={colors} cookStatus={cookStatus}
             proactiveCoachingNote={proactiveCoachingNote}
             setProactiveCoachingNote={setProactiveCoachingNote}
-            fGradeQuip={fGradeQuip}
             cookId={Number(id)}
             healthBreakdownOpen={cookStatus === "completed" ? healthBreakdownOpen : undefined}
             onHealthBreakdownOpenHandled={cookStatus === "completed" ? () => setHealthBreakdownOpen(false) : undefined}
@@ -760,7 +764,6 @@ export default function CookDetailScreen() {
             cookStatus={cookStatus}
             checkinCount={(cookCheckins as CookCheckin[]).length}
             lastDecision={cookStatus === "active" ? (c.analysisResult?.decisions?.[0] ?? null) : null}
-            onGradeChange={(grade, quip) => { if (cookStatus === "active") setFGradeQuip(grade === "F" ? quip : null); }}
             healthBreakdownOpen={healthBreakdownOpen}
             onHealthBreakdownOpenHandled={() => setHealthBreakdownOpen(false)}
           />

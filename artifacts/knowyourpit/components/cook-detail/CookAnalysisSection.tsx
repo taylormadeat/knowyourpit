@@ -8,14 +8,13 @@ interface CookAnalysisSectionProps {
   cookStatus: string | undefined;
   proactiveCoachingNote: string | null;
   setProactiveCoachingNote: (v: string | null) => void;
-  fGradeQuip: string | null;
   cookId?: number;
   healthBreakdownOpen?: boolean;
   onHealthBreakdownOpenHandled?: () => void;
 }
 
 export function CookAnalysisSection({
-  colors, cookStatus, proactiveCoachingNote, setProactiveCoachingNote, fGradeQuip,
+  colors, cookStatus, proactiveCoachingNote, setProactiveCoachingNote,
   cookId, healthBreakdownOpen, onHealthBreakdownOpenHandled,
 }: CookAnalysisSectionProps) {
   return (
@@ -31,16 +30,6 @@ export function CookAnalysisSection({
         </View>
       )}
 
-      {fGradeQuip && cookStatus === "active" && (
-        <View style={{ backgroundColor: "#EF444415", borderRadius: colors.radius as number, borderWidth: 1, borderColor: "#EF444450", padding: 14, flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
-          <Feather name="alert-octagon" size={16} color="#EF4444" style={{ marginTop: 1 }} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: "#EF4444", marginBottom: 4 }}>PitMaster Says: Cut Your Losses</Text>
-            <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.foreground as string, lineHeight: 18 }}>{fGradeQuip}</Text>
-          </View>
-        </View>
-      )}
-
       {cookStatus === "completed" && cookId != null && (
         <CookHealthScoreCard
           cookId={cookId}
@@ -48,7 +37,6 @@ export function CookAnalysisSection({
           cookStatus={cookStatus}
           checkinCount={0}
           lastDecision={null}
-          onGradeChange={undefined}
           compact={true}
           externalOpen={healthBreakdownOpen}
           onExternalOpenHandled={onHealthBreakdownOpenHandled}

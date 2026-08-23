@@ -1983,7 +1983,7 @@ export interface CreateCookEventBody {
 }
 
 /**
- * Letter grade: A, B, C, D, or F — null when the cook is flagged as an outlier pending review
+ * Letter grade: A, B, C, D, or F — null when the cook is an outlier or does not have enough evidence for a reliable grade
  * @nullable
  */
 export type CookHealthScoreGrade =
@@ -2021,7 +2021,7 @@ export type CookHealthScoreFactors = {
 export interface CookHealthScore {
   cookId: number;
   /**
-   * Letter grade: A, B, C, D, or F — null when the cook is flagged as an outlier pending review
+   * Letter grade: A, B, C, D, or F — null when the cook is an outlier or does not have enough evidence for a reliable grade
    * @nullable
    */
   grade: CookHealthScoreGrade;

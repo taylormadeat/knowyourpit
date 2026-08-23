@@ -41,21 +41,6 @@ const GRADE_CONFIG: Record<string, { color: string; bgColor: string; label: stri
   F: { color: "#EF4444", bgColor: "#EF444420", label: "Critical" },
 };
 
-const F_GRADE_QUIPS = [
-  "Honestly? The raccoons would turn this down. Let it go.",
-  "Even the dog walked away. That says everything.",
-  "This is a medical waste situation, not a BBQ.",
-  "At this point it's a fire hazard, not a meal.",
-  "PitMaster's official recommendation: cut your losses and order pizza.",
-  "This cook is done. Not in the good way.",
-  "The smoke detector called — it's filing a complaint.",
-  "Your grill tried its best. This one's not salvageable.",
-];
-
-export function getFGradeQuip(cookId: number): string {
-  return F_GRADE_QUIPS[cookId % F_GRADE_QUIPS.length];
-}
-
 const GRADE_SCORE: Record<string, number> = { A: 1, B: 0.8, C: 0.6, D: 0.4, F: 0.2 };
 
 interface Props {
@@ -64,13 +49,12 @@ interface Props {
   cookStatus: string | undefined;
   checkinCount: number;
   lastDecision?: LastDecision | null;
-  onGradeChange?: (grade: string, quip: string | null) => void;
   compact?: boolean;
   externalOpen?: boolean;
   onExternalOpenHandled?: () => void;
 }
 
-export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, lastDecision, onGradeChange, compact, externalOpen, onExternalOpenHandled }: Props) {
+export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, lastDecision, compact, externalOpen, onExternalOpenHandled }: Props) {
   const { isSignedIn } = useAuth();
   const [breakdownVisible, setBreakdownVisible] = useState(false);
 
@@ -88,13 +72,6 @@ export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, 
       refetchInterval: cookStatus === "active" ? 60000 : false,
     },
   });
-
-  const grade = health?.grade as string | undefined;
-
-  useEffect(() => {
-    if (!onGradeChange || !grade) return;
-    onGradeChange(grade, grade === "F" ? getFGradeQuip(cookId) : null);
-  }, [grade, cookId, onGradeChange]);
 
   if (cookStatus !== "active" && cookStatus !== "completed") return null;
   if (isLoading || !health) return null;
@@ -143,8 +120,7 @@ export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, 
   const resolvedGrade = health.grade as string;
   const cfg = GRADE_CONFIG[resolvedGrade] ?? GRADE_CONFIG.C;
   const score = GRADE_SCORE[resolvedGrade] ?? 0.5;
-  const fQuip = resolvedGrade === "F" ? getFGradeQuip(cookId) : null;
-  const displayReason = fQuip ?? health.reason;
+  const displayReason = health.reason;
 
   const breakdownModal = (
     <Modal visible={breakdownVisible} transparent animationType="slide" onRequestClose={() => setBreakdownVisible(false)}>
