@@ -17,4 +17,5 @@
 - [EAS hermesc syntax lowering](eas-hermesc-syntax-lowering.md) — EAS's Pods hermesc rejects ES6 classes; lowering must be non-loose AND strip annotation-only Flow fields first (build 137 & 138 crashes); smoke script + hermesc verify locally.
 - [OTA update on Replit](ota-update-replit.md) — eas update fails directly; use `bash scripts/ota-update.sh` (artifacts/knowyourpit/scripts/); script does export --no-bytecode + update --skip-bundler, one platform at a time.
 - [Live session reconciliation](live-session-reconciliation.md) — offline live-cook revisions require one durable session operation, not independent cook retries.
+- [AsyncStorage timeout recovery](asyncstorage-timeout-recovery.md) — bounded snapshot writes must prevent stale overwrite and recover interrupted syncing records without treating valid data as corrupt.
 - [App Store Connect category updates](asc-category-updates.md) — update secondary category through the parent app-info PATCH, not its GET-only relationship endpoint.

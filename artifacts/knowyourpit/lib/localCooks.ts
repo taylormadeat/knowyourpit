@@ -13,8 +13,35 @@ import {
 const STORAGE_KEY = "knowyourpit.local-cooks.v1";
 const SYNC_TIMEOUT_MS = 20_000;
 const RETRY_DELAYS_MS = [5_000, 15_000, 45_000, 120_000, 300_000];
+// AsyncStorage is normally quick, but a stalled native bridge must never trap a
+// Start Cooking Now button forever. The caller receives a clear retryable
+// error after this deadline; it does not navigate until the write confirms.
+export const LOCAL_COOK_STORAGE_TIMEOUT_MS = 5_000;
 
 export type LocalCookSyncState = "pending" | "syncing" | "synced" | "error";
+
+export class LocalCookStorageError extends Error {
+  readonly code = "LOCAL_COOK_STORAGE_UNAVAILABLE";
+
+  constructor(
+    readonly operation: "read" | "write",
+    readonly timedOut: boolean,
+  ) {
+    super(
+      timedOut
+        ? `Local storage ${operation} timed out.`
+        : `Local storage ${operation} is still recovering.`,
+    );
+    this.name = "LocalCookStorageError";
+  }
+}
+
+export function isLocalCookStorageError(error: unknown): error is LocalCookStorageError {
+  return error instanceof LocalCookStorageError ||
+    (typeof error === "object" &&
+      error !== null &&
+      (error as { code?: unknown }).code === "LOCAL_COOK_STORAGE_UNAVAILABLE");
+}
 
 export interface LocalCookRecord {
   localId: number;
@@ -29,6 +56,8 @@ export interface LocalCookRecord {
   nextRetryAt: number | null;
   updatedAt: string;
   deletedAt: string | null;
+  /** Stable per-cook retry identity; multi-cook members share a sessionId. */
+  localCreateKey?: string | null;
   sessionOperationId?: string | null;
 }
 
@@ -58,6 +87,11 @@ export interface LocalCookCreateOptions {
   serverId?: number | null;
   /** Full server response used for local rendering; never sent back on sync. */
   snapshot?: Record<string, unknown>;
+  /**
+   * Stable identity for retrying this individual local create. This must not
+   * use a shared multi-cook sessionId because each session member is distinct.
+   */
+  localCreateKey?: string | null;
 }
 
 interface StoredLocalCooks {
@@ -71,6 +105,8 @@ let sessionOperations: LocalCookSessionOperation[] = [];
 let hydrated = false;
 let hydratePromise: Promise<void> | null = null;
 let persistQueue: Promise<void> = Promise.resolve();
+let storageWriteBlocked = false;
+let unresolvedStorageWrite: Promise<void> | null = null;
 let syncInProgress = false;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<() => void>();
@@ -106,75 +142,164 @@ function sanitizeStored(value: unknown): Pick<StoredLocalCooks, "cooks" | "sessi
   return { cooks, sessionOperations };
 }
 
+function withStorageTimeout<T>(
+  operation: "read" | "write",
+  operationPromise: Promise<T>,
+) {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new LocalCookStorageError(operation, true));
+    }, LOCAL_COOK_STORAGE_TIMEOUT_MS);
+    operationPromise.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 function persist() {
+  if (storageWriteBlocked) {
+    return Promise.reject(new LocalCookStorageError("write", false));
+  }
   const snapshot: StoredLocalCooks = { version: 2, cooks: records, sessionOperations };
   persistQueue = persistQueue
     .catch(() => {})
-    .then(() => AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot)));
+    .then(async () => {
+      // Do not start a second full-snapshot write while a timed-out native write
+      // might still complete. A late older snapshot could otherwise overwrite a
+      // newer one and lose a cook. Once it settles, a manual retry can proceed.
+      if (storageWriteBlocked) {
+        throw new LocalCookStorageError("write", false);
+      }
+      const nativeWrite = AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+      unresolvedStorageWrite = nativeWrite;
+      nativeWrite.then(
+        () => {
+          if (unresolvedStorageWrite === nativeWrite) {
+            unresolvedStorageWrite = null;
+            storageWriteBlocked = false;
+          }
+        },
+        () => {
+          if (unresolvedStorageWrite === nativeWrite) {
+            unresolvedStorageWrite = null;
+            storageWriteBlocked = false;
+          }
+        },
+      );
+      try {
+        await withStorageTimeout("write", nativeWrite);
+      } catch (error) {
+        if (
+          isLocalCookStorageError(error) &&
+          error.timedOut &&
+          unresolvedStorageWrite === nativeWrite
+        ) {
+          storageWriteBlocked = true;
+        }
+        throw error;
+      }
+    });
   return persistQueue;
 }
 
 export async function hydrateLocalCooks() {
   if (hydrated) return;
   if (!hydratePromise) {
-    hydratePromise = AsyncStorage.getItem(STORAGE_KEY)
+    hydratePromise = withStorageTimeout("read", AsyncStorage.getItem(STORAGE_KEY))
       .then(async (raw) => {
-        if (raw) {
-          try {
-            const stored = sanitizeStored(JSON.parse(raw));
-            records = stored.cooks;
-             const recordsByLocalId = new Map(records.map((record) => [record.localId, record]));
-             const needsMemberRevisionMigration = stored.sessionOperations.some((operation) =>
-               !Array.isArray(operation.memberRevisions) ||
-               operation.memberRevisions.length !== operation.memberLocalIds.length,
-             );
-             const normalizedOperations = stored.sessionOperations.map((operation) => ({
-               ...operation,
-               memberRevisions: Array.isArray(operation.memberRevisions) &&
-                 operation.memberRevisions.length === operation.memberLocalIds.length
-                 ? operation.memberRevisions
-                 : operation.memberLocalIds.map(
-                     (localId) => recordsByLocalId.get(localId)?.revision ?? 0,
-                   ),
-             }));
-            const interruptedOperationIds = new Set(
-               normalizedOperations
-                .filter((operation) => operation.syncState === "syncing")
-                .map((operation) => operation.operationId),
-            );
-            // A process may be killed after persisting "syncing" and before a
-            // response arrives. On the next launch it is safe to replay the
-            // idempotent session operation, never to strand it forever.
-             sessionOperations = normalizedOperations.map((operation) =>
-              interruptedOperationIds.has(operation.operationId)
-                ? {
-                    ...operation,
-                    syncState: "pending" as const,
-                    syncError: null,
-                    nextRetryAt: null,
-                  }
-                : operation,
-            );
-             if (interruptedOperationIds.size > 0 || needsMemberRevisionMigration) {
-              records = records.map((record) => interruptedOperationIds.has(record.sessionOperationId ?? "")
-                ? {
-                    ...record,
-                    syncState: "pending" as const,
-                    syncError: null,
-                    nextRetryAt: null,
-                  }
-                : record);
-              await persist();
-            }
-          } catch {
-            records = [];
-            sessionOperations = [];
-          }
+        if (!raw) return;
+        let stored: Pick<StoredLocalCooks, "cooks" | "sessionOperations">;
+        try {
+          stored = sanitizeStored(JSON.parse(raw));
+        } catch {
+          // Only malformed JSON is treated as corrupt local data. A failed
+          // recovery write below must preserve the parsed local cook records.
+          records = [];
+          sessionOperations = [];
+          return;
+        }
+        records = stored.cooks;
+        const recordsByLocalId = new Map(records.map((record) => [record.localId, record]));
+        const needsMemberRevisionMigration = stored.sessionOperations.some((operation) =>
+          !Array.isArray(operation.memberRevisions) ||
+          operation.memberRevisions.length !== operation.memberLocalIds.length,
+        );
+        const normalizedOperations = stored.sessionOperations.map((operation) => ({
+          ...operation,
+          memberRevisions: Array.isArray(operation.memberRevisions) &&
+            operation.memberRevisions.length === operation.memberLocalIds.length
+            ? operation.memberRevisions
+            : operation.memberLocalIds.map(
+                (localId) => recordsByLocalId.get(localId)?.revision ?? 0,
+              ),
+        }));
+        const interruptedOperationIds = new Set(
+          normalizedOperations
+            .filter((operation) => operation.syncState === "syncing")
+            .map((operation) => operation.operationId),
+        );
+        const interruptedCookIds = new Set(
+          records
+            .filter((record) => record.syncState === "syncing")
+            .map((record) => record.localId),
+        );
+        // A process may be killed after persisting "syncing" and before a
+        // response arrives. On the next launch it is safe to replay the
+        // idempotent session operation, never to strand it forever.
+        sessionOperations = normalizedOperations.map((operation) =>
+          interruptedOperationIds.has(operation.operationId)
+            ? {
+                ...operation,
+                syncState: "pending" as const,
+                syncError: null,
+                nextRetryAt: null,
+              }
+            : operation,
+        );
+        if (
+          interruptedOperationIds.size > 0 ||
+          interruptedCookIds.size > 0 ||
+          needsMemberRevisionMigration
+        ) {
+          records = records.map((record) => (
+            interruptedCookIds.has(record.localId) ||
+            interruptedOperationIds.has(record.sessionOperationId ?? "")
+              ? {
+                  ...record,
+                  syncState: "pending" as const,
+                  syncError: null,
+                  nextRetryAt: null,
+                }
+              : record
+          ));
+          await persist();
         }
       })
-      .finally(() => {
+      .then(() => {
         hydrated = true;
         notify();
+      })
+      .catch((error) => {
+        // A timed-out native read may settle later, but its result must not
+        // mutate this module. Let a later user retry start a clean read.
+        hydrated = false;
+        hydratePromise = null;
+        notify();
+        throw error;
       });
   }
   return hydratePromise;
@@ -251,11 +376,28 @@ export async function createLocalCook(
   options: LocalCookCreateOptions = {},
 ) {
   await hydrateLocalCooks();
+  const ownerKey = ownerId || "anonymous";
+  const localCreateKey = options.localCreateKey ?? null;
+  // A write can time out after the native layer has accepted it. Keep that
+  // in-memory record and reuse that individual create key on retry instead of
+  // adding a duplicate. A multi-cook session shares one sessionId across its
+  // members, so sessionId alone is not safe as a local deduplication key.
+  if (localCreateKey) {
+    const existing = records.find((record) =>
+      ownerMatches(record, ownerKey) &&
+      !record.deletedAt &&
+      record.localCreateKey === localCreateKey,
+    );
+    if (existing) {
+      await persist();
+      return toCook(existing);
+    }
+  }
   const now = new Date().toISOString();
   const localId = newLocalId();
   const record: LocalCookRecord = {
     localId,
-    ownerId: ownerId || "anonymous",
+    ownerId: ownerKey,
     serverId: options.serverId ?? null,
     cook: {
       ...options.snapshot,
@@ -273,6 +415,7 @@ export async function createLocalCook(
     nextRetryAt: null,
     updatedAt: now,
     deletedAt: null,
+    localCreateKey,
   };
   records = [record, ...records];
   notify();
@@ -633,7 +776,21 @@ async function requestWithTimeout<T>(request: (signal: AbortSignal) => Promise<T
 async function replaceRecord(localId: number, next: LocalCookRecord) {
   records = records.map((record) => record.localId === localId ? next : record);
   notify();
-  await persist();
+  try {
+    await persist();
+  } catch (error) {
+    // A timed-out full-snapshot write can still settle late. Keep the in-memory
+    // outbox retryable until that native operation settles instead of leaving
+    // this cook permanently marked as syncing.
+    const previous = records.find((record) => record.localId === localId);
+    if (previous === next) {
+      records = records.map((record) => record.localId === localId
+        ? { ...record, syncState: "pending", syncError: null, nextRetryAt: null }
+        : record);
+      notify();
+    }
+    throw error;
+  }
 }
 
 function errorStatus(error: any) {
@@ -650,11 +807,26 @@ function sessionOperationMatches(operation: LocalCookSessionOperation, ownerId: 
 }
 
 async function replaceSessionOperation(operationId: string, next: LocalCookSessionOperation | null) {
+  const previous = sessionOperations.find((operation) => operation.operationId === operationId) ?? null;
   sessionOperations = next
     ? sessionOperations.map((operation) => operation.operationId === operationId ? next : operation)
     : sessionOperations.filter((operation) => operation.operationId !== operationId);
   notify();
-  await persist();
+  try {
+    await persist();
+  } catch (error) {
+    // Same recovery rule as individual cooks: don't retain an unconfirmed
+    // syncing transition when storage timed out before it became durable.
+    if (previous && sessionOperations.find((operation) => operation.operationId === operationId) === next) {
+      sessionOperations = sessionOperations.map((operation) =>
+        operation.operationId === operationId
+          ? { ...previous, syncState: "pending", syncError: null, nextRetryAt: null }
+          : operation,
+      );
+      notify();
+    }
+    throw error;
+  }
 }
 
 function responseCookForMember(
@@ -801,6 +973,7 @@ export async function syncLocalCooks(ownerId: string | null | undefined) {
   if (ownerKey === "anonymous" || syncInProgress) return;
   await hydrateLocalCooks();
   syncInProgress = true;
+  let storageRetryPending = false;
   try {
     const now = Date.now();
     await syncLiveCookSessionOperations(ownerKey, now);
@@ -889,9 +1062,20 @@ export async function syncLocalCooks(ownerId: string | null | undefined) {
         }
       }
     }
+  } catch (error) {
+    if (!isLocalCookStorageError(error)) throw error;
+    // The native operation that timed out is still serialized by persist().
+    // Retrying on the next tick would only spin on the blocked write; wait for
+    // a fresh bounded attempt instead. Hydration also repairs any late
+    // "syncing" snapshot if the app closes before this retry.
+    storageRetryPending = true;
   } finally {
     syncInProgress = false;
-    if (
+    if (storageRetryPending) {
+      setTimeout(() => {
+        void syncLocalCooks(ownerKey).catch(() => {});
+      }, LOCAL_COOK_STORAGE_TIMEOUT_MS);
+    } else if (
       records.some((record) => ownerMatches(record, ownerKey) && !record.sessionOperationId && record.syncState === "pending") ||
       sessionOperations.some((operation) => sessionOperationMatches(operation, ownerKey) && operation.syncState === "pending")
     ) {

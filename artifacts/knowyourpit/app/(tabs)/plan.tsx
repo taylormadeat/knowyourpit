@@ -154,6 +154,7 @@ import {
 import {
   createLocalCook,
   isLocalCookId,
+  isLocalCookStorageError,
   syncLocalCooks,
   updateLocalCook,
   upsertLocalServerCook,
@@ -653,6 +654,9 @@ export default function PlanScreen() {
   // Called after a successful save so the next visit feels like a fresh
   // planning session. `grillId` and `planMode` are intentionally preserved.
   const resetForm = () => {
+    // A quick-pick read started for the just-finished cook must not fill the
+    // fresh Plan form after the local cook detail route opens.
+    cutPickGenRef.current++;
     setCookName("");
     setSelectedCut(null);
     setActivePreset(null);
@@ -891,6 +895,9 @@ export default function PlanScreen() {
       setLastUsedWrapFinish(wrapFinish !== null ? wrapFinish : null);
 
       setRecommendedFields(resolved.recommendedFields);
+    }).catch(() => {
+      // Quick-picks are optional convenience data. A storage failure should
+      // never block the selected cut or turn into an unhandled rejection.
     });
   };
 
@@ -1473,12 +1480,18 @@ export default function PlanScreen() {
           });
           localReplanId = localReplan.id;
         }
+        // The local revision is now durable. If the user left the Plan tab
+        // while it was being written, keep it for outbox sync but do not let
+        // this stale submit change notifications, reset a draft, or navigate.
+        void syncLocalCooks(userId).catch(() => {});
+        if (submitSeqRef.current !== mySubmitSeq) return;
         // Cancel stale IDs keyed to this cook. If the cook is still frozen
         // (just with updated timing/method), re-arm with the new schedule.
         // Passing the existing actualThawStartAt ensures the 30-min warning
         // is re-scheduled against the new thawEndAt — which is the fix for
         // task #784's re-plan scenario.
         await cancelStoredFrozenNotifications(replanCookIdNum);
+        if (submitSeqRef.current !== mySubmitSeq) return;
         scheduleFrozenStageNotifications({
           cookId: localReplanId,
           frozen: frozenForCook,
@@ -1488,9 +1501,9 @@ export default function PlanScreen() {
           actualThawStartAt: replanActualThawStartAt,
         }).catch(() => {});
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (submitSeqRef.current !== mySubmitSeq) return;
         resetForm();
         router.push(`/cooks/${localReplanId}` as any);
-        void syncLocalCooks(userId);
         return;
       }
 
@@ -1608,8 +1621,19 @@ export default function PlanScreen() {
         ...(qpSpritz ? { spritzFrequency: qpSpritz } : {}),
         ...(qpWrapFinish ? { wrapFinish: qpWrapFinish } : {}),
       };
-      const localCook = await createLocalCook(userId, localCreatePayload);
+      const localCook = await createLocalCook(userId, localCreatePayload, {
+        // This session ID is unique to the single-cook submission and remains
+        // stable across a storage-error retry. Do not use it for multi-cook
+        // members, which intentionally share a session ID.
+        localCreateKey: idempotencySessionId,
+      });
       const localCookId = localCook.id;
+
+      // A blur/cancel can happen while the durable local write is pending.
+      // Keep the cook and start its background sync, but never let that stale
+      // submit reset a newer draft or navigate the user away from their tab.
+      void syncLocalCooks(userId).catch(() => {});
+      if (submitSeqRef.current !== mySubmitSeq) return;
 
       // Move to the durable local record before any optional side effect. The
       // outbox retries independently and its failure is visible on the list,
@@ -1636,7 +1660,6 @@ export default function PlanScreen() {
         }).catch(() => {});
       }
       pendingCreateRef.current = null;
-      void syncLocalCooks(userId);
       return;
 
       // Promise.race provides a per-attempt ceiling (MUTATION_TIMEOUT_MS). On a
@@ -1949,6 +1972,16 @@ export default function PlanScreen() {
     } catch (e: any) {
       // Cancelled / already recovered while in flight — swallow silently.
       if (submitSeqRef.current !== mySubmitSeq) return;
+      if (isLocalCookStorageError(e)) {
+        // Keep pendingCreateRef so the retry reuses its sessionId. If the
+        // native write finishes late, createLocalCook returns that same local
+        // record; if it did not, the retry attempts the durable write again.
+        Alert.alert(
+          "Local Save Unavailable",
+          "We couldn't confirm this cook was saved on your device. Your selections are still here — wait a moment, then tap Start Cooking Now again.",
+        );
+        return;
+      }
       // Cook creation timed out — connection too slow or stalled.
       const isTimeout =
         e?.message === "COOK_MUTATION_TIMEOUT" ||

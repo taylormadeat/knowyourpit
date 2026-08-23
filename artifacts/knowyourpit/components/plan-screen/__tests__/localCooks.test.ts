@@ -12,6 +12,9 @@ const SESSION_ID = "session-123";
 const NOW = new Date("2030-07-04T12:00:00.000Z");
 
 const mockStorage = new Map<string, string>();
+const mockGetItem = jest.fn();
+const mockSetItem = jest.fn();
+const mockRemoveItem = jest.fn();
 const mockCreateCook = jest.fn();
 const mockUpdateCook = jest.fn();
 const mockDeleteCook = jest.fn();
@@ -20,13 +23,9 @@ const mockReconcileLiveCookSession = jest.fn();
 jest.mock("@react-native-async-storage/async-storage", () => ({
   __esModule: true,
   default: {
-    getItem: jest.fn(async (key: string) => mockStorage.get(key) ?? null),
-    setItem: jest.fn(async (key: string, value: string) => {
-      mockStorage.set(key, value);
-    }),
-    removeItem: jest.fn(async (key: string) => {
-      mockStorage.delete(key);
-    }),
+    getItem: mockGetItem,
+    setItem: mockSetItem,
+    removeItem: mockRemoveItem,
   },
 }));
 
@@ -117,6 +116,16 @@ function responseFor(operation: Record<string, any>, firstId = 700) {
 describe("local planning outbox failure recovery", () => {
   beforeEach(() => {
     mockStorage.clear();
+    mockGetItem.mockReset();
+    mockSetItem.mockReset();
+    mockRemoveItem.mockReset();
+    mockGetItem.mockImplementation(async (key: string) => mockStorage.get(key) ?? null);
+    mockSetItem.mockImplementation(async (key: string, value: string) => {
+      mockStorage.set(key, value);
+    });
+    mockRemoveItem.mockImplementation(async (key: string) => {
+      mockStorage.delete(key);
+    });
     mockCreateCook.mockReset();
     mockUpdateCook.mockReset();
     mockDeleteCook.mockReset();
@@ -388,5 +397,172 @@ describe("local planning outbox failure recovery", () => {
     expect(snapshot.cooks.map((cook) => cook.serverId)).toEqual(
       expect.arrayContaining([700, 701]),
     );
+  });
+
+  it("times out a stalled local read and allows a clean retry", async () => {
+    const localCooks = loadLocalCooks();
+    let releaseRead!: (value: string | null) => void;
+    mockGetItem.mockImplementationOnce(() => new Promise<string | null>((resolve) => {
+      releaseRead = resolve;
+    }));
+
+    const stalledHydration = localCooks.hydrateLocalCooks();
+    await flushMicrotasks();
+    jest.advanceTimersByTime(localCooks.LOCAL_COOK_STORAGE_TIMEOUT_MS);
+
+    await expect(stalledHydration).rejects.toMatchObject({
+      code: "LOCAL_COOK_STORAGE_UNAVAILABLE",
+      operation: "read",
+      timedOut: true,
+    });
+
+    // A native callback resolving after the UI timeout is ignored. The next
+    // user attempt starts a fresh read rather than inheriting the stuck one.
+    releaseRead(null);
+    await flushMicrotasks();
+    await expect(localCooks.hydrateLocalCooks()).resolves.toBeUndefined();
+  });
+
+  it("never duplicates a local cook when its first durable write finishes late", async () => {
+    const localCooks = loadLocalCooks();
+    let finishLateWrite!: () => void;
+    mockSetItem.mockImplementationOnce((key: string, value: string) => new Promise<void>((resolve) => {
+      finishLateWrite = () => {
+        mockStorage.set(key, value);
+        resolve();
+      };
+    }));
+    const payload = {
+      foodType: "Brisket",
+      status: "active",
+      sessionId: "local-write-retry-session",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+    };
+
+    const firstAttempt = localCooks.createLocalCook(OWNER_ID, payload, {
+      localCreateKey: payload.sessionId,
+    });
+    await flushMicrotasks();
+    jest.advanceTimersByTime(localCooks.LOCAL_COOK_STORAGE_TIMEOUT_MS);
+
+    await expect(firstAttempt).rejects.toMatchObject({
+      code: "LOCAL_COOK_STORAGE_UNAVAILABLE",
+      operation: "write",
+      timedOut: true,
+    });
+
+    // Once the original native write settles, the next tap reuses the
+    // in-memory record for the same session instead of adding another cook.
+    finishLateWrite();
+    await flushMicrotasks();
+    const retry = await localCooks.createLocalCook(OWNER_ID, payload, {
+      localCreateKey: payload.sessionId,
+    });
+    const snapshot = readSnapshot();
+
+    expect(snapshot.cooks).toHaveLength(1);
+    expect(snapshot.cooks[0]).toMatchObject({
+      localId: retry.id,
+      ownerId: OWNER_ID,
+      syncPayload: expect.objectContaining({ sessionId: payload.sessionId }),
+    });
+  });
+
+  it("keeps every member when a multi-cook session uses one shared session ID", async () => {
+    const localCooks = loadLocalCooks();
+    const first = await localCooks.createLocalCook(OWNER_ID, {
+      foodType: "Brisket",
+      status: "planned",
+      sessionId: "shared-multi-session",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+    });
+    const second = await localCooks.createLocalCook(OWNER_ID, {
+      foodType: "Ribs",
+      status: "planned",
+      sessionId: "shared-multi-session",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+    });
+
+    expect(first.id).not.toBe(second.id);
+    const snapshot = readSnapshot();
+    expect(snapshot.cooks).toHaveLength(2);
+    expect(snapshot.cooks.map((cook) => cook.syncPayload.foodType)).toEqual(
+      expect.arrayContaining(["Brisket", "Ribs"]),
+    );
+  });
+
+  it("recovers a cook whose background-sync state write timed out", async () => {
+    const localCooks = loadLocalCooks();
+    await localCooks.createLocalCook(OWNER_ID, {
+      foodType: "Brisket",
+      status: "active",
+      sessionId: "sync-timeout-session",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+    });
+
+    let finishLateWrite!: () => void;
+    mockSetItem.mockImplementationOnce((key: string, value: string) => new Promise<void>((resolve) => {
+      finishLateWrite = () => {
+        mockStorage.set(key, value);
+        resolve();
+      };
+    }));
+    const syncAttempt = localCooks.syncLocalCooks(OWNER_ID);
+    await flushMicrotasks();
+    jest.advanceTimersByTime(localCooks.LOCAL_COOK_STORAGE_TIMEOUT_MS);
+    await syncAttempt;
+
+    // The timed-out native write eventually persists its older "syncing"
+    // snapshot. A restart must normalize it back to pending and retry it.
+    finishLateWrite();
+    await flushMicrotasks();
+    const restarted = loadLocalCooks();
+    await restarted.hydrateLocalCooks();
+    expect(readSnapshot().cooks[0]).toMatchObject({ syncState: "pending" });
+
+    await restarted.syncLocalCooks(OWNER_ID);
+    expect(mockCreateCook).toHaveBeenCalledTimes(1);
+    expect(readSnapshot().cooks[0]).toMatchObject({ syncState: "synced", serverId: 501 });
+  });
+
+  it("keeps a valid recovered cook when its hydration repair write times out", async () => {
+    const firstModule = loadLocalCooks();
+    await firstModule.createLocalCook(OWNER_ID, {
+      foodType: "Brisket",
+      status: "active",
+      sessionId: "hydrate-recovery-session",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+    });
+    const interrupted = readSnapshot();
+    interrupted.cooks[0].syncState = "syncing";
+    mockStorage.set(STORAGE_KEY, JSON.stringify(interrupted));
+
+    let finishLateWrite!: () => void;
+    mockSetItem.mockImplementationOnce((key: string, value: string) => new Promise<void>((resolve) => {
+      finishLateWrite = () => {
+        mockStorage.set(key, value);
+        resolve();
+      };
+    }));
+    const restarted = loadLocalCooks();
+    const hydration = restarted.hydrateLocalCooks();
+    await flushMicrotasks();
+    jest.advanceTimersByTime(restarted.LOCAL_COOK_STORAGE_TIMEOUT_MS);
+
+    await expect(hydration).rejects.toMatchObject({
+      code: "LOCAL_COOK_STORAGE_UNAVAILABLE",
+      operation: "write",
+      timedOut: true,
+    });
+
+    // The late repair write contains the parsed cook normalized to pending;
+    // a fresh bounded hydration must retain it rather than treating it as
+    // corrupt storage and clearing the local outbox.
+    finishLateWrite();
+    await flushMicrotasks();
+    const recovered = loadLocalCooks();
+    await recovered.hydrateLocalCooks();
+    expect(readSnapshot().cooks).toHaveLength(1);
+    expect(readSnapshot().cooks[0]).toMatchObject({ syncState: "pending" });
   });
 });
