@@ -24,7 +24,7 @@
 # USAGE
 # -----
 #   cd artifacts/knowyourpit
-#   bash scripts/ota-update.sh [--channel <channel>] [--message "<msg>"] [--platform <ios|android|all>] [--yes|-y]
+#   bash scripts/ota-update.sh [--channel <channel>] [--message "<msg>"] [--platform <ios|android|all>] [--yes|-y] [--verify-only]
 #
 # Defaults:
 #   --channel   production
@@ -34,6 +34,7 @@
 # FLAGS
 # -----
 #   --yes / -y  Skip the production confirmation prompt (required for CI / non-interactive use)
+#   --verify-only  Export and validate the channel's bundle without publishing it
 #
 # The script exports one platform at a time to avoid OOM errors in the Replit
 # container.  Pass --platform ios or --platform android to publish a single
@@ -68,6 +69,7 @@ CHANNEL="production"
 MESSAGE=""
 PLATFORM="all"
 YES=0
+VERIFY_ONLY=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -79,12 +81,31 @@ while [[ $# -gt 0 ]]; do
       PLATFORM="$2"; shift 2 ;;
     --yes|-y)
       YES=1; shift ;;
+    --verify-only)
+      VERIFY_ONLY=1; shift ;;
     *)
       echo "Unknown argument: $1" >&2
-      echo "Usage: $0 [--channel <channel>] [--message \"<msg>\"] [--platform <ios|android|all>] [--yes|-y]" >&2
+      echo "Usage: $0 [--channel <preview|production>] [--message \"<msg>\"] [--platform <ios|android|all>] [--yes|-y] [--verify-only]" >&2
       exit 1 ;;
   esac
 done
+
+# ---------------------------------------------------------------------------
+# OTA channel → EAS build-profile mapping
+# ---------------------------------------------------------------------------
+# OTA updates replace the JS bundle, including EXPO_PUBLIC_* values compiled
+# into it. The export must therefore use the same profile as its target
+# channel; exporting preview with production env would hide TestFlight-only
+# partner cards.
+case "$CHANNEL" in
+  preview|production)
+    EAS_PROFILE="$CHANNEL" ;;
+  *)
+    echo "ERROR: OTA publishing supports only the preview and production channels." >&2
+    echo "       Received: $CHANNEL" >&2
+    exit 1 ;;
+esac
+export EAS_PROFILE
 
 # ---------------------------------------------------------------------------
 # Helper: export + publish one platform
@@ -95,8 +116,8 @@ publish_platform() {
   echo "=== Exporting bundle for platform: $plat ==="
 
   # ---------------------------------------------------------------------
-  # CRITICAL: inject the production public env vars from eas.json
-  # (build.production.env) into the export. EAS cloud builds get these
+  # CRITICAL: inject the target channel's public env vars from eas.json
+  # (build.<profile>.env) into the export. EAS cloud builds get these
   # automatically; a bare `expo export` on Replit does NOT — which shipped
   # OTA bundles with an EMPTY Clerk publishable key, crashing every app
   # launch at ClerkProvider mount ("Missing publishableKey").
@@ -107,15 +128,20 @@ publish_platform() {
   while IFS= read -r line; do
     export "$line"
   done < <(python3 - <<'PYEOF'
-import json, re
-env = json.load(open("eas.json"))["build"]["production"].get("env", {})
+import json, os, re
+profile = os.environ["EAS_PROFILE"]
+env = json.load(open("eas.json"))["build"][profile].get("env", {})
 for k, v in env.items():
     if re.fullmatch(r"EXPO_PUBLIC_[A-Z0-9_]+", k) and isinstance(v, str) and "\n" not in v:
         print(f"{k}={v}")
 PYEOF
 )
+  if [[ "${EXPO_PUBLIC_PARTNER_BIG_PETES:-}" != "true" && "${EXPO_PUBLIC_PARTNER_BIG_PETES:-}" != "false" ]]; then
+    echo "🔴  ABORT: $EAS_PROFILE profile must explicitly set EXPO_PUBLIC_PARTNER_BIG_PETES to true or false." >&2
+    exit 1
+  fi
   if [[ -z "${EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD:-}" || "${EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD:-}" != pk_live_* ]]; then
-    echo "🔴  ABORT: EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD is missing or not a pk_live_ key (check eas.json build.production.env)" >&2
+    echo "🔴  ABORT: EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD is missing or not a pk_live_ key (check eas.json build.$EAS_PROFILE.env)" >&2
     exit 1
   fi
 
@@ -125,8 +151,8 @@ PYEOF
     --output-dir dist \
     --clear
 
-  # Verify the exported bundle actually contains the live Clerk key and the
-  # production API URL before uploading anything.
+  # Verify the exported bundle actually contains the channel profile's Clerk
+  # key, API URL, and compiled partner default before uploading anything.
   local bundle
   bundle=$(ls dist/_expo/static/js/"$plat"/*.js | head -1)
   if ! grep -qF "$EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD" "$bundle"; then
@@ -134,10 +160,52 @@ PYEOF
     exit 1
   fi
   if ! grep -qF "$EXPO_PUBLIC_API_URL" "$bundle"; then
-    echo "🔴  ABORT: exported bundle does not contain the production API URL ($EXPO_PUBLIC_API_URL)." >&2
+    echo "🔴  ABORT: exported bundle does not contain the expected API URL ($EXPO_PUBLIC_API_URL)." >&2
     exit 1
   fi
-  echo "✓  Bundle contains pk_live_ Clerk key and production API URL"
+  if ! BUNDLE="$bundle" EXPECTED_PARTNER_DEFAULT="$EXPO_PUBLIC_PARTNER_BIG_PETES" python3 - <<'PYEOF'
+import os, re, sys
+
+bundle = open(os.environ["BUNDLE"], encoding="utf-8").read()
+expected = os.environ["EXPECTED_PARTNER_DEFAULT"]
+marker = '"X-KYP-Partner-Build":'
+marker_index = bundle.find(marker)
+if marker_index < 0:
+    sys.exit("partner build marker is missing")
+
+value = re.match(r'(["\'](?:true|false)["\']|[A-Za-z_$][A-Za-z0-9_$]*)',
+                 bundle[marker_index + len(marker):])
+if not value:
+    sys.exit("partner build marker has no readable value")
+
+token = value.group(1)
+if token[0] in "\"'":
+    actual = token[1:-1]
+else:
+    # Metro commonly hoists inlined env values into short module-local names
+    # (for example: l="true", then {"X-KYP-Partner-Build":l}). Depending on
+    # Metro's module layout the declaration can appear just before or after
+    # the fetch call, so inspect a tightly bounded window around the marker.
+    module_prefix = bundle[max(0, marker_index - 8192):marker_index + 8192]
+    declaration = re.search(rf'(?:^|[,;]){re.escape(token)}=(["\'])(true|false)\1',
+                            module_prefix)
+    if not declaration:
+        sys.exit(f"partner build marker references {token!r}, but its literal value was not found")
+    actual = declaration.group(2)
+
+if actual != expected:
+    sys.exit(f"expected partner build default {expected!r}, found {actual!r}")
+PYEOF
+  then
+    echo "🔴  ABORT: exported bundle does not contain the expected partner build default ($EXPO_PUBLIC_PARTNER_BIG_PETES)." >&2
+    exit 1
+  fi
+  echo "✓  Bundle contains pk_live_ Clerk key, API URL, and partner default: $EXPO_PUBLIC_PARTNER_BIG_PETES"
+
+  if [[ "$VERIFY_ONLY" -eq 1 ]]; then
+    echo "✓  Verification-only mode: $plat bundle was not published."
+    return
+  fi
 
   echo ""
   echo "=== Publishing OTA update for platform: $plat (channel: $CHANNEL) ==="
@@ -164,7 +232,7 @@ PYEOF
 # ---------------------------------------------------------------------------
 # Production confirmation guard
 # ---------------------------------------------------------------------------
-if [[ "$CHANNEL" == "production" && "$YES" -eq 0 ]]; then
+if [[ "$CHANNEL" == "production" && "$YES" -eq 0 && "$VERIFY_ONLY" -eq 0 ]]; then
   if [[ -t 0 ]]; then
     # Interactive TTY — prompt for confirmation.
     echo ""
@@ -194,7 +262,7 @@ fi
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-echo "OTA update — channel: $CHANNEL  platform: $PLATFORM"
+echo "OTA update — channel: $CHANNEL  profile: $EAS_PROFILE  platform: $PLATFORM"
 echo "Package root: $PKG_ROOT"
 echo ""
 

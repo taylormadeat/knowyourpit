@@ -9,8 +9,8 @@ dashboard audit.
 
 | Origin | Variables set |
 |--------|---------------|
-| `eas.json` `build.production.env` (hardcoded) | `EXPO_PUBLIC_API_URL` |
-| EAS secrets / `eas env` (must be configured manually) | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD`, `EXPO_PUBLIC_REVENUECAT_IOS_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` |
+| `eas.json` build-profile `env` | `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD`, `EXPO_PUBLIC_PARTNER_BIG_PETES` |
+| EAS secrets / `eas env` (must be configured manually) | `EXPO_PUBLIC_REVENUECAT_IOS_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` |
 | Runtime injection by `scripts/build.js` (Replit web build) | `EXPO_PUBLIC_DOMAIN`, `EXPO_PUBLIC_REPL_ID`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`, `EXPO_PUBLIC_CLERK_PROXY_URL` |
 | `package.json dev` script (Replit dev session) | `EXPO_PUBLIC_DOMAIN`, `EXPO_PUBLIC_REPL_ID`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` |
 
@@ -28,6 +28,18 @@ dashboard audit.
   `hooks/useHomeInsights.ts`,
   `app/(tabs)/ai.tsx`, `app/(tabs)/plan.tsx`, `app/(tabs)/more.tsx`.
 - **Fallback**: If unset, the app constructs the URL from `EXPO_PUBLIC_DOMAIN`.
+
+---
+
+### `EXPO_PUBLIC_PARTNER_BIG_PETES`
+- **Purpose**: Build-specific default for Big Pete's partner cards. This is a
+  public rollout control, not a secret or authorization mechanism.
+- **Values**: `true` enables cards in development and preview/TestFlight builds;
+  `false` keeps cards hidden in production/App Store builds.
+- **Set in**: `eas.json` build-profile `env` and the Replit development command.
+- **Used in**: `hooks/useRemoteConfig.ts`.
+- **Kill switch**: The API's `partnerBigPetes` value can still disable cards in
+  every build after remote config refreshes.
 
 ---
 
@@ -58,11 +70,9 @@ dashboard audit.
 ### `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD`
 - **Purpose**: Production Clerk publishable key (`pk_live_…`). Takes priority
   over `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` in `app/_layout.tsx`.
-- **Set in**: Must be created as an EAS secret before every production build:
-  ```
-  eas secret:create EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD pk_live_xxxx
-  ```
-- **EAS environments**: `production`, `preview` (if testing against prod Clerk).
+- **Set in**: `eas.json` for the `production` and `preview` profiles. It is a
+  public identifier rather than a private Clerk credential.
+- **EAS environments**: `production`, `preview`.
 - **Used in**: `app/_layout.tsx`.
 
 ---
@@ -220,10 +230,11 @@ pnpm --filter @workspace/scripts run build:backup:dry-run -- \
 
 ---
 
-## Audit notes (May 2026)
+## Audit notes (August 2026)
 
-- `eas.json` `build.production.env` contains exactly one variable
-  (`EXPO_PUBLIC_API_URL`). No ghost variables were found.
+- EAS build profiles explicitly set API routing and partner-card rollout values
+  where required; preview/TestFlight and production/App Store builds intentionally
+  receive different partner defaults.
 - All 8 `EXPO_PUBLIC_*` variables referenced in source code have a documented
   injection path above.
 - No `EXPO_PUBLIC_*` variables were found that exist only as EAS dashboard

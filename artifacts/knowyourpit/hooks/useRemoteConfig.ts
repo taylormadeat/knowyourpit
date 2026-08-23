@@ -8,19 +8,43 @@ export type RemoteConfig = {
   partnerBigPetes: boolean;
 };
 
+// Each signed build carries an explicit visibility default:
+// - development and preview/TestFlight builds: true
+// - production/App Store builds: false
+//
+// The API response remains the final kill switch. This lets us safely test
+// partner content through TestFlight without changing the public app, while
+// still allowing the server to turn the feature off across every build.
+const buildPartnerDefault = process.env.EXPO_PUBLIC_PARTNER_BIG_PETES;
+const buildPartnerEnabled = buildPartnerDefault === "true";
+
 const DEFAULT_CONFIG: RemoteConfig = {
-  // Defaults to true so partner cards are visible immediately and remain visible
-  // if the config fetch times out or the server is temporarily unreachable.
-  // The server fetch can override to false if the feature needs to be disabled.
-  partnerBigPetes: true,
+  partnerBigPetes: buildPartnerEnabled,
 };
 
 let cached: RemoteConfig | null = null;
 
+export function resolvePartnerVisibility(
+  isBuildEnabled: boolean,
+  serverConfig: RemoteConfig | null,
+): boolean {
+  // A build must opt in AND the server must allow the feature. A false server
+  // value therefore kills the partner cards in preview, production, and dev
+  // builds as soon as the remote config refresh completes.
+  return isBuildEnabled && (serverConfig?.partnerBigPetes ?? true);
+}
+
+export function resolveRemoteConfig(serverConfig: RemoteConfig | null): RemoteConfig {
+  return {
+    partnerBigPetes: resolvePartnerVisibility(buildPartnerEnabled, serverConfig),
+  };
+}
+
 /**
  * Fetches feature flags from the API once per app session (result is
  * module-level cached so every screen gets the same value without extra
- * requests).  Returns DEFAULT_CONFIG if the server is unreachable.
+ * requests). The build profile establishes initial visibility; the server can
+ * subsequently disable the feature for every build as an emergency kill switch.
  */
 export function useRemoteConfig(): RemoteConfig {
   const [config, setConfig] = useState<RemoteConfig>(cached ?? DEFAULT_CONFIG);
@@ -38,15 +62,18 @@ export function useRemoteConfig(): RemoteConfig {
     fetch(`${API_BASE_URL}/api/config`, {
       signal: controller.signal,
       cache: "no-store",
+      // Keeps the compiled build default observable in OTA-export validation.
+      // The API does not trust or use this public diagnostic value for access.
+      headers: { "X-KYP-Partner-Build": buildPartnerDefault ?? "unset" },
     })
       .then(r => (r.ok ? r.json() : null))
       .then((data: RemoteConfig | null) => {
         if (cancelled || !data) return;
-        cached = { ...DEFAULT_CONFIG, ...data };
+        cached = resolveRemoteConfig(data);
         setConfig(cached);
       })
       .catch(() => {
-        // Network failure — keep the default. Partnership stays visible.
+        // Network failure — retain the build-specific default.
       })
       .finally(() => clearTimeout(timeout));
 

@@ -4,7 +4,7 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "dev": "CI=1 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=$CLERK_PUBLISHABLE_KEY EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_REPL_ID=$REPL_ID REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN pnpm exec expo start --localhost --port $PORT",
+    "dev": "CI=1 EXPO_PUBLIC_PARTNER_BIG_PETES=true EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=$CLERK_PUBLISHABLE_KEY EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_REPL_ID=$REPL_ID REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN pnpm exec expo start --localhost --port $PORT",
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -13,7 +13,8 @@
     "measure-archive-size": "node scripts/measure-archive-size.js",
     "eas:build:ios": "node scripts/measure-archive-size.js && eas build --platform ios",
     "eas:build:preview": "node scripts/measure-archive-size.js && eas build --profile preview --platform ios",
-    "eas:update": "eas update --channel production",
+    "eas:update": "bash scripts/ota-update.sh --channel production --yes",
+    "verify:ota-profiles": "bash scripts/ota-update.sh --channel preview --platform ios --verify-only && bash scripts/ota-update.sh --channel production --platform ios --verify-only",
     "audit-env": "node scripts/audit-env.js",
     "test": "jest",
     "test:e2e": "playwright test"
