@@ -50,6 +50,7 @@ import { useRefetchOnFocus } from "@/hooks/useRefetchOnFocus";
 import { useAuth } from "@clerk/expo";
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { cookMethodContextPhrase } from "@/utils/cookingMethod";
+import { deleteLocalCook, isLocalCookId, mergeLocalAndServerCooks, useLocalCooks } from "@/lib/localCooks";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
@@ -366,14 +367,20 @@ export default function CooksScreen() {
   const [outlierReviewCookId, setOutlierReviewCookId] = useState<number | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [reviewRating, setReviewRating] = useState<number | null>(null);
-  const { isSignedIn } = useAuth();
-  const { data: cooks, isLoading, refetch } = useListCooks(undefined, {
+  const { isSignedIn, userId } = useAuth();
+  const { data: serverCooks, isLoading: serverCooksLoading, refetch } = useListCooks(undefined, {
     query: {
       enabled: !!isSignedIn,
       staleTime: 30_000,
       retry: 2,
     } as any,
   });
+  const { cooks: localCooks, isHydrated: localCooksHydrated } = useLocalCooks(userId);
+  const cooks = useMemo(
+    () => mergeLocalAndServerCooks(serverCooks, localCooks),
+    [serverCooks, localCooks],
+  );
+  const isLoading = serverCooksLoading && !localCooksHydrated;
   // Force a refetch every time this tab gains focus (e.g. after saving a
   // planned cook from the Plan tab and navigating back here). See
   // useRefetchOnFocus for why this is necessary in addition to the Plan
@@ -389,6 +396,13 @@ export default function CooksScreen() {
   const qc = useQueryClient();
   const openSwipeableRef = useRef<Swipeable | null>(null);
   const swipeableRefs = useRef<Record<number, Swipeable>>({});
+  const deleteCookRecord = async (cookId: number) => {
+    if (isLocalCookId(cookId)) {
+      await deleteLocalCook(cookId);
+      return;
+    }
+    await deleteCook.mutateAsync({ id: cookId });
+  };
 
   const hasActiveCooks = useMemo(
     () => ((cooks as any[]) || []).some((c) => c.status === "active"),
@@ -664,7 +678,7 @@ export default function CooksScreen() {
           try {
             await Promise.all(
               prev.cooks.map(async (cook) => {
-                await deleteCook.mutateAsync({ id: cook.id });
+                await deleteCookRecord(cook.id);
                 await cancelStoredFrozenNotifications(cook.id).catch(() => {});
                 await cancelStoredCheckinNotifications(cook.id).catch(() => {});
                 await cancelStoredSpritzNotifications(cook.id).catch(() => {});
@@ -714,7 +728,7 @@ export default function CooksScreen() {
     try {
       await Promise.all(
         group.cooks.map(async (cook) => {
-          await deleteCook.mutateAsync({ id: cook.id });
+          await deleteCookRecord(cook.id);
           await cancelStoredFrozenNotifications(cook.id).catch(() => {});
           await cancelStoredCheckinNotifications(cook.id).catch(() => {});
           await cancelStoredSpritzNotifications(cook.id).catch(() => {});
@@ -770,7 +784,7 @@ export default function CooksScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteCook.mutateAsync({ id: cookId });
+              await deleteCookRecord(cookId);
               await cancelStoredFrozenNotifications(cookId).catch(() => {});
               await cancelStoredCheckinNotifications(cookId).catch(() => {});
               await cancelStoredSpritzNotifications(cookId).catch(() => {});
@@ -890,6 +904,13 @@ export default function CooksScreen() {
               <View style={s.livePill}>
                 <View style={s.liveDot} />
                 <Text style={s.livePillText}>LIVE</Text>
+              </View>
+            )}
+            {(item._syncState === "pending" || item._syncState === "syncing" || item._syncState === "error") && (
+              <View style={[s.livePill, { backgroundColor: item._syncState === "error" ? "#B4530920" : "#3B82F620" }]}>
+                <Text style={[s.livePillText, { color: item._syncState === "error" ? "#B45309" : "#2563EB" }]}>
+                  {item._syncState === "error" ? "SAVED ON DEVICE" : "SAVING"}
+                </Text>
               </View>
             )}
           </View>

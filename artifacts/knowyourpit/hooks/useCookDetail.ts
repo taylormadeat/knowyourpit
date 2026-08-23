@@ -51,6 +51,12 @@ import { loadRemovedCheckinPhaseKeys } from "@/hooks/useCheckinNotifications";
 import type { ScheduleItem, SequenceData } from "@/components/cook-detail/types";
 import { generateCheckinSchedule } from "@/constants/checkinKnowledge";
 import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
+import {
+  deleteLocalCook,
+  isLocalCookId,
+  updateLocalCook,
+  useLocalCook,
+} from "@/lib/localCooks";
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -78,7 +84,7 @@ export type CookDetailState = ReturnType<typeof useCookDetail>;
 export function useCookDetail(id: string | undefined) {
   const router = useRouter();
   const qc = useQueryClient();
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, userId } = useAuth();
   const { showPaywall, parseAndShowFromError } = usePaywall();
   const { data: paywallUsage } = usePaywallUsage();
   const effectivePro = useEffectivePro();
@@ -86,6 +92,9 @@ export function useCookDetail(id: string | undefined) {
   effectiveProRef.current = effectivePro;
   const { isIdentityLinked } = useSubscription();
 
+  const localCookId = Number(id);
+  const isLocalCook = isLocalCookId(localCookId);
+  const { cook: localCook, isHydrated: localCookHydrated } = useLocalCook(id, userId);
   const cookFromListCache = useMemo(() => {
     const numId = Number(id);
     const keysToSearch = [getListCooksQueryKey(), getGetRecentCooksQueryKey()];
@@ -99,30 +108,39 @@ export function useCookDetail(id: string | undefined) {
     return undefined;
   }, [qc, id]);
 
-  const { data: cook, isLoading, dataUpdatedAt: cookDataUpdatedAt } = useGetCook(
+  const { data: remoteCook, isLoading: remoteCookLoading, dataUpdatedAt: cookDataUpdatedAt } = useGetCook(
     Number(id),
     {
       query: {
         staleTime: 20_000,
-        enabled: !!isSignedIn && !!id,
+        enabled: !!isSignedIn && !!id && !isLocalCook,
         initialData: cookFromListCache,
         initialDataUpdatedAt: cookFromListCache ? 0 : undefined,
       } as any,
     },
   );
+  const cook = isLocalCook ? localCook : remoteCook;
+  const isLoading = isLocalCook ? !localCookHydrated : remoteCookLoading;
 
   const deleteCook = useDeleteCook();
   const updateCook = useUpdateCook();
   const dismissCookOutlier = useDismissCookOutlier();
   const analyzeMutation = useAnalyzeCook();
   const createCheckin = useCreateCookCheckin();
+  const persistCookPatch = useCallback(
+    (data: Record<string, unknown>) => {
+      if (isLocalCook) return updateLocalCook(localCookId, data);
+      return updateCook.mutateAsync({ id: localCookId, data: data as UpdateCookBody });
+    },
+    [isLocalCook, localCookId, updateCook],
+  );
 
   const cookStatus = (cook as any)?.status as string | undefined;
 
   const { data: allCooksForCount } = useListCooks(undefined, {
     query: {
       queryKey: [...getListCooksQueryKey(), "active_count"],
-      enabled: !!isSignedIn && cookStatus === "active",
+        enabled: !!isSignedIn && cookStatus === "active" && !isLocalCook,
       staleTime: 30_000,
     },
   });
@@ -136,7 +154,7 @@ export function useCookDetail(id: string | undefined) {
     {
       query: {
         queryKey: getListCookCheckinsQueryKey(Number(id)),
-        enabled: !!isSignedIn && (cookStatus === "active" || cookStatus === "completed" || cookStatus === "planned"),
+        enabled: !!isSignedIn && !isLocalCook && (cookStatus === "active" || cookStatus === "completed" || cookStatus === "planned"),
         refetchOnWindowFocus: cookStatus === "active",
       },
     },
@@ -326,6 +344,13 @@ export function useCookDetail(id: string | undefined) {
         text: "Delete", style: "destructive",
         onPress: async () => {
           try {
+            if (isLocalCook) {
+              await deleteLocalCook(localCookId);
+              await cancelStoredFrozenNotifications(localCookId).catch(() => {});
+              await cancelStoredCheckinNotifications(localCookId).catch(() => {});
+              router.replace("/(tabs)/cooks" as any);
+              return;
+            }
             await deleteCook.mutateAsync({ id: Number(id) });
             await cancelStoredFrozenNotifications(Number(id)).catch(() => {});
             await cancelStoredCheckinNotifications(Number(id)).catch(() => {});
@@ -345,7 +370,7 @@ export function useCookDetail(id: string | undefined) {
   };
 
   const handleStatusUpdate = async (status: string) => {
-    if (status === "active" && paywallUsage && !paywallUsage.unlimited) {
+    if (!isLocalCook && status === "active" && paywallUsage && !paywallUsage.unlimited) {
       if (paywallUsage.usage.activeCooks >= 1) {
         showPaywall({ trigger: "active_cook_limit_reached" });
         return;
@@ -359,7 +384,7 @@ export function useCookDetail(id: string | undefined) {
       updatePayload.actualEndAt = new Date();
     }
     try {
-      await updateCook.mutateAsync({ id: Number(id), data: updatePayload });
+      await persistCookPatch(updatePayload);
     } catch (e: any) {
       const isTimeout =
         e?.name === "AbortError" ||
@@ -404,11 +429,13 @@ export function useCookDetail(id: string | undefined) {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     // Background refetches to confirm server state — not awaited so they
     // don't delay notification scheduling or the rating prompt below.
-    qc.invalidateQueries({ queryKey: getGetCookQueryKey(cookIdNum) });
-    qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
-    qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
-    qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
-    qc.invalidateQueries({ queryKey: ["home", "insights"] });
+    if (!isLocalCook) {
+      qc.invalidateQueries({ queryKey: getGetCookQueryKey(cookIdNum) });
+      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      qc.invalidateQueries({ queryKey: ["home", "insights"] });
+    }
 
     if (status === "completed" && !(cook as any)?.rating) {
       setShowRatingPrompt(true);
@@ -485,12 +512,14 @@ export function useCookDetail(id: string | undefined) {
       payload.injection = editInjection;
       payload.spritzFrequency = editSpritzFrequency;
       payload.wrapFinish = editWrapFinish;
-      await updateCook.mutateAsync({ id: Number(id), data: payload });
+      await persistCookPatch(payload);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
-      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
-      qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
-      qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      if (!isLocalCook) {
+        qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+        qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      }
       setEditVisible(false);
     } catch (e: any) {
       const isTimeout = e?.name === "AbortError" || (typeof e?.message === "string" && e.message.includes("timed out"));
@@ -506,13 +535,12 @@ export function useCookDetail(id: string | undefined) {
     try {
       const nonZero = [tenderness, flavor, bark].filter(v => v > 0);
       const avg = nonZero.length > 0 ? Math.round(nonZero.reduce((s, v) => s + v, 0) / nonZero.length) : null;
-      await updateCook.mutateAsync({
-        id: Number(id),
-        data: { ratingTenderness: tenderness || null, ratingFlavor: flavor || null, ratingBark: bark || null, rating: avg },
-      });
+      await persistCookPatch({ ratingTenderness: tenderness || null, ratingFlavor: flavor || null, ratingBark: bark || null, rating: avg });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
-      qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+      if (!isLocalCook) {
+        qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+      }
     } catch (e: any) {
       const isTimeout = e?.name === "AbortError" || (typeof e?.message === "string" && e.message.includes("timed out"));
       Alert.alert("Save failed", isTimeout ? "Request timed out — check your connection and try again." : (e?.message || "Could not save ratings. Please try again."));
@@ -562,8 +590,8 @@ export function useCookDetail(id: string | undefined) {
     }
 
     try {
-      await updateCook.mutateAsync({ id: Number(id), data: { confirmedSteps: next, ...(updatedSeqData ? { sequenceData: updatedSeqData } : {}) } as any });
-      qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+      await persistCookPatch({ confirmedSteps: next, ...(updatedSeqData ? { sequenceData: updatedSeqData } : {}) });
+      if (!isLocalCook) qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
 
       if (isConfirming) {
         setUndoPending({ key, stepLabel: STEP_LABELS[step] ?? step, prevConfirmedSteps: prev, prevSeqData: savedPrevSeqData });
@@ -571,7 +599,7 @@ export function useCookDetail(id: string | undefined) {
         setUndoPending(null);
       }
 
-      if (step === "stall" || step === "probeTender") {
+      if (!isLocalCook && (step === "stall" || step === "probeTender")) {
         const noteText = step === "stall" ? "Stall detected" : "Probe tender achieved";
         try {
           const token = await getTokenSafe(getToken);
@@ -629,8 +657,8 @@ export function useCookDetail(id: string | undefined) {
     }
 
     try {
-      await updateCook.mutateAsync({ id: Number(id), data: { confirmedSteps: next, ...(updatedSeqData ? { sequenceData: updatedSeqData } : {}) } as any });
-      qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+      await persistCookPatch({ confirmedSteps: next, ...(updatedSeqData ? { sequenceData: updatedSeqData } : {}) });
+      if (!isLocalCook) qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
       setUndoPending({ key, stepLabel: STEP_LABELS["wrap"], prevConfirmedSteps: prev, prevSeqData: savedPrevSeqData });
     } catch (e: any) {
       setConfirmedSteps(prev);
@@ -656,9 +684,9 @@ export function useCookDetail(id: string | undefined) {
     const data: any = { confirmedSteps: prevConfirmedSteps };
     if (prevSeqData !== null) data.sequenceData = prevSeqData;
     try {
-      await updateCook.mutateAsync({ id: Number(id), data });
-      qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
-      if (step === "stall" || step === "probeTender") {
+      await persistCookPatch(data);
+      if (!isLocalCook) qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+      if (!isLocalCook && (step === "stall" || step === "probeTender")) {
         try {
           const token = await getTokenSafe(getToken);
           const headers: Record<string, string> = {};
@@ -688,7 +716,7 @@ export function useCookDetail(id: string | undefined) {
     setMarkingThaw(true);
     try {
       const actualNow = new Date().toISOString();
-      await updateCook.mutateAsync({ id: cook.id, data: { actualThawStartAt: actualNow as any } });
+      await persistCookPatch({ actualThawStartAt: actualNow });
 
       const currentSeqData = (cook as any)?.sequenceData as SequenceData | null | undefined;
       const frozen = currentSeqData?.frozen;
@@ -717,7 +745,7 @@ export function useCookDetail(id: string | undefined) {
           const shiftedPlannedStartAt: string | null = existingPlannedStart
             ? new Date(new Date(existingPlannedStart).getTime() + diffMs).toISOString()
             : null;
-          await updateCook.mutateAsync({ id: cook.id, data: { sequenceData: updatedSeqData, ...(shiftedPlannedStartAt ? { plannedStartAt: shiftedPlannedStartAt as any } : {}) } as any });
+          await persistCookPatch({ sequenceData: updatedSeqData, ...(shiftedPlannedStartAt ? { plannedStartAt: shiftedPlannedStartAt } : {}) });
           scheduleFrozenStageNotifications({
             cookId: cook.id, frozen: updatedSeqData.frozen,
             preheatStartAt: shiftedPlannedStartAt, foodType: (frozen as any)?.foodType ?? null,
@@ -732,7 +760,7 @@ export function useCookDetail(id: string | undefined) {
         }
       }
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      qc.invalidateQueries({ queryKey: getGetCookQueryKey(cook.id) });
+      if (!isLocalCook) qc.invalidateQueries({ queryKey: getGetCookQueryKey(cook.id) });
     } catch (e: any) {
       const isTimeout = e?.name === "AbortError" || (typeof e?.message === "string" && e.message.includes("timed out"));
       Alert.alert("Error", isTimeout ? "Request timed out — check your connection and try again." : (e?.message || "Could not record thaw start time. Please try again."));
@@ -746,11 +774,13 @@ export function useCookDetail(id: string | undefined) {
     try {
       const payload: Record<string, unknown> = { actualStartAt: meatOnAt.toISOString() };
       if (thawStartAt !== null) payload.actualThawStartAt = thawStartAt.toISOString();
-      const updated = await updateCook.mutateAsync({ id: Number(id), data: payload as any });
+      const updated = await persistCookPatch(payload);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
-      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
-      qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      if (!isLocalCook) {
+        qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
+        qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      }
       setEditTimesVisible(false);
       const freshSchedule =
         ((updated as any)?.sequenceData as SequenceData | undefined)?.schedule ?? cookSeqData?.schedule;

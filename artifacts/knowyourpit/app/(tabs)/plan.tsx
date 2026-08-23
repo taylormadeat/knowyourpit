@@ -150,6 +150,7 @@ import {
   findPendingCook,
   createIntentFingerprint,
 } from "@/components/plan-screen/pendingCreate";
+import { createLocalCook, syncLocalCooks } from "@/lib/localCooks";
 
 // Hard upper bound on every AI network call. React Native's fetch has no
 // default timeout, so a stalled connection would otherwise hang the loading
@@ -173,7 +174,7 @@ export default function PlanScreen() {
   const colors = useColors();
   const router = useRouter();
   const qc = useQueryClient();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, userId } = useAuth();
 
   const { data: grills } = useListGrills({ query: { staleTime: 5 * 60 * 1000, enabled: !!isSignedIn } } as any);
   const createCook = useCreateCook();
@@ -1272,28 +1273,6 @@ export default function PlanScreen() {
       Alert.alert("Required", "Please select a meat cut");
       return;
     }
-    // Free-tier pre-checks — fire paywall before any API work. Pass the
-    // currently-selected food type so the paywall can personalize copy
-    // (e.g. "Want to log this brisket cook?").
-    // Replan mode updates an existing cook in place — no new slot consumed.
-    if (!replanCookIdNum && paywallUsage && !paywallUsage.unlimited) {
-      if (paywallUsage.remaining.cooks <= 0) {
-        submitInFlightRef.current = false;
-        showPaywall({
-          trigger: "cook_limit_reached",
-          foodType: selectedCut?.name ?? null,
-        });
-        return;
-      }
-      if (effectiveCookNowMode === "later" && paywallUsage.usage.plannedCooks >= 1) {
-        submitInFlightRef.current = false;
-        showPaywall({
-          trigger: "planned_cook_limit_reached",
-          foodType: selectedCut?.name ?? null,
-        });
-        return;
-      }
-    }
     // Show immediate visual feedback before any await. The setTimeout(0) yield
     // gives React Native one event-loop tick to commit the disabled/spinner
     // state before the JS thread is blocked by the Clerk SecureStore read and
@@ -1408,7 +1387,7 @@ export default function PlanScreen() {
           thawStartAt: schedule.frozen.thawStartAt.toISOString(),
           // thawEndAt === temperStartAt by construction; one timestamp covers both.
           thawEndAt: schedule.frozen.thawEndAt.toISOString(),
-          foodType: selectedCut.name,
+          foodType: selectedCut!.name,
         }
       : null;
 
@@ -1479,7 +1458,7 @@ export default function PlanScreen() {
           cookId: replanCookIdNum,
           frozen: frozenForCook,
           preheatStartAt: plannedStart ? plannedStart.toISOString() : null,
-          foodType: selectedCut.name,
+          foodType: selectedCut!.name,
           includePreheat: true,
           actualThawStartAt: replanActualThawStartAt,
         }).catch(() => {});
@@ -1530,22 +1509,20 @@ export default function PlanScreen() {
       )
         ? pendingCreateRef.current
         : null;
-      const idempotencySessionId =
-        effectiveCookNowMode === "now" && schedule?.startAt
-          ? (reusablePending?.sessionId ?? Crypto.randomUUID())
-          : undefined;
+      // Every local outbox create needs a stable server idempotency key, not
+      // only live cooks. It is persisted with the local payload and reused for
+      // every retry after a timeout or process restart.
+      const idempotencySessionId = reusablePending?.sessionId ?? Crypto.randomUUID();
       // plannedStartAt is part of the server dedup key — a retry must send
       // the same value as the original attempt or the dedup guard misses.
       const idempotencyPlannedStartAt =
-        effectiveCookNowMode === "now"
-          ? (reusablePending?.plannedStartAt ?? schedule?.startAt ?? null)
-          : null;
+        reusablePending?.plannedStartAt ?? schedule?.startAt ?? new Date();
       // A retry is only safe when the server can dedup it (both sessionId and
       // plannedStartAt present). Otherwise we make a single attempt so a slow
       // network never produces a duplicate cook.
-      const canRetryCreate = !!idempotencySessionId;
+      const canRetryCreate = true;
       mySessionId = idempotencySessionId;
-      if (idempotencySessionId && idempotencyPlannedStartAt) {
+      if (idempotencyPlannedStartAt) {
         pendingCreateRef.current = {
           sessionId: idempotencySessionId,
           plannedStartAt: idempotencyPlannedStartAt,
@@ -1553,6 +1530,93 @@ export default function PlanScreen() {
           startedAt: reusablePending?.startedAt ?? Date.now(),
         };
       }
+
+      // The cook itself is local-first. This durable write is the only work on
+      // the critical path: it does not require a route, a token refresh,
+      // paywall usage, or even a working network connection.
+      const localCreatePayload: Record<string, unknown> = {
+        foodType: selectedCut.name,
+        weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : undefined,
+        sizingLabel: sizeOutput.sizingLabel ?? undefined,
+        targetTempF: targetTempF ? Number(targetTempF) : selectedCut.targetTempF,
+        cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
+        grillId: grillId ?? undefined,
+        notes: noteParts.join("\n\n") || undefined,
+        status: effectiveCookNowMode === "now" ? "active" : "planned",
+        sessionId: idempotencySessionId,
+        ...(effectiveCookNowMode === "now"
+          ? {
+              actualStartAt: new Date().toISOString(),
+              plannedStartAt: new Date(idempotencyPlannedStartAt).toISOString(),
+              ...(schedule?.restEndAt ? { plannedEndAt: schedule.restEndAt.toISOString() } : {}),
+              ...(frozenForCook ? { actualThawStartAt: new Date().toISOString() } : {}),
+            }
+          : {
+              ...(serveAt ? { plannedEndAt: serveAt.toISOString() } : {}),
+              plannedStartAt: new Date(idempotencyPlannedStartAt).toISOString(),
+            }),
+        preheatMinutes: preheatMins,
+        restMinutes: restMins,
+        sequenceData: {
+          ...(frozenForCook ? { frozen: frozenForCook } : {}),
+          schedule: baselineSchedule ? [{
+            foodType: selectedCut.name,
+            grillLightAt: baselineSchedule.preheatStartAt,
+            meatOnAt: baselineSchedule.meatOnAt,
+            estimatedFinishAt: baselineSchedule.pullAt,
+            estimatedDurationMinutes: baselineSchedule.cookMins,
+            restMinutes: baselineSchedule.restMins,
+            preheatMinutes: baselineSchedule.preheatMins,
+            grillId: grillId ?? null,
+            weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : null,
+            targetTempF: targetTempF ? Number(targetTempF) : (selectedCut.targetTempF ?? null),
+            ...(baselineSchedule.wrapAt ? {
+              wrapMethod: qpWrapFinish?.toLowerCase().includes("butcher") ? "butcher_paper" : "foil",
+              wrapAtMinutes: Math.round(
+                (new Date(baselineSchedule.wrapAt).getTime() - new Date(baselineSchedule.meatOnAt).getTime()) / 60000,
+              ),
+              wrapTempF: baselineSchedule.wrapTempF ?? null,
+            } : { wrapMethod: "none", wrapAtMinutes: 0 }),
+          }] : [],
+          aiRefining: true,
+        },
+        ...(frozenForCook ? { fromFrozen: true, thawMethod: frozenForCook.method } : {}),
+        ...(qpCookMethod ? { cookingMethod: qpCookMethod } : {}),
+        ...(qpMeatStartTemp ? { meatStartTemp: qpMeatStartTemp } : {}),
+        ...(qpInjection ? { injection: qpInjection } : {}),
+        ...(qpSpritz ? { spritzFrequency: qpSpritz } : {}),
+        ...(qpWrapFinish ? { wrapFinish: qpWrapFinish } : {}),
+      };
+      const localCook = await createLocalCook(userId, localCreatePayload);
+      const localCookId = localCook.id;
+
+      // Move to the durable local record before any optional side effect. The
+      // outbox retries independently and its failure is visible on the list,
+      // but can never erase, block, or duplicate this cook.
+      resetForm();
+      router.push(`/cooks/${localCookId}` as any);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      AsyncStorage.setItem("plan_technique_qp", JSON.stringify({
+        cookMethod: qpCookMethod,
+        meatStartTemp: qpMeatStartTemp,
+        injection: qpInjection,
+        spritz: qpSpritz,
+        wrapFinish: qpWrapFinish,
+      })).catch(() => {});
+      if (selectedCut && qpCookMethod) saveLastCookMethod(selectedCut.name, qpCookMethod);
+      if (frozenForCook) {
+        scheduleFrozenStageNotifications({
+          cookId: localCookId,
+          frozen: frozenForCook,
+          preheatStartAt: plannedStart ? plannedStart.toISOString() : null,
+          foodType: selectedCut!.name,
+          includePreheat: effectiveCookNowMode === "later",
+          actualThawStartAt: effectiveCookNowMode === "now" ? new Date().toISOString() : undefined,
+        }).catch(() => {});
+      }
+      pendingCreateRef.current = null;
+      void syncLocalCooks(userId);
+      return;
 
       // Promise.race provides a per-attempt ceiling (MUTATION_TIMEOUT_MS). On a
       // stalled connection mutateAsync can hang indefinitely — the race rejects
@@ -1568,11 +1632,11 @@ export default function PlanScreen() {
         submitAbortRef.current = controller;
         return Promise.race([
           createCookRequest({
-          foodType: selectedCut.name,
+          foodType: selectedCut!.name,
           weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : undefined,
           sizingLabel: sizeOutput.sizingLabel ?? undefined,
-          targetTempF: targetTempF ? Number(targetTempF) : selectedCut.targetTempF,
-          cookTempF: cookTempF ? Number(cookTempF) : selectedCut.cookTempF,
+          targetTempF: targetTempF ? Number(targetTempF) : selectedCut!.targetTempF,
+          cookTempF: cookTempF ? Number(cookTempF) : selectedCut!.cookTempF,
           grillId: grillId ?? undefined,
           notes: noteParts.join("\n\n") || undefined,
           status: effectiveCookNowMode === "now" ? "active" : "planned",
@@ -1606,7 +1670,7 @@ export default function PlanScreen() {
           sequenceData: {
             ...(frozenForCook ? { frozen: frozenForCook } : {}),
             schedule: baselineSchedule ? [{
-              foodType: selectedCut.name,
+              foodType: selectedCut!.name,
               grillLightAt: baselineSchedule.preheatStartAt,
               meatOnAt: baselineSchedule.meatOnAt,
               estimatedFinishAt: baselineSchedule.pullAt,
@@ -1615,7 +1679,7 @@ export default function PlanScreen() {
               preheatMinutes: baselineSchedule.preheatMins,
               grillId: grillId ?? null,
               weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : null,
-              targetTempF: targetTempF ? Number(targetTempF) : (selectedCut.targetTempF ?? null),
+              targetTempF: targetTempF ? Number(targetTempF) : (selectedCut!.targetTempF ?? null),
               ...(baselineSchedule.wrapAt ? {
                 wrapMethod: qpWrapFinish?.toLowerCase().includes("butcher") ? "butcher_paper" : "foil",
                 wrapAtMinutes: Math.round(
@@ -1723,7 +1787,7 @@ export default function PlanScreen() {
         const staleFrozenCooks = cooksToSweep.filter(
           (c) =>
             c.fromFrozen &&
-            c.foodType === selectedCut.name &&
+            c.foodType === selectedCut!.name &&
             (grillId == null || c.grillId === grillId) &&
             c.id !== newCookId,
         );
@@ -1743,10 +1807,10 @@ export default function PlanScreen() {
           // will be added by useFrozenStageNotifications when the cook detail
           // mounts and actualThawStartAt becomes non-null (via handleMarkThawStarted).
           scheduleFrozenStageNotifications({
-            cookId: newCookId,
+            cookId: newCookId!,
             frozen: frozenForCook,
-            preheatStartAt: plannedStart ? plannedStart.toISOString() : null,
-            foodType: selectedCut.name,
+            preheatStartAt: plannedStart ? plannedStart!.toISOString() : null,
+            foodType: selectedCut!.name,
             includePreheat: true,
           }).catch(() => {});
         } else if (effectiveCookNowMode === "now" && frozenForCook) {
@@ -1758,17 +1822,17 @@ export default function PlanScreen() {
           // useScheduleStepNotifications handles grillLight from the detail screen.
           const actualThawNow = new Date().toISOString();
           scheduleFrozenStageNotifications({
-            cookId: newCookId,
+            cookId: newCookId!,
             frozen: frozenForCook,
             preheatStartAt: null,
-            foodType: selectedCut.name,
+            foodType: selectedCut!.name,
             includePreheat: false,
             actualThawStartAt: actualThawNow,
           }).catch(() => {});
         }
       }
       const usedCooksBefore = paywallUsage?.usage?.cooks ?? 0;
-      const isFreeAccount = !!paywallUsage && !paywallUsage.unlimited;
+      const isFreeAccount = !!paywallUsage && !paywallUsage!.unlimited;
       const plannedFood = selectedCut?.name ?? null;
 
       // For "Start Cooking Now" mode: navigate immediately after cook creation
@@ -1795,10 +1859,10 @@ export default function PlanScreen() {
           wrapFinish: qpWrapFinish,
         })).catch(() => {});
         if (selectedCut && qpCookMethod) {
-          saveLastCookMethod(selectedCut.name, qpCookMethod);
+          saveLastCookMethod(selectedCut!.name, qpCookMethod!);
         }
         // Fire background AI refinement — always runs now (no pre-save AI step)
-        fireBgAiRefine(newCookId, bgPayload).catch(() => {});
+        fireBgAiRefine(newCookId!, bgPayload).catch(() => {});
         return;
       }
 
@@ -1821,13 +1885,13 @@ export default function PlanScreen() {
       // Persist the cook method per cut so it pre-selects next time the same
       // cut is picked — matching the behaviour in MultiCookAddItemModal.
       if (selectedCut && qpCookMethod) {
-        saveLastCookMethod(selectedCut.name, qpCookMethod);
+        saveLastCookMethod(selectedCut!.name, qpCookMethod!);
       }
 
       // Fire background AI refinement — always runs now (no pre-save AI step).
       // Captured before resetForm() so form state is still valid.
       if (newCookId) {
-        fireBgAiRefine(newCookId, bgPredictPayload).catch(() => {});
+        fireBgAiRefine(newCookId!, bgPredictPayload).catch(() => {});
       }
 
       resetForm();
