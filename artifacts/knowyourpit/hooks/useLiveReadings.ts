@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-client-react";
 import type { ProbeTimeSeries } from "@/components/TempGraph";
 import type { ProbeState } from "./useProbeState";
+import { isLocalCookId } from "@/lib/localCooks";
 
 interface UseLiveReadingsParams {
   id: string | undefined;
@@ -35,6 +36,7 @@ interface UseLiveReadingsParams {
 export type LiveReadingsState = ReturnType<typeof useLiveReadings>;
 
 export function useLiveReadings({ id, cookStatus, cook, cookCheckins, probeState }: UseLiveReadingsParams) {
+  const isLocalCook = isLocalCookId(Number(id));
   const {
     tempMode, selectedMeatProbeId, selectedPitProbeId, probeLabels,
     selectedInkbirdProbe, selectedInkbirdPitProbe,
@@ -77,7 +79,7 @@ export function useLiveReadings({ id, cookStatus, cook, cookCheckins, probeState
     {
       query: {
         queryKey: getListTemperatureReadingsQueryKey({ cookId: Number(id) }),
-        enabled: (cookStatus === "active" || cookStatus === "completed") && !!cook?.actualStartAt,
+        enabled: !isLocalCook && (cookStatus === "active" || cookStatus === "completed") && !!cook?.actualStartAt,
       },
     },
   );
@@ -229,7 +231,7 @@ export function useLiveReadings({ id, cookStatus, cook, cookCheckins, probeState
     if (internalTempF == null) return;
     if (fetchedAtMs <= lastUploadedProbeTs.current) return;
     const cookId = Number(id);
-    if (!cookId || cookStatus !== "active") return;
+    if (!cookId || isLocalCook || cookStatus !== "active") return;
     lastUploadedProbeTs.current = fetchedAtMs;
 
     const meatKey = selectedMeatProbeId ?? undefined;
@@ -257,7 +259,7 @@ export function useLiveReadings({ id, cookStatus, cook, cookCheckins, probeState
         ],
       },
     });
-  }, [autoCheckinProbeReading, id, cookStatus, probeLabels, selectedMeatProbeId, selectedPitProbeId]);
+  }, [autoCheckinProbeReading, id, isLocalCook, cookStatus, probeLabels, selectedMeatProbeId, selectedPitProbeId]);
 
   // Completed cook readings probes (for graph on completed cooks without AI analysis)
   const completedCookReadingsProbes = useMemo<ProbeTimeSeries[]>(() => {

@@ -198,6 +198,7 @@ export default function CookDetailScreen() {
   // Fire proactive alert checks whenever the probe internal temp updates.
   // cookingMethod is passed so stall alerts are suppressed for direct-heat cooks.
   useEffect(() => {
+    if (cookIdNum <= 0) return;
     if (!autoCheckinProbeReading?.internalTempF) return;
     proactiveAlerts.check({
       cookId: cook?.id ?? null,
@@ -210,7 +211,7 @@ export default function CookDetailScreen() {
       cookingMethod: cook?.cookingMethod ?? null,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoCheckinProbeReading?.internalTempF]);
+  }, [autoCheckinProbeReading?.internalTempF, cookIdNum]);
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data ?? {};

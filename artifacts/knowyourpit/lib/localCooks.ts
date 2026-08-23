@@ -14,8 +14,8 @@ const STORAGE_KEY = "knowyourpit.local-cooks.v1";
 const SYNC_TIMEOUT_MS = 20_000;
 const RETRY_DELAYS_MS = [5_000, 15_000, 45_000, 120_000, 300_000];
 // AsyncStorage is normally quick, but a stalled native bridge must never trap a
-// Start Cooking Now button forever. The caller receives a clear retryable
-// error after this deadline; it does not navigate until the write confirms.
+// cook-start interaction. Writes have a deadline for recovery purposes, while
+// the visible local commit and navigation happen before the background flush.
 export const LOCAL_COOK_STORAGE_TIMEOUT_MS = 5_000;
 
 export type LocalCookSyncState = "pending" | "syncing" | "synced" | "error";
@@ -107,6 +107,7 @@ let hydratePromise: Promise<void> | null = null;
 let persistQueue: Promise<void> = Promise.resolve();
 let storageWriteBlocked = false;
 let unresolvedStorageWrite: Promise<void> | null = null;
+let persistRetryTimer: ReturnType<typeof setTimeout> | null = null;
 let syncInProgress = false;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<() => void>();
@@ -216,6 +217,22 @@ function persist() {
   return persistQueue;
 }
 
+/**
+ * Local UI state is the source of truth for an offline-first cook. A native
+ * AsyncStorage bridge can stall while the app is still perfectly able to show,
+ * edit, and sync the in-memory record; never make a button or navigation wait
+ * for that bridge. Keep retrying the serialized snapshot in the background.
+ */
+function queuePersist() {
+  void persist().catch(() => {
+    if (persistRetryTimer) return;
+    persistRetryTimer = setTimeout(() => {
+      persistRetryTimer = null;
+      queuePersist();
+    }, LOCAL_COOK_STORAGE_TIMEOUT_MS);
+  });
+}
+
 export async function hydrateLocalCooks() {
   if (hydrated) return;
   if (!hydratePromise) {
@@ -226,19 +243,38 @@ export async function hydrateLocalCooks() {
         try {
           stored = sanitizeStored(JSON.parse(raw));
         } catch {
-          // Only malformed JSON is treated as corrupt local data. A failed
-          // recovery write below must preserve the parsed local cook records.
-          records = [];
-          sessionOperations = [];
+          // A cold read may return after a user has already started a new cook.
+          // Corrupt *stored* data must never erase that in-memory commit; write
+          // the good current snapshot over it instead. A clean cold start still
+          // treats malformed storage as empty.
+          if (records.length > 0 || sessionOperations.length > 0) {
+            queuePersist();
+          } else {
+            records = [];
+            sessionOperations = [];
+          }
           return;
         }
-        records = stored.cooks;
+        // A cook can be started before a slow cold-start read returns. Merge
+        // rather than replace in-memory commits so that late hydration can
+        // never erase the cook the pitmaster has already been routed into.
+        const inMemoryRecords = records;
+        const hadPreHydrationRecords = inMemoryRecords.length > 0;
+        const inMemoryIds = new Set(inMemoryRecords.map((record) => record.localId));
+        records = [
+          ...inMemoryRecords,
+          ...stored.cooks.filter((record) => !inMemoryIds.has(record.localId)),
+        ];
+        const hadPreHydrationOperations = sessionOperations.length > 0;
+        const inMemoryOperationIds = new Set(sessionOperations.map((operation) => operation.operationId));
         const recordsByLocalId = new Map(records.map((record) => [record.localId, record]));
         const needsMemberRevisionMigration = stored.sessionOperations.some((operation) =>
           !Array.isArray(operation.memberRevisions) ||
           operation.memberRevisions.length !== operation.memberLocalIds.length,
         );
-        const normalizedOperations = stored.sessionOperations.map((operation) => ({
+        const normalizedOperations = stored.sessionOperations
+          .filter((operation) => !inMemoryOperationIds.has(operation.operationId))
+          .map((operation) => ({
           ...operation,
           memberRevisions: Array.isArray(operation.memberRevisions) &&
             operation.memberRevisions.length === operation.memberLocalIds.length
@@ -260,7 +296,9 @@ export async function hydrateLocalCooks() {
         // A process may be killed after persisting "syncing" and before a
         // response arrives. On the next launch it is safe to replay the
         // idempotent session operation, never to strand it forever.
-        sessionOperations = normalizedOperations.map((operation) =>
+        sessionOperations = [
+          ...sessionOperations,
+          ...normalizedOperations.map((operation) =>
           interruptedOperationIds.has(operation.operationId)
             ? {
                 ...operation,
@@ -269,11 +307,14 @@ export async function hydrateLocalCooks() {
                 nextRetryAt: null,
               }
             : operation,
-        );
+          ),
+        ];
         if (
           interruptedOperationIds.size > 0 ||
           interruptedCookIds.size > 0 ||
-          needsMemberRevisionMigration
+          needsMemberRevisionMigration ||
+          hadPreHydrationRecords ||
+          hadPreHydrationOperations
         ) {
           records = records.map((record) => (
             interruptedCookIds.has(record.localId) ||
@@ -286,7 +327,7 @@ export async function hydrateLocalCooks() {
                 }
               : record
           ));
-          await persist();
+          queuePersist();
         }
       })
       .then(() => {
@@ -375,7 +416,9 @@ export async function createLocalCook(
   payload: Record<string, unknown>,
   options: LocalCookCreateOptions = {},
 ) {
-  await hydrateLocalCooks();
+  // Do not put a cold or stalled native read on the create CTA's critical
+  // path. hydrateLocalCooks() merges late storage data with this commit.
+  if (!hydrated) void hydrateLocalCooks().catch(() => {});
   const ownerKey = ownerId || "anonymous";
   const localCreateKey = options.localCreateKey ?? null;
   // A write can time out after the native layer has accepted it. Keep that
@@ -389,7 +432,7 @@ export async function createLocalCook(
       record.localCreateKey === localCreateKey,
     );
     if (existing) {
-      await persist();
+      queuePersist();
       return toCook(existing);
     }
   }
@@ -419,7 +462,7 @@ export async function createLocalCook(
   };
   records = [record, ...records];
   notify();
-  await persist();
+  queuePersist();
   return toCook(record);
 }
 
@@ -466,7 +509,7 @@ export async function updateLocalCook(
   };
   records = records.map((item, itemIndex) => itemIndex === index ? next : item);
   notify();
-  await persist();
+  queuePersist();
   return toCook(next);
 }
 
@@ -575,7 +618,7 @@ export async function enqueueLiveCookSessionReconciliation(
     : record);
   sessionOperations = [...sessionOperations, operation];
   notify();
-  await persist();
+  queuePersist();
   return operation;
 }
 
@@ -707,7 +750,7 @@ export async function saveLiveCookSessionBaseline(input: {
     operation,
   ];
   notify();
-  await persist();
+  queuePersist();
   return { anchor: toCook(anchorRecord), added: toCook(addedRecord), operation };
 }
 
@@ -729,7 +772,7 @@ export async function deleteLocalCook(localId: number) {
       }
     : item);
   notify();
-  await persist();
+  queuePersist();
 }
 
 /**
@@ -750,7 +793,7 @@ export async function discardRejectedLiveCookSession(localId: number) {
   records = records.filter((item) => !memberLocalIds.has(item.localId));
   sessionOperations = sessionOperations.filter((item) => item.operationId !== operation.operationId);
   notify();
-  await persist();
+  queuePersist();
 }
 
 async function claimAnonymousCooks(ownerId: string) {
@@ -760,7 +803,7 @@ async function claimAnonymousCooks(ownerId: string) {
     ? { ...record, ownerId, syncState: record.syncState === "synced" ? "synced" : "pending" }
     : record);
   notify();
-  await persist();
+  queuePersist();
 }
 
 async function requestWithTimeout<T>(request: (signal: AbortSignal) => Promise<T>) {

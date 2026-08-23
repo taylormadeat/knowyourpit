@@ -1137,7 +1137,7 @@ export function CookActivityTimeline({
   const { data: cookEvents = [], isLoading: eventsLoading, error: eventsError } = useListCookEvents(cookId, {
     query: {
       queryKey: getListCookEventsQueryKey(cookId),
-      enabled: !!isSignedIn && (isActive || isCompleted),
+      enabled: !!isSignedIn && cookId > 0 && (isActive || isCompleted),
       refetchInterval: isActive ? refetchIntervalMs : false,
       // Short staleTime prevents isLoading from flipping back to true on a
       // fast re-navigation — the data is already fresh from the initial fetch.

@@ -164,6 +164,7 @@ describe("local planning outbox failure recovery", () => {
       77,
       { plannedStartAt: "2030-07-04T16:00:00.000Z" },
     );
+    await flushMicrotasks();
 
     let snapshot = readSnapshot();
     expect(snapshot.cooks).toHaveLength(1);
@@ -202,6 +203,7 @@ describe("local planning outbox failure recovery", () => {
       [baseline.anchor.id, baseline.added.id],
       { type: "multi_cook", revision: 2 },
     );
+    await flushMicrotasks();
 
     const snapshot = readSnapshot();
     expect(snapshot.sessionOperations).toHaveLength(1);
@@ -317,6 +319,7 @@ describe("local planning outbox failure recovery", () => {
   it("replays a persisted syncing operation after app restart", async () => {
     const firstModule = loadLocalCooks();
     await firstModule.saveLiveCookSessionBaseline(sessionBaseline());
+    await flushMicrotasks();
     const interrupted = readSnapshot();
     interrupted.sessionOperations[0].syncState = "syncing";
     delete interrupted.sessionOperations[0].memberRevisions;
@@ -423,7 +426,7 @@ describe("local planning outbox failure recovery", () => {
     await expect(localCooks.hydrateLocalCooks()).resolves.toBeUndefined();
   });
 
-  it("never duplicates a local cook when its first durable write finishes late", async () => {
+  it("creates immediately and never duplicates when its background write finishes late", async () => {
     const localCooks = loadLocalCooks();
     let finishLateWrite!: () => void;
     mockSetItem.mockImplementationOnce((key: string, value: string) => new Promise<void>((resolve) => {
@@ -442,30 +445,151 @@ describe("local planning outbox failure recovery", () => {
     const firstAttempt = localCooks.createLocalCook(OWNER_ID, payload, {
       localCreateKey: payload.sessionId,
     });
+    const first = await firstAttempt;
+    expect(first.id).toBeLessThan(0);
+
+    // The local record is returned before the native snapshot settles, so a
+    // stalled bridge cannot keep Start Cooking Now spinning.
     await flushMicrotasks();
     jest.advanceTimersByTime(localCooks.LOCAL_COOK_STORAGE_TIMEOUT_MS);
 
-    await expect(firstAttempt).rejects.toMatchObject({
-      code: "LOCAL_COOK_STORAGE_UNAVAILABLE",
-      operation: "write",
-      timedOut: true,
-    });
-
-    // Once the original native write settles, the next tap reuses the
-    // in-memory record for the same session instead of adding another cook.
+    // Once the original native write settles, a retry reuses the in-memory
+    // record for the same session instead of adding another cook.
     finishLateWrite();
     await flushMicrotasks();
     const retry = await localCooks.createLocalCook(OWNER_ID, payload, {
       localCreateKey: payload.sessionId,
     });
+    jest.advanceTimersByTime(localCooks.LOCAL_COOK_STORAGE_TIMEOUT_MS);
+    await flushMicrotasks();
     const snapshot = readSnapshot();
 
     expect(snapshot.cooks).toHaveLength(1);
     expect(snapshot.cooks[0]).toMatchObject({
-      localId: retry.id,
+      localId: first.id,
       ownerId: OWNER_ID,
       syncPayload: expect.objectContaining({ sessionId: payload.sessionId }),
     });
+    expect(retry.id).toBe(first.id);
+  });
+
+  it("persists both old and newly created cooks when cold-start hydration returns late", async () => {
+    const seeded = loadLocalCooks();
+    const oldCook = await seeded.createLocalCook(OWNER_ID, {
+      foodType: "Pork Shoulder",
+      status: "planned",
+      sessionId: "existing-before-hydration",
+      plannedStartAt: "2030-07-04T13:00:00.000Z",
+    });
+    await flushMicrotasks();
+    const delayedSnapshot = mockStorage.get(STORAGE_KEY)!;
+
+    let releaseRead!: (value: string) => void;
+    mockGetItem.mockImplementationOnce(() => new Promise<string>((resolve) => {
+      releaseRead = resolve;
+    }));
+    const current = loadLocalCooks();
+    const hydration = current.hydrateLocalCooks();
+    await flushMicrotasks();
+
+    const newCook = await current.createLocalCook(OWNER_ID, {
+      foodType: "Brisket",
+      status: "active",
+      sessionId: "created-during-hydration",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+    });
+    await flushMicrotasks();
+    releaseRead(delayedSnapshot);
+    await hydration;
+    await flushMicrotasks();
+
+    expect(readSnapshot().cooks.map((cook) => cook.localId)).toEqual(
+      expect.arrayContaining([oldCook.id, newCook.id]),
+    );
+
+    const restarted = loadLocalCooks();
+    await restarted.hydrateLocalCooks();
+    expect(readSnapshot().cooks.map((cook) => cook.localId)).toEqual(
+      expect.arrayContaining([oldCook.id, newCook.id]),
+    );
+  });
+
+  it("retries a failed post-hydration merge write without losing either cook", async () => {
+    const seeded = loadLocalCooks();
+    const oldCook = await seeded.createLocalCook(OWNER_ID, {
+      foodType: "Pork Shoulder",
+      status: "planned",
+      sessionId: "existing-before-retry",
+      plannedStartAt: "2030-07-04T13:00:00.000Z",
+    });
+    await flushMicrotasks();
+    const delayedSnapshot = mockStorage.get(STORAGE_KEY)!;
+
+    let releaseRead!: (value: string) => void;
+    mockGetItem.mockImplementationOnce(() => new Promise<string>((resolve) => {
+      releaseRead = resolve;
+    }));
+    const current = loadLocalCooks();
+    const hydration = current.hydrateLocalCooks();
+    await flushMicrotasks();
+    const newCook = await current.createLocalCook(OWNER_ID, {
+      foodType: "Brisket",
+      status: "active",
+      sessionId: "created-before-merge-retry",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+    });
+    await flushMicrotasks();
+
+    // The new-only snapshot has safely reached storage. Simulate a transient
+    // failure when late hydration tries to write its merged snapshot.
+    mockSetItem.mockImplementationOnce(async () => {
+      throw new Error("temporary storage failure");
+    });
+    releaseRead(delayedSnapshot);
+    await hydration;
+    await flushMicrotasks();
+    jest.advanceTimersByTime(current.LOCAL_COOK_STORAGE_TIMEOUT_MS);
+    await flushMicrotasks();
+
+    expect(readSnapshot().cooks.map((cook) => cook.localId)).toEqual(
+      expect.arrayContaining([oldCook.id, newCook.id]),
+    );
+
+    const restarted = loadLocalCooks();
+    await restarted.hydrateLocalCooks();
+    expect(readSnapshot().cooks.map((cook) => cook.localId)).toEqual(
+      expect.arrayContaining([oldCook.id, newCook.id]),
+    );
+  });
+
+  it("keeps and repairs a cook created while a delayed cold-start read is malformed", async () => {
+    let releaseRead!: (value: string) => void;
+    mockGetItem.mockImplementationOnce(() => new Promise<string>((resolve) => {
+      releaseRead = resolve;
+    }));
+    const current = loadLocalCooks();
+    const hydration = current.hydrateLocalCooks();
+    await flushMicrotasks();
+
+    const created = await current.createLocalCook(OWNER_ID, {
+      foodType: "Brisket",
+      status: "active",
+      sessionId: "created-during-corrupt-hydration",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+    });
+    releaseRead("{not-json");
+    await hydration;
+    await flushMicrotasks();
+
+    expect(readSnapshot().cooks).toEqual(
+      expect.arrayContaining([expect.objectContaining({ localId: created.id })]),
+    );
+
+    const restarted = loadLocalCooks();
+    await restarted.hydrateLocalCooks();
+    expect(readSnapshot().cooks).toEqual(
+      expect.arrayContaining([expect.objectContaining({ localId: created.id })]),
+    );
   });
 
   it("deduplicates a server create that arrives before the local server ID is persisted", () => {
@@ -546,6 +670,7 @@ describe("local planning outbox failure recovery", () => {
       sessionId: "shared-multi-session",
       plannedStartAt: "2030-07-04T14:00:00.000Z",
     });
+    await flushMicrotasks();
 
     expect(first.id).not.toBe(second.id);
     const snapshot = readSnapshot();
@@ -597,6 +722,7 @@ describe("local planning outbox failure recovery", () => {
       sessionId: "hydrate-recovery-session",
       plannedStartAt: "2030-07-04T14:00:00.000Z",
     });
+    await flushMicrotasks();
     const interrupted = readSnapshot();
     interrupted.cooks[0].syncState = "syncing";
     mockStorage.set(STORAGE_KEY, JSON.stringify(interrupted));
@@ -611,18 +737,16 @@ describe("local planning outbox failure recovery", () => {
     const restarted = loadLocalCooks();
     const hydration = restarted.hydrateLocalCooks();
     await flushMicrotasks();
+    await expect(hydration).resolves.toBeUndefined();
     jest.advanceTimersByTime(restarted.LOCAL_COOK_STORAGE_TIMEOUT_MS);
-
-    await expect(hydration).rejects.toMatchObject({
-      code: "LOCAL_COOK_STORAGE_UNAVAILABLE",
-      operation: "write",
-      timedOut: true,
-    });
+    await flushMicrotasks();
 
     // The late repair write contains the parsed cook normalized to pending;
     // a fresh bounded hydration must retain it rather than treating it as
     // corrupt storage and clearing the local outbox.
     finishLateWrite();
+    await flushMicrotasks();
+    jest.advanceTimersByTime(restarted.LOCAL_COOK_STORAGE_TIMEOUT_MS);
     await flushMicrotasks();
     const recovered = loadLocalCooks();
     await recovered.hydrateLocalCooks();

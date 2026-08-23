@@ -483,9 +483,10 @@ export default function PlanScreen() {
   // connection is released promptly (best-effort on iOS) instead of silently
   // consuming a socket until customFetch's 30 s ceiling.
   const submitAbortRef = useRef<AbortController | null>(null);
-  // Ref guard for handleMultiCook — prevents a rapid double-tap from queuing
-  // a second concurrent AI request while the loading modal is animating in.
+  // Ref guards keep multi-cook planning and saving local and idempotent during
+  // the narrow window before React Native applies a button's disabled state.
   const multiCookRunningRef = useRef(false);
+  const multiSaveInFlightRef = useRef(false);
   // Generation counter for per-cut async hydration in handlePickCut.
   // Incremented each time a new cut is picked, or when the user manually
   // changes a quick-pick value. The Promise.all callback checks it before
@@ -655,6 +656,7 @@ export default function PlanScreen() {
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
   const [failedCooks, setFailedCooks] = useState<{ payload: any; originalIndex: number }[]>([]);
   const [isRetryingSave, setIsRetryingSave] = useState(false);
+  const [isSavingMulti, setIsSavingMulti] = useState(false);
   const [saveSettledCount, setSaveSettledCount] = useState(0);
   const [saveTotalCount, setSaveTotalCount] = useState(0);
 
@@ -1180,7 +1182,9 @@ export default function PlanScreen() {
   };
 
   const handleSaveMultiCooks = async () => {
-    if (!multiResult) return;
+    if (!multiResult || multiSaveInFlightRef.current) return;
+    multiSaveInFlightRef.current = true;
+    setIsSavingMulti(true);
     setFailedCooks([]);
     try {
       const sessionId = Crypto.randomUUID();
@@ -1267,6 +1271,9 @@ export default function PlanScreen() {
       }
       if (parseAndShowFromError(e)) return;
       Alert.alert("Error", e?.message || "Failed to save cooks.");
+    } finally {
+      multiSaveInFlightRef.current = false;
+      setIsSavingMulti(false);
     }
   };
 
@@ -1573,9 +1580,9 @@ export default function PlanScreen() {
         };
       }
 
-      // The cook itself is local-first. This durable write is the only work on
-      // the critical path: it does not require a route, a token refresh,
-      // paywall usage, or even a working network connection.
+      // The cook itself is local-first. The in-memory device commit is the
+      // only work on the critical path; its AsyncStorage snapshot and every
+      // network concern flush independently in the background.
       const localCreatePayload: Record<string, unknown> = {
         foodType: selectedCut.name,
         weightLbs: effectiveWeightLbs > 0 ? effectiveWeightLbs : undefined,
@@ -1637,15 +1644,24 @@ export default function PlanScreen() {
       });
       const localCookId = localCook.id;
 
-      // A blur/cancel can happen while the durable local write is pending.
-      // Keep the cook and start its background sync, but never let that stale
-      // submit reset a newer draft or navigate the user away from their tab.
+      // A blur/cancel can happen while the background local snapshot is
+      // flushing. Keep the cook and start its background sync, but never let
+      // that work hold the Plan CTA or navigation.
       void syncLocalCooks(userId).catch(() => {});
       if (submitSeqRef.current !== mySubmitSeq) return;
 
-      // Move to the durable local record before any optional side effect. The
-      // outbox retries independently and its failure is visible on the list,
-      // but can never erase, block, or duplicate this cook.
+      // Release the CTA before routing. Tabs stay mounted during a push, so
+      // this prevents a stale Plan spinner from surviving a delayed native
+      // storage callback or route transition.
+      submitInFlightRef.current = false;
+      stopSubmitting();
+      setSubmitSlow(false);
+      if (slowTimerRef.current) {
+        clearTimeout(slowTimerRef.current);
+        slowTimerRef.current = null;
+      }
+      // Move to the local record before any optional side effect. The outbox
+      // retries independently and can never erase, block, or duplicate it.
       resetForm();
       router.push(`/cooks/${localCookId}` as any);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -4018,8 +4034,8 @@ export default function PlanScreen() {
         onRetry={handleRetryMultiCook}
         scheduleGrillLabels={scheduleGrillLabels}
         handleSaveMultiCooks={handleSaveMultiCooks}
-        createCookPending={createCook.isPending}
-        isRetryingSave={isRetryingSave}
+        createCookPending={isSavingMulti}
+        isRetryingSave={false}
         saveSettledCount={saveSettledCount}
         saveTotalCount={saveTotalCount}
         failedIndices={failedCooks.length > 0 ? new Set(failedCooks.map(f => f.originalIndex)) : undefined}
