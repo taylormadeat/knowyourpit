@@ -28,6 +28,17 @@ export interface LocalCookRecord {
   deletedAt: string | null;
 }
 
+export interface LocalCookCreateOptions {
+  /**
+   * A server-backed cook can be represented locally while a new plan revision
+   * waits in the outbox. The negative local ID keeps Expo Router and the
+   * existing local-detail behavior intact; serverId selects PATCH on sync.
+   */
+  serverId?: number | null;
+  /** Full server response used for local rendering; never sent back on sync. */
+  snapshot?: Record<string, unknown>;
+}
+
 interface StoredLocalCooks {
   version: 1;
   cooks: LocalCookRecord[];
@@ -155,6 +166,7 @@ function newLocalId() {
 export async function createLocalCook(
   ownerId: string | null | undefined,
   payload: Record<string, unknown>,
+  options: LocalCookCreateOptions = {},
 ) {
   await hydrateLocalCooks();
   const now = new Date().toISOString();
@@ -162,8 +174,9 @@ export async function createLocalCook(
   const record: LocalCookRecord = {
     localId,
     ownerId: ownerId || "anonymous",
-    serverId: null,
+    serverId: options.serverId ?? null,
     cook: {
+      ...options.snapshot,
       ...payload,
       id: localId,
       createdAt: now,
@@ -183,6 +196,28 @@ export async function createLocalCook(
   notify();
   await persist();
   return toCook(record);
+}
+
+/**
+ * Keep exactly one local working copy for a server cook. Planning revisions can
+ * be saved repeatedly while offline; creating a fresh mirror each time would
+ * make competing PATCHes and duplicate list rows.
+ */
+export async function upsertLocalServerCook(
+  ownerId: string | null | undefined,
+  serverId: number,
+  payload: Record<string, unknown>,
+  snapshot?: Record<string, unknown>,
+) {
+  if (serverId <= 0) {
+    throw new Error("A server mirror requires a positive server ID.");
+  }
+  await hydrateLocalCooks();
+  const existing = records.find((record) =>
+    ownerMatches(record, ownerId) && record.serverId === serverId && !record.deletedAt,
+  );
+  if (existing) return updateLocalCook(existing.localId, payload);
+  return createLocalCook(ownerId, payload, { serverId, snapshot });
 }
 
 export async function updateLocalCook(
@@ -208,6 +243,21 @@ export async function updateLocalCook(
   notify();
   await persist();
   return toCook(next);
+}
+
+/** Apply one coherent session revision to every locally persisted member. */
+export async function updateLocalCookSession(
+  ownerId: string | null | undefined,
+  sessionId: string,
+  patch: Record<string, unknown>,
+) {
+  await hydrateLocalCooks();
+  const matching = records
+    .filter((record) => ownerMatches(record, ownerId) && !record.deletedAt && record.cook.sessionId === sessionId)
+    .map((record) => record.localId);
+  for (const localId of matching) {
+    await updateLocalCook(localId, patch);
+  }
 }
 
 export async function deleteLocalCook(localId: number) {

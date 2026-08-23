@@ -12,6 +12,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Crypto from "expo-crypto";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@clerk/expo";
 import {
   useCreateCook,
   useUpdateCook,
@@ -33,6 +34,14 @@ import {
 } from "@/components/plan-screen/utils";
 import { MEAT_CUTS, type MeatCut } from "@/constants/meatCuts";
 import { fmtMinutes } from "@/utils/duration";
+import { buildDeterministicMultiCookPlan } from "@/components/plan-screen/deterministicMultiCook";
+import {
+  createLocalCook,
+  isLocalCookId,
+  syncLocalCooks,
+  updateLocalCook,
+  upsertLocalServerCook,
+} from "@/lib/localCooks";
 
 type Colors = any;
 type Insets = { top: number; bottom: number; left: number; right: number };
@@ -47,6 +56,7 @@ interface Props {
   cookFoodType: string | null;
   cookWeightLbs: number | null;
   cookGrillId: number | null;
+  cookSnapshot?: Record<string, unknown> | null;
   grills: any[];
   onSuccess: () => void;
 }
@@ -68,11 +78,13 @@ export function AddToPlannedCookModal(p: Props) {
     cookFoodType,
     cookWeightLbs,
     cookGrillId,
+    cookSnapshot,
     grills,
     onSuccess,
   } = p;
 
   const qc = useQueryClient();
+  const { userId } = useAuth();
   const createCook = useCreateCook();
   const updateCook = useUpdateCook();
   const aiMultiCook = useAiMultiCook();
@@ -180,19 +192,45 @@ export function AddToPlannedCookModal(p: Props) {
           };
         }),
       ];
-      const result = await aiMultiCook.mutateAsync({
+      if (!anchorCut) {
+        Alert.alert("Cook unavailable", "Choose the cook again before adding items.");
+        return;
+      }
+      const deterministic = buildDeterministicMultiCookPlan(serveAt, [
+        {
+          cut: anchorCut,
+          weightLbs: anchorWeightLbs,
+          grill: anchorGrill,
+          grillId: cookGrillId,
+        },
+        ...additionalItems.map((item) => ({
+          cut: item.cut,
+          weightLbs: item.sizeOutput.effectiveWeightLbs,
+          grill: item.grillId != null
+            ? ((grills as any[]).find((grill: any) => grill.id === item.grillId) ?? anchorGrill)
+            : anchorGrill,
+          grillId: item.grillId ?? cookGrillId,
+          cookingMethod: item.cookMethod,
+          wrapFinish: item.wrapFinish,
+          isFrozen: item.isFrozen,
+          thawMethod: item.thawMethod,
+          notes: item.notes,
+        })),
+      ]);
+      setAiResult(deterministic as any);
+      setStep("result");
+
+      // PitMaster remains an optional refinement. It never decides whether the
+      // local sequence is available, and a failed request preserves the
+      // deterministic timeline already on screen.
+      void aiMultiCook.mutateAsync({
         data: {
           items: allItems,
           serveAt: serveAt.toISOString(),
         },
-      });
-      setAiResult(result as any);
-      setStep("result");
-    } catch (e: any) {
-      Alert.alert(
-        "PitMaster Error",
-        e?.message || "Could not sequence cooks. Try again.",
-      );
+      }).then((result) => setAiResult(result as any)).catch(() => {});
+    } catch {
+      Alert.alert("Plan unavailable", "Could not create the local schedule.");
     }
   };
 
@@ -219,15 +257,25 @@ export function AddToPlannedCookModal(p: Props) {
           (item) => item.foodType.toLowerCase() === anchorFoodTypeLower,
         ) ?? aiResult.schedule[0];
 
-      await updateCook.mutateAsync({
-        id: cookId,
-        data: {
-          sessionId,
-          sessionLabel,
-          sequenceData: seqData,
-          plannedStartAt: new Date(anchorScheduleItem.meatOnAt).toISOString(),
-        } as any,
-      });
+      const anchorPayload = {
+        foodType: cookFoodType,
+        weightLbs: cookWeightLbs ?? undefined,
+        grillId: cookGrillId ?? undefined,
+        status: "planned",
+        sessionId,
+        sessionLabel,
+        sequenceData: seqData,
+        plannedStartAt: new Date(anchorScheduleItem.meatOnAt).toISOString(),
+        plannedEndAt: new Date(
+          new Date(anchorScheduleItem.estimatedFinishAt).getTime()
+            + anchorScheduleItem.restMinutes * 60_000,
+        ).toISOString(),
+      };
+      if (isLocalCookId(cookId)) {
+        await updateLocalCook(cookId, anchorPayload);
+      } else {
+        await upsertLocalServerCook(userId, cookId, anchorPayload, cookSnapshot ?? undefined);
+      }
 
       const remainingItems = [...additionalItems];
       for (const scheduleItem of aiResult.schedule) {
@@ -254,8 +302,7 @@ export function AddToPlannedCookModal(p: Props) {
                 ? ("none" as const)
                 : undefined;
 
-        await createCook.mutateAsync({
-          data: {
+        await createLocalCook(userId, {
             foodType: scheduleItem.foodType,
             weightLbs: inputWeightLbs,
             cookTempF: (inputItem?.cookTempF ? parseFloat(inputItem.cookTempF) : null) ?? inputItem?.cut?.cookTempF ?? matchedCut?.cookTempF ?? undefined,
@@ -279,20 +326,30 @@ export function AddToPlannedCookModal(p: Props) {
               wrapReason: scheduleItem.wrapReason,
             }),
             sequenceData: seqData as any,
-          } as any,
-        });
+            status: "planned",
+            plannedEndAt: new Date(
+              new Date(scheduleItem.estimatedFinishAt).getTime()
+                + scheduleItem.restMinutes * 60_000,
+            ).toISOString(),
+          } as any);
       }
 
-      await qc.invalidateQueries({ queryKey: getGetCookQueryKey(cookId) });
-      await qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
-      await qc.invalidateQueries({
-        queryKey: getGetDashboardSummaryQueryKey(),
-      });
-      await qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
+      // Keep the currently open remote detail responsive while its local
+      // mirror is authoritative in the cook list/outbox.
+      qc.setQueryData(getGetCookQueryKey(cookId), (current: any) => current
+        ? {
+            ...current,
+            sessionId,
+            sessionLabel,
+            sequenceData: seqData,
+            plannedStartAt: new Date(anchorScheduleItem.meatOnAt).toISOString(),
+          }
+        : current);
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       handleClose();
       onSuccess();
+      void syncLocalCooks(userId);
     } catch (e: any) {
       Alert.alert("Error", e?.message || "Could not save. Try again.");
     } finally {

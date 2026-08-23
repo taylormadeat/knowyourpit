@@ -113,6 +113,7 @@ import {
   type ThawMethod,
   calcSchedule,
 } from "@/components/plan-screen/frozenSchedule";
+import { buildDeterministicMultiCookPlan } from "@/components/plan-screen/deterministicMultiCook";
 import {
   getMeatPrep,
   selectPrepTip,
@@ -150,7 +151,13 @@ import {
   findPendingCook,
   createIntentFingerprint,
 } from "@/components/plan-screen/pendingCreate";
-import { createLocalCook, syncLocalCooks } from "@/lib/localCooks";
+import {
+  createLocalCook,
+  isLocalCookId,
+  syncLocalCooks,
+  updateLocalCook,
+  upsertLocalServerCook,
+} from "@/lib/localCooks";
 
 // Hard upper bound on every AI network call. React Native's fetch has no
 // default timeout, so a stalled connection would otherwise hang the loading
@@ -897,13 +904,6 @@ export default function PlanScreen() {
     multiCookRunningRef.current = true;
     setFailedCooks([]);
 
-    // Pro-only (or unlocked when the kill switch is off). Pre-check before
-    // hitting the server so we can show a richer paywall modal context.
-    if (!effectivePro) {
-      multiCookRunningRef.current = false;
-      showPaywall({ trigger: "pro_required", featureName: "Multi-Cook Sequencer" });
-      return;
-    }
     if (multiItems.length < 2) {
       multiCookRunningRef.current = false;
       Alert.alert("Add More Items", "Add at least 2 items to sequence a multi-cook.");
@@ -914,7 +914,29 @@ export default function PlanScreen() {
     // paints on the same animation frame as the tap — the same contract
     // tested in hooks/__tests__/useMultiCookLoadingState.test.ts.
     openMultiCookModal();
-    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    const deterministicPlan = buildDeterministicMultiCookPlan(
+      serveAt ?? defaultServeAt,
+      multiItems.map((item) => ({
+        cut: item.cut,
+        weightLbs: item.sizeOutput.effectiveWeightLbs,
+        grill: item.grillId != null
+          ? ((grills as any[] | undefined)?.find((grill: any) => grill.id === item.grillId) ?? null)
+          : selectedGrill,
+        grillId: item.grillId ?? grillId ?? null,
+        cookingMethod: item.cookMethod,
+        wrapFinish: item.wrapFinish,
+        isFrozen: item.isFrozen,
+        thawMethod: item.thawMethod,
+        notes: item.notes,
+      })),
+    );
+    // A complete local baseline is visible before any identity lookup or AI
+    // request. PitMaster refinement is deliberately optional after saving.
+    setMultiResult(deterministicPlan as any);
+    setMultiStreaming(false);
+    setMultiRetrying(false);
+    multiCookRunningRef.current = false;
+    return;
 
     // Cached token (see handleAiPlan) — never force a blocking network refresh
     // on the critical path; refresh only on an actual 401.
@@ -1024,7 +1046,7 @@ export default function PlanScreen() {
     // Tracks the token currently known to be valid. If a 401 forces a refresh,
     // every subsequent attempt (auto-retry included) reuses the refreshed token
     // rather than the original cached one.
-    let activeToken = sessionToken;
+    let activeToken = sessionToken as string;
 
     try {
       let result = await runStream(activeToken);
@@ -1034,13 +1056,13 @@ export default function PlanScreen() {
       if (result === "fatal_401") {
         const fresh = await getTokenSafe(opts => getToken({ ...opts, skipCache: true }));
         if (fresh) {
-          activeToken = fresh;
+          activeToken = fresh as string;
           result = await runStream(activeToken);
         }
       }
 
       if (result === "fatal_401" || result === "fatal_402") {
-        handleFatalResult(result);
+        handleFatalResult(result as "fatal_401" | "fatal_402");
         return;
       }
 
@@ -1055,7 +1077,7 @@ export default function PlanScreen() {
             return;
           }
           if (retryResult === "fatal_401" || retryResult === "fatal_402") {
-            handleFatalResult(retryResult);
+            handleFatalResult(retryResult as "fatal_401" | "fatal_402");
             return;
           }
         } catch {
@@ -1198,47 +1220,28 @@ export default function PlanScreen() {
         };
       });
 
-      // Fire all mutations concurrently. Promise.allSettled guarantees the
-      // finally / invalidate path always runs and that a single failing item
-      // doesn't prevent the others from being saved.
-      setSaveSettledCount(0);
-      setSaveTotalCount(cookPayloads.length);
-      const results = await Promise.allSettled(
-        cookPayloads.map((data: any) =>
-          createCook.mutateAsync({ data }).finally(() => {
-            setSaveSettledCount((c) => c + 1);
-          }),
-        ),
-      );
-
-      qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
-      qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
-      qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
-      qc.invalidateQueries({ queryKey: ["home", "insights"] });
-
-      const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
-      if (failures.length > 0) {
-        const firstErr = failures[0].reason;
-        if (firstErr?.status === 401) {
-          Alert.alert(
-            "Session Expired",
-            "Your session has expired. Please sign out from the More tab and sign in again.",
-          );
-          return;
-        }
-        if (parseAndShowFromError(firstErr)) return;
-        const stillFailed = cookPayloads
-          .map((payload, i) => ({ payload, originalIndex: i }))
-          .filter((_, i) => results[i].status === "rejected");
-        setFailedCooks(stillFailed);
-        return;
-      }
-
+       // Persist the whole session before making any network request. Each
+       // entry carries the shared session ID plus a stable planned start time,
+       // so the existing outbox can safely retry without duplicate cooks.
+       setSaveSettledCount(0);
+       setSaveTotalCount(cookPayloads.length);
+       await Promise.all(
+         cookPayloads.map(async (data: any) => {
+           await createLocalCook(userId, {
+             ...data,
+             status: "planned",
+             plannedStartAt: new Date(data.plannedStartAt).toISOString(),
+           });
+           setSaveSettledCount((count) => count + 1);
+         }),
+       );
       setFailedCooks([]);
       resetMultiForm();
       resetForm();
       setPlanMode("single");
       router.push("/(tabs)/cooks");
+       void syncLocalCooks(userId);
+       return;
     } catch (e: any) {
       if (e?.status === 401) {
         Alert.alert(
@@ -1435,19 +1438,41 @@ export default function PlanScreen() {
           ...(replanSeqData ?? ({} as SequenceData)),
           ...(frozenForCook ? { frozen: frozenForCook } : { frozen: null }),
         };
-        await updateCook.mutateAsync({
-          id: replanCookIdNum,
-          data: {
-            ...(serveAt && { plannedEndAt: serveAt }),
-            ...(plannedStart && { plannedStartAt: plannedStart }),
-            // Persist sequenceData only when frozen state is changing
-            ...((frozenForCook || wasFrozen) && { sequenceData: updatedFrozenSeqData }),
-            // When the pitmaster removes the frozen flag, clear it in the DB so
-            // useFrozenStageNotifications no longer sees this as a frozen cook
-            // and doesn't re-schedule the cancelled notifications on remount.
-            ...(!frozenForCook && wasFrozen ? { fromFrozen: false } : {}),
-          } as any,
-        });
+        const replanPatch: Record<string, unknown> = {
+          ...(serveAt && { plannedEndAt: serveAt.toISOString() }),
+          ...(plannedStart && { plannedStartAt: plannedStart.toISOString() }),
+          // Persist sequenceData only when frozen state is changing.
+          ...((frozenForCook || wasFrozen) && { sequenceData: updatedFrozenSeqData }),
+          // When the pitmaster removes the frozen flag, clear it so frozen
+          // notifications are not recreated on the next local render.
+          ...(!frozenForCook && wasFrozen ? { fromFrozen: false } : {}),
+        };
+        let localReplanId = replanCookIdNum;
+        if (isLocalCookId(replanCookIdNum)) {
+          await updateLocalCook(replanCookIdNum, replanPatch);
+        } else {
+          // Existing server cooks receive a negative local working copy. It
+          // remains the visible source of truth until the outbox PATCH succeeds.
+          const source = (replanCookData ?? {}) as any;
+          const localReplan = await upsertLocalServerCook(userId, replanCookIdNum, {
+            foodType: source.foodType,
+            weightLbs: source.weightLbs ?? undefined,
+            sizingLabel: source.sizingLabel ?? undefined,
+            targetTempF: source.targetTempF ?? undefined,
+            cookTempF: source.cookTempF ?? undefined,
+            grillId: source.grillId ?? undefined,
+            notes: source.notes ?? undefined,
+            status: source.status ?? "planned",
+            sessionId: source.sessionId ?? undefined,
+            ...(source.actualStartAt ? { actualStartAt: source.actualStartAt } : {}),
+            ...(source.actualEndAt ? { actualEndAt: source.actualEndAt } : {}),
+            ...(source.plannedStartAt ? { plannedStartAt: source.plannedStartAt } : {}),
+            ...(source.plannedEndAt ? { plannedEndAt: source.plannedEndAt } : {}),
+            ...(source.fromFrozen ? { fromFrozen: true, thawMethod: source.thawMethod } : {}),
+            ...replanPatch,
+          });
+          localReplanId = localReplan.id;
+        }
         // Cancel stale IDs keyed to this cook. If the cook is still frozen
         // (just with updated timing/method), re-arm with the new schedule.
         // Passing the existing actualThawStartAt ensures the 30-min warning
@@ -1455,7 +1480,7 @@ export default function PlanScreen() {
         // task #784's re-plan scenario.
         await cancelStoredFrozenNotifications(replanCookIdNum);
         scheduleFrozenStageNotifications({
-          cookId: replanCookIdNum,
+          cookId: localReplanId,
           frozen: frozenForCook,
           preheatStartAt: plannedStart ? plannedStart.toISOString() : null,
           foodType: selectedCut!.name,
@@ -1463,13 +1488,9 @@ export default function PlanScreen() {
           actualThawStartAt: replanActualThawStartAt,
         }).catch(() => {});
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        qc.invalidateQueries({ queryKey: getListCooksQueryKey() });
-        qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
-        qc.invalidateQueries({ queryKey: getGetRecentCooksQueryKey() });
-        qc.invalidateQueries({ queryKey: getGetCookQueryKey(replanCookIdNum) });
-        qc.invalidateQueries({ queryKey: ["home", "insights"] });
         resetForm();
-        router.push(`/cooks/${replanCookIdNum}` as any);
+        router.push(`/cooks/${localReplanId}` as any);
+        void syncLocalCooks(userId);
         return;
       }
 
@@ -2262,43 +2283,16 @@ export default function PlanScreen() {
               planMode === "multi" && { backgroundColor: "#6C3BF5" },
               { borderRadius: colors.radius - 2 },
             ]}
-            onPress={() => {
-              if (!effectivePro) {
-                showPaywall({ trigger: "pro_required", featureName: "Multi-Cook Sequencer" });
-                return;
-              }
-              setPlanMode("multi");
-            }}
+            onPress={() => setPlanMode("multi")}
             accessibilityRole="button"
-            accessibilityLabel={effectivePro ? "Switch to Multi-Cook mode" : "Multi-Cook Sequencer, Pro feature, tap to learn more"}
+            accessibilityLabel="Switch to Multi-Cook mode"
           >
             <Feather
-              name={effectivePro ? "layers" : "lock"}
+              name="layers"
               size={14}
               color={planMode === "multi" ? "#fff" : colors.mutedForeground}
             />
             <Text style={[s.modeToggleText, { color: planMode === "multi" ? "#fff" : colors.mutedForeground }]}>Multi-Cook</Text>
-            {!effectivePro && (
-              <View
-                style={{
-                  paddingHorizontal: 5,
-                  paddingVertical: 1,
-                  borderRadius: 4,
-                  backgroundColor: colors.primary + "22",
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 8.5,
-                    fontFamily: "Inter_700Bold",
-                    color: colors.primary,
-                    letterSpacing: 0.4,
-                  }}
-                >
-                  PRO
-                </Text>
-              </View>
-            )}
           </Pressable>
         </View>
 

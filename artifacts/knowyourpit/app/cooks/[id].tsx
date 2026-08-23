@@ -900,6 +900,7 @@ export default function CookDetailScreen() {
         colors={colors}
         cookId={Number(id)}
         cookFoodType={c.foodType ?? ""}
+        cookSnapshot={cook as any}
         remainingEstimateMinutes={remainingMs != null ? remainingMs / 60_000 : null}
         effectivePro={effectivePro}
         onSuccess={({ sessionId: _sid, sequenceData: _sd, warning }) => {

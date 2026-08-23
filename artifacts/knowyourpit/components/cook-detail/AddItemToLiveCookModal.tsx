@@ -4,6 +4,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as Crypto from "expo-crypto";
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { MultiCookAddItemModal } from "@/components/plan-screen/MultiCookAddItemModal";
 import { useListGrills } from "@workspace/api-client-react";
@@ -11,8 +12,17 @@ import { getTokenSafe } from "@/lib/getTokenSafe";
 import { useAuth } from "@clerk/expo";
 import type { MultiItem } from "@/components/plan-screen/MultiCookAddItemModal";
 import type { MeatCut } from "@/constants/meatCuts";
-import { MEAT_CATEGORIES } from "@/constants/meatCuts";
+import { MEAT_CATEGORIES, MEAT_CUTS } from "@/constants/meatCuts";
 import { useAmbientWeather } from "@/hooks/useAmbientWeather";
+import { buildDeterministicMultiCookPlan } from "@/components/plan-screen/deterministicMultiCook";
+import {
+  createLocalCook,
+  isLocalCookId,
+  syncLocalCooks,
+  updateLocalCook,
+  updateLocalCookSession,
+  upsertLocalServerCook,
+} from "@/lib/localCooks";
 
 type Colors = any;
 
@@ -22,6 +32,7 @@ interface Props {
   colors: Colors;
   cookId: number;
   cookFoodType: string;
+  cookSnapshot?: Record<string, unknown> | null;
   remainingEstimateMinutes: number | null;
   effectivePro?: boolean;
   onSuccess: (result: {
@@ -37,11 +48,12 @@ export function AddItemToLiveCookModal({
   colors,
   cookId,
   cookFoodType,
+  cookSnapshot,
   remainingEstimateMinutes,
   effectivePro = false,
   onSuccess,
 }: Props) {
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, userId } = useAuth();
   const weather = useAmbientWeather();
   const { data: grillsList } = useListGrills({ query: { enabled: !!isSignedIn } } as any);
   const grills: any[] = Array.isArray(grillsList) ? grillsList : [];
@@ -75,6 +87,101 @@ export function AddItemToLiveCookModal({
     if (!pendingItem) return;
     setSaving(true);
     try {
+      const grill = pendingItem.grillId != null
+        ? (grills.find((g: any) => g.id === pendingItem.grillId) ?? null)
+        : null;
+      const anchorCut = MEAT_CUTS.find((cut) => cut.name === cookFoodType) ?? pendingItem.cut;
+      const addedWeight = pendingItem.sizeOutput.effectiveWeightLbs ?? 1;
+      const remaining = Math.max(
+        remainingEstimateMinutes ?? 0,
+        Math.round(anchorCut.minsPerLb * Math.max(1, addedWeight)),
+      );
+      const serveAt = new Date(Date.now() + (remaining + (pendingItem.cut.restMins || 30)) * 60_000);
+      const previousSchedule = Array.isArray((cookSnapshot as any)?.sequenceData?.schedule)
+        ? (cookSnapshot as any).sequenceData.schedule
+        : [];
+      if (previousSchedule.length >= 5) {
+        Alert.alert("Session is full", "A cook session can include up to 5 items.");
+        return;
+      }
+      const plan = buildDeterministicMultiCookPlan(serveAt, [
+        {
+          cut: anchorCut,
+          weightLbs: 1,
+          grill,
+          grillId: pendingItem.grillId,
+        },
+        {
+          cut: pendingItem.cut,
+          weightLbs: addedWeight,
+          grill,
+          grillId: pendingItem.grillId,
+          cookingMethod: pendingItem.cookMethod,
+          wrapFinish: pendingItem.wrapFinish,
+          isFrozen: pendingItem.isFrozen,
+          thawMethod: pendingItem.thawMethod,
+          notes: pendingItem.notes,
+        },
+      ]);
+      const sessionId = (cookSnapshot as any)?.sessionId ?? Crypto.randomUUID();
+      const addedItem = plan.schedule[1];
+      const schedule = previousSchedule.length > 0
+        ? [...previousSchedule, addedItem]
+        : plan.schedule;
+      const sequenceData = {
+        type: "multi_cook",
+        schedule,
+        serveAt: plan.serveAt,
+        summary: plan.summary,
+        isLocalBaseline: true,
+      };
+      const anchorItem = plan.schedule[0];
+      const anchorPatch = {
+        sessionId,
+        sequenceData,
+        plannedStartAt: anchorItem.meatOnAt,
+      };
+      if (isLocalCookId(cookId)) {
+        await updateLocalCook(cookId, anchorPatch);
+      } else {
+        await upsertLocalServerCook(userId, cookId, {
+          foodType: cookFoodType,
+          status: "active",
+          sessionId,
+          sequenceData,
+          plannedStartAt: anchorItem.meatOnAt,
+        }, cookSnapshot ?? undefined);
+      }
+      await updateLocalCookSession(userId, sessionId, { sequenceData });
+      await createLocalCook(userId, {
+        foodType: pendingItem.cut.name,
+        weightLbs: addedWeight,
+        cookTempF: pendingItem.cookTempF ? parseFloat(pendingItem.cookTempF) : pendingItem.cut.cookTempF,
+        targetTempF: pendingItem.targetTempF ? parseFloat(pendingItem.targetTempF) : pendingItem.cut.targetTempF,
+        grillId: pendingItem.grillId ?? undefined,
+        cookingMethod: pendingItem.cookMethod ?? undefined,
+        fromFrozen: pendingItem.isFrozen || undefined,
+        thawMethod: pendingItem.isFrozen ? pendingItem.thawMethod : undefined,
+        notes: pendingItem.notes || undefined,
+        status: "planned",
+        sessionId,
+        sequenceData,
+        plannedStartAt: addedItem.meatOnAt,
+        plannedEndAt: new Date(
+          new Date(addedItem.estimatedFinishAt).getTime() + addedItem.restMinutes * 60_000,
+        ).toISOString(),
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onSuccess({ sessionId, sequenceData, warning: null });
+      onClose();
+      void syncLocalCooks(userId);
+      return;
+
+      /*
+       * Retired network-first add-items path. The durable local baseline above
+       * intentionally runs before token retrieval, server capacity checks, or
+       * AI sequencing; the normal outbox reconciles the resulting records.
+       *
       const token = await getTokenSafe(getToken);
       if (!token) {
         Alert.alert("Session Expired", "Please sign out and sign back in.");
@@ -168,7 +275,7 @@ export function AddItemToLiveCookModal({
         sequenceData: data.sequenceData,
         warning: data.warning ?? null,
       });
-      onClose();
+      onClose(); */
     } catch (err: any) {
       if (err.name === "AbortError") {
         Alert.alert("Timed Out", "The request took too long. Please try again.");
@@ -178,7 +285,7 @@ export function AddItemToLiveCookModal({
     } finally {
       setSaving(false);
     }
-  }, [pendingItem, cookId, grills, weather, getToken, onSuccess, onClose]);
+  }, [pendingItem, cookId, cookFoodType, remainingEstimateMinutes, grills, weather, getToken, onSuccess, onClose, userId]);
 
   const handleClose = useCallback(() => {
     if (saving) return;
