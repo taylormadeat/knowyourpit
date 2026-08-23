@@ -649,6 +649,141 @@ describe("POST /cooks — null-sessionId cook contract", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// POST /sessions/:sessionId/reconcile — durable live session outbox
+// ─────────────────────────────────────────────────────────────────────────────
+describe("POST /sessions/:sessionId/reconcile", () => {
+  function reconciliationBody(
+    anchorCookId: number,
+    anchorStartAt: string,
+    addedStartAt: string,
+    operationId: string,
+  ) {
+    return {
+      operationId,
+      anchorCookId,
+      sequenceData: {
+        type: "multi_cook",
+        serveAt: new Date(Date.now() + 10_000_000).toISOString(),
+        schedule: [
+          { foodType: "brisket", meatOnAt: anchorStartAt, estimatedFinishAt: addedStartAt },
+          { foodType: "ribs", meatOnAt: addedStartAt, estimatedFinishAt: new Date(Date.now() + 14_000_000).toISOString() },
+        ],
+      },
+      members: [
+        {
+          serverId: anchorCookId,
+          foodType: "brisket",
+          status: "active",
+          plannedStartAt: anchorStartAt,
+          plannedEndAt: addedStartAt,
+        },
+        {
+          foodType: "ribs",
+          status: "planned",
+          plannedStartAt: addedStartAt,
+          plannedEndAt: new Date(Date.now() + 14_000_000).toISOString(),
+        },
+      ],
+    };
+  }
+
+  it("retries a complete live-session revision without creating a duplicate member", async () => {
+    const anchorStartAt = new Date(Date.now() - 90 * 60_000).toISOString();
+    const addedStartAt = new Date(Date.now() + 30 * 60_000).toISOString();
+    const sessionId = `live-reconcile-${Date.now()}`;
+    const [anchor] = await db.insert(cooksTable).values({
+      userId: TEST_USER_ID,
+      foodType: "brisket",
+      status: "active",
+      plannedStartAt: new Date(anchorStartAt),
+    }).returning();
+    createdCookIds.push(anchor.id);
+
+    const app = buildApp();
+    const body = reconciliationBody(anchor.id, anchorStartAt, addedStartAt, `op-${sessionId}`);
+    const first = await request(app).post(`/api/sessions/${sessionId}/reconcile`).send(body);
+    expect(first.status).toBe(200);
+    expect(first.body.cooks).toHaveLength(2);
+
+    const retry = await request(app).post(`/api/sessions/${sessionId}/reconcile`).send(body);
+    expect(retry.status).toBe(200);
+    expect(retry.body.cooks).toHaveLength(2);
+
+    const rows = await db.select().from(cooksTable)
+      .where(and(eq(cooksTable.userId, TEST_USER_ID), eq(cooksTable.sessionId, sessionId)));
+    expect(rows).toHaveLength(2);
+    expect(rows.every((row) => row.sequenceData != null)).toBe(true);
+  });
+
+  it("creates a locally-started active anchor and its added member in one reconciliation", async () => {
+    const sessionId = `offline-anchor-${Date.now()}`;
+    const anchorStartAt = new Date(Date.now() - 60 * 60_000).toISOString();
+    const addedStartAt = new Date(Date.now() + 45 * 60_000).toISOString();
+    const app = buildApp();
+    const response = await request(app).post(`/api/sessions/${sessionId}/reconcile`).send({
+      operationId: `op-${sessionId}`,
+      anchorCookId: null,
+      sequenceData: { type: "multi_cook", schedule: [], isLocalBaseline: true },
+      members: [
+        {
+          foodType: "pork shoulder",
+          status: "active",
+          plannedStartAt: anchorStartAt,
+          plannedEndAt: addedStartAt,
+        },
+        {
+          foodType: "chicken thighs",
+          status: "planned",
+          plannedStartAt: addedStartAt,
+        },
+      ],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.cooks).toHaveLength(2);
+    expect(response.body.cooks.filter((cook: { status: string }) => cook.status === "active")).toHaveLength(1);
+    const rows = await db.select().from(cooksTable)
+      .where(and(eq(cooksTable.userId, TEST_USER_ID), eq(cooksTable.sessionId, sessionId)));
+    expect(rows).toHaveLength(2);
+    expect(rows.some((row) => row.status === "active")).toBe(true);
+  });
+
+  it("rejects an over-capacity revision without adding only part of the session", async () => {
+    const sessionId = `live-capacity-${Date.now()}`;
+    const anchorStartAt = new Date(Date.now() - 90 * 60_000).toISOString();
+    const [anchor] = await db.insert(cooksTable).values({
+      userId: TEST_USER_ID,
+      sessionId,
+      foodType: "brisket",
+      status: "active",
+      plannedStartAt: new Date(anchorStartAt),
+    }).returning();
+    createdCookIds.push(anchor.id);
+    for (let index = 1; index < 5; index++) {
+      const [sibling] = await db.insert(cooksTable).values({
+        userId: TEST_USER_ID,
+        sessionId,
+        foodType: `item-${index}`,
+        status: "planned",
+        plannedStartAt: new Date(Date.now() + index * 60 * 60_000),
+      }).returning();
+      createdCookIds.push(sibling.id);
+    }
+
+    const addedStartAt = new Date(Date.now() + 6 * 60 * 60_000).toISOString();
+    const app = buildApp();
+    const response = await request(app)
+      .post(`/api/sessions/${sessionId}/reconcile`)
+      .send(reconciliationBody(anchor.id, anchorStartAt, addedStartAt, `op-${sessionId}`));
+    expect(response.status).toBe(409);
+
+    const rows = await db.select().from(cooksTable)
+      .where(and(eq(cooksTable.userId, TEST_USER_ID), eq(cooksTable.sessionId, sessionId)));
+    expect(rows).toHaveLength(5);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Schema smoke test — confirm the dedup unique index still exists
 // ─────────────────────────────────────────────────────────────────────────────
 describe("schema smoke test — cooks_session_dedup_idx", () => {

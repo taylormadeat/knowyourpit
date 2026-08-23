@@ -54,6 +54,8 @@ import type {
   LiveActivityRegistration,
   MultiCookBody,
   MultiCookResponse,
+  ReconcileLiveCookSessionBody,
+  ReconcileLiveCookSessionResponse,
   RegisterLiveActivityBody,
   TechniquePreset,
   TechniqueStatsItem,
@@ -2911,6 +2913,98 @@ export const useDismissCookOutlier = <
   TContext
 > => {
   return useMutation(getDismissCookOutlierMutationOptions(options));
+};
+
+/**
+ * Applies the complete desired membership and shared sequence to a live session. Retries with the same operationId are safe and never duplicate a cook.
+ * @summary Atomically reconcile a live cook session from an idempotent client operation
+ */
+export const getReconcileLiveCookSessionUrl = (sessionId: string) => {
+  return `/api/sessions/${sessionId}/reconcile`;
+};
+
+export const reconcileLiveCookSession = async (
+  sessionId: string,
+  reconcileLiveCookSessionBody: ReconcileLiveCookSessionBody,
+  options?: RequestInit,
+): Promise<ReconcileLiveCookSessionResponse> => {
+  return customFetch<ReconcileLiveCookSessionResponse>(
+    getReconcileLiveCookSessionUrl(sessionId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(reconcileLiveCookSessionBody),
+    },
+  );
+};
+
+export const getReconcileLiveCookSessionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reconcileLiveCookSession>>,
+    TError,
+    { sessionId: string; data: BodyType<ReconcileLiveCookSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reconcileLiveCookSession>>,
+  TError,
+  { sessionId: string; data: BodyType<ReconcileLiveCookSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["reconcileLiveCookSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reconcileLiveCookSession>>,
+    { sessionId: string; data: BodyType<ReconcileLiveCookSessionBody> }
+  > = (props) => {
+    const { sessionId, data } = props ?? {};
+
+    return reconcileLiveCookSession(sessionId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReconcileLiveCookSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reconcileLiveCookSession>>
+>;
+export type ReconcileLiveCookSessionMutationBody =
+  BodyType<ReconcileLiveCookSessionBody>;
+export type ReconcileLiveCookSessionMutationError = ErrorType<void>;
+
+/**
+ * @summary Atomically reconcile a live cook session from an idempotent client operation
+ */
+export const useReconcileLiveCookSession = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reconcileLiveCookSession>>,
+    TError,
+    { sessionId: string; data: BodyType<ReconcileLiveCookSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reconcileLiveCookSession>>,
+  TError,
+  { sessionId: string; data: BodyType<ReconcileLiveCookSessionBody> },
+  TContext
+> => {
+  return useMutation(getReconcileLiveCookSessionMutationOptions(options));
 };
 
 /**

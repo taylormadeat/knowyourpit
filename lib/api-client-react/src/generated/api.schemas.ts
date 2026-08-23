@@ -1644,6 +1644,86 @@ export interface AddItemsToLiveCookResponse {
   warning?: string | null;
 }
 
+export type LiveCookSessionMemberStatus =
+  (typeof LiveCookSessionMemberStatus)[keyof typeof LiveCookSessionMemberStatus];
+
+export const LiveCookSessionMemberStatus = {
+  planned: "planned",
+  active: "active",
+} as const;
+
+export interface LiveCookSessionMember {
+  /**
+   * Existing server cook ID. Null means insert this member.
+   * @nullable
+   */
+  serverId?: number | null;
+  foodType: string;
+  /** @nullable */
+  weightLbs?: number | null;
+  /** @nullable */
+  cookTempF?: number | null;
+  /** @nullable */
+  targetTempF?: number | null;
+  /** @nullable */
+  grillId?: number | null;
+  status: LiveCookSessionMemberStatus;
+  /** @nullable */
+  plannedStartAt?: string | null;
+  /** @nullable */
+  plannedEndAt?: string | null;
+  /** @nullable */
+  preheatMinutes?: number | null;
+  /** @nullable */
+  restMinutes?: number | null;
+  /** @nullable */
+  wrapMethod?: string | null;
+  /** @nullable */
+  wrapAtMinutes?: number | null;
+  /** @nullable */
+  wrapTempF?: number | null;
+  /** @nullable */
+  wrapReason?: string | null;
+  /** @nullable */
+  cookingMethod?: string | null;
+  /** @nullable */
+  fromFrozen?: boolean | null;
+  /** @nullable */
+  thawMethod?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+/**
+ * Complete shared schedule for every session member.
+ */
+export type ReconcileLiveCookSessionBodySequenceData = {
+  [key: string]: unknown;
+};
+
+export interface ReconcileLiveCookSessionBody {
+  /** Stable client-generated idempotency key for this session revision. */
+  operationId: string;
+  /**
+   * Existing active cook that anchors a new session. Required when the session does not yet exist on the server.
+   * @nullable
+   */
+  anchorCookId?: number | null;
+  /**
+   * @minItems 1
+   * @maxItems 5
+   */
+  members: LiveCookSessionMember[];
+  /** Complete shared schedule for every session member. */
+  sequenceData: ReconcileLiveCookSessionBodySequenceData;
+}
+
+export interface ReconcileLiveCookSessionResponse {
+  operationId: string;
+  sessionId: string;
+  cooks: Cook[];
+}
+
 export interface MultiCookResponse {
   /** All cook items sorted by grillLightAt (earliest first) */
   schedule: MultiCookScheduleItem[];

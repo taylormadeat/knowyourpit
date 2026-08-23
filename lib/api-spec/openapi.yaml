@@ -698,6 +698,38 @@ paths:
         "404":
           description: Cook not found
 
+  /sessions/{sessionId}/reconcile:
+    post:
+      operationId: reconcileLiveCookSession
+      tags: [cooks]
+      summary: Atomically reconcile a live cook session from an idempotent client operation
+      description: Applies the complete desired membership and shared sequence to a live session. Retries with the same operationId are safe and never duplicate a cook.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReconcileLiveCookSessionBody"
+      responses:
+        "200":
+          description: Session reconciled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReconcileLiveCookSessionResponse"
+        "404":
+          description: Anchor cook or session not found
+        "409":
+          description: Session is at capacity
+        "422":
+          description: Session is not live or the operation cannot be applied
+
   /cooks/{id}/live-activity:
     post:
       operationId: registerCookLiveActivity
@@ -2624,6 +2656,86 @@ components:
         warning:
           type: ["string", "null"]
           description: Optional warning when the anchor cook is nearly done (< 30 min remaining) and the grill may free up before new items need it.
+
+    LiveCookSessionMember:
+      type: object
+      required: [foodType, status]
+      properties:
+        serverId:
+          type: ["integer", "null"]
+          description: Existing server cook ID. Null means insert this member.
+        foodType:
+          type: string
+        weightLbs:
+          type: ["number", "null"]
+        cookTempF:
+          type: ["number", "null"]
+        targetTempF:
+          type: ["number", "null"]
+        grillId:
+          type: ["integer", "null"]
+        status:
+          type: string
+          enum: [planned, active]
+        plannedStartAt:
+          type: ["string", "null"]
+          format: date-time
+        plannedEndAt:
+          type: ["string", "null"]
+          format: date-time
+        preheatMinutes:
+          type: ["integer", "null"]
+        restMinutes:
+          type: ["integer", "null"]
+        wrapMethod:
+          type: ["string", "null"]
+        wrapAtMinutes:
+          type: ["integer", "null"]
+        wrapTempF:
+          type: ["integer", "null"]
+        wrapReason:
+          type: ["string", "null"]
+        cookingMethod:
+          type: ["string", "null"]
+        fromFrozen:
+          type: ["boolean", "null"]
+        thawMethod:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    ReconcileLiveCookSessionBody:
+      type: object
+      required: [operationId, members, sequenceData]
+      properties:
+        operationId:
+          type: string
+          description: Stable client-generated idempotency key for this session revision.
+        anchorCookId:
+          type: ["integer", "null"]
+          description: Existing active cook that anchors a new session. Required when the session does not yet exist on the server.
+        members:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/LiveCookSessionMember"
+        sequenceData:
+          type: object
+          description: Complete shared schedule for every session member.
+
+    ReconcileLiveCookSessionResponse:
+      type: object
+      required: [operationId, sessionId, cooks]
+      properties:
+        operationId:
+          type: string
+        sessionId:
+          type: string
+        cooks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Cook"
 
     MultiCookResponse:
       type: object

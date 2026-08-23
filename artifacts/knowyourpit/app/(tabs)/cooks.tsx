@@ -50,7 +50,13 @@ import { useRefetchOnFocus } from "@/hooks/useRefetchOnFocus";
 import { useAuth } from "@clerk/expo";
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { cookMethodContextPhrase } from "@/utils/cookingMethod";
-import { deleteLocalCook, isLocalCookId, mergeLocalAndServerCooks, useLocalCooks } from "@/lib/localCooks";
+import {
+  deleteLocalCook,
+  discardRejectedLiveCookSession,
+  isLocalCookId,
+  mergeLocalAndServerCooks,
+  useLocalCooks,
+} from "@/lib/localCooks";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "#3b82f6",
@@ -886,7 +892,24 @@ export default function CooksScreen() {
           },
           pressed && { opacity: 0.75 },
         ]}
-        onPress={() => router.push(`/cooks/${item.id}` as any)}
+        onPress={() => {
+          if (item._localCook && item._syncState === "error") {
+            Alert.alert(
+              "Saved plan needs review",
+              item._syncError || "This live session could not be saved to your account.",
+              [
+                { text: "Keep saved plan", style: "cancel" },
+                {
+                  text: "Discard saved plan",
+                  style: "destructive",
+                  onPress: () => void discardRejectedLiveCookSession(item.id),
+                },
+              ],
+            );
+            return;
+          }
+          router.push(`/cooks/${item.id}` as any);
+        }}
       >
         <View style={s.cardRow}>
         <LinearGradient
@@ -909,7 +932,7 @@ export default function CooksScreen() {
             {(item._syncState === "pending" || item._syncState === "syncing" || item._syncState === "error") && (
               <View style={[s.livePill, { backgroundColor: item._syncState === "error" ? "#B4530920" : "#3B82F620" }]}>
                 <Text style={[s.livePillText, { color: item._syncState === "error" ? "#B45309" : "#2563EB" }]}>
-                  {item._syncState === "error" ? "SAVED ON DEVICE" : "SAVING"}
+                  {item._syncState === "error" ? "NEEDS REVIEW" : "SAVING"}
                 </Text>
               </View>
             )}
@@ -917,6 +940,11 @@ export default function CooksScreen() {
           <Text style={[s.meta, { color: colors.mutedForeground }]}>
             {item.grillName || "No grill"}
           </Text>
+          {item._syncState === "error" && item._syncError && (
+            <Text style={[s.meta, { color: "#B45309", marginTop: 2 }]} numberOfLines={2}>
+              {item._syncError} Tap to review.
+            </Text>
+          )}
           {(() => {
             const sizeText: string | null =
               (item.sizingLabel as string | null | undefined) ??

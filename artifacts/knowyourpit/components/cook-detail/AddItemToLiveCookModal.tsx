@@ -16,12 +16,9 @@ import { MEAT_CATEGORIES, MEAT_CUTS } from "@/constants/meatCuts";
 import { useAmbientWeather } from "@/hooks/useAmbientWeather";
 import { buildDeterministicMultiCookPlan } from "@/components/plan-screen/deterministicMultiCook";
 import {
-  createLocalCook,
   isLocalCookId,
+  saveLiveCookSessionBaseline,
   syncLocalCooks,
-  updateLocalCook,
-  updateLocalCookSession,
-  upsertLocalServerCook,
 } from "@/lib/localCooks";
 
 type Colors = any;
@@ -141,35 +138,36 @@ export function AddItemToLiveCookModal({
         sequenceData,
         plannedStartAt: anchorItem.meatOnAt,
       };
-      if (isLocalCookId(cookId)) {
-        await updateLocalCook(cookId, anchorPatch);
-      } else {
-        await upsertLocalServerCook(userId, cookId, {
+      await saveLiveCookSessionBaseline({
+        ownerId: userId,
+        sessionId,
+        anchorLocalId: isLocalCookId(cookId) ? Number(cookId) : null,
+        anchorServerId: cookId > 0 ? Number(cookId) : null,
+        anchorPayload: {
+          ...anchorPatch,
           foodType: cookFoodType,
           status: "active",
+        },
+        anchorSnapshot: cookSnapshot ?? undefined,
+        addedPayload: {
+          foodType: pendingItem.cut.name,
+          weightLbs: addedWeight,
+          cookTempF: pendingItem.cookTempF ? parseFloat(pendingItem.cookTempF) : pendingItem.cut.cookTempF,
+          targetTempF: pendingItem.targetTempF ? parseFloat(pendingItem.targetTempF) : pendingItem.cut.targetTempF,
+          grillId: pendingItem.grillId ?? undefined,
+          cookingMethod: pendingItem.cookMethod ?? undefined,
+          fromFrozen: pendingItem.isFrozen || undefined,
+          thawMethod: pendingItem.isFrozen ? pendingItem.thawMethod : undefined,
+          notes: pendingItem.notes || undefined,
+          status: "planned",
           sessionId,
           sequenceData,
-          plannedStartAt: anchorItem.meatOnAt,
-        }, cookSnapshot ?? undefined);
-      }
-      await updateLocalCookSession(userId, sessionId, { sequenceData });
-      await createLocalCook(userId, {
-        foodType: pendingItem.cut.name,
-        weightLbs: addedWeight,
-        cookTempF: pendingItem.cookTempF ? parseFloat(pendingItem.cookTempF) : pendingItem.cut.cookTempF,
-        targetTempF: pendingItem.targetTempF ? parseFloat(pendingItem.targetTempF) : pendingItem.cut.targetTempF,
-        grillId: pendingItem.grillId ?? undefined,
-        cookingMethod: pendingItem.cookMethod ?? undefined,
-        fromFrozen: pendingItem.isFrozen || undefined,
-        thawMethod: pendingItem.isFrozen ? pendingItem.thawMethod : undefined,
-        notes: pendingItem.notes || undefined,
-        status: "planned",
-        sessionId,
+          plannedStartAt: addedItem.meatOnAt,
+          plannedEndAt: new Date(
+            new Date(addedItem.estimatedFinishAt).getTime() + addedItem.restMinutes * 60_000,
+          ).toISOString(),
+        },
         sequenceData,
-        plannedStartAt: addedItem.meatOnAt,
-        plannedEndAt: new Date(
-          new Date(addedItem.estimatedFinishAt).getTime() + addedItem.restMinutes * 60_000,
-        ).toISOString(),
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onSuccess({ sessionId, sequenceData, warning: null });

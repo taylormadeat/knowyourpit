@@ -1,6 +1,13 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc, count, sql, ne } from "drizzle-orm";
-import { db, cooksTable, grillsTable, cookCheckins, temperatureReadingsTable } from "@workspace/db";
+import {
+  db,
+  cooksTable,
+  grillsTable,
+  cookCheckins,
+  temperatureReadingsTable,
+  liveCookSessionOperationsTable,
+} from "@workspace/db";
 import {
   CreateCookBody,
   UpdateCookBody,
@@ -12,6 +19,8 @@ import {
   UpdateSessionBody,
   AddItemsToCookParams,
   AddItemsToCookBody,
+  ReconcileLiveCookSessionParams,
+  ReconcileLiveCookSessionBody,
 } from "@workspace/api-zod";
 import { callAddItemsSequencer } from "./ai/multiCook";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -1067,6 +1076,222 @@ router.post("/cooks/:id/outlier-dismiss", requireAuth, async (req: any, res): Pr
   }
   clearHomeInsightsCache(req.userId);
   res.json({ ok: true });
+});
+
+function stableJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (value instanceof Date) return JSON.stringify(value.toISOString());
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  const entries = Object.entries(value as Record<string, unknown>)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, entry]) => `${JSON.stringify(key)}:${stableJson(entry)}`);
+  return `{${entries.join(",")}}`;
+}
+
+// ── POST /sessions/:sessionId/reconcile ────────────────────────────────────────
+// A live add-item starts with a local baseline. When connectivity returns, the
+// app submits this one durable operation instead of independently PATCHing the
+// anchor and POSTing each new member. The transaction is the authority for both
+// the five-item capacity and a shared sequenceData revision.
+router.post("/sessions/:sessionId/reconcile", requireAuth, async (req: any, res): Promise<void> => {
+  const params = ReconcileLiveCookSessionParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const parsed = ReconcileLiveCookSessionBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { sessionId } = params.data;
+  const body = parsed.data;
+  const requestFingerprint = stableJson({ sessionId, body });
+  const reconciliation: any = await db.transaction(async (tx) => {
+    // These two advisory locks cover both a brand-new session (where there are
+    // no cook rows to lock yet) and a retry that races another request using
+    // the same operation ID. Acquiring sorted keys avoids lock-order deadlocks.
+    const lockKeys = [
+      `live-cook-operation:${req.userId}:${body.operationId}`,
+      `live-cook-session:${req.userId}:${sessionId}`,
+    ].sort();
+    for (const lockKey of lockKeys) {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`);
+    }
+    const [receipt] = await tx.select()
+      .from(liveCookSessionOperationsTable)
+      .where(and(
+        eq(liveCookSessionOperationsTable.userId, req.userId),
+        eq(liveCookSessionOperationsTable.operationId, body.operationId),
+      ));
+    if (receipt) {
+      if (receipt.sessionId !== sessionId || receipt.requestFingerprint !== requestFingerprint) {
+        return {
+          failure: {
+            status: 409,
+            error: "This reconciliation operation was already used for a different session revision.",
+          },
+        };
+      }
+      return { cooks: receipt.response, receipt: true };
+    }
+
+    // Lock current members. Every reconciliation of an established session
+    // serializes here, so the capacity check and writes cannot interleave.
+    let sessionCooks = await tx
+      .select()
+      .from(cooksTable)
+      .where(and(eq(cooksTable.sessionId, sessionId), eq(cooksTable.userId, req.userId)))
+      .for("update");
+
+    if (sessionCooks.length === 0 && body.anchorCookId) {
+      const [anchor] = await tx
+        .select()
+        .from(cooksTable)
+        .where(and(eq(cooksTable.id, body.anchorCookId), eq(cooksTable.userId, req.userId)))
+        .for("update");
+      if (!anchor) {
+        return { failure: { status: 404, error: "The live cook is no longer available to reconcile." } };
+      }
+      if (anchor.status !== "active") {
+        return { failure: { status: 422, error: "Only an active cook can start a live session." } };
+      }
+
+      // Another reconciliation may have assigned this anchor while this
+      // request was waiting on its row lock. Use that authoritative session
+      // instead of attempting to create a second session around the cook.
+      if (anchor.sessionId && anchor.sessionId !== sessionId) {
+        return { failure: { status: 422, error: "This live cook now belongs to a different session." } };
+      }
+      sessionCooks = [anchor];
+    }
+
+    const activeCook = sessionCooks.find((cook) => cook.status === "active");
+    const activeMember = body.members.find((member) => member.status === "active");
+    if (!activeCook && !activeMember) {
+      return { failure: { status: 422, error: "This session is no longer live and cannot be reconciled." } };
+    }
+    if (body.anchorCookId && body.anchorCookId !== activeCook?.id) {
+      return { failure: { status: 422, error: "The reconciliation anchor does not match the live cook." } };
+    }
+
+    const currentById = new Map(sessionCooks.map((cook) => [cook.id, cook]));
+    const pendingInserts: typeof body.members = [];
+    for (const member of body.members) {
+      if (member.serverId != null) {
+        const current = currentById.get(member.serverId);
+        if (!current) {
+          return { failure: { status: 422, error: "A cook in this revision belongs to a different session." } };
+        }
+        continue;
+      }
+
+      if (!member.plannedStartAt) {
+        return { failure: { status: 422, error: "Each new session item needs a planned start time." } };
+      }
+      const retryMatch = sessionCooks.find((cook) =>
+        cook.plannedStartAt?.getTime() === member.plannedStartAt?.getTime(),
+      );
+      if (!retryMatch) pendingInserts.push(member);
+    }
+
+    if (sessionCooks.length + pendingInserts.length > 5) {
+      return {
+        failure: {
+          status: 409,
+          error: `Session is at capacity (5 items max). This revision would contain ${sessionCooks.length + pendingInserts.length} items.`,
+        },
+      };
+    }
+
+    const sharedUpdate = { sessionId, sequenceData: body.sequenceData };
+    await tx.update(cooksTable)
+      .set(sharedUpdate)
+      .where(and(eq(cooksTable.sessionId, sessionId), eq(cooksTable.userId, req.userId)));
+    if (activeCook && !activeCook.sessionId) {
+      await tx.update(cooksTable)
+        .set(sharedUpdate)
+        .where(and(eq(cooksTable.id, activeCook.id), eq(cooksTable.userId, req.userId)));
+      sessionCooks = [activeCook];
+    }
+
+    const valuesFor = (member: typeof body.members[number]) => ({
+      sessionId,
+      sequenceData: body.sequenceData,
+      foodType: member.foodType,
+      weightLbs: member.weightLbs ?? undefined,
+      cookTempF: member.cookTempF ?? undefined,
+      targetTempF: member.targetTempF ?? undefined,
+      grillId: member.grillId ?? undefined,
+      status: member.status,
+      plannedStartAt: member.plannedStartAt ?? undefined,
+      plannedEndAt: member.plannedEndAt ?? undefined,
+      preheatMinutes: member.preheatMinutes ?? undefined,
+      restMinutes: member.restMinutes ?? undefined,
+      wrapMethod: member.wrapMethod ?? undefined,
+      wrapAtMinutes: member.wrapAtMinutes ?? undefined,
+      wrapTempF: member.wrapTempF ?? undefined,
+      wrapReason: member.wrapReason ?? undefined,
+      cookingMethod: member.cookingMethod ?? undefined,
+      fromFrozen: member.fromFrozen ?? undefined,
+      thawMethod: member.thawMethod ?? undefined,
+      notes: member.notes ?? undefined,
+    });
+
+    for (const member of body.members) {
+      if (member.serverId != null) {
+        await tx.update(cooksTable)
+          .set(valuesFor(member))
+          .where(and(eq(cooksTable.id, member.serverId), eq(cooksTable.userId, req.userId)));
+        continue;
+      }
+      const retryMatch = sessionCooks.find((cook) =>
+        cook.plannedStartAt?.getTime() === member.plannedStartAt?.getTime(),
+      );
+      if (retryMatch) {
+        await tx.update(cooksTable)
+          .set(valuesFor(member))
+          .where(and(eq(cooksTable.id, retryMatch.id), eq(cooksTable.userId, req.userId)));
+      } else {
+        await tx.insert(cooksTable).values({ ...valuesFor(member), userId: req.userId });
+      }
+    }
+
+    const cooks = await tx.select().from(cooksTable)
+      .where(and(eq(cooksTable.sessionId, sessionId), eq(cooksTable.userId, req.userId)))
+      .for("update");
+    await tx.insert(liveCookSessionOperationsTable).values({
+      userId: req.userId,
+      operationId: body.operationId,
+      sessionId,
+      requestFingerprint,
+      response: cooks,
+    });
+    return { cooks };
+  });
+
+  if (reconciliation.failure) {
+    res.status(reconciliation.failure.status).json({ error: reconciliation.failure.error });
+    return;
+  }
+
+  if (reconciliation.receipt) {
+    res.json({ operationId: body.operationId, sessionId, cooks: reconciliation.cooks });
+    return;
+  }
+
+  const cooksWithGrills = await Promise.all(reconciliation.cooks.map(async (cook: typeof cooksTable.$inferSelect) => {
+    let grillName: string | null = null;
+    if (cook.grillId) {
+      const [grill] = await db.select({ name: grillsTable.name }).from(grillsTable)
+        .where(eq(grillsTable.id, cook.grillId));
+      grillName = grill?.name ?? null;
+    }
+    return normalizeCookProbeAssignments({ ...cook, grillName });
+  }));
+  clearHomeInsightsCache(req.userId);
+  res.json({ operationId: body.operationId, sessionId, cooks: cooksWithGrills });
 });
 
 router.get("/sessions/:sessionId", requireAuth, async (req: any, res): Promise<void> => {
