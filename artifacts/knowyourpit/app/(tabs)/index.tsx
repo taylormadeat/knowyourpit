@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from "react";
+import React, { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -25,6 +25,8 @@ import { LogoBackground } from "@/components/LogoBackground";
 import { useGetDashboardSummary, useGetRecentCooks, getGetRecentCooksQueryKey, useListGrills } from "@workspace/api-client-react";
 import { useHomeInsights, useHomeTips } from "@/hooks/useHomeInsights";
 import { useRefetchOnFocus } from "@/hooks/useRefetchOnFocus";
+import { mergeLocalAndServerCooks, useLocalCooks } from "@/lib/localCooks";
+import { cookHistoryTimestamp } from "@/utils/cookHistory";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePaywall } from "@/contexts/PaywallContext";
@@ -142,7 +144,7 @@ export default function HomeScreen() {
   const remoteConfig = useRemoteConfig();
   const router = useRouter();
   const { user } = useUser();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, userId } = useAuth();
   const { data: summary, isLoading: summaryLoading, refetch: refetchSummary } = useGetDashboardSummary({
     query: { enabled: !!isSignedIn },
   } as any);
@@ -169,6 +171,7 @@ export default function HomeScreen() {
       enabled: !!isSignedIn,
     },
   });
+  const { cooks: localCooks, isHydrated: localCooksHydrated } = useLocalCooks(userId);
   const { data: insights, isLoading: insightsLoading, refetch: refetchInsights } = useHomeInsights(!!isSignedIn);
 
   // Force a refetch of the dashboard widgets every time this tab regains
@@ -250,11 +253,18 @@ export default function HomeScreen() {
   const botPad = useBottomTabBarHeight();
   const { isTablet, contentMaxWidth } = useLayout();
 
-  // Deduplicate by id — server-side duplicates from multi-cook retries should
-  // not render multiple cards on the home screen (defensive client-side guard).
-  const allCooks = [
-    ...new Map(((recentCooks as any[]) || []).map((c: any) => [c.id, c])).values(),
-  ];
+  // The outbox is the immediate source of truth for a just-started cook. Merge
+  // it into Home as well as Cook Log so the two tabs cannot disagree while the
+  // background server sync is still settling.
+  const allCooks = useMemo<any[]>(() => {
+    const merged = mergeLocalAndServerCooks(recentCooks as any[] | undefined, localCooks) as any[];
+    return [...new Map(merged.map((cook: any) => [
+      cook._serverId ?? cook.id,
+      cook,
+    ])).values()].sort(
+      (a: any, b: any) => cookHistoryTimestamp(b) - cookHistoryTimestamp(a),
+    );
+  }, [recentCooks, localCooks]);
   const activeCooks = allCooks.filter((c: any) => c.status === "active");
   const primaryActiveCook = activeCooks[0] ?? null;
 
@@ -829,7 +839,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {cooksLoading ? (
+        {cooksLoading && !localCooksHydrated ? (
           <ActivityIndicator color={colors.primary} style={{ padding: 20 }} />
         ) : !allCooks.length ? (
           <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>

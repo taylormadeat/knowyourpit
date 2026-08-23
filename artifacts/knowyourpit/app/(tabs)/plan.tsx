@@ -153,6 +153,7 @@ import {
 } from "@/components/plan-screen/pendingCreate";
 import {
   createLocalCook,
+  hydrateLocalCooks,
   isLocalCookId,
   isLocalCookStorageError,
   syncLocalCooks,
@@ -188,6 +189,13 @@ export default function PlanScreen() {
   const createCook = useCreateCook();
   const updateCook = useUpdateCook();
   const deleteCook = useDeleteCook();
+
+  // Warm the local outbox as soon as the Plan tab mounts. Starting a cook still
+  // waits for a confirmed durable write, but it should not pay the first native
+  // AsyncStorage read on the CTA's critical path.
+  useEffect(() => {
+    void hydrateLocalCooks().catch(() => {});
+  }, []);
 
   // ── Replan mode ────────────────────────────────────────────────────────
   // When the cook detail screen navigates here with ?replanCookId=<n> the
@@ -3703,7 +3711,6 @@ export default function PlanScreen() {
         {/* ── Submit area (primary CTA, slow-submit row, frozen callout, secondary CTA) ── */}
         <PlanSubmitArea
           isSubmitting={isSubmitting}
-          mutatePending={createCook.isPending}
           onSubmit={() => handleSubmit()}
           onSavePlan={handleSaveFrozenPlan}
           onCancelSubmitWait={cancelSubmitWait}

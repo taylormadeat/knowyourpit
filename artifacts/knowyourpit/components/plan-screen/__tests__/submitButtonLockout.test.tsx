@@ -3,8 +3,8 @@
  *
  * Tests the REAL PlanSubmitArea component (exported from the plan-screen
  * component layer that plan.tsx uses). The component contains the actual
- * `disabled={isSubmitting || mutatePending}` prop expressions from plan.tsx —
- * removing or changing those expressions breaks these tests.
+ * `disabled={isSubmitting}` expressions from plan.tsx, so an unrelated
+ * network mutation cannot trap the local-first CTA in a spinner.
  *
  * What is verified:
  *   1. Both CTAs are enabled on initial render.
@@ -14,8 +14,7 @@
  *      – success (promise resolves)
  *      – error (promise rejects)
  *      – cancel (Cancel button in slow-submit row / stopSubmitting called)
- *   4. The react-query mutatePending fallback independently locks both buttons.
- *   5. The secondary "Save Cook Plan" button (frozen + Cook-Now path) follows
+ *   4. The secondary "Save Cook Plan" button (frozen + Cook-Now path) follows
  *      the same disable rule as the primary.
  *
  * Strategy:
@@ -80,7 +79,6 @@ function makeDeferred(): Deferred {
 
 interface HarnessProps {
   showSavePlan?: boolean;
-  mutatePending?: boolean;
   /** Set to get the current deferred so the test can resolve / reject it. */
   getDeferredRef?: React.MutableRefObject<Deferred | null>;
   /** Use submitSlow=true in the harness (for slow-row tests). */
@@ -98,7 +96,6 @@ interface HarnessProps {
  */
 function PlanSubmitHarness({
   showSavePlan = false,
-  mutatePending = false,
   getDeferredRef,
   slowSubmit = false,
 }: HarnessProps) {
@@ -135,7 +132,6 @@ function PlanSubmitHarness({
   return (
     <PlanSubmitArea
       isSubmitting={isSubmitting}
-      mutatePending={mutatePending}
       onSubmit={handleSubmit}
       onSavePlan={handleSavePlan}
       onCancelSubmitWait={stopSubmitting}
@@ -280,26 +276,6 @@ describe("Primary submit button (Start Cooking Now)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests — react-query mutatePending fallback
-// ---------------------------------------------------------------------------
-
-describe("Primary button with createCook.isPending (react-query fallback)", () => {
-  it("is disabled when mutatePending=true even before the handler is invoked", () => {
-    // disabled={isSubmitting || mutatePending} — the OR means the button is
-    // also independently locked by react-query's own mutation state.
-    render(<PlanSubmitHarness mutatePending />);
-    expect(isDisabled(screen.getByTestId("submit-cook-btn"))).toBe(true);
-  });
-
-  it("stays disabled when both isSubmitting and mutatePending are true", async () => {
-    render(<PlanSubmitHarness mutatePending />);
-    // Pressing a disabled button is a no-op per RNTL — but even if it fired,
-    // the button remains locked.
-    expect(isDisabled(screen.getByTestId("submit-cook-btn"))).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Tests — Secondary "Save Cook Plan" button (frozen + Cook-Now path)
 // ---------------------------------------------------------------------------
 
@@ -383,10 +359,6 @@ describe("Secondary 'Save Cook Plan' button (frozen + Cook-Now path)", () => {
     expect(isDisabled(screen.getByTestId("save-cook-plan-btn"))).toBe(false);
   });
 
-  it("is also locked when mutatePending=true", () => {
-    render(<PlanSubmitHarness showSavePlan mutatePending />);
-    expect(isDisabled(screen.getByTestId("save-cook-plan-btn"))).toBe(true);
-  });
 });
 
 // ---------------------------------------------------------------------------

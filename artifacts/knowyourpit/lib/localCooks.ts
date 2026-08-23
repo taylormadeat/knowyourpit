@@ -1086,13 +1086,64 @@ export async function syncLocalCooks(ownerId: string | null | undefined) {
 }
 
 export function mergeLocalAndServerCooks(serverCooks: Cook[] | undefined, localCooks: Cook[]) {
-  const localServerIds = new Set(
-    localCooks
-      .map((cook) => (cook as any)._serverId)
-      .filter((id): id is number => typeof id === "number"),
-  );
+  const serverRows = serverCooks ?? [];
+  const matchedServerIds = new Set<number>();
+  const serverMatchByLocalIndex = new Map<number, Cook>();
+  const createGroupKey = (cook: Cook): string | null => {
+    const candidate = cook as any;
+    if (!candidate.sessionId || !candidate.plannedStartAt) return null;
+    const start = new Date(candidate.plannedStartAt).getTime();
+    return Number.isFinite(start) ? `${candidate.sessionId}:${start}` : null;
+  };
+
+  // Rows that already have a server ID can be paired exactly, including local
+  // edits that are still pending an update.
+  localCooks.forEach((localCook, index) => {
+    const serverId = (localCook as any)._serverId;
+    if (typeof serverId !== "number") return;
+    const matchingServer = serverRows.find((serverCook) => serverCook.id === serverId);
+    if (!matchingServer) return;
+    serverMatchByLocalIndex.set(index, matchingServer);
+    matchedServerIds.add(matchingServer.id);
+  });
+
+  // A create can commit before the outbox gets to persist its server IDs. Match
+  // those rows as complete groups, not one at a time: multi-cook members can
+  // share both a session ID and a planned start. Pairing only a full one-to-one
+  // group keeps the local rows visible exactly once until reconciliation wins.
+  const unacknowledgedLocalGroups = new Map<string, Array<{ index: number; cook: Cook }>>();
+  localCooks.forEach((localCook, index) => {
+    if (serverMatchByLocalIndex.has(index)) return;
+    const key = createGroupKey(localCook);
+    if (!key) return;
+    const group = unacknowledgedLocalGroups.get(key) ?? [];
+    group.push({ index, cook: localCook });
+    unacknowledgedLocalGroups.set(key, group);
+  });
+
+  for (const [key, localGroup] of unacknowledgedLocalGroups) {
+    const serverGroup = serverRows.filter((serverCook) =>
+      !matchedServerIds.has(serverCook.id) && createGroupKey(serverCook) === key,
+    );
+    if (serverGroup.length !== localGroup.length) continue;
+    localGroup.forEach(({ index }, groupIndex) => {
+      const matchingServer = serverGroup[groupIndex];
+      serverMatchByLocalIndex.set(index, matchingServer);
+      matchedServerIds.add(matchingServer.id);
+    });
+  }
+
+  const localRows = localCooks.map((localCook, index) => {
+    const matchingServer = serverMatchByLocalIndex.get(index);
+    if (!matchingServer) return localCook;
+    // Once sync is confirmed, always show canonical server state. Keeping the
+    // stale local snapshot would otherwise mask server-side completion/status
+    // changes across a relaunch. Pending/error edits remain local-first.
+    return (localCook as any)._syncState === "synced" ? matchingServer : localCook;
+  });
+
   return [
-    ...localCooks,
-    ...((serverCooks ?? []).filter((cook) => !localServerIds.has(cook.id))),
+    ...localRows,
+    ...serverRows.filter((cook) => !matchedServerIds.has(cook.id)),
   ];
 }

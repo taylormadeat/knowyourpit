@@ -12,9 +12,9 @@
  *   4. Secondary "Save Cook Plan" button (frozen + Cook-Now path only)
  *
  * Critical invariant:
- *   Both Pressables use `disabled={isSubmitting || mutatePending}` (mirroring
- *   plan.tsx lines 3621 and 3714). Neither button may be tappable while a cook
- *   create is in-flight.
+ *   Both Pressables use `disabled={isSubmitting}`. The local-first flow owns
+ *   this state; an unrelated legacy server mutation must not leave the primary
+ *   cook-start CTA permanently spinning.
  */
 
 import React from "react";
@@ -39,12 +39,6 @@ export interface PlanSubmitAreaProps {
    * Sourced from usePlanLoadingState().isSubmitting in plan.tsx.
    */
   isSubmitting: boolean;
-  /**
-   * True while the react-query createCook mutation is in flight.
-   * Sourced from createCook.isPending in plan.tsx.
-   */
-  mutatePending: boolean;
-
   // ── Handlers ───────────────────────────────────────────────────────────
   /** handleSubmit() in plan.tsx */
   onSubmit: () => void;
@@ -81,15 +75,14 @@ export interface PlanSubmitAreaProps {
  * PlanSubmitArea renders the submit area at the bottom of the Plan screen.
  *
  * Disable expression (identical to plan.tsx):
- *   disabled={isSubmitting || mutatePending}     ← primary button
- *   disabled={isSubmitting || mutatePending}     ← secondary button
+ *   disabled={isSubmitting}     ← primary button
+ *   disabled={isSubmitting}     ← secondary button
  *
  * Both buttons share the same lock so a user can never trigger duplicate
  * creates by tapping one while the other's request is in flight.
  */
 export function PlanSubmitArea({
   isSubmitting,
-  mutatePending,
   onSubmit,
   onSavePlan,
   onCancelSubmitWait,
@@ -99,8 +92,7 @@ export function PlanSubmitArea({
   submitSlow = false,
   colors,
 }: PlanSubmitAreaProps) {
-  // Mirrors: disabled={isSubmitting || createCook.isPending}  (plan.tsx ~3621, ~3714)
-  const isLocked = isSubmitting || mutatePending;
+  const isLocked = isSubmitting;
 
   return (
     <View>

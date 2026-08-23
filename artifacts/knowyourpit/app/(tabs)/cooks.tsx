@@ -41,6 +41,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
 import { getCookCardBar, type CookCardBar } from "@/utils/cookCardBar";
+import { cookHistoryTimestamp, isExplicitMultiCookSession } from "@/utils/cookHistory";
 import { gradeChipColors, scoreColor, computeOverallGrade } from "@/utils/gradeUtils";
 import { fmtRemaining, barColor, clamp, AnimatedBarFill } from "@/components/cook-detail/CookProgressBar";
 import { cancelStoredFrozenNotifications } from "@/hooks/useFrozenStageNotifications";
@@ -466,12 +467,8 @@ export default function CooksScreen() {
     const getStatusPriority = (item: any) => STATUS_PRIORITY[item.status] ?? 2;
 
     const sortWithinGroup = (a: any, b: any) => {
-      if (sortKey === "date-desc") {
-        return new Date(b.plannedStartAt || 0).getTime() - new Date(a.plannedStartAt || 0).getTime();
-      }
-      if (sortKey === "date-asc") {
-        return new Date(a.plannedStartAt || 0).getTime() - new Date(b.plannedStartAt || 0).getTime();
-      }
+        if (sortKey === "date-desc") return cookHistoryTimestamp(b) - cookHistoryTimestamp(a);
+        if (sortKey === "date-asc") return cookHistoryTimestamp(a) - cookHistoryTimestamp(b);
       if (sortKey === "rating-desc") return avgRating(b) - avgRating(a);
       if (sortKey === "rating-asc") return avgRating(a) - avgRating(b);
       return 0;
@@ -496,14 +493,14 @@ export default function CooksScreen() {
         grouped[cook.sessionId].push(cook);
       }
     }
-    // A sessionId only represents a real multi-cook session when 2+ cooks share
-    // it. Single cooks created via "Start Cooking Now" carry a synthetic
-    // sessionId purely for server-side idempotency — they must render solo, not
-    // as a one-cook "session". Capture the genuine session ids from the FULL
-    // dataset before any filter narrows a group, so a filter that hides all but
-    // one member still keeps a real session grouped.
+    // A session ID also serves as the idempotency key for an ordinary local
+    // start. Only metadata-marked multi-cook sessions may collapse their
+    // members; otherwise a duplicate or reused id could make a new cook appear
+    // to vanish from Cook Log.
     const realSessionIds = new Set(
-      Object.keys(grouped).filter((sid) => grouped[sid].length >= 2),
+      Object.entries(grouped)
+        .filter(([, sessionCooks]) => isExplicitMultiCookSession(sessionCooks))
+        .map(([sessionId]) => sessionId),
     );
     if (techniqueFilter) {
       for (const sid of Object.keys(grouped)) {
@@ -547,14 +544,17 @@ export default function CooksScreen() {
     }
     const groups: SessionGroup[] = Object.entries(grouped).map(([sessionId, sessionCooks]) => {
       const dates = sessionCooks
-        .map((c) => c.plannedStartAt ? new Date(c.plannedStartAt) : null)
+        .map((c) => {
+          const timestamp = cookHistoryTimestamp(c);
+          return timestamp > 0 ? new Date(timestamp) : null;
+        })
         .filter(Boolean) as Date[];
       const earliestStart = dates.length > 0
         ? dates.reduce((min, d) => d < min ? d : min, dates[0])
         : null;
       const sorted = [...sessionCooks].sort((a, b) => {
-        const aTime = a.plannedStartAt ? new Date(a.plannedStartAt).getTime() : 0;
-        const bTime = b.plannedStartAt ? new Date(b.plannedStartAt).getTime() : 0;
+        const aTime = cookHistoryTimestamp(a);
+        const bTime = cookHistoryTimestamp(b);
         return aTime - bTime;
       });
       const first = sorted[0] || sessionCooks[0];
@@ -586,7 +586,7 @@ export default function CooksScreen() {
     const STATUS_PRIORITY: Record<string, number> = { active: 0, planned: 1 };
 
     const getRepDate = (item: UnifiedItem): number => {
-      if (item.type === "cook") return new Date(item.data.plannedStartAt || 0).getTime();
+      if (item.type === "cook") return cookHistoryTimestamp(item.data);
       if (item.type === "sessionHeader") return item.group.earliestStart?.getTime() ?? 0;
       return 0;
     };

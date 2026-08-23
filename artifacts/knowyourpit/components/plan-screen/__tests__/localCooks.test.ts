@@ -468,6 +468,70 @@ describe("local planning outbox failure recovery", () => {
     });
   });
 
+  it("deduplicates a server create that arrives before the local server ID is persisted", () => {
+    const localCooks = loadLocalCooks();
+    const local = {
+      id: -123,
+      _localCook: true,
+      _syncState: "syncing",
+      sessionId: "single-cook-create",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+      foodType: "Chicken Breast",
+    } as any;
+    const server = {
+      id: 456,
+      sessionId: "single-cook-create",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+      foodType: "Chicken Breast",
+      status: "active",
+    } as any;
+
+    expect(localCooks.mergeLocalAndServerCooks([server], [local])).toEqual([local]);
+  });
+
+  it("uses canonical server state after a local cook is synced", () => {
+    const localCooks = loadLocalCooks();
+    const local = {
+      id: -123,
+      _localCook: true,
+      _syncState: "synced",
+      _serverId: 456,
+      sessionId: "single-cook-create",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+      status: "active",
+    } as any;
+    const server = {
+      id: 456,
+      sessionId: "single-cook-create",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+      status: "completed",
+      actualEndAt: "2030-07-04T18:00:00.000Z",
+    } as any;
+
+    expect(localCooks.mergeLocalAndServerCooks([server], [local])).toEqual([server]);
+  });
+
+  it("deduplicates multi-cook members that share both a session and start time", () => {
+    const localCooks = loadLocalCooks();
+    const localMembers = ["Chicken Breast", "Ribs"].map((foodType, index) => ({
+      id: -123 - index,
+      _localCook: true,
+      _syncState: "syncing",
+      sessionId: "shared-multi-cook-session",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+      foodType,
+    })) as any[];
+    const serverMembers = ["Chicken Breast", "Ribs"].map((foodType, index) => ({
+      id: 456 + index,
+      sessionId: "shared-multi-cook-session",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+      foodType,
+      status: "active",
+    })) as any[];
+
+    expect(localCooks.mergeLocalAndServerCooks(serverMembers, localMembers)).toEqual(localMembers);
+  });
+
   it("keeps every member when a multi-cook session uses one shared session ID", async () => {
     const localCooks = loadLocalCooks();
     const first = await localCooks.createLocalCook(OWNER_ID, {
