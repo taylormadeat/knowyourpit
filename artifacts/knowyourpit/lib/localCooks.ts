@@ -38,6 +38,8 @@ export interface LocalCookSessionOperation {
   sessionId: string;
   anchorCookId: number | null;
   memberLocalIds: number[];
+  /** Revisions captured when this operation was created. */
+  memberRevisions?: number[];
   members: LiveCookSessionMember[];
   sequenceData: Record<string, unknown>;
   syncState: LocalCookSyncState;
@@ -121,15 +123,29 @@ export async function hydrateLocalCooks() {
           try {
             const stored = sanitizeStored(JSON.parse(raw));
             records = stored.cooks;
+             const recordsByLocalId = new Map(records.map((record) => [record.localId, record]));
+             const needsMemberRevisionMigration = stored.sessionOperations.some((operation) =>
+               !Array.isArray(operation.memberRevisions) ||
+               operation.memberRevisions.length !== operation.memberLocalIds.length,
+             );
+             const normalizedOperations = stored.sessionOperations.map((operation) => ({
+               ...operation,
+               memberRevisions: Array.isArray(operation.memberRevisions) &&
+                 operation.memberRevisions.length === operation.memberLocalIds.length
+                 ? operation.memberRevisions
+                 : operation.memberLocalIds.map(
+                     (localId) => recordsByLocalId.get(localId)?.revision ?? 0,
+                   ),
+             }));
             const interruptedOperationIds = new Set(
-              stored.sessionOperations
+               normalizedOperations
                 .filter((operation) => operation.syncState === "syncing")
                 .map((operation) => operation.operationId),
             );
             // A process may be killed after persisting "syncing" and before a
             // response arrives. On the next launch it is safe to replay the
             // idempotent session operation, never to strand it forever.
-            sessionOperations = stored.sessionOperations.map((operation) =>
+             sessionOperations = normalizedOperations.map((operation) =>
               interruptedOperationIds.has(operation.operationId)
                 ? {
                     ...operation,
@@ -139,7 +155,7 @@ export async function hydrateLocalCooks() {
                   }
                 : operation,
             );
-            if (interruptedOperationIds.size > 0) {
+             if (interruptedOperationIds.size > 0 || needsMemberRevisionMigration) {
               records = records.map((record) => interruptedOperationIds.has(record.sessionOperationId ?? "")
                 ? {
                     ...record,
@@ -389,6 +405,7 @@ export async function enqueueLiveCookSessionReconciliation(
     sessionId,
     anchorCookId,
     memberLocalIds: members.map((record) => record.localId),
+    memberRevisions: members.map((record) => record.revision ?? 0),
     members: members.map(toLiveSessionMember),
     sequenceData,
     syncState: "pending",
@@ -528,6 +545,7 @@ export async function saveLiveCookSessionBaseline(input: {
     sessionId: input.sessionId,
     anchorCookId: anchorRecord.serverId,
     memberLocalIds: memberRecords.map((record) => record.localId),
+    memberRevisions: memberRecords.map((record) => record.revision ?? 0),
     members: memberRecords.map(toLiveSessionMember),
     sequenceData: input.sequenceData,
     syncState: "pending",
@@ -695,17 +713,30 @@ async function syncLiveCookSessionOperations(ownerId: string, now: number) {
         if (memberIndex < 0) return record;
         const remote = responseCookForMember(response.cooks, syncing.members[memberIndex]);
         const stillOwnedByThisOperation = record.sessionOperationId === syncing.operationId;
+        const unchangedSinceOperation = syncing.memberRevisions == null ||
+          (record.revision ?? 0) === syncing.memberRevisions[memberIndex];
         return {
           ...record,
           ...(remote ? {
             serverId: remote.id,
             cook: { ...record.cook, ...remote, id: record.localId },
           } : {}),
-          ...(stillOwnedByThisOperation ? {
+          ...(stillOwnedByThisOperation && unchangedSinceOperation && !record.deletedAt ? {
             sessionOperationId: null,
             syncState: "synced" as const,
             syncError: null,
             syncAttempts: 0,
+            nextRetryAt: null,
+          } : stillOwnedByThisOperation && (record.deletedAt || !unchangedSinceOperation) ? {
+            // The old request committed, but this member changed while it was
+            // in flight. Give the newer revision to the ordinary outbox after
+            // applying any server ID returned by the old reconciliation. A
+            // tombstone therefore deletes a just-created member instead of
+            // resurrecting it, and an edit becomes a PATCH rather than a
+            // duplicate create.
+            sessionOperationId: null,
+            syncState: "pending" as const,
+            syncError: null,
             nextRetryAt: null,
           } : {}),
         };
