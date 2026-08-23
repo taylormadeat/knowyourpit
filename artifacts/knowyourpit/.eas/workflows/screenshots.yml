@@ -4,7 +4,7 @@ on:
 
 jobs:
   capture-iphone:
-    name: Capture iPhone screenshots (1290×2796)
+    name: Capture iPhone screenshots (1284×2778)
     type: custom
     environment:
       node-version: 20.x
@@ -34,7 +34,7 @@ jobs:
             --non-interactive \
             --output /tmp/knowyourpit-sim.tar.gz
 
-      - name: Boot iPhone 15 Pro Max and run Maestro flows
+      - name: Boot iPhone 14 Plus and run Maestro flows
         working-directory: artifacts/knowyourpit
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
@@ -45,7 +45,7 @@ jobs:
           APP_PATH=$(find /tmp/sim-build -name "*.app" | head -1)
 
           # Boot the simulator
-          UDID=$(xcrun simctl list devices available | grep "iPhone 15 Pro Max" | head -1 | grep -oE '[A-F0-9-]{36}')
+          UDID=$(xcrun simctl list devices available | grep "iPhone 14 Plus" | head -1 | grep -oE '[A-F0-9-]{36}')
           xcrun simctl boot "$UDID" 2>/dev/null || true
           open -a Simulator --args -CurrentDeviceUDID "$UDID"
           xcrun simctl bootstatus "$UDID" -b
@@ -60,9 +60,9 @@ jobs:
               --env SCREENSHOT_PASSWORD="$SCREENSHOT_PASSWORD" \
               .maestro/screenshot-all.yaml
 
-          # Resize to App Store 6.7" dimensions (1290×2796)
+          # Resize to App Store 6.5" dimensions (1284×2778)
           for f in screenshots/iphone/*.png; do
-            sips -z 2796 1290 "$f" --out "$f" &>/dev/null
+            sips -z 2778 1284 "$f" --out "$f" &>/dev/null
           done
 
       - uses: eas/upload-artifact@v1

@@ -123,7 +123,23 @@ Free accounts get 3 messages/day; Pro is unlimited.
 
 ---
 
-### 7. In-App Purchases / Subscriptions
+### 7. Connected Thermometers (hardware optional)
+
+The app supports compatible Bluetooth temperature probes and FireBoard Wi-Fi
+thermometers on the same local network. Reviewers do not need hardware to test
+the rest of the app:
+
+1. Open **More** → **Connected Devices**. With no supported hardware nearby,
+   the empty state is expected.
+2. Bluetooth permission is requested only when Bluetooth discovery or
+   cook-level probe tracking begins.
+3. Local Network permission is requested only when the app scans for a
+   compatible Wi-Fi thermometer. With no FireBoard on the network, no device is
+   found — this is expected.
+
+---
+
+### 8. In-App Purchases / Subscriptions
 
 In-app purchases are handled by RevenueCat. The demo account above has Pro status already
 granted so no purchase is needed during review. If you wish to test the purchase flow:

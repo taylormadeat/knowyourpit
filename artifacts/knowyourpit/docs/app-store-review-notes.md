@@ -51,24 +51,25 @@ CORE FEATURES — what you can test without hardware
    in the same screen and in the paywall footer.
 
 ────────────────────────────────────────────────────────────────────────
-BLUETOOTH & PROBE FEATURES — hardware required
+CONNECTED-THERMOMETER FEATURES — hardware optional
 ────────────────────────────────────────────────────────────────────────
-The app can connect to wireless thermometers (Inkbird IBT series and other
-BLE probes via Bluetooth; Fireboard via WiFi/LAN). These features
-require physical probe hardware that App Store reviewers will not have.
+The app can connect to compatible Bluetooth temperature probes and can discover
+a FireBoard Wi-Fi thermometer on the same local network. These features require
+physical hardware that App Store reviewers will not have.
 
 To review these features without hardware:
-• Navigate to More → Connected Devices. The screen lists discovered probes;
-  with no hardware present it shows an empty state — this is expected.
-• Navigate to More → BLE Diagnostics. This screen shows raw BLE scan output
-  and is available to all users for debugging connectivity.
-• The Bluetooth permission prompt appears the first time a user navigates to
-  Connected Devices or starts a cook with probe-tracking enabled.
+• Navigate to More → Connected Devices. With no compatible hardware nearby,
+  the expected empty state is shown.
+• The Bluetooth permission prompt appears only when the user begins device
+  discovery or enables probe tracking for a cook.
+• The Local Network permission prompt appears only when the app scans the local
+  network for a compatible Wi-Fi thermometer. With no FireBoard on the network,
+  no device is discovered — this is expected.
 • Location permission is requested only when the user starts a live cook and
-  the weather feature fetches outdoor temperature.
+  elects to use the outdoor-weather feature.
 
-If you have an Inkbird IBT-4XS or IBT-6XS probe, we are happy
-to provide a unit for testing — please contact support@knowyourpit.com.
+The rest of the app—including planning, cook logs, PitMaster coaching, and
+subscription flows—can be reviewed without probe hardware.
 
 ────────────────────────────────────────────────────────────────────────
 IN-APP PURCHASES

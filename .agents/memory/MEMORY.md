@@ -12,8 +12,9 @@
 - [EAS iOS submit "invalid curve name" blocker](eas-submit-invalid-curve-name.md) — TestFlight submit fails server-side (fastlane/OpenSSL); confirmed not fixable via key reformatting on our end.
 - [Probe role convention](probe-number-role-convention.md) — temperature_readings.probeNumber (0=meat,1=pit) is authoritative for role; probeName heuristics & probeAssignments IDs are not reliable for this.
 - [Task commits sweep the working tree](task-commit-sweep.md) — completion commits include prior sessions leftover edits; git status before first markTaskComplete.
-- [Pre-submission review](pre-submission-review.md) — run `bash artifacts/knowyourpit/scripts/pre-submission-review.sh` before every submit; current blockers: privacy/terms 404, reviewer credentials placeholder.
+- [Pre-submission review](pre-submission-review.md) — run the local preflight before every submit, then audit ASC for version/build attachment and web-only release fields.
 - [Big Pete's partnership — first build](big-petes-build.md) — iOS build 135 / Android versionCode 5 (v1.0.18) is the first build with the Big Pete's feature flag + partner cards.
 - [EAS hermesc syntax lowering](eas-hermesc-syntax-lowering.md) — EAS's Pods hermesc rejects ES6 classes; lowering must be non-loose AND strip annotation-only Flow fields first (build 137 & 138 crashes); smoke script + hermesc verify locally.
 - [OTA update on Replit](ota-update-replit.md) — eas update fails directly; use `bash scripts/ota-update.sh` (artifacts/knowyourpit/scripts/); script does export --no-bytecode + update --skip-bundler, one platform at a time.
 - [Live session reconciliation](live-session-reconciliation.md) — offline live-cook revisions require one durable session operation, not independent cook retries.
+- [App Store Connect category updates](asc-category-updates.md) — update secondary category through the parent app-info PATCH, not its GET-only relationship endpoint.

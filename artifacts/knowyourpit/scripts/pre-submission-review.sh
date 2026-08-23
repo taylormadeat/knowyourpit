@@ -31,7 +31,7 @@ echo "$SEP"
 
 # ── 1. Tests ─────────────────────────────────────────────────────────────────
 echo ""
-echo "[ 1/10] Running test suite …"
+echo "[ 1/11] Running test suite …"
 if pnpm test --passWithNoTests --silent 2>/dev/null; then
   log_pass "All tests pass"
 else
@@ -40,16 +40,25 @@ fi
 
 # ── 2. Typecheck ─────────────────────────────────────────────────────────────
 echo ""
-echo "[ 2/10] Running typecheck …"
+echo "[ 2/11] Running typecheck …"
 if (cd ../.. && pnpm run typecheck 2>/dev/null); then
   log_pass "Typecheck clean"
 else
   log_fail "TypeScript errors present — do not submit"
 fi
 
-# ── 3. Privacy policy URL ─────────────────────────────────────────────────────
+# ── 3. Live App Store Connect release record ──────────────────────────────────
 echo ""
-echo "[ 3/10] Checking public URLs …"
+echo "[ 3/11] Checking live App Store Connect release record …"
+if (cd ../.. && pnpm --filter @workspace/scripts run checkAscReleaseReadiness); then
+  log_pass "Live App Store Connect record is ready to submit"
+else
+  log_fail "Live App Store Connect record is incomplete — do not submit"
+fi
+
+# ── 4. Privacy policy URL ─────────────────────────────────────────────────────
+echo ""
+echo "[ 4/11] Checking public URLs …"
 PRIVACY_STATUS=$(curl -sL -o /dev/null -w "%{http_code}" https://www.knowyourpit.com/privacy)
 if [ "$PRIVACY_STATUS" = "200" ]; then
   log_pass "https://www.knowyourpit.com/privacy → 200 OK"
@@ -64,18 +73,18 @@ else
   log_fail "https://www.knowyourpit.com/terms → $TERMS_STATUS  (Apple requires accessible Terms link)"
 fi
 
-# ── 4. Reviewer credentials ───────────────────────────────────────────────────
+# ── 5. Reviewer credentials ───────────────────────────────────────────────────
 echo ""
-echo "[ 4/10] Checking reviewer credentials …"
+echo "[ 5/11] Checking reviewer credentials …"
 # Credentials must NOT be committed to this file. Instead, paste the review
 # notes template from docs/app-store-review-notes.md into App Store Connect's
 # "Notes for Apple" field and fill in the credentials there at submission time.
 # Source the account from 1Password "ASC Reviewer Account".
 log_warn "Confirm reviewer demo credentials are entered in App Store Connect → Notes for Apple (not stored here). Source: 1Password 'ASC Reviewer Account'."
 
-# ── 5. Privacy manifest ───────────────────────────────────────────────────────
+# ── 6. Privacy manifest ───────────────────────────────────────────────────────
 echo ""
-echo "[ 5/10] Checking PrivacyInfo.xcprivacy …"
+echo "[ 6/11] Checking PrivacyInfo.xcprivacy …"
 MANIFEST="plugins/with-privacy-manifest/PrivacyInfo.xcprivacy"
 if [ -f "$MANIFEST" ]; then
   if grep -q "NSPrivacyTracking" "$MANIFEST" && grep -q "NSPrivacyAccessedAPITypes" "$MANIFEST"; then
@@ -87,18 +96,18 @@ else
   log_fail "PrivacyInfo.xcprivacy not found at $MANIFEST"
 fi
 
-# ── 6. ITSAppUsesNonExemptEncryption ─────────────────────────────────────────
+# ── 7. ITSAppUsesNonExemptEncryption ─────────────────────────────────────────
 echo ""
-echo "[ 6/10] Checking encryption declaration …"
+echo "[ 7/11] Checking encryption declaration …"
 if grep -q "ITSAppUsesNonExemptEncryption.*false" app.config.js 2>/dev/null; then
   log_pass "ITSAppUsesNonExemptEncryption = false (standard HTTPS only)"
 else
   log_warn "ITSAppUsesNonExemptEncryption not found in app.config.js — verify export compliance"
 fi
 
-# ── 7. Build number sanity ────────────────────────────────────────────────────
+# ── 8. Build number sanity ────────────────────────────────────────────────────
 echo ""
-echo "[ 7/10] Build number …"
+echo "[ 8/11] Build number …"
 BUILD_NUM=$(node -e "const c=require('./app.config.js'); console.log(c.expo.ios.buildNumber);" 2>/dev/null || echo "unknown")
 VERSION=$(node -e "const c=require('./app.config.js'); console.log(c.expo.version);" 2>/dev/null || echo "unknown")
 echo "        Version: $VERSION   iOS build number: $BUILD_NUM"
@@ -108,9 +117,9 @@ else
   log_pass "Build number is $BUILD_NUM — confirm this is higher than the last Apple-accepted build"
 fi
 
-# ── 8. OTA runtime version lockstep ──────────────────────────────────────────
+# ── 9. OTA runtime version lockstep ──────────────────────────────────────────
 echo ""
-echo "[ 8/10 ] OTA runtime version lockstep …"
+echo "[ 9/11] OTA runtime version lockstep …"
 PLIST="ios/knowyourpit/Supporting/Expo.plist"
 APP_VERSION=$(node -e "const c=require('./app.config.js'); console.log(c.expo.version);" 2>/dev/null || echo "unknown")
 PLIST_RUNTIME=$(sed -n 's/.*<key>EXUpdatesRuntimeVersion<\/key>.*/FOUND/p' "$PLIST" >/dev/null && grep -A1 "EXUpdatesRuntimeVersion" "$PLIST" | grep -o "<string>[^<]*</string>" | sed 's/<[^>]*>//g' || echo "missing")
@@ -130,9 +139,9 @@ else
   log_fail "EXUpdatesURL missing from $PLIST"
 fi
 
-# ── 9. Bundle smoke check (catches babel/hermesc breakage) ───────────────────
+# ── 10. Bundle smoke check (catches babel/hermesc breakage) ──────────────────
 echo ""
-echo "[ 9/10 ] Runtime transform smoke + iOS bundle hermesc compile …"
+echo "[10/11] Runtime transform smoke + iOS bundle hermesc compile …"
 # Catches three past release-breaking failures:
 #   • build 137 crash: loose class-field transforms emitting bare assignments
 #     over read-only inherited props ("Cannot assign to read-only property")
@@ -193,9 +202,9 @@ else
 fi
 rm -rf "$SMOKE_DIR"
 
-# ── 10. No placeholder / test content in shipped code ────────────────────────
+# ── 11. No placeholder / test content in shipped code ────────────────────────
 echo ""
-echo "[10/10] Checking for placeholder content in source …"
+echo "[11/11] Checking for placeholder content in source …"
 set +o pipefail
 PLACEHOLDER_HITS=$(grep -rn "TODO\|FIXME\|PLACEHOLDER\|lorem ipsum\|test@test\|fake@" \
   --include="*.ts" --include="*.tsx" \

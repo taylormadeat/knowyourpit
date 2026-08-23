@@ -36,19 +36,19 @@ SCREENSHOT_EMAIL=demo@example.com SCREENSHOT_PASSWORD=YourPassword \
 
 | Device | Directory | Resolution |
 |--------|-----------|------------|
-| iPhone 15 Pro Max (6.7") | `screenshots/iphone/` | 1290 × 2796 |
+| iPhone 14 Plus (6.5") | `screenshots/iphone/` | 1284 × 2778 |
 | iPad Pro 13-inch M4 | `screenshots/ipad/` | 2064 × 2752 |
 
 ## Screens captured
 
 | File | Screen |
 |------|--------|
-| `01-dashboard.png` | Home — live cook widget + recent activity |
-| `02-cook-log.png` | Cook Log — history with status tags |
-| `03-plan.png` | Plan — AI-driven cook schedule |
-| `04-pitmaster.png` | PitMaster — AI assistant chat |
-| `05-my-grills.png` | My Grills — grill profile management |
-| `06-pro-features.png` | Go Pro — paywall / feature showcase |
+| iPhone set | Home dashboard, single- and multi-cook planning, cook log, grill inventory, and PitMaster AI advice |
+| iPad set | Home dashboard, planning, cook log/detail, grill inventory, PitMaster prompts, and image-scanner flows |
+
+An obsolete brand-specific probe capture was removed from the source set and
+the live ASC draft. Use a generic live-cook or compatible-probe flow from a
+current simulator capture if a temperature-tracking screenshot needs to be added.
 
 ## Running via EAS cloud (CI)
 

@@ -17,8 +17,10 @@ Before running `eas submit` or triggering the GitHub Actions submit workflow:
 3. Review ⚠️ warnings.
 4. Then submit.
 
-## Current known blockers (as of August 2026)
-- Reviewer credentials in `docs/app-store-review-notes.md` are still placeholder text (user must fill in).
+## What the local check cannot verify
+- The script intentionally never reads or stores reviewer credentials. Confirm the protected demo-account fields directly in App Store Connect before submitting.
+- It cannot verify that the processed build's marketing version matches the editable App Store version, or that the build is attached. Run a live ASC audit after the script passes.
+- The direct secondary-category relationship endpoint is read-only. If a change is needed, update the parent app-info resource and still confirm the result in the ASC web UI.
 
 ## Important: knowyourpit.com hosting (corrected)
 knowyourpit.com IS hosted on Replit (GoDaddy is only the registrar). The verified deployment domains are

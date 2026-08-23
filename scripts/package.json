@@ -18,6 +18,7 @@
     "db:prod-drop-orphans": "tsx ./src/drop-orphan-tables-prod.ts",
     "setup-asc-iap": "tsx ./src/createAscIapProducts.ts",
     "checkAscIapState": "tsx ./src/checkAscIapState.ts",
+    "checkAscReleaseReadiness": "tsx ./src/checkAscReleaseReadiness.ts",
     "knowledge-pdf": "tsx ./src/generate-knowledge-pdf.ts",
     "build:backup": "tsx ./src/githubBuildBackup.ts",
     "build:backup:dry-run": "tsx ./src/githubBuildBackup.ts --dry-run",

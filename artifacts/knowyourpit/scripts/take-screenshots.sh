@@ -19,7 +19,7 @@
 #   - EAS CLI      (npm install -g eas-cli)  — only needed without --no-build
 #
 # Target resolutions:
-#   iPhone  (6.7" display)  — 1290×2796  (iPhone 15 Pro Max / App Store 6.7" slot)
+#   iPhone  (6.5" display)  — 1284×2778  (iPhone 14 Plus / App Store 6.5" slot)
 #   iPad    (13" display)   — 2064×2752  (iPad Pro 13-inch M4)
 #
 # Outputs land in:
@@ -34,7 +34,7 @@ SCREENSHOTS_DIR="$APP_DIR/screenshots"
 MAESTRO_FLOWS="$APP_DIR/.maestro"
 
 BUNDLE_ID="com.knowyourpit.app"
-IPHONE_DEVICE="iPhone 15 Pro Max"
+IPHONE_DEVICE="iPhone 14 Plus"
 IPAD_DEVICE="iPad Pro 13-inch (M4)"
 
 BUILD_APP=true
@@ -151,12 +151,12 @@ fi
 # ── iPhone screenshots ────────────────────────────────────────────────────────
 echo ""
 echo "═══════════════════════════════════════"
-echo "  iPhone 15 Pro Max screenshots"
+echo "  iPhone 14 Plus screenshots"
 echo "═══════════════════════════════════════"
 IPHONE_UDID=$(boot_simulator "$IPHONE_DEVICE")
 install_app "$IPHONE_UDID" "$APP_PATH"
 run_maestro_flows "iPhone" "$SCREENSHOTS_DIR/iphone"
-resize_screenshots "$SCREENSHOTS_DIR/iphone" 1290 2796
+resize_screenshots "$SCREENSHOTS_DIR/iphone" 1284 2778
 
 # ── iPad screenshots (optional) ───────────────────────────────────────────────
 if $CAPTURE_IPAD; then
