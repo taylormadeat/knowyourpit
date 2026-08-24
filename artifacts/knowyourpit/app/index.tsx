@@ -2,10 +2,13 @@ import { useAuth } from "@clerk/expo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Redirect } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Platform, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
 
 const GUEST_MODE_KEY = "knowyourpit:guestMode";
+const isBrowserPreview =
+  Platform.OS === "web" &&
+  process.env.EXPO_PUBLIC_BROWSER_PREVIEW_MODE === "true";
 
 export default function Index() {
   const { isSignedIn, isLoaded } = useAuth();
@@ -25,6 +28,10 @@ export default function Index() {
       cancelled = true;
     };
   }, []);
+
+  if (isBrowserPreview) {
+    return <Redirect href="/(tabs)/plan" />;
+  }
 
   if (guestMode === null) {
     return (

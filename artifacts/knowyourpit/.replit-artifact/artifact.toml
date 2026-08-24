@@ -12,7 +12,7 @@ kind = "mobile"
   [[services]]
   ensurePreviewReachable = "/status"
   name = "expo"
-  paths = [ "/knowyourpit/" ]
+  paths = [ "/knowyourpit/", "/node_modules/" ]
   localPort = 19876
 
   [services.development]
@@ -21,4 +21,3 @@ kind = "mobile"
   [services.env]
   PORT = "19876"
   BASE_PATH = "/knowyourpit/"
-  

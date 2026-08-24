@@ -154,6 +154,12 @@ const clerkPubKey =
   process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ??
   "";
 const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL ?? "";
+// The Replit Expo browser preview has no persisted Clerk session for smoke
+// tests. This flag is injected only by the local `dev` script and is web-only,
+// so native apps and production builds always retain the normal auth gate.
+const isBrowserPreview =
+  Platform.OS === "web" &&
+  process.env.EXPO_PUBLIC_BROWSER_PREVIEW_MODE === "true";
 
 // Loud diagnostic: in a non-__DEV__ build (TestFlight / App Store), refuse to
 // silently fall back to a pk_test_ Clerk dev key — that's exactly what bit the
@@ -390,6 +396,9 @@ function RootLayoutNav() {
   // The account-creation date check ensures existing users who update the app
   // are never redirected to onboarding — only new sign-ups see the flow.
   useEffect(() => {
+    // The browser preview deliberately renders local-first screens without a
+    // Clerk session so Plan/Cook Log smoke tests can run before shipping.
+    if (isBrowserPreview) return;
     if (!isLoaded || !userLoaded || !localFlagLoaded) return;
     const inAuthGroup = segments[0] === "(auth)";
     const onSetUsername = segments[1] === "set-username";
@@ -735,7 +744,7 @@ function ClerkGatedShell({
     }
   }, [isLoaded, userId]);
 
-  if (!isLoaded && !proceedAnyway) {
+  if (!isLoaded && !proceedAnyway && !isBrowserPreview) {
     // Visible diagnostic boot screen — replaces the previous silent black
     // <View> placeholder, which was indistinguishable from a hung/crashed
     // app and caused multiple App Store review rejections. If Clerk takes

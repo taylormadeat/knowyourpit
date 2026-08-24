@@ -127,6 +127,11 @@ const config = {
     ],
   ],
   experiments: {
+    // Replit serves this artifact below /knowyourpit/ in the browser preview.
+    // Expo Router uses this to strip that prefix before route matching and add
+    // it back when it creates links. Native and production root builds leave
+    // BASE_PATH unset, so their routes remain unchanged.
+    baseUrl: process.env.BASE_PATH || "",
     typedRoutes: true,
     reactCompiler: true,
   },
