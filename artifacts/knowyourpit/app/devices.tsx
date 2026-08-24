@@ -33,7 +33,12 @@ import {
   type ManualDeviceType,
   MANUAL_DEVICE_LABELS,
 } from "@/hooks/useLanProbes";
-import { ADAPTER_LABELS } from "@/hooks/ble/adapters";
+import {
+  ADAPTER_LABELS,
+  RFX_ADAPTER,
+  RFX_DEVICE_GUIDANCE,
+  RFX_SETUP_URL,
+} from "@/hooks/ble/adapters";
 import {
   bleAvailabilityLabel,
   bleAvailabilityMessage,
@@ -80,14 +85,26 @@ function ConnectionTypeBadge({ type }: { type: "ble" | "lan" }) {
 function BleDeviceCard({ device, colors, onPair, onUnpair }: {
   device: BleDevice;
   colors: any;
-  onPair: () => void;
+  onPair?: () => void;
   onUnpair: () => void;
 }) {
+  const isRfx = device.adapter === RFX_ADAPTER;
   const isConnected = device.connectionState === "connected";
   const isConnecting = device.connectionState === "connecting";
   const isPaired = device.paired;
   const isOffline = isPaired && !isConnected && !isConnecting;
   const isRfxGateway = device.adapter === "thermoworks_rfx";
+
+  const openRfxSetupGuide = useCallback(async () => {
+    try {
+      await Linking.openURL(RFX_SETUP_URL);
+    } catch {
+      Alert.alert(
+        "RFX setup guide unavailable",
+        "Open the ThermoWorks app to add this RFX Gateway to your account, then connect it to a 2.4 GHz Wi-Fi network. knowyourpit cannot pair RFX over Bluetooth yet.",
+      );
+    }
+  }, []);
 
   const confirmRemove = () => {
     Alert.alert(
@@ -99,6 +116,47 @@ function BleDeviceCard({ device, colors, onPair, onUnpair }: {
       ],
     );
   };
+
+  if (isRfx) {
+    return (
+      <View
+        testID="thermoworks-rfx-guidance"
+        style={[
+          s.deviceCard,
+          {
+            backgroundColor: colors.card,
+            borderColor: "#EAB30860",
+            borderRadius: colors.radius,
+          },
+        ]}
+      >
+        <View style={s.deviceRow}>
+          <View style={[s.deviceIcon, { backgroundColor: "#EAB30820" }]}>
+            <Feather name="radio" size={20} color="#EAB308" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <Text style={[s.deviceName, { color: colors.foreground }]}>{device.name}</Text>
+              <ConnectionTypeBadge type="ble" />
+            </View>
+            <Text style={[s.deviceSub, { color: "#EAB308" }]}>ThermoWorks RFX · Detected nearby</Text>
+          </View>
+        </View>
+        <View style={[s.rfxGuidance, { borderTopColor: colors.border }]}>
+          <Text style={[s.rfxTitle, { color: colors.foreground }]}>{RFX_DEVICE_GUIDANCE.title}</Text>
+          <Text style={[s.rfxBody, { color: colors.mutedForeground }]}>{RFX_DEVICE_GUIDANCE.body}</Text>
+          <Pressable
+            testID="view-rfx-setup-guide"
+            onPress={openRfxSetupGuide}
+            style={[s.linkBtn, { backgroundColor: "#EAB308", marginHorizontal: 0, marginBottom: 0 }]}
+          >
+            <Feather name="external-link" size={14} color="#fff" />
+            <Text style={s.linkBtnText}>{RFX_DEVICE_GUIDANCE.actionLabel}</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <Pressable
@@ -738,7 +796,12 @@ export default function DevicesScreen() {
 
                 {(() => {
                   const pairedDevices = bleDevices.filter((d) => d.paired);
-                  const nearbyUnpaired = bleScanning ? bleDevices.filter((d) => !d.paired) : [];
+                  const nearbyRfxDevices = bleDevices.filter(
+                    (d) => !d.paired && d.adapter === RFX_ADAPTER,
+                  );
+                  const nearbyUnpaired = bleScanning
+                    ? bleDevices.filter((d) => !d.paired && d.adapter !== RFX_ADAPTER)
+                    : [];
 
                   return (
                     <>
@@ -763,6 +826,25 @@ export default function DevicesScreen() {
                           onUnpair={() => unpairDevice(device.id)}
                         />
                       ))}
+
+                      {nearbyRfxDevices.length > 0 && (
+                        <>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
+                            <Feather name="radio" size={11} color="#EAB308" />
+                            <Text style={[s.sectionHeader, { color: "#EAB308", fontSize: 10 }]}>
+                              ThermoWorks gateway detected
+                            </Text>
+                          </View>
+                          {nearbyRfxDevices.map((device) => (
+                            <BleDeviceCard
+                              key={device.id}
+                              device={device}
+                              colors={colors}
+                              onUnpair={() => unpairDevice(device.id)}
+                            />
+                          ))}
+                        </>
+                      )}
 
                       {bleScanning && nearbyUnpaired.length > 0 && (
                         <>
@@ -841,6 +923,9 @@ const s = StyleSheet.create({
   confirmLinkBtn: { flex: 1, borderRadius: 8, paddingVertical: 11, alignItems: "center" },
   oauthHint: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
   oauthHintLink: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  rfxGuidance: { borderTopWidth: 1, padding: 14, gap: 8 },
+  rfxTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  rfxBody: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
   lanPermCard: { borderWidth: 1, padding: 16, gap: 10 },
   lanPermIconRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   lanPermIconWrap: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },

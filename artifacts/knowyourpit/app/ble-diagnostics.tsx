@@ -14,7 +14,13 @@ import { LogoBackground } from "@/components/LogoBackground";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useBottomInset } from "@/hooks/useBottomInset";
-import { ADAPTER_LABELS, detectAdapter } from "@/hooks/ble/adapters";
+import {
+  ADAPTER_LABELS,
+  detectAdapter,
+  RFX_ADAPTER,
+  RFX_DEVICE_GUIDANCE,
+  RFX_SETUP_URL,
+} from "@/hooks/ble/adapters";
 import { parseInkbirdTemps } from "@/hooks/ble/adapters/inkbird";
 import {
   bleAvailabilityLabel,
@@ -96,8 +102,18 @@ function DeviceRow({ device, colors }: { device: RawBleDevice; colors: any }) {
     device.adapter in ADAPTER_LABELS
       ? ADAPTER_LABELS[device.adapter as keyof typeof ADAPTER_LABELS]
       : "Unknown";
+  const isRfx = device.adapter === RFX_ADAPTER;
   const isKnown = device.adapter !== "unknown";
   const age = Math.round((Date.now() - device.lastSeenMs) / 1000);
+
+  const openRfxSetupGuide = useCallback(async () => {
+    try {
+      await Linking.openURL(RFX_SETUP_URL);
+    } catch {
+      // The visible guidance remains useful when a browser cannot be opened;
+      // avoid turning a diagnostics action into a hard failure.
+    }
+  }, []);
 
   return (
     <Pressable
@@ -119,9 +135,9 @@ function DeviceRow({ device, colors }: { device: RawBleDevice; colors: any }) {
           ]}
         >
           <Feather
-            name="bluetooth"
+            name={isRfx ? "radio" : "bluetooth"}
             size={15}
-            color={isKnown ? "#3B82F6" : colors.mutedForeground}
+            color={isRfx ? "#EAB308" : isKnown ? "#3B82F6" : colors.mutedForeground}
           />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -161,6 +177,25 @@ function DeviceRow({ device, colors }: { device: RawBleDevice; colors: any }) {
           color={colors.mutedForeground}
         />
       </View>
+
+      {isRfx && (
+        <View style={[s.rfxGuidance, { borderTopColor: colors.border }]}>
+          <Text style={[s.rfxTitle, { color: colors.foreground }]}>
+            {RFX_DEVICE_GUIDANCE.title}
+          </Text>
+          <Text style={[s.rfxBody, { color: colors.mutedForeground }]}>
+            {RFX_DEVICE_GUIDANCE.body}
+          </Text>
+          <Pressable
+            testID="diagnostics-view-rfx-setup-guide"
+            onPress={openRfxSetupGuide}
+            style={[s.openThermoWorksBtn, { backgroundColor: "#EAB308" }]}
+          >
+            <Feather name="external-link" size={13} color="#fff" />
+            <Text style={s.openThermoWorksText}>{RFX_DEVICE_GUIDANCE.actionLabel}</Text>
+          </Pressable>
+        </View>
+      )}
 
       {expanded && (
         <View style={[s.expandedBody, { borderTopColor: colors.border }]}>
@@ -723,6 +758,23 @@ const s = StyleSheet.create({
   },
   expandedLabel: { fontSize: 10, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.4, marginTop: 6 },
   expandedValue: { fontSize: 12, fontFamily: "Inter_500Medium", lineHeight: 17 },
+  rfxGuidance: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    padding: 12,
+    gap: 7,
+  },
+  rfxTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  rfxBody: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
+  openThermoWorksBtn: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  openThermoWorksText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#fff" },
   faqCard: {
     flexDirection: "row",
     alignItems: "flex-start",

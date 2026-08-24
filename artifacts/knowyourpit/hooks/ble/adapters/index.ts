@@ -20,14 +20,19 @@
 export * from "./govee";
 export * from "./weberIGrill";
 export * from "./rfxGateway";
+export * from "./thermoworksRfx";
 
 import { isGoveeDevice, GOVEE_ADAPTER } from "./govee";
 import { isIGrillDevice, IGRILL_ADAPTER } from "./weberIGrill";
 import { isInkbirdDevice } from "./inkbird";
-import { isRfxGatewayDevice, RFX_GATEWAY_ADAPTER } from "./rfxGateway";
+import { isThermoWorksRfxDevice, RFX_ADAPTER } from "./thermoworksRfx";
 export { isInkbirdDevice };
 
-export type BleAdapterKey = "inkbird" | "govee" | "weber_igrill" | "thermoworks_rfx";
+export type BleAdapterKey =
+  | "inkbird"
+  | "govee"
+  | "weber_igrill"
+  | typeof RFX_ADAPTER;
 
 /**
  * Returns the adapter key for a scanned BLE device, or null if unrecognised.
@@ -36,7 +41,7 @@ export function detectAdapter(device: any): BleAdapterKey | null {
   if (isGoveeDevice(device)) return GOVEE_ADAPTER as BleAdapterKey;
   if (isIGrillDevice(device)) return IGRILL_ADAPTER as BleAdapterKey;
   if (isInkbirdDevice(device)) return "inkbird";
-  if (isRfxGatewayDevice(device)) return RFX_GATEWAY_ADAPTER as BleAdapterKey;
+  if (isThermoWorksRfxDevice(device)) return RFX_ADAPTER;
   return null;
 }
 
@@ -44,7 +49,7 @@ export const ADAPTER_LABELS: Record<BleAdapterKey, string> = {
   inkbird: "Inkbird",
   govee: "Govee",
   weber_igrill: "Weber iGrill",
-  thermoworks_rfx: "ThermoWorks RFX Gateway",
+  [RFX_ADAPTER]: "ThermoWorks RFX",
 };
 
 /**

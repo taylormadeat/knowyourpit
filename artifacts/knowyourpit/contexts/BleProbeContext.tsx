@@ -27,6 +27,7 @@ import {
   detectAdapter,
   GATT_ADAPTERS,
   ADAPTER_LABELS,
+  RFX_ADAPTER,
   type BleAdapterKey,
 } from "@/hooks/ble/adapters";
 import {
@@ -82,7 +83,12 @@ function deriveSignalWeak(rssiAvg: number | null, prevWeak: boolean): boolean {
  */
 const ADV_WATCHDOG_MS = 60_000;
 
-export type BleConnectionState = "scanning" | "connecting" | "connected" | "disconnected";
+export type BleConnectionState =
+  | "scanning"
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "unsupported";
 
 export interface BleDevice {
   id: string;
@@ -763,7 +769,21 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
             deviceMapRef.current.get(device.id as string)?.signalWeak ?? false,
           );
 
-          if (GATT_ADAPTERS.includes(adapter)) {
+          if (adapter === RFX_ADAPTER) {
+            // RFX discovery is useful for guidance, but RFX readings are
+            // account/cloud-based and do not have a supported BLE GATT path.
+            // Keep it in the registry so Connected Devices can explain the
+            // next step instead of silently dropping the advertisement.
+            upsertDevice(device.id, {
+              name: deviceName,
+              adapter,
+              connectionState: "unsupported",
+              lastSeenMs: now,
+              rssi: deviceRssi,
+              rssiAvg: deviceRssiAvg,
+              signalWeak: deviceSignalWeak,
+            });
+          } else if (GATT_ADAPTERS.includes(adapter)) {
             const existing = deviceMapRef.current.get(device.id);
             if (!existing || existing.connectionState === "disconnected") {
               upsertDevice(device.id, {

@@ -7,7 +7,7 @@
  * ThermoWorks cloud after the probe is added to the gateway's account.
  */
 
-export const RFX_GATEWAY_ADAPTER = "thermoworks_rfx";
+export const RFX_GATEWAY_ADAPTER = "thermoworks_rfx" as const;
 
 function normalizedName(device: any): string {
   return String(device?.name ?? device?.localName ?? "")
@@ -24,7 +24,7 @@ function normalizedName(device: any): string {
 export function isRfxGatewayDevice(device: any): boolean {
   const name = normalizedName(device);
   return (
-    /^rfx(?:[ _-]+)gateway\b/.test(name) ||
-    /^thermoworks(?:[ _-]+)rfx(?:[ _-]+)gateway\b/.test(name)
+    /^rfx(?:[ _-]+gateway)?$/.test(name) ||
+    /^thermoworks(?:[ _-]+)rfx(?:[ _-]+gateway)?$/.test(name)
   );
 }
