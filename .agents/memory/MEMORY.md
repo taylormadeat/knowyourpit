@@ -21,3 +21,4 @@
 - [Local cook persistence](local-cook-persistence.md) — in-memory cook commits never await AsyncStorage; late hydration merges and retries durable snapshots.
 - [App Store Connect category updates](asc-category-updates.md) — update secondary category through the parent app-info PATCH, not its GET-only relationship endpoint.
 - [Expo path-prefixed preview routing](expo-path-prefixed-preview.md) — Expo Router v6 ignores base paths in development bundles; use production-mode Metro for prefixed browser previews.
+- [iOS BLE state reconciliation](ios-ble-state-reconciliation.md) — persisted denial flags are hints; reconcile live state and keep Unknown/Resetting non-blocking.

@@ -16,6 +16,12 @@ import { useColors } from "@/hooks/useColors";
 import { useBottomInset } from "@/hooks/useBottomInset";
 import { ADAPTER_LABELS, detectAdapter } from "@/hooks/ble/adapters";
 import { parseInkbirdTemps } from "@/hooks/ble/adapters/inkbird";
+import {
+  bleAvailabilityLabel,
+  bleAvailabilityMessage,
+  getBleAvailability,
+  type BleAvailability,
+} from "@/hooks/ble/availability";
 
 interface RawBleDevice {
   id: string;
@@ -278,6 +284,9 @@ export default function BleDiagnosticsScreen() {
   const [devices, setDevices] = useState<Map<string, RawBleDevice>>(new Map());
   const [scanning, setScanning] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [bluetoothAvailability, setBluetoothAvailability] =
+    useState<BleAvailability>("initializing");
+  const [reportedBleState, setReportedBleState] = useState("Unknown");
   const [scanCount, setScanCount] = useState(0);
 
   const deviceMapRef = useRef<Map<string, RawBleDevice>>(new Map());
@@ -322,31 +331,38 @@ export default function BleDiagnosticsScreen() {
         managerRef.current = new BleManager();
       }
 
-      // iOS: check Bluetooth authorization state before starting the scan so
-      // we surface the permission-denied banner instead of silently showing nothing.
       if (Platform.OS === "ios") {
         const bleState = await new Promise<string>((resolve) => {
           let settled = false;
-          const sub = managerRef.current.onStateChange((state: string) => {
+          let sub: any = null;
+          const finish = (state: string) => {
+            if (settled) return;
+            settled = true;
+            try { sub?.remove?.(); } catch {}
+            resolve(state);
+          };
+          sub = managerRef.current.onStateChange((state: string) => {
             if (state !== "Unknown" && state !== "Resetting") {
-              if (!settled) {
-                settled = true;
-                try { sub?.remove?.(); } catch {}
-                resolve(state);
-              }
+              finish(state);
             }
           }, true);
+          if (settled) {
+            try { sub?.remove?.(); } catch {}
+          }
           setTimeout(() => {
-            if (!settled) {
-              settled = true;
-              try { sub?.remove?.(); } catch {}
-              resolve("Unknown");
-            }
+            finish("Unknown");
           }, 3000);
         });
         if (!mountedRef.current) return;
-        if (bleState === "Unauthorized") {
-          setPermissionDenied(true);
+        const availability = getBleAvailability(bleState);
+        setReportedBleState(bleState);
+        setBluetoothAvailability(availability);
+        setPermissionDenied(availability === "permissionDenied");
+        if (
+          availability === "permissionDenied" ||
+          availability === "poweredOff" ||
+          availability === "unsupported"
+        ) {
           return;
         }
       }
@@ -365,6 +381,10 @@ export default function BleDiagnosticsScreen() {
               const reason = String(error?.reason ?? error?.message ?? "").toLowerCase();
               if (code === 102 || reason.includes("unauthorized") || reason.includes("not authorized")) {
                 setPermissionDenied(true);
+                setBluetoothAvailability("permissionDenied");
+                setScanning(false);
+              } else if (reason.includes("powered off")) {
+                setBluetoothAvailability("poweredOff");
                 setScanning(false);
               }
             }
@@ -419,6 +439,10 @@ export default function BleDiagnosticsScreen() {
   });
 
   const knownCount = deviceList.filter((d) => d.adapter !== "unknown").length;
+  const hasBluetoothIssue =
+    bluetoothAvailability === "permissionDenied" ||
+    bluetoothAvailability === "poweredOff" ||
+    bluetoothAvailability === "unsupported";
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
@@ -444,6 +468,27 @@ export default function BleDiagnosticsScreen() {
             Raw scan of every BLE device visible to your phone — not just
             thermometers. Use this to confirm your probe is advertising.
           </Text>
+        </View>
+
+        <View
+          style={[
+            s.infoCard,
+            { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
+          ]}
+        >
+          <Feather
+            name={hasBluetoothIssue ? "alert-circle" : "bluetooth"}
+            size={15}
+            color={hasBluetoothIssue ? "#ef4444" : colors.mutedForeground}
+          />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={[s.infoText, { color: colors.foreground }]}>
+              {bleAvailabilityLabel(bluetoothAvailability)}
+            </Text>
+            <Text style={[s.infoText, { color: colors.mutedForeground }]}>
+              iOS reported: {reportedBleState}
+            </Text>
+          </View>
         </View>
 
         <Pressable
@@ -472,7 +517,7 @@ export default function BleDiagnosticsScreen() {
           </Text>
         </Pressable>
 
-        {permissionDenied && (
+        {(permissionDenied || hasBluetoothIssue) && (
           <View
             style={[
               s.permDeniedCard,
@@ -485,19 +530,25 @@ export default function BleDiagnosticsScreen() {
           >
             <Feather name="alert-circle" size={18} color="#ef4444" />
             <View style={{ flex: 1, gap: 6 }}>
-              <Text style={s.permDeniedTitle}>Bluetooth access denied</Text>
-              <Text style={[s.permDeniedBody, { color: colors.mutedForeground }]}>
-                knowyourpit cannot scan for BLE devices without Bluetooth
-                permission. Open Settings and enable Bluetooth access for
-                knowyourpit to continue.
+              <Text style={s.permDeniedTitle}>
+                {bleAvailabilityLabel(bluetoothAvailability)}
               </Text>
-              <Pressable
-                onPress={() => Linking.openSettings()}
-                style={s.openSettingsBtn}
-              >
-                <Feather name="settings" size={13} color="#fff" />
-                <Text style={s.openSettingsBtnText}>Open Settings</Text>
-              </Pressable>
+              <Text style={[s.permDeniedBody, { color: colors.mutedForeground }]}>
+                {bleAvailabilityMessage(
+                  permissionDenied && !hasBluetoothIssue
+                    ? "permissionDenied"
+                    : bluetoothAvailability,
+                )}
+              </Text>
+              {(permissionDenied || bluetoothAvailability === "permissionDenied") && (
+                <Pressable
+                  onPress={() => Linking.openSettings()}
+                  style={s.openSettingsBtn}
+                >
+                  <Feather name="settings" size={13} color="#fff" />
+                  <Text style={s.openSettingsBtnText}>Open Settings</Text>
+                </Pressable>
+              )}
             </View>
           </View>
         )}

@@ -42,6 +42,12 @@ import {
   IGRILL_PROBE_CHAR_UUIDS,
   IGRILL_BATTERY_CHAR_UUID,
 } from "@/hooks/ble/adapters/weberIGrill";
+import {
+  getBleAvailability,
+  shouldClearSavedPermissionWarning,
+  type BleAvailability,
+  type BleScanStartResult,
+} from "@/hooks/ble/availability";
 
 const STORAGE_KEY = "knowyourpit:ble:pairedDevices";
 const PERM_DENIED_KEY = "knowyourpit:ble:permDenied";
@@ -109,9 +115,10 @@ interface BleProbeContextValue {
   devices: BleDevice[];
   scanning: boolean;
   permissionDenied: boolean;
+  bluetoothAvailability: BleAvailability;
   reconnectBanner: ReconnectBanner | null;
   dismissReconnectBanner: () => void;
-  startScan: () => void;
+  startScan: () => Promise<BleScanStartResult>;
   stopScan: () => void;
   pairDevice: (deviceId: string) => void;
   unpairDevice: (deviceId: string) => void;
@@ -128,9 +135,10 @@ const BleProbeContext = createContext<BleProbeContextValue>({
   devices: [],
   scanning: false,
   permissionDenied: false,
+  bluetoothAvailability: "initializing",
   reconnectBanner: null,
   dismissReconnectBanner: () => {},
-  startScan: () => {},
+  startScan: async () => "blocked",
   stopScan: () => {},
   pairDevice: () => {},
   unpairDevice: () => {},
@@ -187,6 +195,8 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
   const [devices, setDevices] = useState<BleDevice[]>([]);
   const [scanning, setScanning] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [bluetoothAvailability, setBluetoothAvailability] =
+    useState<BleAvailability>("initializing");
   const [reconnectBanner, setReconnectBanner] = useState<ReconnectBanner | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
 
@@ -291,19 +301,10 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
-  const loadPermDenied = useCallback(async () => {
-    try {
-      const raw = await AsyncStorage.getItem(PERM_DENIED_KEY);
-      if (raw) {
-        permissionDeniedRef.current = true;
-        if (mountedRef.current) setPermissionDenied(true);
-      }
-    } catch {}
-  }, []);
-
   const markPermDenied = useCallback(async () => {
     permissionDeniedRef.current = true;
     if (mountedRef.current) setPermissionDenied(true);
+    if (mountedRef.current) setBluetoothAvailability("permissionDenied");
 
     // Stop any active scan immediately so stale nearby devices stop showing.
     if (scanTimerRef.current) {
@@ -340,25 +341,56 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
+  const readLiveBleState = useCallback(async (manager: any): Promise<string> => {
+    try {
+      const currentState = await manager.state();
+      if (currentState !== "Unknown" && currentState !== "Resetting") {
+        return currentState;
+      }
+    } catch {}
+
+    return new Promise<string>((resolve) => {
+      let settled = false;
+      let subscription: any = null;
+      const finish = (state: string) => {
+        if (settled) return;
+        settled = true;
+        try { subscription?.remove?.(); } catch {}
+        resolve(state);
+      };
+      subscription = manager.onStateChange((state: string) => {
+        if (state !== "Unknown" && state !== "Resetting") finish(state);
+      }, true);
+      if (settled) {
+        try { subscription?.remove?.(); } catch {}
+      }
+      setTimeout(() => finish("Unknown"), 1500);
+    });
+  }, []);
+
   /**
-   * Called when the app foregrounds and permissionDenied was previously set.
-   * Checks whether the user has since granted Bluetooth permission in Settings
-   * and clears the denied flag if so.
+   * Saved denial state is only a hint. Every iOS foreground and scan request
+   * reconciles it with the live manager before showing a blocking message.
    */
-  const checkAndClearPermDenied = useCallback(async () => {
-    if (!permissionDeniedRef.current) return;
+  const reconcileBleAvailability = useCallback(async (): Promise<BleAvailability> => {
+    if (Platform.OS === "web") return "initializing";
     try {
       if (Platform.OS === "ios") {
         const { BleManager } = await import("react-native-ble-plx");
         const mgr: any = managerRef.current ?? new BleManager();
         const ownedMgr = !managerRef.current;
-        const bleState: string = await mgr.state();
+        const bleState = await readLiveBleState(mgr);
         if (ownedMgr) {
           try { mgr.destroy(); } catch {}
         }
-        if (bleState !== "Unauthorized") {
+        const availability = getBleAvailability(bleState);
+        if (mountedRef.current) setBluetoothAvailability(availability);
+        if (availability === "permissionDenied") {
+          await markPermDenied();
+        } else if (shouldClearSavedPermissionWarning(bleState)) {
           await clearPermDenied();
         }
+        return availability;
       } else if (Platform.OS === "android") {
         const { PermissionsAndroid } = await import("react-native");
         let granted: boolean;
@@ -379,7 +411,8 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch {}
-  }, [clearPermDenied]);
+    return "initializing";
+  }, [clearPermDenied, markPermDenied, readLiveBleState]);
 
   const savePairedIds = useCallback(async () => {
     try {
@@ -403,7 +436,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
   /** Read the latest temps/battery from an already-connected GATT device. */
   const readGattCharacteristics = useCallback(
     async (connected: any, deviceId: string, adapter: BleAdapterKey) => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current) return "blocked";
       const now = Date.now();
       if (adapter === "weber_igrill") {
         try {
@@ -463,10 +496,10 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         const connected = await manager.connectToDevice(deviceId, {
           autoConnect: true,
         });
-        if (!mountedRef.current) return;
+        if (!mountedRef.current) return "blocked";
 
         await connected.discoverAllServicesAndCharacteristics();
-        if (!mountedRef.current) return;
+        if (!mountedRef.current) return "blocked";
 
         upsertDevice(deviceId, {
           name: connected.name ?? deviceMapRef.current.get(deviceId)?.name ?? "Device",
@@ -642,20 +675,20 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
     if (mountedRef.current) setScanning(false);
   }, []);
 
-  const startScan = useCallback(async () => {
-    if (Platform.OS === "web") return;
-    if (!mountedRef.current) return;
+  const startScan = useCallback(async (): Promise<BleScanStartResult> => {
+    if (Platform.OS === "web") return "blocked";
+    if (!mountedRef.current) return "blocked";
 
     try {
       const { BleManager } = await import("react-native-ble-plx");
-      if (!mountedRef.current) return;
+      if (!mountedRef.current) return "blocked";
 
       if (Platform.OS === "android") {
         const granted = await requestBlePermissionsAndroid();
-        if (!mountedRef.current) return;
+        if (!mountedRef.current) return "blocked";
         if (!granted) {
           await markPermDenied();
-          return;
+          return "blocked";
         }
       }
 
@@ -663,35 +696,15 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         managerRef.current = new BleManager();
       }
 
-      // iOS: check Bluetooth authorization state before starting the scan so
-      // we surface a permission-denied banner instead of silently returning
-      // zero results. onStateChange with emitCurrentValue=true fires immediately
-      // with the current state, then continues streaming updates.
       if (Platform.OS === "ios") {
-        const bleState = await new Promise<string>((resolve) => {
-          let settled = false;
-          const sub = managerRef.current.onStateChange((state: string) => {
-            if (state !== "Unknown" && state !== "Resetting") {
-              if (!settled) {
-                settled = true;
-                try { sub?.remove?.(); } catch {}
-                resolve(state);
-              }
-            }
-          }, true);
-          // Safety timeout: treat unresolved state as authorized to not block UI
-          setTimeout(() => {
-            if (!settled) {
-              settled = true;
-              try { sub?.remove?.(); } catch {}
-              resolve("Unknown");
-            }
-          }, 3000);
-        });
-        if (!mountedRef.current) return;
-        if (bleState === "Unauthorized") {
-          await markPermDenied();
-          return;
+        if (!mountedRef.current) return "blocked";
+        const availability = await reconcileBleAvailability();
+        if (
+          availability === "permissionDenied" ||
+          availability === "poweredOff" ||
+          availability === "unsupported"
+        ) {
+          return "blocked";
         }
       }
 
@@ -710,6 +723,12 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
               const reason = String(error?.reason ?? error?.message ?? "").toLowerCase();
               if (code === 102 || reason.includes("unauthorized") || reason.includes("not authorized")) {
                 markPermDenied();
+              } else if (reason.includes("powered off")) {
+                setBluetoothAvailability("poweredOff");
+                stopScan();
+              } else if (reason.includes("unsupported")) {
+                setBluetoothAvailability("unsupported");
+                stopScan();
               }
             }
             return;
@@ -815,18 +834,20 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         scanTimerRef.current = null;
       }
       scanTimerRef.current = setTimeout(stopScan, SCAN_DURATION_MS);
+      return "started";
     } catch {
       if (mountedRef.current) setScanning(false);
+      return "blocked";
     }
-  }, [upsertDevice, flushDevices, connectGatt, stopScan, markPermDenied]);
+  }, [upsertDevice, flushDevices, connectGatt, stopScan, markPermDenied, reconcileBleAvailability]);
 
   useEffect(() => {
     mountedRef.current = true;
 
-    // Load paired IDs and persisted permission-denied state on mount.
-    // Do NOT auto-scan — the user must tap "Scan for Devices".
+    // A stored denial is never shown by itself. Verify current iOS state first,
+    // otherwise a permission fixed in Settings can remain falsely blocking.
     loadPairedIds();
-    loadPermDenied();
+    reconcileBleAvailability();
 
     if (Platform.OS !== "web") {
       staleTimerRef.current = setInterval(() => {
@@ -940,20 +961,19 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
           if (__DEV__) {
             console.warn("[BleProbeContext] No BLE advertisements for 60 s during recovery — restarting scan");
           }
-          (startScan() as Promise<void>).finally(() => {
+          startScan().finally(() => {
             if (mountedRef.current) scanSilenceRestartingRef.current = false;
           });
         }
       }, 15_000);
 
       // When the app foregrounds:
-      //  1. Check if the user granted BT permission in Settings and clear the
-      //     denied banner if so.
+      //  1. Reconcile the persisted warning with the current iOS state.
       //  2. Attempt to reconnect already-paired GATT devices that are currently
       //     disconnected — no full BLE scan.
       const sub = AppState.addEventListener("change", (state: AppStateStatus) => {
         if (state === "active" && mountedRef.current) {
-          checkAndClearPermDenied();
+          reconcileBleAvailability();
           if (managerRef.current) {
             for (const id of pairedIdsRef.current) {
               const d = deviceMapRef.current.get(id);
@@ -992,7 +1012,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         managerRef.current?.destroy();
       } catch {}
     };
-  }, [loadPairedIds, loadPermDenied, checkAndClearPermDenied, connectGatt, stopScan, flushDevices, startScan]);
+  }, [loadPairedIds, reconcileBleAvailability, connectGatt, stopScan, flushDevices, startScan]);
 
   const dismissReconnectBanner = useCallback(() => {
     setReconnectBanner(null);
@@ -1022,6 +1042,7 @@ export function BleProbeProvider({ children }: { children: React.ReactNode }) {
         devices,
         scanning,
         permissionDenied,
+        bluetoothAvailability,
         reconnectBanner,
         dismissReconnectBanner,
         startScan,

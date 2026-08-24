@@ -34,6 +34,11 @@ import {
   MANUAL_DEVICE_LABELS,
 } from "@/hooks/useLanProbes";
 import { ADAPTER_LABELS } from "@/hooks/ble/adapters";
+import {
+  bleAvailabilityLabel,
+  bleAvailabilityMessage,
+  shouldKeepScanButtonBusy,
+} from "@/hooks/ble/availability";
 
 const LAN_PERMISSION_KEY = "@knowyourpit/mdns/scan_explanation_shown";
 
@@ -312,7 +317,7 @@ export default function DevicesScreen() {
   const {
     devices: bleDevices,
     scanning: bleScanning,
-    permissionDenied: blePermDenied,
+    bluetoothAvailability,
     startScan: startBleScan,
     pairDevice,
     unpairDevice,
@@ -349,6 +354,10 @@ export default function DevicesScreen() {
   const [manualInput, setManualInput] = useState("");
   const [addingManual, setAddingManual] = useState(false);
   const [selectedDeviceType, setSelectedDeviceType] = useState<ManualDeviceType>("fireboard");
+  const bleAvailabilityIssue =
+    bluetoothAvailability === "permissionDenied" ||
+    bluetoothAvailability === "poweredOff" ||
+    bluetoothAvailability === "unsupported";
 
   const handleAddManual = useCallback(async () => {
     const trimmed = manualInput.trim();
@@ -363,17 +372,21 @@ export default function DevicesScreen() {
     }
   }, [manualInput, selectedDeviceType, addManualHost]);
 
-  const handleScan = useCallback(() => {
+  const handleScan = useCallback(async () => {
     if (!effectivePro) {
       showPaywall({ trigger: "pro_required", featureName: "Smart Probe Integration" });
       return;
     }
     setUserScanning(true);
-    startBleScan();
     // On iOS, only trigger the LAN scan once the user has acknowledged the
     // local-network permission card. On other platforms no gate is needed.
-    if (Platform.OS !== "ios" || lanScanEnabled === true) {
+    const lanScanRequested = Platform.OS !== "ios" || lanScanEnabled === true;
+    if (lanScanRequested) {
       scanLan();
+    }
+    const bleResult = await startBleScan();
+    if (!shouldKeepScanButtonBusy(bleResult, lanScanRequested)) {
+      setUserScanning(false);
     }
   }, [effectivePro, showPaywall, startBleScan, scanLan, lanScanEnabled]);
 
@@ -673,24 +686,26 @@ export default function DevicesScreen() {
               />
             ) : (
               <>
-                {blePermDenied && (
+                {bleAvailabilityIssue && (
                   <View style={[s.emptyCard, { backgroundColor: "#ef444412", borderColor: "#ef444440", borderRadius: colors.radius, alignItems: "flex-start", gap: 10 }]}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <Feather name="alert-circle" size={16} color="#ef4444" />
                       <Text style={[s.emptyText, { color: "#ef4444", textAlign: "left" }]}>
-                        Bluetooth permission denied
+                        {bleAvailabilityLabel(bluetoothAvailability)}
                       </Text>
                     </View>
                     <Text style={[s.emptySubText, { color: colors.mutedForeground, textAlign: "left" }]}>
-                      knowyourpit cannot scan for BLE probes without Bluetooth access. Open Settings and enable Bluetooth for knowyourpit, then tap "Scan for Devices" again.
+                      {bleAvailabilityMessage(bluetoothAvailability)}
                     </Text>
-                    <Pressable
-                      onPress={() => Linking.openSettings()}
-                      style={[s.openSettingsBtn, { backgroundColor: "#ef4444" }]}
-                    >
-                      <Feather name="settings" size={13} color="#fff" />
-                      <Text style={s.openSettingsBtnText}>Open Settings</Text>
-                    </Pressable>
+                    {bluetoothAvailability === "permissionDenied" && (
+                      <Pressable
+                        onPress={() => Linking.openSettings()}
+                        style={[s.openSettingsBtn, { backgroundColor: "#ef4444" }]}
+                      >
+                        <Feather name="settings" size={13} color="#fff" />
+                        <Text style={s.openSettingsBtnText}>Open Settings</Text>
+                      </Pressable>
+                    )}
                   </View>
                 )}
 
@@ -700,7 +715,7 @@ export default function DevicesScreen() {
 
                   return (
                     <>
-                      {!blePermDenied && pairedDevices.length === 0 && !bleScanning && (
+                      {!bleAvailabilityIssue && pairedDevices.length === 0 && !bleScanning && (
                         <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
                           <Feather name="bluetooth" size={20} color={colors.mutedForeground} />
                           <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
