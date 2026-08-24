@@ -61,6 +61,7 @@ import {
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
   (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
+const ACTIVE_COOK_REFRESH_MS = 15_000;
 
 const STEP_LABELS: Record<string, string> = {
   grillLight: "Light Grill",
@@ -116,22 +117,27 @@ export function useCookDetail(id: string | undefined) {
         enabled: !!isSignedIn && !!id && !isLocalCook,
         initialData: cookFromListCache,
         initialDataUpdatedAt: cookFromListCache ? 0 : undefined,
+        // Background AI can finish shortly after the local-ID route hands off
+        // to this record. Keep an open active cook fresh without requiring an
+        // app background/foreground cycle.
+        refetchInterval: (query: any) =>
+          query.state.data?.status === "active" ? ACTIVE_COOK_REFRESH_MS : false,
+        refetchIntervalInBackground: false,
       } as any,
     },
   );
   const cook = isLocalCook ? localCook : remoteCook;
   const isLoading = isLocalCook ? !localCookHydrated : remoteCookLoading;
   const localServerId = Number((localCook as any)?._serverId);
-  const localSyncState = (localCook as any)?._syncState;
   const localRouteHandoffRef = useRef<number | null>(null);
 
   // The local ID exists only to make the first detail frame instant. Once the
-  // outbox confirms a server record, replace it so the screen can fetch the
-  // canonical cook and receive its background AI refinement.
+  // server accepts a real record, replace it so the screen can fetch canonical
+  // state. This intentionally does not wait for a later AsyncStorage write:
+  // server-only check-ins must never be sent with the negative local ID.
   useEffect(() => {
     if (
       !isLocalCook ||
-      localSyncState !== "synced" ||
       !Number.isSafeInteger(localServerId) ||
       localServerId <= 0 ||
       localRouteHandoffRef.current === localServerId
@@ -140,7 +146,7 @@ export function useCookDetail(id: string | undefined) {
     }
     localRouteHandoffRef.current = localServerId;
     router.replace(`/cooks/${localServerId}` as any);
-  }, [isLocalCook, localServerId, localSyncState, router]);
+  }, [isLocalCook, localServerId, router]);
 
   const deleteCook = useDeleteCook();
   const updateCook = useUpdateCook();
@@ -176,6 +182,8 @@ export function useCookDetail(id: string | undefined) {
         queryKey: getListCookCheckinsQueryKey(Number(id)),
         enabled: !!isSignedIn && !isLocalCook && (cookStatus === "active" || cookStatus === "completed" || cookStatus === "planned"),
         refetchOnWindowFocus: cookStatus === "active",
+        refetchInterval: cookStatus === "active" ? ACTIVE_COOK_REFRESH_MS : false,
+        refetchIntervalInBackground: false,
       },
     },
   );

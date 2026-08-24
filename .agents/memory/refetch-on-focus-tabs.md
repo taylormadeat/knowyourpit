@@ -20,3 +20,13 @@ instead — see `artifacts/knowyourpit/hooks/useRefetchOnFocus.ts` (wraps
 `useFocusEffect`, skips the very first focus to avoid double-fetching
 alongside the query's own initial load). Apply this on every tab whose data
 can be mutated from elsewhere in the app right before navigating back to it.
+
+For an already-open active cook, also use modest foreground-only polling for
+the cook, its check-ins, and saved temperature readings.
+
+**Why:** A background AI refinement or another device's update can finish after
+the screen's initial/focus fetch. With no poll, React Query may not observe it
+until the next app lifecycle focus event.
+
+**How to apply:** Keep the elapsed clock local, but refresh server-backed
+active-cook data on a short interval only while the screen is foregrounded.

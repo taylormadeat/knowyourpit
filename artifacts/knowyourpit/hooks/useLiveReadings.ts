@@ -10,6 +10,8 @@ import type { ProbeTimeSeries } from "@/components/TempGraph";
 import type { ProbeState } from "./useProbeState";
 import { isLocalCookId } from "@/lib/localCooks";
 
+const ACTIVE_COOK_READINGS_REFRESH_MS = 15_000;
+
 interface UseLiveReadingsParams {
   id: string | undefined;
   cookStatus: string | undefined;
@@ -80,6 +82,10 @@ export function useLiveReadings({ id, cookStatus, cook, cookCheckins, probeState
       query: {
         queryKey: getListTemperatureReadingsQueryKey({ cookId: Number(id) }),
         enabled: !isLocalCook && (cookStatus === "active" || cookStatus === "completed") && !!cook?.actualStartAt,
+        // Probe uploads from another screen/device must appear on an open
+        // live cook without needing an app background/foreground cycle.
+        refetchInterval: cookStatus === "active" ? ACTIVE_COOK_READINGS_REFRESH_MS : false,
+        refetchIntervalInBackground: false,
       },
     },
   );

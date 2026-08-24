@@ -17,7 +17,7 @@ import {
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { fmtMinutes } from "@/utils/duration";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect, usePathname } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -184,6 +184,9 @@ const SUBMIT_SLOW_AFTER_MS = 6_000;
 export default function PlanScreen() {
   const colors = useColors();
   const router = useRouter();
+  const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
   const qc = useQueryClient();
   const { isSignedIn, userId } = useAuth();
 
@@ -1662,6 +1665,11 @@ export default function PlanScreen() {
       void waitForLocalCookServerId(localCookId).then((serverCookId) => {
         if (typeof serverCookId === "number" && Number.isSafeInteger(serverCookId) && serverCookId > 0) {
           void fireBgAiRefine(serverCookId, bgPredictPayload);
+          // Plan stays mounted beneath the detail route. Replace only while
+          // this local record is still open, never after the user navigates on.
+          if (pathnameRef.current.endsWith(`/cooks/${localCookId}`)) {
+            router.replace(`/cooks/${serverCookId}` as any);
+          }
         }
       });
       // Every remaining action can touch a native module or the network. Give
