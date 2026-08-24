@@ -1,7 +1,11 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useRef, useState } from "react";
+import { View, Text, StyleSheet, Pressable, Alert, Platform, ActivityIndicator } from "react-native";
 import Svg, { Path, Line, Text as SvgText, Circle, Defs, LinearGradient, Stop } from "react-native-svg";
+import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import * as Haptics from "expo-haptics";
+import * as Sharing from "expo-sharing";
+import ViewShot, { type ViewShotRef } from "react-native-view-shot";
 
 export type ProbeTimeSeries = {
   probeName: string;
@@ -21,6 +25,8 @@ type Props = {
   targetTempF?: number | null;
   width?: number;
   height?: number;
+  /** Adds a native share action that captures the current graph as a PNG. */
+  shareable?: boolean;
 };
 
 const PROBE_COLORS = ["#E84820", "#64748B", "#A855F7", "#22c55e", "#eab308"];
@@ -60,8 +66,10 @@ function fmtTick(totalMinutesRaw: number): string {
   return `${hrs}h${mins}m`;
 }
 
-export function TempGraph({ probes, events = [], targetTempF, width = 320, height = 200 }: Props) {
+export function TempGraph({ probes, events = [], targetTempF, width = 320, height = 200, shareable = false }: Props) {
   const colors = useColors();
+  const shotRef = useRef<ViewShotRef | null>(null);
+  const [sharing, setSharing] = useState(false);
 
   const chartW = width - PAD.left - PAD.right;
   const chartH = height - PAD.top - PAD.bottom;
@@ -101,20 +109,55 @@ export function TempGraph({ probes, events = [], targetTempF, width = 320, heigh
 
   const yGridLines = 5;
 
+  const handleShare = async () => {
+    if (Platform.OS === "web") {
+      Alert.alert("Share unavailable", "Graph sharing is available in the iOS app.");
+      return;
+    }
+    if (!shotRef.current || typeof (shotRef.current as any).capture !== "function") {
+      Alert.alert("Share unavailable", "The graph is not ready yet.");
+      return;
+    }
+    setSharing(true);
+    try {
+      await Haptics.selectionAsync().catch(() => {});
+      const available = await Sharing.isAvailableAsync();
+      if (!available) {
+        Alert.alert("Share unavailable", "Sharing isn't supported on this device.");
+        return;
+      }
+      const uri = await (shotRef.current as any).capture();
+      await Sharing.shareAsync(uri, {
+        mimeType: "image/png",
+        dialogTitle: "Share temperature graph",
+        UTI: "public.png",
+      });
+    } catch (error: any) {
+      Alert.alert("Couldn't share", error?.message || "Could not generate the graph image. Try again.");
+    } finally {
+      setSharing(false);
+    }
+  };
+
   return (
     <View>
-      <Svg width={width} height={height}>
-        <Defs>
-          {probes.map((_, i) => (
-            <LinearGradient key={i} id={`probeFill${i}`} x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={PROBE_COLORS[i % PROBE_COLORS.length]} stopOpacity="0.18" />
-              <Stop offset="1" stopColor={PROBE_COLORS[i % PROBE_COLORS.length]} stopOpacity="0" />
-            </LinearGradient>
-          ))}
-        </Defs>
+      <ViewShot
+        ref={shareable ? shotRef : undefined}
+        options={{ format: "png", quality: 1, result: "tmpfile" }}
+        style={[s.capture, { backgroundColor: colors.background }]}
+      >
+        <Svg width={width} height={height}>
+          <Defs>
+            {probes.map((_, i) => (
+              <LinearGradient key={i} id={`probeFill${i}`} x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={PROBE_COLORS[i % PROBE_COLORS.length]} stopOpacity="0.18" />
+                <Stop offset="1" stopColor={PROBE_COLORS[i % PROBE_COLORS.length]} stopOpacity="0" />
+              </LinearGradient>
+            ))}
+          </Defs>
 
-        {/* Y grid lines + labels */}
-        {Array.from({ length: yGridLines + 1 }, (_, i) => {
+          {/* Y grid lines + labels */}
+          {Array.from({ length: yGridLines + 1 }, (_, i) => {
           const f = minTemp + (rangeTemp * i) / yGridLines;
           const y = toY(f);
           return (
@@ -127,10 +170,10 @@ export function TempGraph({ probes, events = [], targetTempF, width = 320, heigh
               </SvgText>
             </React.Fragment>
           );
-        })}
+          })}
 
-        {/* X axis ticks + labels — clean integer minutes, no overlap */}
-        {xTicks.map((t, i) => {
+          {/* X axis ticks + labels — clean integer minutes, no overlap */}
+          {xTicks.map((t, i) => {
           const x = toX(t);
           return (
             <React.Fragment key={i}>
@@ -142,10 +185,10 @@ export function TempGraph({ probes, events = [], targetTempF, width = 320, heigh
               </SvgText>
             </React.Fragment>
           );
-        })}
+          })}
 
-        {/* Target temp line */}
-        {targetTempF != null && targetTempF >= minTemp && targetTempF <= maxTemp && (
+          {/* Target temp line */}
+          {targetTempF != null && targetTempF >= minTemp && targetTempF <= maxTemp && (
           <>
             <Line
               x1={PAD.left} y1={toY(targetTempF)}
@@ -157,10 +200,10 @@ export function TempGraph({ probes, events = [], targetTempF, width = 320, heigh
               target {targetTempF}°
             </SvgText>
           </>
-        )}
+          )}
 
-        {/* Probe lines */}
-        {probes.map((probe, pi) => {
+          {/* Probe lines */}
+          {probes.map((probe, pi) => {
           const color = PROBE_COLORS[pi % PROBE_COLORS.length];
           const pts = probe.timeSeries
             .filter((p) => p.timeMinutes != null && p.tempF != null)
@@ -180,10 +223,10 @@ export function TempGraph({ probes, events = [], targetTempF, width = 320, heigh
               <Circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r={7} fill={color} fillOpacity="0.2" />
             </React.Fragment>
           );
-        })}
+          })}
 
-        {/* Event markers */}
-        {events.map((ev, i) => {
+          {/* Event markers */}
+          {events.map((ev, i) => {
           if (ev.timeMinutes < minTime || ev.timeMinutes > maxTime) return null;
           const x = toX(ev.timeMinutes);
           return (
@@ -193,39 +236,64 @@ export function TempGraph({ probes, events = [], targetTempF, width = 320, heigh
               <Circle cx={x} cy={PAD.top} r={3} fill="#eab308" />
             </React.Fragment>
           );
-        })}
+          })}
 
-        {/* Y axis line */}
-        <Line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={PAD.top + chartH}
-          stroke={colors.border} strokeWidth="1" />
+          {/* Y axis line */}
+          <Line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={PAD.top + chartH}
+            stroke={colors.border} strokeWidth="1" />
 
-        {/* X axis line */}
-        <Line x1={PAD.left} y1={PAD.top + chartH} x2={PAD.left + chartW} y2={PAD.top + chartH}
-          stroke={colors.border} strokeWidth="1" />
-      </Svg>
+          {/* X axis line */}
+          <Line x1={PAD.left} y1={PAD.top + chartH} x2={PAD.left + chartW} y2={PAD.top + chartH}
+            stroke={colors.border} strokeWidth="1" />
+        </Svg>
 
-      {/* Legend */}
-      {probes.length > 0 && (
-        <View style={s.legend}>
-          {probes.map((probe, pi) => (
-            <View key={pi} style={s.legendItem}>
-              <View style={[s.legendDot, { backgroundColor: PROBE_COLORS[pi % PROBE_COLORS.length] }]} />
-              <Text style={[s.legendText, { color: colors.mutedForeground }]}>
-                {probe.probeName} ({probe.finishingTempF}°F)
-              </Text>
-            </View>
-          ))}
-        </View>
+        {/* Legend */}
+        {probes.length > 0 && (
+          <View style={s.legend}>
+            {probes.map((probe, pi) => (
+              <View key={pi} style={s.legendItem}>
+                <View style={[s.legendDot, { backgroundColor: PROBE_COLORS[pi % PROBE_COLORS.length] }]} />
+                <Text style={[s.legendText, { color: colors.mutedForeground }]}>
+                  {probe.probeName} ({probe.finishingTempF}°F)
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </ViewShot>
+      {shareable && (
+        <Pressable
+          onPress={handleShare}
+          disabled={sharing}
+          testID="share-live-graph-button"
+          accessibilityLabel="Share live temperature graph"
+          style={({ pressed }) => [
+            s.shareButton,
+            { borderColor: colors.border, backgroundColor: colors.card, opacity: pressed || sharing ? 0.7 : 1 },
+          ]}
+        >
+          {sharing ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Feather name="share" size={14} color={colors.primary} />
+          )}
+          <Text style={[s.shareText, { color: colors.primary }]}>
+            {sharing ? "Preparing graph…" : "Share graph"}
+          </Text>
+        </Pressable>
       )}
     </View>
   );
 }
 
 const s = StyleSheet.create({
+  capture: { paddingBottom: 6 },
   empty: { alignItems: "center", justifyContent: "center", borderWidth: 1, borderRadius: 8, borderStyle: "dashed" },
   emptyText: { fontSize: 13, fontFamily: "Inter_400Regular" },
   legend: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 44, paddingTop: 4 },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 5 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  shareButton: { alignSelf: "flex-end", flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 7, paddingHorizontal: 9, paddingVertical: 6, marginTop: 6 },
+  shareText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
 });

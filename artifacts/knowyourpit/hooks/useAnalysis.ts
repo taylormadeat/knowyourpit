@@ -176,8 +176,10 @@ export function useAnalysis({
     auto?: boolean;
     extraNotes?: string;
     checkinOverride?: { internalTempF: number | null; pitTempF: number | null };
+    imagesOverride?: PickedImage[];
   } = {}) => {
     const auto = opts.auto === true;
+    const analysisImages = opts.imagesOverride ?? images;
     const notesForAnalysis = opts.extraNotes != null
       ? [opts.extraNotes.trim(), scanNotes.trim()].filter(Boolean).join(" · ")
       : scanNotes.trim();
@@ -210,7 +212,7 @@ export function useAnalysis({
       null;
 
     const hasCheckinTemp = resolvedInternalTempF != null || resolvedPitTempF != null;
-    const hasAnyInput = images.length > 0 || notesForAnalysis.length > 0 || hasCheckinTemp;
+    const hasAnyInput = analysisImages.length > 0 || notesForAnalysis.length > 0 || hasCheckinTemp;
 
     if (!hasAnyInput && !hasLiveProbeTemp) {
       if (auto) return;
@@ -241,12 +243,12 @@ export function useAnalysis({
             "Couldn't reach your session. Please tap Check In again in a moment.",
           );
         }
-        return;
+        return { __scanError: { message: "Session unavailable" } };
       }
 
       const data: any = await analyzeMutation.mutateAsync({
         data: {
-          images: images.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),
+          images: analysisImages.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),
           cookNotes: notesForAnalysis || null,
           cookId: Number(id),
           cookContext: {
@@ -390,7 +392,7 @@ export function useAnalysis({
             snapshotTempSourceLabel,
             snapshotNotes: notesForAnalysis || null,
             snapshotElapsedMinutes: c?.actualStartAt ? Math.round((Date.now() - new Date(c.actualStartAt).getTime()) / 60000) : null,
-            source: images.length > 0 ? "image_scan" : "active_cook",
+            source: analysisImages.length > 0 ? "image_scan" : "active_cook",
             analyzedAt: new Date().toISOString(),
           },
         } as any,
@@ -404,15 +406,19 @@ export function useAnalysis({
       setLastAnalyzedAtMs(Date.now());
       if (paywallUsage?.unlimited) setAutoGradePaused(false);
       if (!auto) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return data;
     } catch (e: any) {
       if (auto) {
         const status = (e as any)?.status ?? (e as any)?.statusCode ?? (e as any)?.response?.status ?? null;
         if (status === 402) setAutoGradePaused(true);
         return;
       }
-      if (parseAndShowFromError(e, { foodType: cook?.foodType ?? null })) return;
+      if (parseAndShowFromError(e, { foodType: cook?.foodType ?? null })) {
+        return { __scanError: { ...e, kind: "limit" } };
+      }
       const serverMsg = (e as any)?.response?.data?.error ?? (e as any)?.data?.error ?? null;
       Alert.alert("Analysis failed", typeof serverMsg === "string" ? serverMsg : "Could not analyze the cook. Please check your connection and try again.");
+      return { __scanError: e };
     } finally {
       if (!auto) setAnalyzing(false);
     }

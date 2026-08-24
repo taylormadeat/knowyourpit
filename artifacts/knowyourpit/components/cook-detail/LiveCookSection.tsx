@@ -18,6 +18,7 @@ import { fmtElapsed, getOutdoorTempEffect } from "./utils";
 import { CookProgressBar } from "./CookProgressBar";
 import { SignalBars, rssiToStrength } from "@/components/SignalBars";
 import { InlineCheckinCard } from "@/components/cook-detail/InlineCheckinCard";
+import type { PickedImage } from "@/components/cook-detail/types";
 import {
   buildCenterTemperatureReadouts,
   formatCheckinRecency,
@@ -158,7 +159,12 @@ interface Props {
    * Triggers a fresh PitMaster analysis with the submitted temperatures.
    * Called automatically after each inline check-in.
    */
-  onRequestAnalyze?: (opts: { internalTempF: number | null; pitTempF: number | null; notes: string }) => Promise<void>;
+   onRequestAnalyze?: (opts: {
+     internalTempF: number | null;
+     pitTempF: number | null;
+     notes: string;
+     image?: PickedImage;
+   }) => Promise<any>;
 }
 
 function fmtLastChecked(lastAnalyzedAtMs: number, nowMs: number): string {
@@ -798,6 +804,7 @@ export function LiveCookSection(p: Props) {
             targetTempF={c.targetTempF ?? null}
             width={cardWidth}
             height={160}
+            shareable
           />
         </View>
       )}

@@ -770,7 +770,11 @@ export default function CookDetailScreen() {
             activeCheckinSc={activeCheckin}
             onClearActiveCheckin={() => setActiveCheckin(null)}
             onRequestAnalyze={async (opts) => {
-              await analyze({ extraNotes: opts?.notes || undefined, checkinOverride: { internalTempF: opts?.internalTempF ?? null, pitTempF: opts?.pitTempF ?? null } });
+              return analyze({
+                extraNotes: opts?.notes || undefined,
+                imagesOverride: opts?.image ? [opts.image] : undefined,
+                checkinOverride: { internalTempF: opts?.internalTempF ?? null, pitTempF: opts?.pitTempF ?? null },
+              });
             }}
             onOpenChat={() => setChatModalVisible(true)}
             lastAnalyzedAtMs={lastAnalyzedAtMs}

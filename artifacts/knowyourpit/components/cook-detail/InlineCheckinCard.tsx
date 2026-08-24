@@ -21,13 +21,25 @@ import {
   ActivityIndicator,
   StyleSheet,
   Keyboard,
+  Image,
+  Alert,
+  Linking,
+  Platform,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { useCreateCookCheckin } from "@workspace/api-client-react";
 import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
+import type { PickedImage } from "./types";
+import {
+  classifyCheckinScanFailure,
+  extractCheckinScanTemperatures,
+} from "./checkinScan";
 
 type Colors = any;
+const MAX_CHECKIN_IMAGE_BASE64_CHARS = 3_500_000;
 
 interface Props {
   cookId: number;
@@ -78,7 +90,8 @@ interface Props {
     internalTempF: number | null;
     pitTempF: number | null;
     notes: string;
-  }) => Promise<void>;
+    image?: PickedImage;
+  }) => Promise<any>;
 }
 
 export function InlineCheckinCard({
@@ -103,6 +116,14 @@ export function InlineCheckinCard({
     currentInternalTempF != null ? String(Math.round(currentInternalTempF)) : "",
   );
   const [submitting, setSubmitting] = useState(false);
+  const [scanImage, setScanImage] = useState<PickedImage | null>(null);
+  const [scanStatus, setScanStatus] = useState<
+    "idle" | "ready" | "analyzing" | "error" | "offline" | "limit" | "permission" | "noData"
+  >("idle");
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [scanAnalyzed, setScanAnalyzed] = useState(false);
+  const [scanValuesEdited, setScanValuesEdited] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Refs to avoid stale-closure issues in the effect below.
   const pitRef = useRef(pitInput);
@@ -134,11 +155,173 @@ export function InlineCheckinCard({
     !isNaN(parsedPit) &&
     (isProduceCook || (parsedInternal != null && !isNaN(parsedInternal)));
 
+  const setPickedScanImage = async (asset: ImagePicker.ImagePickerAsset) => {
+    try {
+      const normalized = await manipulateAsync(
+        asset.uri,
+        [{ resize: { width: 1600 } }],
+        { base64: true, compress: 0.65, format: SaveFormat.JPEG },
+      );
+      if (!normalized.base64) {
+        throw new Error("The resized image did not contain data");
+      }
+      if (normalized.base64.length > MAX_CHECKIN_IMAGE_BASE64_CHARS) {
+        setScanImage(null);
+        setScanStatus("error");
+        setScanMessage("That photo is still too large to attach. Try a closer screenshot, or enter the temperatures manually.");
+        return;
+      }
+      setScanImage({
+        uri: normalized.uri,
+        base64: normalized.base64,
+        mimeType: "image/jpeg",
+      });
+      setScanStatus("ready");
+      setScanMessage(null);
+      setScanAnalyzed(false);
+      setScanValuesEdited(false);
+    } catch {
+      if (!asset.base64 || asset.base64.length > MAX_CHECKIN_IMAGE_BASE64_CHARS) {
+        setScanImage(null);
+        setScanStatus("error");
+        setScanMessage("That photo is too large to attach. Try another image or enter the temperatures manually.");
+        return;
+      }
+      setScanImage({
+        uri: asset.uri,
+        base64: asset.base64,
+        mimeType: asset.mimeType ?? "image/jpeg",
+      });
+      setScanStatus("ready");
+      setScanMessage("Using the original image. Review the temperatures before saving.");
+      setScanAnalyzed(false);
+      setScanValuesEdited(false);
+    }
+  };
+
+  const handlePitChange = (value: string) => {
+    if (scanAnalyzed) setScanValuesEdited(true);
+    setPitInput(value);
+  };
+
+  const handleProbeChange = (value: string) => {
+    if (scanAnalyzed) setScanValuesEdited(true);
+    setProbeInput(value);
+  };
+
+  const handleChooseScanImage = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        setScanStatus("permission");
+        setScanMessage(
+          permission.canAskAgain
+            ? "Allow photo access to choose a thermometer screenshot."
+            : "Photo access is off. Open Settings or enter the temperatures manually.",
+        );
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: false,
+        quality: 0.7,
+        base64: true,
+        preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+      });
+      if (!result.canceled && result.assets[0]) await setPickedScanImage(result.assets[0]);
+    } catch {
+      setScanStatus("error");
+      setScanMessage("Could not open your photo library. You can still enter the temperatures manually.");
+    }
+  };
+
+  const handleTakeScanPhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        setScanStatus("permission");
+        setScanMessage(
+          permission.canAskAgain
+            ? "Allow camera access to photograph the thermometer display."
+            : "Camera access is off. Open Settings or enter the temperatures manually.",
+        );
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        quality: 0.7,
+        base64: true,
+        exif: false,
+      });
+      if (!result.canceled && result.assets[0]) await setPickedScanImage(result.assets[0]);
+    } catch {
+      setScanStatus("error");
+      setScanMessage("Could not open the camera. You can still enter the temperatures manually.");
+    }
+  };
+
+  const handleOpenSettings = () => {
+    if (Platform.OS !== "web") Linking.openSettings().catch(() => {});
+    else Alert.alert("Permission settings", "Use your browser settings to allow photo access.");
+  };
+
+  const handleScan = async () => {
+    if (!scanImage || scanStatus === "analyzing") return;
+    if (!onRequestAnalyze) {
+      setScanStatus("error");
+      setScanMessage("Image scanning is unavailable right now. Enter the temperatures manually.");
+      return;
+    }
+    setScanStatus("analyzing");
+    setScanMessage(null);
+    try {
+      const response = await onRequestAnalyze({
+        internalTempF: null,
+        pitTempF: null,
+        notes: "",
+        image: scanImage,
+      });
+      if (response?.__scanError) {
+        const kind = classifyCheckinScanFailure(response.__scanError);
+        setScanStatus(kind);
+        setScanMessage(
+          kind === "limit"
+            ? "You’ve reached today’s PitMaster scan limit. Enter the temperatures manually."
+            : kind === "offline"
+            ? "You appear to be offline. The photo is ready to save; enter the temperatures manually."
+            : "Could not read that thermometer image. Enter the temperatures manually or try another photo.",
+        );
+        return;
+      }
+
+      const detected = extractCheckinScanTemperatures(response);
+      if (detected.pitTempF != null) setPitInput(String(Math.round(detected.pitTempF)));
+      if (detected.internalTempF != null) setProbeInput(String(Math.round(detected.internalTempF)));
+      setScanAnalyzed(true);
+      setScanValuesEdited(false);
+      if (detected.pitTempF == null && detected.internalTempF == null) {
+        setScanStatus("noData");
+        setScanMessage("No readable temperatures found. Enter them below and save the photo if you’d like.");
+      } else {
+        setScanStatus("ready");
+        setScanMessage("Review the detected temperatures before saving.");
+      }
+    } catch (error) {
+      const kind = classifyCheckinScanFailure(error);
+      setScanStatus(kind);
+      setScanMessage(
+        kind === "offline"
+          ? "You appear to be offline. Enter the temperatures manually and try scanning again later."
+          : "Could not scan that image. You can still enter the temperatures manually.",
+      );
+    }
+  };
+
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!canSubmit || submitting) return;
     Keyboard.dismiss();
     setSubmitting(true);
+    setSubmitError(null);
     try {
       // activeCheckinSc takes priority: it represents a phase the user explicitly
       // selected by tapping a timeline milestone. Fall back to nextCheckinSc (the
@@ -150,6 +333,7 @@ export function InlineCheckinCard({
       // be used when the outer fields are absent.
       const phaseKey = sc?.phaseKey ?? sc?.phase?.key ?? "manual";
       const phaseLabel = sc?.phaseLabel ?? sc?.phase?.label ?? "Manual Check-in";
+      const imageToAttach = scanImage;
 
       await createCheckin.mutateAsync({
         id: cookId,
@@ -159,7 +343,9 @@ export function InlineCheckinCard({
           pitTempF: parsedPit ?? null,
           statusFlag: null,
           userNote: null,
-          photoKey: null,
+          photoKey: imageToAttach
+            ? `data:${imageToAttach.mimeType};base64,${imageToAttach.base64}`
+            : null,
           aiGuidanceShown: null,
           phaseLabel,
           phaseKey,
@@ -171,11 +357,14 @@ export function InlineCheckinCard({
       // Trigger a fresh PitMaster analysis with the submitted temperatures so
       // the pitmaster gets updated coaching advice — same behaviour as the old
       // UnifiedCheckinSheet which always called onRequestAnalyze post-submit.
-      onRequestAnalyze?.({
-        internalTempF: parsedInternal ?? null,
-        pitTempF: parsedPit ?? null,
-        notes: "",
-      }).catch(() => {});
+      if (!scanAnalyzed || scanValuesEdited) {
+        onRequestAnalyze?.({
+          internalTempF: parsedInternal ?? null,
+          pitTempF: parsedPit ?? null,
+          notes: "",
+          image: imageToAttach ?? undefined,
+        }).catch(() => {});
+      }
 
       // Let the parent know a check-in was saved (updates live graph, toast,
       // and reschedules notifications using the correct phase context).
@@ -193,8 +382,18 @@ export function InlineCheckinCard({
       // not on a cleared-to-empty reset.
       setPitInput(currentPitTempF != null ? String(Math.round(currentPitTempF)) : "");
       setProbeInput(currentInternalTempF != null ? String(Math.round(currentInternalTempF)) : "");
+      setScanImage(null);
+      setScanStatus("idle");
+      setScanMessage(null);
+      setScanAnalyzed(false);
+      setScanValuesEdited(false);
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      setSubmitError(
+        scanImage
+          ? "Couldn’t save this check-in with the photo. Remove the image and try again, or save the temperatures manually."
+          : "Couldn’t save this check-in. Check your connection and try again.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -241,7 +440,7 @@ export function InlineCheckinCard({
             <TextInput
               style={inputStyle}
               value={pitInput}
-              onChangeText={setPitInput}
+              onChangeText={handlePitChange}
               placeholder="°F"
               placeholderTextColor={colors.mutedForeground + "80"}
               keyboardType="numeric"
@@ -268,7 +467,7 @@ export function InlineCheckinCard({
             <TextInput
               style={inputStyle}
               value={probeInput}
-              onChangeText={setProbeInput}
+              onChangeText={handleProbeChange}
               placeholder={isProduceCook ? "optional" : "°F"}
               placeholderTextColor={colors.mutedForeground + "80"}
               keyboardType="numeric"
@@ -282,10 +481,116 @@ export function InlineCheckinCard({
         </View>
       </View>
 
+      {/* ── Optional thermometer image scan ── */}
+      <View style={[styles.scanSection, { borderTopColor: colors.border }]}>
+        <View style={styles.scanHeader}>
+          <View style={styles.scanTitleRow}>
+            <Feather name="camera" size={14} color={colors.mutedForeground} />
+            <Text style={[styles.scanTitle, { color: colors.foreground }]}>Scan thermometer</Text>
+            <Text style={[styles.optional, { color: colors.mutedForeground }]}>Optional</Text>
+          </View>
+          {scanImage && (
+            <Pressable
+              onPress={() => {
+                setScanImage(null);
+                setScanStatus("idle");
+                setScanMessage(null);
+                setScanAnalyzed(false);
+                setScanValuesEdited(false);
+              }}
+              disabled={scanStatus === "analyzing"}
+              hitSlop={8}
+              accessibilityLabel="Remove thermometer image"
+            >
+              <Feather name="x" size={16} color={colors.mutedForeground} />
+            </Pressable>
+          )}
+        </View>
+
+        {scanImage ? (
+          <View style={styles.scanPreviewRow}>
+            <Image source={{ uri: scanImage.uri }} style={styles.scanPreview} />
+            <View style={styles.scanPreviewCopy}>
+              <Text style={[styles.scanFileLabel, { color: colors.foreground }]} numberOfLines={1}>
+                Thermometer image ready
+              </Text>
+              <Text style={[styles.scanHint, { color: colors.mutedForeground }]}>
+                {scanStatus === "analyzing" ? "Reading temperatures…" : "Review results before saving"}
+              </Text>
+            </View>
+            <Pressable
+              onPress={handleScan}
+              disabled={scanStatus === "analyzing" || submitting}
+              testID="checkin-scan-button"
+              accessibilityLabel="Read temperatures from image"
+              style={({ pressed }) => [
+                styles.scanAction,
+                { borderColor: colors.primary, opacity: pressed || scanStatus === "analyzing" ? 0.7 : 1 },
+              ]}
+            >
+              {scanStatus === "analyzing" ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Feather name="zap" size={13} color={colors.primary} />
+              )}
+              <Text style={[styles.scanActionText, { color: colors.primary }]}>
+                {scanStatus === "analyzing" ? "Reading" : "Read"}
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.scanButtons}>
+            <Pressable
+              onPress={handleTakeScanPhoto}
+              disabled={submitting}
+              testID="checkin-camera-button"
+              accessibilityLabel="Photograph thermometer"
+              style={({ pressed }) => [
+                styles.scanButton,
+                { borderColor: colors.border, backgroundColor: colors.background, opacity: pressed ? 0.72 : 1 },
+              ]}
+            >
+              <Feather name="camera" size={14} color={colors.foreground} />
+              <Text style={[styles.scanButtonText, { color: colors.foreground }]}>Camera</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleChooseScanImage}
+              disabled={submitting}
+              testID="checkin-library-button"
+              accessibilityLabel="Choose thermometer screenshot"
+              style={({ pressed }) => [
+                styles.scanButton,
+                { borderColor: colors.border, backgroundColor: colors.background, opacity: pressed ? 0.72 : 1 },
+              ]}
+            >
+              <Feather name="image" size={14} color={colors.foreground} />
+              <Text style={[styles.scanButtonText, { color: colors.foreground }]}>Photo library</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {scanMessage && (
+          <View style={styles.scanMessageRow}>
+            <Feather
+              name={scanStatus === "ready" ? "check-circle" : scanStatus === "permission" ? "lock" : "info"}
+              size={13}
+              color={scanStatus === "ready" ? "#22c55e" : colors.mutedForeground}
+            />
+            <Text style={[styles.scanMessage, { color: colors.mutedForeground }]}>{scanMessage}</Text>
+            {scanStatus === "permission" && (
+              <Pressable onPress={handleOpenSettings} hitSlop={6} accessibilityLabel="Open permission settings">
+                <Text style={[styles.settingsLink, { color: colors.primary }]}>Settings</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+      </View>
+
       {/* ── Check In button ── */}
       <Pressable
         onPress={handleSubmit}
         disabled={!canSubmit || submitting}
+        testID="checkin-submit-button"
         style={({ pressed }) => [
           styles.btn,
           { borderRadius: 8, backgroundColor: "#FF6B2B" },
@@ -301,6 +606,12 @@ export function InlineCheckinCard({
           </>
         )}
       </Pressable>
+      {submitError && (
+        <View style={styles.submitErrorRow}>
+          <Feather name="alert-circle" size={13} color="#ef4444" />
+          <Text style={styles.submitError}>{submitError}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -316,6 +627,112 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     gap: 10,
+  },
+  scanSection: {
+    borderTopWidth: 1,
+    paddingTop: 10,
+    gap: 8,
+  },
+  scanHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  scanTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  scanTitle: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+  },
+  optional: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+  },
+  scanButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  scanButton: {
+    flex: 1,
+    minHeight: 38,
+    borderWidth: 1,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
+  scanButtonText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+  },
+  scanPreviewRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+  },
+  scanPreview: {
+    width: 48,
+    height: 48,
+    borderRadius: 7,
+    backgroundColor: "#00000012",
+  },
+  scanPreviewCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  scanFileLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+  },
+  scanHint: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+  },
+  scanAction: {
+    minHeight: 34,
+    borderWidth: 1,
+    borderRadius: 7,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 5,
+  },
+  scanActionText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+  },
+  scanMessageRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 5,
+  },
+  scanMessage: {
+    flex: 1,
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  settingsLink: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
+    textDecorationLine: "underline",
+  },
+  submitErrorRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 5,
+  },
+  submitError: {
+    flex: 1,
+    color: "#ef4444",
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    lineHeight: 15,
   },
   fieldWrap: {
     flex: 1,
