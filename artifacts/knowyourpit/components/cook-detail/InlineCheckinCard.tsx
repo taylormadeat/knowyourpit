@@ -63,7 +63,12 @@ interface Props {
    * and the phaseKey that was actually submitted, so the parent can correctly
    * mark that phase as complete when rescheduling notifications.
    */
-  onCheckinSaved?: (savedInternalTempF: number | null, submittedPhaseKey: string | null) => void;
+  onCheckinSaved?: (
+    savedInternalTempF: number | null,
+    submittedPhaseKey: string | null,
+    savedPitTempF?: number | null,
+    savedAtMs?: number,
+  ) => void;
   /**
    * Triggers a fresh PitMaster analysis with the submitted temperatures.
    * Mirrors the behaviour the old UnifiedCheckinSheet had: each check-in
@@ -176,7 +181,7 @@ export function InlineCheckinCard({
       // and reschedules notifications using the correct phase context).
       // Pass the phaseKey we actually saved against so the parent can include it
       // in completedPhaseKeys without relying on stale activeCheckin state.
-      onCheckinSaved?.(parsedInternal ?? null, phaseKey);
+      onCheckinSaved?.(parsedInternal ?? null, phaseKey, parsedPit ?? null, Date.now());
 
       // Clear the explicitly-selected phase so the card reverts to following
       // the upcoming schedule rather than staying locked to the tapped milestone.

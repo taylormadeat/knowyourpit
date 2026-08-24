@@ -108,7 +108,12 @@ interface UnifiedCheckinSheetProps {
   targetFoodTempF?: number | null;
   weatherTempF?: number | null;
   weatherWindSpeedMph?: number | null;
-  onCheckinSaved?: (savedInternalTempF: number | null) => void;
+  onCheckinSaved?: (
+    savedInternalTempF: number | null,
+    submittedPhaseKey?: string | null,
+    savedPitTempF?: number | null,
+    savedAtMs?: number,
+  ) => void;
   cookSpritzFrequency?: string | null;
   cookWrapFinish?: string | null;
   cookingMethod?: string | null;
@@ -294,7 +299,7 @@ export function UnifiedCheckinSheet({
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
-      onCheckinSaved?.(parsedInternal ?? null);
+      onCheckinSaved?.(parsedInternal ?? null, phase.key, parsedPit ?? null, Date.now());
 
       onClose();
 

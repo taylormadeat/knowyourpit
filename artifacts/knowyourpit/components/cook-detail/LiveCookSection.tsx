@@ -135,7 +135,12 @@ interface Props {
    * Called after a successful inline check-in with the saved internal temp
    * (or null) and the phaseKey that was actually submitted.
    */
-  onCheckinSaved?: (savedInternalTempF: number | null, submittedPhaseKey: string | null) => void;
+  onCheckinSaved?: (
+    savedInternalTempF: number | null,
+    submittedPhaseKey: string | null,
+    savedPitTempF?: number | null,
+    savedAtMs?: number,
+  ) => void;
   /**
    * The closest upcoming / recently-past scheduled check-in phase.
    * Passed to InlineCheckinCard so the mutation payload carries the correct
@@ -1375,25 +1380,6 @@ export function LiveCookSection(p: Props) {
           </View>
           <Feather name="chevron-right" size={14} color="#F59E0B" />
         </Pressable>
-      )}
-
-      {((targetTempF != null && targetTempF > 0) || cookTempF != null) && (
-        <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingBottom: 12 }}>
-          {targetTempF != null && targetTempF > 0 && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#22c55e12", borderWidth: 1, borderColor: "#22c55e30" }}>
-              <Feather name="thermometer" size={12} color="#22c55e" />
-              <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: "#22c55e" }}>{targetTempF}°F</Text>
-              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "#22c55e99" }}>target</Text>
-            </View>
-          )}
-          {cookTempF != null && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#3b82f612", borderWidth: 1, borderColor: "#3b82f630" }}>
-              <Feather name="wind" size={12} color="#3b82f6" />
-              <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color: "#3b82f6" }}>{cookTempF}°F</Text>
-              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "#3b82f699" }}>pit</Text>
-            </View>
-          )}
-        </View>
       )}
 
       {/* ── PitMaster Decision Zone ── */}

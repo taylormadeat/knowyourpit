@@ -192,9 +192,15 @@ export default function CookDetailScreen() {
   const [proactiveCoachingNote, setProactiveCoachingNote] = useState<string | null>(null);
   const [healthBreakdownOpen, setHealthBreakdownOpen] = useState(false);
   const [addItemModalOpen, setAddItemModalOpen] = useState(false);
+  const [recentCheckin, setRecentCheckin] = useState<{
+    internalTempF: number | null;
+    pitTempF: number | null;
+    createdAt: number;
+  } | null>(null);
   const [addItemWarning, setAddItemWarning] = useState<string | null>(null);
   const proactiveAlerts = useProactiveAlerts();
   useEffect(() => { proactiveAlerts.reset(); }, [id]);
+  useEffect(() => { setRecentCheckin(null); }, [id]);
   // Fire proactive alert checks whenever the probe internal temp updates.
   // cookingMethod is passed so stall alerts are suppressed for direct-heat cooks.
   useEffect(() => {
@@ -507,7 +513,19 @@ export default function CookDetailScreen() {
   // submittedPhaseKey: the phaseKey the inline card actually saved against.
   // Passed explicitly so notification rescheduling always marks the right phase
   // complete — even when no timeline milestone was tapped (activeCheckin is null).
-  const handleCheckinSaved = useCallback((savedInternalTempF: number | null, submittedPhaseKey?: string | null) => {
+  const handleCheckinSaved = useCallback((
+    savedInternalTempF: number | null,
+    submittedPhaseKey?: string | null,
+    savedPitTempF: number | null = null,
+    savedAtMs = Date.now(),
+  ) => {
+    if (savedInternalTempF != null || savedPitTempF != null) {
+      setRecentCheckin({
+        internalTempF: savedInternalTempF,
+        pitTempF: savedPitTempF,
+        createdAt: savedAtMs,
+      });
+    }
     if (savedInternalTempF != null && tempMode === "manual" && cook?.actualStartAt) {
       const startMs = new Date(cook.actualStartAt).getTime();
       const elapsedMins = Math.round(Math.max(0, (Date.now() - startMs) / 60000) * 10) / 10;
@@ -534,6 +552,15 @@ export default function CookDetailScreen() {
       rescheduleCheckinNotifications({ cookId: Number(id), foodType: first.foodType ?? null, weightLbs: cook?.weightLbs ?? null, meatOnAt: first.meatOnAt, estimatedFinishAt: first.estimatedFinishAt, wrapAtMinutes: first.wrapAtMinutes ?? null, completedPhaseKeys: completedKeys, actualInternalTempF: adaptiveTemp, aiCheckins: cookSeqData?.aiCheckins ?? null }).catch(() => {});
     }
   }, [tempMode, cook, setLiveReadings, liveReadingsSeededRef, checkinSavedToastTimerRef, setCheckinSavedToast, pendingWrapClearRef, qc, id, cookSeqData, cookCheckins, activeCheckin, selectedInkbirdProbe, rescheduleCheckinNotifications]);
+
+  const displayedLastCheckin = useMemo(() => {
+    if (lastCheckin == null) return recentCheckin;
+    if (recentCheckin == null) return lastCheckin;
+    const serverCreatedAtMs = new Date(lastCheckin.createdAt).getTime();
+    return Number.isFinite(serverCreatedAtMs) && serverCreatedAtMs >= recentCheckin.createdAt
+      ? lastCheckin
+      : recentCheckin;
+  }, [lastCheckin, recentCheckin]);
 
   // ── toggleConfirmedStep wrapping wrapTempPending ───────────────────────────
   const toggleConfirmedStep = useCallback(async (key: string) => {
@@ -747,9 +774,9 @@ export default function CookDetailScreen() {
             }}
             onOpenChat={() => setChatModalVisible(true)}
             lastAnalyzedAtMs={lastAnalyzedAtMs}
-            lastCheckinInternalTempF={lastCheckin?.internalTempF ?? null}
-            lastCheckinPitTempF={lastCheckin?.pitTempF ?? null}
-            lastCheckinCreatedAt={lastCheckin?.createdAt ?? null}
+            lastCheckinInternalTempF={displayedLastCheckin?.internalTempF ?? null}
+            lastCheckinPitTempF={displayedLastCheckin?.pitTempF ?? null}
+            lastCheckinCreatedAt={displayedLastCheckin?.createdAt ?? null}
             onRefresh={() => analyze()}
             activeProbeName={activeProbeName !== "Probe" ? activeProbeName : null}
             activePitProbeName={activePitProbeName !== "Pit / Ambient" ? activePitProbeName : undefined}
