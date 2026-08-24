@@ -4,8 +4,7 @@ import { Feather } from "@expo/vector-icons";
 
 interface LiveProbeSectionProps {
   cookStatus: string | undefined;
-  c: any;
-  cookCurrentTempF: number | null;
+  tempMode?: "probe" | "manual";
   selectedBleContextDevice: any | null;
   selectedLanProbe: any | null;
   selectedInkbirdProbe: any | null;
@@ -13,20 +12,19 @@ interface LiveProbeSectionProps {
 }
 
 export function LiveProbeSection({
-  cookStatus, c,
-  cookCurrentTempF,
+  cookStatus, tempMode = "manual",
   selectedBleContextDevice, selectedLanProbe, selectedInkbirdProbe,
   currentPitTempF,
 }: LiveProbeSectionProps) {
-  if (cookStatus !== "active") return null;
+  if (cookStatus !== "active" || tempMode !== "probe") return null;
 
-  // Live meat reading, same precedence used for the "LIVE ON THE SMOKER" home
-  // card and the live-activity widget: BLE/LAN/Inkbird probes.
+  // Only confirmed readings from the currently selected, connected probes
+  // belong in this upper row. Planned target/setpoint values are deliberately
+  // not used here because they look like current readings.
   const liveMeatTempF =
     selectedBleContextDevice?.probeTempF ??
     selectedLanProbe?.probeTempF ??
     selectedInkbirdProbe?.tempF ??
-    cookCurrentTempF ??
     null;
 
   let liveProbeSrcLabel: string | null = null;
@@ -34,33 +32,28 @@ export function LiveProbeSection({
   else if (selectedLanProbe?.probeTempF != null) liveProbeSrcLabel = selectedLanProbe.deviceName ?? "LAN Probe";
   else if (selectedInkbirdProbe?.tempF != null) liveProbeSrcLabel = (selectedInkbirdProbe as any).deviceName ?? "Inkbird";
 
-  // Prefer the live reading over the static planned value, mirroring the
-  // Home screen's "Live on the Smoker" cards — falls back to target/setpoint
-  // only when no live reading is available yet.
   const hasMeatReading = liveMeatTempF != null;
   const hasPitReading = currentPitTempF != null;
-  const meatDisplayTempF = hasMeatReading ? liveMeatTempF : c.targetTempF ?? null;
-  const pitDisplayTempF = hasPitReading ? currentPitTempF : c.cookTempF ?? null;
 
-  if (meatDisplayTempF == null && pitDisplayTempF == null) return null;
+  if (!hasMeatReading && !hasPitReading) return null;
 
   return (
     <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
-      {meatDisplayTempF != null && (
+      {hasMeatReading && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: "#22c55e12", borderWidth: 1, borderColor: "#22c55e30" }}>
           <Feather name={hasMeatReading ? "activity" : "thermometer"} size={11} color="#22c55e" />
-          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#22c55e" }}>{Math.round(meatDisplayTempF)}°F</Text>
+          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#22c55e" }}>{Math.round(liveMeatTempF!)}°F</Text>
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "#22c55e99" }}>
-            {hasMeatReading ? (liveProbeSrcLabel ?? "meat") : "target"}
+            {liveProbeSrcLabel ?? "live meat"}
           </Text>
         </View>
       )}
-      {pitDisplayTempF != null && (
+      {hasPitReading && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: "#3b82f612", borderWidth: 1, borderColor: "#3b82f630" }}>
-          <Feather name={hasPitReading ? "activity" : "wind"} size={11} color="#3b82f6" />
-          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#3b82f6" }}>{Math.round(pitDisplayTempF)}°F</Text>
+          <Feather name="activity" size={11} color="#3b82f6" />
+          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#3b82f6" }}>{Math.round(currentPitTempF!)}°F</Text>
           <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "#3b82f699" }}>
-            {hasPitReading ? "pit" : "pit setpoint"}
+            live pit
           </Text>
         </View>
       )}

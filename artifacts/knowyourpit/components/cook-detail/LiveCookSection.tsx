@@ -18,6 +18,11 @@ import { fmtElapsed, getOutdoorTempEffect } from "./utils";
 import { CookProgressBar } from "./CookProgressBar";
 import { SignalBars, rssiToStrength } from "@/components/SignalBars";
 import { InlineCheckinCard } from "@/components/cook-detail/InlineCheckinCard";
+import {
+  buildCenterTemperatureReadouts,
+  formatCheckinRecency,
+  getTemperatureVariance,
+} from "@/components/cook-detail/temperatureChips";
 
 function fmtCountdown(diffMs: number): string {
   if (diffMs <= 0) return "now";
@@ -90,6 +95,8 @@ interface Props {
   onOpenChat?: () => void;
   lastAnalyzedAtMs?: number | null;
   lastCheckinInternalTempF?: number | null;
+  lastCheckinPitTempF?: number | null;
+  lastCheckinCreatedAt?: string | number | Date | null;
   onRefresh?: () => void;
   activeProbeName?: string | null;
   activePitProbeName?: string;
@@ -167,6 +174,60 @@ function fmtSpritzCountdown(diffMs: number): string {
   return m > 0 ? `in ${h}h ${m}m` : `in ${h}h`;
 }
 
+function TemperatureVarianceChip({
+  label,
+  icon,
+  tempF,
+  targetF,
+  targetLabel,
+  accent,
+  sourceLabel,
+}: {
+  label: string;
+  icon: "thermometer" | "wind";
+  tempF: number;
+  targetF: number | null;
+  targetLabel: string;
+  accent: string;
+  sourceLabel: string;
+}) {
+  const variance = getTemperatureVariance(tempF, targetF, targetLabel);
+  return (
+    <View
+      style={{
+        flexGrow: 1,
+        flexBasis: 150,
+        maxWidth: "100%",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 7,
+        paddingHorizontal: 10,
+        paddingVertical: 7,
+        borderRadius: 8,
+        backgroundColor: `${accent}15`,
+        borderWidth: 1,
+        borderColor: `${accent}40`,
+      }}
+    >
+      <Feather name={icon} size={13} color={accent} />
+      <View style={{ flexShrink: 1 }}>
+        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 14, color: accent }}>
+          {label} · {Math.round(tempF)}°F
+        </Text>
+        <Text
+          numberOfLines={2}
+          style={{ fontFamily: "Inter_600SemiBold", fontSize: 11, color: accent, marginTop: 1 }}
+        >
+          {variance?.text ?? `${targetLabel} unavailable`}
+        </Text>
+        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: `${accent}99`, marginTop: 1 }}>
+          {sourceLabel}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 export function LiveCookSection(p: Props) {
   const {
     c, colors, weather,
@@ -184,7 +245,7 @@ export function LiveCookSection(p: Props) {
     nowMs,
     targetTempF, cookTempF, nextSpritzMs,
     isMeatOn, pitMasterResult, pitMasterAnalyzing,
-    renderDecisions, onCheckIn, onCheckInNext, onOpenChat, lastAnalyzedAtMs, lastCheckinInternalTempF, onRefresh, activeProbeName,
+    renderDecisions, onCheckIn, onCheckInNext, onOpenChat, lastAnalyzedAtMs, lastCheckinInternalTempF, lastCheckinPitTempF, lastCheckinCreatedAt, onRefresh, activeProbeName,
     currentInternalTempF, currentPitTempF,
     nextCheckinMs, nextCheckinLabel, upcomingCheckins = [], onCheckInPhase,
     onRestartScan,
@@ -640,39 +701,51 @@ export function LiveCookSection(p: Props) {
         />
       )}
 
-      {/* ── Live probe temp readout — shown when a probe is connected and readings are available ── */}
-      {tempMode === "probe" && ((meatSlotTemps != null) || currentInternalTempF != null || currentPitTempF != null) && (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.border }}>
-          {/* Multi-slot: show one chip per assigned meat slot */}
-          {meatSlotTemps != null ? meatSlotTemps.map((slot, idx) => (
-            <View key={`slot_${idx}`} style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#FF6B2B15", borderWidth: 1, borderColor: "#FF6B2B40" }}>
-              <Feather name="thermometer" size={13} color="#FF6B2B" />
-              <View>
-                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 15, color: "#FF6B2B" }}>{slot.tempF != null ? `${Math.round(slot.tempF)}°F` : "—"}</Text>
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#FF6B2B99" }}>{slot.label}</Text>
-              </View>
-            </View>
-          )) : currentInternalTempF != null ? (
-            /* Single-probe legacy fallback */
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#FF6B2B15", borderWidth: 1, borderColor: "#FF6B2B40" }}>
-              <Feather name="thermometer" size={13} color="#FF6B2B" />
-              <View>
-                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 15, color: "#FF6B2B" }}>{Math.round(currentInternalTempF)}°F</Text>
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#FF6B2B99" }}>Internal</Text>
-              </View>
-            </View>
-          ) : null}
-          {currentPitTempF != null && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#3b82f615", borderWidth: 1, borderColor: "#3b82f640" }}>
-              <Feather name="wind" size={13} color="#3b82f6" />
-              <View>
-                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 15, color: "#3b82f6" }}>{Math.round(currentPitTempF)}°F</Text>
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#3b82f699" }}>Pit</Text>
-              </View>
-            </View>
-          )}
-        </View>
-      )}
+      {/* ── Temperature variance readout ──
+          Live values are compared with their targets. Manual values are shown
+          only when no live channel is available and are labeled with recency. */}
+      {(() => {
+        const readouts = buildCenterTemperatureReadouts({
+          liveMeatTempF: tempMode === "probe" ? currentInternalTempF : null,
+          livePitTempF: tempMode === "probe" ? currentPitTempF : null,
+          manualMeatTempF: lastCheckinInternalTempF,
+          manualPitTempF: lastCheckinPitTempF,
+          manualCreatedAt: lastCheckinCreatedAt,
+          nowMs: nowMs ?? Date.now(),
+        });
+        const manualRecency = formatCheckinRecency(lastCheckinCreatedAt, nowMs ?? Date.now());
+        const hasReadout = readouts.meat != null || readouts.pit != null;
+        if (!hasReadout) return null;
+        const sourceLabel = readouts.source === "manual"
+          ? `Manual check-in${manualRecency ? ` · ${manualRecency}` : ""}`
+          : "Live probe";
+        return (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.border }}>
+            {readouts.meat != null && (
+              <TemperatureVarianceChip
+                label="Meat"
+                icon="thermometer"
+                tempF={readouts.meat.tempF}
+                targetF={targetTempF != null && targetTempF > 0 ? targetTempF : null}
+                targetLabel="target"
+                accent="#FF6B2B"
+                sourceLabel={sourceLabel}
+              />
+            )}
+            {readouts.pit != null && (
+              <TemperatureVarianceChip
+                label="Pit"
+                icon="wind"
+                tempF={readouts.pit.tempF}
+                targetF={cookTempF != null && cookTempF > 0 ? cookTempF : null}
+                targetLabel="setpoint"
+                accent="#3b82f6"
+                sourceLabel={sourceLabel}
+              />
+            )}
+          </View>
+        );
+      })()}
 
       {!weather.locationDenied && (weather.loading || weather.tempF != null) && (
         <View style={[s.weatherStrip, { borderTopColor: colors.border, borderBottomColor: colors.border, flexDirection: "column", alignItems: "flex-start", gap: 4 }]}>

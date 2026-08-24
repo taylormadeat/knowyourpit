@@ -98,7 +98,7 @@ export default function CookDetailScreen() {
   // ── Core hooks ────────────────────────────────────────────────────────────
   const cd = useCookDetail(id);
   const { cook, cookStatus, cookSeqData, isLoading, cookDataUpdatedAt,
-    cookCurrentTempF, cookCheckins, lastCheckin, checkinsLoading, activeCookCount, allCooksForCount,
+    cookCheckins, lastCheckin, checkinsLoading, activeCookCount, allCooksForCount,
     grills, updateCook, deleteCook, dismissCookOutlier, showPaywall, parseAndShowFromError,
     paywallUsage, effectivePro, effectiveProRef, isIdentityLinked,
     goBack, goHome,
@@ -695,8 +695,7 @@ export default function CookDetailScreen() {
           />
 
           <LiveProbeSection
-            cookStatus={cookStatus} c={c}
-            cookCurrentTempF={cookCurrentTempF}
+            cookStatus={cookStatus} tempMode={tempMode}
             selectedBleContextDevice={selectedBleContextDevice}
             selectedLanProbe={selectedLanProbe}
             selectedInkbirdProbe={selectedInkbirdProbe}
@@ -749,6 +748,8 @@ export default function CookDetailScreen() {
             onOpenChat={() => setChatModalVisible(true)}
             lastAnalyzedAtMs={lastAnalyzedAtMs}
             lastCheckinInternalTempF={lastCheckin?.internalTempF ?? null}
+            lastCheckinPitTempF={lastCheckin?.pitTempF ?? null}
+            lastCheckinCreatedAt={lastCheckin?.createdAt ?? null}
             onRefresh={() => analyze()}
             activeProbeName={activeProbeName !== "Probe" ? activeProbeName : null}
             activePitProbeName={activePitProbeName !== "Pit / Ambient" ? activePitProbeName : undefined}
