@@ -55,6 +55,9 @@ function readSnapshot(): StoredSnapshot {
 }
 
 async function flushMicrotasks() {
+  // Fresh local-cook snapshots intentionally wait one event-loop turn so the
+  // foreground route can start before AsyncStorage is invoked.
+  jest.advanceTimersByTime(0);
   for (let index = 0; index < 12; index += 1) {
     await Promise.resolve();
   }
@@ -471,6 +474,30 @@ describe("local planning outbox failure recovery", () => {
       syncPayload: expect.objectContaining({ sessionId: payload.sessionId }),
     });
     expect(retry.id).toBe(first.id);
+  });
+
+  it("commits a new cook before starting any native storage work", async () => {
+    const localCooks = loadLocalCooks();
+
+    const created = localCooks.createLocalCook(OWNER_ID, {
+      foodType: "Brisket",
+      status: "active",
+      sessionId: "foreground-transition-session",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+    });
+
+    // The submit handler can route with this synchronous local value before
+    // AsyncStorage receives either a read or a write. This is the foreground
+    // path that must not require backgrounding the app to finish.
+    expect(created.id).toBeLessThan(0);
+    expect(mockGetItem).not.toHaveBeenCalled();
+    expect(mockSetItem).not.toHaveBeenCalled();
+
+    jest.advanceTimersByTime(0);
+    await flushMicrotasks();
+
+    expect(mockGetItem).toHaveBeenCalledTimes(1);
+    expect(mockSetItem).toHaveBeenCalledTimes(1);
   });
 
   it("persists both old and newly created cooks when cold-start hydration returns late", async () => {

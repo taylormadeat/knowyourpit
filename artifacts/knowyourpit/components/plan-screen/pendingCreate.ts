@@ -40,6 +40,18 @@ export function createIntentFingerprint(intent: unknown): string {
   return JSON.stringify(intent);
 }
 
+/**
+ * Create an opaque idempotency key without crossing the React Native bridge.
+ * It only identifies one local create attempt; it is not a secret or security
+ * token. The key is stored in the local outbox and reused for every retry.
+ */
+export function createLocalCreateKey(
+  now = Date.now(),
+  random = Math.random(),
+): string {
+  return `local-${now.toString(36)}-${Math.floor(random * Number.MAX_SAFE_INTEGER).toString(36)}`;
+}
+
 export const PENDING_CREATE_TTL_MS = 10 * 60_000;
 
 /** A pending create is fresh while it is within its TTL. */

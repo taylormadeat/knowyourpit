@@ -10,6 +10,7 @@ import {
   shouldReusePendingCreate,
   findPendingCook,
   createIntentFingerprint,
+  createLocalCreateKey,
   type PendingCreate,
 } from "../pendingCreate";
 
@@ -37,6 +38,18 @@ describe("createIntentFingerprint", () => {
     expect(createIntentFingerprint(INTENT)).toBe(FP);
     expect(createIntentFingerprint({ ...INTENT, grillId: 2 })).not.toBe(FP);
     expect(createIntentFingerprint({ ...INTENT, cookTempF: "275" })).not.toBe(FP);
+  });
+});
+
+describe("createLocalCreateKey", () => {
+  it("creates a stable opaque key without native crypto", () => {
+    const first = createLocalCreateKey(NOW, 0.25);
+    const second = createLocalCreateKey(NOW, 0.25);
+    const differentAttempt = createLocalCreateKey(NOW, 0.5);
+
+    expect(first).toBe(second);
+    expect(first).toMatch(/^local-[a-z0-9]+-[a-z0-9]+$/);
+    expect(differentAttempt).not.toBe(first);
   });
 });
 

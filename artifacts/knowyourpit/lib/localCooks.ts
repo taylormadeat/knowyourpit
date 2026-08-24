@@ -108,6 +108,8 @@ let persistQueue: Promise<void> = Promise.resolve();
 let storageWriteBlocked = false;
 let unresolvedStorageWrite: Promise<void> | null = null;
 let persistRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let deferredPersistTimer: ReturnType<typeof setTimeout> | null = null;
+let deferredHydrationTimer: ReturnType<typeof setTimeout> | null = null;
 let syncInProgress = false;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<() => void>();
@@ -231,6 +233,34 @@ function queuePersist() {
       queuePersist();
     }, LOCAL_COOK_STORAGE_TIMEOUT_MS);
   });
+}
+
+/**
+ * A fresh local cook must be visible before its first native storage write is
+ * allowed to start. AsyncStorage can briefly stall on iOS; scheduling this
+ * snapshot on the next event-loop turn keeps that bridge out of the tap and
+ * route-transition call stack while retaining the regular retry behavior.
+ */
+function queuePersistAfterForegroundTransition() {
+  if (deferredPersistTimer) return;
+  deferredPersistTimer = setTimeout(() => {
+    deferredPersistTimer = null;
+    queuePersist();
+  }, 0);
+}
+
+/**
+ * A first-time storage read can stall on the same native bridge as a write.
+ * Starting it from createLocalCook would put that read back on the CTA's
+ * critical path, so a cold outbox hydrates on the next turn and merges any
+ * already-committed in-memory record when it arrives.
+ */
+function queueHydrationAfterForegroundTransition() {
+  if (hydrated || hydratePromise || deferredHydrationTimer) return;
+  deferredHydrationTimer = setTimeout(() => {
+    deferredHydrationTimer = null;
+    void hydrateLocalCooks().catch(() => {});
+  }, 0);
 }
 
 export async function hydrateLocalCooks() {
@@ -411,14 +441,15 @@ function newLocalId() {
   return -(Date.now() * 1000 + Math.floor(Math.random() * 1000));
 }
 
-export async function createLocalCook(
+export function createLocalCook(
   ownerId: string | null | undefined,
   payload: Record<string, unknown>,
   options: LocalCookCreateOptions = {},
 ) {
   // Do not put a cold or stalled native read on the create CTA's critical
-  // path. hydrateLocalCooks() merges late storage data with this commit.
-  if (!hydrated) void hydrateLocalCooks().catch(() => {});
+  // path. Hydration runs after the foreground transition and merges late
+  // storage data with this already-committed record.
+  if (!hydrated) queueHydrationAfterForegroundTransition();
   const ownerKey = ownerId || "anonymous";
   const localCreateKey = options.localCreateKey ?? null;
   // A write can time out after the native layer has accepted it. Keep that
@@ -432,7 +463,7 @@ export async function createLocalCook(
       record.localCreateKey === localCreateKey,
     );
     if (existing) {
-      queuePersist();
+      queuePersistAfterForegroundTransition();
       return toCook(existing);
     }
   }
@@ -462,7 +493,7 @@ export async function createLocalCook(
   };
   records = [record, ...records];
   notify();
-  queuePersist();
+  queuePersistAfterForegroundTransition();
   return toCook(record);
 }
 

@@ -150,6 +150,7 @@ import {
   shouldReusePendingCreate,
   findPendingCook,
   createIntentFingerprint,
+  createLocalCreateKey,
 } from "@/components/plan-screen/pendingCreate";
 import {
   createLocalCook,
@@ -1298,12 +1299,10 @@ export default function PlanScreen() {
       Alert.alert("Required", "Please select a meat cut");
       return;
     }
-    // Show immediate visual feedback before any await. The setTimeout(0) yield
-    // gives React Native one event-loop tick to commit the disabled/spinner
-    // state before the JS thread is blocked by the Clerk SecureStore read and
-    // the subsequent mutation network call.
-    // startSubmitting() sets isSubmitting=true synchronously — the contract
-    // tested in usePlanLoadingState.test.ts.
+    // startSubmitting() sets isSubmitting=true synchronously. The local create
+    // and route below must stay in this same foreground turn: yielding here can
+    // let iOS AsyncStorage run before navigation and leave the CTA spinning
+    // until the app is backgrounded.
     startSubmitting();
     // Capture this submit's generation. Cancel / foreground recovery bump the
     // counter, telling this invocation to no-op when its promise resolves.
@@ -1320,8 +1319,6 @@ export default function PlanScreen() {
     slowTimerRef.current = setTimeout(() => {
       if (submitSeqRef.current === mySubmitSeq) setSubmitSlow(true);
     }, SUBMIT_SLOW_AFTER_MS);
-    await new Promise<void>(resolve => setTimeout(resolve, 0));
-
     // try/finally guarantees isSubmitting resets on every exit path (early
     // returns, errors, successful navigation). The plan tab stays mounted in
     // memory by the tab navigator so we must always reset, even on push().
@@ -1561,7 +1558,7 @@ export default function PlanScreen() {
       // Every local outbox create needs a stable server idempotency key, not
       // only live cooks. It is persisted with the local payload and reused for
       // every retry after a timeout or process restart.
-      const idempotencySessionId = reusablePending?.sessionId ?? Crypto.randomUUID();
+      const idempotencySessionId = reusablePending?.sessionId ?? createLocalCreateKey();
       // plannedStartAt is part of the server dedup key — a retry must send
       // the same value as the original attempt or the dedup guard misses.
       const idempotencyPlannedStartAt =
@@ -1636,7 +1633,7 @@ export default function PlanScreen() {
         ...(qpSpritz ? { spritzFrequency: qpSpritz } : {}),
         ...(qpWrapFinish ? { wrapFinish: qpWrapFinish } : {}),
       };
-      const localCook = await createLocalCook(userId, localCreatePayload, {
+      const localCook = createLocalCook(userId, localCreatePayload, {
         // This session ID is unique to the single-cook submission and remains
         // stable across a storage-error retry. Do not use it for multi-cook
         // members, which intentionally share a session ID.
@@ -1644,15 +1641,8 @@ export default function PlanScreen() {
       });
       const localCookId = localCook.id;
 
-      // A blur/cancel can happen while the background local snapshot is
-      // flushing. Keep the cook and start its background sync, but never let
-      // that work hold the Plan CTA or navigation.
-      void syncLocalCooks(userId).catch(() => {});
-      if (submitSeqRef.current !== mySubmitSeq) return;
-
       // Release the CTA before routing. Tabs stay mounted during a push, so
-      // this prevents a stale Plan spinner from surviving a delayed native
-      // storage callback or route transition.
+      // this prevents a stale Plan spinner from surviving the transition.
       submitInFlightRef.current = false;
       stopSubmitting();
       setSubmitSlow(false);
@@ -1664,26 +1654,32 @@ export default function PlanScreen() {
       // retries independently and can never erase, block, or duplicate it.
       resetForm();
       router.push(`/cooks/${localCookId}` as any);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      AsyncStorage.setItem("plan_technique_qp", JSON.stringify({
-        cookMethod: qpCookMethod,
-        meatStartTemp: qpMeatStartTemp,
-        injection: qpInjection,
-        spritz: qpSpritz,
-        wrapFinish: qpWrapFinish,
-      })).catch(() => {});
-      if (selectedCut && qpCookMethod) saveLastCookMethod(selectedCut.name, qpCookMethod);
-      if (frozenForCook) {
-        scheduleFrozenStageNotifications({
-          cookId: localCookId,
-          frozen: frozenForCook,
-          preheatStartAt: plannedStart ? plannedStart.toISOString() : null,
-          foodType: selectedCut!.name,
-          includePreheat: effectiveCookNowMode === "later",
-          actualThawStartAt: effectiveCookNowMode === "now" ? new Date().toISOString() : undefined,
-        }).catch(() => {});
-      }
       pendingCreateRef.current = null;
+      // Every remaining action can touch a native module or the network. Give
+      // the router a complete event-loop turn first so none of them can hold
+      // the local cook transition hostage on iOS.
+      setTimeout(() => {
+        void syncLocalCooks(userId).catch(() => {});
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        AsyncStorage.setItem("plan_technique_qp", JSON.stringify({
+          cookMethod: qpCookMethod,
+          meatStartTemp: qpMeatStartTemp,
+          injection: qpInjection,
+          spritz: qpSpritz,
+          wrapFinish: qpWrapFinish,
+        })).catch(() => {});
+        if (selectedCut && qpCookMethod) saveLastCookMethod(selectedCut.name, qpCookMethod);
+        if (frozenForCook) {
+          scheduleFrozenStageNotifications({
+            cookId: localCookId,
+            frozen: frozenForCook,
+            preheatStartAt: plannedStart ? plannedStart.toISOString() : null,
+            foodType: selectedCut!.name,
+            includePreheat: effectiveCookNowMode === "later",
+            actualThawStartAt: effectiveCookNowMode === "now" ? new Date().toISOString() : undefined,
+          }).catch(() => {});
+        }
+      }, 0);
       return;
 
       // Promise.race provides a per-attempt ceiling (MUTATION_TIMEOUT_MS). On a
