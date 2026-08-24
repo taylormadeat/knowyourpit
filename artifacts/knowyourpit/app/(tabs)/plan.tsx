@@ -160,6 +160,7 @@ import {
   syncLocalCooks,
   updateLocalCook,
   upsertLocalServerCook,
+  waitForLocalCookServerId,
 } from "@/lib/localCooks";
 
 // Hard upper bound on every AI network call. React Native's fetch has no
@@ -1655,6 +1656,14 @@ export default function PlanScreen() {
       resetForm();
       router.push(`/cooks/${localCookId}` as any);
       pendingCreateRef.current = null;
+      // The local ID is intentionally never sent to PitMaster. Wait for the
+      // outbox to confirm the real server record, then refine that record in
+      // the background without making the start flow wait.
+      void waitForLocalCookServerId(localCookId).then((serverCookId) => {
+        if (typeof serverCookId === "number" && Number.isSafeInteger(serverCookId) && serverCookId > 0) {
+          void fireBgAiRefine(serverCookId, bgPredictPayload);
+        }
+      });
       // Every remaining action can touch a native module or the network. Give
       // the router a complete event-loop turn first so none of them can hold
       // the local cook transition hostage on iOS.
@@ -2069,6 +2078,7 @@ export default function PlanScreen() {
     cookId: number,
     payload: Record<string, unknown>,
   ) => {
+    if (!Number.isSafeInteger(cookId) || cookId <= 0) return;
     markBgRefining(cookId);
     const apiBase =
       process.env.EXPO_PUBLIC_API_URL ??

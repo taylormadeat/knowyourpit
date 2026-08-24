@@ -121,6 +121,26 @@ export function useCookDetail(id: string | undefined) {
   );
   const cook = isLocalCook ? localCook : remoteCook;
   const isLoading = isLocalCook ? !localCookHydrated : remoteCookLoading;
+  const localServerId = Number((localCook as any)?._serverId);
+  const localSyncState = (localCook as any)?._syncState;
+  const localRouteHandoffRef = useRef<number | null>(null);
+
+  // The local ID exists only to make the first detail frame instant. Once the
+  // outbox confirms a server record, replace it so the screen can fetch the
+  // canonical cook and receive its background AI refinement.
+  useEffect(() => {
+    if (
+      !isLocalCook ||
+      localSyncState !== "synced" ||
+      !Number.isSafeInteger(localServerId) ||
+      localServerId <= 0 ||
+      localRouteHandoffRef.current === localServerId
+    ) {
+      return;
+    }
+    localRouteHandoffRef.current = localServerId;
+    router.replace(`/cooks/${localServerId}` as any);
+  }, [isLocalCook, localServerId, localSyncState, router]);
 
   const deleteCook = useDeleteCook();
   const updateCook = useUpdateCook();

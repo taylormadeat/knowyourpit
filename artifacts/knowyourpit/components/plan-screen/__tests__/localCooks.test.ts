@@ -150,6 +150,70 @@ describe("local planning outbox failure recovery", () => {
     jest.useRealTimers();
   });
 
+  it("reports the server ID after a local cook finishes syncing", async () => {
+    const localCooks = loadLocalCooks();
+    const localCook = localCooks.createLocalCook(OWNER_ID, {
+      foodType: "Chicken Breast",
+      status: "active",
+      sessionId: "handoff-session",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+    });
+    const serverId = localCooks.waitForLocalCookServerId(localCook.id);
+
+    await localCooks.syncLocalCooks(OWNER_ID);
+
+    await expect(serverId).resolves.toBe(501);
+  });
+
+  it("reports a confirmed server ID before a slow durable sync write recovers", async () => {
+    const localCooks = loadLocalCooks();
+    const localCook = localCooks.createLocalCook(OWNER_ID, {
+      foodType: "Chicken Breast",
+      status: "active",
+      sessionId: "handoff-storage-timeout-session",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+    });
+    let finishLateWrite!: () => void;
+    mockSetItem
+      .mockImplementationOnce(async (key: string, value: string) => {
+        mockStorage.set(key, value);
+      })
+      .mockImplementationOnce(async (key: string, value: string) => {
+        mockStorage.set(key, value);
+      })
+      .mockImplementationOnce((key: string, value: string) => new Promise<void>((resolve) => {
+        finishLateWrite = () => {
+          mockStorage.set(key, value);
+          resolve();
+        };
+      }));
+    const serverId = localCooks.waitForLocalCookServerId(localCook.id);
+    const syncAttempt = localCooks.syncLocalCooks(OWNER_ID);
+
+    await expect(serverId).resolves.toBe(501);
+    jest.advanceTimersByTime(localCooks.LOCAL_COOK_STORAGE_TIMEOUT_MS);
+    await syncAttempt;
+    finishLateWrite();
+  });
+
+  it("keeps an invalid create response retryable instead of accepting its ID", async () => {
+    const localCooks = loadLocalCooks();
+    mockCreateCook.mockResolvedValueOnce({ id: -1 });
+    await localCooks.createLocalCook(OWNER_ID, {
+      foodType: "Chicken Breast",
+      status: "active",
+      sessionId: "invalid-server-id-session",
+      plannedStartAt: "2030-07-04T14:00:00.000Z",
+    });
+
+    await localCooks.syncLocalCooks(OWNER_ID);
+
+    expect(readSnapshot().cooks[0]).toMatchObject({
+      serverId: null,
+      syncState: "error",
+    });
+  });
+
   it("keeps one server mirror while repeated offline edits collapse to the newest revision", async () => {
     const localCooks = loadLocalCooks();
     const first = await localCooks.upsertLocalServerCook(

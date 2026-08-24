@@ -395,6 +395,49 @@ export function isLocalCookId(id: string | number | null | undefined) {
   return Number(id) < 0;
 }
 
+function isConfirmedServerCookId(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+
+/**
+ * Resolves only after a local cook has a confirmed server record. This lets
+ * non-critical follow-up work (such as AI refinement) use the real server ID
+ * without delaying local-first navigation.
+ */
+export function waitForLocalCookServerId(
+  localId: number,
+  timeoutMs = 5 * 60_000,
+): Promise<number | null> {
+  const existing = records.find((record) =>
+    record.localId === localId &&
+    isConfirmedServerCookId(record.serverId),
+  );
+  if (existing && isConfirmedServerCookId(existing.serverId)) return Promise.resolve(existing.serverId);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    let check: () => void = () => {};
+    const finish = (serverId: number | null) => {
+      if (settled) return;
+      settled = true;
+      listeners.delete(check);
+      if (timeout) clearTimeout(timeout);
+      resolve(serverId);
+    };
+    check = () => {
+      const record = records.find((item) =>
+        item.localId === localId &&
+        isConfirmedServerCookId(item.serverId),
+      );
+      if (record && isConfirmedServerCookId(record.serverId)) finish(record.serverId);
+    };
+    listeners.add(check);
+    timeout = setTimeout(() => finish(null), timeoutMs);
+    check();
+  });
+}
+
 export function useLocalCooks(ownerId: string | null | undefined) {
   const [, setVersion] = useState(0);
   const ownerKey = ownerId || "anonymous";
@@ -508,8 +551,8 @@ export async function upsertLocalServerCook(
   payload: Record<string, unknown>,
   snapshot?: Record<string, unknown>,
 ) {
-  if (serverId <= 0) {
-    throw new Error("A server mirror requires a positive server ID.");
+  if (!isConfirmedServerCookId(serverId)) {
+    throw new Error("A server mirror requires a positive integer server ID.");
   }
   await hydrateLocalCooks();
   const existing = records.find((record) =>
@@ -1045,7 +1088,18 @@ function scheduleRetry(ownerId: string) {
 export async function syncLocalCooks(ownerId: string | null | undefined) {
   const ownerKey = ownerId || "anonymous";
   if (ownerKey === "anonymous" || syncInProgress) return;
-  await hydrateLocalCooks();
+  try {
+    await hydrateLocalCooks();
+  } catch (error) {
+    // A cold AsyncStorage read can time out just after local-first navigation.
+    // Keep the in-memory record visible and retry the server flush once the
+    // native bridge has had time to settle.
+    if (isLocalCookStorageError(error)) {
+      setTimeout(() => void syncLocalCooks(ownerKey), LOCAL_COOK_STORAGE_TIMEOUT_MS);
+      return;
+    }
+    throw error;
+  }
   syncInProgress = true;
   let storageRetryPending = false;
   try {
@@ -1060,7 +1114,7 @@ export async function syncLocalCooks(ownerId: string | null | undefined) {
       const syncing = { ...record, syncState: "syncing" as const, syncError: null };
       await replaceRecord(record.localId, syncing);
       try {
-        if (syncing.deletedAt && syncing.serverId) {
+        if (syncing.deletedAt && isConfirmedServerCookId(syncing.serverId)) {
           try {
             await requestWithTimeout((signal) => deleteCookRequest(syncing.serverId!, { signal } as any));
           } catch (error: any) {
@@ -1079,15 +1133,19 @@ export async function syncLocalCooks(ownerId: string | null | undefined) {
           await persist();
           continue;
         }
-        if (!syncing.serverId) {
+        if (!isConfirmedServerCookId(syncing.serverId)) {
           const created = await requestWithTimeout((signal) =>
             createCookRequest(syncing.syncPayload as any, { signal }),
           );
+          const createdCookId = (created as Cook).id;
+          if (!isConfirmedServerCookId(createdCookId)) {
+            throw new Error("Cook creation did not return a valid server ID.");
+          }
           const latest = records.find((item) => item.localId === syncing.localId);
           if (latest) {
             await replaceRecord(syncing.localId, {
               ...latest,
-              serverId: (created as Cook).id,
+              serverId: createdCookId,
               syncState: (latest.revision ?? 0) === (syncing.revision ?? 0) ? "synced" : "pending",
               syncError: null,
               syncAttempts: 0,

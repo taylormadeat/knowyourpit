@@ -68,7 +68,9 @@ export function CookHealthScoreCard({ cookId, colors, cookStatus, checkinCount, 
   const { data: health, isLoading } = useGetCookHealth(cookId, {
     query: {
       queryKey: getGetCookHealthQueryKey(cookId),
-      enabled: !!isSignedIn && (cookStatus === "active" || cookStatus === "completed"),
+      // A negative ID is a local-first placeholder. Health is server-derived,
+      // so it must wait for cook-detail's confirmed-ID route handoff.
+      enabled: !!isSignedIn && cookId > 0 && (cookStatus === "active" || cookStatus === "completed"),
       refetchInterval: cookStatus === "active" ? 60000 : false,
     },
   });

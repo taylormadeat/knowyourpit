@@ -37,6 +37,21 @@ export type ProbeState = ReturnType<typeof useProbeState>;
 // Persists across remounts within a single app session (module scope survives navigation)
 const SESSION_TEMP_MODES = new Map<string, "probe" | "manual">();
 
+function sameProbeSlots(
+  current: Array<{ id: string; label: string }>,
+  next: Array<{ id: string; label: string }>,
+) {
+  return current.length === next.length &&
+    current.every((slot, index) => slot.id === next[index]?.id && slot.label === next[index]?.label);
+}
+
+function sameProbeLabels(current: Record<string, string>, next: Record<string, string>) {
+  const currentKeys = Object.keys(current);
+  const nextKeys = Object.keys(next);
+  return currentKeys.length === nextKeys.length &&
+    currentKeys.every((key) => current[key] === next[key]);
+}
+
 export function useProbeState({
   id,
   cookStatus,
@@ -78,10 +93,12 @@ export function useProbeState({
   }, [id]);
 
   // Rehydrate probe state from server or AsyncStorage
+  const probeAssignmentsKey = JSON.stringify((cook as any)?.probeAssignments ?? null);
   useEffect(() => {
     const currentStatus = (cook as any)?.status;
     if (Platform.OS === "web" || !id || currentStatus !== "active") return;
     const sessionMode = SESSION_TEMP_MODES.get(String(id));
+    let cancelled = false;
 
     (async () => {
       try {
@@ -120,23 +137,29 @@ export function useProbeState({
           resolvedMeatSlots = meatProbeId ? [{id: meatProbeId, label: "Internal"}] : [];
         }
 
-        setMeatProbeSlots(resolvedMeatSlots);
-        setSelectedPitProbeId(pitProbeId);
-        setProbeLabelsState(resolvedLabels);
+        if (cancelled) return;
+        // Local cooks emit a new object while their outbox changes state. Do
+        // not turn those identical rehydration results into a render loop.
+        setMeatProbeSlots((current) => sameProbeSlots(current, resolvedMeatSlots) ? current : resolvedMeatSlots);
+        setSelectedPitProbeId((current) => current === pitProbeId ? current : pitProbeId);
+        setProbeLabelsState((current) => sameProbeLabels(current, resolvedLabels) ? current : resolvedLabels);
         if (meatProbeId != null && sessionMode == null) {
           if (effectiveProRef.current) {
-            setTempModeState("probe");
+            setTempModeState((current) => current === "probe" ? current : "probe");
             SESSION_TEMP_MODES.set(String(id), "probe");
           }
         } else if (sessionMode != null) {
-          setTempModeState(sessionMode);
+          setTempModeState((current) => current === sessionMode ? current : sessionMode);
         }
       } catch {
-        setMeatProbeSlots([]);
+        if (!cancelled) setMeatProbeSlots((current) => current.length === 0 ? current : []);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, (cook as any)?.status, (cook as any)?.probeAssignments]);
+  }, [id, (cook as any)?.status, probeAssignmentsKey]);
 
   // Retry tempMode switch when Pro entitlement loads after the rehydration
   // effect has already run. The rehydration effect checks effectiveProRef.current
