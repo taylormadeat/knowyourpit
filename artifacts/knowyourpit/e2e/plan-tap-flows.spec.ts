@@ -29,6 +29,10 @@
 import { test, expect, type Page } from "@playwright/test";
 import { stubPlanScreenRoutes } from "./support/routes";
 
+const liveApiBaseUrl = process.env.REPLIT_DEV_DOMAIN
+  ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+  : process.env.EXPO_PUBLIC_API_URL;
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
@@ -70,6 +74,27 @@ async function selectBrisket(page: Page): Promise<void> {
 test.beforeEach(async ({ page }) => {
   await stubPlanScreenRoutes(page);
   await navigateToPlanTab(page);
+});
+
+test("Plan loads live remote configuration without a CORS failure", async ({ page }) => {
+  test.skip(!liveApiBaseUrl, "A live Replit API origin is required for this browser smoke test.");
+
+  const configResponse = await page.evaluate(async (apiBaseUrl) => {
+    const response = await fetch(
+      `${apiBaseUrl}/api/config`,
+      {
+        headers: { "X-KYP-Partner-Build": "true" },
+      },
+    );
+
+    return {
+      status: response.status,
+      config: await response.json(),
+    };
+  }, liveApiBaseUrl!);
+
+  expect(configResponse.status).toBe(200);
+  expect(configResponse.config).toHaveProperty("partnerBigPetes");
 });
 
 // ── Flow 1: "Ask PitMaster" tap ───────────────────────────────────────────────

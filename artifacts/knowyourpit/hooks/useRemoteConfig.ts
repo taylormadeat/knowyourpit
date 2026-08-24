@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
-  "https://3b4-ffskevbkaeymfrj2e-00-api-server.janeway.replit.dev";
+  (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "");
 
 export type RemoteConfig = {
   partnerBigPetes: boolean;

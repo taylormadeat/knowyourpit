@@ -26,7 +26,8 @@ dashboard audit.
   against a real device.
 - **Used in**: `app/_layout.tsx`, `hooks/usePaywallUsage.ts`,
   `hooks/useHomeInsights.ts`,
-  `app/(tabs)/ai.tsx`, `app/(tabs)/plan.tsx`, `app/(tabs)/more.tsx`.
+  `hooks/useRemoteConfig.ts`, `app/(tabs)/ai.tsx`, `app/(tabs)/plan.tsx`,
+  `app/(tabs)/more.tsx`.
 - **Fallback**: If unset, the app constructs the URL from `EXPO_PUBLIC_DOMAIN`.
 
 ---
@@ -52,8 +53,9 @@ dashboard audit.
   set in EAS; Replit-only.
 - **Used in**: `app/_layout.tsx`, `hooks/usePaywallUsage.ts`,
   `hooks/useHomeInsights.ts`,
-  `hooks/useSmokerProfile.ts`, `app/(tabs)/ai.tsx`, `app/(tabs)/plan.tsx`,
-  `app/(tabs)/more.tsx`, `scripts/build.js`.
+  `hooks/useRemoteConfig.ts`, `hooks/useSmokerProfile.ts`,
+  `app/(tabs)/ai.tsx`, `app/(tabs)/plan.tsx`, `app/(tabs)/more.tsx`,
+  `scripts/build.js`.
 
 ---
 

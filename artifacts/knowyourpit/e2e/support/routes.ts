@@ -140,7 +140,12 @@ export async function stubPlanScreenRoutes(page: Page): Promise<void> {
   );
 
   // Catch-all for any remaining API calls
-  await page.route("**/api/**", (route) =>
-    route.fulfill({ status: 200, json: {} }),
-  );
+  await page.route("**/api/**", (route) => {
+    // Let the remote config request reach the API so browser smoke tests
+    // exercise the real CORS policy instead of masking it with this fallback.
+    if (new URL(route.request().url()).pathname.endsWith("/api/config")) {
+      return route.continue();
+    }
+    return route.fulfill({ status: 200, json: {} });
+  });
 }

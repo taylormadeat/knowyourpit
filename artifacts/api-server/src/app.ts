@@ -12,6 +12,22 @@ const app: Express = express();
 
 app.set("trust proxy", 1);
 
+const corsOrigins = new Set(
+  [process.env.REPLIT_DEV_DOMAIN, process.env.REPLIT_EXPO_DEV_DOMAIN]
+    .filter((domain): domain is string => Boolean(domain))
+    .map((domain) => `https://${domain}`),
+);
+
+const corsOrigin = (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
+  // Native clients and same-origin requests do not send an Origin header.
+  if (!origin || corsOrigins.has(origin)) {
+    callback(null, true);
+    return;
+  }
+
+  callback(null, false);
+};
+
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
@@ -38,7 +54,7 @@ app.use(
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
-app.use(cors({ credentials: true, origin: true }));
+app.use(cors({ credentials: true, origin: corsOrigin }));
 
 app.use(clerkMiddleware({ secretKey: clerkSecretKey }));
 
