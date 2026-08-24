@@ -5,25 +5,25 @@ description: Why ThermoWorks Signals/RFX don't appear via LAN scan and where the
 
 # ThermoWorks probe detection
 
-ThermoWorks Signals & RFX are **cloud** devices. The app reads their readings
-through an account link (`POST /api/thermoworks/link`), NOT over the LAN.
+ThermoWorks Signals and RFX temperature data is cloud-backed, not a local-LAN
+protocol. The speculative local `/status` adapter for `*-signals.local` /
+`rfx*.local` is not a supported data path.
 
-The local LAN adapter (`hooks/lan/thermoworksSignals.ts`, polling a `/status`
-endpoint on `*-signals.local` / `rfx*.local`) is **speculative / effectively
-dead** — it was built against a community spec and no shipping ThermoWorks
-device actually serves it. Do not treat "the LAN adapter exists" as evidence
-that LAN discovery is the supported path.
+An RFX GATEWAY does advertise over BLE during initial setup, often with only the
+local name `rfx gateway` and no service UUIDs. That BLE connection transfers
+2.4 GHz Wi-Fi credentials; it is not a temperature stream. RFX MEAT is added
+to the gateway in the ThermoWorks app and reports through ThermoWorks Cloud.
 
-**Why:** A user reported the cook screen stuck forever on "No probe detected ·
-scanning nearby devices" even though the device worked in the official
-ThermoWorks app on the same Wi-Fi. Root cause: there is no LAN path to find; the
-device is only reachable via the cloud account link, and the no-probe UX had no
-finite/actionable terminal state.
+**Why:** A physical iPhone scan showed an RFX gateway in raw diagnostics but
+not the selectable list because only generic BLE temperature adapters were
+registered. Treating the gateway as a direct probe would still yield no
+readings and falsely imply that local pairing had integrated it.
 
-**How to apply:** When working on probe detection, route ThermoWorks/MEATER
-users to the account-link flow on the `/devices` screen. LAN/mDNS discovery is
-real only for Fireboard and MEATER Block. On iOS, an empty mDNS browse
+**How to apply:** Recognize RFX GATEWAY narrowly by its advertised name so the
+device picker can offer the official setup guidance, but do not expose it as a
+temperature probe or invent a GATT decoder. Live RFX readings require a
+ThermoWorks account-link/cloud integration. LAN/mDNS discovery remains real
+only for Fireboard and MEATER Block. On iOS, an empty mDNS browse
 (`mdnsScanEmpty` true while `mdnsAvailable` true) is NOT a definitive
 Local-Network-permission denial — it can equally mean AP isolation, a different
-Wi-Fi/VLAN, or a powered-off base station. Never claim a hard permission denial
-from `mdnsScanEmpty` alone.
+Wi-Fi/VLAN, or a powered-off base station.

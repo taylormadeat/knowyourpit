@@ -465,8 +465,8 @@ export default function BleDiagnosticsScreen() {
         >
           <Feather name="info" size={15} color={colors.mutedForeground} />
           <Text style={[s.infoText, { color: colors.mutedForeground }]}>
-            Raw scan of every BLE device visible to your phone — not just
-            thermometers. Use this to confirm your probe is advertising.
+             Raw scan of every BLE device visible to your phone — not just
+             thermometers. Use this to confirm your probe or RFX Gateway is advertising.
           </Text>
         </View>
 

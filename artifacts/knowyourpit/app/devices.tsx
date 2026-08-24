@@ -87,6 +87,7 @@ function BleDeviceCard({ device, colors, onPair, onUnpair }: {
   const isConnecting = device.connectionState === "connecting";
   const isPaired = device.paired;
   const isOffline = isPaired && !isConnected && !isConnecting;
+  const isRfxGateway = device.adapter === "thermoworks_rfx";
 
   const confirmRemove = () => {
     Alert.alert(
@@ -188,10 +189,15 @@ function BleDeviceCard({ device, colors, onPair, onUnpair }: {
             style={[s.linkBtn, { backgroundColor: "#3B82F6", marginTop: 0, marginHorizontal: 0 }]}
           >
             <Feather name="link" size={14} color="#fff" />
-            <Text style={s.linkBtnText}>Pair Device</Text>
+            <Text style={s.linkBtnText}>{isRfxGateway ? "Set Up in ThermoWorks" : "Pair Device"}</Text>
           </Pressable>
         )}
       </View>
+      {isRfxGateway && (
+        <Text style={{ fontSize: 11, lineHeight: 16, fontFamily: "Inter_400Regular", color: colors.mutedForeground, textAlign: "center", paddingHorizontal: 14, paddingBottom: 10 }}>
+          The gateway uses Bluetooth for setup. RFX MEAT readings come through ThermoWorks Cloud after the gateway and probe are added in the ThermoWorks app.
+        </Text>
+      )}
       {isOffline && (
         <Text style={{ fontSize: 10, fontFamily: "Inter_400Regular", color: colors.mutedForeground, textAlign: "center", paddingBottom: 8, opacity: 0.6 }}>
           Hold to remove
@@ -358,6 +364,27 @@ export default function DevicesScreen() {
     bluetoothAvailability === "permissionDenied" ||
     bluetoothAvailability === "poweredOff" ||
     bluetoothAvailability === "unsupported";
+
+  const handlePair = useCallback((device: BleDevice) => {
+    if (device.adapter !== "thermoworks_rfx") {
+      pairDevice(device.id);
+      return;
+    }
+
+    Alert.alert(
+      "Set Up RFX Gateway",
+      "ThermoWorks uses this Bluetooth gateway to transfer your 2.4 GHz Wi-Fi details. Finish setup in the ThermoWorks app, then add your RFX MEAT probe there.",
+      [
+        { text: "Not now", style: "cancel" },
+        {
+          text: "Open ThermoWorks Help",
+          onPress: () => {
+            Linking.openURL("https://help.thermoworks.com/knowledge-base/setup-thermoworks-rfx-gateway-and-rfx-meat/").catch(() => {});
+          },
+        },
+      ],
+    );
+  }, [pairDevice]);
 
   const handleAddManual = useCallback(async () => {
     const trimmed = manualInput.trim();
@@ -732,7 +759,7 @@ export default function DevicesScreen() {
                           key={device.id}
                           device={device}
                           colors={colors}
-                          onPair={() => pairDevice(device.id)}
+                          onPair={() => handlePair(device)}
                           onUnpair={() => unpairDevice(device.id)}
                         />
                       ))}
@@ -748,7 +775,7 @@ export default function DevicesScreen() {
                               key={device.id}
                               device={device}
                               colors={colors}
-                              onPair={() => pairDevice(device.id)}
+                              onPair={() => handlePair(device)}
                               onUnpair={() => unpairDevice(device.id)}
                             />
                           ))}
