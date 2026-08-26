@@ -27,13 +27,13 @@ const APP_STORE_URL = "itms-apps://itunes.apple.com/app/id6738518044";
 
 const logoImg = require("@/assets/images/logo-transparent-light.png");
 
-const FEATURES: { icon?: string; emoji?: string; label: string; color: string }[] = [
+const FEATURES: { icon: any; label: string; color: string }[] = [
   { icon: "zap",            label: "AI Cook Plans",    color: "#FCD34D" },
   { icon: "message-circle", label: "PitMaster Coach",  color: "#F97316" },
   { icon: "thermometer",    label: "Live Temperature", color: "#60A5FA" },
   { icon: "book-open",      label: "Cook Logger",      color: "#34D399" },
   { icon: "wind",           label: "Frozen Planning",  color: "#A5F3FC" },
-  { emoji: "🍢",            label: "Multi-Cook",       color: "#F472B6" },
+  { icon: "layers",         label: "Multi-Cook",       color: "#F472B6" },
 ];
 
 export default function OnboardingScreen() {
@@ -97,8 +97,8 @@ export default function OnboardingScreen() {
 
   return (
     <LinearGradient
-      colors={["#E84820", "#B83018", "#7A1E08", "#1A0A04", "#0D0D10"]}
-      locations={[0, 0.18, 0.38, 0.62, 1.0]}
+      colors={["#361E10", "#18181A", "#0D0D10"]}
+      locations={[0, 0.4, 1.0]}
       style={s.root}
     >
       {/* Top-left: close in replay, logo in first-run */}
@@ -142,11 +142,7 @@ export default function OnboardingScreen() {
               <View style={s.featureGrid}>
                 {FEATURES.map((f) => (
                   <View key={f.label} style={s.featureTile}>
-                    {f.emoji ? (
-                      <Text style={s.featureEmoji}>{f.emoji}</Text>
-                    ) : (
-                      <Feather name={f.icon as any} size={18} color={f.color} />
-                    )}
+                    <Feather name={f.icon} size={18} color={f.color} />
                     <Text style={s.featureLabel}>{f.label}</Text>
                   </View>
                 ))}
@@ -162,7 +158,7 @@ export default function OnboardingScreen() {
               >
                 <Feather name="star" size={48} color="#F59E0B" />
               </LinearGradient>
-              <Text style={s.headline}>You're one of our first 🔥</Text>
+              <Text style={s.headline}>You're one of our first.</Text>
               <Text style={s.body}>
                 Your feedback shapes everything we build next. Spotted something off? Have an idea? We're listening.
               </Text>
@@ -226,7 +222,7 @@ export default function OnboardingScreen() {
             accessibilityLabel={isLast ? "Let's go" : "Next"}
           >
             <View style={s.ctaInner}>
-              <Text style={s.ctaText}>{isLast ? "Let's go! 🔥" : "Next →"}</Text>
+              <Text style={s.ctaText}>{isLast ? "Let's go →" : "Next →"}</Text>
             </View>
           </Pressable>
         </View>
@@ -275,120 +271,108 @@ const s = StyleSheet.create({
     maxWidth: 400,
     alignItems: "center",
     paddingHorizontal: 28,
-    paddingVertical: 36,
-    borderRadius: 28,
-    backgroundColor: "rgba(13,13,16,0.96)",
+    paddingVertical: 40,
+    borderRadius: 32,
+    backgroundColor: "rgba(255,255,255,0.03)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.5,
-    shadowRadius: 32,
-    elevation: 20,
+    borderColor: "rgba(255,255,255,0.08)",
   },
   iconBox: {
-    width: 112,
-    height: 112,
-    borderRadius: 28,
+    width: 100,
+    height: 100,
+    borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 32,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 48,
-    shadowOpacity: 1,
-    elevation: 16,
+    borderColor: "rgba(255,255,255,0.08)",
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 24,
+    shadowOpacity: 0.4,
+    shadowColor: "#000",
   },
   headline: {
-    fontSize: 30,
+    fontSize: 32,
     fontFamily: "Inter_700Bold",
     color: "#FFFFFF",
     textAlign: "center",
-    lineHeight: 36,
-    letterSpacing: -0.4,
-    marginBottom: 14,
+    lineHeight: 38,
+    letterSpacing: -0.5,
+    marginBottom: 16,
   },
   body: {
     fontSize: 16,
     fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.72)",
+    color: "rgba(255,255,255,0.7)",
     textAlign: "center",
-    lineHeight: 24,
-    maxWidth: 300,
+    lineHeight: 26,
+    maxWidth: 320,
   },
   featureGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
-    marginTop: 24,
-    marginBottom: 20,
+    gap: 12,
+    marginTop: 28,
+    marginBottom: 28,
     width: "100%",
   },
   featureTile: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
     width: "47%",
-    backgroundColor: "rgba(255,255,255,0.07)",
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    borderColor: "rgba(255,255,255,0.06)",
   },
   featureLabel: {
     fontSize: 13,
     fontFamily: "Inter_500Medium",
-    color: "rgba(255,255,255,0.88)",
+    color: "rgba(255,255,255,0.9)",
     flexShrink: 1,
-  },
-  featureEmoji: {
-    fontSize: 18,
-    lineHeight: 22,
   },
   emailBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    marginTop: 24,
-    height: 54,
+    gap: 10,
+    marginTop: 32,
+    height: 56,
     borderRadius: 16,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(255,255,255,0.06)",
     alignSelf: "stretch",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
   emailText: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: "Inter_600SemiBold",
-    color: BRAND_ORANGE,
+    color: "#FFFFFF",
   },
   rateLink: {
-    marginTop: 14,
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    marginTop: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   rateLinkText: {
     fontSize: 14,
     fontFamily: "Inter_500Medium",
-    color: "rgba(255,255,255,0.55)",
+    color: "rgba(255,255,255,0.5)",
     textDecorationLine: "underline",
   },
   hint: {
-    marginTop: 10,
+    marginTop: 16,
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     color: "rgba(255,255,255,0.4)",
   },
   bottom: {
     paddingHorizontal: 28,
-    paddingTop: 20,
-    gap: 20,
+    paddingTop: 24,
+    gap: 24,
   },
   dots: {
     flexDirection: "row",
@@ -396,16 +380,16 @@ const s = StyleSheet.create({
     gap: 8,
   },
   dot: {
-    height: 7,
-    borderRadius: 4,
+    height: 6,
+    borderRadius: 3,
   },
   dotActive: {
-    width: 22,
+    width: 24,
     backgroundColor: "#FFFFFF",
   },
   dotInactive: {
-    width: 7,
-    backgroundColor: "rgba(255,255,255,0.28)",
+    width: 6,
+    backgroundColor: "rgba(255,255,255,0.2)",
   },
   ctaRow: {
     flexDirection: "row",
@@ -415,26 +399,27 @@ const s = StyleSheet.create({
   backBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    height: 54,
-    paddingHorizontal: 18,
+    justifyContent: "center",
+    gap: 6,
+    height: 56,
+    paddingHorizontal: 20,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
-    backgroundColor: "rgba(255,255,255,0.1)",
+    borderColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(255,255,255,0.05)",
   },
   backText: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: "Inter_600SemiBold",
     color: "#FFFFFF",
   },
   ctaBtn: {
     borderRadius: 16,
     overflow: "hidden",
-    shadowColor: "#000000",
+    shadowColor: BRAND_ORANGE,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
-    shadowRadius: 12,
+    shadowRadius: 16,
     elevation: 8,
   },
   ctaBtnFull: {
@@ -444,16 +429,16 @@ const s = StyleSheet.create({
     flex: 1,
   },
   ctaInner: {
-    height: 54,
+    height: 56,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 16,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: BRAND_ORANGE,
   },
   ctaText: {
     fontSize: 17,
     fontFamily: "Inter_700Bold",
-    color: BRAND_ORANGE,
+    color: "#FFFFFF",
     letterSpacing: 0.2,
   },
 });

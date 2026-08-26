@@ -8,8 +8,7 @@ import {
   Linking,
   Platform,
 } from "react-native";
-import { useRouter } from "expo-router";
-import { useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -47,10 +46,10 @@ function MultiCookPreview({ colors }: { colors: any }) {
   return (
     <View style={pv.multiCookWrap}>
       {grills.map((g) => (
-        <View key={g.name} style={[pv.grillRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
+        <View key={g.name} style={pv.grillRow}>
           <View style={pv.grillHeader}>
-            <Feather name="wind" size={11} color={colors.mutedForeground} />
-            <Text style={[pv.grillName, { color: colors.foreground }]}>{g.name}</Text>
+            <Feather name="wind" size={12} color="rgba(255,255,255,0.5)" />
+            <Text style={pv.grillName}>{g.name}</Text>
           </View>
           <View style={pv.timelineBar}>
             {g.items.map((it) => (
@@ -74,12 +73,12 @@ function AIPitmasterPreview({ colors }: { colors: any }) {
       <View style={[pv.bubbleUser, { backgroundColor: "#E84520" }]}>
         <Text style={pv.bubbleUserText}>Pork shoulder is at 195°F and hasn't moved in 20 minutes. Is it done?</Text>
       </View>
-      <View style={[pv.bubbleAI, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={pv.bubbleAI}>
         <View style={pv.aiHeader}>
           <View style={pv.aiAvatar}><Feather name="cpu" size={10} color="#fff" /></View>
-          <Text style={[pv.aiName, { color: colors.mutedForeground }]}>PitMaster</Text>
+          <Text style={pv.aiName}>PitMaster</Text>
         </View>
-        <Text style={[pv.bubbleAIText, { color: colors.foreground }]}>Not yet — probe test it. Slide a temp probe into the thickest part: if it meets any resistance, give it another 30 minutes. You're looking for zero resistance, like pushing through warm butter. Temperature is a guide; probe feel is the call.</Text>
+        <Text style={pv.bubbleAIText}>Not yet — probe test it. Slide a temp probe into the thickest part: if it meets any resistance, give it another 30 minutes. You're looking for zero resistance, like pushing through warm butter. Temperature is a guide; probe feel is the call.</Text>
       </View>
     </View>
   );
@@ -88,24 +87,24 @@ function AIPitmasterPreview({ colors }: { colors: any }) {
 
 function WeatherPreview({ colors }: { colors: any }) {
   return (
-    <View style={[pv.weatherWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View style={pv.weatherWrap}>
       <View style={pv.weatherTop}>
-        <Feather name="cloud" size={22} color="#60A5FA" />
+        <Feather name="cloud" size={24} color="#60A5FA" />
         <View style={pv.weatherInfo}>
-          <Text style={[pv.weatherTemp, { color: colors.foreground }]}>47°F · Partly Cloudy</Text>
-          <Text style={[pv.weatherSub, { color: colors.mutedForeground }]}>Wind 12 mph NW · Humidity 68%</Text>
+          <Text style={pv.weatherTemp}>47°F · Partly Cloudy</Text>
+          <Text style={pv.weatherSub}>Wind 12 mph NW · Humidity 68%</Text>
         </View>
       </View>
-      <View style={[pv.weatherTip, { backgroundColor: "#F59E0B18", borderColor: "#F59E0B44" }]}>
-        <Feather name="alert-circle" size={12} color="#F59E0B" />
-        <Text style={[pv.weatherTipText, { color: "#F59E0B" }]}>Add 30–40 min for cold wind today</Text>
+      <View style={pv.weatherTip}>
+        <Feather name="alert-circle" size={14} color="#F59E0B" />
+        <Text style={pv.weatherTipText}>Add 30–40 min for cold wind today</Text>
       </View>
       <View style={pv.weatherHours}>
         {["6am","9am","12pm","3pm","6pm"].map((h, i) => (
           <View key={h} style={pv.weatherHour}>
-            <Text style={[pv.weatherHourTime, { color: colors.mutedForeground }]}>{h}</Text>
-            <Feather name={i === 2 ? "sun" : "cloud"} size={12} color={i === 2 ? "#FACC15" : "#94A3B8"} />
-            <Text style={[pv.weatherHourTemp, { color: colors.foreground }]}>{44 + i * 2}°</Text>
+            <Text style={pv.weatherHourTime}>{h}</Text>
+            <Feather name={i === 2 ? "sun" : "cloud"} size={14} color={i === 2 ? "#FACC15" : "#94A3B8"} />
+            <Text style={pv.weatherHourTemp}>{44 + i * 2}°</Text>
           </View>
         ))}
       </View>
@@ -121,20 +120,20 @@ function ProbeAutoGradePreview({ colors }: { colors: any }) {
   return (
     <View style={pv.probeWrap}>
       {devices.map((d) => (
-        <View key={d.label} style={[pv.probeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View key={d.label} style={pv.probeCard}>
           <View style={pv.probeRow}>
             <View style={[pv.probeDot, { backgroundColor: d.dot }]} />
-            <Text style={[pv.probeName, { color: colors.foreground }]}>{d.label}</Text>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 99, backgroundColor: d.typeColor + "20" }}>
-              <Text style={{ fontSize: 9, fontFamily: "Inter_600SemiBold", color: d.typeColor }}>{d.type}</Text>
+            <Text style={pv.probeName}>{d.label}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99, backgroundColor: d.typeColor + "20" }}>
+              <Text style={{ fontSize: 10, fontFamily: "Inter_600SemiBold", color: d.typeColor }}>{d.type}</Text>
             </View>
-            <Text style={[pv.probeTemp, { color: d.dot, fontSize: 14 }]}>{d.temp}</Text>
+            <Text style={[pv.probeTemp, { color: d.dot }]}>{d.temp}</Text>
           </View>
         </View>
       ))}
-      <View style={[pv.probeCheckin, { backgroundColor: "#22C55E18", borderColor: "#22C55E44" }]}>
-        <Feather name="cpu" size={12} color="#22C55E" />
-        <Text style={[pv.probeCheckinText, { color: "#22C55E" }]}>PitMaster auto-graded at 30 min · "Brisket on track — grill temp running 10° high"</Text>
+      <View style={pv.probeCheckin}>
+        <Feather name="cpu" size={14} color="#22C55E" />
+        <Text style={pv.probeCheckinText}>PitMaster auto-graded at 30 min · "Brisket on track — grill temp running 10° high"</Text>
       </View>
     </View>
   );
@@ -149,22 +148,22 @@ function UnlimitedCooksPreview({ colors }: { colors: any }) {
   return (
     <View style={pv.cookListWrap}>
       {cooks.map((c, i) => (
-        <View key={i} style={[pv.cookRow, { borderBottomColor: colors.border, borderBottomWidth: i < cooks.length - 1 ? StyleSheet.hairlineWidth : 0 }]}>
-          <View style={[pv.cookIcon, { backgroundColor: "#E8452018" }]}>
-            <Feather name="award" size={14} color="#E84520" />
+        <View key={i} style={[pv.cookRow, { borderBottomColor: "rgba(255,255,255,0.08)", borderBottomWidth: i < cooks.length - 1 ? StyleSheet.hairlineWidth : 0 }]}>
+          <View style={pv.cookIcon}>
+            <Feather name="award" size={16} color="#E84520" />
           </View>
           <View style={pv.cookInfo}>
-            <Text style={[pv.cookFood, { color: colors.foreground }]}>{c.food}</Text>
-            <Text style={[pv.cookDate, { color: colors.mutedForeground }]}>{c.date}</Text>
+            <Text style={pv.cookFood}>{c.food}</Text>
+            <Text style={pv.cookDate}>{c.date}</Text>
           </View>
           <View style={pv.cookStars}>
             {[1,2,3,4,5].map((n) => (
-              <Feather key={n} name="star" size={9} color={n <= c.rating ? "#FACC15" : colors.border} />
+              <Feather key={n} name="star" size={10} color={n <= c.rating ? "#FACC15" : "rgba(255,255,255,0.2)"} />
             ))}
           </View>
         </View>
       ))}
-      <Text style={[pv.cookUnlimited, { color: colors.mutedForeground }]}>+ unlimited more</Text>
+      <Text style={pv.cookUnlimited}>+ unlimited more</Text>
     </View>
   );
 }
@@ -178,19 +177,19 @@ function FrozenPlannerPreview({ colors }: { colors: any }) {
   ];
   return (
     <View style={pv.frozenWrap}>
-      <View style={[pv.frozenBadge, { backgroundColor: "#60A5FA18", borderColor: "#60A5FA44" }]}>
-        <Feather name="thermometer" size={11} color="#60A5FA" />
-        <Text style={[pv.frozenBadgeText, { color: "#60A5FA" }]}>Frozen brisket · Cook from frozen</Text>
+      <View style={pv.frozenBadge}>
+        <Feather name="thermometer" size={12} color="#60A5FA" />
+        <Text style={pv.frozenBadgeText}>Frozen brisket · Cook from frozen</Text>
       </View>
       {steps.map((step, i) => (
         <View key={i} style={pv.frozenStep}>
-          <View style={[pv.frozenStepLine, { backgroundColor: i < steps.length - 1 ? colors.border : "transparent" }]} />
-          <View style={[pv.frozenStepDot, { backgroundColor: step.done ? step.color : colors.border, borderColor: step.color }]}>
-            {step.done && <Feather name="check" size={8} color="#fff" />}
+          <View style={[pv.frozenStepLine, { backgroundColor: i < steps.length - 1 ? "rgba(255,255,255,0.15)" : "transparent" }]} />
+          <View style={[pv.frozenStepDot, { backgroundColor: step.done ? step.color : "transparent", borderColor: step.done ? step.color : "rgba(255,255,255,0.2)" }]}>
+            {step.done && <Feather name="check" size={10} color="#fff" />}
           </View>
           <View style={pv.frozenStepText}>
-            <Text style={[pv.frozenLabel, { color: step.done ? colors.foreground : colors.mutedForeground }]}>{step.label}</Text>
-            <Text style={[pv.frozenTime, { color: step.color }]}>{step.time}</Text>
+            <Text style={[pv.frozenLabel, { color: step.done ? "#FFFFFF" : "rgba(255,255,255,0.5)" }]}>{step.label}</Text>
+            <Text style={[pv.frozenTime, { color: step.done ? step.color : "rgba(255,255,255,0.3)" }]}>{step.time}</Text>
           </View>
         </View>
       ))}
@@ -251,11 +250,6 @@ export default function ProFeaturesScreen() {
 
   const planType = useMemo(() => inferPlanType(expirationDate), [expirationDate]);
 
-  // When this screen loses focus (back gesture or any navigation away),
-  // restore the paywall if it was paused to show us — so the user returns
-  // directly to the purchase flow without needing to re-open it manually.
-  // We use a ref to avoid stale-closure issues in the cleanup callback:
-  // the ref is updated on every render, so cleanup always reads the latest value.
   const isPaywallPausedRef = useRef(isPaywallPaused);
   isPaywallPausedRef.current = isPaywallPaused;
 
@@ -278,10 +272,10 @@ export default function ProFeaturesScreen() {
     }
   }, [router, showPaywall]);
 
-  const FOOTER_HEIGHT = effectivePro ? 88 : 72;
+  const FOOTER_HEIGHT = effectivePro ? 100 : 88;
 
   return (
-    <View style={[s.container, { backgroundColor: colors.background }]}>
+    <View style={s.container}>
       <AppHeader title="knowyourpit Pro" showBack dark />
 
       <ScrollView
@@ -290,13 +284,13 @@ export default function ProFeaturesScreen() {
       >
         {/* Hero */}
         <LinearGradient
-          colors={["#2D1A0E", "#1C1C1F"]}
+          colors={["#3A1F12", "#18181A", "#0D0D10"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={s.hero}
         >
           <View style={s.heroBadge}>
-            <Feather name="award" size={13} color="#E84520" />
+            <Feather name="award" size={14} color="#E84520" />
             <Text style={s.heroBadgeText}>knowyourpit PRO</Text>
           </View>
           <Text style={s.heroTitle}>Everything you need to cook like a pro.</Text>
@@ -305,52 +299,40 @@ export default function ProFeaturesScreen() {
 
         {/* Feature cards */}
         {FEATURES.map(({ id, headline, benefit, Preview }) => (
-          <View
-            key={id}
-            style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
-          >
-            <View style={[s.previewArea, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+          <View key={id} style={s.card}>
+            <View style={s.previewArea}>
               <Preview colors={colors} />
             </View>
             <View style={s.cardBody}>
-              <Text style={[s.cardHeadline, { color: colors.foreground }]}>{headline}</Text>
-              <Text style={[s.cardBenefit, { color: colors.mutedForeground }]}>{benefit}</Text>
+              <Text style={s.cardHeadline}>{headline}</Text>
+              <Text style={s.cardBenefit}>{benefit}</Text>
             </View>
           </View>
         ))}
       </ScrollView>
 
       {/* Sticky pricing footer */}
-      <View
-        style={[
-          s.footer,
-          {
-            backgroundColor: colors.background,
-            borderTopColor: colors.border,
-            paddingBottom: Math.max(insets.bottom, 12),
-          },
-        ]}
-      >
+      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         {effectivePro ? (
           // ── Pro member state ──────────────────────────────────────────
-          <View style={[s.proConfirm, { backgroundColor: "#22C55E12", borderColor: "#22C55E33", borderRadius: colors.radius }]}>
-            <View style={[s.proConfirmIcon, { backgroundColor: "#22C55E20" }]}>
-              <Feather name="check-circle" size={18} color="#22C55E" />
+          <View style={s.proConfirm}>
+            <View style={s.proConfirmIcon}>
+              <Feather name="check-circle" size={20} color="#22C55E" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[s.proConfirmTitle, { color: colors.foreground }]}>
+              <Text style={s.proConfirmTitle}>
                 You're already Pro
                 {planType ? ` · ${planType}` : ""}
               </Text>
               {isInTrial && expirationDate ? (
-                <Text style={[s.proConfirmSub, { color: colors.mutedForeground }]}>
+                <Text style={s.proConfirmSub}>
                   Trial ends {expirationDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · Cancel anytime
                 </Text>
               ) : isPro && expirationDate ? (
-                <Text style={[s.proConfirmSub, { color: colors.mutedForeground }]}>
+                <Text style={s.proConfirmSub}>
                   Renews {expirationDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · Manage in{" "}
                   <Text
-                    style={[s.proConfirmLink, { color: colors.mutedForeground }]}
+                    style={s.proConfirmLink}
                     onPress={() =>
                       Linking.openURL(
                         Platform.OS === "ios"
@@ -363,17 +345,17 @@ export default function ProFeaturesScreen() {
                   </Text>
                 </Text>
               ) : (
-                <Text style={[s.proConfirmSub, { color: colors.mutedForeground }]}>Active subscription</Text>
+                <Text style={s.proConfirmSub}>Active subscription</Text>
               )}
             </View>
           </View>
         ) : (
           // ── Single CTA for free users — pricing details are in the PaywallModal ──
           <Pressable
-            style={({ pressed }) => [s.unlockBtn, { borderRadius: colors.radius }, pressed && { opacity: 0.85 }]}
+            style={({ pressed }) => [s.unlockBtn, pressed && { opacity: 0.85 }]}
             onPress={handleUnlockPro}
           >
-            <Feather name="zap" size={15} color="#fff" />
+            <Feather name="zap" size={16} color="#fff" />
             <Text style={s.unlockBtnText}>Unlock Pro →</Text>
           </Pressable>
         )}
@@ -386,108 +368,110 @@ export default function ProFeaturesScreen() {
 
 const pv = StyleSheet.create({
   // Multi-cook
-  multiCookWrap: { gap: 8, padding: 12 },
-  grillRow: { borderWidth: 1, borderRadius: 8, padding: 8, gap: 6 },
-  grillHeader: { flexDirection: "row", alignItems: "center", gap: 5 },
-  grillName: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  timelineBar: { flexDirection: "row", height: 22, borderRadius: 4, overflow: "hidden" },
+  multiCookWrap: { gap: 12, padding: 16 },
+  grillRow: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 8, borderColor: "rgba(255,255,255,0.08)", backgroundColor: "rgba(255,255,255,0.02)" },
+  grillHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
+  grillName: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" },
+  timelineBar: { flexDirection: "row", height: 24, borderRadius: 6, overflow: "hidden" },
   timelineSegment: { alignItems: "center", justifyContent: "center" },
-  segmentLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold", color: "#fff" },
+  segmentLabel: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: "#fff" },
 
   // AI PitMaster
-  chatWrap: { gap: 8, padding: 12 },
-  bubbleUser: { alignSelf: "flex-end", maxWidth: "78%", borderRadius: 14, borderBottomRightRadius: 4, paddingHorizontal: 12, paddingVertical: 8 },
-  bubbleUserText: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#fff", lineHeight: 17 },
-  bubbleAI: { alignSelf: "flex-start", maxWidth: "90%", borderRadius: 14, borderBottomLeftRadius: 4, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, gap: 4 },
-  aiHeader: { flexDirection: "row", alignItems: "center", gap: 5 },
-  aiAvatar: { width: 16, height: 16, borderRadius: 8, backgroundColor: "#E84520", alignItems: "center", justifyContent: "center" },
-  aiName: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
-  bubbleAIText: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
+  chatWrap: { gap: 12, padding: 16 },
+  bubbleUser: { alignSelf: "flex-end", maxWidth: "80%", borderRadius: 16, borderBottomRightRadius: 4, paddingHorizontal: 14, paddingVertical: 10 },
+  bubbleUserText: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#fff", lineHeight: 18 },
+  bubbleAI: { alignSelf: "flex-start", maxWidth: "90%", borderRadius: 16, borderBottomLeftRadius: 4, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, gap: 6, backgroundColor: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" },
+  aiHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
+  aiAvatar: { width: 18, height: 18, borderRadius: 9, backgroundColor: "#E84520", alignItems: "center", justifyContent: "center" },
+  aiName: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "rgba(255,255,255,0.7)" },
+  bubbleAIText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18, color: "#FFFFFF" },
 
   // Weather
-  weatherWrap: { margin: 12, borderRadius: 10, borderWidth: 1, overflow: "hidden" },
-  weatherTop: { flexDirection: "row", alignItems: "center", gap: 10, padding: 10 },
+  weatherWrap: { margin: 16, borderRadius: 14, borderWidth: 1, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" },
+  weatherTop: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
   weatherInfo: { flex: 1 },
-  weatherTemp: { fontSize: 13, fontFamily: "Inter_700Bold" },
-  weatherSub: { fontSize: 11, fontFamily: "Inter_400Regular" },
-  weatherTip: { flexDirection: "row", alignItems: "center", gap: 6, marginHorizontal: 10, marginBottom: 8, borderRadius: 7, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 5 },
-  weatherTipText: { fontSize: 11, fontFamily: "Inter_600SemiBold", flex: 1 },
-  weatherHours: { flexDirection: "row", justifyContent: "space-around", paddingHorizontal: 8, paddingBottom: 8 },
-  weatherHour: { alignItems: "center", gap: 2 },
-  weatherHourTime: { fontSize: 9, fontFamily: "Inter_400Regular" },
-  weatherHourTemp: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  weatherTemp: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  weatherSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)" },
+  weatherTip: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 14, marginBottom: 12, borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: "rgba(245,158,11,0.1)", borderColor: "rgba(245,158,11,0.2)" },
+  weatherTipText: { fontSize: 12, fontFamily: "Inter_500Medium", flex: 1, color: "#F59E0B" },
+  weatherHours: { flexDirection: "row", justifyContent: "space-around", paddingHorizontal: 10, paddingBottom: 14 },
+  weatherHour: { alignItems: "center", gap: 4 },
+  weatherHourTime: { fontSize: 10, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)" },
+  weatherHourTemp: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" },
 
   // Live probe
-  probeWrap: { padding: 12, gap: 8 },
-  probeCard: { borderRadius: 8, borderWidth: 1, padding: 10, gap: 6 },
-  probeRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  probeDot: { width: 8, height: 8, borderRadius: 4 },
-  probeName: { flex: 1, fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  probeTemp: { fontSize: 17, fontFamily: "Inter_700Bold" },
-  probeBarTrack: { height: 6, borderRadius: 3, backgroundColor: "#2A2A2A", overflow: "hidden" },
-  probeBarFill: { height: 6, borderRadius: 3 },
-  probeTarget: { fontSize: 10, fontFamily: "Inter_400Regular" },
-  probeCheckin: { flexDirection: "row", alignItems: "flex-start", gap: 6, borderRadius: 7, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 6 },
-  probeCheckinText: { fontSize: 11, fontFamily: "Inter_500Medium", flex: 1, lineHeight: 16 },
+  probeWrap: { padding: 16, gap: 12 },
+  probeCard: { borderRadius: 12, borderWidth: 1, padding: 12, gap: 8, backgroundColor: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" },
+  probeRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  probeDot: { width: 10, height: 10, borderRadius: 5 },
+  probeName: { flex: 1, fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" },
+  probeTemp: { fontSize: 18, fontFamily: "Inter_700Bold" },
+  probeCheckin: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: "rgba(34,197,94,0.1)", borderColor: "rgba(34,197,94,0.2)" },
+  probeCheckinText: { fontSize: 12, fontFamily: "Inter_500Medium", flex: 1, lineHeight: 18, color: "#22C55E" },
 
   // Unlimited cooks
-  cookListWrap: { paddingHorizontal: 12, paddingVertical: 8 },
-  cookRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
-  cookIcon: { width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  cookListWrap: { paddingHorizontal: 16, paddingVertical: 12 },
+  cookRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10 },
+  cookIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(232,69,32,0.1)" },
   cookInfo: { flex: 1 },
-  cookFood: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  cookDate: { fontSize: 11, fontFamily: "Inter_400Regular" },
-  cookStars: { flexDirection: "row", gap: 2 },
-  cookUnlimited: { fontSize: 11, fontFamily: "Inter_400Regular", textAlign: "center", paddingTop: 4 },
+  cookFood: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" },
+  cookDate: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)" },
+  cookStars: { flexDirection: "row", gap: 3 },
+  cookUnlimited: { fontSize: 12, fontFamily: "Inter_500Medium", textAlign: "center", paddingTop: 8, color: "rgba(255,255,255,0.5)" },
 
   // Frozen planner
-  frozenWrap: { padding: 12, gap: 10 },
-  frozenBadge: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 4 },
-  frozenBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  frozenStep: { flexDirection: "row", alignItems: "flex-start", gap: 10, position: "relative" },
-  frozenStepLine: { position: "absolute", left: 10, top: 18, width: 1, height: 24 },
-  frozenStepDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, alignItems: "center", justifyContent: "center", marginTop: 1 },
-  frozenStepText: { flex: 1, gap: 1 },
-  frozenLabel: { fontSize: 12, fontFamily: "Inter_500Medium" },
-  frozenTime: { fontSize: 11, fontFamily: "Inter_700Bold" },
+  frozenWrap: { padding: 16, gap: 16 },
+  frozenBadge: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: "rgba(96,165,250,0.1)", borderColor: "rgba(96,165,250,0.2)" },
+  frozenBadgeText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#60A5FA" },
+  frozenStep: { flexDirection: "row", alignItems: "flex-start", gap: 12, position: "relative" },
+  frozenStepLine: { position: "absolute", left: 11, top: 22, width: 1, height: 28, backgroundColor: "rgba(255,255,255,0.1)" },
+  frozenStepDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, alignItems: "center", justifyContent: "center", marginTop: 0 },
+  frozenStepText: { flex: 1, gap: 2 },
+  frozenLabel: { fontSize: 13, fontFamily: "Inter_500Medium", color: "#FFFFFF" },
+  frozenTime: { fontSize: 12, fontFamily: "Inter_700Bold" },
 });
 
 // ── Screen styles ─────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  container: { flex: 1 },
-  hero: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24 },
+  container: { flex: 1, backgroundColor: "#0D0D10" },
+  hero: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 32 },
   heroBadge: {
     flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "rgba(232,69,32,0.18)", paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 12, alignSelf: "flex-start", marginBottom: 14,
+    backgroundColor: "rgba(232,69,32,0.15)", paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 12, alignSelf: "flex-start", marginBottom: 16,
+    borderWidth: 1, borderColor: "rgba(232,69,32,0.3)"
   },
-  heroBadgeText: { color: "#E84520", fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 0.6 },
-  heroTitle: { color: "#F0E8D5", fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 8, lineHeight: 28 },
-  heroSub: { color: "rgba(240,232,213,0.7)", fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  heroBadgeText: { color: "#E84520", fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 0.6 },
+  heroTitle: { color: "#FFFFFF", fontSize: 26, fontFamily: "Inter_700Bold", marginBottom: 10, lineHeight: 32, letterSpacing: -0.5 },
+  heroSub: { color: "rgba(255,255,255,0.7)", fontSize: 15, fontFamily: "Inter_400Regular", lineHeight: 22 },
 
-  card: { marginHorizontal: 16, marginTop: 16, borderWidth: 1, overflow: "hidden" },
-  previewArea: { borderBottomWidth: StyleSheet.hairlineWidth },
-  cardBody: { padding: 14, gap: 4 },
-  cardHeadline: { fontSize: 16, fontFamily: "Inter_700Bold" },
-  cardBenefit: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
+  card: { marginHorizontal: 20, marginTop: 24, borderWidth: 1, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)", borderRadius: 24 },
+  previewArea: { borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)" },
+  cardBody: { padding: 20, gap: 6 },
+  cardHeadline: { fontSize: 18, fontFamily: "Inter_600SemiBold", color: "#FFFFFF", letterSpacing: -0.3 },
+  cardBenefit: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22, color: "rgba(255,255,255,0.6)" },
 
   footer: {
     position: "absolute", bottom: 0, left: 0, right: 0,
-    borderTopWidth: 1, paddingTop: 12, paddingHorizontal: 16,
+    borderTopWidth: 1, paddingTop: 16, paddingHorizontal: 20,
+    backgroundColor: "rgba(13,13,16,0.9)",
+    borderTopColor: "rgba(255,255,255,0.08)",
   },
   unlockBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7,
-    backgroundColor: "#E84520", paddingVertical: 13,
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: "#E84520", paddingVertical: 16, borderRadius: 16,
+    shadowColor: "#E84520", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 8,
   },
-  unlockBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
+  unlockBtnText: { color: "#FFFFFF", fontSize: 17, fontFamily: "Inter_700Bold" },
 
   proConfirm: {
-    flexDirection: "row", alignItems: "center", gap: 12,
-    borderWidth: 1, padding: 14,
+    flexDirection: "row", alignItems: "center", gap: 14,
+    borderWidth: 1, padding: 16, borderRadius: 16,
+    backgroundColor: "rgba(34,197,94,0.08)", borderColor: "rgba(34,197,94,0.2)"
   },
-  proConfirmIcon: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  proConfirmTitle: { fontSize: 15, fontFamily: "Inter_700Bold" },
-  proConfirmSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2, lineHeight: 17 },
-  proConfirmLink: { fontSize: 12, fontFamily: "Inter_400Regular", textDecorationLine: "underline" },
+  proConfirmIcon: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(34,197,94,0.15)" },
+  proConfirmTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" },
+  proConfirmSub: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 4, lineHeight: 18, color: "rgba(255,255,255,0.6)" },
+  proConfirmLink: { fontSize: 13, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.8)", textDecorationLine: "underline" },
 });

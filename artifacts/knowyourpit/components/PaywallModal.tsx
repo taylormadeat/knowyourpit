@@ -339,7 +339,7 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
 
           {/* ── Header ── */}
           <LinearGradient
-            colors={["#2D1A0E", "#1C1C1F"]}
+            colors={["#3A1F12", "#18181A", "#0D0D10"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.header}
@@ -616,73 +616,76 @@ export function PaywallModal({ visible, onClose, trigger, subtitle, featureName,
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "flex-end" },
-  sheet: { height: "82%", borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden" },
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "flex-end" },
+  sheet: { height: "85%", borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderBottomWidth: 0 },
 
-  header: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 20 },
-  closeBtn: { position: "absolute", top: 14, right: 14, padding: 6, zIndex: 2 },
+  header: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 24 },
+  closeBtn: { position: "absolute", top: 16, right: 16, padding: 8, zIndex: 2, backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 20 },
   proBadge: {
     flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "rgba(232,69,32,0.18)",
-    paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 12, alignSelf: "flex-start", marginBottom: 12,
+    backgroundColor: "rgba(232,69,32,0.15)",
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 12, alignSelf: "flex-start", marginBottom: 16,
+    borderWidth: 1, borderColor: "rgba(232,69,32,0.3)",
   },
-  proBadgeText: { color: "#E84520", fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 0.6 },
-  headline: { color: "#F0E8D5", fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 6, marginRight: 30, lineHeight: 28 },
-  subhead: { color: "rgba(240,232,213,0.75)", fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
-  valueRow: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 10 },
+  proBadgeText: { color: "#E84520", fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 0.6 },
+  headline: { color: "#FFFFFF", fontSize: 26, fontFamily: "Inter_700Bold", marginBottom: 8, marginRight: 40, lineHeight: 32, letterSpacing: -0.5 },
+  subhead: { color: "rgba(255,255,255,0.7)", fontSize: 15, fontFamily: "Inter_400Regular", lineHeight: 22 },
+  valueRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 12 },
   valueLine: { color: "#F59E0B", fontSize: 13, fontFamily: "Inter_500Medium", lineHeight: 18, flex: 1 },
 
-  featureList: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 14, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth },
-  featureRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  featureIcon: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-  featureLabel: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium", lineHeight: 20 },
+  featureList: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 16, gap: 14, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)" },
+  featureRow: { flexDirection: "row", alignItems: "center", gap: 14 },
+  featureIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(232,69,32,0.1)" },
+  featureLabel: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium", lineHeight: 20, color: "rgba(255,255,255,0.9)" },
 
-  plansContainer: { paddingHorizontal: 16, paddingTop: 16, gap: 10 },
+  plansContainer: { paddingHorizontal: 20, paddingTop: 20, gap: 12 },
 
   planCard: {
-    backgroundColor: "#E84520", padding: 16, gap: 8,
-    borderWidth: 0,
+    backgroundColor: "#C23512", padding: 20, gap: 8,
+    borderWidth: 1, borderColor: "#E84520",
+    shadowColor: "#E84520", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 8,
   },
   planCardFeatured: {},
   planCardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  planTitle: { color: "rgba(255,255,255,0.8)", fontSize: 12, fontFamily: "Inter_600SemiBold", letterSpacing: 0.3, marginBottom: 2 },
-  planPrice: { color: "#fff", fontSize: 26, fontFamily: "Inter_700Bold" },
-  planPeriod: { fontSize: 14, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.75)" },
-  planNote: { color: "rgba(255,255,255,0.75)", fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
-  planSavings: { color: "rgba(255,255,255,0.85)", fontSize: 12, fontFamily: "Inter_500Medium" },
+  planTitle: { color: "rgba(255,255,255,0.8)", fontSize: 13, fontFamily: "Inter_600SemiBold", letterSpacing: 0.3, marginBottom: 4 },
+  planPrice: { color: "#fff", fontSize: 28, fontFamily: "Inter_700Bold" },
+  planPeriod: { fontSize: 15, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.8)" },
+  planNote: { color: "rgba(255,255,255,0.8)", fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 4 },
+  planSavings: { color: "rgba(255,255,255,0.9)", fontSize: 13, fontFamily: "Inter_500Medium", marginTop: 4 },
   planCta: {
-    backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 8,
-    paddingVertical: 8, alignItems: "center", marginTop: 4,
+    backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 12,
+    paddingVertical: 14, alignItems: "center", marginTop: 8,
   },
-  planCtaText: { color: "#fff", fontSize: 14, fontFamily: "Inter_700Bold" },
+  planCtaText: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
   bestBadge: {
-    backgroundColor: "rgba(255,255,255,0.2)", paddingHorizontal: 8, paddingVertical: 4,
-    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.2)", paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 10,
   },
-  bestBadgeText: { color: "#fff", fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+  bestBadgeText: { color: "#fff", fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
 
-  planCardMonthly: { padding: 14, borderWidth: 1 },
-  planTitleMonthly: { fontSize: 12, fontFamily: "Inter_600SemiBold", letterSpacing: 0.3, marginBottom: 2 },
-  planPriceMonthly: { fontSize: 22, fontFamily: "Inter_700Bold" },
+  planCardMonthly: { padding: 18, borderWidth: 1, backgroundColor: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)" },
+  planTitleMonthly: { fontSize: 13, fontFamily: "Inter_600SemiBold", letterSpacing: 0.3, marginBottom: 4, color: "rgba(255,255,255,0.5)" },
+  planPriceMonthly: { fontSize: 24, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
 
-  noCommitText: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 4 },
+  noCommitText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 8, color: "rgba(255,255,255,0.5)" },
 
-  statusBlock: { alignItems: "center", paddingHorizontal: 24, paddingTop: 28, paddingBottom: 8, gap: 10 },
-  statusText: { fontSize: 16, fontFamily: "Inter_600SemiBold", textAlign: "center" },
-  statusSub: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 19 },
+  statusBlock: { alignItems: "center", paddingHorizontal: 24, paddingTop: 32, paddingBottom: 16, gap: 12 },
+  statusText: { fontSize: 18, fontFamily: "Inter_600SemiBold", textAlign: "center", color: "#FFFFFF" },
+  statusSub: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20, color: "rgba(255,255,255,0.6)" },
 
   retryBtn: {
-    flexDirection: "row", alignItems: "center", gap: 7,
-    backgroundColor: "#E84520", paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10, marginTop: 6,
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: "rgba(255,255,255,0.1)", paddingHorizontal: 16, paddingVertical: 10,
+    borderRadius: 12, marginTop: 8,
   },
   retryBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
 
-  footer: { paddingHorizontal: 20, paddingTop: 16, gap: 8, alignItems: "center" },
-  linkText: { fontSize: 13, fontFamily: "Inter_400Regular" },
-  policyRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  policyLink: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  policySep: { fontSize: 12 },
-  legal: { fontSize: 10, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 15, paddingHorizontal: 8 },
+  footer: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24, alignItems: "center", gap: 16 },
+  linkText: { fontSize: 14, fontFamily: "Inter_500Medium", textDecorationLine: "underline", color: "rgba(255,255,255,0.6)" },
+  policyRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  policyLink: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.4)" },
+  policySep: { fontSize: 12, color: "rgba(255,255,255,0.2)" },
+  legal: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 18, paddingHorizontal: 8, color: "rgba(255,255,255,0.4)" },
   legalLink: { textDecorationLine: "underline" },
 });
