@@ -22,9 +22,9 @@ export function LogoBackground({ opacity = 0.05 }: LogoBackgroundProps) {
 const s = StyleSheet.create({
   logo: {
     position: "absolute",
-    width: "120%",
-    height: "120%",
-    top: "-10%",
-    left: "-10%",
+    width: "140%",
+    height: "140%",
+    top: "-20%",
+    left: "-20%",
   },
 });

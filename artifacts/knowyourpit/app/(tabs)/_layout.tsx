@@ -6,13 +6,26 @@ import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
 import React from "react";
 import { Platform, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
-import { GrillIcon } from "@/components/GrillIcon";
 
 function NativeTabLayout() {
+  const colors = useColors();
+
   return (
-    <NativeTabs>
+    <NativeTabs
+      tintColor={colors.primary}
+      iconColor={{ default: colors.mutedForeground, selected: colors.primary }}
+      labelStyle={{
+        default: { color: colors.mutedForeground, fontFamily: "Inter_600SemiBold" },
+        selected: { color: colors.primary, fontFamily: "Inter_600SemiBold" },
+      }}
+      backgroundColor={colors.card}
+      shadowColor={colors.border}
+      blurEffect="systemChromeMaterialDark"
+      disableTransparentOnScrollEdge
+    >
       <NativeTabs.Trigger name="index">
         <Icon sf={{ default: "house", selected: "house.fill" }} />
         <Label>Home</Label>
@@ -35,41 +48,45 @@ function NativeTabLayout() {
 
 function ClassicTabLayout() {
   const colors = useColors();
-  const isDark = true;
+  const safeAreaInsets = useSafeAreaInsets();
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
+
+  // Use dark tint for blur since it's a dark-first app
+  const blurTint = "dark";
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#E84820",
-        tabBarInactiveTintColor: isDark ? "#6B6560" : "#9B8F83",
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.mutedForeground,
         headerShown: false,
         tabBarLabelStyle: {
           fontSize: 10,
-          fontWeight: "600",
+          fontFamily: "Inter_600SemiBold",
           letterSpacing: 0.2,
         },
         tabBarStyle: {
           position: "absolute",
-          backgroundColor: isIOS ? "transparent" : isDark ? "#111114" : "#F0E8DA",
-          borderTopWidth: 1,
-          borderTopColor: isDark ? "#2C2C32" : "#D4CAB8",
+          backgroundColor: isIOS ? "transparent" : colors.background,
+          borderTopWidth: isWeb ? 1 : 0,
+          borderTopColor: colors.border,
           elevation: 0,
+          paddingBottom: safeAreaInsets.bottom,
           ...(isWeb ? { height: 84 } : {}),
         },
         tabBarBackground: () =>
           isIOS ? (
             <BlurView
               intensity={80}
-              tint={isDark ? "dark" : "light"}
+              tint={blurTint}
               style={StyleSheet.absoluteFill}
             />
           ) : isWeb ? (
             <View
               style={[
                 StyleSheet.absoluteFill,
-                { backgroundColor: isDark ? "#111114" : "#F0E8DA" },
+                { backgroundColor: colors.background },
               ]}
             />
           ) : null,
@@ -81,9 +98,9 @@ function ClassicTabLayout() {
           title: "Home",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="house" tintColor={color} size={22} />
+              <SymbolView name="house" tintColor={color} size={24} />
             ) : (
-              <Feather name="home" size={22} color={color} />
+              <Feather name="home" size={24} color={color} />
             ),
         }}
       />
@@ -93,9 +110,9 @@ function ClassicTabLayout() {
           title: "Plan",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="plus.circle.fill" tintColor={color} size={22} />
+              <SymbolView name="plus.circle.fill" tintColor={color} size={24} />
             ) : (
-              <Feather name="plus-circle" size={22} color={color} />
+              <Feather name="plus-circle" size={24} color={color} />
             ),
         }}
       />
@@ -105,9 +122,9 @@ function ClassicTabLayout() {
           title: "Cook Log",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="list.bullet" tintColor={color} size={22} />
+              <SymbolView name="list.bullet" tintColor={color} size={24} />
             ) : (
-              <Feather name="list" size={22} color={color} />
+              <Feather name="list" size={24} color={color} />
             ),
         }}
       />
@@ -121,9 +138,9 @@ function ClassicTabLayout() {
           title: "More",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="ellipsis.circle" tintColor={color} size={22} />
+              <SymbolView name="ellipsis.circle" tintColor={color} size={24} />
             ) : (
-              <Feather name="menu" size={22} color={color} />
+              <Feather name="menu" size={24} color={color} />
             ),
         }}
       />
@@ -132,5 +149,8 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
+  if (isLiquidGlassAvailable()) {
+    return <NativeTabLayout />;
+  }
   return <ClassicTabLayout />;
 }
