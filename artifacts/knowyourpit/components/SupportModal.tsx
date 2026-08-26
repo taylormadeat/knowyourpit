@@ -23,11 +23,18 @@ interface SupportModalProps {
   onClose: () => void;
   prefillName?: string;
   prefillEmail?: string;
+  contactLabel?: string;
 }
 
 type Step = "form" | "success";
 
-export function SupportModal({ visible, onClose, prefillName = "", prefillEmail = "" }: SupportModalProps) {
+export function SupportModal({
+  visible,
+  onClose,
+  prefillName = "",
+  prefillEmail = "",
+  contactLabel = "the email on your account",
+}: SupportModalProps) {
   const colors = useColors();
 
   const [subject, setSubject] = useState("");
@@ -126,7 +133,9 @@ export function SupportModal({ visible, onClose, prefillName = "", prefillEmail 
             <Text style={[s.successTitle, { color: colors.foreground }]}>Message sent!</Text>
             <Text style={[s.successBody, { color: colors.mutedForeground }]}>
               We received your message and will get back to you at{"\n"}
-              <Text style={{ color: colors.foreground }}>{prefillEmail || "the email on your account"}</Text>.
+              <Text style={{ color: colors.foreground }}>
+                {prefillEmail ? contactLabel : "the email on your account"}
+              </Text>.
             </Text>
             <Pressable
               onPress={handleClose}

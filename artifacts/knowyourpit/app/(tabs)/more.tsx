@@ -24,6 +24,7 @@ import { LogoBackground } from "@/components/LogoBackground";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { SupportModal } from "@/components/SupportModal";
+import { getAccountDisplayIdentity, isAppleAccount } from "@/utils/accountIdentity";
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -65,6 +66,8 @@ export default function MoreScreen() {
 
   const botPad = useBottomTabBarHeight();
   const { isTablet, contentMaxWidth } = useLayout();
+  const accountIdentity = getAccountDisplayIdentity(user);
+  const appleAccount = isAppleAccount(user);
 
   const handleRestorePurchases = async () => {
     const { success, error } = await restorePurchases();
@@ -331,7 +334,7 @@ export default function MoreScreen() {
               {(user?.unsafeMetadata?.displayName as string | undefined) || user?.fullName || user?.firstName || "Pitmaster"}
             </Text>
             <Text style={[s.profileEmail, { color: colors.mutedForeground }]}>
-              {user?.emailAddresses?.[0]?.emailAddress || ""}
+              {accountIdentity}
             </Text>
           </View>
           <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
@@ -464,6 +467,7 @@ export default function MoreScreen() {
           ""
         }
         prefillEmail={user?.emailAddresses?.[0]?.emailAddress || ""}
+        contactLabel={appleAccount ? "the email linked to your Apple account" : accountIdentity}
       />
     </View>
   );

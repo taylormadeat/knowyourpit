@@ -27,6 +27,7 @@ import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePaywall } from "@/contexts/PaywallContext";
 import { isDirectHeat } from "@/utils/cookingMethod";
+import { getAccountDisplayIdentity, isAppleAccount } from "@/utils/accountIdentity";
 
 function StarRating({ score, color }: { score: number; color: string }) {
   const stars = Array.from({ length: 5 }, (_, i) => {
@@ -83,6 +84,8 @@ export default function ProfileScreen() {
 
   const displayName = (user?.unsafeMetadata?.displayName as string | undefined)
     || user?.fullName || user?.firstName || "";
+  const appleAccount = isAppleAccount(user);
+  const accountIdentity = getAccountDisplayIdentity(user);
 
   const openNameEdit = useCallback(() => {
     const current = (user?.unsafeMetadata?.displayName as string | undefined)
@@ -248,7 +251,7 @@ export default function ProfileScreen() {
           </View>
 
           <Text style={[s.profileEmail, { color: colors.mutedForeground }]}>
-            {user?.emailAddresses?.[0]?.emailAddress || ""}
+            {accountIdentity}
           </Text>
           <Text style={[s.memberSince, { color: colors.mutedForeground }]}>
             Member since{" "}
@@ -676,7 +679,10 @@ export default function ProfileScreen() {
         >
           {[
             { label: "Name", value: displayName || "—" },
-            { label: "Email address", value: user?.emailAddresses?.[0]?.emailAddress || "—" },
+            {
+              label: appleAccount ? "Sign-in method" : "Email address",
+              value: accountIdentity || "—",
+            },
           ].map((row) => (
             <View
               key={row.label}
