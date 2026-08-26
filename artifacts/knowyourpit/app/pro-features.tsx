@@ -209,8 +209,8 @@ const FEATURES = [
   },
   {
     id: "ai",
-    headline: "AI PitMaster — Up to 20 Messages/Day",
-    benefit: "Ask anything during your cook — up to 20 messages per day of real-time coaching, cook analysis, and BBQ guidance without hitting free-tier limits.",
+    headline: "AI PitMaster — 20 Chats/Day + Unlimited Photo Scans",
+    benefit: "Get up to 20 real-time chat messages each day, plus unlimited photo-based cook analysis and guidance from PitMaster.",
     Preview: AIPitmasterPreview,
   },
   {
@@ -227,7 +227,7 @@ const FEATURES = [
   },
   {
     id: "unlimited",
-    headline: "Unlimited Cooks & Analyses",
+    headline: "Unlimited Cooks, Photo Scans & History",
     benefit: "Log every cook, analyze every photo, and build a full cook history with no caps.",
     Preview: UnlimitedCooksPreview,
   },
@@ -300,7 +300,7 @@ export default function ProFeaturesScreen() {
             <Text style={s.heroBadgeText}>knowyourpit PRO</Text>
           </View>
           <Text style={s.heroTitle}>Everything you need to cook like a pro.</Text>
-          <Text style={s.heroSub}>One subscription unlocks all of these features — no caps, no limits.</Text>
+          <Text style={s.heroSub}>One subscription unlocks all of these features — including unlimited cooks, photo scans, and cook history.</Text>
         </LinearGradient>
 
         {/* Feature cards */}

@@ -104,9 +104,9 @@ interface PaywallModalProps {
 
 const FEATURES: ReadonlyArray<{ icon: FeatherIconName; label: string }> = [
   { icon: "zap",            label: "Unlimited cooks, logs & full cook history" },
-  { icon: "message-circle", label: "Unlimited PitMaster AI coaching & photo scans" },
+  { icon: "message-circle", label: "20 PitMaster AI chats/day + unlimited photo scans" },
   { icon: "bluetooth",      label: "Bluetooth & WiFi thermometers — Inkbird, Govee, iGrill, Fireboard & more" },
-  { icon: "layers",         label: "Multi-Cook Sequencer & Competition Mode" },
+  { icon: "layers",         label: "Multi-Cook Sequencer — coordinate multiple dishes on one timeline" },
   { icon: "cloud",          label: "Cook-Day Weather Forecast & Frozen-to-Table Planner" },
   { icon: "bar-chart-2",    label: "Cook Quality Analytics & Grill Fingerprint" },
 ];
@@ -181,7 +181,7 @@ function defaultSubtitle(
     case "pro_required":
       return "Upgrade to unlock this and every other Pro feature.";
     default:
-      return "Every feature, no limits.";
+      return "Unlock every Pro feature, including unlimited cooks, photo scans, and cook history.";
   }
 }
 
