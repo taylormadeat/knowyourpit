@@ -25,6 +25,8 @@ import { useBottomInset } from "@/hooks/useBottomInset";
 import { useLayout } from "@/hooks/useLayout";
 import { LogoBackground } from "@/components/LogoBackground";
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
+import { trackAuthVerification } from "@/lib/authVerificationTelemetry";
+import { requiresEmailVerification } from "@/utils/emailVerification";
 
 const logoImg = require("@/assets/images/logo-transparent-light.png");
 
@@ -124,6 +126,7 @@ export default function SignInScreen() {
         case "needs_second_factor":
           try {
             await attempt.prepareSecondFactor({ strategy: "email_code" });
+            trackAuthVerification("password_second_factor", "code_requested");
           } catch {
             // ignore — the code may already be in-flight
           }
@@ -194,6 +197,7 @@ export default function SignInScreen() {
         strategy: "reset_password_email_code",
         identifier: forgotEmail.trim(),
       });
+      trackAuthVerification("password_reset", "code_requested");
       setStep("forgot_verify");
     } catch (e: any) {
       const msg =
@@ -428,6 +432,7 @@ export default function SignInScreen() {
         }
 
         log("signup.transfer.create");
+        trackAuthVerification("apple_native_transfer", "transfer_started");
         const signUpAttempt = await signUp.create({
           transfer: true,
           unsafeMetadata: { signInProvider: "apple" },
@@ -440,9 +445,18 @@ export default function SignInScreen() {
         });
 
         if (signUpAttempt.status === "complete" && signUpAttempt.createdSessionId) {
+          trackAuthVerification("apple_native_transfer", "transfer_completed");
           log("signup.complete.set_active");
           await signUpSetActive({ session: signUpAttempt.createdSessionId });
           router.replace("/(tabs)");
+          return;
+        }
+
+        if (requiresEmailVerification(signUpAttempt)) {
+          trackAuthVerification("apple_native_transfer", "email_verification_required");
+          setErrorMsg(
+            "Apple sign-in needs an additional email verification from the account service. Please check the email linked to this account or contact support with the time of this attempt.",
+          );
           return;
         }
 

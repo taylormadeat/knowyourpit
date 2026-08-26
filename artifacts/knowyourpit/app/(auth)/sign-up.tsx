@@ -25,6 +25,8 @@ import { useBottomInset } from "@/hooks/useBottomInset";
 import { useLayout } from "@/hooks/useLayout";
 import { LogoBackground } from "@/components/LogoBackground";
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
+import { trackAuthVerification } from "@/lib/authVerificationTelemetry";
+import { requiresEmailVerification } from "@/utils/emailVerification";
 
 const logoImg = require("@/assets/images/logo-transparent-light.png");
 
@@ -106,11 +108,9 @@ export default function SignUpScreen() {
         return;
       }
 
-      if (
-        result.unverifiedFields?.includes("email_address") ||
-        result.verifications?.emailAddress?.status === "unverified"
-      ) {
+      if (requiresEmailVerification(result)) {
         await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+        trackAuthVerification("email_password_signup", "code_requested");
         setPendingVerification(true);
         setTimeout(() => codeInputRef.current?.focus(), 300);
         return;
@@ -218,6 +218,7 @@ export default function SignUpScreen() {
     try {
       setErrorMsg(null);
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      trackAuthVerification("email_password_signup", "code_resent");
       setVerificationCode("");
       setErrorMsg("A new code has been sent to your email.");
     } catch {
@@ -355,6 +356,7 @@ export default function SignUpScreen() {
         }
 
         log("signup.transfer.create");
+        trackAuthVerification("apple_native_transfer", "transfer_started");
         const signUpAttempt = await signUp.create({
           transfer: true,
           unsafeMetadata: { signInProvider: "apple" },
@@ -367,9 +369,18 @@ export default function SignUpScreen() {
         });
 
         if (signUpAttempt.status === "complete" && signUpAttempt.createdSessionId) {
+          trackAuthVerification("apple_native_transfer", "transfer_completed");
           log("signup.complete.set_active");
           await setActive({ session: signUpAttempt.createdSessionId });
           router.replace("/(tabs)");
+          return;
+        }
+
+        if (requiresEmailVerification(signUpAttempt)) {
+          trackAuthVerification("apple_native_transfer", "email_verification_required");
+          setErrorMsg(
+            "Apple sign-in needs an additional email verification from the account service. Please check the email linked to this account or contact support with the time of this attempt.",
+          );
           return;
         }
 
