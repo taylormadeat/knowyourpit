@@ -40,7 +40,7 @@ export function classifyCookingMethod(method: string | null | undefined): Cookin
 /** True for high-heat direct-fire methods that don't involve wrapping or stall coaching. */
 export function isDirectHeat(method: string | null | undefined): boolean {
   const cls = classifyCookingMethod(method);
-  return cls === "direct" || cls === "sear" || cls === "griddle";
+  return cls === "direct" || cls === "sear" || cls === "griddle" || cls === "hot_fast";
 }
 
 /**
@@ -62,6 +62,7 @@ export function cookMethodDisplayLabel(method: string | null | undefined): strin
     case "direct":       return "Grilling";
     case "sear":         return "Searing";
     case "reverse_sear": return "Reverse Searing";
+    case "hot_fast":     return "Hot & Fast";
     case "rotisserie":   return "Rotisserie";
     case "griddle":      return "Griddling";
     default:             return "Cooking";
@@ -84,6 +85,7 @@ export function pitTempLabel(
     case "direct":
     case "sear":
     case "griddle":
+    case "hot_fast":
       label = "Grill Temp";
       break;
     case "smoke":
@@ -119,6 +121,7 @@ export function cookMethodContextPhrase(method: string | null | undefined): stri
     case "direct":       return "on the grill";
     case "sear":         return "on the grill";
     case "reverse_sear": return "on the grill";
+    case "hot_fast":     return "on the grill";
     case "rotisserie":   return "on the rotisserie";
     case "griddle":      return "on the griddle";
     default:             return "on the grill";

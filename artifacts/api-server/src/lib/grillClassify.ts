@@ -108,6 +108,7 @@ export type CookingMethodClass =
   | "direct"
   | "sear"
   | "reverse_sear"
+  | "hot_fast"
   | "rotisserie"
   | "griddle"
   | "unknown";
@@ -123,6 +124,9 @@ export function classifyCookingMethod(method: string | null | undefined): Cookin
   if (m.includes("sear")) return "sear";
   if (m.includes("rotisserie") || m.includes("rotary")) return "rotisserie";
   if (m.includes("griddle")) return "griddle";
+  // Hot & Fast is an explicit high-heat technique. Check it before
+  // indirect/direct because its plan must not inherit low-and-slow advice.
+  if (m.includes("hot and fast") || m.includes("hot & fast") || m.includes("hot fast")) return "hot_fast";
   if (m.includes("indirect")) return "indirect";
   if (m.includes("direct")) return "direct";
   if (m.includes("smoke") || m.includes("low and slow") || m.includes("low & slow")) return "smoke";
@@ -135,7 +139,7 @@ export function classifyCookingMethod(method: string | null | undefined): Cookin
  */
 export function isDirectHeat(method: string | null | undefined): boolean {
   const cls = classifyCookingMethod(method);
-  return cls === "direct" || cls === "sear" || cls === "griddle";
+  return cls === "direct" || cls === "sear" || cls === "griddle" || cls === "hot_fast";
 }
 
 /**
@@ -153,6 +157,7 @@ export function cookMethodDisplayLabel(
     case "direct":       return "Grilling";
     case "sear":         return "Searing";
     case "reverse_sear": return "Reverse Searing";
+    case "hot_fast":     return "Hot & Fast";
     case "rotisserie":   return "Rotisserie";
     case "griddle":      return "Griddling";
     default:

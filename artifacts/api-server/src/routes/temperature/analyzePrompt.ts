@@ -1,3 +1,48 @@
+import { classifyCookingMethod, isDirectHeat } from "../../lib/grillClassify";
+import {
+  type AnalysisAssessment,
+  applyMethodAwareAssessmentGuard,
+} from "./analysisGuards";
+
+export function buildMethodAwareAnalysisContext(opts: {
+  cookingMethod?: string | null;
+  foodType?: string | null;
+  targetTempF?: number | null;
+  cookTempF?: number | null;
+}): string[] {
+  if (!opts.cookingMethod && opts.foodType == null && opts.targetTempF == null && opts.cookTempF == null) return [];
+
+  const lines: string[] = [];
+  if (opts.foodType) lines.push(`Planned food/cut: ${opts.foodType}`);
+  if (opts.cookTempF != null) lines.push(`Planned pit/cook temperature: ${opts.cookTempF}°F`);
+  if (opts.targetTempF != null) lines.push(`Planned internal target: ${opts.targetTempF}°F`);
+  if (opts.cookingMethod) {
+    const methodClass = classifyCookingMethod(opts.cookingMethod);
+    lines.push(`Planned cooking method: ${opts.cookingMethod} (authoritative plan; class: ${methodClass})`);
+    if (isDirectHeat(opts.cookingMethod)) {
+      lines.push(
+        "High-heat method rules: judge this cook against the planned high-heat technique and configured target; do not substitute a 225°F low-and-slow baseline, infer a stall, or recommend wrapping.",
+      );
+      if (/\bchicken\b/i.test(opts.foodType ?? "")) {
+        lines.push(
+          "Chicken high-heat rule: 165°F is the planned safety target unless the configured target says otherwise; normal carryover up to 10°F above target is not an overcook by itself.",
+        );
+      }
+    }
+  }
+  return lines;
+}
+
+export function guardAnalysisAssessment(input: {
+  assessment: AnalysisAssessment;
+  cookingMethod?: string | null;
+  foodType?: string | null;
+  targetTempF?: number | null;
+  finalTempF?: number | null;
+}): AnalysisAssessment {
+  return applyMethodAwareAssessmentGuard(input);
+}
+
 export function buildAnalyzeSystemPrompt(opts: {
   isActiveCook: boolean;
   smokerProfile: string;
@@ -11,6 +56,17 @@ Your job is to:
 1. Extract temperature data from the images
 2. Reconstruct the cook timeline
 3. Assess how the cook went and provide personalized improvement suggestions
+
+=== PLANNED METHOD OVERRIDES GENERIC BASELINES ===
+When cook plan/context includes a planned cooking method, it is authoritative. Judge
+the cook against that method, the configured pit temperature, and the configured
+internal target — never replace them with a generic 225°F low-and-slow baseline.
+Hot & Fast (including "hot and fast" and "hot fast") is a high-heat technique:
+do not invent a stall, wrap, or low-and-slow temperature advice for it. It is
+normally a short cook, so recommend preserving the selected method unless the
+recorded temperatures show a real method-specific safety or quality problem.
+For chicken on a high-heat method, use the planned target (normally 165°F);
+normal carryover up to about 10°F above that target is not overcooked by itself.
 
 Return ONLY valid JSON — no markdown, no explanation:
 {

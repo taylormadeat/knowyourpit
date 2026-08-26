@@ -378,9 +378,9 @@ describe("isUnrecognisedCookMethod", () => {
 // ── isDirectHeat helper ───────────────────────────────────────────────────────
 
 describe("isDirectHeat", () => {
-  const trueInputs = ["Direct Heat", "direct heat", "Sear", "sear", "Griddle", "griddle"];
+  const trueInputs = ["Direct Heat", "direct heat", "Sear", "sear", "Griddle", "griddle", "Hot & Fast", "hot and fast"];
   const falseInputs = [
-    "Indirect", "Low & Slow", "Reverse Sear", "Hot & Fast",
+    "Indirect", "Low & Slow", "Reverse Sear",
     "Rotisserie", "Braised", null, undefined, "",
   ];
 
@@ -424,7 +424,7 @@ describe("cookMethodDisplayLabel — canonical labels produce correct display st
     ["Indirect",     "Indirect"],
     ["Direct Heat",  "Grilling"],
     ["Reverse Sear", "Reverse Searing"],
-    ["Hot & Fast",   "Cooking"],   // hot_fast falls to default
+     ["Hot & Fast",   "Hot & Fast"],
     ["Rotisserie",   "Rotisserie"],
     ["Griddle",      "Griddling"],
     ["Sear",         "Searing"],
@@ -446,6 +446,7 @@ describe("pitTempLabel — canonical labels produce correct sensor label", () =>
     ["Direct Heat",  "Grill Temp"],
     ["Sear",         "Grill Temp"],
     ["Griddle",      "Grill Temp"],
+     ["Hot & Fast",   "Grill Temp"],
     ["Indirect",     "Pit Temp"],
     ["Low & Slow",   "Pit Temp"],
     ["Reverse Sear", "Pit Temp"],
@@ -476,6 +477,7 @@ describe("cookMethodContextPhrase — canonical labels produce correct phrase", 
     ["Direct Heat",  "on the grill"],
     ["Sear",         "on the grill"],
     ["Reverse Sear", "on the grill"],
+     ["Hot & Fast",   "on the grill"],
     ["Rotisserie",   "on the rotisserie"],
     ["Griddle",      "on the griddle"],
     [null,           "on the grill"],

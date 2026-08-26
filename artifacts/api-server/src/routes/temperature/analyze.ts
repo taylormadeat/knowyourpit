@@ -24,7 +24,11 @@ import {
   computeHeuristics,
 } from "./shared";
 import { buildAnalyzeSystemPrompt } from "./analyzePrompt";
-import { isDirectHeat } from "../../lib/grillClassify";
+import {
+  buildMethodAwareAnalysisContext,
+  guardAnalysisAssessment,
+} from "./analyzePrompt";
+import { containsLowAndSlowAdvice, isHighHeatAnalysisMethod } from "./analysisGuards";
 
 const router: IRouter = Router();
 
@@ -162,6 +166,13 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
   // Build cook context section for the prompt
   const contextLines: string[] = [];
 
+  contextLines.push(...buildMethodAwareAnalysisContext({
+    cookingMethod: cookContext?.cookingMethod,
+    foodType: cookContext?.foodType,
+    targetTempF: cookContext?.targetTempF,
+    cookTempF: cookContext?.cookTempF,
+  }));
+
   if (cookContext?.plannedStartAt) {
     const preheatMs = (cookContext?.preheatMinutes ?? 0) * 60 * 1000;
     const plannedMeatOnMs = new Date(cookContext.plannedStartAt).getTime() + preheatMs;
@@ -182,7 +193,7 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
   }
 
   if (cookContext?.outdoorTempF != null) {
-    const isDirectHeatCook = isDirectHeat(cookContext.cookingMethod);
+    const isDirectHeatCook = isHighHeatAnalysisMethod(cookContext.cookingMethod);
     contextLines.push(isDirectHeatCook
       ? `Current outdoor/ambient air temperature: ${cookContext.outdoorTempF}°F (factor this into heat management and cold-weather adjustments)`
       : `Current outdoor/ambient air temperature: ${cookContext.outdoorTempF}°F (factor this into heat management, stall timing, and cold-weather adjustments)`);
@@ -354,10 +365,11 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
   if (validLive.length >= 2) {
     const slope = computeSlope(validLive);
     const currentTempF = cookContext?.userEnteredTempF ?? validLive[validLive.length - 1].tempF;
-    heuristicPhase = detectPhase(slope, currentTempF, cookContext?.targetTempF);
+    heuristicPhase = detectPhase(slope, currentTempF, cookContext?.targetTempF, cookContext?.cookingMethod);
     heuristicEstimates = computeHeuristics(
       heuristicPhase, currentTempF, slope,
-      cookContext?.targetTempF, cookContext?.weightLbs, cookContext?.currentPitTempF ?? cookContext?.cookTempF,
+       cookContext?.targetTempF, cookContext?.weightLbs, cookContext?.currentPitTempF ?? cookContext?.cookTempF,
+       cookContext?.cookingMethod,
     );
 
     const phaseLabels: Record<CookPhase, string> = {
@@ -374,8 +386,7 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
     if (cookContext?.currentPitTempF) hintLines.push(`Current pit/ambient temp: ${cookContext.currentPitTempF}°F`);
     if (cookContext?.elapsedMinutes) hintLines.push(`Elapsed cook time: ${cookContext.elapsedMinutes} min`);
     // Stall estimates only apply to low-and-slow / indirect methods.
-    const analyzeMethodStr = ((cookContext as any)?.cookingMethod ?? "").toLowerCase();
-    const analyzeIsDirect = analyzeMethodStr.includes("direct") || analyzeMethodStr.includes("sear") || analyzeMethodStr.includes("griddle");
+    const analyzeIsDirect = isHighHeatAnalysisMethod(cookContext?.cookingMethod);
     if (!analyzeIsDirect && heuristicEstimates.timeToStallMinutes != null) hintLines.push(`Heuristic estimate — time to stall: ~${heuristicEstimates.timeToStallMinutes} min`);
     if (!analyzeIsDirect && heuristicEstimates.stallDurationMinutes != null) hintLines.push(`Heuristic estimate — stall duration: ~${heuristicEstimates.stallDurationMinutes} min`);
     if (heuristicEstimates.timeToFinishMinutes != null) hintLines.push(`Heuristic estimate — time to finish: ~${heuristicEstimates.timeToFinishMinutes} min`);
@@ -536,7 +547,10 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
           }))
       : [];
 
-    const safeAssessment = result.assessment && typeof result.assessment === "object"
+    const safeNum = (v: any) => (typeof v === "number" && isFinite(v) ? v : null);
+    const safeStr = (v: any) => (typeof v === "string" && v.trim() ? v.trim() : null);
+
+    const rawAssessment = result.assessment && typeof result.assessment === "object"
       ? {
           verdict: typeof result.assessment.verdict === "string" ? result.assessment.verdict : "needs_work",
           summary: typeof result.assessment.summary === "string" ? result.assessment.summary : "",
@@ -545,8 +559,23 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
         }
       : null;
 
-    const safeNum = (v: any) => (typeof v === "number" && isFinite(v) ? v : null);
-    const safeStr = (v: any) => (typeof v === "string" && v.trim() ? v.trim() : null);
+    const meatProbeTemps = safeProbes
+      .filter((probe) => !/ambient|pit|grill|chamber|dome|lid/i.test(probe.probeName))
+      .flatMap((probe) => [probe.finishingTempF, probe.maxTempF])
+      .filter((temp): temp is number => typeof temp === "number" && isFinite(temp));
+    const enteredInternalTempF = cookContext?.userEnteredTempF;
+    const finalTempF = typeof enteredInternalTempF === "number" && isFinite(enteredInternalTempF)
+      ? enteredInternalTempF
+      : meatProbeTemps.sort((a, b) => b - a)[0] ?? null;
+    const safeAssessment = rawAssessment
+      ? guardAnalysisAssessment({
+          assessment: rawAssessment,
+          cookingMethod: cookContext?.cookingMethod,
+          foodType: cookContext?.foodType,
+          targetTempF: cookContext?.targetTempF ?? safeNum(result.detectedTargetTempF),
+          finalTempF,
+        })
+      : null;
 
     // ── phasePrediction: AI result, with heuristic fallback if live data existed ──
     const VALID_PHASES = new Set(["heat_up", "stall", "finishing", "done"]);
@@ -582,11 +611,27 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
       };
     }
 
+    if (safePhasePrediction && isHighHeatAnalysisMethod(cookContext?.cookingMethod)) {
+      const currentTempF = cookContext?.userEnteredTempF ?? validLive[validLive.length - 1]?.tempF ?? null;
+      const targetTempF = cookContext?.targetTempF ?? safeNum(result.detectedTargetTempF);
+      const phase = safePhasePrediction.phase === "stall"
+        ? (targetTempF != null && currentTempF != null && currentTempF >= targetTempF - 25 ? "finishing" : "heat_up")
+        : safePhasePrediction.phase;
+      safePhasePrediction = {
+        ...safePhasePrediction,
+        phase,
+        phaseLabel: PHASE_LABELS[phase],
+        timeToStallMinutes: null,
+        stallDurationMinutes: null,
+        narrative: containsLowAndSlowAdvice(safePhasePrediction.narrative) ? "" : safePhasePrediction.narrative,
+      };
+    }
+
     // ── decisions: sanitize and cap at 3 ────────────────────────────────────
     const VALID_ACTIONS = new Set(["wrap", "spritz", "increase_pit", "decrease_pit", "pull", "recover_schedule", "maintain"]);
     const VALID_URGENCY = new Set(["now", "soon", "when_ready"]);
 
-    const safeDecisions: Array<{
+    let safeDecisions: Array<{
       action: string; urgency: string;
       instruction: string; rationale: string; targetValue: number | null;
     }> = Array.isArray(result.decisions)
@@ -607,6 +652,25 @@ router.post("/temperature/analyze-cook", requireAuth, aiRateLimit, async (req: R
             targetValue: safeNum(d.targetValue),
           }))
       : [];
+
+    if (isHighHeatAnalysisMethod(cookContext?.cookingMethod)) {
+      safeDecisions = safeDecisions.filter((decision) =>
+        !["wrap", "spritz", "recover_schedule"].includes(decision.action) &&
+        !containsLowAndSlowAdvice(`${decision.instruction} ${decision.rationale}`),
+      );
+      if (safeDecisions.length === 0) {
+        const method = cookContext?.cookingMethod?.trim() || "high-heat";
+        safeDecisions = [{
+          action: "maintain",
+          urgency: isActiveCook ? "when_ready" : "soon",
+          instruction: isActiveCook
+            ? `Keep the planned ${method} approach and monitor the internal temperature.`
+            : `For your next cook: keep the planned ${method} approach and monitor the internal temperature.`,
+          rationale: "The selected high-heat method is the reference for this cook; no recorded temperature problem requires changing it.",
+          targetValue: null,
+        }];
+      }
+    }
 
     // Record the analyze event AFTER a successful response so failed runs
     // (model errors, validation, etc.) don't burn a free user's daily quota.

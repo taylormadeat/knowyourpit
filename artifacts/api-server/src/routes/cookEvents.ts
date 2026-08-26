@@ -5,6 +5,7 @@ import { z } from "zod/v4";
 import { requireAuth } from "../middlewares/requireAuth";
 import type { CookCheckin, CookEvent } from "@workspace/db";
 import { getAssessment } from "./ai/shared";
+import { normalizeHotFastChickenVerdict } from "./temperature/analysisGuards";
 const router: IRouter = Router();
 
 const CookEventIdParams = z.object({ id: z.coerce.number().int().positive() });
@@ -50,6 +51,10 @@ export interface CookHealthInput {
   cookTempF: number | null | undefined;
   verdict?: string | null;
   planAccuracyScore?: number | null;
+  cookingMethod?: string | null;
+  foodType?: string | null;
+  targetTempF?: number | null;
+  finalTempF?: number | null;
 }
 
 export interface CookHealthResult {
@@ -95,7 +100,13 @@ export function computePlanAccuracy(cook: {
 }
 
 export function computeCookHealthScore(input: CookHealthInput): CookHealthResult {
-  const { checkins, events, cookTempF, verdict = null, planAccuracyScore = null } = input;
+  const {
+    checkins, events, cookTempF, verdict = null, planAccuracyScore = null,
+    cookingMethod = null, foodType = null, targetTempF = null, finalTempF = null,
+  } = input;
+  const effectiveVerdict = verdict
+    ? normalizeHotFastChickenVerdict({ verdict, cookingMethod, foodType, targetTempF, finalTempF })
+    : null;
 
   // ── Check-in process score (0–100) ──────────────────────────────────────
   let issueCount = 0;
@@ -145,7 +156,7 @@ export function computeCookHealthScore(input: CookHealthInput): CookHealthResult
   checkinScore = Math.max(0, Math.min(100, checkinScore));
 
   // ── Blended score: 60% AI verdict + 25% check-in process + 15% plan ───
-  const verdictScore = verdict ? (VERDICT_SCORE[verdict] ?? null) : null;
+  const verdictScore = effectiveVerdict ? (VERDICT_SCORE[effectiveVerdict] ?? null) : null;
   const hasCheckinData = checkins.length > 0 || events.length > 0;
 
   let weightedSum = 0;
@@ -160,7 +171,7 @@ export function computeCookHealthScore(input: CookHealthInput): CookHealthResult
     issueCount,
     stallDetected,
     pitDrift,
-    aiVerdict: verdict ?? null,
+    aiVerdict: effectiveVerdict,
     planAccuracyScore: planAccuracyScore ?? null,
   };
 
@@ -186,11 +197,11 @@ export function computeCookHealthScore(input: CookHealthInput): CookHealthResult
     lateCount >= 2 ||
     pitDrift ||
     (planAccuracyScore != null && planAccuracyScore < 60);
-  const hasNegativeVerdict = verdict === "overcooked" || verdict === "undercooked";
+  const hasNegativeVerdict = effectiveVerdict === "overcooked" || effectiveVerdict === "undercooked";
 
   if (score < 45 && !hasReliableFailureEvidence) {
     const observation = hasNegativeVerdict
-      ? `PitMaster noted this cook may be ${verdict}, but there is not enough temperature, check-in, or plan data to confirm a failing Cook Health grade.`
+        ? `PitMaster noted this cook may be ${effectiveVerdict}, but there is not enough temperature, check-in, or plan data to confirm a failing Cook Health grade.`
       : "Cook Health is under review because there is not enough supporting data to confirm a failing grade.";
     return { grade: null, reason: observation, factors };
   }
@@ -201,12 +212,12 @@ export function computeCookHealthScore(input: CookHealthInput): CookHealthResult
 
   if (score >= 90) {
     grade = "A";
-    reason = verdict === "perfect"
+    reason = effectiveVerdict === "perfect"
       ? "Perfect cook — excellent process and outcome."
       : "Outstanding cook — everything on track from start to finish.";
   } else if (score >= 75) {
     grade = "B";
-    reason = verdict === "good"
+    reason = effectiveVerdict === "good"
       ? "Good result — solid process with minor deviations."
       : issueCount > 0
         ? "Minor issue(s) flagged but overall on track."
@@ -215,7 +226,7 @@ export function computeCookHealthScore(input: CookHealthInput): CookHealthResult
           : "Cook progressed well with minor deviations.";
   } else if (score >= 60) {
     grade = "C";
-    reason = verdict === "needs_work"
+    reason = effectiveVerdict === "needs_work"
       ? "Result needs improvement — keep an eye on temps and timing."
       : pitDrift
         ? "Pit temp drifted significantly — check vents or fuel."
@@ -224,8 +235,8 @@ export function computeCookHealthScore(input: CookHealthInput): CookHealthResult
           : "Cook encountered obstacles but stayed on track.";
   } else if (score >= 45) {
     grade = "D";
-    reason = (verdict === "overcooked" || verdict === "undercooked")
-      ? `Cook finished ${verdict === "overcooked" ? "overcooked" : "undercooked"} — review temps and timing for next time.`
+    reason = (effectiveVerdict === "overcooked" || effectiveVerdict === "undercooked")
+      ? `Cook finished ${effectiveVerdict === "overcooked" ? "overcooked" : "undercooked"} — review temps and timing for next time.`
       : issueCount >= 3
         ? "Several issues detected — consider adjusting your approach."
         : "Cook ran significantly off-plan — temps or timing need attention.";
@@ -377,6 +388,9 @@ router.get("/cooks/:id/health", requireAuth, async (req: any, res): Promise<void
       healthScore: cooksTable.healthScore,
       healthScoreReason: cooksTable.healthScoreReason,
       analysisResult: cooksTable.analysisResult,
+      cookingMethod: cooksTable.cookingMethod,
+      foodType: cooksTable.foodType,
+      targetTempF: cooksTable.targetTempF,
       plannedStartAt: cooksTable.plannedStartAt,
       plannedEndAt: cooksTable.plannedEndAt,
       actualStartAt: cooksTable.actualStartAt,
@@ -421,6 +435,10 @@ router.get("/cooks/:id/health", requireAuth, async (req: any, res): Promise<void
 
   const verdict = getAssessment(cook.analysisResult)?.verdict ?? null;
   const planAccuracyScore = computePlanAccuracy(cook);
+  const analysisResult = cook.analysisResult as any;
+  const finalTempF = typeof analysisResult?.snapshotTempF === "number"
+    ? analysisResult.snapshotTempF
+    : null;
 
   const result = computeCookHealthScore({
     checkins,
@@ -428,6 +446,10 @@ router.get("/cooks/:id/health", requireAuth, async (req: any, res): Promise<void
     cookTempF: cook.cookTempF,
     verdict,
     planAccuracyScore,
+    cookingMethod: cook.cookingMethod,
+    foodType: cook.foodType,
+    targetTempF: cook.targetTempF,
+    finalTempF,
   });
 
   res.json({

@@ -79,6 +79,23 @@ describe("computeCookHealthScore", () => {
     expect(result.factors.planAccuracyScore).toBe(0);
   });
 
+  it("does not fail a hot-and-fast chicken finish in the normal carryover band", () => {
+    const result = computeCookHealthScore({
+      checkins: [],
+      events: [],
+      cookTempF: 307,
+      verdict: "overcooked",
+      cookingMethod: "Hot & Fast",
+      foodType: "Chicken Breast",
+      targetTempF: 165,
+      finalTempF: 170,
+    });
+
+    expect(result.grade).toBe("A");
+    expect(result.factors.aiVerdict).toBe("perfect");
+    expect(result.reason).not.toContain("overcooked");
+  });
+
   it("keeps an undismissed outlier in review and restores scoring after dismissal", () => {
     expect(isCookHealthOutlierPendingReview(true, false)).toBe(true);
     expect(isCookHealthOutlierPendingReview(true, true)).toBe(false);

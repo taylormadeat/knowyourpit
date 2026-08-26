@@ -434,7 +434,13 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
     updateData.analysisResult = req.body.analysisResult;
     // Append to history — fetch current history + healthScore first, then accumulate
     const [current] = await db
-      .select({ analysisHistory: cooksTable.analysisHistory, healthScore: cooksTable.healthScore })
+      .select({
+        analysisHistory: cooksTable.analysisHistory,
+        healthScore: cooksTable.healthScore,
+        cookingMethod: cooksTable.cookingMethod,
+        foodType: cooksTable.foodType,
+        targetTempF: cooksTable.targetTempF,
+      })
       .from(cooksTable)
       .where(and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)));
     const existingHistory = Array.isArray(current?.analysisHistory) ? (current.analysisHistory as unknown[]) : [];
@@ -454,6 +460,12 @@ router.patch("/cooks/:id", requireAuth, async (req: any, res): Promise<void> => 
           cookTempF: null,
           verdict,
           planAccuracyScore: null,
+          cookingMethod: current.cookingMethod,
+          foodType: current.foodType,
+          targetTempF: current.targetTempF,
+          finalTempF: typeof req.body.analysisResult?.snapshotTempF === "number"
+            ? req.body.analysisResult.snapshotTempF
+            : null,
         });
         if (health.grade !== null) {
           updateData.healthScore = health.grade;

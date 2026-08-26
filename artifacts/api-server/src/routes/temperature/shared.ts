@@ -1,5 +1,6 @@
 import { type Request } from "express";
 import { rateLimit } from "express-rate-limit";
+import { isDirectHeat } from "../../lib/grillClassify";
 
 export interface AuthedRequest extends Request {
   userId: string;
@@ -76,8 +77,16 @@ export function detectPhase(
   slope: number | null,
   currentTempF: number,
   targetTempF?: number | null,
+  cookingMethod?: string | null,
 ): CookPhase {
   if (targetTempF != null && currentTempF >= targetTempF - 5) return "done";
+  // Direct/high-heat cooks, including Hot & Fast, do not develop the
+  // low-and-slow evaporative stall. Keep a flat reading in the finishing
+  // path instead of inventing a stall.
+  if (isDirectHeat(cookingMethod)) {
+    if (targetTempF != null && currentTempF >= targetTempF - 25) return "finishing";
+    return "heat_up";
+  }
   if (currentTempF > 180) return "finishing";
   if (currentTempF < 140) return "heat_up";
   if (slope != null && Math.abs(slope) < 0.2) return "stall";
@@ -92,6 +101,7 @@ export function computeHeuristics(
   targetTempF?: number | null,
   weightLbs?: number | null,
   pitTempF?: number | null,
+  cookingMethod?: string | null,
 ): { timeToStallMinutes: number | null; stallDurationMinutes: number | null; timeToFinishMinutes: number | null } {
   const STALL_ENTRY_TEMP = 158;
   const STALL_EXIT_TEMP  = 175;
@@ -104,6 +114,20 @@ export function computeHeuristics(
 
   let timeToStall: number | null = null;
   let timeToFinish: number | null = null;
+
+  if (isDirectHeat(cookingMethod)) {
+    if (phase === "heat_up" || phase === "finishing") {
+      const finishSlope = slope && slope > 0.05 ? slope : 0.75 * pitFactor;
+      timeToFinish = targetTempF
+        ? Math.max(0, Math.round((targetTempF - currentTempF) / finishSlope))
+        : null;
+    }
+    return {
+      timeToStallMinutes: null,
+      stallDurationMinutes: null,
+      timeToFinishMinutes: timeToFinish,
+    };
+  }
 
   if (phase === "heat_up") {
     timeToStall = slope && slope > 0.05
