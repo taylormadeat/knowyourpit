@@ -2159,7 +2159,7 @@ export default function PlanScreen() {
               <View style={[s.nowCookingDot, { backgroundColor: "#fff" }]} />
               <View style={{ flexShrink: 1 }}>
                 <Text style={s.nowCookingTitle} numberOfLines={1}>
-                  🔥 Now cooking · {activeCook.foodType ?? "Cook in progress"}
+                  Now cooking · {activeCook.foodType ?? "Cook in progress"}
                 </Text>
                 {activeCookRemainingLabel && (
                   <Text
@@ -2336,7 +2336,9 @@ export default function PlanScreen() {
           </View>
         )}
 
-        {/* ── Plan Mode Selector (three-way) ── */}
+        <View style={s.stepSection}>
+          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>1. Mode</Text>
+          {/* ── Plan Mode Selector (three-way) ── */}
         <View style={[s.modeToggleRow, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           <Pressable
             style={[
@@ -2417,9 +2419,13 @@ export default function PlanScreen() {
           </Pressable>
         )}
 
+        </View>
+
         {planMode === "single" && (<>
 
-        {/* ── Cook Now / Plan for Later toggle ── */}
+        <View style={s.stepSection}>
+          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>2. Intention</Text>
+          {/* ── Cook Now / Plan for Later toggle ── */}
         <View style={[s.modeToggleRow, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, marginBottom: 18 }]}>
           <Pressable
             style={[
@@ -2453,6 +2459,11 @@ export default function PlanScreen() {
             <Text style={[s.modeToggleText, { color: cookNowMode === "later" ? "#fff" : colors.mutedForeground }]}>Plan for Later</Text>
           </Pressable>
         </View>
+
+        </View>
+
+        <View style={s.stepSection}>
+          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>3. Essentials</Text>
 
         {/* ══ ZONE 1 — Essentials ══
             Meat cut, weight, and serve-by are the three inputs needed to
@@ -2586,9 +2597,12 @@ export default function PlanScreen() {
           onChange={(output) => { setSizeOutput(output); clearAiScheduleOverride(); }}
         />
 
+        </View>
+
         {/* ── Serve By (Plan for Later only) ── */}
         {cookNowMode === "later" && (
-          <>
+          <View style={s.stepSection}>
+            <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>4. Timing</Text>
             <Label colors={colors}>When do you want to serve?</Label>
             <View style={[s.serveByCard, { backgroundColor: colors.card, borderColor: colors.primary + "40", borderRadius: colors.radius }]}>
               {serveAt ? (
@@ -2642,8 +2656,11 @@ export default function PlanScreen() {
                 </Pressable>
               )}
             </View>
-          </>
+          </View>
         )}
+
+        <View style={s.stepSection}>
+          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>{cookNowMode === "later" ? "5" : "4"}. Equipment & Setup</Text>
 
         {/* ══ ZONE 2 — Your Setup ══
             Grill selection and temperature overrides. Auto-filled from the
@@ -2885,6 +2902,11 @@ export default function PlanScreen() {
             </View>
           </View>
         </View>
+
+        </View>
+
+        <View style={s.stepSection}>
+          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>{cookNowMode === "later" ? "6" : "5"}. Guidance & Options</Text>
 
         {/* ══ ZONE 3 — Advanced Options ══
             Collapsible accordion. Starts closed so new users see a clean
@@ -3738,6 +3760,13 @@ export default function PlanScreen() {
           />
         )}
 
+        </View>
+
+        <View style={s.stepSection}>
+          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>
+            {cookNowMode === "later" ? "7" : "6"}. Review & Action
+          </Text>
+
         {/* ── Submit area (primary CTA, slow-submit row, frozen callout, secondary CTA) ── */}
         <PlanSubmitArea
           isSubmitting={isSubmitting}
@@ -3762,10 +3791,13 @@ export default function PlanScreen() {
           }}
         />
 
+        </View>
         </>)}{/* end planMode === "single" */}
 
         {/* ════ MULTI-COOK SEQUENCER ════ */}
         {planMode === "multi" && (<>
+          <View style={s.stepSection}>
+            <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>2. Timing</Text>
 
         {/* Serve By (shared with single via serveAt state) */}
         <Label colors={colors}>When do you want to serve?</Label>
@@ -3795,6 +3827,11 @@ export default function PlanScreen() {
           </View>
         </View>
 
+        </View>
+
+        <View style={s.stepSection}>
+          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>3. Equipment</Text>
+
         {/* Grill selector (default for all items) */}
         {(grills as any[] | undefined)?.length ? (
           <>
@@ -3814,6 +3851,11 @@ export default function PlanScreen() {
             </View>
           </>
         ) : null}
+
+        </View>
+
+        <View style={s.stepSection}>
+          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>4. Items to Cook</Text>
 
         {/* Items list */}
         <Label colors={colors}>Cooks to Sequence</Label>
@@ -3941,6 +3983,11 @@ export default function PlanScreen() {
           />
         )}
 
+        </View>
+
+        <View style={s.stepSection}>
+          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>5. Review & Action</Text>
+
         {/* Sequence button */}
         <Pressable
           style={({ pressed }) => [
@@ -3992,6 +4039,7 @@ export default function PlanScreen() {
           </Pressable>
         )}
 
+        </View>
         </>)}{/* end planMode === "multi" */}
         </View>
 

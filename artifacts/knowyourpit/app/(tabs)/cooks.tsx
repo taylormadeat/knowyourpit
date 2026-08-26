@@ -23,6 +23,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { EmptyState, LoadingState } from "@/components/ui/StateViews";
 import { useColors } from "@/hooks/useColors";
 import { useLayout } from "@/hooks/useLayout";
 import {
@@ -282,9 +283,15 @@ interface SessionGroup {
   sequenceData: SequenceData | null;
 }
 
-function starString(rating: number): string {
+function StarRating({ rating }: { rating: number }) {
   const full = Math.round(rating);
-  return "★".repeat(Math.max(0, Math.min(5, full))) + "☆".repeat(Math.max(0, 5 - Math.min(5, full)));
+  return (
+    <View style={{ flexDirection: "row", gap: 2 }}>
+      {[...Array(5)].map((_, i) => (
+        <Feather key={i} name="star" size={10} color="#eab308" fill={i < full ? "#eab308" : "transparent"} />
+      ))}
+    </View>
+  );
 }
 
 interface TechniquePerformanceSectionProps {
@@ -330,9 +337,9 @@ function TechniquePerformanceSection({ stats, activeFilter, onSelect, colors }: 
               <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.foreground }} numberOfLines={1}>
                 {item.technique}
               </Text>
-              <Text style={{ fontSize: 12, color: "#eab308", fontFamily: "Inter_600SemiBold", letterSpacing: 0.3 }}>
-                {starString(item.avgRating)}
-              </Text>
+              <View style={{ marginTop: 2, marginBottom: 2 }}>
+                <StarRating rating={item.avgRating} />
+              </View>
               <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
                 {item.cookCount} cook{item.cookCount !== 1 ? "s" : ""}
                 {item.topMeatType ? ` · ${item.topMeatType}` : ""}
@@ -396,6 +403,21 @@ export default function CooksScreen() {
   const { data: techniqueStats } = useGetCookTechniqueStats({
     query: { enabled: !!isSignedIn } as any,
   });
+
+  const cookStats = useMemo(() => {
+    if (!cooks) return { active: 0, planned: 0, completed: 0, sessions: 0 };
+    let active = 0, planned = 0, completed = 0;
+    const sessions = new Set();
+    cooks.forEach(c => {
+      if (c.status === "active") active++;
+      else if (c.status === "planned") planned++;
+      else if (c.status === "completed") completed++;
+      if (c.sessionId) sessions.add(c.sessionId);
+    });
+    return { active, planned, completed, sessions: sessions.size };
+  }, [cooks]);
+
+  const hasActiveFilters = sortKey !== "date-desc" || ratedOnly || unratedOnly || techniqueFilter !== null || meatTypeFilter !== null;
   const updateSession = useUpdateSession();
   const deleteCook = useDeleteCook();
   const dismissOutlier = useDismissCookOutlier();
@@ -1164,7 +1186,7 @@ export default function CooksScreen() {
                     borderColor: "#eab30840",
                   }}
                 >
-                  <Text style={{ fontSize: 9, color: "#eab308" }}>☆</Text>
+                  <Feather name="star" size={9} color="#eab308" />
                   <Text style={{ color: "#eab308", fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 0.2 }}>
                     RATE
                   </Text>
@@ -1173,7 +1195,10 @@ export default function CooksScreen() {
             }
             return (
               <View style={s.avgBadge}>
-                <Text style={s.avgBadgeText}>★ {avg.toFixed(1)}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                  <Feather name="star" size={10} color="#eab308" fill="#eab308" />
+                  <Text style={s.avgBadgeText}>{avg.toFixed(1)}</Text>
+                </View>
               </View>
             );
           })()}
@@ -1373,7 +1398,7 @@ export default function CooksScreen() {
                   const tagColor = STATUS_COLORS[c.status] || colors.primary;
                   const progressLabel =
                     c.status === "completed"
-                      ? "✓"
+                      ? "Done"
                       : c.status === "active"
                       ? `${bar ? Math.round(bar.progress * 100) : 0}%`
                       : null;
@@ -1944,12 +1969,45 @@ export default function CooksScreen() {
         </View>
       </Modal>
 
+
+      {/* ── Status Hierarchy ── */}
+      <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, flexDirection: "row", gap: 10 }}>
+        <View style={{ flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: colors.radius, padding: 12, alignItems: "center" }}>
+          <Text style={{ fontSize: 18, fontFamily: "Inter_700Bold", color: "#E64825" }}>{cookStats.active}</Text>
+          <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginTop: 2 }}>Live</Text>
+        </View>
+        <View style={{ flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: colors.radius, padding: 12, alignItems: "center" }}>
+          <Text style={{ fontSize: 18, fontFamily: "Inter_700Bold", color: "#3b82f6" }}>{cookStats.planned}</Text>
+          <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginTop: 2 }}>Planned</Text>
+        </View>
+        <View style={{ flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: colors.radius, padding: 12, alignItems: "center" }}>
+          <Text style={{ fontSize: 18, fontFamily: "Inter_700Bold", color: colors.foreground }}>{cookStats.completed}</Text>
+          <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginTop: 2 }}>Completed</Text>
+        </View>
+      </View>
+
       <View style={[s.controls, { borderBottomColor: colors.border }]}>
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={s.pillRow}
         >
+          {hasActiveFilters && (
+            <Pressable
+              onPress={() => {
+                setSortKey("date-desc");
+                setRatedOnly(false);
+                setUnratedOnly(false);
+                setTechniqueFilter(null);
+                setMeatTypeFilter(null);
+              }}
+              style={[s.pill, { backgroundColor: colors.muted, borderColor: colors.border, borderWidth: 1 }]}
+            >
+              <Feather name="x" size={12} color={colors.foreground} />
+              <Text style={[s.pillText, { color: colors.foreground }]}>Clear</Text>
+            </Pressable>
+          )}
           {SORT_OPTIONS.map((opt) => {
             const active = sortKey === opt.key;
             return (
@@ -1987,9 +2045,12 @@ export default function CooksScreen() {
                 : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
             ]}
           >
-            <Text style={[s.pillText, { color: ratedOnly ? "#fff" : colors.mutedForeground }]}>
-              ★ Rated only
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <Feather name="star" size={12} color={ratedOnly ? "#fff" : colors.mutedForeground} fill={ratedOnly ? "#fff" : "transparent"} />
+              <Text style={[s.pillText, { color: ratedOnly ? "#fff" : colors.mutedForeground }]}>
+                Rated only
+              </Text>
+            </View>
           </Pressable>
 
           <Pressable
@@ -2004,9 +2065,12 @@ export default function CooksScreen() {
                 : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
             ]}
           >
-            <Text style={[s.pillText, { color: unratedOnly ? "#fff" : colors.mutedForeground }]}>
-              ☆ Unrated only
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <Feather name="star" size={12} color={unratedOnly ? "#fff" : colors.mutedForeground} />
+              <Text style={[s.pillText, { color: unratedOnly ? "#fff" : colors.mutedForeground }]}>
+                Unrated only
+              </Text>
+            </View>
           </Pressable>
 
           {(availableTechniques.length > 0 || techniqueFilter !== null) && (
@@ -2072,9 +2136,7 @@ export default function CooksScreen() {
       </View>
 
       {isLoading && !cooks ? (
-        <View style={s.center}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
+        <LoadingState description="Loading cook log..." />
       ) : (
         <FlatList
           data={displayList}
@@ -2112,31 +2174,29 @@ export default function CooksScreen() {
             />
           }
           ListEmptyComponent={
-            <View style={[s.empty, { borderColor: colors.border, borderRadius: colors.radius }]}>
-              <Feather name="thermometer" size={36} color={colors.mutedForeground} />
-              <Text style={[s.emptyTitle, { color: colors.foreground }]}>
-                {ratedOnly
-                  ? "No rated cooks found"
-                  : unratedOnly
-                    ? "All cooks are rated!"
-                    : meatTypeFilter
-                      ? `No "${meatTypeFilter}" cooks found`
-                      : techniqueFilter
-                        ? `No "${techniqueFilter}" cooks found`
-                        : "No cooks logged yet"}
-              </Text>
-              <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
-                {ratedOnly
-                  ? "Try removing the \"Rated only\" filter to see all cooks"
-                  : unratedOnly
-                    ? "Every completed cook has a rating — great work!"
-                    : meatTypeFilter
-                      ? "Try a different meat type or tap the pill to clear"
-                      : techniqueFilter
-                        ? "Try a different technique or tap the pill to clear"
-                        : "Hit + to log your first cook. Your data starts here."}
-              </Text>
-            </View>
+            <EmptyState
+              icon="thermometer"
+              title={ratedOnly
+                ? "No rated cooks found"
+                : unratedOnly
+                  ? "All cooks are rated!"
+                  : meatTypeFilter
+                    ? `No "${meatTypeFilter}" cooks found`
+                    : techniqueFilter
+                      ? `No "${techniqueFilter}" cooks found`
+                      : "No cooks logged yet"}
+              description={ratedOnly
+                ? 'Try removing the "Rated only" filter to see all cooks'
+                : unratedOnly
+                  ? "Every completed cook has a rating — great work!"
+                  : meatTypeFilter
+                    ? "Try a different meat type or tap the pill to clear"
+                    : techniqueFilter
+                      ? "Try a different technique or tap the pill to clear"
+                      : "Hit + to log your first cook. Your data starts here."}
+              action={hasActiveFilters ? { label: "Clear Filters", onPress: () => { setSortKey("date-desc"); setRatedOnly(false); setUnratedOnly(false); setTechniqueFilter(null); setMeatTypeFilter(null); } } : { label: "Log a Cook", onPress: () => router.push("/(tabs)/plan" as any) }}
+              style={{ marginTop: 40 }}
+            />
           }
         />
       )}

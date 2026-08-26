@@ -65,7 +65,7 @@ export function CookSummaryCard(p: Props) {
     const parts: string[] = [];
     if (healthGrade != null) parts.push(`Cook Health: ${healthGrade}`);
     if (rating != null && rating > 0)
-      parts.push(`You rated ${rating % 1 === 0 ? rating : rating.toFixed(1)}★`);
+      parts.push(`Rated ${rating % 1 === 0 ? rating : rating.toFixed(1)} stars`);
     return parts.length > 0 ? parts.join(" · ") : null;
   })();
   const blended = bothPresent
@@ -213,9 +213,12 @@ export function CookSummaryCard(p: Props) {
                   </Text>
                   {rating != null && rating > 0 ? (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                      <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: "#F59E0B" }}>
-                        {rating % 1 === 0 ? rating : rating.toFixed(1)}★
-                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                        <Feather name="star" size={10} color="#F59E0B" fill="#F59E0B" />
+                        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: "#F59E0B" }}>
+                          {rating % 1 === 0 ? rating : rating.toFixed(1)}
+                        </Text>
+                      </View>
                       <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
                         → {ratingScore}pts
                       </Text>

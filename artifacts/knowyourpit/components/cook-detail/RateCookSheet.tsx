@@ -95,6 +95,9 @@ export function RateCookSheet({ visible, colors, saving, cookingMethod, onSave, 
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Pressable
                     key={star}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Rate ${row.label} ${star} star${star > 1 ? "s" : ""}`}
+                    accessibilityState={{ selected: star <= values[row.key], disabled: saving }}
                     onPress={() => {
                       const current = values[row.key];
                       setters[row.key](star === current ? 0 : star);
@@ -102,12 +105,13 @@ export function RateCookSheet({ visible, colors, saving, cookingMethod, onSave, 
                     hitSlop={8}
                     disabled={saving}
                   >
-                    <Text style={[styles.star, {
-                      color: star <= values[row.key] ? "#eab308" : colors.border,
-                      opacity: saving ? 0.5 : 1,
-                    }]}>
-                      {star <= values[row.key] ? "★" : "☆"}
-                    </Text>
+                    <Feather
+                      name="star"
+                      size={24}
+                      color={star <= values[row.key] ? "#eab308" : colors.border}
+                      fill={star <= values[row.key] ? "#eab308" : "transparent"}
+                      style={{ opacity: saving ? 0.5 : 1, marginHorizontal: 4 }}
+                    />
                   </Pressable>
                 ))}
               </View>

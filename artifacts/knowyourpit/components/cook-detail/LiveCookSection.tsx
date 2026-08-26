@@ -865,7 +865,7 @@ export function LiveCookSection(p: Props) {
       {tempMode === "probe" && selectedMeatProbeId != null && liveReadings.length < 2 && (
         <View style={[s.liveGraphWrap, { borderTopColor: colors.border }]}>
           <Text style={[s.probePlaceholderText, { color: colors.mutedForeground, textAlign: "left" }]}>
-            📡 Collecting readings — chart will appear shortly
+            Collecting readings — chart will appear shortly
           </Text>
         </View>
       )}
@@ -1023,7 +1023,7 @@ export function LiveCookSection(p: Props) {
             ) : (
               <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
                 {otherCook && (
-                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>⚠ {otherCook}</Text>
+                  <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>Alert: {otherCook}</Text>
                 )}
                 <Pressable onPress={() => onSelectMeatProbe?.(probeKey)}
                   style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: isMeat ? "#FF6B2B20" : colors.mutedForeground + "12", borderWidth: 1, borderColor: isMeat ? "#FF6B2B60" : "transparent" }}>
@@ -1116,7 +1116,7 @@ export function LiveCookSection(p: Props) {
                   ) : (
                     <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
                       {otherCook && (
-                        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>⚠ {otherCook}</Text>
+                        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>Alert: {otherCook}</Text>
                       )}
                       {!isProduceCook && (
                       <Pressable onPress={() => isMeat ? onRemoveMeatProbeSlot?.(probeKey) : onSelectMeatProbe?.(probeKey)}
@@ -1238,7 +1238,7 @@ export function LiveCookSection(p: Props) {
                   ) : (
                     <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
                       {otherCook && (
-                        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>⚠ {otherCook}</Text>
+                        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 9, color: colors.mutedForeground }}>Alert: {otherCook}</Text>
                       )}
                       {!isProduceCook && (
                       <Pressable onPress={() => isMeat ? onRemoveMeatProbeSlot?.(probeKey) : onSelectMeatProbe?.(probeKey)}

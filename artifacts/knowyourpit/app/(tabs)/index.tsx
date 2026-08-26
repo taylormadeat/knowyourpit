@@ -19,6 +19,7 @@ import { useUser, useAuth } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
 import { useRemoteConfig } from "@/hooks/useRemoteConfig";
 import { BigPetesHomeCard } from "@/components/partners/BigPetesHomeCard";
+import { EmptyState, LoadingState } from "@/components/ui/StateViews";
 import { useTopInset } from "@/hooks/useTopInset";
 import { useLayout } from "@/hooks/useLayout";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -417,7 +418,7 @@ export default function HomeScreen() {
           <View style={s.fireBar} />
 
           <Text style={s.greeting}>Good {getTimeGreeting()}</Text>
-          <Text style={s.heroName}>{firstName} 🔥</Text>
+          <Text style={s.heroName}>{firstName}</Text>
           <Text style={s.heroSub}>{heroSub}</Text>
 
           {!summaryLoading && (
@@ -484,61 +485,110 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* ── Active Cook Widget(s) — one card per active cook ── */}
-        {activeCooks.map((activeCook) => (
-          <ActiveCookCard
-            key={activeCook.id}
-            activeCook={activeCook}
-            nowMs={nowMs}
-            insights={insights}
-          />
-        ))}
-
-        {/* ── Upcoming Cook Countdown ── */}
-        {upcomingCook && (
-          <Pressable
-            style={({ pressed }) => [pressed && { opacity: 0.88 }]}
-            onPress={() => router.push(`/cooks/${upcomingCook.id}` as any)}
-          >
-            <View style={[s.upcomingCard, { backgroundColor: colors.card, borderColor: "#3b82f655" }]}>
-              <View style={s.upcomingLeft}>
-                <LinearGradient colors={["#3b82f6", "#60a5fa"]} style={s.upcomingIconWrap}>
-                  <Feather name="calendar" size={16} color="#fff" />
-                </LinearGradient>
-                <View style={{ flex: 1 }}>
-                  <Text style={[s.upcomingTitle, { color: colors.foreground }]}>
-                    {upcomingCook.foodType || "Planned Cook"}
-                  </Text>
-                  <Text style={[s.upcomingMeta, { color: colors.mutedForeground }]}>
-                    Starts in{" "}
-                    <Text style={{ color: "#3b82f6", fontFamily: "Inter_700Bold" }}>
-                      {fmtCountdown(new Date(upcomingCook.plannedStartAt).getTime())}
-                    </Text>
-                  </Text>
-                  {(upcomingCook.targetTempF != null || upcomingCook.cookTempF != null) && (
-                    <View style={{ flexDirection: "row", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                      {upcomingCook.targetTempF != null && (
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#22c55e12", borderWidth: 1, borderColor: "#22c55e30" }}>
-                          <Feather name="thermometer" size={10} color="#22c55e" />
-                          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#22c55e" }}>{upcomingCook.targetTempF}°F</Text>
-                          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#22c55e99" }}>target</Text>
-                        </View>
-                      )}
-                      {upcomingCook.cookTempF != null && (
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#3b82f612", borderWidth: 1, borderColor: "#3b82f630" }}>
-                          <Feather name="wind" size={10} color="#3b82f6" />
-                          <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#3b82f6" }}>{upcomingCook.cookTempF}°F</Text>
-                          <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#3b82f699" }}>pit</Text>
-                        </View>
-                      )}
-                    </View>
-                  )}
-                </View>
+        {/* ── Command Surface ── */}
+        <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 }}>
+          {activeCooks.length > 0 || upcomingCook ? (
+            <View style={{ marginBottom: 20 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 8 }}>
+                <View style={{ width: 4, height: 16, backgroundColor: activeCooks.length > 0 ? "#E64825" : "#3b82f6", borderRadius: 2 }} />
+                <Text style={{ fontSize: 16, fontFamily: "Inter_700Bold", color: colors.foreground }}>
+                  {activeCooks.length > 0 ? "Current Cook" : "Up Next"}
+                </Text>
               </View>
-              <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+
+              {activeCooks.map((activeCook) => (
+                <View key={activeCook.id} style={{ marginBottom: activeCooks.length > 1 ? 8 : 0 }}>
+                  <ActiveCookCard
+                    activeCook={activeCook}
+                    nowMs={nowMs}
+                    insights={insights}
+                  />
+                </View>
+              ))}
+
+              {upcomingCook && activeCooks.length === 0 && (
+                <Pressable
+                  style={({ pressed }) => [pressed && { opacity: 0.88 }]}
+                  onPress={() => router.push(`/cooks/${upcomingCook.id}` as any)}
+                >
+                  <View style={[s.upcomingCard, { backgroundColor: colors.card, borderColor: "#3b82f655", marginHorizontal: 0 }]}>
+                    <View style={s.upcomingLeft}>
+                      <LinearGradient colors={["#3b82f6", "#60a5fa"]} style={s.upcomingIconWrap}>
+                        <Feather name="calendar" size={16} color="#fff" />
+                      </LinearGradient>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[s.upcomingTitle, { color: colors.foreground }]}>
+                          {upcomingCook.foodType || "Planned Cook"}
+                        </Text>
+                        <Text style={[s.upcomingMeta, { color: colors.mutedForeground }]}>
+                          Starts in{" "}
+                          <Text style={{ color: "#3b82f6", fontFamily: "Inter_700Bold" }}>
+                            {fmtCountdown(new Date(upcomingCook.plannedStartAt).getTime())}
+                          </Text>
+                        </Text>
+                        {(upcomingCook.targetTempF != null || upcomingCook.cookTempF != null) && (
+                          <View style={{ flexDirection: "row", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                            {upcomingCook.targetTempF != null && (
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#22c55e12", borderWidth: 1, borderColor: "#22c55e30" }}>
+                                <Feather name="thermometer" size={10} color="#22c55e" />
+                                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#22c55e" }}>{upcomingCook.targetTempF}°F</Text>
+                                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#22c55e99" }}>target</Text>
+                              </View>
+                            )}
+                            {upcomingCook.cookTempF != null && (
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "#3b82f612", borderWidth: 1, borderColor: "#3b82f630" }}>
+                                <Feather name="wind" size={10} color="#3b82f6" />
+                                <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#3b82f6" }}>{upcomingCook.cookTempF}°F</Text>
+                                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 10, color: "#3b82f699" }}>pit</Text>
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                    <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+                  </View>
+                </Pressable>
+              )}
             </View>
-          </Pressable>
-        )}
+          ) : (
+            <View style={{ marginBottom: 20, padding: 24, backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}>
+               <Feather name="power" size={32} color={colors.mutedForeground} style={{ marginBottom: 12 }} />
+               <Text style={{ fontSize: 16, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 4 }}>Pit is Cold</Text>
+               <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: colors.mutedForeground, textAlign: "center" }}>No active or planned cooks.</Text>
+            </View>
+          )}
+
+          {/* Quick Actions */}
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <Pressable
+              style={({pressed}) => [{ flex: 1.5, backgroundColor: "#E64825", borderRadius: 12, padding: 16, minHeight: 100, justifyContent: "center" }, pressed && { opacity: 0.8 }]}
+              onPress={() => router.push("/(tabs)/plan" as any)}
+            >
+              <Feather name="plus-circle" size={24} color="#fff" style={{ marginBottom: 8 }} />
+              <Text style={{ fontSize: 16, fontFamily: "Inter_700Bold", color: "#fff" }}>
+                {activeCooks.length > 0 ? "Log another" : "Start New Cook"}
+              </Text>
+            </Pressable>
+
+            <View style={{ flex: 1, gap: 12 }}>
+              <Pressable
+                style={({pressed}) => [{ flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12, justifyContent: "center" }, pressed && { opacity: 0.8 }]}
+                onPress={() => router.push("/(tabs)/plan" as any)}
+              >
+                <Feather name="calendar" size={18} color={colors.primary} style={{ marginBottom: 6 }} />
+                <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>Plan</Text>
+              </Pressable>
+              <Pressable
+                style={({pressed}) => [{ flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12, justifyContent: "center" }, pressed && { opacity: 0.8 }]}
+                onPress={() => router.push("/(tabs)/cooks" as any)}
+              >
+                <Feather name="book-open" size={18} color={colors.primary} style={{ marginBottom: 6 }} />
+                <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>Cook Log</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
 
         {/* ── PitMaster Score — hidden when a cook is active ── */}
         {activeCooks.length === 0 && (!isIdentityLinked ? (
@@ -840,13 +890,14 @@ export default function HomeScreen() {
         </View>
 
         {cooksLoading && !localCooksHydrated ? (
-          <ActivityIndicator color={colors.primary} style={{ padding: 20 }} />
+          <LoadingState description="Loading recent cooks..." />
         ) : !allCooks.length ? (
-          <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-            <Feather name="inbox" size={36} color={colors.mutedForeground} />
-            <Text style={[s.emptyTitle, { color: colors.foreground }]}>No cooks yet</Text>
-            <Text style={[s.emptyText, { color: colors.mutedForeground }]}>Fire it up with your first cook!</Text>
-          </View>
+          <EmptyState
+            icon="inbox"
+            title="No cooks yet"
+            description="Fire it up with your first cook!"
+            style={{ minHeight: 160, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: colors.radius, marginHorizontal: 16, marginBottom: 12 }}
+          />
         ) : (
           allCooks.slice(0, 3).map((cook: any) => (
             <Pressable
@@ -1192,7 +1243,12 @@ const s = StyleSheet.create({
     fontSize: 17,
     fontFamily: "Inter_700Bold",
   },
-  seeAllBtn: { paddingVertical: 4 },
+  seeAllBtn: {
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: 8,
+    marginRight: -8
+  },
   seeAll: { fontSize: 13, fontFamily: "Inter_500Medium" },
 
   /* PitMaster Grade Card */

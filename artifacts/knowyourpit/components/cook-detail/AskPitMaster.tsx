@@ -303,8 +303,8 @@ export function AskPitMaster(p: Props) {
                 const tipCount = assessment?.suggestions?.length ?? 0;
                 if (wellCount === 0 && tipCount === 0) return null;
                 const summaryParts: string[] = [];
-                if (wellCount > 0) summaryParts.push(`✓ ${wellCount} on track`);
-                if (tipCount > 0) summaryParts.push(`⚠ ${tipCount} tip${tipCount > 1 ? "s" : ""}`);
+                if (wellCount > 0) summaryParts.push(`${wellCount} on track`);
+                if (tipCount > 0) summaryParts.push(`Alert: ${tipCount} tip${tipCount > 1 ? "s" : ""}`);
                 return (
                   <View style={[s.subSection, { borderColor: colors.border }]}>
                     <Pressable

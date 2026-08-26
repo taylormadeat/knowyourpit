@@ -2,6 +2,8 @@ import { StyleSheet } from "react-native";
 
 export const planStyles = StyleSheet.create({
   container: { flex: 1 },
+  stepSection: { marginHorizontal: 20, marginBottom: 24 },
+  stepLabel: { fontSize: 13, fontFamily: "Inter_700Bold", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 },
   label: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginBottom: 8, marginTop: 16 },
 
   inputWrap: {
