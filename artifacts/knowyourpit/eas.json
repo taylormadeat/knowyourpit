@@ -9,6 +9,7 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_PARTNER_BIG_PETES": "true",
+        "EXPO_PUBLIC_ACTIVE_PARTNER": "bigPetes",
         "USE_FRAMEWORKS": "static"
       },
       "ios": {
@@ -23,7 +24,8 @@
       "distribution": "internal",
       "credentialsSource": "remote",
       "env": {
-        "EXPO_PUBLIC_PARTNER_BIG_PETES": "true"
+        "EXPO_PUBLIC_PARTNER_BIG_PETES": "true",
+        "EXPO_PUBLIC_ACTIVE_PARTNER": "bigPetes"
       },
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.2",
@@ -39,7 +41,8 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.knowyourpit.com",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD": "pk_live_Y2xlcmsua25vd3lvdXJwaXQuY29tJA",
-        "EXPO_PUBLIC_PARTNER_BIG_PETES": "true"
+        "EXPO_PUBLIC_PARTNER_BIG_PETES": "true",
+        "EXPO_PUBLIC_ACTIVE_PARTNER": "bigPetes"
       },
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.2",
@@ -62,7 +65,8 @@
         "USE_FRAMEWORKS": "static",
         "EXPO_PUBLIC_API_URL": "https://api.knowyourpit.com",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD": "pk_live_Y2xlcmsua25vd3lvdXJwaXQuY29tJA",
-        "EXPO_PUBLIC_PARTNER_BIG_PETES": "false"
+        "EXPO_PUBLIC_PARTNER_BIG_PETES": "false",
+        "EXPO_PUBLIC_ACTIVE_PARTNER": "bigPetes"
       }
     }
   },

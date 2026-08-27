@@ -1,4 +1,7 @@
-import { resolvePartnerVisibility } from "../useRemoteConfig";
+import {
+  resolveActivePartner,
+  resolvePartnerVisibility,
+} from "../useRemoteConfig";
 
 describe("partner-card build separation", () => {
   const serverEnabled = { partnerBigPetes: true };
@@ -20,5 +23,33 @@ describe("partner-card build separation", () => {
   it("uses the build-specific value until remote config is available", () => {
     expect(resolvePartnerVisibility(true, null)).toBe(true);
     expect(resolvePartnerVisibility(false, null)).toBe(false);
+  });
+
+  it("uses the configured alternate partner when the server selects it", () => {
+    expect(
+      resolveActivePartner("bigPetes", true, {
+        partnerBigPetes: true,
+        activePartner: "barbecueLab",
+      }),
+    ).toBe("barbecueLab");
+  });
+
+  it("keeps the build partner when older server versions omit activePartner", () => {
+    expect(resolveActivePartner("bigPetes", true, { partnerBigPetes: true })).toBe("bigPetes");
+  });
+
+  it("fails closed when the partner identity is invalid or the feature is off", () => {
+    expect(
+      resolveActivePartner("bigPetes", true, {
+        partnerBigPetes: true,
+        activePartner: "unknown-brand",
+      }),
+    ).toBeNull();
+    expect(
+      resolveActivePartner("barbecueLab", false, {
+        partnerBigPetes: true,
+        activePartner: "barbecueLab",
+      }),
+    ).toBeNull();
   });
 });

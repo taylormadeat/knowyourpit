@@ -96,7 +96,7 @@ import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { usePlanLoadingState } from "@/hooks/usePlanLoadingState";
 import { useMultiCookLoadingState } from "@/hooks/useMultiCookLoadingState";
 import { useRemoteConfig } from "@/hooks/useRemoteConfig";
-import { BigPetesSeasoningCard } from "@/components/partners/BigPetesSeasoningCard";
+import { PartnerSeasoningCard } from "@/components/partners/PartnerSeasoningCard";
 
 import { planStyles as s, probeCardStyles as sp } from "@/components/plan-screen/styles";
 import { PitMasterChatModal } from "@/components/PitMasterChatModal";
@@ -3807,9 +3807,10 @@ export default function PlanScreen() {
             {paywallUsage.remaining.plannedCooks} planned cook slot{paywallUsage.remaining.plannedCooks !== 1 ? "s" : ""} remaining
           </Text>
         )}
-        {/* ── Big Pete's seasoning card — contextual pairing for this cut ── */}
-        {remoteConfig.partnerBigPetes && selectedCut && (
-          <BigPetesSeasoningCard
+        {/* ── Featured partner seasoning card — contextual pairing for this cut ── */}
+        {remoteConfig.activePartner && selectedCut && (
+          <PartnerSeasoningCard
+            partnerId={remoteConfig.activePartner}
             planMode="single"
             cutCategory={selectedCut.category}
             cutName={selectedCut.name}
@@ -4012,8 +4013,9 @@ export default function PlanScreen() {
           }
         />
 
-        {remoteConfig.partnerBigPetes && multiItems.length > 0 && (
-          <BigPetesSeasoningCard
+        {remoteConfig.activePartner && multiItems.length > 0 && (
+          <PartnerSeasoningCard
+            partnerId={remoteConfig.activePartner}
             planMode="multi"
             cuts={multiItems.map(i => ({ category: i.cut.category, name: i.cut.name }))}
           />

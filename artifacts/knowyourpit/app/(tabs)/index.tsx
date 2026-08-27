@@ -18,7 +18,7 @@ import { Feather } from "@expo/vector-icons";
 import { useUser, useAuth } from "@clerk/expo";
 import { useColors } from "@/hooks/useColors";
 import { useRemoteConfig } from "@/hooks/useRemoteConfig";
-import { BigPetesHomeCard } from "@/components/partners/BigPetesHomeCard";
+import { PartnerHomeCard } from "@/components/partners/PartnerHomeCard";
 import { useTopInset } from "@/hooks/useTopInset";
 import { useLayout } from "@/hooks/useLayout";
 import { LogoBackground } from "@/components/LogoBackground";
@@ -842,9 +842,9 @@ export default function HomeScreen() {
           <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
         </Pressable>
 
-        {/* ── Big Pete's partner card — shown between PitMaster and Recent Cooks ── */}
-        {remoteConfig.partnerBigPetes && (
-          <BigPetesHomeCard />
+        {/* ── Featured partner card — shown between PitMaster and Recent Cooks ── */}
+        {remoteConfig.activePartner && (
+          <PartnerHomeCard partnerId={remoteConfig.activePartner} />
         )}
 
         {/* ── Recent Cooks ── */}

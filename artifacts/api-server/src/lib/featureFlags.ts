@@ -9,12 +9,29 @@
  * without any restart.
  */
 
+export const ACTIVE_PARTNERS = ["bigPetes", "barbecueLab"] as const;
+
+export type ActivePartner = (typeof ACTIVE_PARTNERS)[number];
+
 export type FeatureFlags = {
   partnerBigPetes: boolean;
+  activePartner: ActivePartner | null;
 };
 
+function readActivePartner(): ActivePartner | null {
+  const value = process.env.FEATURE_ACTIVE_PARTNER;
+  if (value === undefined) return "bigPetes";
+  return ACTIVE_PARTNERS.includes(value as ActivePartner)
+    ? value as ActivePartner
+    : null;
+}
+
+const activePartner = readActivePartner();
+
 const flags: FeatureFlags = {
-  partnerBigPetes: process.env.FEATURE_PARTNER_BIG_PETES !== "false",
+  partnerBigPetes:
+    activePartner !== null && process.env.FEATURE_PARTNER_BIG_PETES !== "false",
+  activePartner,
 };
 
 export function getFlags(): Readonly<FeatureFlags> {

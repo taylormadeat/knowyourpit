@@ -2,7 +2,11 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { z } from "zod";
 import { upsertEntitlementCache, invalidateProCache } from "../lib/paywall";
 import { logger } from "../lib/logger";
-import { getFlags, setFlag, type FeatureFlags } from "../lib/featureFlags";
+import {
+  ACTIVE_PARTNERS,
+  getFlags,
+  setFlag,
+} from "../lib/featureFlags";
 
 const router: IRouter = Router();
 
@@ -69,18 +73,23 @@ router.post("/admin/revoke-pro", requireAdmin, async (req, res): Promise<void> =
   res.json({ ok: true, userId, isPro: false });
 });
 
-const configBodySchema = z.object({
-  key: z.enum(["partnerBigPetes"] satisfies [keyof FeatureFlags, ...(keyof FeatureFlags)[]]),
-  value: z.boolean(),
-});
+const configBodySchema = z.discriminatedUnion("key", [
+  z.object({ key: z.literal("partnerBigPetes"), value: z.boolean() }),
+  z.object({
+    key: z.literal("activePartner"),
+    value: z.enum(ACTIVE_PARTNERS),
+  }),
+]);
 
 /**
  * POST /api/admin/config
  *
- * Flip a feature flag at runtime without a code change or redeploy.
+ * Flip partner visibility or select the active partner at runtime without a
+ * code change or redeploy.
  * Requires Authorization: Bearer <ADMIN_API_TOKEN>.
  *
  * Body: { "key": "partnerBigPetes", "value": false }
+ *    or { "key": "activePartner", "value": "barbecueLab" }
  */
 router.post("/admin/config", requireAdmin, (req, res): void => {
   const parsed = configBodySchema.safeParse(req.body);
@@ -89,9 +98,12 @@ router.post("/admin/config", requireAdmin, (req, res): void => {
     return;
   }
 
-  const { key, value } = parsed.data;
-  setFlag(key, value);
-  logger.info({ msg: "admin config flag set", key, value });
+  if (parsed.data.key === "partnerBigPetes") {
+    setFlag("partnerBigPetes", parsed.data.value);
+  } else {
+    setFlag("activePartner", parsed.data.value);
+  }
+  logger.info({ msg: "admin config flag set", key: parsed.data.key, value: parsed.data.value });
   res.json({ ok: true, flags: getFlags() });
 });
 
