@@ -3,10 +3,14 @@
 // injects the path automatically). Falls back to the local file for dev builds.
 
 /** @type {import('expo/config').ExpoConfig} */
+const APP_VERSION = "1.0.19";
+const IS_EXPO_GO_PREVIEW =
+  process.env.EXPO_PUBLIC_BROWSER_PREVIEW_MODE === "true";
+
 const config = {
   name: "knowyourpit",
   slug: "knowyourpit",
-  version: "1.0.19",
+  version: APP_VERSION,
   sdkVersion: "54.0.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
@@ -21,9 +25,7 @@ const config = {
   updates: {
     url: "https://u.expo.dev/21f048d2-8424-41d4-9e01-6395719bdc30",
   },
-  runtimeVersion: {
-    policy: "appVersion",
-  },
+  ...(IS_EXPO_GO_PREVIEW ? {} : { runtimeVersion: APP_VERSION }),
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.knowyourpit.app",
