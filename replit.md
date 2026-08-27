@@ -34,6 +34,11 @@ The Babel plugins responsible for the down-compilation live in `artifacts/knowyo
 
 ## Mobile UI Conventions
 
+- Before making a substantial mobile UI redesign the default, preserve the
+  approved baseline and put the new experience behind an explicit preview
+  mode/toggle. Keep both modes available for visual iteration until the owner
+  approves the redesign.
+
 ### Keyboard-safe modals
 Every modal or bottom sheet that contains a `TextInput` **must** use `AppKeyboardAvoidingView` instead of the raw React Native `KeyboardAvoidingView`. The component lives at `artifacts/knowyourpit/components/AppKeyboardAvoidingView.tsx` and has the correct cross-platform behavior baked in (`"padding"` on iOS, `"height"` on Android).
 

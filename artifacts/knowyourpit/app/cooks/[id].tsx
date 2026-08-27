@@ -84,8 +84,12 @@ import { UndoToast } from "@/components/cook-detail/UndoToast";
 LogBox.ignoreLogs(["ref.measureLayout must be called with a ref"]);
 const logoImg = require("@/assets/images/icon-transparent-light.png");
 
+import { useUIMode } from "@/contexts/UIModeContext";
+
 export default function CookDetailScreen() {
   const colors = useColors();
+  const { mode } = useUIMode();
+  const isPreview = mode === "preview";
   const insets = useSafeAreaInsets();
   const topPad = useTopInset();
   const botPad = useBottomInset();
@@ -260,7 +264,7 @@ export default function CookDetailScreen() {
         const afterUpdatedAt = (qc.getQueryData<any>(getGetCookQueryKey(cookIdNum)))?.updatedAt;
         if (!afterUpdatedAt || beforeUpdatedAt === afterUpdatedAt) return;
         if (planUpdatedToastTimerRef.current) clearTimeout(planUpdatedToastTimerRef.current);
-        setPlanUpdatedToast("Plan updated by PitMaster");
+        setPlanUpdatedToast("Plan updated by PitMaster ✓");
         planUpdatedToastTimerRef.current = setTimeout(() => setPlanUpdatedToast(null), 2500);
       })();
     });
@@ -533,7 +537,7 @@ export default function CookDetailScreen() {
       liveReadingsSeededRef.current = true;
     }
     if (checkinSavedToastTimerRef.current) clearTimeout(checkinSavedToastTimerRef.current);
-    setCheckinSavedToast("Check-in saved");
+    setCheckinSavedToast("Check-in saved ✓");
     checkinSavedToastTimerRef.current = setTimeout(() => setCheckinSavedToast(null), 2000);
     pendingWrapClearRef.current = true;
     qc.invalidateQueries({ queryKey: getGetCookQueryKey(Number(id)) });
@@ -676,18 +680,18 @@ export default function CookDetailScreen() {
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
       <LogoBackground opacity={0.04} />
-      <LinearGradient colors={["#1C1C1F", "#2D1A0E"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[s.header, { paddingTop: topPad + 14 }]}>
+      <LinearGradient colors={isPreview ? [colors.background, colors.background] : ["#1C1C1F", "#2D1A0E"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[s.header, { paddingTop: topPad + 14, borderBottomWidth: isPreview ? 1 : 0, borderBottomColor: colors.border }]}>
         <LogoBackground opacity={0.06} />
-        <Pressable onPress={goBack} style={s.backBtn}><Feather name="chevron-left" size={24} color="#F3EDE1" /></Pressable>
-        <Text style={s.headerTitle} numberOfLines={1}>{c.foodType || "Cook"}</Text>
+        <Pressable onPress={goBack} style={s.backBtn}><Feather name="chevron-left" size={24} color={isPreview ? colors.foreground : "#F3EDE1"} /></Pressable>
+        <Text style={[s.headerTitle, { color: isPreview ? colors.foreground : "#F3EDE1" }]} numberOfLines={1}>{c.foodType || "Cook"}</Text>
         <View style={s.headerRight}>
-          {cookStatus === "active" && <Pressable onPress={() => setEditTimesVisible(true)} style={[s.editBtn, { marginRight: 2 }]} hitSlop={8}><Feather name="clock" size={17} color="#F3EDE1" /></Pressable>}
-          <Pressable onPress={openEdit} style={s.editBtn} hitSlop={8}><Feather name="edit-2" size={17} color="#F3EDE1" /></Pressable>
+          {cookStatus === "active" && <Pressable onPress={() => setEditTimesVisible(true)} style={[s.editBtn, { marginRight: 2 }]} hitSlop={8}><Feather name="clock" size={17} color={isPreview ? colors.foreground : "#F3EDE1"} /></Pressable>}
+          <Pressable onPress={openEdit} style={s.editBtn} hitSlop={8}><Feather name="edit-2" size={17} color={isPreview ? colors.foreground : "#F3EDE1"} /></Pressable>
           <Pressable onPress={handleDelete} style={s.delBtn}><Feather name="trash-2" size={18} color="#ef4444" /></Pressable>
           <Pressable onPress={goHome} hitSlop={8}><Image source={logoImg} style={s.headerLogo} resizeMode="contain" /></Pressable>
         </View>
       </LinearGradient>
-      <View style={s.fireBar} />
+      {!isPreview && <View style={s.fireBar} />}
 
       <NextUpBanner nextStep={nextStep} cookSeqData={cookSeqData} nowMs={nowMs} />
 
@@ -713,36 +717,38 @@ export default function CookDetailScreen() {
 
       <ScrollView ref={scheduleScrollViewRef} contentContainerStyle={{ padding: 20, paddingBottom: botPad + 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={isTablet ? { width: "100%", maxWidth: detailMaxWidth, alignSelf: "center", gap: 16 } : null}>
-
-          {(() => {
-            const cmpCookStatus = (<CookStatusSection
+          <CookStatusSection
             c={c} colors={colors} cookStatus={cookStatus} statusColor={statusColor}
             id={id!} dismissCookOutlier={dismissCookOutlier}
             cookSeqData={cookSeqData}
             effectiveMeatOnMs={effectiveMeatOnMs} nowMs={nowMs}
             handleMarkThawStarted={handleMarkThawStarted} markingThaw={markingThaw}
-          />);
-            const cmpLiveProbe = (<LiveProbeSection
+          />
+
+          <LiveProbeSection
             cookStatus={cookStatus} tempMode={tempMode}
             selectedBleContextDevice={selectedBleContextDevice}
             selectedLanProbe={selectedLanProbe}
             selectedInkbirdProbe={selectedInkbirdProbe}
             currentPitTempF={currentPitTempF}
-          />);
-            const cmpSummary = (<CookSummaryCard c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs}
+          />
+
+          <CookSummaryCard c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs}
             healthGrade={cookHealth?.grade ?? null}
             rating={(() => { const liveVals = [rateTenderness, rateFlavor, rateBark].filter((v) => v > 0); if (liveVals.length > 0) return liveVals.reduce((a, b) => a + b, 0) / liveVals.length; const r = (c as any).rating; return typeof r === "number" && r > 0 ? r : null; })()}
             onOpenHealthBreakdown={() => setHealthBreakdownOpen(true)}
-          />);
-            const cmpAnalysis = (<CookAnalysisSection
+          />
+
+          <CookAnalysisSection
             colors={colors} cookStatus={cookStatus}
             proactiveCoachingNote={proactiveCoachingNote}
             setProactiveCoachingNote={setProactiveCoachingNote}
             cookId={Number(id)}
             healthBreakdownOpen={cookStatus === "completed" ? healthBreakdownOpen : undefined}
             onHealthBreakdownOpenHandled={cookStatus === "completed" ? () => setHealthBreakdownOpen(false) : undefined}
-          />);
-            const cmpLiveCook = (<LiveCookSection
+          />
+
+          <LiveCookSection
             c={c} colors={colors} weather={weather}
             inkbirdProbes={inkbirdProbes} bleContextDevices={bleContextDevices} lanProbes={lanProbes}
             lanMdnsAvailable={lanMdnsAvailable} lanMdnsScanEmpty={lanMdnsScanEmpty} lanScanning={lanScanning}
@@ -797,21 +803,24 @@ export default function CookDetailScreen() {
             lastDecision={cookStatus === "active" ? (c.analysisResult?.decisions?.[0] ?? null) : null}
             healthBreakdownOpen={healthBreakdownOpen}
             onHealthBreakdownOpenHandled={() => setHealthBreakdownOpen(false)}
-          />);
-            const cmpStartBtn = (<>{cookStatus === "planned" && (
+          />
+
+          {cookStatus === "planned" && (
             <>
               <Pressable style={({ pressed }) => [s.actionBtn, { backgroundColor: STATUS_COLORS["active"] || colors.primary, borderRadius: colors.radius, marginTop: 4 }, (updateCook.isPending || pressed) && { opacity: 0.7 }]} onPress={() => handleStatusUpdate("active")} disabled={updateCook.isPending}>
                 {updateCook.isPending ? <ActivityIndicator color="#fff" /> : <><Feather name={startCookIcon as any} size={18} color="#fff" /><Text style={s.actionText}>{startCookLabel}</Text></>}
               </Pressable>
               {startCookCaption && <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, textAlign: "center", marginTop: 6, paddingHorizontal: 8, lineHeight: 17 }}>{startCookCaption}</Text>}
             </>
-          )}</>);
-            const cmpAddToSession = (<>{cookStatus === "planned" && !(cook as any)?.sessionId && (
+          )}
+
+          {cookStatus === "planned" && !(cook as any)?.sessionId && (
             <Pressable onPress={() => setAddToSessionOpen(true)} style={({ pressed }) => [{ flexDirection: "row" as const, alignItems: "center" as const, gap: 10, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: colors.radius, paddingHorizontal: 16, paddingVertical: 13, marginTop: 8, opacity: pressed ? 0.7 : 1 }]}>
               <Feather name="plus-circle" size={16} color={colors.primary} /><Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.foreground, flex: 1 }}>Add to planned cook</Text><Feather name="chevron-right" size={14} color={colors.mutedForeground} />
             </Pressable>
-          )}</>);
-            const cmpAddItem = (<>{cookStatus === "active" && (
+          )}
+
+          {cookStatus === "active" && (
             <Pressable
               onPress={() => setAddItemModalOpen(true)}
               style={({ pressed }) => ({
@@ -832,8 +841,9 @@ export default function CookDetailScreen() {
               <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 14, color: colors.foreground, flex: 1 }}>Add item to this cook</Text>
               <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
             </Pressable>
-          )}</>);
-            const cmpPitTip = (<>{(() => {
+          )}
+
+          {(() => {
             const foodType = c.foodType ?? "";
             const matchedCut = MEAT_CUTS.find(
               (cut) => cut.name.toLowerCase() === foodType.toLowerCase(),
@@ -867,8 +877,9 @@ export default function CookDetailScreen() {
                 <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: colors.foreground, lineHeight: 19 }}>{tip}</Text>
               </View>
             );
-          })()}</>);
-            const cmpTechniques = (<TechniquesSection
+          })()}
+
+          <TechniquesSection
             c={c} colors={colors} id={id!}
             techsExpanded={techsExpanded} setTechsExpanded={setTechsExpanded}
             techMethodSheetOpen={techMethodSheetOpen} setTechMethodSheetOpen={setTechMethodSheetOpen}
@@ -876,15 +887,17 @@ export default function CookDetailScreen() {
             techSpritzSheetOpen={techSpritzSheetOpen} setTechSpritzSheetOpen={setTechSpritzSheetOpen}
             techWrapFinishSheetOpen={techWrapFinishSheetOpen} setTechWrapFinishSheetOpen={setTechWrapFinishSheetOpen}
             saveTechnique={saveTechnique} updateCookMutate={updateCook.mutateAsync}
-          />);
-            const cmpAddItemWarning = (<>{addItemWarning && (
+          />
+
+          {addItemWarning && (
             <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: "#F9731618", borderWidth: 1, borderColor: "#F9731650", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}>
               <Feather name="alert-triangle" size={14} color="#F97316" style={{ marginTop: 1 }} />
               <Text style={{ flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#F97316", lineHeight: 19 }}>{addItemWarning}</Text>
               <Pressable onPress={() => setAddItemWarning(null)} hitSlop={10}><Feather name="x" size={13} color="#F97316" /></Pressable>
             </View>
-          )}</>);
-            const cmpTimeline = (<CookTimelineSection
+          )}
+
+          <CookTimelineSection
             c={c} colors={colors} cookStatus={cookStatus} nowMs={nowMs} id={id}
             cookSeqData={cookSeqData} nextStep={nextStep}
             seqScheduleExpanded={seqScheduleExpanded} setSeqScheduleExpanded={setSeqScheduleExpanded}
@@ -904,70 +917,20 @@ export default function CookDetailScreen() {
             probeIntervalMs={probeIntervalMs}
             setRemovedPlannedKeys={setRemovedPlannedKeys}
             cancelCheckinNotificationForPhase={cancelCheckinNotificationForPhase}
-          />);
-            const cmpCook2Nudge = (<Cook2NudgeBanner cookStatus={cookStatus} colors={colors} effectivePro={effectivePro} showPaywall={showPaywall as any} foodType={cook?.foodType ?? null} />);
-            const cmpRateThisCook = (<RateThisCook c={c} colors={colors} rateTenderness={rateTenderness} setRateTenderness={setRateTenderness} rateFlavor={rateFlavor} setRateFlavor={setRateFlavor} rateBark={rateBark} setRateBark={setRateBark} rateSaving={rateSaving} saveRatings={saveRatings} cookingMethod={c?.cookingMethod} />);
-            const cmpShareCook = (<ShareCookButton cook={c} colors={colors} />);
-            const cmpNextStatus = (<>{nextStatus && cookStatus !== "planned" && (
+          />
+
+          <Cook2NudgeBanner cookStatus={cookStatus} colors={colors} effectivePro={effectivePro} showPaywall={showPaywall as any} foodType={cook?.foodType ?? null} />
+
+          <RateThisCook c={c} colors={colors} rateTenderness={rateTenderness} setRateTenderness={setRateTenderness} rateFlavor={rateFlavor} setRateFlavor={setRateFlavor} rateBark={rateBark} setRateBark={setRateBark} rateSaving={rateSaving} saveRatings={saveRatings} cookingMethod={c?.cookingMethod} />
+          <ShareCookButton cook={c} colors={colors} />
+
+          {nextStatus && cookStatus !== "planned" && (
             <Pressable style={({ pressed }) => [s.actionBtn, { backgroundColor: statusColor, borderRadius: colors.radius }, (updateCook.isPending || pressed) && { opacity: 0.7 }]} onPress={() => handleStatusUpdate(nextStatus)} disabled={updateCook.isPending}>
               {updateCook.isPending ? <ActivityIndicator color="#fff" /> : <><Feather name={nextStatus === "active" ? "play" : "check-circle"} size={18} color="#fff" /><Text style={s.actionText}>{nextStatus === "active" ? "Start Cook" : "Mark Complete"}</Text></>}
             </Pressable>
-          )}</>);
-            const cmpHomeLink = (<Pressable onPress={goHome} style={s.homeLink}><Feather name="home" size={14} color={colors.mutedForeground} /><Text style={[s.homeLinkText, { color: colors.mutedForeground }]}>Back to Home</Text></Pressable>);
-
-            if (cookStatus === "active") {
-              return (
-                <>
-                  <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.mutedForeground, marginTop: 4, marginBottom: -8, textTransform: "uppercase", letterSpacing: 0.5 }}>Current Status</Text>
-                  {cmpCookStatus}
-                  {cmpLiveProbe}
-                  {cmpLiveCook}
-                  {cmpAddItemWarning}
-                  {cmpAddItem}
-                  {cmpPitTip}
-                  <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.mutedForeground, marginTop: 12, marginBottom: -8, textTransform: "uppercase", letterSpacing: 0.5 }}>Timeline & Details</Text>
-                  {cmpTimeline}
-                  {cmpTechniques}
-                  {cmpAnalysis}
-                  {cmpNextStatus}
-                  {cmpHomeLink}
-                </>
-              );
-            } else if (cookStatus === "planned") {
-              return (
-                <>
-                  <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.mutedForeground, marginTop: 4, marginBottom: -8, textTransform: "uppercase", letterSpacing: 0.5 }}>Plan Summary</Text>
-                  {cmpCookStatus}
-                  {cmpStartBtn}
-                  {cmpAddToSession}
-                  <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.mutedForeground, marginTop: 12, marginBottom: -8, textTransform: "uppercase", letterSpacing: 0.5 }}>Details</Text>
-                  {cmpTimeline}
-                  {cmpTechniques}
-                  {cmpAnalysis}
-                  {cmpPitTip}
-                  {cmpHomeLink}
-                </>
-              );
-            } else {
-              return (
-                <>
-                  <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.mutedForeground, marginTop: 4, marginBottom: -8, textTransform: "uppercase", letterSpacing: 0.5 }}>Outcome</Text>
-                  {cmpCookStatus}
-                  {cmpSummary}
-                  {cmpRateThisCook}
-                  <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.mutedForeground, marginTop: 12, marginBottom: -8, textTransform: "uppercase", letterSpacing: 0.5 }}>Analysis & Timeline</Text>
-                  {cmpAnalysis}
-                  {cmpTimeline}
-                  {cmpTechniques}
-                  {cmpCook2Nudge}
-                  {cmpShareCook}
-                  {cmpHomeLink}
-                </>
-              );
-            }
-          })()}
-
-</View>
+          )}
+          <Pressable onPress={goHome} style={s.homeLink}><Feather name="home" size={14} color={colors.mutedForeground} /><Text style={[s.homeLinkText, { color: colors.mutedForeground }]}>Back to Home</Text></Pressable>
+        </View>
       </ScrollView>
 
       {/* ── Sheets & Modals ────────────────────────────────────────────────── */}

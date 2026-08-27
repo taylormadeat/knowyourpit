@@ -59,7 +59,7 @@ export function MultiCookBanner({ cooks, nowMs, onPressCook }: MultiCookBannerPr
       <View style={styles.headerRow}>
         <View style={styles.dot} />
         <Text style={styles.headerText} numberOfLines={1}>
-          Now cooking · {cooks.length} cooks
+          🔥 Now cooking · {cooks.length} cooks
         </Text>
       </View>
       {cooks.map((cook) => {

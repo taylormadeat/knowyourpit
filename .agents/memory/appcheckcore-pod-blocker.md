@@ -1,11 +1,26 @@
 ---
-name: EAS pod install blocker — root cause found
-description: The 2026-08 "Install pods" failures were NOT AppCheckCore; a config plugin wrote an unquoted sourceTree = <group> into the pbxproj.
+name: EAS iOS pod blockers
+description: How to distinguish Xcode-project parse failures from RevenueCat AppCheck module failures in fresh EAS builds.
 ---
-RESOLVED (2026-08-11). Every fresh `pod install` on EAS failed in ~80s with a CocoaPods parse error: `Data missing closing '>'` on a manually injected PBXFileReference.
 
-**Root cause:** a custom Expo config plugin that manually registers a file in the Xcode project set `sourceTree: "<group>"` as a plain JS string. The `xcode` lib serializes values literally, so the pbxproj got `sourceTree = <group>;` (unquoted), which CocoaPods' parser cannot read. The value must be pre-quoted in JS: `sourceTree: '"<group>"'`.
+Treat these as two separate failure classes:
 
-**Why it was hard to find:** earlier builds passed only via the EAS pod cache (cache hit skips the parse); EAS log downloads via curl are undecodable binary — the actual error was only visible in the browser UI (asking the user to paste it broke the deadlock).
+1. A CocoaPods `Data missing closing '>'` parse error comes from an invalid
+   generated pbxproj. Any xcode-lib value containing special syntax such as
+   `<group>` must be pre-quoted before serialization.
+2. An AppCheckCore error saying GoogleUtilities and RecaptchaInterop do not
+   define modules is a linkage mismatch. Simulator development builds must use
+   the same static-framework linkage as the proven production profile.
 
-**How to apply:** when injecting entries into `project.hash.project.objects` with the `xcode` lib, embed quotes in any value containing special chars (`<group>`, paths with spaces/dashes). Verify by grepping the generated pbxproj after `expo prebuild`. AppCheckCore, react-native-purchases version, and RCT_USE_PREBUILT_RNCORE were all red herrings — reverted.
+Do not try to solve the second failure by pinning RevenueCat below 5.55.3 while
+using PurchasesHybridCommon 17.29.0. That wrapper requires RevenueCat 5.55.3
+exactly, so the pin creates an unsatisfiable CocoaPods graph.
+
+**Why:** Both failures appear during `Install pods`, but they have unrelated
+causes. Conflating them led to a contradictory RevenueCat pin and repeated cloud
+build failures.
+
+**How to apply:** Read the exact pod-install message. Fix malformed pbxproj
+serialization only for parser errors. For AppCheck module errors, align the
+development simulator linkage with production and leave the wrapper's exact
+RevenueCat dependency intact.

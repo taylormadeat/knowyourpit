@@ -193,7 +193,7 @@ export function ActiveCookCard({ activeCook, nowMs, insights }: ActiveCookCardPr
           <Animated.View style={{ opacity: pulseAnim, alignSelf: "flex-start" }}>
             <Pressable
               style={({ pressed }) => [s.checkinRow, pressed && { opacity: 0.7 }]}
-              hitSlop={15}
+              hitSlop={8}
               onPress={(e) => {
                 e.stopPropagation();
                 setPendingCheckin({

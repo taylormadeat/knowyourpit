@@ -588,7 +588,7 @@ export function CheckinModal({
           {phase.isVisualMilestone && (
             <View style={{ backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 12 }}>
               <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: colors.foreground }}>
-                Visual Milestone
+                📸 Visual Milestone
               </Text>
               <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
                 This is a great moment to capture a photo of your bark, smoke ring, or cook progress.

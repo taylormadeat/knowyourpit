@@ -72,12 +72,9 @@ export function SettingsRow({
               {value ?? placeholder}
             </Text>
             {recommended && value ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2 }}>
-                <Feather name="star" size={10} color={colors.primary} fill={colors.primary} />
-                <Text style={[sr.badge, { color: colors.primary, marginTop: 0 }]}>
-                  Suggested
-                </Text>
-              </View>
+              <Text style={[sr.badge, { color: colors.primary }]}>
+                ★ Suggested
+              </Text>
             ) : null}
           </View>
         )}

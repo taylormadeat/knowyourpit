@@ -26,6 +26,7 @@ import { setPendingCheckin } from "@/lib/pendingCheckinNotif";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BootDiagnostic } from "@/components/BootDiagnostic";
 import { CACHE_STORAGE_KEY, PERSIST_CACHE_KEY_V2, PERSIST_CACHE_BUSTER } from "@/constants/cache";
+import { UIModeProvider } from "@/contexts/UIModeContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { PaywallProvider } from "@/contexts/PaywallContext";
 import { BleProbeProvider } from "@/contexts/BleProbeContext";
@@ -638,6 +639,12 @@ export default function RootLayout() {
 
   if (!fontsLoaded && !fontError && !webReady) return null;
 
+  // ErrorBoundary wraps every provider that can throw during native
+  // initialisation. UIModeProvider intentionally sits outside it because
+  // ErrorFallback consumes useColors(), which depends on the UI mode context.
+  // The mode provider only performs a guarded AsyncStorage read and does not
+  // initialise native UI modules.
+  //
   // ErrorBoundary now wraps every other provider — including
   // KeyboardProvider and ClerkProvider — so an error thrown during *any*
   // provider's own initialisation surfaces to a visible fallback instead
@@ -650,29 +657,31 @@ export default function RootLayout() {
   // if it were inside the boundary.
   return (
     <SafeAreaProvider>
-      <ErrorBoundary
-        onError={(error, componentStack) => {
-          // Persist React render errors so they survive a manual reload
-          // and are visible on the next launch's diagnostic screen.
-          persistBootError(error, componentStack);
-        }}
-      >
-        <KeyboardProviderOrFragment>
-          <ClerkProvider
-            publishableKey={clerkPubKey}
-            tokenCache={Platform.OS !== "web" ? safeTokenCache : undefined}
-            {...(clerkProxyUrl ? { proxyUrl: clerkProxyUrl } : {})}
-          >
-            <ClerkGatedShell
-              onReady={() => setClerkReady(true)}
+      <UIModeProvider>
+        <ErrorBoundary
+          onError={(error, componentStack) => {
+            // Persist React render errors so they survive a manual reload
+            // and are visible on the next launch's diagnostic screen.
+            persistBootError(error, componentStack);
+          }}
+        >
+          <KeyboardProviderOrFragment>
+            <ClerkProvider
               publishableKey={clerkPubKey}
-              bootErrorText={bootErrorText}
-              proceedAnyway={proceedAnyway}
-              onProceedAnyway={() => setProceedAnyway(true)}
-            />
-          </ClerkProvider>
-        </KeyboardProviderOrFragment>
-      </ErrorBoundary>
+              tokenCache={Platform.OS !== "web" ? safeTokenCache : undefined}
+              {...(clerkProxyUrl ? { proxyUrl: clerkProxyUrl } : {})}
+            >
+              <ClerkGatedShell
+                onReady={() => setClerkReady(true)}
+                publishableKey={clerkPubKey}
+                bootErrorText={bootErrorText}
+                proceedAnyway={proceedAnyway}
+                onProceedAnyway={() => setProceedAnyway(true)}
+              />
+            </ClerkProvider>
+          </KeyboardProviderOrFragment>
+        </ErrorBoundary>
+      </UIModeProvider>
     </SafeAreaProvider>
   );
 }

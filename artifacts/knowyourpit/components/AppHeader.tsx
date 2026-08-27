@@ -1,12 +1,12 @@
 import React from "react";
-import { View, Text, Image, StyleSheet, Pressable, Platform } from "react-native";
+import { View, Text, Image, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTopInset } from "@/hooks/useTopInset";
+import { useUIMode } from "@/contexts/UIModeContext";
 import { LogoBackground } from "@/components/LogoBackground";
-import { WEB_PREVIEW_TOP_OFFSET } from "@/constants/layout";
 
 const logoImg = require("@/assets/images/icon-transparent-light.png");
 
@@ -20,22 +20,17 @@ interface AppHeaderProps {
 export function AppHeader({ title, showBack = false, right, dark = false }: AppHeaderProps) {
   const colors = useColors();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const topPad = useTopInset();
+  const { mode } = useUIMode();
+  const isPreview = mode === "preview";
 
-  const isWeb = Platform.OS === "web";
-  const topPad = insets.top + (isWeb ? WEB_PREVIEW_TOP_OFFSET : 0);
-
-  const textColor = colors.foreground;
-  const gradientStart = dark ? colors.card : colors.card;
-  const gradientEnd = dark ? colors.background : colors.background;
+  const textColor = isPreview ? colors.foreground : (dark ? "#F3EDE1" : colors.foreground);
 
   const logoClickable = (
     <Pressable
       onPress={() => router.replace("/(tabs)" as any)}
       hitSlop={10}
       style={s.logoBtn}
-      accessibilityRole="button"
-      accessibilityLabel="Go to home"
     >
       <Image source={logoImg} style={s.logo} resizeMode="contain" />
     </Pressable>
@@ -52,30 +47,23 @@ export function AppHeader({ title, showBack = false, right, dark = false }: AppH
       }}
       style={s.backBtn}
       hitSlop={8}
-      accessibilityRole="button"
-      accessibilityLabel="Go back"
     >
-      <Feather name="chevron-left" size={28} color={textColor} />
+      <Feather name="chevron-left" size={24} color={textColor} />
     </Pressable>
   );
 
   const inner = (
-    <View style={[s.row, { paddingTop: topPad + 14 }]}>
+    <View style={[s.row, { paddingTop: topPad + (isPreview ? 24 : 14) }]}>
       {showBack ? backBtn : logoClickable}
 
-      <Text style={[s.title, { color: textColor }]} numberOfLines={1}>
+      <Text style={[s.title, { color: textColor, fontSize: isPreview ? 24 : 20 }]} numberOfLines={1}>
         {title}
       </Text>
 
       {right ? (
         <View style={s.rightSlot}>{right}</View>
       ) : showBack ? (
-        <Pressable
-          onPress={() => router.replace("/(tabs)" as any)}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Go to home"
-        >
+        <Pressable onPress={() => router.replace("/(tabs)" as any)} hitSlop={8}>
           <Image source={logoImg} style={s.logoSmall} resizeMode="contain" />
         </Pressable>
       ) : (
@@ -84,15 +72,23 @@ export function AppHeader({ title, showBack = false, right, dark = false }: AppH
     </View>
   );
 
+  if (isPreview) {
+    return (
+      <View style={[s.container, { paddingBottom: 20, backgroundColor: colors.background, borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+        {inner}
+      </View>
+    );
+  }
+
   if (dark) {
     return (
       <LinearGradient
-        colors={[gradientStart, gradientEnd]}
+        colors={["#1C1C1F", "#2D1A0E"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[s.container, s.gradientBorder, { borderBottomColor: colors.primary }]}
+        style={[s.container, s.gradientBorder]}
       >
-        <LogoBackground opacity={0.03} />
+        <LogoBackground opacity={0.06} />
         {inner}
       </LinearGradient>
     );
@@ -112,48 +108,46 @@ export function AppHeader({ title, showBack = false, right, dark = false }: AppH
 
 const s = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingBottom: 14,
     overflow: "hidden",
   },
   gradientBorder: {
     borderBottomWidth: 2,
+    borderBottomColor: "#E84820",
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   logo: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
   },
   logoSmall: {
-    width: 30,
-    height: 30,
+    width: 28,
+    height: 28,
     opacity: 0.85,
   },
   logoBtn: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 34,
+    height: 34,
   },
   backBtn: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: -4,
   },
   title: {
     flex: 1,
-    fontSize: 22,
+    fontSize: 20,
     fontFamily: "Inter_700Bold",
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
   },
   rightSlot: {
-    minWidth: 36,
+    minWidth: 34,
     alignItems: "flex-end",
   },
 });

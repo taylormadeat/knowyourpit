@@ -8,7 +8,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_PARTNER_BIG_PETES": "true"
+        "EXPO_PUBLIC_PARTNER_BIG_PETES": "true",
+        "USE_FRAMEWORKS": "static"
       },
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.2",

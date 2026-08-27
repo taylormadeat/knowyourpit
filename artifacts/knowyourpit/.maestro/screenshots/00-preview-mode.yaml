@@ -1,0 +1,18 @@
+appId: com.knowyourpit.app
+---
+# App Store and marketing captures intentionally use the redesign while
+# Legacy remains the default experience for ordinary installs.
+- tapOn:
+    text: "More"
+- scrollUntilVisible:
+    element:
+      text: "Preview Mode"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    text: "Preview app design"
+- tapOn:
+    text: "Home"
+- assertVisible:
+    text: "FIRE CONTROL"
+    timeout: 10000

@@ -53,9 +53,6 @@ export function RateThisCook(p: Props) {
             {[1, 2, 3, 4, 5].map((star) => (
               <Pressable
                 key={star}
-                accessibilityRole="button"
-                accessibilityLabel={`Rate ${row.label} ${star} star${star > 1 ? "s" : ""}`}
-                accessibilityState={{ selected: star <= row.value, disabled: rateSaving }}
                 onPress={() => {
                   const newVal = star === row.value ? 0 : star;
                   row.setter(newVal);
@@ -67,13 +64,9 @@ export function RateThisCook(p: Props) {
                 hitSlop={6}
                 disabled={rateSaving}
               >
-                <Feather
-                  name="star"
-                  size={24}
-                  color={star <= row.value ? "#eab308" : colors.border}
-                  fill={star <= row.value ? "#eab308" : "transparent"}
-                  style={{ opacity: rateSaving ? 0.5 : 1, marginHorizontal: 2 }}
-                />
+                <Text style={[s.star, { color: star <= row.value ? "#eab308" : colors.border, opacity: rateSaving ? 0.5 : 1 }]}>
+                  {star <= row.value ? "★" : "☆"}
+                </Text>
               </Pressable>
             ))}
           </View>

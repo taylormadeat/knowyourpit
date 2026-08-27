@@ -25,6 +25,9 @@ import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useEffectivePro } from "@/hooks/useEffectivePro";
 import { SupportModal } from "@/components/SupportModal";
 import { getAccountDisplayIdentity, isAppleAccount } from "@/utils/accountIdentity";
+import { useUIMode } from "@/contexts/UIModeContext";
+import { Switch } from "react-native";
+import { PreviewSurface, PreviewSectionHeader, PreviewAction } from "@/components/preview/PreviewPrimitives";
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -68,6 +71,7 @@ export default function MoreScreen() {
   const { isTablet, contentMaxWidth } = useLayout();
   const accountIdentity = getAccountDisplayIdentity(user);
   const appleAccount = isAppleAccount(user);
+  const { mode, setMode } = useUIMode();
 
   const handleRestorePurchases = async () => {
     const { success, error } = await restorePurchases();
@@ -342,26 +346,52 @@ export default function MoreScreen() {
 
         {MENU_SECTIONS.map((section) => (
           <View key={section.title} style={s.section}>
-            <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>{section.title}</Text>
-            <View style={[s.sectionCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-              {section.items.map((item, idx) => (
-                <React.Fragment key={item.label}>
-                  <Pressable
-                    style={({ pressed }) => [s.menuItem, pressed && { opacity: 0.7 }]}
-                    onPress={() => router.push(item.route as any)}
-                  >
-                    <View style={[s.menuIcon, { backgroundColor: colors.primary + "20" }]}>
-                      <Feather name={item.icon as any} size={16} color={colors.primary} />
-                    </View>
-                    <Text style={[s.menuLabel, { color: colors.foreground }]}>{item.label}</Text>
-                    <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
-                  </Pressable>
-                  {idx < section.items.length - 1 && (
-                    <View style={[s.divider, { backgroundColor: colors.border }]} />
-                  )}
-                </React.Fragment>
-              ))}
-            </View>
+            {mode === "preview" ? (
+              <PreviewSectionHeader colors={colors} title={section.title} style={{ paddingHorizontal: 20 }} />
+            ) : (
+              <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>{section.title}</Text>
+            )}
+            {mode === "preview" ? (
+              <PreviewSurface colors={colors} style={{ marginHorizontal: 16 }}>
+                {section.items.map((item, idx) => (
+                  <React.Fragment key={item.label}>
+                    <Pressable
+                      style={({ pressed }) => [s.menuItem, pressed && { opacity: 0.7 }]}
+                      onPress={() => router.push(item.route as any)}
+                    >
+                      <View style={[s.menuIcon, { backgroundColor: colors.accent }]}>
+                        <Feather name={item.icon as any} size={16} color={colors.primary} />
+                      </View>
+                      <Text style={[s.menuLabel, { color: colors.foreground }]}>{item.label}</Text>
+                      <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+                    </Pressable>
+                    {idx < section.items.length - 1 && (
+                      <View style={[s.divider, { backgroundColor: colors.border }]} />
+                    )}
+                  </React.Fragment>
+                ))}
+              </PreviewSurface>
+            ) : (
+              <View style={[s.sectionCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                {section.items.map((item, idx) => (
+                  <React.Fragment key={item.label}>
+                    <Pressable
+                      style={({ pressed }) => [s.menuItem, pressed && { opacity: 0.7 }]}
+                      onPress={() => router.push(item.route as any)}
+                    >
+                      <View style={[s.menuIcon, { backgroundColor: colors.primary + "20" }]}>
+                        <Feather name={item.icon as any} size={16} color={colors.primary} />
+                      </View>
+                      <Text style={[s.menuLabel, { color: colors.foreground }]}>{item.label}</Text>
+                      <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+                    </Pressable>
+                    {idx < section.items.length - 1 && (
+                      <View style={[s.divider, { backgroundColor: colors.border }]} />
+                    )}
+                  </React.Fragment>
+                ))}
+              </View>
+            )}
           </View>
         ))}
 
@@ -389,6 +419,30 @@ export default function MoreScreen() {
               <Text style={[s.menuLabel, { color: colors.foreground }]}>Contact support</Text>
               <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
             </Pressable>
+          </View>
+        </View>
+
+        <View style={s.section}>
+          <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>App Experience</Text>
+          <View style={[s.sectionCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            <View style={[s.menuItem, { paddingVertical: 10 }]}>
+              <View style={[s.menuIcon, { backgroundColor: colors.primary + "20" }]}>
+                <Feather name="layout" size={16} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.menuLabel, { color: colors.foreground }]}>Preview Mode</Text>
+                <Text style={{ fontSize: 11, color: colors.mutedForeground, marginTop: 2 }}>New app design</Text>
+              </View>
+              <Switch
+                value={mode === "preview"}
+                onValueChange={(val) => setMode(val ? "preview" : "legacy")}
+                trackColor={{ true: colors.primary, false: colors.border }}
+                accessibilityRole="switch"
+                accessibilityLabel="Preview app design"
+                accessibilityHint="Switches between the approved Legacy design and the new Preview design"
+                accessibilityState={{ checked: mode === "preview" }}
+              />
+            </View>
           </View>
         </View>
 
@@ -477,48 +531,48 @@ const s = StyleSheet.create({
   container: { flex: 1 },
   profileCard: {
     flexDirection: "row", alignItems: "center", gap: 14,
-    marginHorizontal: 16, marginBottom: 24, padding: 18, borderWidth: 1,
+    marginHorizontal: 16, marginBottom: 20, padding: 16, borderWidth: 1,
   },
   subscriptionCard: {
     flexDirection: "row", alignItems: "center", gap: 14,
-    marginHorizontal: 16, marginBottom: 12, padding: 18, borderWidth: 1.5,
+    marginHorizontal: 16, marginBottom: 12, padding: 16, borderWidth: 1.5,
   },
-  subscriptionIcon: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  subscriptionTitle: { fontSize: 16, fontFamily: "Inter_700Bold", marginBottom: 2, letterSpacing: -0.3 },
+  subscriptionIcon: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  subscriptionTitle: { fontSize: 16, fontFamily: "Inter_700Bold", marginBottom: 2 },
   subscriptionSub: { fontSize: 13, fontFamily: "Inter_400Regular" },
-  avatar: { width: 50, height: 50, borderRadius: 25, alignItems: "center", justifyContent: "center" },
+  avatar: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
   avatarText: { fontSize: 20, fontFamily: "Inter_700Bold", color: "#fff" },
   profileInfo: { flex: 1 },
-  profileName: { fontSize: 17, fontFamily: "Inter_600SemiBold", marginBottom: 2, letterSpacing: -0.3 },
-  profileEmail: { fontSize: 14, fontFamily: "Inter_400Regular" },
-  section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 12, fontFamily: "Inter_700Bold", paddingHorizontal: 20, paddingBottom: 10, letterSpacing: 0.8, textTransform: "uppercase" },
+  profileName: { fontSize: 16, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
+  profileEmail: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  section: { marginBottom: 20 },
+  sectionTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold", paddingHorizontal: 20, paddingBottom: 8, letterSpacing: 0.5, textTransform: "uppercase" },
   sectionCard: { marginHorizontal: 16, borderWidth: 1, overflow: "hidden" },
-  menuItem: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16 },
-  menuIcon: { width: 34, height: 34, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  menuItem: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
+  menuIcon: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   menuLabel: { flex: 1, fontSize: 15, fontFamily: "Inter_500Medium" },
-  divider: { height: 1, marginLeft: 64 },
+  divider: { height: 1, marginLeft: 58 },
   signOutBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-    marginHorizontal: 16, marginBottom: 12, borderWidth: 1.5, padding: 16,
+    marginHorizontal: 16, marginBottom: 12, borderWidth: 1.5, padding: 14,
   },
   signOutText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   deleteAccountBtn: {
     alignItems: "center", justifyContent: "center",
     marginHorizontal: 16, marginTop: 4, marginBottom: 24, paddingVertical: 12,
-    minHeight: 44,
+    minHeight: 40,
   },
   deleteAccountText: {
-    fontSize: 14, fontFamily: "Inter_500Medium", textDecorationLine: "underline",
+    fontSize: 13, fontFamily: "Inter_500Medium", textDecorationLine: "underline",
   },
   restoreBtn: {
     alignItems: "center", justifyContent: "center",
-    marginHorizontal: 16, marginBottom: 20, paddingVertical: 10,
-    minHeight: 40,
+    marginHorizontal: 16, marginBottom: 16, paddingVertical: 10,
+    minHeight: 36,
   },
-  restoreBtnText: { fontSize: 13, fontFamily: "Inter_500Medium", textDecorationLine: "underline", letterSpacing: 0.2 },
+  restoreBtnText: { fontSize: 13, fontFamily: "Inter_400Regular", textDecorationLine: "underline" },
   versionText: {
-    textAlign: "center", fontSize: 12, fontFamily: "Inter_500Medium",
-    marginBottom: 24, opacity: 0.5, letterSpacing: 0.3,
+    textAlign: "center", fontSize: 12, fontFamily: "Inter_400Regular",
+    marginBottom: 24,
   },
 });

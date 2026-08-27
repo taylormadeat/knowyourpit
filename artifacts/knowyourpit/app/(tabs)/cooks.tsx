@@ -23,7 +23,6 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { EmptyState, LoadingState } from "@/components/ui/StateViews";
 import { useColors } from "@/hooks/useColors";
 import { useLayout } from "@/hooks/useLayout";
 import {
@@ -283,15 +282,9 @@ interface SessionGroup {
   sequenceData: SequenceData | null;
 }
 
-function StarRating({ rating }: { rating: number }) {
+function starString(rating: number): string {
   const full = Math.round(rating);
-  return (
-    <View style={{ flexDirection: "row", gap: 2 }}>
-      {[...Array(5)].map((_, i) => (
-        <Feather key={i} name="star" size={10} color="#eab308" fill={i < full ? "#eab308" : "transparent"} />
-      ))}
-    </View>
-  );
+  return "★".repeat(Math.max(0, Math.min(5, full))) + "☆".repeat(Math.max(0, 5 - Math.min(5, full)));
 }
 
 interface TechniquePerformanceSectionProps {
@@ -337,9 +330,9 @@ function TechniquePerformanceSection({ stats, activeFilter, onSelect, colors }: 
               <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: colors.foreground }} numberOfLines={1}>
                 {item.technique}
               </Text>
-              <View style={{ marginTop: 2, marginBottom: 2 }}>
-                <StarRating rating={item.avgRating} />
-              </View>
+              <Text style={{ fontSize: 12, color: "#eab308", fontFamily: "Inter_600SemiBold", letterSpacing: 0.3 }}>
+                {starString(item.avgRating)}
+              </Text>
               <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
                 {item.cookCount} cook{item.cookCount !== 1 ? "s" : ""}
                 {item.topMeatType ? ` · ${item.topMeatType}` : ""}
@@ -352,8 +345,13 @@ function TechniquePerformanceSection({ stats, activeFilter, onSelect, colors }: 
   );
 }
 
+import { useUIMode } from "@/contexts/UIModeContext";
+import { PreviewSurface, PreviewEmptyState, PreviewSectionHeader } from "@/components/preview/PreviewPrimitives";
+
 export default function CooksScreen() {
   const colors = useColors();
+  const { mode } = useUIMode();
+  const isPreview = mode === "preview";
   const router = useRouter();
   const params = useLocalSearchParams<{ filter?: string }>();
   const [refreshing, setRefreshing] = useState(false);
@@ -403,21 +401,6 @@ export default function CooksScreen() {
   const { data: techniqueStats } = useGetCookTechniqueStats({
     query: { enabled: !!isSignedIn } as any,
   });
-
-  const cookStats = useMemo(() => {
-    if (!cooks) return { active: 0, planned: 0, completed: 0, sessions: 0 };
-    let active = 0, planned = 0, completed = 0;
-    const sessions = new Set();
-    cooks.forEach(c => {
-      if (c.status === "active") active++;
-      else if (c.status === "planned") planned++;
-      else if (c.status === "completed") completed++;
-      if (c.sessionId) sessions.add(c.sessionId);
-    });
-    return { active, planned, completed, sessions: sessions.size };
-  }, [cooks]);
-
-  const hasActiveFilters = sortKey !== "date-desc" || ratedOnly || unratedOnly || techniqueFilter !== null || meatTypeFilter !== null;
   const updateSession = useUpdateSession();
   const deleteCook = useDeleteCook();
   const dismissOutlier = useDismissCookOutlier();
@@ -910,7 +893,7 @@ export default function CooksScreen() {
           {
             backgroundColor: colors.card,
             borderColor: isActive ? "#E8482045" : colors.border,
-            borderRadius: colors.radius,
+            borderRadius: isPreview ? 12 : colors.radius,
           },
           pressed && { opacity: 0.75 },
         ]}
@@ -1186,7 +1169,7 @@ export default function CooksScreen() {
                     borderColor: "#eab30840",
                   }}
                 >
-                  <Feather name="star" size={9} color="#eab308" />
+                  <Text style={{ fontSize: 9, color: "#eab308" }}>☆</Text>
                   <Text style={{ color: "#eab308", fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 0.2 }}>
                     RATE
                   </Text>
@@ -1195,10 +1178,7 @@ export default function CooksScreen() {
             }
             return (
               <View style={s.avgBadge}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                  <Feather name="star" size={10} color="#eab308" fill="#eab308" />
-                  <Text style={s.avgBadgeText}>{avg.toFixed(1)}</Text>
-                </View>
+                <Text style={s.avgBadgeText}>★ {avg.toFixed(1)}</Text>
               </View>
             );
           })()}
@@ -1294,7 +1274,7 @@ export default function CooksScreen() {
           {
             backgroundColor: colors.card,
             borderColor: hasActive ? "#E8482045" : colors.border,
-            borderRadius: colors.radius,
+            borderRadius: isPreview ? 12 : colors.radius,
           },
         ]}
         onPress={() => toggleSession(group.sessionId)}
@@ -1398,7 +1378,7 @@ export default function CooksScreen() {
                   const tagColor = STATUS_COLORS[c.status] || colors.primary;
                   const progressLabel =
                     c.status === "completed"
-                      ? "Done"
+                      ? "✓"
                       : c.status === "active"
                       ? `${bar ? Math.round(bar.progress * 100) : 0}%`
                       : null;
@@ -1547,6 +1527,67 @@ export default function CooksScreen() {
           </Pressable>
         }
       />
+      {isPreview && (
+        <View style={{ paddingHorizontal: 20, paddingTop: 18 }}>
+          <PreviewSectionHeader colors={colors} title="Your field notes" />
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-end",
+              justifyContent: "space-between",
+              gap: 16,
+              paddingBottom: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: colors.border,
+            }}
+          >
+            <Text
+              accessibilityRole="header"
+              style={{
+                flex: 1,
+                color: colors.foreground,
+                fontFamily: "Inter_700Bold",
+                fontSize: 28,
+                lineHeight: 32,
+                letterSpacing: -0.6,
+              }}
+            >
+              Every cook leaves a lesson.
+            </Text>
+            <View
+              style={{
+                minWidth: 58,
+                minHeight: 58,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 12,
+                backgroundColor: colors.foreground,
+              }}
+              accessibilityLabel={`${unifiedList.length} cook log entries`}
+            >
+              <Text
+                style={{
+                  color: colors.background,
+                  fontFamily: "Inter_700Bold",
+                  fontSize: 20,
+                }}
+              >
+                {unifiedList.length}
+              </Text>
+              <Text
+                style={{
+                  color: colors.muted,
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 9,
+                  letterSpacing: 0.7,
+                }}
+              >
+                ENTRIES
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       <Modal
         visible={editingSession !== null}
@@ -1969,45 +2010,12 @@ export default function CooksScreen() {
         </View>
       </Modal>
 
-
-      {/* ── Status Hierarchy ── */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, flexDirection: "row", gap: 10 }}>
-        <View style={{ flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: colors.radius, padding: 12, alignItems: "center" }}>
-          <Text style={{ fontSize: 18, fontFamily: "Inter_700Bold", color: "#E64825" }}>{cookStats.active}</Text>
-          <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginTop: 2 }}>Live</Text>
-        </View>
-        <View style={{ flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: colors.radius, padding: 12, alignItems: "center" }}>
-          <Text style={{ fontSize: 18, fontFamily: "Inter_700Bold", color: "#3b82f6" }}>{cookStats.planned}</Text>
-          <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginTop: 2 }}>Planned</Text>
-        </View>
-        <View style={{ flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: colors.radius, padding: 12, alignItems: "center" }}>
-          <Text style={{ fontSize: 18, fontFamily: "Inter_700Bold", color: colors.foreground }}>{cookStats.completed}</Text>
-          <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginTop: 2 }}>Completed</Text>
-        </View>
-      </View>
-
-      <View style={[s.controls, { borderBottomColor: colors.border }]}>
-
+      <View style={[s.controls, { borderBottomColor: isPreview ? "transparent" : colors.border, paddingBottom: isPreview ? 8 : 12 }]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={s.pillRow}
         >
-          {hasActiveFilters && (
-            <Pressable
-              onPress={() => {
-                setSortKey("date-desc");
-                setRatedOnly(false);
-                setUnratedOnly(false);
-                setTechniqueFilter(null);
-                setMeatTypeFilter(null);
-              }}
-              style={[s.pill, { backgroundColor: colors.muted, borderColor: colors.border, borderWidth: 1 }]}
-            >
-              <Feather name="x" size={12} color={colors.foreground} />
-              <Text style={[s.pillText, { color: colors.foreground }]}>Clear</Text>
-            </Pressable>
-          )}
           {SORT_OPTIONS.map((opt) => {
             const active = sortKey === opt.key;
             return (
@@ -2017,8 +2025,9 @@ export default function CooksScreen() {
                 style={[
                   s.pill,
                   active
-                    ? { backgroundColor: colors.primary }
-                    : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
+                    ? { backgroundColor: colors.primary, borderColor: colors.primary, borderWidth: 1 }
+                    : { backgroundColor: isPreview ? colors.background : colors.card, borderColor: colors.border, borderWidth: 1 },
+                  isPreview && { borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16 }
                 ]}
               >
                 <Text
@@ -2041,16 +2050,14 @@ export default function CooksScreen() {
             style={[
               s.pill,
               ratedOnly
-                ? { backgroundColor: "#eab308" }
-                : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
+                ? { backgroundColor: "#eab308", borderColor: "#eab308", borderWidth: 1 }
+                : { backgroundColor: isPreview ? colors.background : colors.card, borderColor: colors.border, borderWidth: 1 },
+              isPreview && { borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16 }
             ]}
           >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-              <Feather name="star" size={12} color={ratedOnly ? "#fff" : colors.mutedForeground} fill={ratedOnly ? "#fff" : "transparent"} />
-              <Text style={[s.pillText, { color: ratedOnly ? "#fff" : colors.mutedForeground }]}>
-                Rated only
-              </Text>
-            </View>
+            <Text style={[s.pillText, { color: ratedOnly ? "#fff" : colors.mutedForeground }]}>
+              ★ Rated only
+            </Text>
           </Pressable>
 
           <Pressable
@@ -2061,16 +2068,14 @@ export default function CooksScreen() {
             style={[
               s.pill,
               unratedOnly
-                ? { backgroundColor: "#6C3BF5" }
-                : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
+                ? { backgroundColor: "#6C3BF5", borderColor: "#6C3BF5", borderWidth: 1 }
+                : { backgroundColor: isPreview ? colors.background : colors.card, borderColor: colors.border, borderWidth: 1 },
+              isPreview && { borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16 }
             ]}
           >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-              <Feather name="star" size={12} color={unratedOnly ? "#fff" : colors.mutedForeground} />
-              <Text style={[s.pillText, { color: unratedOnly ? "#fff" : colors.mutedForeground }]}>
-                Unrated only
-              </Text>
-            </View>
+            <Text style={[s.pillText, { color: unratedOnly ? "#fff" : colors.mutedForeground }]}>
+              ☆ Unrated only
+            </Text>
           </Pressable>
 
           {(availableTechniques.length > 0 || techniqueFilter !== null) && (
@@ -2078,9 +2083,10 @@ export default function CooksScreen() {
               style={[
                 s.pill,
                 techniqueFilter
-                  ? { backgroundColor: colors.primary }
-                  : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
+                  ? { backgroundColor: colors.primary, borderColor: colors.primary, borderWidth: 1 }
+                  : { backgroundColor: isPreview ? colors.background : colors.card, borderColor: colors.border, borderWidth: 1 },
                 { flexDirection: "row", alignItems: "center", gap: 4, overflow: "hidden" },
+                isPreview && { borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16 }
               ]}
             >
               <Pressable
@@ -2108,9 +2114,10 @@ export default function CooksScreen() {
               style={[
                 s.pill,
                 meatTypeFilter
-                  ? { backgroundColor: colors.primary }
-                  : { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
+                  ? { backgroundColor: colors.primary, borderColor: colors.primary, borderWidth: 1 }
+                  : { backgroundColor: isPreview ? colors.background : colors.card, borderColor: colors.border, borderWidth: 1 },
                 { flexDirection: "row", alignItems: "center", gap: 4, overflow: "hidden" },
+                isPreview && { borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16 }
               ]}
             >
               <Pressable
@@ -2136,7 +2143,9 @@ export default function CooksScreen() {
       </View>
 
       {isLoading && !cooks ? (
-        <LoadingState description="Loading cook log..." />
+        <View style={s.center}>
+          <ActivityIndicator color={colors.primary} size="large" />
+        </View>
       ) : (
         <FlatList
           data={displayList}
@@ -2174,29 +2183,61 @@ export default function CooksScreen() {
             />
           }
           ListEmptyComponent={
-            <EmptyState
-              icon="thermometer"
-              title={ratedOnly
-                ? "No rated cooks found"
-                : unratedOnly
-                  ? "All cooks are rated!"
-                  : meatTypeFilter
-                    ? `No "${meatTypeFilter}" cooks found`
-                    : techniqueFilter
-                      ? `No "${techniqueFilter}" cooks found`
-                      : "No cooks logged yet"}
-              description={ratedOnly
-                ? 'Try removing the "Rated only" filter to see all cooks'
-                : unratedOnly
-                  ? "Every completed cook has a rating — great work!"
-                  : meatTypeFilter
-                    ? "Try a different meat type or tap the pill to clear"
-                    : techniqueFilter
-                      ? "Try a different technique or tap the pill to clear"
-                      : "Hit + to log your first cook. Your data starts here."}
-              action={hasActiveFilters ? { label: "Clear Filters", onPress: () => { setSortKey("date-desc"); setRatedOnly(false); setUnratedOnly(false); setTechniqueFilter(null); setMeatTypeFilter(null); } } : { label: "Log a Cook", onPress: () => router.push("/(tabs)/plan" as any) }}
-              style={{ marginTop: 40 }}
-            />
+            isPreview ? (
+              <PreviewEmptyState
+                colors={colors}
+                icon="thermometer"
+                title={
+                  ratedOnly
+                    ? "No rated cooks found"
+                    : unratedOnly
+                      ? "All cooks are rated!"
+                      : meatTypeFilter
+                        ? `No "${meatTypeFilter}" cooks found`
+                        : techniqueFilter
+                          ? `No "${techniqueFilter}" cooks found`
+                          : "No cooks logged yet"
+                }
+                description={
+                  ratedOnly
+                    ? 'Try removing the "Rated only" filter to see all cooks'
+                    : unratedOnly
+                      ? "Every completed cook has a rating — great work!"
+                      : meatTypeFilter
+                        ? "Try a different meat type or tap the pill to clear"
+                        : techniqueFilter
+                          ? "Try a different technique or tap the pill to clear"
+                          : "Hit + to log your first cook. Your data starts here."
+                }
+                style={{ marginTop: 40 }}
+              />
+            ) : (
+              <View style={[s.empty, { borderColor: colors.border, borderRadius: colors.radius }]}>
+                <Feather name="thermometer" size={36} color={colors.mutedForeground} />
+                <Text style={[s.emptyTitle, { color: colors.foreground }]}>
+                  {ratedOnly
+                    ? "No rated cooks found"
+                    : unratedOnly
+                      ? "All cooks are rated!"
+                      : meatTypeFilter
+                        ? `No "${meatTypeFilter}" cooks found`
+                        : techniqueFilter
+                          ? `No "${techniqueFilter}" cooks found`
+                          : "No cooks logged yet"}
+                </Text>
+                <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
+                  {ratedOnly
+                    ? "Try removing the \"Rated only\" filter to see all cooks"
+                    : unratedOnly
+                      ? "Every completed cook has a rating — great work!"
+                      : meatTypeFilter
+                        ? "Try a different meat type or tap the pill to clear"
+                        : techniqueFilter
+                          ? "Try a different technique or tap the pill to clear"
+                          : "Hit + to log your first cook. Your data starts here."}
+                </Text>
+              </View>
+            )
           }
         />
       )}

@@ -22,6 +22,10 @@ SCREENSHOT_EMAIL=demo@example.com SCREENSHOT_PASSWORD=YourPassword \
 
 `SCREENSHOT_EMAIL` and `SCREENSHOT_PASSWORD` must be credentials for a pre-existing Clerk account (production or staging). The Maestro auth flow signs in automatically, navigates to each screen, and captures. If the account is already signed in on the simulator, the auth step is skipped automatically.
 
+The maintained `screenshot-all.yaml` entry point enables **Preview Mode** after
+authentication so new App Store and marketing captures represent the redesign.
+Legacy remains the app default outside this capture run.
+
 ### Prerequisites
 
 | Tool | Install |
@@ -69,3 +73,13 @@ artifacts/mockup-sandbox/src/components/mockups/app-store-screenshots/AppStoreEx
 ```
 
 These remain useful for rapid design iteration and as a visual reference when the simulator workflow is not available (e.g. in the Replit cloud environment).
+
+## Preview redesign review baseline
+
+The first reviewable native baseline for the Preview redesign is iOS simulator
+build `55d8bc0c-6823-491a-8d46-33af62151543`, completed on August 26, 2026:
+
+https://expo.dev/accounts/taylormadeat/projects/knowyourpit/builds/55d8bc0c-6823-491a-8d46-33af62151543
+
+The build is an internal development artifact only. It was not submitted,
+published, or released.

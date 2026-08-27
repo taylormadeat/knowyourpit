@@ -156,7 +156,7 @@ export function SequenceSchedule(p: Props) {
         <Feather name={seqScheduleExpanded ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
       </Pressable>
 
-      {/* Completed cook collapsed step summary — only confirmed steps, with markers and actual confirmation timestamps */}
+      {/* Completed cook collapsed step summary — only confirmed steps, with ✓ markers and actual confirmation timestamps */}
       {!seqScheduleExpanded && cookStatus === "completed" && currentIdx >= 0 && (() => {
         const item = seqData.schedule[currentIdx];
         if (!item) return null;
@@ -694,7 +694,7 @@ export function SequenceSchedule(p: Props) {
                               <View style={s.seqTlLabelRow}>
                                 <Feather name="check-square" size={11} color="#84cc16" style={{ marginRight: 3 }} />
                                 <Text style={[s.seqTlLabel, { color: "#84cc16" }]}>
-                                  {probeTenderConfirmed ? "Probe tender" : "Check probe tenderness"}
+                                  {probeTenderConfirmed ? "Probe tender ✓" : "Check probe tenderness"}
                                 </Text>
                               </View>
                               <Text style={[s.seqTlMeta, { color: colors.mutedForeground, marginTop: 1 }]}>

@@ -5,6 +5,8 @@ const config = {
     "**/hooks/**/__tests__/**/*.test.[jt]s?(x)",
     "**/utils/__tests__/**/*.test.[jt]s?(x)",
     "**/components/**/__tests__/**/*.test.[jt]s?(x)",
+    "**/__tests__/contexts/**/*.test.[jt]s?(x)",
+    "**/__tests__/components/**/*.test.[jt]s?(x)",
   ],
   // pnpm stores packages in node_modules/.pnpm/<name>@<ver>/node_modules/<name>
   // so the naive `node_modules/(?!react-native...)` pattern matches the .pnpm

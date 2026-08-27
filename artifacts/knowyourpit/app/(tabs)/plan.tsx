@@ -23,6 +23,8 @@ import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { AppHeader } from "@/components/AppHeader";
 import { LogoBackground } from "@/components/LogoBackground";
+import { PreviewSurface, PreviewSectionHeader } from "@/components/preview/PreviewPrimitives";
+import { useUIMode } from "@/contexts/UIModeContext";
 import * as Haptics from "expo-haptics";
 import * as Crypto from "expo-crypto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -183,6 +185,8 @@ const SUBMIT_SLOW_AFTER_MS = 6_000;
 
 export default function PlanScreen() {
   const colors = useColors();
+  const { mode } = useUIMode();
+  const isPreview = mode === "preview";
   const router = useRouter();
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
@@ -2159,7 +2163,7 @@ export default function PlanScreen() {
               <View style={[s.nowCookingDot, { backgroundColor: "#fff" }]} />
               <View style={{ flexShrink: 1 }}>
                 <Text style={s.nowCookingTitle} numberOfLines={1}>
-                  Now cooking · {activeCook.foodType ?? "Cook in progress"}
+                  🔥 Now cooking · {activeCook.foodType ?? "Cook in progress"}
                 </Text>
                 {activeCookRemainingLabel && (
                   <Text
@@ -2260,6 +2264,80 @@ export default function PlanScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={isTablet ? { width: "100%", maxWidth: contentMaxWidth, alignSelf: "center" } : null}>
+        {isPreview && (
+          <PreviewSurface
+            colors={colors}
+            style={{
+              marginBottom: 20,
+              padding: 20,
+              backgroundColor: colors.foreground,
+              borderColor: colors.foreground,
+            }}
+          >
+            <PreviewSectionHeader
+              colors={colors}
+              title="Cook planner"
+              style={{ color: colors.primary }}
+            />
+            <Text
+              accessibilityRole="header"
+              style={{
+                color: colors.background,
+                fontFamily: "Inter_700Bold",
+                fontSize: 28,
+                lineHeight: 32,
+                letterSpacing: -0.6,
+              }}
+            >
+              Build the cook from serve time backward.
+            </Text>
+            <Text
+              style={{
+                color: colors.muted,
+                fontFamily: "Inter_400Regular",
+                fontSize: 14,
+                lineHeight: 20,
+                marginTop: 10,
+              }}
+            >
+              Set the food, choose when it should be ready, then let the timeline
+              keep prep, fire, and rest in order.
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                marginTop: 18,
+                gap: 8,
+              }}
+            >
+              {["01  SETUP", "02  FIRE", "03  SERVE"].map((step) => (
+                <View
+                  key={step}
+                  style={{
+                    flex: 1,
+                    minHeight: 32,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 8,
+                    backgroundColor: colors.card,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: colors.foreground,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 10,
+                      letterSpacing: 0.6,
+                    }}
+                  >
+                    {step}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </PreviewSurface>
+        )}
         {/* ── Multi-Cook Sequencer soft tip card ──
             Inline, dismissible nudge shown after a free user plans a cook
             when they already had 1+ cooks logged. Promotes the Multi-Cook
@@ -2336,9 +2414,7 @@ export default function PlanScreen() {
           </View>
         )}
 
-        <View style={s.stepSection}>
-          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>1. Mode</Text>
-          {/* ── Plan Mode Selector (three-way) ── */}
+        {/* ── Plan Mode Selector (three-way) ── */}
         <View style={[s.modeToggleRow, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           <Pressable
             style={[
@@ -2419,13 +2495,9 @@ export default function PlanScreen() {
           </Pressable>
         )}
 
-        </View>
-
         {planMode === "single" && (<>
 
-        <View style={s.stepSection}>
-          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>2. Intention</Text>
-          {/* ── Cook Now / Plan for Later toggle ── */}
+        {/* ── Cook Now / Plan for Later toggle ── */}
         <View style={[s.modeToggleRow, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius, marginBottom: 18 }]}>
           <Pressable
             style={[
@@ -2460,11 +2532,6 @@ export default function PlanScreen() {
           </Pressable>
         </View>
 
-        </View>
-
-        <View style={s.stepSection}>
-          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>3. Essentials</Text>
-
         {/* ══ ZONE 1 — Essentials ══
             Meat cut, weight, and serve-by are the three inputs needed to
             produce a basic schedule. They appear above the fold with no
@@ -2480,7 +2547,7 @@ export default function PlanScreen() {
             {
               backgroundColor: colors.card,
               borderColor: selectedCut ? colors.primary : colors.border,
-              borderRadius: colors.radius,
+              borderRadius: isPreview ? 12 : colors.radius,
             },
           ]}
         >
@@ -2597,14 +2664,11 @@ export default function PlanScreen() {
           onChange={(output) => { setSizeOutput(output); clearAiScheduleOverride(); }}
         />
 
-        </View>
-
         {/* ── Serve By (Plan for Later only) ── */}
         {cookNowMode === "later" && (
-          <View style={s.stepSection}>
-            <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>4. Timing</Text>
+          <>
             <Label colors={colors}>When do you want to serve?</Label>
-            <View style={[s.serveByCard, { backgroundColor: colors.card, borderColor: colors.primary + "40", borderRadius: colors.radius }]}>
+            <View style={[s.serveByCard, { backgroundColor: colors.card, borderColor: colors.primary + "40", borderRadius: isPreview ? 12 : colors.radius }]}>
               {serveAt ? (
                 <>
                   <View style={s.serveByRow}>
@@ -2656,11 +2720,8 @@ export default function PlanScreen() {
                 </Pressable>
               )}
             </View>
-          </View>
+          </>
         )}
-
-        <View style={s.stepSection}>
-          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>{cookNowMode === "later" ? "5" : "4"}. Equipment & Setup</Text>
 
         {/* ══ ZONE 2 — Your Setup ══
             Grill selection and temperature overrides. Auto-filled from the
@@ -2866,14 +2927,14 @@ export default function PlanScreen() {
           {selectedCut && isProduce(selectedCut.category) ? (
             <View style={{ flex: 1 }}>
               <Label colors={colors}>Internal Target</Label>
-              <View style={[s.inputWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+              <View style={[s.inputWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: isPreview ? 12 : colors.radius }]}>
                 <Text style={[s.input, { color: colors.mutedForeground, paddingVertical: 12 }]}>Time-based</Text>
               </View>
             </View>
           ) : (
             <View style={{ flex: 1 }}>
               <Label colors={colors}>Internal Target (°F)</Label>
-              <View style={[s.inputWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+              <View style={[s.inputWrap, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: isPreview ? 12 : colors.radius }]}>
                 <TextInput
                   style={[s.input, { color: colors.foreground }]}
                   placeholder={selectedCut ? String(selectedCut.targetTempF) : "203"}
@@ -2902,11 +2963,6 @@ export default function PlanScreen() {
             </View>
           </View>
         </View>
-
-        </View>
-
-        <View style={s.stepSection}>
-          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>{cookNowMode === "later" ? "6" : "5"}. Guidance & Options</Text>
 
         {/* ══ ZONE 3 — Advanced Options ══
             Collapsible accordion. Starts closed so new users see a clean
@@ -3760,13 +3816,6 @@ export default function PlanScreen() {
           />
         )}
 
-        </View>
-
-        <View style={s.stepSection}>
-          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>
-            {cookNowMode === "later" ? "7" : "6"}. Review & Action
-          </Text>
-
         {/* ── Submit area (primary CTA, slow-submit row, frozen callout, secondary CTA) ── */}
         <PlanSubmitArea
           isSubmitting={isSubmitting}
@@ -3791,17 +3840,14 @@ export default function PlanScreen() {
           }}
         />
 
-        </View>
         </>)}{/* end planMode === "single" */}
 
         {/* ════ MULTI-COOK SEQUENCER ════ */}
         {planMode === "multi" && (<>
-          <View style={s.stepSection}>
-            <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>2. Timing</Text>
 
         {/* Serve By (shared with single via serveAt state) */}
         <Label colors={colors}>When do you want to serve?</Label>
-        <View style={[s.serveByCard, { backgroundColor: colors.card, borderColor: colors.primary + "40", borderRadius: colors.radius }]}>
+        <View style={[s.serveByCard, { backgroundColor: colors.card, borderColor: colors.primary + "40", borderRadius: isPreview ? 12 : colors.radius }]}>
           <View style={s.serveByRow}>
             <Feather name="calendar" size={16} color={colors.primary} />
             <Text style={[s.serveByLabel, { color: colors.mutedForeground }]}>Date</Text>
@@ -3827,11 +3873,6 @@ export default function PlanScreen() {
           </View>
         </View>
 
-        </View>
-
-        <View style={s.stepSection}>
-          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>3. Equipment</Text>
-
         {/* Grill selector (default for all items) */}
         {(grills as any[] | undefined)?.length ? (
           <>
@@ -3851,11 +3892,6 @@ export default function PlanScreen() {
             </View>
           </>
         ) : null}
-
-        </View>
-
-        <View style={s.stepSection}>
-          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>4. Items to Cook</Text>
 
         {/* Items list */}
         <Label colors={colors}>Cooks to Sequence</Label>
@@ -3983,11 +4019,6 @@ export default function PlanScreen() {
           />
         )}
 
-        </View>
-
-        <View style={s.stepSection}>
-          <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>5. Review & Action</Text>
-
         {/* Sequence button */}
         <Pressable
           style={({ pressed }) => [
@@ -4039,7 +4070,6 @@ export default function PlanScreen() {
           </Pressable>
         )}
 
-        </View>
         </>)}{/* end planMode === "multi" */}
         </View>
 

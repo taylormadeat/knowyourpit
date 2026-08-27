@@ -2,7 +2,6 @@ import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { Card, Badge, Button } from "@/components/ui";
 
 interface LockedFeatureCardProps {
   featureName: string;
@@ -21,45 +20,41 @@ export function LockedFeatureCard({
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
+      style={({ pressed }) => [
+        styles.card,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          borderRadius: colors.radius,
+          opacity: pressed ? 0.85 : 1,
+        },
+      ]}
       accessibilityRole="button"
       accessibilityLabel={`${featureName} — Pro feature, tap to learn more`}
     >
-      <Card style={styles.card}>
-        <View style={styles.proBadge}>
-          <Badge variant="outline" style={{ borderColor: colors.primary, backgroundColor: colors.primarySubtle, paddingHorizontal: 6, paddingVertical: 2 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-              <Feather name="lock" size={10} color={colors.primary} />
-              <Text style={[styles.proBadgeText, { color: colors.primary }]}>PRO</Text>
-            </View>
-          </Badge>
+      <View style={styles.proBadge}>
+        <Feather name="lock" size={10} color={colors.primary} />
+        <Text style={[styles.proBadgeText, { color: colors.primary }]}>PRO</Text>
+      </View>
+      <View style={styles.iconWrap}>
+        <View style={[styles.iconCircle, { backgroundColor: colors.primary + "1A" }]}>
+          <Feather name={icon} size={22} color={colors.primary} />
         </View>
-        <View style={styles.iconWrap}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.primarySubtle }]}>
-            <Feather name={icon} size={22} color={colors.primary} />
-          </View>
-        </View>
-        <Text style={[styles.title, { color: colors.foreground }]}>{featureName}</Text>
-        <Text style={[styles.teaser, { color: colors.mutedForeground }]}>{teaser}</Text>
-
-        <View style={{ alignSelf: "flex-start", marginTop: 8 }}>
-          <Button
-            variant="outline"
-            size="sm"
-            onPress={onPress}
-            title="Unlock with Pro"
-            leftIcon={<Feather name="arrow-up-right" size={14} color={colors.primary} />}
-            style={{ backgroundColor: colors.primarySubtle, borderColor: colors.transparent }}
-            textStyle={{ color: colors.primary, fontSize: 13 }}
-          />
-        </View>
-      </Card>
+      </View>
+      <Text style={[styles.title, { color: colors.foreground }]}>{featureName}</Text>
+      <Text style={[styles.teaser, { color: colors.mutedForeground }]}>{teaser}</Text>
+      <View style={[styles.cta, { backgroundColor: colors.primary + "12" }]}>
+        <Feather name="arrow-up-right" size={13} color={colors.primary} />
+        <Text style={[styles.ctaText, { color: colors.primary }]}>Unlock with Pro</Text>
+      </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
+    borderWidth: 1,
+    padding: 16,
     gap: 8,
     position: "relative",
     overflow: "hidden",
@@ -68,7 +63,13 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 12,
     right: 12,
-    zIndex: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: "rgba(232,69,32,0.12)",
   },
   proBadgeText: {
     fontSize: 10,
@@ -83,8 +84,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  title: { fontSize: 15, fontFamily: "Inter_700Bold", letterSpacing: -0.2 },
+  title: { fontSize: 15, fontFamily: "Inter_700Bold" },
   teaser: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18 },
+  cta: {
+    marginTop: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+  },
+  ctaText: { fontSize: 12.5, fontFamily: "Inter_600SemiBold" },
 });
 
 export default LockedFeatureCard;

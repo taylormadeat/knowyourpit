@@ -2,7 +2,6 @@ import React, { forwardRef } from "react";
 import { View, Text, Image, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import ViewShot, { type ViewShotRef } from "react-native-view-shot";
-import { Feather } from "@expo/vector-icons";
 
 const logoImg = require("@/assets/images/icon-transparent-light.png");
 
@@ -111,11 +110,10 @@ export const CookShareCard = forwardRef<ViewShotRef, Props>(({ cook }, ref) => {
             ].map((r) => (
               <View key={r.label} style={cs.ratingRow}>
                 <Text style={cs.ratingLabel}>{r.label}</Text>
-                <View style={{ flexDirection: "row", gap: 2 }}>
-                  {[...Array(5)].map((_, i) => (
-                    <Feather key={i} name="star" size={12} color={i < r.val ? "#F59E0B" : "rgba(255,255,255,0.2)"} fill={i < r.val ? "#F59E0B" : "transparent"} />
-                  ))}
-                </View>
+                <Text style={cs.ratingStars}>
+                  <Text style={cs.starOn}>{"★".repeat(r.val)}</Text>
+                  <Text style={cs.starOff}>{"☆".repeat(5 - r.val)}</Text>
+                </Text>
               </View>
             ))}
           </View>

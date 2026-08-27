@@ -2,6 +2,8 @@ import React from "react";
 import { Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { planStyles as s } from "./styles";
+import { PreviewSectionHeader } from "../preview/PreviewPrimitives";
+import { useUIMode } from "@/contexts/UIModeContext";
 
 export function Label({
   children,
@@ -10,6 +12,12 @@ export function Label({
   children: React.ReactNode;
   colors: any;
 }) {
+  const { mode } = useUIMode();
+
+  if (mode === "preview") {
+    return <PreviewSectionHeader colors={colors} title={String(children)} />;
+  }
+
   return (
     <Text style={[s.label, { color: colors.foreground }]}>{children}</Text>
   );

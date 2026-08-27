@@ -3,14 +3,14 @@ import { StyleSheet } from "react-native";
 export const s = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  goBackBtn: { marginTop: 16, padding: 12, minHeight: 44, justifyContent: "center" },
+  goBackBtn: { marginTop: 16, padding: 12 },
 
   header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 18, paddingBottom: 16, overflow: "hidden" },
-  backBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  backBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
   headerTitle: { flex: 1, fontSize: 20, fontFamily: "Inter_700Bold", color: "#F3EDE1", letterSpacing: -0.3 },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 12 },
   headerLogo: { width: 28, height: 28, opacity: 0.9 },
-  delBtn: { padding: 4, minWidth: 44, minHeight: 44, justifyContent: "center", alignItems: "center" },
+  delBtn: { padding: 4 },
   fireBar: { height: 2, backgroundColor: "#E84820" },
 
   statusBar: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14 },
@@ -36,7 +36,7 @@ export const s = StyleSheet.create({
   inlineGradeSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 1 },
   gradeBarTrackSmall: { height: 5, borderRadius: 3, overflow: "hidden" },
 
-  detailsToggle: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderTopWidth: 1, paddingVertical: 12, minHeight: 44 },
+  detailsToggle: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderTopWidth: 1, paddingVertical: 12 },
   detailsToggleText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 
   gradeBarFill: { height: 6, borderRadius: 3 },
@@ -110,10 +110,10 @@ export const s = StyleSheet.create({
   alertSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, gap: 16, maxHeight: "85%" },
   alertSheetHeader: { flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, paddingBottom: 14 },
   alertModeRow: { flexDirection: "row", padding: 3, gap: 2 },
-  alertModeBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, minHeight: 44 },
+  alertModeBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8 },
   alertModeBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   alertTimerOptions: { flexDirection: "row", gap: 8, marginBottom: 0 },
-  alertTimerChip: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 10, borderWidth: 1, minHeight: 44 },
+  alertTimerChip: { flex: 1, alignItems: "center", paddingVertical: 10, borderWidth: 1 },
   alertTimerChipText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   alertWarning: { flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 12, borderWidth: 1 },
   alertWarningText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
@@ -208,14 +208,14 @@ export const s = StyleSheet.create({
   homeLink: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8 },
   homeLinkText: { fontSize: 13, fontFamily: "Inter_400Regular" },
 
-  editBtn: { padding: 4, minWidth: 44, minHeight: 44, justifyContent: "center", alignItems: "center" },
+  editBtn: { padding: 4 },
 
   editHeader: { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingBottom: 16, gap: 10 },
   editFireBar: { height: 2 },
-  editCancelBtn: { minWidth: 60, minHeight: 44, justifyContent: "center" },
+  editCancelBtn: { minWidth: 60 },
   editCancelText: { fontSize: 15, fontFamily: "Inter_400Regular", color: "#F3EDE1", opacity: 0.8 },
   editHeaderTitle: { flex: 1, textAlign: "center", fontSize: 17, fontFamily: "Inter_700Bold", color: "#F3EDE1" },
-  editSaveBtn: { minWidth: 60, minHeight: 44, justifyContent: "center", alignItems: "flex-end" },
+  editSaveBtn: { minWidth: 60, alignItems: "flex-end" },
   editSaveText: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#FF6B2B" },
   editFieldWrap: { gap: 6 },
   editLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.3 },

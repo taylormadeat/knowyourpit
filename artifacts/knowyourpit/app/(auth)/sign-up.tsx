@@ -483,7 +483,7 @@ export default function SignUpScreen() {
   }, [signUp, setActive, signIn, signInSetActive, startSSOFlow]);
 
   const styles = StyleSheet.create({
-    outer: { flex: 1, backgroundColor: "#0D0D10" },
+    outer: { flex: 1, backgroundColor: colors.background },
     scroll: {
       flexGrow: 1,
       justifyContent: "center",
@@ -495,99 +495,98 @@ export default function SignUpScreen() {
         : null),
     },
     logo: {
-      width: 100, height: 100, marginBottom: 32, alignSelf: "center", opacity: 0.9,
+      width: 115, height: 115, marginBottom: 20, alignSelf: "center",
     },
-    title: { fontSize: 30, fontFamily: "Inter_700Bold", color: "#FFFFFF", marginBottom: 6, letterSpacing: -0.5 },
-    subtitle: { fontSize: 16, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginBottom: 36 },
-    label: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "rgba(255,255,255,0.9)", marginBottom: 8, marginLeft: 4 },
+    title: { fontSize: 28, fontFamily: "Inter_700Bold", color: colors.foreground, marginBottom: 6 },
+    subtitle: { fontSize: 15, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginBottom: 36 },
+    label: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 6 },
     inputRow: {
       flexDirection: "row", alignItems: "center",
-      backgroundColor: "rgba(255,255,255,0.03)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
-      borderRadius: 14, marginBottom: 16, paddingHorizontal: 16,
+      backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+      borderRadius: colors.radius, marginBottom: 16, paddingHorizontal: 14,
     },
-    input: { flex: 1, height: 52, fontSize: 16, fontFamily: "Inter_400Regular", color: "#FFFFFF" },
-    eyeBtn: { padding: 6 },
-    errorText: { fontSize: 13, fontFamily: "Inter_500Medium", color: "#EF4444", marginTop: -10, marginBottom: 12, marginLeft: 4 },
-    successText: { fontSize: 13, fontFamily: "Inter_500Medium", color: "#10B981", marginTop: -10, marginBottom: 12, marginLeft: 4 },
+    input: { flex: 1, height: 48, fontSize: 15, fontFamily: "Inter_400Regular", color: colors.foreground },
+    eyeBtn: { padding: 4 },
+    errorText: { fontSize: 12, fontFamily: "Inter_400Regular", color: colors.destructive, marginTop: -10, marginBottom: 12 },
+    successText: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#4ade80", marginTop: -10, marginBottom: 12 },
     primaryBtn: {
-      backgroundColor: "#E84820", borderRadius: 14,
-      height: 54, alignItems: "center", justifyContent: "center", marginTop: 12,
-      shadowColor: "#E84820", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 8,
+      backgroundColor: colors.primary, borderRadius: colors.radius,
+      height: 50, alignItems: "center", justifyContent: "center", marginTop: 8,
     },
     primaryBtnDisabled: { opacity: 0.5 },
-    primaryBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: "#fff" },
-    dividerRow: { flexDirection: "row", alignItems: "center", marginVertical: 24, gap: 12 },
-    dividerLine: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.08)" },
-    dividerText: { fontSize: 13, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.4)" },
+    primaryBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#fff" },
+    dividerRow: { flexDirection: "row", alignItems: "center", marginVertical: 20, gap: 10 },
+    dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+    dividerText: { fontSize: 13, fontFamily: "Inter_400Regular", color: colors.mutedForeground },
     googleBtn: {
       flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
-      borderWidth: 1, borderColor: "rgba(255,255,255,0.15)", borderRadius: 14,
-      height: 54, backgroundColor: "rgba(255,255,255,0.02)",
+      borderWidth: 1, borderColor: colors.border, borderRadius: colors.radius,
+      height: 50, backgroundColor: colors.card,
     },
-    googleBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" },
+    googleBtnText: { fontSize: 15, fontFamily: "Inter_500Medium", color: colors.foreground },
     appleBtn: {
       flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
-      borderWidth: 1, borderColor: "#FFFFFF", borderRadius: 14,
-      height: 54, backgroundColor: "#FFFFFF", marginTop: 12,
+      borderWidth: 1, borderColor: "#000", borderRadius: colors.radius,
+      height: 50, backgroundColor: "#000", marginTop: 12,
     },
-    appleBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#000000" },
-    footer: { flexDirection: "row", justifyContent: "center", marginTop: 32, gap: 6 },
-    footerText: { fontSize: 14, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)" },
-    footerLink: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#E84820" },
+    appleBtnText: { fontSize: 15, fontFamily: "Inter_500Medium", color: "#fff" },
+    footer: { flexDirection: "row", justifyContent: "center", marginTop: 28, gap: 4 },
+    footerText: { fontSize: 14, fontFamily: "Inter_400Regular", color: colors.mutedForeground },
+    footerLink: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.primary },
     legalNotice: {
       fontSize: 12,
       fontFamily: "Inter_400Regular",
-      color: "rgba(255,255,255,0.4)",
+      color: colors.mutedForeground,
       textAlign: "center",
       lineHeight: 18,
-      marginTop: 24,
-      paddingHorizontal: 12,
+      marginTop: 18,
+      paddingHorizontal: 8,
     },
     legalNoticeLink: {
       fontFamily: "Inter_600SemiBold",
-      color: "rgba(255,255,255,0.6)",
+      color: colors.mutedForeground,
       textDecorationLine: "underline",
     },
     verifyHint: {
-      fontSize: 15,
+      fontSize: 14,
       fontFamily: "Inter_400Regular",
-      color: "rgba(255,255,255,0.7)",
-      marginBottom: 32,
-      lineHeight: 22,
+      color: colors.mutedForeground,
+      marginBottom: 28,
+      lineHeight: 20,
     },
     verifyEmail: {
       fontFamily: "Inter_600SemiBold",
-      color: "#FFFFFF",
+      color: colors.foreground,
     },
     codeInput: {
-      backgroundColor: "rgba(255,255,255,0.03)",
+      backgroundColor: colors.card,
       borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.15)",
-      borderRadius: 14,
-      height: 60,
-      fontSize: 28,
+      borderColor: colors.border,
+      borderRadius: colors.radius,
+      height: 56,
+      fontSize: 24,
       fontFamily: "Inter_700Bold",
-      color: "#FFFFFF",
+      color: colors.foreground,
       textAlign: "center",
-      letterSpacing: 12,
-      marginBottom: 20,
+      letterSpacing: 8,
+      marginBottom: 16,
       paddingHorizontal: 14,
     },
     resendRow: {
       flexDirection: "row",
       justifyContent: "center",
-      marginTop: 24,
-      gap: 6,
+      marginTop: 20,
+      gap: 4,
     },
-    resendText: { fontSize: 14, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)" },
-    resendLink: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#E84820" },
+    resendText: { fontSize: 14, fontFamily: "Inter_400Regular", color: colors.mutedForeground },
+    resendLink: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.primary },
     backBtn: {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      marginBottom: 32,
+      marginBottom: 24,
     },
-    backBtnText: { fontSize: 15, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.6)" },
+    backBtnText: { fontSize: 14, fontFamily: "Inter_500Medium", color: colors.mutedForeground },
   });
 
   const canSubmit = !!email && !!password && !isLoading;
@@ -725,10 +724,10 @@ export default function SignUpScreen() {
             disabled={appleLoading || googleLoading}
           >
             {appleLoading ? (
-              <ActivityIndicator color="#000000" />
+              <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <Ionicons name="logo-apple" size={20} color="#000000" />
+                <Ionicons name="logo-apple" size={20} color="#fff" />
                 <Text style={styles.appleBtnText}>Continue with Apple</Text>
               </>
             )}

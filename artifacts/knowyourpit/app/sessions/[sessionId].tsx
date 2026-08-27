@@ -20,7 +20,6 @@ import { useAuth } from "@clerk/expo";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
-import { ErrorState, LoadingState } from "@/components/ui/StateViews";
 import { useColors } from "@/hooks/useColors";
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { useStoredScheduledCheckins } from "@/hooks/useCheckinNotifications";
@@ -310,17 +309,6 @@ export default function SessionDetailScreen() {
   const updateSession = useUpdateSession();
   const deleteSession = useDeleteSession();
   const removeCookFromSession = useRemoveCookFromSession(sessionId ?? "");
-
-
-  const statusCounts = useMemo(() => {
-    let live = 0, planned = 0, completed = 0;
-    (cooks ?? []).forEach(c => {
-      if (c.status === "active") live++;
-      else if (c.status === "planned") planned++;
-      else if (c.status === "completed") completed++;
-    });
-    return { live, planned, completed };
-  }, [cooks]);
 
   const hasActive = (cooks ?? []).some((c) => c.status === "active");
   const allCompleted = (cooks ?? []).every((c) => c.status === "completed");
@@ -674,13 +662,19 @@ export default function SessionDetailScreen() {
       </View>
 
       {isLoading ? (
-        <LoadingState description="Loading session..." />
+        <View style={s.center}>
+          <ActivityIndicator color={colors.primary} size="large" />
+        </View>
       ) : isError ? (
-        <ErrorState
-          icon="alert-circle"
-          title="Session not found"
-          description="This session may have been deleted."
-        />
+        <View style={s.center}>
+          <Feather name="alert-circle" size={36} color={colors.mutedForeground} />
+          <Text style={[s.emptyTitle, { color: colors.foreground }]}>
+            Session not found
+          </Text>
+          <Text style={[s.emptyText, { color: colors.mutedForeground }]}>
+            This session may have been deleted.
+          </Text>
+        </View>
       ) : (
         <ScrollView
           contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 32 }]}
@@ -698,7 +692,6 @@ export default function SessionDetailScreen() {
             >
               <Feather name="layers" size={22} color="#fff" />
             </LinearGradient>
-
             <View style={{ flex: 1 }}>
               <Text style={[s.summaryLabel, { color: colors.foreground }]}>
                 {displayLabel}
@@ -713,27 +706,6 @@ export default function SessionDetailScreen() {
                   {sessionNotes}
                 </Text>
               ) : null}
-
-              <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
-                {statusCounts.live > 0 && (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#E64825" }} />
-                    <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>{statusCounts.live} Live</Text>
-                  </View>
-                )}
-                {statusCounts.planned > 0 && (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#3b82f6" }} />
-                    <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>{statusCounts.planned} Planned</Text>
-                  </View>
-                )}
-                {statusCounts.completed > 0 && (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#22c55e" }} />
-                    <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>{statusCounts.completed} Completed</Text>
-                  </View>
-                )}
-              </View>
             </View>
           </View>
 
@@ -909,11 +881,9 @@ export default function SessionDetailScreen() {
                             ].filter(r => r.val).map((r) => (
                               <View key={r.label} style={s.ratingChip}>
                                 <Text style={s.ratingLabel}>{r.label}</Text>
-                                <View style={{ flexDirection: "row", gap: 1 }}>
-                                  {[...Array(5)].map((_, j) => (
-                                    <Feather key={j} name="star" size={8} color={j < r.val! ? "#F59E0B" : "rgba(255,255,255,0.2)"} fill={j < r.val! ? "#F59E0B" : "transparent"} />
-                                  ))}
-                                </View>
+                                <Text style={s.ratingStars}>
+                                  {"★".repeat(r.val!)}{"☆".repeat(5 - r.val!)}
+                                </Text>
                               </View>
                             ))}
                           </View>
@@ -1090,7 +1060,7 @@ export default function SessionDetailScreen() {
                                         <Text style={[s.probePickerTemp, { color: colors.mutedForeground }]}>
                                           {device.probeTempF}°F internal
                                           {device.ambientTempF != null ? ` · ${device.ambientTempF}°F pit` : ""}
-                                          {device.batteryPct != null ? ` · Battery: ${device.batteryPct}%` : ""}
+                                          {device.batteryPct != null ? ` · 🔋${device.batteryPct}%` : ""}
                                         </Text>
                                       )}
                                     </View>
@@ -1299,7 +1269,7 @@ export default function SessionDetailScreen() {
         >
           <Feather name="wifi" size={16} color="#22c55e" />
           <Text style={{ flex: 1, color: "#F3EDE1", fontFamily: "Inter_400Regular", fontSize: 13 }}>
-            {bleReconnectToast} reconnected
+            {bleReconnectToast} reconnected ✓
           </Text>
           <Pressable onPress={() => setBleReconnectToast(null)} hitSlop={10}>
             <Feather name="x" size={14} color="#9CA3AF" />
