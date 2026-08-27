@@ -40,6 +40,7 @@ import { mark, installFetchTracker } from "@/lib/bootBreadcrumbs";
 import { getTokenSafe } from "@/lib/getTokenSafe";
 import {
   getClerkDiagnostics,
+  isReplitPreviewBundle,
   selectClerkPublishableKey,
 } from "@/lib/clerkDiagnostics";
 // Install the global JS error handler as early as possible — before any
@@ -154,12 +155,16 @@ setAuthTokenGetter(async (opts) => {
 //   1. Obtain your production publishable key from https://dashboard.clerk.com
 //   2. Set it as an EAS secret: eas secret:create EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD pk_live_xxxx
 //   3. Add it to eas.json build.production.env (see eas.json for the placeholder)
-// The Replit Expo browser preview has no persisted Clerk session for smoke
-// tests. This flag is injected only by the local `dev` script and is web-only,
-// so native apps and production builds always retain the normal auth gate.
+// Replit's local preview workflow sets this flag for every bundle it serves,
+// including a native bundle opened in Expo Go. Keep it separate from the
+// browser-only guest/auth bypass below: Expo Go should retain normal auth UI
+// but must not be mistaken for a TestFlight/App Store release.
+const isReplitPreview = isReplitPreviewBundle(
+  process.env.EXPO_PUBLIC_BROWSER_PREVIEW_MODE,
+);
 const isBrowserPreview =
   Platform.OS === "web" &&
-  process.env.EXPO_PUBLIC_BROWSER_PREVIEW_MODE === "true";
+  isReplitPreview;
 const clerkProductionKey =
   process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD ?? "";
 const clerkDevelopmentKey =
@@ -168,17 +173,17 @@ const clerkPubKey = selectClerkPublishableKey({
   productionKey: clerkProductionKey,
   developmentKey: clerkDevelopmentKey,
   isDev: __DEV__,
-  isPreview: isBrowserPreview,
+  isPreview: isReplitPreview,
 });
 const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL ?? "";
 
-// Loud diagnostic: a browser preview intentionally uses the development key
-// even though its --no-dev bundle reports __DEV__ === false. TestFlight /
+// Loud diagnostic: a Replit preview bundle intentionally uses the development
+// key even though its --no-dev bundle reports __DEV__ === false. TestFlight /
 // App Store builds still report missing keys and accidental pk_test_ usage.
 for (const diagnostic of getClerkDiagnostics({
   clerkPubKey,
   isDev: __DEV__,
-  isPreview: isBrowserPreview,
+  isPreview: isReplitPreview,
 })) {
   if (diagnostic === "missing-key") {
     console.error(

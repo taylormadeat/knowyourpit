@@ -1,13 +1,25 @@
 import {
   getClerkDiagnostics,
+  isReplitPreviewBundle,
   selectClerkPublishableKey,
 } from "@/lib/clerkDiagnostics";
 
 const developmentKey = "pk_test_development";
 const productionKey = "pk_live_production";
 
+describe("Replit preview detection", () => {
+  it("recognizes the preview signal for a native Expo Go bundle without a web-platform requirement", () => {
+    expect(isReplitPreviewBundle("true")).toBe(true);
+  });
+
+  it("does not treat a missing or false signal as a Replit preview", () => {
+    expect(isReplitPreviewBundle(undefined)).toBe(false);
+    expect(isReplitPreviewBundle("false")).toBe(false);
+  });
+});
+
 describe("Clerk key selection", () => {
-  it("uses the development key in the no-dev browser preview", () => {
+  it("uses the development key in the no-dev Replit preview", () => {
     expect(
       selectClerkPublishableKey({
         productionKey,
@@ -64,7 +76,7 @@ describe("Clerk key selection", () => {
 });
 
 describe("Clerk diagnostics", () => {
-  it("does not flag a development key in the no-dev browser preview", () => {
+  it("does not flag a development key in the native Expo Go preview bundle", () => {
     expect(
       getClerkDiagnostics({
         clerkPubKey: developmentKey,

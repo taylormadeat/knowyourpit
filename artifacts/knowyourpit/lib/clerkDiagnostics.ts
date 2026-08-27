@@ -6,9 +6,21 @@ export type ClerkKeySelectionOptions = {
 };
 
 /**
- * Select the Clerk instance without allowing a browser preview to accidentally
- * use the production instance. Release builds retain the existing fallback so
- * a missing production key remains visible through the release diagnostic.
+ * Replit's preview workflow explicitly sets this flag for every bundle it
+ * serves. It applies to both the browser smoke-test preview and native Expo Go;
+ * only browser-specific UI behavior should additionally check Platform.OS.
+ */
+export function isReplitPreviewBundle(
+  previewMode: string | undefined,
+): boolean {
+  return previewMode === "true";
+}
+
+/**
+ * Select the Clerk instance without allowing a Replit preview bundle to
+ * accidentally use the production instance. Release builds retain the existing
+ * fallback so a missing production key remains visible through the release
+ * diagnostic.
  */
 export function selectClerkPublishableKey({
   productionKey,
