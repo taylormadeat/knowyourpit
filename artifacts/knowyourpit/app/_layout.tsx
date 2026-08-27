@@ -38,6 +38,10 @@ import {
 } from "@/lib/bootDiagnostics";
 import { mark, installFetchTracker } from "@/lib/bootBreadcrumbs";
 import { getTokenSafe } from "@/lib/getTokenSafe";
+import {
+  getClerkDiagnostics,
+  selectClerkPublishableKey,
+} from "@/lib/clerkDiagnostics";
 // Install the global JS error handler as early as possible — before any
 // providers, hooks, or other module side-effects run — so that an exception
 // thrown during the boot sequence is persisted to disk and can be displayed
@@ -150,29 +154,38 @@ setAuthTokenGetter(async (opts) => {
 //   1. Obtain your production publishable key from https://dashboard.clerk.com
 //   2. Set it as an EAS secret: eas secret:create EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD pk_live_xxxx
 //   3. Add it to eas.json build.production.env (see eas.json for the placeholder)
-const clerkPubKey =
-  process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD ??
-  process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ??
-  "";
-const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL ?? "";
 // The Replit Expo browser preview has no persisted Clerk session for smoke
 // tests. This flag is injected only by the local `dev` script and is web-only,
 // so native apps and production builds always retain the normal auth gate.
 const isBrowserPreview =
   Platform.OS === "web" &&
   process.env.EXPO_PUBLIC_BROWSER_PREVIEW_MODE === "true";
+const clerkProductionKey =
+  process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD ?? "";
+const clerkDevelopmentKey =
+  process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
+const clerkPubKey = selectClerkPublishableKey({
+  productionKey: clerkProductionKey,
+  developmentKey: clerkDevelopmentKey,
+  isDev: __DEV__,
+  isPreview: isBrowserPreview,
+});
+const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL ?? "";
 
-// Loud diagnostic: in a non-__DEV__ build (TestFlight / App Store), refuse to
-// silently fall back to a pk_test_ Clerk dev key — that's exactly what bit the
-// last App Review (reviewer hits prod app, prod app talks to dev Clerk
-// instance, dev Clerk has no reviewer account → "credentials don't work").
-if (!__DEV__) {
-  if (!clerkPubKey) {
+// Loud diagnostic: a browser preview intentionally uses the development key
+// even though its --no-dev bundle reports __DEV__ === false. TestFlight /
+// App Store builds still report missing keys and accidental pk_test_ usage.
+for (const diagnostic of getClerkDiagnostics({
+  clerkPubKey,
+  isDev: __DEV__,
+  isPreview: isBrowserPreview,
+})) {
+  if (diagnostic === "missing-key") {
     console.error(
       "[knowyourpit] FATAL: no Clerk publishable key set in production build. " +
         "Set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD as an EAS secret and reference it in eas.json build.production.env.",
     );
-  } else if (clerkPubKey.startsWith("pk_test_")) {
+  } else {
     console.error(
       "[knowyourpit] WARNING: production build is using a pk_test_ (development) Clerk key. " +
         "Sign-in will hit the dev Clerk instance, where reviewer/production accounts do not exist. " +

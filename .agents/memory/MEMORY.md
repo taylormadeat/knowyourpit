@@ -3,6 +3,7 @@
 - [Streaming SSE flush order](streaming-sse-flush.md) — always call res.flushHeaders() BEFORE any async DB work in streaming routes or clients see a blank connection.
 - [Production redeploy gap](production-redeploy-gap.md) — new API routes added in dev won't appear in prod until redeployed; 404s on known routes = stale prod build.
 - [Clerk getToken on critical path](clerk-gettoken-critical-path.md) — never `getToken({skipCache:true})` before a UI render; use cached token, refresh only on 401. RN fetch needs an AbortController timeout.
+- [Clerk preview build detection](clerk-preview-build-detection.md) — Replit’s no-dev browser preview reports `__DEV__` false; use its explicit preview flag when deciding whether a `pk_test_` key is a release error.
 - [iOS SecureStore null-cache sign-out bug](ios-securestore-null-cache.md) — never cache null on timeout; iOS Enclave settling causes transient stalls; caching null permanently evicts the valid token for the session.
 - [Playwright on NixOS](playwright-nixos.md) — Playwright's downloaded headless-shell binary needs glibc at FHS paths; NixOS blocks it. Use runTest() in dev; e2e files are valid for Ubuntu CI.
 - [EAS iOS pod blockers](appcheckcore-pod-blocker.md) — distinguish pbxproj parse errors from AppCheck module errors; simulator builds need the production static-framework linkage.

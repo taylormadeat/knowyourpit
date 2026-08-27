@@ -71,7 +71,9 @@ dashboard audit.
 
 ### `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD`
 - **Purpose**: Production Clerk publishable key (`pk_live_…`). Takes priority
-  over `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` in `app/_layout.tsx`.
+  over `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` in release builds. The Replit
+  browser preview intentionally selects the development key instead, even when
+  both variables are present.
 - **Set in**: `eas.json` for the `production` and `preview` profiles. It is a
   public identifier rather than a private Clerk credential.
 - **EAS environments**: `production`, `preview`.
