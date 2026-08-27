@@ -53,258 +53,301 @@ id = "Qp7H6VGZ9ofBB5-ABXfas"
 uri = "file://screenshots/app-store-6.7in/IMG_1746.png"
 type = "image"
 title = "1 – PitMaster Image Scanner"
+logical_id = "04feb34b-1618-41c2-85e6-afcb214a336f"
 
 [[outputs]]
 id = "WB2ttm8hrxhVjBzN0Dxa7"
 uri = "file://screenshots/app-store-6.7in/IMG_1747.png"
 type = "image"
 title = "2 – Scan Summary & Temperature Graph"
+logical_id = "e2bddd71-bcc8-46fc-8508-022040f7d911"
 
 [[outputs]]
 id = "QE9dejgVu9QG1sQ6RU5FG"
 uri = "file://screenshots/app-store-6.7in/IMG_1748.png"
 type = "image"
 title = "3 – Home / PitMaster Score"
+logical_id = "4f26727e-fa0c-4d66-acad-59f966280f1f"
 
 [[outputs]]
 id = "TA4lUQoD79wg-Q5Z-4rf4"
 uri = "file://screenshots/app-store-6.7in/IMG_1749.png"
 type = "image"
 title = "4 – Cook Log"
+logical_id = "b64b80e1-2100-4761-8971-ac0c4288e3b0"
 
 [[outputs]]
 id = "9UEOvn641i_ofVOvziPx-"
 uri = "file://screenshots/app-store-6.7in/IMG_1750.png"
 type = "image"
 title = "5 – Plan a Cook"
+logical_id = "edaf55d8-2ef9-43ab-b85d-bc4f92f3fcbe"
 
 [[outputs]]
 id = "Nxm52XNq4HC4HNzC2-q7c"
 uri = "file://screenshots/app-store-6.7in/IMG_1751.png"
 type = "image"
 title = "6 – PitMaster Plan Detail"
+logical_id = "6e2d4e62-ff6f-47ab-8da1-dedd7772b1d4"
 
 [[outputs]]
 id = "r4qOx7Kf9sCL36tkmsI4o"
 uri = "file://screenshots/app-store-6.7in/IMG_1752.png"
 type = "image"
 title = "7 – My Grills"
+logical_id = "00b04d24-e333-444c-b5e5-fa2724ece138"
 
 [[outputs]]
 id = "nvvIW-uaJrLBFBN1kOfSo"
 uri = "file://screenshots/app-store-6.7in/IMG_1754.png"
 type = "image"
 title = "8 – Live Cook"
+logical_id = "dba2eb5b-c34c-42ad-b0c4-61b1a71881b3"
 
 [[outputs]]
 id = "XWb3Xl_rRKs0TWl5JAmfU"
 uri = "file://screenshots/app-store-6.7in/IMG_1755.png"
 type = "image"
 title = "9 – PitMaster Decisions"
+logical_id = "666f9470-d141-4b74-a53c-7e9cce60c278"
 
 [[outputs]]
 id = "4VVTUvaFl9Gn4hMc92H23"
 uri = "file://screenshots/app-store-6.7in/IMG_1756.png"
 type = "image"
 title = "10 – Cook Assessment"
+logical_id = "ff8c72cc-81b5-48b3-94ad-3584a016bc9b"
 
 [[outputs]]
 id = "NsTxnberNdwr56-4t_lfp"
 uri = "file://attached_assets/knowyourpit_apppreview_886x1920.mp4"
 type = "video"
 title = "App Preview — 886×1920 (App Store ready)"
+logical_id = "56b5e925-0b6c-44c8-be77-5a2f7134f7d1"
 
 [[outputs]]
 id = "rSR7aDVM_e331zQ6HOlPo"
 uri = "file://.local/knowyourpit-style-guide.md"
 type = "text"
 title = "knowyourpit Brand & Style Guide"
+logical_id = "5d00e375-b5de-4779-af49-a5fed1a840d1"
 
 [[outputs]]
 id = "yl45kdY3Nhl6ju26KO1p8"
 uri = "file://.local/knowyourpit-style-guide.pdf"
 type = "pdf"
 title = "knowyourpit Brand & Style Guide"
+logical_id = "e2cfa640-6ce6-4b6d-8518-d9e979421246"
 
 [[outputs]]
 id = "MRGIbyxzDwhVIClJTpdgn"
 uri = "file://scripts/output/knowyourpit-knowledge.pdf"
 type = "pdf"
 title = "knowyourpit Knowledge PDF"
+logical_id = "4cf40f69-37b4-4d8f-94ac-a019b87b78da"
 
 [[outputs]]
 id = "eDqTjq1VJ2SMEZAA3gn-k"
 uri = "file://knowyourpit-living-reference.md"
 type = "text"
 title = "knowyourpit Living Reference"
+logical_id = "c47f78dd-daac-4b44-976b-f06057b2baf8"
 
 [[outputs]]
 id = "772zStNPdi7hCfShKxZWJ"
 uri = "file://knowyourpit-instagram-launch-posts.md"
 type = "text"
 title = "knowyourpit Instagram Launch Posts"
+logical_id = "4e82b264-5439-461a-9b85-60f5dd85bce1"
 
 [[outputs]]
 id = "ae5-uc7RxAyJ2nIynIZ7w"
 uri = "file://attached_assets/generated_images/launch-instagram.png"
 type = "image"
 title = "Instagram launch post background"
+logical_id = "ccba567a-fe96-4a00-9892-637c05e24440"
 
 [[outputs]]
 id = "FDWwpK6GDwf3HdGLH6TN6"
 uri = "file://attached_assets/generated_images/launch-facebook.png"
 type = "image"
 title = "Facebook launch post"
+logical_id = "7c8c3036-15db-46bd-b5a2-18f5d806f714"
 
 [[outputs]]
 id = "u1cf_bJ5x7Q7EFWk-YaBN"
 uri = "file://.agents/outputs/style-guide/page_01.png"
 type = "image"
 title = "Style guide — page 1"
+logical_id = "17597583-7cfc-453b-b7a3-a019dc0e0125"
 
 [[outputs]]
 id = "FZBB3r0ESWqTGB7CyYQBb"
 uri = "file://.agents/outputs/style-guide/page_02.png"
 type = "image"
 title = "Style guide — page 2"
+logical_id = "a449cd21-4446-481e-bee2-edb24abec2ee"
 
 [[outputs]]
 id = "NOEt1aumW3CA7Xpct3qN0"
 uri = "file://.agents/outputs/style-guide/page_03.png"
 type = "image"
 title = "Style guide — page 3"
+logical_id = "d8af2be5-4164-4c94-ba11-336f4bbe33b6"
 
 [[outputs]]
 id = "SrJq6rI_bp0Gp3dj-jfAw"
 uri = "file://.agents/outputs/style-guide/page_04.png"
 type = "image"
 title = "Style guide — page 4"
+logical_id = "78553a46-5e61-4b87-8861-b3f903e79dce"
 
 [[outputs]]
 id = "FnCw8Emmb9JAMxh_TDOi8"
 uri = "file://.agents/outputs/style-guide/page_05.png"
 type = "image"
 title = "Style guide — page 5"
+logical_id = "2c43577a-1b54-42dd-96ed-db706da78ae9"
 
 [[outputs]]
 id = "YVAoW2D2eZrSmcB7e9u4u"
 uri = "file://.agents/outputs/style-guide/page_06.png"
 type = "image"
 title = "Style guide — page 6"
+logical_id = "d04f2e8a-3aea-483e-8ef4-b690dee63ac8"
 
 [[outputs]]
 id = "4qYPTt-Uc9MXbun5hTy4O"
 uri = "file://.agents/outputs/style-guide/page_07.png"
 type = "image"
 title = "Style guide — page 7"
+logical_id = "227449c1-ccdc-49d3-b625-d5e839857cdd"
 
 [[outputs]]
 id = "Y9U8RXuNpcya6Ik77pugq"
 uri = "file://.agents/outputs/style-guide/page_08.png"
 type = "image"
 title = "Style guide — page 8"
+logical_id = "fd618bf7-382e-447b-8d1a-be32c4cf664d"
 
 [[outputs]]
 id = "sHugoy_LrWXAK8X1K-uKb"
 uri = "file://.agents/outputs/style-guide/page_09.png"
 type = "image"
 title = "Style guide — page 9"
+logical_id = "b7361ad1-9348-4ce5-a7ee-566fb35ee9cf"
 
 [[outputs]]
 id = "7vWbo6m2HAjUe7ESRlwLM"
 uri = "file://.agents/outputs/style-guide/page_10.png"
 type = "image"
 title = "Style guide — page 10"
+logical_id = "67b58b33-af2d-43e2-9263-6ca205d6358e"
 
 [[outputs]]
 id = "d-PpBaxdBnRV_6HW1_LS_"
 uri = "file://.agents/outputs/style-guide/page_11.png"
 type = "image"
 title = "Style guide — page 11"
+logical_id = "8f6f65bb-0507-47aa-9d99-a8a82148a3fd"
 
 [[outputs]]
 id = "8U_v_Q4Lt7jM4tWIpfIi6"
 uri = "file://.agents/outputs/style-guide/page_12.png"
 type = "image"
 title = "Style guide — page 12"
+logical_id = "85f99d8a-9c5d-4a47-b588-96de45cf4973"
 
 [[outputs]]
 id = "SZyTWED_MgJ1xw0yr24bw"
 uri = "file://.agents/outputs/style-guide/page_13.png"
 type = "image"
 title = "Style guide — page 13"
+logical_id = "12fe69a5-489f-4fda-ae46-c2aab2c05a0e"
 
 [[outputs]]
 id = "EL8h8zfDuNiqb0Rvau2u1"
 uri = "file://attached_assets/generated_images/kyp_launch_hero.jpg"
 type = "image"
 title = "Image 1 — The Pit (hero / brand)"
+logical_id = "734a8363-19cb-4e09-abbc-32c109b4dac3"
 
 [[outputs]]
 id = "ThoCGrIc68I5DCDPfuxsP"
 uri = "file://attached_assets/generated_images/kyp_launch_wrap.jpg"
 type = "image"
 title = "Image 2 — The Wrap Call (AI coaching moment)"
+logical_id = "fb03b7d7-5235-4212-9021-3c4c51f78522"
 
 [[outputs]]
 id = "8b3DvToBlCycT7G-6hP5d"
 uri = "file://attached_assets/generated_images/kyp_launch_multiprotein.jpg"
 type = "image"
 title = "Image 3 — Multi-Protein Cook"
+logical_id = "7d19cc50-6336-4eb9-9bde-df1388378c5a"
 
 [[outputs]]
 id = "c5KqtAq2kdbd9EZ8HhXn3"
 uri = "file://attached_assets/generated_images/kyp_social_brand.jpg"
 type = "image"
 title = "Card 1 — Brand / Logo"
+logical_id = "a5c7321e-8e35-48be-a000-170691244407"
 
 [[outputs]]
 id = "boJiOVSEYtEf1i8vxhzAr"
 uri = "file://attached_assets/generated_images/kyp_social_coaching.jpg"
 type = "image"
 title = "Card 2 — AI Coaching (Wrap now.)"
+logical_id = "d023d772-a09c-4450-a2f0-b0bb89ab6510"
 
 [[outputs]]
 id = "DvdF30W0LNdEvlI9uuWFd"
 uri = "file://attached_assets/generated_images/kyp_social_launch.jpg"
 type = "image"
 title = "Card 3 — Launch Announcement"
+logical_id = "0e1784c3-21e6-40f2-9885-22686c1a9bca"
 
 [[outputs]]
 id = "aAaEtWidJ9OQPjxb5CJ3g"
 uri = "file://attached_assets/generated_images/kyp_social_brand_square.jpg"
 type = "image"
 title = "Card 1 — Final"
+logical_id = "dd77a0d3-2590-43fc-b3e9-982dcfc0c00b"
 
 [[outputs]]
 id = "WPecY9_14JimGN0sF06i4"
 uri = "file://attached_assets/generated_images/kyp_social_brand_instagram.jpg"
 type = "image"
 title = "Card 1 — Instagram (1080×1350)"
+logical_id = "4ede9dc8-ae20-4d89-a396-9f81a3633de0"
 
 [[outputs]]
 id = "PBxDRk2AdfV1aW8swSbkE"
 uri = "file://attached_assets/generated_images/kyp_facebook_cover.jpg"
 type = "image"
 title = "Facebook Cover Photo (1702×630)"
+logical_id = "55ff7cb8-3a92-4d72-8dd0-1f8ce8194c93"
 
 [[outputs]]
 id = "oiiB2deeLLddcuMNsbaCC"
 uri = "file://attached_assets/generated_images/kyp_social_multicook_instagram.jpg"
 type = "image"
 title = "Multi-Cook — Instagram (1080×1080)"
+logical_id = "c5c7326a-9bba-4643-9a26-6a2d87407c4e"
 
 [[outputs]]
 id = "ZcxDCm_-KhNNRSA8p0AiD"
 uri = "file://attached_assets/generated_images/kyp_social_multicook_facebook.jpg"
 type = "image"
 title = "Multi-Cook — Facebook (1200×630)"
+logical_id = "ada025d1-2ad8-413b-b98d-7d2e94dd136f"
 
 [[outputs]]
 id = "7nmwwBhBXzSWWW7KlfXBb"
 uri = "file://attached_assets/generated_images/kyp_social_cooklog_reference.jpg"
 type = "image"
 title = "Cook Log + AI Analysis — Reference Image"
+logical_id = "7b595fde-09b8-4c7f-864d-03f3526aae1b"
 
 [[outputs]]
 id = "nzI5P1XeBcLuLFfF1Emnz"
@@ -312,6 +355,7 @@ uri = "file://artifacts/marketing/public/print/kypflyer-fixed-qr.png"
 type = "image"
 title = "kypyourpit flyer — fixed QR"
 description = "Valid QR code, sized to fit below the callout box without overlapping text."
+logical_id = "ce898404-6ba7-42fe-a05d-381cb5c4323b"
 
 [[outputs]]
 id = "_3xqab2VDQpmC8k5eoso0"
@@ -319,6 +363,7 @@ uri = "file://artifacts/marketing/public/print/flyer-android-beta.png"
 type = "image"
 title = "Android Beta Tester — Sign-Up Flyer (v2)"
 description = "Text fits inside the card, unofficial icon removed. QR links to the Google Form."
+logical_id = "39189777-2213-4fc5-941d-3020765a0d69"
 
 [[outputs]]
 id = "zW9PxV-Pm5IUbMEH0hzmC"
@@ -326,6 +371,7 @@ uri = "file://artifacts/marketing/public/print/flyer-screenshots-planning.png"
 type = "image"
 title = "Flyer — Cook smarter. Finish together."
 description = "Planning flow: Select a Food → Cook Sequence → Sequence Plan"
+logical_id = "fac5dcb2-ba96-49e8-8e9f-1756a25f8f2f"
 
 [[outputs]]
 id = "SoAn_IdVNA9tS3SihJ7ii"
@@ -333,6 +379,7 @@ uri = "file://artifacts/marketing/public/print/flyer-screenshots-live.png"
 type = "image"
 title = "Flyer — Live coaching while you cook."
 description = "Active cooking: My Grills → Whole Turkey live → Tri-Tip timeline"
+logical_id = "3a81da9b-5f10-47f9-b0b9-be06b13e17ca"
 
 [[outputs]]
 id = "HjoyA6TIXlXCWqc8WMlca"
@@ -340,6 +387,7 @@ uri = "file://artifacts/marketing/public/print/flyer-screenshots-analysis.png"
 type = "image"
 title = "Flyer — Grade every cook. Get better every time."
 description = "Post-cook analysis: PitMaster Score → Short Ribs B- → Tomahawk A Perfect Cook"
+logical_id = "5083fb1c-a7a0-44bb-856e-33469e246cd8"
 
 [[outputs]]
 id = "kDQvPhKJrce1cEqZ9d-QP"
@@ -347,6 +395,7 @@ uri = "file://artifacts/marketing/dist/standalone/privacy.html"
 type = "text"
 title = "Privacy Policy — paste into GoDaddy"
 description = "Standalone HTML page for knowyourpit.com/privacy"
+logical_id = "bc4c7433-4920-4152-8dcd-8729ec213495"
 
 [[outputs]]
 id = "u_4RdDUIg_1oYxy2ym6Cj"
@@ -354,6 +403,7 @@ uri = "file://artifacts/marketing/dist/standalone/terms.html"
 type = "text"
 title = "Terms of Service — paste into GoDaddy"
 description = "Standalone HTML page for knowyourpit.com/terms"
+logical_id = "fd754722-68ca-4745-9728-19d9feb78dc3"
 
 [[outputs]]
 id = "v8N4HvrpruH8dAI2QoS_t"
@@ -361,6 +411,7 @@ uri = "file://attached_assets/generated_images/bp_social_post_1.jpg"
 type = "image"
 title = "Post 1 — Collab Announcement"
 description = "KnowYourPit x Big Pete's Seasoning collab reveal. Dark charcoal and ember tones with smartphone + seasoning jars. Tagline: \"The right rub. Every cook.\""
+logical_id = "7abea7ea-bd24-4736-8728-50e426237577"
 
 [[outputs]]
 id = "WTXB4fK6e4eXBwbphYktG"
@@ -368,6 +419,7 @@ uri = "file://attached_assets/generated_images/bp_social_post_2.jpg"
 type = "image"
 title = "Post 2 — Flavor Focus"
 description = "Moody close-up of seasoning jar + cooking app. Text: \"Your cook just got flavor.\" with promo badge KYP15."
+logical_id = "771423b7-33a3-4dfa-adc5-7d3438994ac6"
 
 [[outputs]]
 id = "c_PhFo3eQwgh3ceDY-wzy"
@@ -375,6 +427,7 @@ uri = "file://attached_assets/generated_images/bp_social_post_3.jpg"
 type = "image"
 title = "Post 3 — Split Brand Design"
 description = "Navy/amber split layout. Left: KnowYourPit app. Right: Big Pete's rub jars. Headline: \"Better Together.\""
+logical_id = "2703ef0f-a1a5-4d8f-8d03-90246b6e2d12"
 
 [[outputs]]
 id = "sXbeAQSwilmwjJIBHlZO2"
@@ -382,3 +435,4 @@ uri = "file://attached_assets/generated_images/bp_social_story_1.jpg"
 type = "image"
 title = "Story — Vertical 9:16"
 description = "Tall Instagram story. Glowing coals at bottom, floating seasoning jars, headline: \"Cook smarter. Season better.\" Promo code KYP15 badge. Bottom strip: KnowYourPit x Big Pete's Seasoning."
+logical_id = "bc7af9d3-560b-4813-bc57-97e1c327c477"

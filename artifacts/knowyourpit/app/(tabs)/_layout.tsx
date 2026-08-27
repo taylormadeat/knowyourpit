@@ -38,6 +38,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
         <Label>Cook Log</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="ai">
+        <Icon sf={{ default: "sparkles", selected: "sparkles" }} />
+        <Label>Agent</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="more">
         <Icon sf={{ default: "ellipsis.circle", selected: "ellipsis.circle.fill" }} />
         <Label>More</Label>
@@ -130,7 +134,15 @@ function ClassicTabLayout() {
       />
       <Tabs.Screen
         name="ai"
-        options={{ href: null }}
+        options={{
+          title: "Agent",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="sparkles" tintColor={color} size={24} />
+            ) : (
+              <Feather name="message-circle" size={24} color={color} />
+            ),
+        }}
       />
       <Tabs.Screen
         name="more"
