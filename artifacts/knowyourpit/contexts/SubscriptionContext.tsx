@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import { useAuth } from "@clerk/expo";
 import { setSubscriptionActiveGetter, customFetch } from "@workspace/api-client-react";
 import * as SecureStore from "expo-secure-store";
+import { isReplitPreviewBundle } from "@/lib/clerkDiagnostics";
 
 interface IOSIntroductoryDiscount {
   identifier?: string;
@@ -155,6 +156,15 @@ const ANDROID_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? "";
 
 function loadPurchases(): any | null {
   if (Platform.OS === "web") return null;
+  // Replit's native preview runs inside Expo Go. A real App Store / Play
+  // Store key cannot be used there; without a RevenueCat Test Store key,
+  // configure() throws the red "Invalid API key" overlay. Treat the preview
+  // as an unavailable billing environment so the rest of the app can boot.
+  // Custom development builds and release builds do not set this flag and
+  // continue to use their platform-specific RevenueCat keys.
+  if (isReplitPreviewBundle(process.env.EXPO_PUBLIC_BROWSER_PREVIEW_MODE)) {
+    return null;
+  }
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
     const mod = require("react-native-purchases");

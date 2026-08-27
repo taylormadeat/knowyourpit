@@ -23,3 +23,4 @@
 - [App Store Connect category updates](asc-category-updates.md) — update secondary category through the parent app-info PATCH, not its GET-only relationship endpoint.
 - [Expo path-prefixed preview routing](expo-path-prefixed-preview.md) — Expo Router v6 ignores base paths in development bundles; use production-mode Metro for prefixed browser previews.
 - [iOS BLE state reconciliation](ios-ble-state-reconciliation.md) — persisted denial flags are hints; reconcile live state and keep Unknown/Resetting non-blocking.
+- [RevenueCat Expo Go preview](revenuecat-expo-go-preview.md) — skip native RevenueCat configuration in Replit’s Expo Go preview when only store keys are available.

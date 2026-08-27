@@ -1,0 +1,188 @@
+console.error: Error configuring Purchases: Error: Invalid API key. The native store is not available when running inside Expo Go, please use your Test Store API Key or create a development build in order to use native features. See https://rev.cat/sdk-test-store on how to use the Test Store.
+
+_construct
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:12678:66
+Wrapper
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:12650:24
+_callSuper
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:4276:109
+SyntheticError
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:250392:37
+reactConsoleErrorHandler
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:250499:32
+setupPurchases
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:132124:21
+anonymous
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:129364:32
+?anon_0_
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:128779:33
+asyncGeneratorStep
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:3729:18
+_next
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:3743:28
+anonymous
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:3748:13
+anonymous
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:3740:24
+anonymous
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:128879:8
+commitHookEffectListMount
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:263714:35
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264247:49
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264246:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264286:46
+recursivelyTraversePassiveMountEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264238:128
+commitPassiveMountOnFiber
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264253:46
+flushPassiveEffects
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:265107:31
+anonymous
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264969:27
