@@ -12,7 +12,7 @@ dashboard audit.
 | `eas.json` build-profile `env` | `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD`, `EXPO_PUBLIC_PARTNER_BIG_PETES` |
 | EAS secrets / `eas env` (must be configured manually) | `EXPO_PUBLIC_REVENUECAT_IOS_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` |
 | Runtime injection by `scripts/build.js` (Replit web build) | `EXPO_PUBLIC_DOMAIN`, `EXPO_PUBLIC_REPL_ID`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`, `EXPO_PUBLIC_CLERK_PROXY_URL` |
-| `package.json dev` script (Replit dev session) | `EXPO_PUBLIC_DOMAIN`, `EXPO_PUBLIC_REPL_ID`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` |
+| `package.json dev` script (Replit dev session) | `EXPO_PUBLIC_DOMAIN`, `EXPO_PUBLIC_REPL_ID`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`, `EXPO_PUBLIC_PARTNER_BIG_PETES`, `EXPO_PUBLIC_ACTIVE_PARTNER` |
 
 ---
 
@@ -41,6 +41,17 @@ dashboard audit.
 - **Used in**: `hooks/useRemoteConfig.ts`.
 - **Kill switch**: The API's `partnerBigPetes` value can still disable cards in
   every build after remote config refreshes.
+
+---
+
+### `EXPO_PUBLIC_ACTIVE_PARTNER`
+- **Purpose**: Build-specific partner identity used as the initial/default
+  partner before remote config loads.
+- **Values**: A supported partner ID such as `bigPetes` or `barbecueLab`.
+- **Set in**: `eas.json` build-profile `env` and the Replit development command.
+- **Used in**: `hooks/useRemoteConfig.ts`.
+- **Override**: When the API returns a valid `activePartner`, that server value
+  replaces the build default.
 
 ---
 
