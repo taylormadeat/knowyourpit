@@ -24,3 +24,4 @@
 - [Expo path-prefixed preview routing](expo-path-prefixed-preview.md) — Expo Router v6 ignores base paths in development bundles; use production-mode Metro for prefixed browser previews.
 - [iOS BLE state reconciliation](ios-ble-state-reconciliation.md) — persisted denial flags are hints; reconcile live state and keep Unknown/Resetting non-blocking.
 - [RevenueCat Expo Go preview](revenuecat-expo-go-preview.md) — skip native RevenueCat configuration in Replit’s Expo Go preview when only store keys are available.
+- [Clerk preview SSO imports](clerk-preview-sso-imports.md) — Clerk Expo 3’s lazy SSO imports can fail in Replit’s no-dev Expo Go preview despite installed dependencies.

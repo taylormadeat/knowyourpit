@@ -12,7 +12,6 @@ import {
   Image,
 } from "react-native";
 import { useSignIn, useSignUp } from "@clerk/expo/legacy";
-import { useSSO } from "@clerk/expo";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import * as AppleAuthentication from "expo-apple-authentication";
@@ -27,6 +26,7 @@ import { LogoBackground } from "@/components/LogoBackground";
 import { AppKeyboardAvoidingView } from "@/components/AppKeyboardAvoidingView";
 import { trackAuthVerification } from "@/lib/authVerificationTelemetry";
 import { requiresEmailVerification } from "@/utils/emailVerification";
+import { usePreviewSafeSSO } from "@/lib/usePreviewSafeSSO";
 
 const logoImg = require("@/assets/images/logo-transparent-light.png");
 
@@ -53,7 +53,7 @@ export default function SignInScreen() {
   const router = useRouter();
   const { signIn, setActive, isLoaded } = useSignIn();
   const { signUp, setActive: signUpSetActive } = useSignUp();
-  const { startSSOFlow } = useSSO();
+  const { startSSOFlow } = usePreviewSafeSSO();
 
   const [step, setStep] = React.useState<Step>("signin");
 
