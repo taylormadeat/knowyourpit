@@ -1,0 +1,56 @@
+console.error: [knowyourpit] WARNING: production build is using a pk_test_ (development) Clerk key. Sign-in will hit the dev Clerk instance, where reviewer/production accounts do not exist. Set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PROD to a pk_live_… key before shipping.
+
+_construct
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:12678:66
+Wrapper
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:12650:24
+_callSuper
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:4276:109
+SyntheticError
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:250323:37
+reactConsoleErrorHandler
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:250430:32
+anonymous
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:100845:19
+loadModuleImplementation
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:157:43
+guardedLoadModule
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:94:46
+metroRequire
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:42:91
+get
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:304500:22
+metroContext
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:304571:14
+loadRoute
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:67363:41
+getLayoutNode
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:67692:31
+_loop3
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:67446:34
+getDirectoryTree
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:67483:20
+getRoutes
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:67160:40
+getRoutes
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:67029:41
+useStore
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:64603:46
+ContextNavigator
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:70830:44
+renderWithHooks
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:261274:31
+updateFunctionComponent
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:262827:31
+beginWork
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:263241:38
+performUnitOfWork
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264794:24
+workLoopSync
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264698:54
+renderRootSync
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264683:18
+performWorkOnRoot
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:264465:96
+performWorkOnRootViaSchedulerTask
+    entry.bundle?platform=ios&dev=false&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.baseUrl=knowyourpit&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:260829:21
