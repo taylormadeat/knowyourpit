@@ -18,7 +18,7 @@ const config = {
   userInterfaceStyle: "dark",
   newArchEnabled: true,
   splash: {
-    image: "./assets/images/logo.png",
+    image: "./assets/images/logo-transparent-light.png",
     resizeMode: "contain",
     backgroundColor: "#0e0e10",
   },
@@ -106,7 +106,7 @@ const config = {
     [
       "expo-notifications",
       {
-        icon: "./assets/images/icon.png",
+        icon: "./assets/images/notification-icon.png",
         color: "#232327",
         sounds: [],
       },

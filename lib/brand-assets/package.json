@@ -5,14 +5,34 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./adaptive-icon-foreground.png": "./adaptive-icon-foreground.png",
     "./app-icon.png": "./app-icon.png",
+    "./icon-dark.png": "./icon-dark.png",
+    "./icon-light.png": "./icon-light.png",
+    "./icon-transparent-dark.png": "./icon-transparent-dark.png",
+    "./icon-transparent-light.png": "./icon-transparent-light.png",
+    "./logo-dark.png": "./logo-dark.png",
+    "./logo-light.png": "./logo-light.png",
+    "./logo-transparent-dark.png": "./logo-transparent-dark.png",
+    "./logo-transparent-light.png": "./logo-transparent-light.png",
     "./logo.png": "./logo.png",
+    "./notification-icon.png": "./notification-icon.png",
     "./wordmark.png": "./wordmark.png"
   },
   "files": [
     "src",
+    "adaptive-icon-foreground.png",
     "app-icon.png",
+    "icon-dark.png",
+    "icon-light.png",
+    "icon-transparent-dark.png",
+    "icon-transparent-light.png",
+    "logo-dark.png",
+    "logo-light.png",
+    "logo-transparent-dark.png",
+    "logo-transparent-light.png",
     "logo.png",
+    "notification-icon.png",
     "wordmark.png"
   ]
 }

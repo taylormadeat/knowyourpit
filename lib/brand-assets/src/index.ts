@@ -1,5 +1,15 @@
 export const BRAND = {
+  adaptiveIconForegroundFilename: "adaptive-icon-foreground.png",
   appIconFilename: "app-icon.png",
+  iconDarkFilename: "icon-dark.png",
+  iconLightFilename: "icon-light.png",
+  iconTransparentDarkFilename: "icon-transparent-dark.png",
+  iconTransparentLightFilename: "icon-transparent-light.png",
+  logoDarkFilename: "logo-dark.png",
+  logoLightFilename: "logo-light.png",
+  logoTransparentDarkFilename: "logo-transparent-dark.png",
+  logoTransparentLightFilename: "logo-transparent-light.png",
   logoFilename: "logo.png",
+  notificationIconFilename: "notification-icon.png",
   wordmarkFilename: "wordmark.png",
 } as const;
