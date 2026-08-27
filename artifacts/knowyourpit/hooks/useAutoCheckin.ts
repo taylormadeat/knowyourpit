@@ -15,9 +15,13 @@
  */
 
 import { useEffect, useRef, useCallback } from "react";
-import { useCreateCookCheckin } from "@workspace/api-client-react";
+import {
+  useCreateCookCheckin,
+  type CreateCookCheckinBody,
+} from "@workspace/api-client-react";
 import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
 import type { CookCheckin } from "@workspace/api-client-react";
+import { enqueueLocalCookCheckin, isLocalCookId } from "@/lib/localCooks";
 
 /** ±2 minutes tolerance window for milestone matching (ms). */
 const AUTO_CHECKIN_TOLERANCE_MS = 2 * 60 * 1000;
@@ -88,6 +92,15 @@ export function useAutoCheckin({
   const existingCheckinsRef = useRef(existingCheckins);
   existingCheckinsRef.current = existingCheckins;
 
+  const saveCheckin = useCallback(async (payload: CreateCookCheckinBody) => {
+    if (!cookId) throw new Error("A cook ID is required to save a check-in.");
+    if (isLocalCookId(cookId)) {
+      enqueueLocalCookCheckin(cookId, payload);
+      return;
+    }
+    await createCheckin.mutateAsync({ id: cookId, data: payload });
+  }, [cookId, createCheckin]);
+
   const checkAndFire = useCallback(async () => {
     if (!cookId || cookStatus !== "active") return;
     if (!probeReading || probeReading.internalTempF == null) return;
@@ -116,9 +129,7 @@ export function useAutoCheckin({
       firedKeysRef.current.add(sc.phaseKey);
 
       try {
-        await createCheckin.mutateAsync({
-          id: cookId,
-          data: {
+        await saveCheckin({
             scheduledAt: new Date(sc.scheduledAt).toISOString(),
             internalTempF,
             pitTempF: probeReading.pitTempF ?? null,
@@ -130,7 +141,7 @@ export function useAutoCheckin({
             probeSource: probeReading.probeSource,
             phaseLabel: sc.phaseLabel,
             phaseKey: sc.phaseKey,
-          },
+            clientOperationId: `auto-checkin-${sc.phaseKey}`,
         });
 
         onAutoCheckinFiredRef.current({
@@ -146,7 +157,7 @@ export function useAutoCheckin({
 
       break;
     }
-  }, [cookId, cookStatus, scheduledCheckins, probeReading, createCheckin]);
+  }, [cookId, cookStatus, scheduledCheckins, probeReading, saveCheckin]);
 
   useEffect(() => {
     checkAndFire().catch(() => {});
@@ -178,9 +189,7 @@ export function useAutoCheckin({
     probeConnectedFiredRef.current = true;
 
     try {
-      await createCheckin.mutateAsync({
-        id: cookId,
-        data: {
+      await saveCheckin({
           scheduledAt: new Date().toISOString(),
           internalTempF: probeReading.internalTempF,
           pitTempF: probeReading.pitTempF,
@@ -192,7 +201,7 @@ export function useAutoCheckin({
           probeSource: probeReading.probeSource,
           phaseKey: "probe_connected",
           phaseLabel: "Probes Connected",
-        },
+          clientOperationId: "auto-checkin-probe-connected",
       });
 
       onAutoCheckinFiredRef.current({
@@ -205,7 +214,7 @@ export function useAutoCheckin({
       console.warn("[useAutoCheckin] probe-connected check-in POST failed:", err);
       probeConnectedFiredRef.current = false;
     }
-  }, [cookId, cookStatus, probeReading, createCheckin]);
+  }, [cookId, cookStatus, probeReading, saveCheckin]);
 
   useEffect(() => {
     checkAndFireProbeConnected().catch(() => {});

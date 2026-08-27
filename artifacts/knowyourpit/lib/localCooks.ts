@@ -2,10 +2,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import {
   createCook as createCookRequest,
+  createCookCheckin as createCookCheckinRequest,
   reconcileLiveCookSession,
   updateCook as updateCookRequest,
   deleteCook as deleteCookRequest,
   type Cook,
+  type CookCheckin,
+  type CreateCookCheckinBody,
   type LiveCookSessionMember,
   type ReconcileLiveCookSessionBody,
 } from "@workspace/api-client-react";
@@ -43,6 +46,18 @@ export function isLocalCookStorageError(error: unknown): error is LocalCookStora
       (error as { code?: unknown }).code === "LOCAL_COOK_STORAGE_UNAVAILABLE");
 }
 
+export interface LocalCookCheckinRecord {
+  localId: number;
+  payload: CreateCookCheckinBody;
+  syncState: LocalCookSyncState;
+  syncError: string | null;
+  syncAttempts: number;
+  nextRetryAt: number | null;
+  serverCheckin: CookCheckin | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface LocalCookRecord {
   localId: number;
   ownerId: string;
@@ -59,6 +74,8 @@ export interface LocalCookRecord {
   /** Stable per-cook retry identity; multi-cook members share a sessionId. */
   localCreateKey?: string | null;
   sessionOperationId?: string | null;
+  /** Check-ins recorded before this local cook has a usable server identity. */
+  checkins?: LocalCookCheckinRecord[];
 }
 
 export interface LocalCookSessionOperation {
@@ -124,13 +141,46 @@ function sanitizeStored(value: unknown): Pick<StoredLocalCooks, "cooks" | "sessi
   if ((stored.version !== 1 && stored.version !== 2) || !Array.isArray(stored.cooks)) {
     return { cooks: [], sessionOperations: [] };
   }
-  const cooks = stored.cooks.filter((record): record is LocalCookRecord => (
-    !!record &&
-    typeof record.localId === "number" &&
-    typeof record.ownerId === "string" &&
-    !!record.cook &&
-    !!record.syncPayload
-  ));
+  const cooks = stored.cooks
+    .filter((record): record is LocalCookRecord => (
+      !!record &&
+      typeof record.localId === "number" &&
+      typeof record.ownerId === "string" &&
+      !!record.cook &&
+      !!record.syncPayload
+    ))
+    .map((record) => ({
+      ...record,
+      checkins: Array.isArray(record.checkins)
+        ? record.checkins
+            .filter((checkin): checkin is LocalCookCheckinRecord => (
+              !!checkin &&
+              typeof checkin.localId === "number" &&
+              !!checkin.payload &&
+              typeof checkin.createdAt === "string"
+            ))
+            .map((checkin) => checkin.syncState === "syncing"
+              ? {
+                  ...checkin,
+                  payload: {
+                    ...checkin.payload,
+                    clientOperationId: checkin.payload.clientOperationId ??
+                      `local-checkin-${Math.abs(checkin.localId)}`,
+                  },
+                  syncState: "pending" as const,
+                  syncError: null,
+                  nextRetryAt: null,
+                }
+              : {
+                  ...checkin,
+                  payload: {
+                    ...checkin.payload,
+                    clientOperationId: checkin.payload.clientOperationId ??
+                      `local-checkin-${Math.abs(checkin.localId)}`,
+                  },
+                })
+        : [],
+    }));
   const sessionOperations = Array.isArray(stored.sessionOperations)
     ? stored.sessionOperations.filter((operation): operation is LocalCookSessionOperation => (
         !!operation &&
@@ -380,6 +430,30 @@ function ownerMatches(record: LocalCookRecord, ownerId: string | null | undefine
   return record.ownerId === (ownerId || "anonymous");
 }
 
+function toCookCheckin(record: LocalCookRecord, checkin: LocalCookCheckinRecord): CookCheckin {
+  if (checkin.serverCheckin) return checkin.serverCheckin;
+  return {
+    id: checkin.localId,
+    cookId: record.localId,
+    scheduledAt: checkin.payload.scheduledAt,
+    firedAt: checkin.createdAt,
+    internalTempF: checkin.payload.internalTempF ?? null,
+    pitTempF: checkin.payload.pitTempF ?? null,
+    statusFlag: checkin.payload.statusFlag ?? null,
+    userNote: checkin.payload.userNote ?? null,
+    photoKey: checkin.payload.photoKey ?? null,
+    aiGuidanceShown: checkin.payload.aiGuidanceShown ?? null,
+    autoDismissed: checkin.payload.autoDismissed ?? false,
+    isAutomatic: checkin.payload.isAutomatic ?? false,
+    probeSource: checkin.payload.probeSource ?? null,
+    phaseLabel: checkin.payload.phaseLabel ?? null,
+    phaseKey: checkin.payload.phaseKey ?? null,
+    clientOperationId: checkin.payload.clientOperationId ?? null,
+    createdAt: checkin.createdAt,
+    updatedAt: checkin.updatedAt,
+  } as CookCheckin;
+}
+
 function toCook(record: LocalCookRecord): Cook {
   return {
     ...record.cook,
@@ -388,6 +462,7 @@ function toCook(record: LocalCookRecord): Cook {
     _syncState: record.syncState,
     _syncError: record.syncError,
     _serverId: record.serverId,
+    _localCheckins: (record.checkins ?? []).map((checkin) => toCookCheckin(record, checkin)),
   } as unknown as Cook;
 }
 
@@ -474,7 +549,9 @@ export function useLocalCook(id: string | number | null | undefined, ownerId: st
   const localId = Number(id);
   return {
     isHydrated,
-    cook: cooks.find((cook) => cook.id === localId),
+    cook: cooks.find((cook) =>
+      cook.id === localId ||
+      Number((cook as unknown as { _serverId?: number | null })._serverId) === localId),
   };
 }
 
@@ -533,11 +610,57 @@ export function createLocalCook(
     updatedAt: now,
     deletedAt: null,
     localCreateKey,
+    checkins: [],
   };
   records = [record, ...records];
   notify();
   queuePersistAfterForegroundTransition();
   return toCook(record);
+}
+
+/**
+ * Commit a check-in to the local cook immediately. The nested outbox keeps the
+ * check-in separate from the cook PATCH payload, then uploads it after the
+ * parent cook has a positive server ID and an authenticated owner.
+ */
+export function enqueueLocalCookCheckin(
+  localCookId: number,
+  payload: CreateCookCheckinBody,
+): CookCheckin {
+  if (!hydrated) queueHydrationAfterForegroundTransition();
+  const index = records.findIndex((record) => record.localId === localCookId && !record.deletedAt);
+  if (index < 0) throw new Error("This local cook is no longer available.");
+
+  const now = new Date().toISOString();
+  const checkinLocalId = newLocalId();
+  const checkin: LocalCookCheckinRecord = {
+    localId: checkinLocalId,
+    payload: {
+      ...payload,
+      clientOperationId: payload.clientOperationId ??
+        `local-checkin-${Math.abs(checkinLocalId)}`,
+    },
+    syncState: "pending",
+    syncError: null,
+    syncAttempts: 0,
+    nextRetryAt: null,
+    serverCheckin: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const record = records[index];
+  const next = {
+    ...record,
+    checkins: [...(record.checkins ?? []), checkin],
+    updatedAt: now,
+  };
+  records = records.map((item, itemIndex) => itemIndex === index ? next : item);
+  notify();
+  queuePersist();
+  if (next.ownerId !== "anonymous") {
+    setTimeout(() => void syncLocalCooks(next.ownerId).catch(() => {}), 0);
+  }
+  return toCookCheckin(next, checkin);
 }
 
 /**
@@ -910,6 +1033,39 @@ async function replaceRecord(localId: number, next: LocalCookRecord) {
   }
 }
 
+async function updateLocalCheckin(
+  localCookId: number,
+  checkinLocalId: number,
+  update: (checkin: LocalCookCheckinRecord) => LocalCookCheckinRecord,
+) {
+  const record = records.find((item) => item.localId === localCookId);
+  const current = record?.checkins?.find((checkin) => checkin.localId === checkinLocalId);
+  if (!record || !current) return;
+  records = records.map((item) => item.localId === localCookId
+    ? {
+        ...item,
+        checkins: (item.checkins ?? []).map((checkin) =>
+          checkin.localId === checkinLocalId ? update(checkin) : checkin),
+      }
+    : item);
+  notify();
+  try {
+    await persist();
+  } catch (error) {
+    records = records.map((item) => item.localId === localCookId
+      ? {
+          ...item,
+          checkins: (item.checkins ?? []).map((checkin) =>
+            checkin.localId === checkinLocalId && checkin.syncState === "syncing"
+              ? { ...checkin, syncState: "pending" as const, syncError: null, nextRetryAt: null }
+              : checkin),
+        }
+      : item);
+    notify();
+    throw error;
+  }
+}
+
 function errorStatus(error: any) {
   return Number(error?.status ?? error?.statusCode ?? error?.response?.status ?? 0);
 }
@@ -917,6 +1073,62 @@ function errorStatus(error: any) {
 function isRetryableError(error: any) {
   const status = errorStatus(error);
   return status === 0 || status === 408 || status === 429 || status >= 500;
+}
+
+async function syncLocalCheckins(ownerId: string, now: number) {
+  const parents = records.filter((record) =>
+    ownerMatches(record, ownerId) &&
+    !record.deletedAt &&
+    isConfirmedServerCookId(record.serverId),
+  );
+
+  for (const parent of parents) {
+    const pending = (parent.checkins ?? []).filter((checkin) =>
+      checkin.syncState === "pending" ||
+      (checkin.syncState === "error" &&
+        checkin.nextRetryAt != null &&
+        checkin.nextRetryAt <= now),
+    );
+    for (const pendingCheckin of pending) {
+      const syncing: LocalCookCheckinRecord = {
+        ...pendingCheckin,
+        syncState: "syncing",
+        syncError: null,
+        updatedAt: new Date().toISOString(),
+      };
+      await updateLocalCheckin(parent.localId, pendingCheckin.localId, () => syncing);
+      try {
+        const saved = await requestWithTimeout((signal) =>
+          createCookCheckinRequest(parent.serverId!, syncing.payload, { signal }),
+        );
+        await updateLocalCheckin(parent.localId, syncing.localId, (latest) => ({
+          ...latest,
+          syncState: "synced",
+          syncError: null,
+          syncAttempts: 0,
+          nextRetryAt: null,
+          serverCheckin: saved,
+          updatedAt: new Date().toISOString(),
+        }));
+      } catch (error: any) {
+        const latestParent = records.find((record) => record.localId === parent.localId);
+        const latest = latestParent?.checkins?.find((checkin) => checkin.localId === syncing.localId);
+        if (!latest) continue;
+        const syncAttempts = (latest.syncAttempts ?? 0) + 1;
+        const retryable = isRetryableError(error) || errorStatus(error) === 401;
+        await updateLocalCheckin(parent.localId, syncing.localId, (current) => ({
+          ...current,
+          syncState: "error",
+          syncError: error?.message || "Will retry this check-in when a connection is available.",
+          syncAttempts,
+          nextRetryAt: retryable
+            ? Date.now() + RETRY_DELAYS_MS[Math.min(syncAttempts - 1, RETRY_DELAYS_MS.length - 1)]
+            : null,
+          updatedAt: new Date().toISOString(),
+        }));
+      }
+    }
+  }
 }
 
 function sessionOperationMatches(operation: LocalCookSessionOperation, ownerId: string) {
@@ -1073,6 +1285,11 @@ function scheduleRetry(ownerId: string) {
     ...records
       .filter((record) => ownerMatches(record, ownerId) && record.nextRetryAt != null)
       .map((record) => record.nextRetryAt!),
+    ...records
+      .filter((record) => ownerMatches(record, ownerId))
+      .flatMap((record) => (record.checkins ?? [])
+        .filter((checkin) => checkin.nextRetryAt != null)
+        .map((checkin) => checkin.nextRetryAt!)),
     ...sessionOperations
       .filter((operation) => sessionOperationMatches(operation, ownerId) && operation.nextRetryAt != null)
       .map((operation) => operation.nextRetryAt!),
@@ -1194,6 +1411,7 @@ export async function syncLocalCooks(ownerId: string | null | undefined) {
         }
       }
     }
+    await syncLocalCheckins(ownerKey, Date.now());
   } catch (error) {
     if (!isLocalCookStorageError(error)) throw error;
     // The native operation that timed out is still serialized by persist().
@@ -1209,6 +1427,10 @@ export async function syncLocalCooks(ownerId: string | null | undefined) {
       }, LOCAL_COOK_STORAGE_TIMEOUT_MS);
     } else if (
       records.some((record) => ownerMatches(record, ownerKey) && !record.sessionOperationId && record.syncState === "pending") ||
+      records.some((record) =>
+        ownerMatches(record, ownerKey) &&
+        isConfirmedServerCookId(record.serverId) &&
+        (record.checkins ?? []).some((checkin) => checkin.syncState === "pending")) ||
       sessionOperations.some((operation) => sessionOperationMatches(operation, ownerKey) && operation.syncState === "pending")
     ) {
       setTimeout(() => void syncLocalCooks(ownerKey), 0);

@@ -40,6 +40,7 @@ const CreateCookCheckinBodySchema = z.object({
   probeSource: z.string().nullable().optional(),
   phaseLabel: z.string().nullable().optional(),
   phaseKey: z.string().nullable().optional(),
+  clientOperationId: z.string().min(1).max(128).nullable().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -219,7 +220,7 @@ router.post("/cooks/:id/checkins", requireAuth, async (req: any, res): Promise<v
     return;
   }
 
-  const [checkin] = await db
+  let [checkin] = await db
     .insert(cookCheckins)
     .values({
       cookId: params.data.id,
@@ -236,8 +237,31 @@ router.post("/cooks/:id/checkins", requireAuth, async (req: any, res): Promise<v
       probeSource: parsed.data.probeSource ?? null,
       phaseLabel: parsed.data.phaseLabel ?? null,
       phaseKey: parsed.data.phaseKey ?? null,
+      clientOperationId: parsed.data.clientOperationId ?? null,
+    })
+    .onConflictDoNothing({
+      target: [cookCheckins.cookId, cookCheckins.clientOperationId],
     })
     .returning();
+
+  if (!checkin && parsed.data.clientOperationId) {
+    [checkin] = await db
+      .select()
+      .from(cookCheckins)
+      .where(and(
+        eq(cookCheckins.cookId, params.data.id),
+        eq(cookCheckins.clientOperationId, parsed.data.clientOperationId),
+      ));
+    if (checkin) {
+      res.status(200).json(checkin);
+      return;
+    }
+  }
+
+  if (!checkin) {
+    res.status(500).json({ error: "Check-in could not be recorded" });
+    return;
+  }
 
   // Adaptive ETA update: if the actual internal temp deviates significantly
   // from the expected range for this phase, recompute the cook's estimated

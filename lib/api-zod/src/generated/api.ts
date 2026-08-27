@@ -1563,6 +1563,7 @@ export const ListCookCheckinsResponseItem = zod.object({
   probeSource: zod.string().nullable(),
   phaseLabel: zod.string().nullable(),
   phaseKey: zod.string().nullable(),
+  clientOperationId: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1574,6 +1575,8 @@ export const ListCookCheckinsResponse = zod.array(ListCookCheckinsResponseItem);
 export const CreateCookCheckinParams = zod.object({
   id: zod.coerce.number(),
 });
+
+export const createCookCheckinBodyClientOperationIdMax = 128;
 
 export const CreateCookCheckinBody = zod.object({
   scheduledAt: zod.coerce.date(),
@@ -1596,6 +1599,10 @@ export const CreateCookCheckinBody = zod.object({
   probeSource: zod.string().nullish(),
   phaseLabel: zod.string().nullish(),
   phaseKey: zod.string().nullish(),
+  clientOperationId: zod
+    .string()
+    .max(createCookCheckinBodyClientOperationIdMax)
+    .nullish(),
 });
 
 /**

@@ -2952,6 +2952,8 @@ components:
           type: ["string", "null"]
         phaseKey:
           type: ["string", "null"]
+        clientOperationId:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -2974,6 +2976,7 @@ components:
         - probeSource
         - phaseLabel
         - phaseKey
+        - clientOperationId
         - createdAt
         - updatedAt
 
@@ -3025,6 +3028,9 @@ components:
           type: ["string", "null"]
         phaseKey:
           type: ["string", "null"]
+        clientOperationId:
+          type: ["string", "null"]
+          maxLength: 128
       required:
         - scheduledAt
 

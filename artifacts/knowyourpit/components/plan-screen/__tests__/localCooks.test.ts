@@ -18,6 +18,7 @@ const mockRemoveItem = jest.fn();
 const mockCreateCook = jest.fn();
 const mockUpdateCook = jest.fn();
 const mockDeleteCook = jest.fn();
+const mockCreateCookCheckin = jest.fn();
 const mockReconcileLiveCookSession = jest.fn();
 
 jest.mock("@react-native-async-storage/async-storage", () => ({
@@ -33,6 +34,7 @@ jest.mock("@workspace/api-client-react", () => ({
   createCook: mockCreateCook,
   updateCook: mockUpdateCook,
   deleteCook: mockDeleteCook,
+  createCookCheckin: mockCreateCookCheckin,
   reconcileLiveCookSession: mockReconcileLiveCookSession,
 }));
 
@@ -132,10 +134,22 @@ describe("local planning outbox failure recovery", () => {
     mockCreateCook.mockReset();
     mockUpdateCook.mockReset();
     mockDeleteCook.mockReset();
+    mockCreateCookCheckin.mockReset();
     mockReconcileLiveCookSession.mockReset();
     mockCreateCook.mockResolvedValue({ id: 501 });
     mockUpdateCook.mockResolvedValue({ id: 77 });
     mockDeleteCook.mockResolvedValue(undefined);
+    mockCreateCookCheckin.mockImplementation(async (cookId: number, payload: Record<string, unknown>) => ({
+      id: 900,
+      cookId,
+      ...payload,
+      firedAt: NOW.toISOString(),
+      statusFlag: null,
+      autoDismissed: false,
+      isAutomatic: false,
+      createdAt: NOW.toISOString(),
+      updatedAt: NOW.toISOString(),
+    }));
     mockReconcileLiveCookSession.mockResolvedValue({
       operationId: "unused",
       sessionId: SESSION_ID,
@@ -163,6 +177,107 @@ describe("local planning outbox failure recovery", () => {
     await localCooks.syncLocalCooks(OWNER_ID);
 
     await expect(serverId).resolves.toBe(501);
+  });
+
+  it("saves anonymous local check-ins immediately without calling the API", async () => {
+    const localCooks = loadLocalCooks();
+    const localCook = localCooks.createLocalCook(null, {
+      foodType: "Whole Chicken",
+      status: "active",
+    });
+
+    const checkin = localCooks.enqueueLocalCookCheckin(localCook.id, {
+      scheduledAt: NOW.toISOString(),
+      internalTempF: 55,
+      pitTempF: 350,
+      phaseKey: "manual",
+      phaseLabel: "Manual Check-in",
+    });
+    await flushMicrotasks();
+    await localCooks.syncLocalCooks(null);
+
+    expect(checkin).toMatchObject({
+      cookId: localCook.id,
+      internalTempF: 55,
+      pitTempF: 350,
+    });
+    expect(mockCreateCookCheckin).not.toHaveBeenCalled();
+    expect(readSnapshot().cooks[0].checkins).toHaveLength(1);
+  });
+
+  it("uploads a queued check-in only after its parent cook receives a server ID", async () => {
+    const localCooks = loadLocalCooks();
+    const localCook = localCooks.createLocalCook(OWNER_ID, {
+      foodType: "Whole Chicken",
+      status: "active",
+    });
+    localCooks.enqueueLocalCookCheckin(localCook.id, {
+      scheduledAt: NOW.toISOString(),
+      internalTempF: 55,
+      pitTempF: 350,
+      phaseKey: "manual",
+      phaseLabel: "Manual Check-in",
+    });
+
+    await localCooks.syncLocalCooks(OWNER_ID);
+
+    expect(mockCreateCook).toHaveBeenCalledTimes(1);
+    expect(mockCreateCookCheckin).toHaveBeenCalledWith(
+      501,
+      expect.objectContaining({
+        internalTempF: 55,
+        pitTempF: 350,
+        clientOperationId: expect.stringMatching(/^local-checkin-/),
+      }),
+      expect.objectContaining({ signal: expect.anything() }),
+    );
+    expect(readSnapshot().cooks[0].checkins[0]).toMatchObject({
+      syncState: "synced",
+      serverCheckin: expect.objectContaining({ id: 900, cookId: 501 }),
+    });
+  });
+
+  it("reuses the same check-in operation ID after a failed upload and app restart", async () => {
+    let localCooks = loadLocalCooks();
+    mockCreateCookCheckin
+      .mockRejectedValueOnce(Object.assign(new Error("response lost"), { status: 500 }))
+      .mockImplementation(async (cookId: number, payload: Record<string, unknown>) => ({
+        id: 901,
+        cookId,
+        ...payload,
+        firedAt: NOW.toISOString(),
+        statusFlag: null,
+        autoDismissed: false,
+        isAutomatic: false,
+        createdAt: NOW.toISOString(),
+        updatedAt: NOW.toISOString(),
+      }));
+    const localCook = localCooks.createLocalCook(OWNER_ID, {
+      foodType: "Whole Chicken",
+      status: "active",
+    });
+    localCooks.enqueueLocalCookCheckin(localCook.id, {
+      scheduledAt: NOW.toISOString(),
+      internalTempF: 55,
+      phaseKey: "manual",
+    });
+
+    await localCooks.syncLocalCooks(OWNER_ID);
+    const firstOperationId = mockCreateCookCheckin.mock.calls[0][1].clientOperationId;
+    expect(firstOperationId).toMatch(/^local-checkin-/);
+
+    jest.clearAllTimers();
+    jest.setSystemTime(NOW.getTime() + 10_000);
+    localCooks = loadLocalCooks();
+    await localCooks.hydrateLocalCooks();
+    await localCooks.syncLocalCooks(OWNER_ID);
+
+    expect(mockCreateCookCheckin).toHaveBeenCalledTimes(2);
+    expect(mockCreateCookCheckin.mock.calls[1][1].clientOperationId).toBe(firstOperationId);
+    expect(readSnapshot().cooks[0].checkins[0]).toMatchObject({
+      syncState: "synced",
+      serverCheckin: expect.objectContaining({ id: 901 }),
+    });
   });
 
   it("reports a confirmed server ID before a slow durable sync write recovers", async () => {

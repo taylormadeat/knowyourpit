@@ -29,4 +29,9 @@ export interface CreateCookCheckinBody {
   phaseLabel?: string | null;
   /** @nullable */
   phaseKey?: string | null;
+  /**
+   * @maxLength 128
+   * @nullable
+   */
+  clientOperationId?: string | null;
 }

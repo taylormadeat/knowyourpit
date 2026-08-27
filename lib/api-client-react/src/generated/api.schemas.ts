@@ -1858,6 +1858,8 @@ export interface CookCheckin {
   phaseLabel: string | null;
   /** @nullable */
   phaseKey: string | null;
+  /** @nullable */
+  clientOperationId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1913,6 +1915,11 @@ export interface CreateCookCheckinBody {
   phaseLabel?: string | null;
   /** @nullable */
   phaseKey?: string | null;
+  /**
+   * @maxLength 128
+   * @nullable
+   */
+  clientOperationId?: string | null;
 }
 
 export type CookLogEventEventType =

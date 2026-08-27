@@ -32,6 +32,8 @@ export interface CookCheckin {
   phaseLabel: string | null;
   /** @nullable */
   phaseKey: string | null;
+  /** @nullable */
+  clientOperationId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

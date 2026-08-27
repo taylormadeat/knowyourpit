@@ -7,7 +7,7 @@
  *
  * Behaviour is identical to the old sheet:
  *  • auto-fills from live probe/pit readings
- *  • calls the same createCheckin mutation
+ *  • queues local-cook check-ins immediately, otherwise calls createCheckin
  *  • invokes onCheckinSaved so the parent can update the live graph, toast,
  *    and reschedule notifications
  */
@@ -30,8 +30,15 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
-import { useCreateCookCheckin } from "@workspace/api-client-react";
+import {
+  useCreateCookCheckin,
+  type CreateCookCheckinBody,
+} from "@workspace/api-client-react";
 import type { ScheduledCheckin } from "@/constants/checkinKnowledge";
+import {
+  enqueueLocalCookCheckin,
+  isLocalCookId,
+} from "@/lib/localCooks";
 import type { PickedImage } from "./types";
 import {
   classifyCheckinScanFailure,
@@ -335,29 +342,35 @@ export function InlineCheckinCard({
       const phaseLabel = sc?.phaseLabel ?? sc?.phase?.label ?? "Manual Check-in";
       const imageToAttach = scanImage;
 
-      await createCheckin.mutateAsync({
-        id: cookId,
-        data: {
-          scheduledAt: new Date(scheduledAt).toISOString(),
-          internalTempF: parsedInternal ?? null,
-          pitTempF: parsedPit ?? null,
-          statusFlag: null,
-          userNote: null,
-          photoKey: imageToAttach
-            ? `data:${imageToAttach.mimeType};base64,${imageToAttach.base64}`
-            : null,
-          aiGuidanceShown: null,
-          phaseLabel,
-          phaseKey,
-        },
-      });
+      const checkinPayload: CreateCookCheckinBody = {
+        scheduledAt: new Date(scheduledAt).toISOString(),
+        internalTempF: parsedInternal ?? null,
+        pitTempF: parsedPit ?? null,
+        statusFlag: null,
+        userNote: null,
+        photoKey: imageToAttach
+          ? `data:${imageToAttach.mimeType};base64,${imageToAttach.base64}`
+          : null,
+        aiGuidanceShown: null,
+        phaseLabel,
+        phaseKey,
+      };
+
+      if (isLocalCookId(cookId)) {
+        enqueueLocalCookCheckin(cookId, checkinPayload);
+      } else {
+        await createCheckin.mutateAsync({
+          id: cookId,
+          data: checkinPayload,
+        });
+      }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
       // Trigger a fresh PitMaster analysis with the submitted temperatures so
       // the pitmaster gets updated coaching advice — same behaviour as the old
       // UnifiedCheckinSheet which always called onRequestAnalyze post-submit.
-      if (!scanAnalyzed || scanValuesEdited) {
+      if (!isLocalCookId(cookId) && (!scanAnalyzed || scanValuesEdited)) {
         onRequestAnalyze?.({
           internalTempF: parsedInternal ?? null,
           pitTempF: parsedPit ?? null,

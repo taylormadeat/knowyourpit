@@ -18,6 +18,7 @@ import {
   useListCookCheckins,
   useCreateCookCheckin,
   type Cook,
+  type CookCheckin,
   type UpdateCookBody,
   getListCooksQueryKey,
   getGetCookQueryKey,
@@ -126,8 +127,8 @@ export function useCookDetail(id: string | undefined) {
       } as any,
     },
   );
-  const cook = isLocalCook ? localCook : remoteCook;
-  const isLoading = isLocalCook ? !localCookHydrated : remoteCookLoading;
+  const cook = isLocalCook ? localCook : (remoteCook ?? localCook);
+  const isLoading = isLocalCook ? !localCookHydrated : (remoteCookLoading && !localCook);
   const localServerId = Number((localCook as any)?._serverId);
   const localRouteHandoffRef = useRef<number | null>(null);
 
@@ -175,7 +176,10 @@ export function useCookDetail(id: string | undefined) {
     (c: any) => c?.status === "active",
   ).length;
 
-  const { data: cookCheckins = [], isLoading: checkinsLoading } = useListCookCheckins(
+  const {
+    data: remoteCookCheckins = [],
+    isLoading: remoteCheckinsLoading,
+  } = useListCookCheckins(
     Number(id),
     {
       query: {
@@ -187,6 +191,27 @@ export function useCookDetail(id: string | undefined) {
       },
     },
   );
+  const localMirrorCheckins =
+    ((localCook as unknown as { _localCheckins?: CookCheckin[] } | undefined)?._localCheckins) ?? [];
+  const cookCheckins = useMemo(() => {
+    if (isLocalCook) return localMirrorCheckins;
+    if (localMirrorCheckins.length === 0) return remoteCookCheckins;
+
+    const remoteIds = new Set(remoteCookCheckins.map((checkin) => checkin.id));
+    const remoteOperationIds = new Set(
+      remoteCookCheckins
+        .map((checkin) => checkin.clientOperationId)
+        .filter((operationId): operationId is string => !!operationId),
+    );
+    const pendingLocal = localMirrorCheckins.filter((checkin) => {
+      if (checkin.clientOperationId && remoteOperationIds.has(checkin.clientOperationId)) return false;
+      return checkin.id <= 0 || !remoteIds.has(checkin.id);
+    });
+    return [...remoteCookCheckins, ...pendingLocal];
+  }, [isLocalCook, localMirrorCheckins, remoteCookCheckins]);
+  const checkinsLoading = isLocalCook
+    ? !localCookHydrated
+    : (remoteCheckinsLoading && localMirrorCheckins.length === 0);
 
   const lastCheckin = useMemo(() => {
     if (!Array.isArray(cookCheckins) || cookCheckins.length === 0) return null;
