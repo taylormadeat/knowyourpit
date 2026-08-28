@@ -57,7 +57,7 @@ import {
 import { useAutoCheckin } from "@/hooks/useAutoCheckin";
 import { useCheckinNotifications, useCheckinDeepLink, rescheduleCheckinNotifications, cancelCheckinNotificationForPhase, scheduleCheckinNotifications, loadRemovedCheckinPhaseKeys } from "@/hooks/useCheckinNotifications";
 import { scheduleStepNotifications, cancelStoredStepNotifications } from "@/hooks/useScheduleStepNotifications";
-import { getCheckinSchedule, generateCheckinSchedule } from "@/constants/checkinKnowledge";
+import { getCheckinSchedule, generateCheckinSchedule, resolveCheckinSchedule } from "@/constants/checkinKnowledge";
 import type { AiCheckinItem, ScheduledCheckin, CheckinSequenceAnchor } from "@/constants/checkinKnowledge";
 import { computeNextStep, rippleScheduleTimestamps } from "@/components/cook-detail/utils";
 import { STATUS_COLORS } from "@/components/cook-detail/constants";
@@ -401,16 +401,39 @@ export default function CookDetailScreen() {
     const aiCheckins = cookSeqData?.aiCheckins;
     if (!first?.meatOnAt || !aiCheckins?.length) return [];
     const meatOnMs = new Date(first.meatOnAt).getTime();
-    const meatSchedule = getCheckinSchedule(first.foodType ?? null);
-    const fallbackPhase = meatSchedule.phases[0];
-    return (aiCheckins as AiCheckinItem[]).map((ci, idx) => ({
-      id: `ai_checkin_${idx}_full`,
-      phaseKey: `ai_checkin_${idx}`,
-      phaseLabel: ci.label,
-      scheduledAt: meatOnMs + ci.offsetMinutes * 60_000,
-      phase: fallbackPhase,
-    }));
+    const finishMs = first.estimatedFinishAt
+      ? new Date(first.estimatedFinishAt).getTime()
+      : meatOnMs + Math.max(...aiCheckins.map((ci) => ci.offsetMinutes), 1) * 60_000;
+    return resolveCheckinSchedule(
+      first.foodType ?? null,
+      meatOnMs,
+      finishMs,
+      aiCheckins as AiCheckinItem[],
+    );
   }, [cookSeqData]);
+
+  const fullScheduledCheckins = useMemo<ScheduledCheckin[]>(() => {
+    const first = cookSeqData?.schedule?.[0];
+    if (!first?.meatOnAt || !first?.estimatedFinishAt) return noPlanScheduledCheckins;
+    const meatOnAtMs = new Date(first.meatOnAt).getTime();
+    const estimatedFinishAtMs = new Date(first.estimatedFinishAt).getTime();
+    if (!Number.isFinite(meatOnAtMs) || !Number.isFinite(estimatedFinishAtMs)) {
+      return noPlanScheduledCheckins;
+    }
+    if (fullAiSchedule.length > 0) return fullAiSchedule;
+    const anchor: CheckinSequenceAnchor = {
+      meatOnAt: first.meatOnAt,
+      estimatedFinishAt: first.estimatedFinishAt,
+      wrapAtMinutes: first.wrapAtMinutes ?? null,
+    };
+    return generateCheckinSchedule(
+      first.foodType ?? null,
+      meatOnAtMs,
+      estimatedFinishAtMs,
+      anchor,
+      typeof first.weightLbs === "number" ? first.weightLbs : cook?.weightLbs ?? null,
+    );
+  }, [cookSeqData, fullAiSchedule, noPlanScheduledCheckins, cook?.weightLbs]);
 
   const { nextCheckinMs, nextCheckinLabel, nextCheckinSc, upcomingCheckinsForCard } = useMemo(() => {
     const hasPlan = (cookSeqData?.schedule?.length ?? 0) > 0;
@@ -903,7 +926,7 @@ export default function CookDetailScreen() {
             seqScheduleExpanded={seqScheduleExpanded} setSeqScheduleExpanded={setSeqScheduleExpanded}
             confirmedSteps={confirmedSteps} toggleConfirmedStep={toggleConfirmedStep}
             scheduleListYRef={scheduleListYRef} itemYRef={itemYRef} timelineYRef={timelineYRef} rowYRef={rowYRef}
-            storedScheduledCheckins={storedScheduledCheckins} noPlanScheduledCheckins={noPlanScheduledCheckins}
+            storedScheduledCheckins={storedScheduledCheckins} fullScheduledCheckins={fullScheduledCheckins} noPlanScheduledCheckins={noPlanScheduledCheckins}
             removedPlannedKeys={removedPlannedKeys} cookCheckins={cookCheckins as CookCheckin[]}
             checkinsLoading={checkinsLoading} openCheckin={openCheckin} nextCheckinSc={nextCheckinSc}
             setPlannedCheckinPreviewSc={setPlannedCheckinPreviewSc} plannedSequenceCheckins={plannedSequenceCheckins}

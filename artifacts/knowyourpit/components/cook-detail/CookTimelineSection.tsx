@@ -30,6 +30,7 @@ interface CookTimelineSectionProps {
   timelineYRef: React.MutableRefObject<Record<number, number>>;
   rowYRef: React.MutableRefObject<Record<string, number>>;
   storedScheduledCheckins: ScheduledCheckin[];
+  fullScheduledCheckins: ScheduledCheckin[];
   noPlanScheduledCheckins: ScheduledCheckin[];
   removedPlannedKeys: Set<string>;
   cookCheckins: CookCheckin[];
@@ -62,7 +63,7 @@ export function CookTimelineSection({
   nextStep, seqScheduleExpanded, setSeqScheduleExpanded,
   confirmedSteps, toggleConfirmedStep,
   scheduleListYRef, itemYRef, timelineYRef, rowYRef,
-  storedScheduledCheckins, noPlanScheduledCheckins,
+  storedScheduledCheckins, fullScheduledCheckins, noPlanScheduledCheckins,
   removedPlannedKeys, cookCheckins, checkinsLoading, openCheckin, nextCheckinSc,
   setPlannedCheckinPreviewSc, plannedSequenceCheckins, estimatedFinishMs,
   storedAnalysis, storedAssessment, storedVerdictCfg, effectiveStoredGraphProbes,
@@ -72,12 +73,11 @@ export function CookTimelineSection({
 }: CookTimelineSectionProps) {
   const activeScheduledCheckins = React.useMemo<ScheduledCheckin[]>(() => {
     if (cookStatus !== "active") return [];
-    const hasPlan = !!(cookSeqData?.schedule?.length);
-    const base = hasPlan && storedScheduledCheckins.length > 0
-      ? storedScheduledCheckins
+    const base = fullScheduledCheckins.length > 0
+      ? fullScheduledCheckins
       : noPlanScheduledCheckins;
     return base.filter((sc) => !removedPlannedKeys.has(sc.phaseKey));
-  }, [cookStatus, cookSeqData, storedScheduledCheckins, noPlanScheduledCheckins, removedPlannedKeys]);
+  }, [cookStatus, fullScheduledCheckins, noPlanScheduledCheckins, removedPlannedKeys]);
 
   const stepConfirmations = React.useMemo(() => {
     const schedule = (cookSeqData?.schedule ?? []) as Array<{ phaseKey?: string | null; phaseLabel?: string | null; confirmedAt?: string | null }>;

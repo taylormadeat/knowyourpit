@@ -902,9 +902,7 @@ router.post("/ai/predict", requireAuth, aiRateLimit, async (req: any, res): Prom
           ...existingSeq,
           schedule: [aiScheduleItem],
           aiRefining: false,
-          ...(Array.isArray(finalResponse.checkins) && finalResponse.checkins.length
-            ? { aiCheckins: finalResponse.checkins }
-            : {}),
+          aiCheckins: Array.isArray(finalResponse.checkins) ? finalResponse.checkins : [],
           ...((finalResponse.fingerprintSource === "grill" || finalResponse.fingerprintSource === "user")
             ? { fingerprintSource: finalResponse.fingerprintSource, fingerprintNote: finalResponse.fingerprintNote ?? null }
             : {}),

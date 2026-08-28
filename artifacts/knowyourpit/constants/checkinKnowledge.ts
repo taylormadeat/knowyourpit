@@ -14,6 +14,7 @@ export {
   CHECKIN_SCHEDULES,
   getCheckinSchedule,
   generateCheckinSchedule,
+  resolveCheckinSchedule,
   rescheduleCheckins,
   CHECKIN_STALL_THRESHOLD_F,
   CHECKIN_PIT_DRIFT_THRESHOLD_F,

@@ -331,6 +331,15 @@ router.post("/cooks/:id/checkins", requireAuth, async (req: any, res): Promise<v
                     let updatedAiCheckins: AiCheckinItem[] | null = null;
                     const storedAiCheckins = seq?.aiCheckins;
                     if (Array.isArray(storedAiCheckins) && storedAiCheckins.length > 0) {
+                      const completedRows = await db
+                        .select({ phaseKey: cookCheckins.phaseKey })
+                        .from(cookCheckins)
+                        .where(eq(cookCheckins.cookId, params.data.id));
+                      const completedPhaseKeys = new Set(
+                        completedRows
+                          .map((row) => row.phaseKey)
+                          .filter((key): key is string => key != null),
+                      );
                       const meatOnMs = first.meatOnAt
                         ? new Date(first.meatOnAt as string).getTime()
                         : null;
@@ -339,10 +348,14 @@ router.post("/cooks/:id/checkins", requireAuth, async (req: any, res): Promise<v
                         const newTotalMs = newFinishMs - meatOnMs;
                         if (oldTotalMs > 0 && newTotalMs > 0) {
                           const durationScale = newTotalMs / oldTotalMs;
-                          updatedAiCheckins = (storedAiCheckins as AiCheckinItem[]).map((ci) => {
+                          updatedAiCheckins = (storedAiCheckins as AiCheckinItem[]).map((ci, index) => {
                             const scheduledMs = meatOnMs + ci.offsetMinutes * 60_000;
-                            // Only rescale check-ins that haven't fired yet
-                            if (scheduledMs <= nowMs) return ci;
+                            // Only rescale checkpoints that are both unfired and
+                            // incomplete. A user can complete a checkpoint early.
+                            if (
+                              scheduledMs <= nowMs ||
+                              completedPhaseKeys.has(`ai_checkin_${index}`)
+                            ) return ci;
                             return {
                               ...ci,
                               offsetMinutes: Math.round(ci.offsetMinutes * durationScale),
@@ -367,7 +380,10 @@ router.post("/cooks/:id/checkins", requireAuth, async (req: any, res): Promise<v
 
                     await db
                       .update(cooksTable)
-                      .set({ sequenceData: newSeq })
+                      .set({
+                        sequenceData: newSeq,
+                        plannedEndAt: new Date(newFinishMs),
+                      })
                       .where(
                         and(eq(cooksTable.id, params.data.id), eq(cooksTable.userId, req.userId)),
                       );

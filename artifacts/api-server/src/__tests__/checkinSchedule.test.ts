@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { generateCheckinSchedule } from "@workspace/checkin-schedule";
+import {
+  generateCheckinSchedule,
+  resolveCheckinSchedule,
+  rescheduleCheckins,
+} from "@workspace/checkin-schedule";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -188,5 +192,75 @@ describe("generateCheckinSchedule — sequence path (with wrapAtMinutes)", () =>
     const schedule = generateCheckinSchedule("ribs", MEAT_ON, finish, anchor, 20);
     const firstMin = minutesAfterMeatOn(schedule[0].scheduledAt);
     expect(firstMin).toBeGreaterThanOrEqual(25);
+  });
+});
+
+describe("resolveCheckinSchedule — canonical AI/static source", () => {
+  it("uses canonical AI keys and preserves AI coaching details", () => {
+    const finish = makeFinish(4);
+    const schedule = resolveCheckinSchedule(
+      "chicken",
+      MEAT_ON,
+      finish,
+      [{
+        offsetMinutes: 45,
+        label: "Color Check",
+        coachingNote: "Look for even golden skin.",
+        visualCues: ["Golden color"],
+        expectedInternalTempRange: [120, 135],
+      }],
+    );
+
+    expect(schedule).toHaveLength(1);
+    expect(schedule[0]).toMatchObject({
+      id: "ai_checkin_0",
+      phaseKey: "ai_checkin_0",
+      phaseLabel: "Color Check",
+      scheduledAt: MEAT_ON + 45 * MIN_MS,
+    });
+    expect(schedule[0].phase).toMatchObject({
+      key: "ai_checkin_0",
+      label: "Color Check",
+      coachingTemplate: "Look for even golden skin.",
+      visualCues: ["Golden color"],
+      expectedInternalTempRange: [120, 135],
+    });
+  });
+
+  it("falls back to the static schedule when AI returns no checkpoints", () => {
+    const resolved = resolveCheckinSchedule(
+      "chicken",
+      MEAT_ON,
+      makeFinish(3),
+      [],
+    );
+
+    expect(resolved).toEqual(
+      generateCheckinSchedule("chicken", MEAT_ON, makeFinish(3)),
+    );
+  });
+
+  it("keeps completed and already-fired checkpoints fixed during an ETA adjustment", () => {
+    const schedule = resolveCheckinSchedule(
+      "chicken",
+      MEAT_ON,
+      makeFinish(3),
+      [
+        { offsetMinutes: 30, label: "First", coachingNote: "", visualCues: [], expectedInternalTempRange: [100, 110] },
+        { offsetMinutes: 90, label: "Second", coachingNote: "", visualCues: [], expectedInternalTempRange: [130, 140] },
+        { offsetMinutes: 150, label: "Third", coachingNote: "", visualCues: [], expectedInternalTempRange: [150, 160] },
+      ],
+    );
+    const now = MEAT_ON + 60 * MIN_MS;
+    const adjusted = rescheduleCheckins(
+      schedule,
+      new Set(["ai_checkin_0"]),
+      160,
+      now,
+      makeFinish(3),
+    );
+
+    expect(adjusted[0]).toEqual(schedule[0]);
+    expect(adjusted[1].scheduledAt).not.toBe(schedule[1].scheduledAt);
   });
 });

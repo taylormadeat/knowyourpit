@@ -546,6 +546,53 @@ export function generateCheckinSchedule(
 }
 
 /**
+ * Resolve the canonical schedule for a cook. AI-refined checkpoints are
+ * authoritative when present; otherwise the shared static schedule is used.
+ * This intentionally returns the full schedule (past and future) so callers
+ * can preserve completion state independently from notification pruning.
+ */
+export function resolveCheckinSchedule(
+  foodType: string | null | undefined,
+  meatOnAtMs: number,
+  estimatedFinishAtMs: number,
+  aiCheckins?: AiCheckinItem[] | null,
+  sequenceAnchor?: CheckinSequenceAnchor | null,
+  weightLbs?: number | null,
+): ScheduledCheckin[] {
+  if (estimatedFinishAtMs <= meatOnAtMs) return [];
+
+  if (aiCheckins?.length) {
+    const fallbackPhase = getCheckinSchedule(foodType).phases[0];
+    return aiCheckins
+      .map((item, index) => ({
+        id: `ai_checkin_${index}`,
+        phaseKey: `ai_checkin_${index}`,
+        phaseLabel: item.label,
+        scheduledAt: meatOnAtMs + item.offsetMinutes * 60_000,
+        phase: {
+          ...fallbackPhase,
+          key: `ai_checkin_${index}`,
+          label: item.label,
+          expectedInternalTempRange: item.expectedInternalTempRange ?? null,
+          visualCues: item.visualCues ?? [],
+          prepForNext: "",
+          coachingTemplate: item.coachingNote ?? fallbackPhase.coachingTemplate,
+        },
+      }))
+      .filter((item) => Number.isFinite(item.scheduledAt))
+      .sort((a, b) => a.scheduledAt - b.scheduledAt);
+  }
+
+  return generateCheckinSchedule(
+    foodType,
+    meatOnAtMs,
+    estimatedFinishAtMs,
+    sequenceAnchor,
+    weightLbs,
+  );
+}
+
+/**
  * Reschedule remaining check-ins based on actual vs expected progress.
  * Returns a new list with adjusted scheduledAt times for uncompleted phases.
  */

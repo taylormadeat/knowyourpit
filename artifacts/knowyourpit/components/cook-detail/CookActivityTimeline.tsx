@@ -21,6 +21,7 @@ import type { CookCheckin } from "@workspace/api-client-react";
 import { PROBE_POLL_INTERVAL_MS } from "@/constants/polling";
 import {
   generateCheckinSchedule,
+  resolveCheckinSchedule,
   type ScheduledCheckin,
   type CheckinSequenceAnchor,
   type CheckinPhase,
@@ -1186,25 +1187,19 @@ export function CookActivityTimeline({
       estimatedFinishAt,
       wrapAtMinutes: firstItem?.wrapAtMinutes ?? (c?.wrapAtMinutes as number | null | undefined) ?? null,
     };
-    return generateCheckinSchedule(foodType, meatOnAtMs, finishAtMs, anchor);
-  }, [foodType, meatOnAt, estimatedFinishAt, firstItem?.wrapAtMinutes, c?.wrapAtMinutes]);
+    return resolveCheckinSchedule(
+      foodType,
+      meatOnAtMs,
+      finishAtMs,
+      rawAiCheckins,
+      anchor,
+    );
+  }, [foodType, meatOnAt, estimatedFinishAt, firstItem?.wrapAtMinutes, c?.wrapAtMinutes, rawAiCheckins]);
 
   const _dummyPhase: CheckinPhase = React.useMemo(() => ({
     key: "", label: "", anchorPercent: 0, expectedInternalTempRange: null,
     visualCues: [], prepForNext: "", coachingTemplate: "",
   }), []);
-
-  const aiDerivedCheckins: ScheduledCheckin[] = React.useMemo(() => {
-    if (!rawAiCheckins?.length || !meatOnAt) return [];
-    const meatMs = new Date(meatOnAt).getTime();
-    return rawAiCheckins.map((item, i) => ({
-      id: `ai_ci_${i}`,
-      phaseKey: `ai_ci_${i}`,
-      phaseLabel: item.label,
-      scheduledAt: meatMs + item.offsetMinutes * 60_000,
-      phase: _dummyPhase,
-    }));
-  }, [rawAiCheckins, meatOnAt, _dummyPhase]);
 
   const estimatedMilestones: ScheduledCheckin[] = React.useMemo(() => {
     if (!aiRefining || (rawAiCheckins?.length ?? 0) > 0) return [];
@@ -1384,10 +1379,9 @@ export function CookActivityTimeline({
 
   const planOnlyScheduled: ScheduledCheckin[] = React.useMemo(() => {
     if (!isPlanned) return [];
-    if (aiDerivedCheckins.length > 0) return aiDerivedCheckins;
     if (estimatedMilestones.length > 0) return estimatedMilestones;
     return scheduledCheckins;
-  }, [isPlanned, aiDerivedCheckins, estimatedMilestones, scheduledCheckins]);
+  }, [isPlanned, estimatedMilestones, scheduledCheckins]);
 
   // Auto-expand and scroll on new events during active cook.
   // Only fires when a genuinely new event arrives (prevCount > 0 ensures initial
@@ -1465,7 +1459,7 @@ export function CookActivityTimeline({
   const shownScheduled = isPlanned ? planOnlyScheduled : upcomingScheduled;
   const nextCheckinKey = isActive && shownScheduled.length > 0 ? shownScheduled[0].phaseKey : null;
 
-  const isShowingEstimated = isPlanned && estimatedMilestones.length > 0 && aiDerivedCheckins.length === 0;
+  const isShowingEstimated = isPlanned && estimatedMilestones.length > 0 && scheduledCheckins.length === 0;
 
   const allRows: ActivityEvent[] = [
     ...pastEvents,
@@ -1623,8 +1617,8 @@ export function CookActivityTimeline({
               const isLast = idx === allRows.length - 1;
 
               if (row.kind === "scheduled-milestone") {
-                const aiIdx = row.sc.phaseKey.startsWith("ai_ci_")
-                  ? parseInt(row.sc.phaseKey.slice(6), 10)
+                const aiIdx = row.sc.phaseKey.startsWith("ai_checkin_")
+                  ? parseInt(row.sc.phaseKey.slice("ai_checkin_".length), 10)
                   : NaN;
                 const aiCheckinItem = !isNaN(aiIdx) && rawAiCheckins ? rawAiCheckins[aiIdx] : null;
                 return (

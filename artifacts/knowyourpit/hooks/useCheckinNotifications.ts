@@ -291,7 +291,15 @@ export async function rescheduleCheckinNotifications(opts: {
   };
 
   // Generate base schedule then apply adaptive adjustments
-  const baseSchedule = generateCheckinSchedule(foodType, meatOnAtMs, estimatedFinishAtMs, anchor, weightLbs);
+  const { resolveCheckinSchedule } = await import("@/constants/checkinKnowledge");
+  const baseSchedule = resolveCheckinSchedule(
+    foodType,
+    meatOnAtMs,
+    estimatedFinishAtMs,
+    aiCheckins,
+    anchor,
+    weightLbs,
+  );
 
   let adjustedSchedule = baseSchedule;
   if (actualInternalTempF != null) {
@@ -341,7 +349,9 @@ export function useCheckinNotifications(
     meatOnAt: firstScheduleItem?.meatOnAt ?? null,
     estimatedFinishAt: firstScheduleItem?.estimatedFinishAt ?? null,
     foodType: firstScheduleItem?.foodType ?? null,
+    weightLbs: firstScheduleItem?.weightLbs ?? null,
     wrapAtMinutes: firstScheduleItem?.wrapAtMinutes ?? null,
+    aiCheckins: cookSeqData?.aiCheckins ?? null,
   });
 
   useEffect(() => {
