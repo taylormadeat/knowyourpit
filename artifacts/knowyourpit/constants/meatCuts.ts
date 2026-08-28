@@ -303,10 +303,10 @@ const SUBGROUP_RULES: Record<string, SubGroupRule[]> = {
     { title: "Sausages", keywords: ["sausage", "bratwurst", "andouille", "hot links"] },
   ],
   Poultry: [
-    { title: "Whole Birds", keywords: ["whole chicken", "spatchcock", "beer can", "whole turkey", "whole duck", "cornish", "goose", "pheasant", "quail"] },
-    { title: "Chicken Parts", keywords: ["chicken", "smoked wings"] },
-    { title: "Turkey Parts", keywords: ["turkey"] },
+    { title: "Chicken", keywords: ["chicken", "smoked wings"] },
+    { title: "Turkey", keywords: ["turkey"] },
     { title: "Duck", keywords: ["duck"] },
+    { title: "Other Birds", keywords: ["cornish", "goose", "pheasant", "quail"] },
   ],
   "Lamb & Goat": [
     { title: "Chops & Rack", keywords: ["chop", "rack of lamb"] },
