@@ -12,6 +12,23 @@ import { isLocalCookId } from "@/lib/localCooks";
 
 const ACTIVE_COOK_READINGS_REFRESH_MS = 15_000;
 
+type LiveReading = { timeMinutes: number; tempF: number };
+
+export function appendLiveReading(
+  readings: LiveReading[],
+  reading: LiveReading,
+): LiveReading[] {
+  const last = readings[readings.length - 1];
+  if (
+    last != null &&
+    last.timeMinutes === reading.timeMinutes &&
+    last.tempF === reading.tempF
+  ) {
+    return readings;
+  }
+  return [...readings, reading];
+}
+
 interface UseLiveReadingsParams {
   id: string | undefined;
   cookStatus: string | undefined;
@@ -49,8 +66,8 @@ export function useLiveReadings({ id, cookStatus, cook, cookCheckins, probeState
 
   const [nowMs, setNowMs] = useState(Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [liveReadings, setLiveReadings] = useState<Array<{ timeMinutes: number; tempF: number }>>([]);
-  const [livePitReadings, setLivePitReadings] = useState<Array<{ timeMinutes: number; tempF: number }>>([]);
+  const [liveReadings, setLiveReadings] = useState<LiveReading[]>([]);
+  const [livePitReadings, setLivePitReadings] = useState<LiveReading[]>([]);
   const liveReadingsSeededRef = useRef(false);
 
   const uploadTemperatureData = useUploadTemperatureData();
@@ -147,90 +164,104 @@ export function useLiveReadings({ id, cookStatus, cook, cookCheckins, probeState
     return startAt ? Math.max(0, (Date.now() - new Date(startAt).getTime()) / 60000) : 0;
   };
 
+  const bleMeatTempF = selectedBleContextDevice?.probeTempF ?? null;
+  const bleMeatAmbientTempF = selectedBleContextDevice?.ambientTempF ?? null;
+  const bleMeatSeenMs = selectedBleContextDevice?.lastSeenMs ?? null;
+  const blePitTempF = selectedBleContextPitDevice?.probeTempF ?? null;
+  const blePitSeenMs = selectedBleContextPitDevice?.lastSeenMs ?? null;
+  const lanMeatTempF = selectedLanProbe?.probeTempF ?? null;
+  const lanMeatAmbientTempF = selectedLanProbe?.ambientTempF ?? null;
+  const lanMeatSeenMs = selectedLanProbe?.lastSeenMs ?? null;
+  const lanPitTempF = selectedLanPitProbe?.probeTempF ?? null;
+  const lanPitSeenMs = selectedLanPitProbe?.lastSeenMs ?? null;
+  const inkbirdMeatTempF = selectedInkbirdProbe?.tempF ?? null;
+  const inkbirdMeatSeenMs = selectedInkbirdProbe?.lastSeenMs ?? null;
+  const inkbirdPitTempF = selectedInkbirdPitProbe?.tempF ?? null;
+  const inkbirdPitSeenMs = selectedInkbirdPitProbe?.lastSeenMs ?? null;
+
   // Accumulate BLE context device readings
   useEffect(() => {
-    if (selectedBleContextDevice == null || selectedBleContextDevice.probeTempF == null) return;
-    const currentTemp = selectedBleContextDevice.probeTempF;
+    if (bleMeatTempF == null || bleMeatSeenMs == null) return;
     const elapsed = Math.round(elapsedMins() * 10) / 10;
-    setLiveReadings((prev) => [...prev, { timeMinutes: elapsed, tempF: currentTemp }]);
-    if (selectedBleContextDevice.ambientTempF != null && selectedBleContextPitDevice == null) {
-      setLivePitReadings((prev) => [...prev, { timeMinutes: elapsed, tempF: selectedBleContextDevice.ambientTempF! }]);
+    setLiveReadings((prev) => appendLiveReading(prev, { timeMinutes: elapsed, tempF: bleMeatTempF }));
+    if (bleMeatAmbientTempF != null && selectedBleContextPitDevice == null) {
+      setLivePitReadings((prev) => appendLiveReading(prev, { timeMinutes: elapsed, tempF: bleMeatAmbientTempF }));
     }
-  }, [selectedBleContextDevice]);
+  }, [bleMeatTempF, bleMeatAmbientTempF, bleMeatSeenMs, selectedBleContextPitDevice == null, cook?.actualStartAt]);
 
   // Accumulate BLE context pit device
   useEffect(() => {
-    if (selectedBleContextPitDevice == null || selectedBleContextPitDevice.probeTempF == null) return;
-    const currentTemp = selectedBleContextPitDevice.probeTempF;
+    if (blePitTempF == null || blePitSeenMs == null) return;
     const elapsed = Math.round(elapsedMins() * 10) / 10;
-    setLivePitReadings((prev) => [...prev, { timeMinutes: elapsed, tempF: currentTemp }]);
-  }, [selectedBleContextPitDevice]);
+    setLivePitReadings((prev) => appendLiveReading(prev, { timeMinutes: elapsed, tempF: blePitTempF }));
+  }, [blePitTempF, blePitSeenMs, cook?.actualStartAt]);
 
   // Accumulate LAN probe readings
   useEffect(() => {
-    if (selectedLanProbe == null || selectedLanProbe.probeTempF == null) return;
-    const currentTemp = selectedLanProbe.probeTempF;
+    if (lanMeatTempF == null || lanMeatSeenMs == null) return;
     const elapsed = Math.round(elapsedMins() * 10) / 10;
-    setLiveReadings((prev) => [...prev, { timeMinutes: elapsed, tempF: currentTemp }]);
-    if (selectedLanProbe.ambientTempF != null && selectedLanPitProbe == null) {
-      setLivePitReadings((prev) => [...prev, { timeMinutes: elapsed, tempF: selectedLanProbe.ambientTempF! }]);
+    setLiveReadings((prev) => appendLiveReading(prev, { timeMinutes: elapsed, tempF: lanMeatTempF }));
+    if (lanMeatAmbientTempF != null && selectedLanPitProbe == null) {
+      setLivePitReadings((prev) => appendLiveReading(prev, { timeMinutes: elapsed, tempF: lanMeatAmbientTempF }));
     }
-  }, [selectedLanProbe]);
+  }, [lanMeatTempF, lanMeatAmbientTempF, lanMeatSeenMs, selectedLanPitProbe == null, cook?.actualStartAt]);
 
   // Accumulate LAN pit probe
   useEffect(() => {
-    if (selectedLanPitProbe == null || selectedLanPitProbe.probeTempF == null) return;
-    const currentTemp = selectedLanPitProbe.probeTempF;
+    if (lanPitTempF == null || lanPitSeenMs == null) return;
     const elapsed = Math.round(elapsedMins() * 10) / 10;
-    setLivePitReadings((prev) => [...prev, { timeMinutes: elapsed, tempF: currentTemp }]);
-  }, [selectedLanPitProbe]);
+    setLivePitReadings((prev) => appendLiveReading(prev, { timeMinutes: elapsed, tempF: lanPitTempF }));
+  }, [lanPitTempF, lanPitSeenMs, cook?.actualStartAt]);
 
   // Accumulate Inkbird readings
   useEffect(() => {
-    if (selectedInkbirdProbe?.tempF == null) return;
-    const currentTemp = selectedInkbirdProbe.tempF;
+    if (inkbirdMeatTempF == null || inkbirdMeatSeenMs == null) return;
     const elapsed = Math.round(elapsedMins() * 10) / 10;
-    setLiveReadings((prev) => [...prev, { timeMinutes: elapsed, tempF: currentTemp }]);
-  }, [selectedInkbirdProbe]);
+    setLiveReadings((prev) => appendLiveReading(prev, { timeMinutes: elapsed, tempF: inkbirdMeatTempF }));
+  }, [inkbirdMeatTempF, inkbirdMeatSeenMs, cook?.actualStartAt]);
 
   // Accumulate Inkbird pit readings
   useEffect(() => {
-    if (selectedInkbirdPitProbe?.tempF == null) return;
-    const currentTemp = selectedInkbirdPitProbe.tempF;
+    if (inkbirdPitTempF == null || inkbirdPitSeenMs == null) return;
     const elapsed = Math.round(elapsedMins() * 10) / 10;
-    setLivePitReadings((prev) => [...prev, { timeMinutes: elapsed, tempF: currentTemp }]);
-  }, [selectedInkbirdPitProbe]);
+    setLivePitReadings((prev) => appendLiveReading(prev, { timeMinutes: elapsed, tempF: inkbirdPitTempF }));
+  }, [inkbirdPitTempF, inkbirdPitSeenMs, cook?.actualStartAt]);
 
   // Build autoCheckinProbeReading for auto-checkin + upload
   const autoCheckinProbeReading = useMemo(() => {
     if (tempMode !== "probe") return null;
-    if (selectedInkbirdProbe?.tempF != null) {
-      return { internalTempF: selectedInkbirdProbe.tempF, pitTempF: selectedInkbirdPitProbe?.tempF ?? null, probeSource: "inkbird" as const, fetchedAtMs: selectedInkbirdProbe.lastSeenMs };
+    if (inkbirdMeatTempF != null && inkbirdMeatSeenMs != null) {
+      return { internalTempF: inkbirdMeatTempF, pitTempF: inkbirdPitTempF, probeSource: "inkbird" as const, fetchedAtMs: inkbirdMeatSeenMs };
     }
-    if (selectedBleContextDevice?.probeTempF != null) {
+    if (bleMeatTempF != null && bleMeatSeenMs != null) {
       const pitTempF =
-        selectedBleContextPitDevice != null && selectedBleContextPitDevice.id !== selectedBleContextDevice.id
-          ? (selectedBleContextPitDevice.probeTempF ?? null)
-          : (selectedBleContextDevice.ambientTempF ?? null);
-      return { internalTempF: selectedBleContextDevice.probeTempF, pitTempF, probeSource: "ble" as const, fetchedAtMs: selectedBleContextDevice.lastSeenMs };
+        selectedBleContextPitDevice != null && selectedBleContextPitDevice.id !== selectedBleContextDevice?.id
+          ? blePitTempF
+          : bleMeatAmbientTempF;
+      return { internalTempF: bleMeatTempF, pitTempF, probeSource: "ble" as const, fetchedAtMs: bleMeatSeenMs };
     }
-    if (selectedLanProbe?.probeTempF != null) {
+    if (lanMeatTempF != null && lanMeatSeenMs != null) {
       const pitTempF =
-        selectedLanPitProbe != null && selectedLanPitProbe.deviceId !== selectedLanProbe.deviceId
-          ? (selectedLanPitProbe.probeTempF ?? null)
-          : (selectedLanProbe.ambientTempF ?? null);
-      return { internalTempF: selectedLanProbe.probeTempF, pitTempF, probeSource: "lan" as const, fetchedAtMs: selectedLanProbe.lastSeenMs };
+        selectedLanPitProbe != null && selectedLanPitProbe.deviceId !== selectedLanProbe?.deviceId
+          ? lanPitTempF
+          : lanMeatAmbientTempF;
+      return { internalTempF: lanMeatTempF, pitTempF, probeSource: "lan" as const, fetchedAtMs: lanMeatSeenMs };
     }
     return null;
   }, [
     tempMode,
-    selectedInkbirdProbe, selectedInkbirdPitProbe,
-    selectedBleContextDevice, selectedBleContextPitDevice,
-    selectedLanProbe, selectedLanPitProbe,
+    inkbirdMeatTempF, inkbirdMeatSeenMs, inkbirdPitTempF,
+    bleMeatTempF, bleMeatAmbientTempF, bleMeatSeenMs, blePitTempF,
+    selectedBleContextDevice?.id, selectedBleContextPitDevice?.id,
+    lanMeatTempF, lanMeatAmbientTempF, lanMeatSeenMs, lanPitTempF,
+    selectedLanProbe?.deviceId, selectedLanPitProbe?.deviceId,
   ]);
 
   // Upload probe readings to backend
   const lastUploadedProbeTs = useRef<number>(0);
+  useEffect(() => {
+    lastUploadedProbeTs.current = 0;
+  }, [id]);
   useEffect(() => {
     if (!autoCheckinProbeReading) return;
     const { internalTempF, probeSource, fetchedAtMs } = autoCheckinProbeReading;

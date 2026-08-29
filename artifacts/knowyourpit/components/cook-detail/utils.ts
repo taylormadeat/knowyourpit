@@ -52,6 +52,23 @@ export function relCountdown(targetMs: number, nowMs: number): string {
   return fmtRelMinutes(targetMs, nowMs);
 }
 
+export function shouldHandleScheduleStep(
+  lastHandledKey: string | null,
+  nextKey: string | null,
+  cookStatus: string | undefined,
+): boolean {
+  return cookStatus === "active" && nextKey != null && nextKey !== lastHandledKey;
+}
+
+export function canCompleteScheduleAutoScroll(
+  isManualScrollActive: boolean,
+  lastManualScrollAtMs: number,
+  nowMs: number,
+  cooldownMs = 1_500,
+): boolean {
+  return !isManualScrollActive && nowMs - lastManualScrollAtMs >= cooldownMs;
+}
+
 export function getEditDates(): Date[] {
   const dates: Date[] = [];
   const now = new Date();

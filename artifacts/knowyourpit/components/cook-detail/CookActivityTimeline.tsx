@@ -1127,7 +1127,7 @@ export function CookActivityTimeline({
   const [expanded, setExpanded] = useState(cookStatus === "active");
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const scrollRef = useRef<ScrollView>(null);
-  const prevCountRef = useRef(0);
+  const previousEventIdsRef = useRef<Set<string> | null>(null);
   const isAtBottomRef = useRef(true);
 
   const { isSignedIn } = useAuth();
@@ -1383,20 +1383,26 @@ export function CookActivityTimeline({
     return scheduledCheckins;
   }, [isPlanned, estimatedMilestones, scheduledCheckins]);
 
-  // Auto-expand and scroll on new events during active cook.
-  // Only fires when a genuinely new event arrives (prevCount > 0 ensures initial
-  // load is skipped). Scroll is suppressed when the user has scrolled upward.
+  const pastEventIdsKey = React.useMemo(
+    () => pastEvents.map((event) => event.id).sort().join("|"),
+    [pastEvents],
+  );
+
+  // Auto-expand and scroll once for genuinely new event identities. Repeated
+  // polling results and metadata-only replacements do not retrigger scrolling.
+  // Scroll is suppressed when the user has manually moved away from the bottom.
   useEffect(() => {
-    if (!isActive) return;
-    const prevCount = prevCountRef.current;
-    prevCountRef.current = pastEvents.length;
-    if (pastEvents.length === 0 || prevCount === 0 || pastEvents.length <= prevCount) return;
-    setExpanded(true);
+    const nextIds = new Set(pastEventIdsKey ? pastEventIdsKey.split("|") : []);
+    const previousIds = previousEventIdsRef.current;
+    previousEventIdsRef.current = nextIds;
+    if (!isActive || previousIds == null || nextIds.size === 0) return;
+    const hasNewEvent = [...nextIds].some((eventId) => !previousIds.has(eventId));
+    if (!hasNewEvent) return;
+    setExpanded((current) => current ? current : true);
     if (!isAtBottomRef.current) return;
     const timer = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pastEvents.length, isActive]);
+  }, [pastEventIdsKey, isActive]);
 
   const toggleEntry = useCallback((id: string) => {
     setExpandedIds((prev) => {

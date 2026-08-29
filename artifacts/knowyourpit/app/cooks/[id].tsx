@@ -59,7 +59,12 @@ import { useCheckinNotifications, useCheckinDeepLink, rescheduleCheckinNotificat
 import { scheduleStepNotifications, cancelStoredStepNotifications } from "@/hooks/useScheduleStepNotifications";
 import { getCheckinSchedule, generateCheckinSchedule, resolveCheckinSchedule } from "@/constants/checkinKnowledge";
 import type { AiCheckinItem, ScheduledCheckin, CheckinSequenceAnchor } from "@/constants/checkinKnowledge";
-import { computeNextStep, rippleScheduleTimestamps } from "@/components/cook-detail/utils";
+import {
+  canCompleteScheduleAutoScroll,
+  computeNextStep,
+  rippleScheduleTimestamps,
+  shouldHandleScheduleStep,
+} from "@/components/cook-detail/utils";
 import { STATUS_COLORS } from "@/components/cook-detail/constants";
 import { s } from "@/components/cook-detail/styles";
 import type { SequenceData, Decision } from "@/components/cook-detail/types";
@@ -326,6 +331,11 @@ export default function CookDetailScreen() {
   const itemYRef = useRef<Record<number, number>>({});
   const timelineYRef = useRef<Record<number, number>>({});
   const rowYRef = useRef<Record<string, number>>({});
+  const lastAutoScrolledStepRef = useRef<string | null>(null);
+  const scheduleScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleManualScrollEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleManualScrollRef = useRef(false);
+  const lastManualScheduleScrollAtRef = useRef(0);
 
   // ── Derived values ─────────────────────────────────────────────────────────
   const cookSeqMeatOnMs: number | null = cookSeqData?.schedule?.[0]?.meatOnAt
@@ -601,16 +611,47 @@ export default function CookDetailScreen() {
 
   // ── Auto-scroll on next step change ───────────────────────────────────────
   useEffect(() => {
-    if (!nextStepKey || nextStepItemIdx === null) return;
-    setSeqScheduleExpanded(true);
-    const timer = setTimeout(() => {
-      const rowY = rowYRef.current[nextStepKey];
+    lastAutoScrolledStepRef.current = null;
+    scheduleManualScrollRef.current = false;
+    lastManualScheduleScrollAtRef.current = 0;
+    if (scheduleScrollTimerRef.current) {
+      clearTimeout(scheduleScrollTimerRef.current);
+      scheduleScrollTimerRef.current = null;
+    }
+    if (scheduleManualScrollEndTimerRef.current) {
+      clearTimeout(scheduleManualScrollEndTimerRef.current);
+      scheduleManualScrollEndTimerRef.current = null;
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (
+      nextStepItemIdx === null ||
+      !shouldHandleScheduleStep(lastAutoScrolledStepRef.current, nextStepKey, cookStatus)
+    ) return;
+    const stepKey = nextStepKey!;
+    lastAutoScrolledStepRef.current = stepKey;
+    setSeqScheduleExpanded((current) => current ? current : true);
+    if (scheduleScrollTimerRef.current) clearTimeout(scheduleScrollTimerRef.current);
+    scheduleScrollTimerRef.current = setTimeout(() => {
+      scheduleScrollTimerRef.current = null;
+      if (!canCompleteScheduleAutoScroll(
+        scheduleManualScrollRef.current,
+        lastManualScheduleScrollAtRef.current,
+        Date.now(),
+      )) return;
+      const rowY = rowYRef.current[stepKey];
       if (rowY === undefined) return;
       const targetY = scheduleListYRef.current + (itemYRef.current[nextStepItemIdx] ?? 0) + (timelineYRef.current[nextStepItemIdx] ?? 0) + rowY - 80;
       scheduleScrollViewRef.current?.scrollTo({ y: Math.max(0, targetY), animated: true });
     }, 350);
-    return () => clearTimeout(timer);
-  }, [nextStepKey, nextStepItemIdx]);
+    return () => {
+      if (scheduleScrollTimerRef.current) {
+        clearTimeout(scheduleScrollTimerRef.current);
+        scheduleScrollTimerRef.current = null;
+      }
+    };
+  }, [nextStepKey, nextStepItemIdx, cookStatus, setSeqScheduleExpanded]);
 
   useEffect(() => {
     if (prevNextStepKeyRef.current === undefined) { prevNextStepKeyRef.current = nextStepKey; return; }
@@ -738,7 +779,44 @@ export default function CookDetailScreen() {
         </View>
       )}
 
-      <ScrollView ref={scheduleScrollViewRef} contentContainerStyle={{ padding: 20, paddingBottom: botPad + 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        ref={scheduleScrollViewRef}
+        contentContainerStyle={{ padding: 20, paddingBottom: botPad + 40, gap: 16 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        onScrollBeginDrag={() => {
+          scheduleManualScrollRef.current = true;
+          lastManualScheduleScrollAtRef.current = Date.now();
+          if (scheduleManualScrollEndTimerRef.current) {
+            clearTimeout(scheduleManualScrollEndTimerRef.current);
+            scheduleManualScrollEndTimerRef.current = null;
+          }
+          if (scheduleScrollTimerRef.current) {
+            clearTimeout(scheduleScrollTimerRef.current);
+            scheduleScrollTimerRef.current = null;
+          }
+        }}
+        onScrollEndDrag={() => {
+          lastManualScheduleScrollAtRef.current = Date.now();
+          if (scheduleManualScrollEndTimerRef.current) clearTimeout(scheduleManualScrollEndTimerRef.current);
+          scheduleManualScrollEndTimerRef.current = setTimeout(() => {
+            scheduleManualScrollRef.current = false;
+            scheduleManualScrollEndTimerRef.current = null;
+          }, 500);
+        }}
+        onMomentumScrollBegin={() => {
+          scheduleManualScrollRef.current = true;
+          lastManualScheduleScrollAtRef.current = Date.now();
+          if (scheduleManualScrollEndTimerRef.current) {
+            clearTimeout(scheduleManualScrollEndTimerRef.current);
+            scheduleManualScrollEndTimerRef.current = null;
+          }
+        }}
+        onMomentumScrollEnd={() => {
+          scheduleManualScrollRef.current = false;
+          lastManualScheduleScrollAtRef.current = Date.now();
+        }}
+      >
         <View style={isTablet ? { width: "100%", maxWidth: detailMaxWidth, alignSelf: "center", gap: 16 } : null}>
           <CookStatusSection
             c={c} colors={colors} cookStatus={cookStatus} statusColor={statusColor}
