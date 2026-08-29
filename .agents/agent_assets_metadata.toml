@@ -441,82 +441,46 @@ logical_id = "bc7af9d3-560b-4813-bc57-97e1c327c477"
 id = "I63sNLouYu9SoBgzcVEMB"
 uri = "file://artifacts/knowyourpit/assets/images/icons/home.png"
 type = "image"
-title = "Home icon asset"
-description = "Cleaned 1024px transparent PNG with decontaminated charcoal/orange edges and consistent padding."
+title = "Cropped icon — Home"
+description = "Isolated transparent home icon, 1024×1024 PNG."
 logical_id = "27d8782f-6429-4cbd-8165-c5af0910af67"
-content_hash = "sha256:d676d828dca82578b77bb82d738ad795e96dd7f91cf7ecaa18ddb08f7af68840"
-size = 65432
-mtime_ms = 1787972865966
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:6583df0b-1166-4042-a222-d49fbda4017d/27d8782f-6429-4cbd-8165-c5af0910af67/7102a465-7c5f-4cfd-8ba8-a56f895db9c0"
-storage_version_token = "1787972888444918"
-content_type = "image/png"
 
 [[outputs]]
 id = "wQge0dV8OA-rlqLS37eub"
 uri = "file://artifacts/knowyourpit/assets/images/icons/plan.png"
 type = "image"
-title = "Plan icon asset"
-description = "Cleaned 1024px transparent PNG with decontaminated charcoal/orange edges and consistent padding."
+title = "Cropped icon — Plan"
+description = "Isolated transparent clipboard-plus icon, 1024×1024 PNG."
 logical_id = "e80211c5-2097-4f14-aacb-1ca8a2f2a4ad"
-content_hash = "sha256:73132f9e9ccce500eeadce6aa38d6bd050489a59e15540cb2b2aa3d1ecd42e9d"
-size = 46861
-mtime_ms = 1787972866334
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:6583df0b-1166-4042-a222-d49fbda4017d/e80211c5-2097-4f14-aacb-1ca8a2f2a4ad/87c6a93c-d5d0-447d-bcd5-5da2f82a35d7"
-storage_version_token = "1787972889044601"
-content_type = "image/png"
 
 [[outputs]]
 id = "OZ5SxqMJYJnK4OKnToCbo"
 uri = "file://artifacts/knowyourpit/assets/images/icons/cook-log.png"
 type = "image"
-title = "Cook Log icon asset"
-description = "Cleaned 1024px transparent PNG with decontaminated charcoal/orange edges and consistent padding."
+title = "Cropped icon — Cook Log"
+description = "Isolated transparent checklist clipboard icon, 1024×1024 PNG."
 logical_id = "bdbf3219-d164-47a9-b486-0fc8fa4c77a2"
-content_hash = "sha256:6c462f5be262c3970713b871bbe5a6200b04a08b9ab01f5f26e548cebf893c5d"
-size = 67413
-mtime_ms = 1787972867114
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:6583df0b-1166-4042-a222-d49fbda4017d/bdbf3219-d164-47a9-b486-0fc8fa4c77a2/826c99f0-05f8-4681-b6e0-a4cd613a9ff8"
-storage_version_token = "1787972889499446"
-content_type = "image/png"
 
 [[outputs]]
 id = "bu2MhCP6kyg7At6f6nABH"
 uri = "file://artifacts/knowyourpit/assets/images/icons/grill.png"
 type = "image"
-title = "Grill icon asset"
-description = "Cleaned 1024px transparent PNG with decontaminated charcoal/orange edges and consistent padding."
+title = "Cropped icon — Grill"
+description = "Isolated transparent grill-with-flame icon, 1024×1024 PNG."
 logical_id = "49c95787-8da8-4025-a8eb-55e429b0c2cb"
-content_hash = "sha256:6e15fc1e374e45daa4e004d223b63e796630745bd5c013d6a94989b162469e0c"
-size = 76753
-mtime_ms = 1787972867562
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:6583df0b-1166-4042-a222-d49fbda4017d/49c95787-8da8-4025-a8eb-55e429b0c2cb/38f7e56f-7d27-4b24-a207-c2cb525ba603"
-storage_version_token = "1787972889921656"
-content_type = "image/png"
 
 [[outputs]]
 id = "LeH3tYRtAxvAfoOsSzPSz"
 uri = "file://artifacts/knowyourpit/assets/images/icons/probe-check.png"
 type = "image"
-title = "Probe Check icon asset"
-description = "Cleaned 1024px transparent PNG with decontaminated charcoal/orange edges and consistent padding."
+title = "Cropped icon — Probe Check"
+description = "Isolated transparent probe-check icon, 1024×1024 PNG."
 logical_id = "ded3772e-d556-465d-9eeb-de167d66b7ba"
-content_hash = "sha256:f60a98f8e62e8d0c879f6316e0a4e276dbcd0d5d253c73ae6c01b3edd6e13f05"
-size = 61635
-mtime_ms = 1787972866698
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:6583df0b-1166-4042-a222-d49fbda4017d/ded3772e-d556-465d-9eeb-de167d66b7ba/169139fb-6fcf-46af-a789-97a9910dcb41"
-storage_version_token = "1787972890433020"
-content_type = "image/png"
 
 [[outputs]]
 id = "6_sF508W2jobvV9iC4v0R"
 uri = "file://artifacts/knowyourpit/assets/images/icons/seasoning.png"
 type = "image"
-title = "Seasoning icon asset"
-description = "Cleaned 1024px transparent PNG with decontaminated charcoal/orange edges and consistent padding."
+title = "Cropped icon — Seasoning"
+description = "Isolated transparent seasoning shaker icon, 1024×1024 PNG."
 logical_id = "fb04d5cc-55ca-4c77-ba74-8eab2d79d323"
-content_hash = "sha256:bf3641a712e847078f28f1e0b2107fc9b193e6cb813a5f5effd52859a806ce59"
-size = 136362
-mtime_ms = 1787972868118
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:6583df0b-1166-4042-a222-d49fbda4017d/fb04d5cc-55ca-4c77-ba74-8eab2d79d323/de5d766c-7232-4e0a-9fff-878c735037de"
-storage_version_token = "1787972891488441"
-content_type = "image/png"
