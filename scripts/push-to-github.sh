@@ -8,8 +8,21 @@ if [ -z "${GITHUB_PAT:-}" ]; then
   exit 1
 fi
 
-REMOTE_URL="https://${GITHUB_PAT}@${REPO}.git"
+ASKPASS_SCRIPT="$(mktemp)"
+trap 'rm -f "$ASKPASS_SCRIPT"' EXIT
+
+cat >"$ASKPASS_SCRIPT" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+  *Username*) printf '%s\n' "x-access-token" ;;
+  *Password*) printf '%s\n' "${GITHUB_PAT}" ;;
+  *) printf '\n' ;;
+esac
+EOF
+chmod 700 "$ASKPASS_SCRIPT"
+export GITHUB_PAT
 
 echo "Pushing HEAD to main on ${REPO}..."
-git push "$REMOTE_URL" HEAD:main
+GIT_ASKPASS="$ASKPASS_SCRIPT" GIT_TERMINAL_PROMPT=0 \
+  git push "https://${REPO}.git" HEAD:main
 echo "Done."

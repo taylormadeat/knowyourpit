@@ -1,5 +1,47 @@
 # knowyourpit
 
+## Portability, Backup, and Recovery Policy
+
+Keep the app portable and recoverable without reducing the convenience of
+developing and publishing through Replit.
+
+For every substantial change:
+
+- Keep the complete source synchronized with the private GitHub repository.
+- Create clear, descriptive commits around major changes.
+- Never force-push, rewrite Git history, delete branches, or remove backups
+  without the owner's explicit approval.
+- Never commit passwords, API keys, tokens, certificates, private user data,
+  database credentials, or other secrets.
+- Keep the root `.env.example` current with variable names and safe placeholder
+  values only.
+- Maintain `README.md`, `docs/ARCHITECTURE.md`, `docs/OPERATIONS.md`, and
+  `docs/REPLIT_DEPENDENCIES.md` whenever installation, architecture,
+  operations, deployment, or Replit-specific dependencies change.
+
+Preserve the existing Apple bundle identifier, Expo project identity, and App
+Store configuration. Never create a replacement App Store listing or change
+the bundle identifier without explicit approval.
+
+Before publishing a production update:
+
+1. Confirm the GitHub backup is current.
+2. Run the relevant tests and build checks.
+3. Verify required environment variable names are configured without exposing
+   their values.
+4. Confirm database changes are backward-compatible or document a rollback
+   plan.
+5. Confirm the existing bundle identifier and App Store application are used.
+6. Summarize changes, risks, and rollback steps for the owner.
+
+Periodically remind the owner to create secure exports of important database
+and object-storage data. Never place exports containing customer or sensitive
+data in GitHub.
+
+Prefer standard, portable technologies over Replit-only features when both
+choices provide comparable convenience. Do not migrate, delete, replace, or
+disconnect a production service without explicit approval.
+
 ## Overview
 
 knowyourpit is an AI-powered BBQ planning and management application. It offers tools for managing grill profiles, logging cook sessions, and providing AI-driven cook plans and time predictions. The app also features temperature monitoring, recipe management, and personalized pit master coaching.
